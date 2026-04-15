@@ -65,12 +65,15 @@ func (s *Server) Hover(
 	}
 
 	contents := s.getHoverContents(word)
+	qualifiedWord := lsp.GetQualifiedWordAtPosition(
+		displayContent,
+		params.Position,
+	)
+	if contents == "" && qualifiedWord != word {
+		contents = s.getHoverContents(qualifiedWord)
+	}
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
-		qualifiedWord := lsp.GetQualifiedWordAtPosition(
-			displayContent,
-			params.Position,
-		)
 		contents = s.getUserSymbolHover(
 			scopeAtCursor,
 			qualifiedWord,
@@ -313,8 +316,8 @@ var keywordDocs = map[string]string{
 		doc.Paragraph("Must appear before all function, flow, and sequence declarations."),
 	).Render(),
 	"set_authority": doc.New(
-		doc.TitleWithKind("set_authority", "Function"),
-		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.TitleWithKind("set_authority", "Function (deprecated)"),
+		doc.Paragraph("Dynamically changes the control authority of write channels at runtime. Use authority.set{} instead."),
 		doc.Divider(),
 		arcCode("set_authority{value=255}"),
 		doc.Divider(),
@@ -323,6 +326,16 @@ var keywordDocs = map[string]string{
 		arcCode("set_authority{value=255, channel=valve_cmd}"),
 		doc.Divider(),
 		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
+	).Render(),
+	"authority.set": doc.New(
+		doc.TitleWithKind("authority.set", "Function"),
+		doc.Paragraph("Dynamically changes the control authority of write channels at runtime."),
+		doc.Divider(),
+		arcCode("authority.set{value=255}"),
+		doc.Divider(),
+		doc.Paragraph("Set authority for a specific channel:"),
+		doc.Divider(),
+		arcCode("authority.set{value=255, channel=valve_cmd}"),
 	).Render(),
 	"len": doc.New(
 		doc.TitleWithKind("len", "Function"),

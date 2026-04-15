@@ -417,6 +417,82 @@ var _ = Describe("Text", func() {
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
+			It("Should reject read channel for qualified authority.set config param", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					control.SymbolResolver,
+					symbol.MapResolver{
+						"read_sensor": {
+							Name: "read_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.ReadChan(types.F64()),
+							ID:   10056,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> authority.set{value=200, channel=read_sensor}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			})
+
+			It("Should emit deprecation warning for deprecated bare function name", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					control.SymbolResolver,
+					symbol.MapResolver{
+						"write_ch": {
+							Name: "write_ch",
+							Kind: symbol.KindChannel,
+							Type: types.WriteChan(types.U8()),
+							ID:   10060,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> set_authority{value=200, channel=write_ch}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("authority.set"))
+			})
+
+			It("Should not emit deprecation warning for qualified function name", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					control.SymbolResolver,
+					symbol.MapResolver{
+						"write_ch": {
+							Name: "write_ch",
+							Kind: symbol.KindChannel,
+							Type: types.WriteChan(types.U8()),
+							ID:   10060,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> authority.set{value=200, channel=write_ch}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
 			It("Should resolve channel name for write operations and add to Channels.Write", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},

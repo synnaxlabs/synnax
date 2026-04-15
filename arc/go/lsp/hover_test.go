@@ -115,6 +115,22 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
 		})
 
+		It("should provide hover for 'authority.set' function", func(ctx SpecContext) {
+			content := "authority.set{value=255}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 12},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### authority.set"))
+			Expect(hover.Contents.Value).To(ContainSubstring("control authority"))
+		})
+
 		It("should provide hover for 'now' function", func(ctx SpecContext) {
 			content := "time := now()"
 			OpenArcDocument(server, ctx, uri, content)
@@ -691,6 +707,44 @@ func add(a i32, b i32) i32 {
 				}
 			}
 			Expect(foundChannel).To(BeTrue())
+		})
+
+		It("should tokenize module prefix as variable in qualified calls", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
+			tokens := SemanticTokens(server, ctx, uri)
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
+		})
+
+		It("should tokenize member name as function in qualified calls", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "time.interval{period=100ms}")
+			tokens := SemanticTokens(server, ctx, uri)
+			Expect(tokens).ToNot(BeNil())
+			foundFunction := false
+			for i := 3; i < len(tokens.Data); i += 5 {
+				if tokens.Data[i] == uint32(lsp.SemanticTokenTypeFunction) {
+					foundFunction = true
+					break
+				}
+			}
+			Expect(foundFunction).To(BeTrue())
+		})
+
+		It("should tokenize keyword as variable when used as module prefix", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "authority.set{value=255}")
+			tokens := SemanticTokens(server, ctx, uri)
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeVariable)))
+		})
+
+		It("should tokenize keyword normally when not a module prefix", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "authority 200")
+			tokens := SemanticTokens(server, ctx, uri)
+			Expect(tokens).ToNot(BeNil())
+			Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+			Expect(tokens.Data[3]).To(Equal(uint32(lsp.SemanticTokenTypeKeyword)))
 		})
 	})
 })

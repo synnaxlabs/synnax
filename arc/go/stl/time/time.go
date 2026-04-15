@@ -94,13 +94,8 @@ var SymbolResolver = symbol.CompoundResolver{
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	// The qualified prefix ("time.interval", "time.wait") is needed because the
-	// compiler emits the module-qualified name as the IR node type when users write
-	// time.interval{} or time.wait{}. Stripping the prefix in the compiler would be
-	// cleaner but risks breaking WASM host function resolution. this is safer and
-	// inexpensive since time is the only STL module with a node factory.
 	switch cfg.Node.Type {
-	case intervalSymbolName, "time." + intervalSymbolName:
+	case intervalSymbolName:
 		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound
@@ -116,7 +111,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			lastFired: -period,
 		}, nil
 
-	case waitSymbolName, "time." + waitSymbolName:
+	case waitSymbolName:
 		durationParam, ok := cfg.Node.Config.Get(durationConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound

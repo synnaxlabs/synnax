@@ -153,8 +153,12 @@ function
     | IDENTIFIER configValues
     ;
 
+// AUTHORITY is a lexer keyword but also a valid module name (authority.set).
+// Without this alternative the lexer tokenizes 'authority' as AUTHORITY and
+// the IDENTIFIER-only rule rejects it.
 qualifiedIdentifier
     : IDENTIFIER DOT IDENTIFIER
+    | AUTHORITY DOT IDENTIFIER
     ;
 
 configValues

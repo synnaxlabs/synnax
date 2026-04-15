@@ -11,6 +11,7 @@ package node
 
 import (
 	"context"
+	"strings"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
@@ -44,6 +45,13 @@ type Factory interface {
 type CompoundFactory []Factory
 
 func (f CompoundFactory) Create(ctx context.Context, cfg Config) (Node, error) {
+	// Strip module prefix from the node type so factories only match bare names.
+	// The compiler emits qualified names (e.g. "time.interval", "authority.set")
+	// into the IR; normalizing here keeps prefix awareness out of individual
+	// factories.
+	if i := strings.LastIndex(cfg.Node.Type, "."); i >= 0 {
+		cfg.Node.Type = cfg.Node.Type[i+1:]
+	}
 	for _, factory := range f {
 		n, err := factory.Create(ctx, cfg)
 		if err == nil {

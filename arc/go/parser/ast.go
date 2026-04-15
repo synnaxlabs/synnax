@@ -209,10 +209,15 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 }
 
 // QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.pow").
+// (e.g., "math.pow", "authority.set").
 func QualifiedName(qid IQualifiedIdentifierContext) string {
 	ids := qid.AllIDENTIFIER()
-	return ids[0].GetText() + "." + ids[1].GetText()
+	// When the module name is a keyword (e.g., AUTHORITY), it won't appear
+	// in AllIDENTIFIER(). Fall back to the first child token text.
+	if len(ids) == 2 {
+		return ids[0].GetText() + "." + ids[1].GetText()
+	}
+	return qid.GetChild(0).(antlr.TerminalNode).GetText() + "." + ids[0].GetText()
 }
 
 // FunctionName extracts the name from a function context, handling both

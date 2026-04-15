@@ -131,6 +131,22 @@ var _ = Describe("Node", func() {
 			Expect(n).To(Equal(expectedNode))
 			Expect(factory3.createCalled).To(Equal(0))
 		})
+
+		It("Should strip module prefix from qualified node type", func(ctx SpecContext) {
+			factory := &mockFactory{nodeType: "interval", returnNode: &mockNode{}}
+			compound := node.CompoundFactory{factory}
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "time.interval")))
+			Expect(n).ToNot(BeNil())
+			Expect(factory.createCalled).To(Equal(1))
+		})
+
+		It("Should leave bare node types unchanged", func(ctx SpecContext) {
+			factory := &mockFactory{nodeType: "set_authority", returnNode: &mockNode{}}
+			compound := node.CompoundFactory{factory}
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "set_authority")))
+			Expect(n).ToNot(BeNil())
+			Expect(factory.createCalled).To(Equal(1))
+		})
 	})
 
 	Describe("Config", func() {

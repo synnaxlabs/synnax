@@ -59,7 +59,7 @@ public:
         state(std::move(state)) {}
 
     bool handles(const std::string &node_type) const override {
-        return node_type == "set_authority";
+        return node_type == "set_authority" || node_type == "set";
     }
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>

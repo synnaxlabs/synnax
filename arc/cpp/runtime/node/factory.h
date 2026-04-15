@@ -51,6 +51,12 @@ public:
 
     std::pair<std::unique_ptr<Node>, x::errors::Error> create(Config &&cfg) override {
         const auto node_key = cfg.node.key;
+        // Strip module prefix from the node type so factories only match bare
+        // names. The compiler emits qualified names (e.g. "time.interval",
+        // "authority.set") into the IR; normalizing here keeps prefix awareness
+        // out of individual factories.
+        if (auto dot = cfg.node.type.rfind('.'); dot != std::string::npos)
+            cfg.node.type = cfg.node.type.substr(dot + 1);
         const auto node_type = cfg.node.type;
         for (const auto &factory: this->factories) {
             if (!factory->handles(node_type)) continue;

@@ -74,7 +74,8 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should create node for qualified time.interval type", func(ctx SpecContext) {
+		It("Should create node for qualified time.interval via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.interval",
@@ -84,7 +85,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(compound.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
@@ -350,7 +351,8 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should create node for qualified time.wait type", func(ctx SpecContext) {
+		It("Should create node for qualified time.wait via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.wait",
@@ -360,7 +362,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(compound.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should not fire before duration elapses", func(ctx SpecContext) {

@@ -800,6 +800,51 @@ var _ = Describe("Graph", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
+		It("Should analyze authority.set with a non-uint8 channel", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.F64())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.F64()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 10057},
+					},
+					{
+						Key:  "set_auth",
+						Type: "authority.set",
+						Config: map[string]any{
+							"value":   200,
+							"channel": 10057,
+						},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				control.SymbolResolver,
+				symbol.MapResolver{
+					"10057": symbol.Symbol{
+						Name: "f64_sensor",
+						Type: types.WriteChan(types.F64()),
+						Kind: symbol.KindChannel,
+						ID:   10057,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			_, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
 		It("Should reject set_authority with a read channel", func(ctx SpecContext) {
 			g := arc.Graph{
 				Nodes: []graph.Node{
