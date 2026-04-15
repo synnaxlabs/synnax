@@ -16,6 +16,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -144,22 +145,22 @@ func (r *offsetResolver) invalidate() {
 	}
 }
 
-func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
+func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t *offsetTable, err error) {
 	domainIdx := iter.Position()
 	size := telem.Size(iter.Size())
 	// A domain index is stable across an entire writer session, so a table
 	// cached after commit N will have a stale sampleCount if the writer
 	// appends more data in commit N+1 against the same domain index. Gate the
 	// cache hit on the domain size matching what the table was built from.
-	if t, ok := r.cache.get(domainIdx); ok && t.domainSize == size {
-		return t, nil
+	if cached, ok := r.cache.get(domainIdx); ok && cached.domainSize == size {
+		return cached, nil
 	}
 	rd, err := iter.OpenReader(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { _ = rd.Close() }()
-	t, err := buildOffsetTable(rd, size)
+	defer func() { err = errors.Combine(err, rd.Close()) }()
+	t, err = buildOffsetTable(rd, size)
 	if err != nil {
 		return nil, err
 	}

@@ -51,9 +51,9 @@ func (db *DB) resolveByteOffset(
 	ctx context.Context,
 	domainStart telem.TimeStamp,
 	sampleOffset int64,
-) (telem.Size, error) {
+) (off telem.Size, err error) {
 	iter := db.domain.OpenIterator(domain.IterRange(domainStart.SpanRange(telem.TimeSpanMax)))
-	defer func() { _ = iter.Close() }()
+	defer func() { err = errors.Combine(err, iter.Close()) }()
 	if !iter.SeekGE(ctx, domainStart) {
 		return 0, errors.Newf("cannot find domain starting at %s", domainStart)
 	}

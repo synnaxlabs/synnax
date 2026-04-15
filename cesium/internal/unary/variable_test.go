@@ -19,6 +19,7 @@ import (
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("Variable-length channel", func() {
@@ -232,7 +233,7 @@ var _ = Describe("Variable-length channel", func() {
 						Start:   70 * telem.SecondTS,
 						Subject: xcontrol.Subject{Key: "wrong-type"},
 					}))
-					Expect(w.Write(telem.NewSeriesV[int64](1, 2, 3))).Error().To(HaveOccurred())
+					Expect(w.Write(telem.NewSeriesV[int64](1, 2, 3))).Error().To(MatchError(validate.ErrValidation))
 					MustSucceed(w.Close())
 				})
 			})
