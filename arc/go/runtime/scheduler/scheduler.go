@@ -68,8 +68,15 @@ type Scheduler struct {
 	errorHandler ErrorHandler
 	changed      set.Set[string]
 	selfChanged  set.Set[string]
-	nodes        map[string]node
-	currNodeKey  string
+	// markedThisCycle holds the set of (nodeKey, param) pairs for which
+	// MarkChanged was called and the output is truthy during the current
+	// cycle. Keyed by "nodeKey\x00param". Sequential transitions fire on
+	// a fresh mark rather than on stale cached truthiness, mirroring the
+	// conditional-edge firing semantic of the pre-Scope scheduler. Marks
+	// are consumed when a transition fires and cleared at end of cycle.
+	markedThisCycle set.Set[string]
+	nodes           map[string]node
+	currNodeKey     string
 	// root mirrors prog.Root; always a parallel, always-live scope.
 	root *scopeState
 	// activationsBySource indexes scopes whose activation handle is sourced
@@ -106,6 +113,7 @@ func New(prog ir.IR, nodes map[string]rnode.Node, tolerance telem.TimeSpan) *Sch
 		nodes:               make(map[string]node, len(prog.Nodes)),
 		changed:             make(set.Set[string], len(prog.Nodes)),
 		selfChanged:         make(set.Set[string]),
+		markedThisCycle:     make(set.Set[string]),
 		activationsBySource: make(map[string][]*scopeState),
 		tolerance:           tolerance,
 	}
@@ -267,6 +275,12 @@ func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rno
 	s.walk(s.root)
 
 	clear(s.changed)
+	clear(s.markedThisCycle)
+}
+
+// markKey encodes a (node, param) pair for markedThisCycle lookups.
+func markKey(nodeKey, param string) string {
+	return nodeKey + "\x00" + param
 }
 
 // walk executes one pass over a scope. Sequential scopes internally loop to
@@ -376,20 +390,32 @@ func (s *Scheduler) runNode(key string) {
 }
 
 // evaluateTransitions walks the sequential scope's transitions in source
-// order and applies the first one whose `on` handle is truthy. Transitions
+// order and applies the first one whose `on` handle was freshly marked
+// changed with a truthy value during the current cycle. Transitions
 // whose on-handle is owned by an inactive sibling member are skipped —
 // their source node is frozen (and possibly still truthy) from a prior
 // activation, but the step that defined the transition is no longer the
-// one running. Reports whether a transition fired so the caller can drive
-// the convergence loop.
+// one running. A stale-truthy source that did not re-mark this cycle does
+// not fire the transition; this mirrors the conditional-edge firing
+// semantic of the pre-Scope scheduler and prevents wait/interval/latched
+// comparisons (which mark once per event) from driving spurious repeated
+// transitions on later cycles. Firing consumes the mark, so a single
+// MarkChanged call produces at most one transition firing per cycle.
+// Reports whether a transition fired so the caller can drive the
+// convergence loop.
 func (s *Scheduler) evaluateTransitions(ss *scopeState) bool {
 	for i, t := range ss.ir.Transitions {
 		if owner := ss.transitionOwner[i]; owner >= 0 && owner != ss.activeMember {
 			continue
 		}
+		key := markKey(t.On.Node, t.On.Param)
+		if !s.markedThisCycle.Contains(key) {
+			continue
+		}
 		if !s.isHandleTruthy(t.On) {
 			continue
 		}
+		delete(s.markedThisCycle, key)
 		if ss.activeMember >= 0 {
 			s.deactivateMember(ss, ss.activeMember)
 		}
@@ -508,6 +534,9 @@ func (s *Scheduler) isHandleTruthy(h ir.Handle) bool {
 // continuous-edge semantics of the pre-Scope IR.
 func (s *Scheduler) markChanged(param string) {
 	n := s.nodes[s.currNodeKey]
+	if n.IsOutputTruthy(param) {
+		s.markedThisCycle.Add(markKey(s.currNodeKey, param))
+	}
 	for _, edge := range n.outgoing[param] {
 		if edge.Kind == ir.EdgeKindConditional {
 			if n.IsOutputTruthy(param) {

@@ -25,8 +25,12 @@ namespace arc::stl::selector {
 inline const std::string true_param = "true";
 inline const std::string false_param = "false";
 
-/// @brief Select routes u8 input to "true" or "false" outputs based on value.
-/// Input values of 1 route to 1/true, all others to 0/false.
+/// @brief Select routes a u8 input to its "true" or "false" output based on
+/// value: input samples equal to 1 produce samples on the "true" output,
+/// all others produce samples on the "false" output. Both outputs emit a
+/// value of 1 for each matched sample — the output value signals "this
+/// route fired" rather than echoing the input — so the output can drive
+/// a truthy-gated transition whether the matched route is true or false.
 class Select : public runtime::node::Node {
     runtime::state::Node state;
 
@@ -70,7 +74,7 @@ public:
                 true_time->set(static_cast<int>(ti), time->at<int64_t>(i));
                 ti++;
             } else {
-                false_data->set(static_cast<int>(fi), static_cast<uint8_t>(0));
+                false_data->set(static_cast<int>(fi), static_cast<uint8_t>(1));
                 false_time->set(static_cast<int>(fi), time->at<int64_t>(i));
                 fi++;
             }

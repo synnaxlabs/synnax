@@ -49,12 +49,12 @@ struct ScopeSpec {
 ///     .build();
 /// @endcode
 class Builder {
-    IR ir_;
+    IR prog;
 
 public:
     Builder() {
-        ir_.root.mode = ScopeMode::Parallel;
-        ir_.root.liveness = Liveness::Always;
+        this->prog.root.mode = ScopeMode::Parallel;
+        this->prog.root.liveness = Liveness::Always;
     }
 
     /// @brief adds a minimal node keyed by key. Tests requiring richer node
@@ -62,7 +62,7 @@ public:
     Builder &node(const std::string &key) {
         Node n;
         n.key = key;
-        ir_.nodes.push_back(std::move(n));
+        this->prog.nodes.push_back(std::move(n));
         return *this;
     }
 
@@ -75,7 +75,7 @@ public:
         const std::string &target_node,
         const std::string &target_param
     ) {
-        ir_.edges.emplace_back(
+        this->prog.edges.emplace_back(
             Handle{source_node, source_param},
             Handle{target_node, target_param},
             EdgeKind::Continuous
@@ -91,7 +91,7 @@ public:
         const std::string &target_node,
         const std::string &target_param
     ) {
-        ir_.edges.emplace_back(
+        this->prog.edges.emplace_back(
             Handle{source_node, source_param},
             Handle{target_node, target_param},
             EdgeKind::Conditional
@@ -103,14 +103,14 @@ public:
     /// phase of node keys with no data dependency among them; phase N
     /// depends only on phases 0..N-1.
     Builder &phases(std::vector<std::vector<std::string>> phases_spec) {
-        ir_.root.phases.clear();
-        ir_.root.phases.reserve(phases_spec.size());
+        this->prog.root.phases.clear();
+        this->prog.root.phases.reserve(phases_spec.size());
         for (auto &phase_keys: phases_spec) {
             Phase p;
             p.members.reserve(phase_keys.size());
             for (auto &key: phase_keys)
                 p.members.push_back(node_member(key));
-            ir_.root.phases.push_back(std::move(p));
+            this->prog.root.phases.push_back(std::move(p));
         }
         return *this;
     }
@@ -127,8 +127,8 @@ public:
         for (auto &spec: specs)
             seq.members.push_back(scope_member_from(std::move(spec)));
 
-        if (ir_.root.phases.empty()) ir_.root.phases.emplace_back();
-        auto &last_phase = ir_.root.phases.back();
+        if (prog.root.phases.empty()) prog.root.phases.emplace_back();
+        auto &last_phase = prog.root.phases.back();
         Member m;
         m.key = key;
         m.scope = x::mem::indirect<Scope>(std::move(seq));
@@ -137,7 +137,7 @@ public:
     }
 
     /// @brief builds and returns the IR by move.
-    IR build() { return std::move(ir_); }
+    IR build() { return std::move(this->prog); }
 
 private:
     /// @brief constructs a Member wrapping a NodeRef keyed by node_key.

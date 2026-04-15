@@ -37,13 +37,20 @@ struct MockNode final : public node::Node {
     std::vector<x::telem::TimeSpan> elapsed_values;
 
     std::unordered_set<std::string> param_truthy;
+    /// @brief disables the default behavior of calling MarkChanged for
+    /// every param in param_truthy on each next. Tests that want to model
+    /// a node whose output stays truthy across cycles but only announces a
+    /// change via MarkChanged on specific cycles should set this and drive
+    /// MarkChanged manually from on_next.
+    bool suppress_auto_mark = false;
     std::function<void(node::Context &)> on_next;
 
     x::errors::Error next(node::Context &ctx) override {
         next_called++;
         elapsed_values.push_back(ctx.elapsed);
-        for (const auto &param: param_truthy)
-            ctx.mark_changed(param);
+        if (!suppress_auto_mark)
+            for (const auto &param: param_truthy)
+                ctx.mark_changed(param);
         if (on_next) on_next(ctx);
         return x::errors::NIL;
     }
@@ -186,21 +193,21 @@ static ir::IR program_of(
 
 class SchedulerTest : public ::testing::Test {
 public:
-    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes_;
-    std::unordered_map<std::string, MockNode *> mocks_;
+    std::unordered_map<std::string, std::unique_ptr<node::Node>> nodes;
+    std::unordered_map<std::string, MockNode *> mocks;
 
     MockNode &mock(const std::string &key) {
         auto node = std::make_unique<MockNode>();
         auto *ptr = node.get();
-        nodes_[key] = std::move(node);
-        mocks_[key] = ptr;
+        this->nodes[key] = std::move(node);
+        this->mocks[key] = ptr;
         return *ptr;
     }
 
     std::unique_ptr<Scheduler> build(ir::IR ir) {
         return std::make_unique<Scheduler>(
             std::move(ir),
-            nodes_,
+            this->nodes,
             x::telem::TimeSpan(0)
         );
     }
@@ -208,7 +215,7 @@ public:
     std::unique_ptr<Scheduler> build_with_handler(ir::IR ir, errors::Handler handler) {
         return std::make_unique<Scheduler>(
             std::move(ir),
-            nodes_,
+            this->nodes,
             x::telem::TimeSpan(0),
             std::move(handler)
         );
@@ -233,9 +240,9 @@ TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
-    EXPECT_EQ(mocks_["A"]->next_called, 1);
-    EXPECT_EQ(mocks_["B"]->next_called, 1);
-    EXPECT_EQ(mocks_["C"]->next_called, 1);
+    EXPECT_EQ(mocks["A"]->next_called, 1);
+    EXPECT_EQ(mocks["B"]->next_called, 1);
+    EXPECT_EQ(mocks["C"]->next_called, 1);
 }
 
 // ----- Phase-based execution -----
@@ -925,6 +932,148 @@ TEST_F(SchedulerTest, MarkNodeChangedExecutesLaterPhaseMember) {
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(a.next_called, 2);
     EXPECT_EQ(b.next_called, 1);
+}
+
+// ----- Transitions gated on fresh output marks -----
+//
+// Sequential transitions must fire only when the source node called
+// MarkChanged with a truthy output this cycle. Nodes whose output cache
+// stays truthy across cycles (e.g., wait, interval, latched comparisons)
+// must not drive repeated transitions after their one-shot announcement.
+// This mirrors the conditional-edge firing semantic of the pre-Scope
+// scheduler.
+
+TEST_F(
+    SchedulerTest,
+    DoesNotFireTransitionWhenSourceIsTruthyButNeverCalledMarkChanged
+) {
+    auto &trigger = mock("trigger");
+    trigger.param_truthy.insert("output");
+    auto &latch = mock("latch");
+    latch.suppress_auto_mark = true;
+    latch.param_truthy.insert("output");
+    mock("worker");
+
+    auto body = parallel_scope("body", {phase_of({node_ref_member("worker")})});
+    ir::Transition t_exit;
+    t_exit.on = ir::Handle{"latch", "output"};
+    t_exit.target = exit_target();
+    auto main = sequential_scope("main", {scope_to_member(std::move(body))}, {t_exit});
+    main.activation = ir::Handle{"trigger", "output"};
+
+    auto program = program_of(
+        {"trigger", "latch", "worker"},
+        {},
+        root_scope(
+            {node_ref_member("trigger"),
+             node_ref_member("latch"),
+             scope_to_member(std::move(main))}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker"]->next_called, 1);
+    EXPECT_EQ(mocks["worker"]->reset_called, 1);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker"]->next_called, 2);
+    EXPECT_EQ(mocks["worker"]->reset_called, 1);
+}
+
+TEST_F(
+    SchedulerTest,
+    DoesNotReFireTransitionOnLaterCycleWhenSourceStaysTruthyButOnlyMarkedOnFirstCycle
+) {
+    auto &trigger = mock("trigger");
+    trigger.param_truthy.insert("output");
+    auto &latch = mock("latch");
+    latch.suppress_auto_mark = true;
+    latch.param_truthy.insert("output");
+    int marks = 0;
+    latch.on_next = [&marks](const node::Context &ctx) {
+        marks++;
+        if (marks == 1) ctx.mark_changed("output");
+    };
+    mock("worker_a");
+    mock("worker_b");
+
+    auto a = parallel_scope("a", {phase_of({node_ref_member("worker_a")})});
+    auto b = parallel_scope("b", {phase_of({node_ref_member("worker_b")})});
+    ir::Transition t_ab;
+    t_ab.on = ir::Handle{"latch", "output"};
+    t_ab.target = member_key_target("b");
+    auto main = sequential_scope(
+        "main",
+        {scope_to_member(std::move(a)), scope_to_member(std::move(b))},
+        {t_ab}
+    );
+    main.activation = ir::Handle{"trigger", "output"};
+
+    auto program = program_of(
+        {"trigger", "latch", "worker_a", "worker_b"},
+        {},
+        root_scope(
+            {node_ref_member("trigger"),
+             node_ref_member("latch"),
+             scope_to_member(std::move(main))}
+        )
+    );
+    const auto s = build(std::move(program));
+
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker_a"]->next_called, 1);
+    EXPECT_EQ(mocks["worker_b"]->next_called, 1);
+
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker_a"]->next_called, 1);
+    EXPECT_EQ(mocks["worker_b"]->next_called, 2);
+
+    s->next(3 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker_a"]->next_called, 1);
+    EXPECT_EQ(mocks["worker_b"]->next_called, 3);
+}
+
+TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCycle) {
+    auto &trigger = mock("trigger");
+    trigger.param_truthy.insert("output");
+    auto &latch = mock("latch");
+    latch.suppress_auto_mark = true;
+    int cycle = 0;
+    latch.on_next = [&cycle, &latch](const node::Context &ctx) {
+        cycle++;
+        if (cycle == 2) {
+            latch.param_truthy.insert("output");
+            ctx.mark_changed("output");
+        }
+    };
+    mock("worker_a");
+    mock("worker_b");
+
+    auto a = parallel_scope("a", {phase_of({node_ref_member("worker_a")})});
+    auto b = parallel_scope("b", {phase_of({node_ref_member("worker_b")})});
+    ir::Transition t_ab;
+    t_ab.on = ir::Handle{"latch", "output"};
+    t_ab.target = member_key_target("b");
+    auto main = sequential_scope(
+        "main",
+        {scope_to_member(std::move(a)), scope_to_member(std::move(b))},
+        {t_ab}
+    );
+    main.activation = ir::Handle{"trigger", "output"};
+
+    auto program = program_of(
+        {"trigger", "latch", "worker_a", "worker_b"},
+        {},
+        root_scope(
+            {node_ref_member("trigger"),
+             node_ref_member("latch"),
+             scope_to_member(std::move(main))}
+        )
+    );
+    const auto s = build(std::move(program));
+    s->next(x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker_b"]->next_called, 0);
+    s->next(2 * x::telem::MICROSECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(mocks["worker_b"]->next_called, 1);
 }
 
 }

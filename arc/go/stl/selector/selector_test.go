@@ -175,7 +175,7 @@ var _ = Describe("Select", func() {
 			falseOut := selectNode.Output(1)
 			Expect(falseOut.Len()).To(Equal(int64(4)))
 			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
-			Expect(falseVals).To(Equal([]uint8{0, 0, 0, 0}))
+			Expect(falseVals).To(Equal([]uint8{1, 1, 1, 1}))
 		})
 		It("Should split mixed true and false values", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -198,7 +198,7 @@ var _ = Describe("Select", func() {
 			trueVals := telem.UnmarshalSeries[uint8](*trueOut)
 			falseVals := telem.UnmarshalSeries[uint8](*falseOut)
 			Expect(trueVals).To(Equal([]uint8{1, 1, 1}))
-			Expect(falseVals).To(Equal([]uint8{0, 0}))
+			Expect(falseVals).To(Equal([]uint8{1, 1}))
 		})
 		It("Should correctly copy timestamps for true values", func(ctx SpecContext) {
 			cfg := node.Config{

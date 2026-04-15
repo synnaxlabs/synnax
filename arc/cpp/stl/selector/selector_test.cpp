@@ -188,9 +188,9 @@ TEST(SelectTest, AllFalseInput) {
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 0);
     EXPECT_EQ(checker.output(1)->size(), 3);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(2), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(2), 1);
 }
 
 /// @brief Test that mixed input is split correctly.
@@ -214,8 +214,8 @@ TEST(SelectTest, MixedInput) {
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 1);
     EXPECT_EQ(checker.output(0)->at<uint8_t>(1), 1);
     EXPECT_EQ(checker.output(1)->size(), 2);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(1), 1);
 }
 
 /// @brief Test that true output timestamps match source timestamps.
@@ -294,7 +294,7 @@ TEST(SelectTest, SingleFalseValue) {
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(1)->size(), 1);
-    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 0);
+    EXPECT_EQ(checker.output(1)->at<uint8_t>(0), 1);
 }
 
 /// @brief Test long series (1000 elements). Mirrors Go test "Should handle

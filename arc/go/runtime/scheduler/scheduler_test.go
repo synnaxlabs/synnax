@@ -24,11 +24,19 @@ import (
 
 // MockNode is a configurable runtime node used across scheduler tests.
 type MockNode struct {
-	ParamTruthy   set.Set[string]
-	OnNext        func(node.Context)
-	ElapsedValues []telem.TimeSpan
-	NextCalled    int
-	ResetCalled   int
+	// ParamTruthy drives IsOutputTruthy. Also drives the auto-mark loop in
+	// Next unless SuppressAutoMark is set.
+	ParamTruthy set.Set[string]
+	// SuppressAutoMark disables the default behavior of calling MarkChanged
+	// for every param in ParamTruthy on each Next. Tests that want to
+	// model a node whose output stays truthy across cycles but only
+	// announces a change via MarkChanged on specific cycles should set
+	// this and drive MarkChanged manually from OnNext.
+	SuppressAutoMark bool
+	OnNext           func(node.Context)
+	ElapsedValues    []telem.TimeSpan
+	NextCalled       int
+	ResetCalled      int
 }
 
 func NewMockNode() *MockNode {
@@ -38,12 +46,10 @@ func NewMockNode() *MockNode {
 func (m *MockNode) Next(ctx node.Context) {
 	m.NextCalled++
 	m.ElapsedValues = append(m.ElapsedValues, ctx.Elapsed)
-	// Auto-propagate: any param currently marked as truthy is also
-	// announced via MarkChanged. This mirrors how real nodes advertise
-	// output updates and lets scheduler tests drive both conditional
-	// edges and gated-scope activations from the ParamTruthy fixture.
-	for param := range m.ParamTruthy {
-		ctx.MarkChanged(param)
+	if !m.SuppressAutoMark {
+		for param := range m.ParamTruthy {
+			ctx.MarkChanged(param)
+		}
 	}
 	if m.OnNext != nil {
 		m.OnNext(ctx)
@@ -1212,6 +1218,173 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick) // trigger reasserted, main re-activates, runs, exits
 			// Two activations ⇒ two Reset calls on first_node.
 			Expect(firstNode.ResetCalled).To(Equal(2))
+		})
+	})
+
+	Describe("Transitions gated on fresh output marks", func() {
+		// Sequential transitions must fire only when the source node
+		// called MarkChanged with a truthy output this cycle. Nodes whose
+		// output cache stays truthy across cycles (e.g., wait, interval,
+		// latched comparisons) must not drive repeated transitions after
+		// their one-shot announcement. This mirrors the conditional-edge
+		// firing semantic of the pre-Scope scheduler.
+		It("Should not fire a transition when the source is truthy but never called MarkChanged", func(ctx SpecContext) {
+			// Minimal repro. The sequence "main" has a single member
+			// "body" and a single transition whose on-handle is a latch
+			// node external to the sequence. The latch is constructed
+			// truthy (ParamTruthy.Add("output")) but suppresses the
+			// auto-mark behavior, so its IsOutputTruthy returns true
+			// forever while MarkChanged is never called. A correctly
+			// gated scheduler must not fire the transition.
+			trigger := mock("trigger")
+			trigger.ParamTruthy.Add("output")
+			latch := mock("latch")
+			latch.SuppressAutoMark = true
+			latch.ParamTruthy.Add("output")
+			mock("worker")
+
+			body := parallelScope("body", phase(noderef("worker")))
+			main := sequentialScope("main", []ir.Member{
+				{Key: "body", Scope: &body},
+			}, ir.Transition{
+				On:     ir.Handle{Node: "latch", Param: "output"},
+				Target: exitTarget(),
+			})
+			triggerH := ir.Handle{Node: "trigger", Param: "output"}
+			main.Activation = &triggerH
+
+			prog := programOf(
+				[]string{"trigger", "latch", "worker"}, nil,
+				rootScope(
+					noderef("trigger"),
+					noderef("latch"),
+					scopeMember(main),
+				),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+
+			// Main must remain active: the transition's source was
+			// never MarkChanged, so the exit must not have fired.
+			Expect(mocks["worker"].NextCalled).To(Equal(1))
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker"].NextCalled).To(Equal(2))
+		})
+
+		It("Should not re-fire a transition on a later cycle when the source stays truthy but only marked on the first cycle", func(ctx SpecContext) {
+			// Covers the integration-level wait/interval regression:
+			// a node calls MarkChanged on its first firing and stays
+			// truthy across subsequent cycles without re-marking. The
+			// scheduler must fire the transition exactly once (on the
+			// cycle MarkChanged was called), not again on later cycles
+			// where the on-handle is still truthy.
+			trigger := mock("trigger")
+			trigger.ParamTruthy.Add("output")
+			latch := mock("latch")
+			latch.SuppressAutoMark = true
+			latch.ParamTruthy.Add("output")
+			marks := 0
+			latch.OnNext = func(c node.Context) {
+				marks++
+				if marks == 1 {
+					c.MarkChanged("output")
+				}
+			}
+			mock("worker_a")
+			mock("worker_b")
+
+			a := parallelScope("a", phase(noderef("worker_a")))
+			b := parallelScope("b", phase(noderef("worker_b")))
+			main := sequentialScope("main", []ir.Member{
+				{Key: "a", Scope: &a},
+				{Key: "b", Scope: &b},
+			}, ir.Transition{
+				On:     ir.Handle{Node: "latch", Param: "output"},
+				Target: memberKeyTarget("b"),
+			})
+			triggerH := ir.Handle{Node: "trigger", Param: "output"}
+			main.Activation = &triggerH
+
+			prog := programOf(
+				[]string{"trigger", "latch", "worker_a", "worker_b"},
+				nil,
+				rootScope(
+					noderef("trigger"),
+					noderef("latch"),
+					scopeMember(main),
+				),
+			)
+			s := build(prog)
+
+			// Cycle 1: main activates at "a"; latch calls MarkChanged
+			// once so the transition fires → b becomes active. worker_b
+			// runs this cycle; worker_a runs exactly once (before the
+			// transition).
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker_a"].NextCalled).To(Equal(1))
+			Expect(mocks["worker_b"].NextCalled).To(Equal(1))
+
+			// Cycle 2: latch is still truthy but did NOT MarkChanged.
+			// The transition's on-handle is external to main (owner=-1),
+			// so it is still evaluated each cycle. It must NOT re-fire.
+			// worker_b keeps running; worker_a must not be re-activated.
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker_a"].NextCalled).To(Equal(1))
+			Expect(mocks["worker_b"].NextCalled).To(Equal(2))
+
+			// Cycle 3: same invariant.
+			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker_a"].NextCalled).To(Equal(1))
+			Expect(mocks["worker_b"].NextCalled).To(Equal(3))
+		})
+
+		It("Should fire a transition again when the source freshly marks changed on a later cycle", func(ctx SpecContext) {
+			// Positive companion test: ensure the gating change does
+			// not break the case where a source marks changed anew on a
+			// later cycle. The transition must fire on that cycle.
+			trigger := mock("trigger")
+			trigger.ParamTruthy.Add("output")
+			latch := mock("latch")
+			latch.SuppressAutoMark = true
+			cycle := 0
+			latch.OnNext = func(c node.Context) {
+				cycle++
+				if cycle == 2 {
+					latch.ParamTruthy.Add("output")
+					c.MarkChanged("output")
+				}
+			}
+			mock("worker_a")
+			mock("worker_b")
+
+			a := parallelScope("a", phase(noderef("worker_a")))
+			b := parallelScope("b", phase(noderef("worker_b")))
+			main := sequentialScope("main", []ir.Member{
+				{Key: "a", Scope: &a},
+				{Key: "b", Scope: &b},
+			}, ir.Transition{
+				On:     ir.Handle{Node: "latch", Param: "output"},
+				Target: memberKeyTarget("b"),
+			})
+			triggerH := ir.Handle{Node: "trigger", Param: "output"}
+			main.Activation = &triggerH
+
+			prog := programOf(
+				[]string{"trigger", "latch", "worker_a", "worker_b"},
+				nil,
+				rootScope(
+					noderef("trigger"),
+					noderef("latch"),
+					scopeMember(main),
+				),
+			)
+			s := build(prog)
+			// Cycle 1: latch does not mark; transition does not fire.
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker_b"].NextCalled).To(Equal(0))
+			// Cycle 2: latch marks; transition fires → worker_b runs.
+			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
+			Expect(mocks["worker_b"].NextCalled).To(Equal(1))
 		})
 	})
 

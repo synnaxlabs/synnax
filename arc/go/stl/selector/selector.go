@@ -100,7 +100,7 @@ func (s *selectNode) Next(ctx node.Context) {
 			telem.CopyValue(*trueTime, time, trueIdx, i)
 			trueIdx++
 		} else {
-			falseData.Data[falseIdx] = 0
+			falseData.Data[falseIdx] = 1
 			telem.CopyValue(*falseTime, time, falseIdx, i)
 			falseIdx++
 		}

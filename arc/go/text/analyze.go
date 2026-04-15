@@ -179,9 +179,6 @@ type flowNodeResult struct {
 	transition *transitionIntent
 }
 
-func flowNode(n nodeResult) flowNodeResult             { return flowNodeResult{node: n} }
-func flowTransition(t transitionIntent) flowNodeResult { return flowNodeResult{transition: &t} }
-
 func firstInputParam(inputs types.Params) string {
 	if len(inputs) > 0 {
 		return inputs[0].Name
@@ -207,11 +204,11 @@ func analyzeFlowNode(
 	}
 	if fn := ctx.AST.Function(); fn != nil {
 		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
-		return flowNode(r), ok
+		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
 		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
-		return flowNode(r), ok
+		return flowNodeResult{node: r}, ok
 	}
 	if ctx.AST.NEXT() != nil {
 		return analyzeNextToken(ctx, shell)
@@ -238,19 +235,20 @@ func analyzeIdentifierByRole(
 		if !ok {
 			return flowNodeResult{}, false
 		}
-		return flowTransition(intent), true
+		return flowNodeResult{transition: &intent}, true
 	case symbol.KindStage:
-		return flowTransition(analyzeStageRef(sym, shell)), true
+		intent := analyzeStageRef(sym, shell)
+		return flowNodeResult{transition: &intent}, true
 	case symbol.KindGlobalConstant:
 		r, ok := buildGlobalConstantNode(name, sym, kg)
-		return flowNode(r), ok
+		return flowNodeResult{node: r}, ok
 	default:
 		if isSink {
 			r, ok := buildChannelWriteNode(name, sym, kg)
-			return flowNode(r), ok
+			return flowNodeResult{node: r}, ok
 		}
 		r, ok := buildChannelReadNode(name, sym, kg)
-		return flowNode(r), ok
+		return flowNodeResult{node: r}, ok
 	}
 }
 
@@ -264,39 +262,29 @@ func analyzeSequenceRef(
 	seqSym *symbol.Scope,
 ) (transitionIntent, bool) {
 	if _, ok := seqSym.AST.(parser.IStageDeclarationContext); ok {
-		return crossScopeIntent(seqSym.Name), true
+		return transitionIntent{activateKey: seqSym.Name}, true
 	}
 	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
 	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
 		return transitionIntent{}, false
 	}
-	return crossScopeIntent(seqSym.Name), true
+	return transitionIntent{activateKey: seqSym.Name}, true
 }
 
 // analyzeStageRef builds a transition intent for an identifier that resolves
 // to a stage. A reference to a sibling stage in the enclosing sequence jumps
-// to that sibling; a reference to a stage in a different sequence activates
-// the containing top-level scope and exits the current sequence.
+// to that sibling; a reference to a stage in a different top-level scope
+// activates that top-level scope and exits the current sequence.
 func analyzeStageRef(stageSym *symbol.Scope, shell *shellBuilder) transitionIntent {
 	if frame := shell.top(); frame != nil && stageSym.Parent != nil && stageSym.Parent.Name == frame.name {
 		return transitionIntent{memberKey: stageSym.Name}
 	}
-	// Cross-scope stage reference: resolve the stage's top-level scope by
-	// taking its parent sequence's name (for nested stages) or the stage's
-	// own name (for top-level stages).
 	topName := stageSym.Name
 	if stageSym.Parent != nil && stageSym.Parent.Name != "" {
 		topName = stageSym.Parent.Name
 	}
-	return crossScopeIntent(topName)
-}
-
-// crossScopeIntent builds a transition intent that activates a named
-// top-level scope. When the intent is consumed inside a sequence, the
-// consumer additionally emits an exit transition on that sequence.
-func crossScopeIntent(scopeName string) transitionIntent {
-	return transitionIntent{activateKey: scopeName}
+	return transitionIntent{activateKey: topName}
 }
 
 func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -364,7 +352,8 @@ func analyzeNextToken(
 		))
 		return flowNodeResult{}, false
 	}
-	return flowTransition(transitionIntent{isNext: true}), true
+	intent := transitionIntent{isNext: true}
+	return flowNodeResult{transition: &intent}, true
 }
 
 func analyzeFunctionNode(
@@ -752,16 +741,10 @@ func (p *flowChainProcessor) consumeTransition(
 	}
 	on := p.prevOutput
 
-	// Flush any additional triggers as continuous edges into a dummy sink?
-	// Not possible here — there is no IR node to target. Additional triggers
-	// only occur when the first node is an expression; combined with a
-	// transition target, the extra channel reads still need a sink. Today's
-	// IR handled this via the entry node; in the new IR we simply drop
-	// unused triggers because the primary channel output already carries the
-	// firing signal. Emit a diagnostic if this surfaces in practice.
-	if len(p.additionalTriggers) > 0 {
-		p.additionalTriggers = nil
-	}
+	// When a multi-channel expression drives a transition there is no IR
+	// node to route the extra triggers into; the primary channel output
+	// already carries the firing signal, so the extras are dropped.
+	p.additionalTriggers = nil
 
 	switch {
 	case intent.isNext:

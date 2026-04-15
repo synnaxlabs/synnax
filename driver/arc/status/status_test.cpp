@@ -26,8 +26,9 @@ Setter noop_setter = [](x::status::Status<> &) { return x::errors::NIL; };
         .tolerance = x::telem::TimeSpan(0),
         .reason = ::arc::runtime::node::RunReason::TimerTick,
         .mark_changed = [](const std::string &) {},
+        .mark_self_changed = [] {},
+        .set_deadline = [](x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 

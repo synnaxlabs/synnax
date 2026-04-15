@@ -15,6 +15,7 @@
 #include <ranges>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "glog/logging.h"
@@ -75,6 +76,13 @@ class Scheduler {
     std::unordered_map<std::string, size_t> node_index;
     std::vector<uint8_t> changed_flags;
     std::vector<uint8_t> self_changed_flags;
+    /// @brief holds the set of (node_key, param) pairs for which
+    /// MarkChanged was called with a truthy output during the current
+    /// cycle. Sequential transitions fire on a fresh mark rather than on
+    /// stale cached truthiness, mirroring the conditional-edge firing
+    /// semantic of the pre-Scope scheduler. Marks are consumed when a
+    /// transition fires and cleared at end of cycle.
+    std::unordered_set<std::string> marked_this_cycle;
 
     /// @brief root mirrors prog.root; always a parallel, always-live scope.
     std::unique_ptr<ScopeState> root;
@@ -89,14 +97,17 @@ class Scheduler {
     /// a single scheduler cycle up to this many times before the walk returns.
     size_t max_convergence_iter = 0;
 
-    x::telem::TimeSpan tolerance_;
+    x::telem::TimeSpan tolerance;
     errors::Handler error_handler;
 
     node::Context ctx;
-    x::telem::TimeSpan next_deadline_ = x::telem::TimeSpan::max();
+    /// @brief tracks the earliest deadline reported by any node during the
+    /// current cycle. Seeded to TimeSpan::max at the start of every next();
+    /// exposed to callers via next_deadline().
+    x::telem::TimeSpan min_deadline = x::telem::TimeSpan::max();
     const std::string *curr_node_ptr = nullptr;
 
-    ir::IR prog_;
+    ir::IR prog;
 
     static std::unique_ptr<ScopeState> build_scope_state(const ir::Scope *scope) {
         auto state = std::make_unique<ScopeState>();
@@ -199,16 +210,16 @@ public:
         const x::telem::TimeSpan tolerance,
         errors::Handler error_handler = errors::noop_handler
     ):
-        tolerance_(tolerance),
+        tolerance(tolerance),
         error_handler(std::move(error_handler)),
-        prog_(std::move(prog)) {
+        prog(std::move(prog)) {
         this->ctx.mark_changed = std::bind_front(&Scheduler::mark_changed, this);
         this->ctx.mark_self_changed = std::bind_front(
             &Scheduler::mark_self_changed,
             this
         );
         this->ctx.set_deadline = [this](const x::telem::TimeSpan d) {
-            if (d < this->next_deadline_) this->next_deadline_ = d;
+            if (d < this->min_deadline) this->min_deadline = d;
         };
         this->ctx.report_error = std::bind_front(&Scheduler::report_error, this);
 
@@ -216,14 +227,14 @@ public:
         for (auto &[key, node]: node_impls) {
             this->node_index[key] = idx++;
             this->nodes[key] = Node{
-                .output_edges = this->prog_.edges_from(key),
+                .output_edges = this->prog.edges_from(key),
                 .node = std::move(node),
             };
         }
         this->changed_flags.resize(idx, 0);
         this->self_changed_flags.resize(idx, 0);
 
-        this->root = build_scope_state(&this->prog_.root);
+        this->root = build_scope_state(&this->prog.root);
         this->register_scope(this->root.get());
         this->activate_scope(*this->root);
     }
@@ -236,6 +247,7 @@ public:
     void reset() {
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
+        this->marked_this_cycle.clear();
         this->curr_node_ptr = nullptr;
         this->reset_scope_state(*this->root);
         for (const auto &node_state: this->nodes | std::views::values)
@@ -244,18 +256,24 @@ public:
     }
 
     void next(const x::telem::TimeSpan elapsed, const node::RunReason reason) {
-        this->next_deadline_ = x::telem::TimeSpan::max();
+        this->min_deadline = x::telem::TimeSpan::max();
         this->ctx.elapsed = elapsed;
-        this->ctx.tolerance = this->tolerance_;
+        this->ctx.tolerance = this->tolerance;
         this->ctx.reason = reason;
 
         this->walk(*this->root);
 
         std::ranges::fill(this->changed_flags, 0);
+        this->marked_this_cycle.clear();
+    }
+
+    /// @brief encodes a (node_key, param) pair for marked_this_cycle lookups.
+    static std::string mark_key(const std::string &node_key, const std::string &param) {
+        return node_key + '\0' + param;
     }
 
     [[nodiscard]] x::telem::TimeSpan next_deadline() const {
-        return this->next_deadline_;
+        return this->min_deadline;
     }
 
     void mark_node_changed(const std::string &node_key) {
@@ -345,16 +363,27 @@ private:
     }
 
     /// @brief walks the sequential scope's transitions in source order and
-    /// applies the first one whose on-handle is truthy and whose ownership
-    /// matches the currently-active member (or lies outside the scope).
-    /// Reports whether a transition fired so the caller can drive the
-    /// convergence loop.
+    /// applies the first one whose on-handle was freshly marked changed
+    /// with a truthy value during the current cycle and whose ownership
+    /// matches the currently-active member (or lies outside the scope). A
+    /// stale-truthy source that did not re-mark this cycle does not fire
+    /// the transition; this mirrors the conditional-edge firing semantic
+    /// of the pre-Scope scheduler and prevents wait/interval/latched
+    /// comparisons (which mark once per event) from driving spurious
+    /// repeated transitions on later cycles. Firing consumes the mark, so
+    /// a single MarkChanged call produces at most one transition firing
+    /// per cycle. Reports whether a transition fired so the caller can
+    /// drive the convergence loop.
     bool evaluate_transitions(ScopeState &state) {
         const auto &transitions = state.ir->transitions;
         for (size_t i = 0; i < transitions.size(); ++i) {
             const size_t owner = state.transition_owner[i];
             if (owner != NO_INDEX && owner != state.active_member) continue;
+            const auto key = mark_key(transitions[i].on.node, transitions[i].on.param);
+            const auto mark_it = this->marked_this_cycle.find(key);
+            if (mark_it == this->marked_this_cycle.end()) continue;
             if (!this->is_handle_truthy(transitions[i].on)) continue;
+            this->marked_this_cycle.erase(mark_it);
             if (state.active_member != NO_INDEX)
                 this->deactivate_member(state, state.active_member);
             const auto &target = transitions[i].target;
@@ -469,6 +498,8 @@ private:
     /// continuous-edge semantics of the pre-Scope IR.
     void mark_changed(const std::string &param) {
         auto &n = this->nodes[*this->curr_node_ptr];
+        if (n.node->is_output_truthy(param))
+            this->marked_this_cycle.insert(mark_key(*this->curr_node_ptr, param));
         for (const auto &edge: n.output_edges[param]) {
             if (edge.kind != ir::EdgeKind::Conditional ||
                 n.node->is_output_truthy(param))
