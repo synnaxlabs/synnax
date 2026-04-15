@@ -1328,6 +1328,38 @@ var _ = Describe("WASM", func() {
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](h.Output("neg_cf", 0))).To(Equal([]float64{-1.5, 2.5, -3.5}))
 		})
+
+		It("chan (u8) promotes to i16", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "neg_u8",
+						Inputs:  types.Params{{Name: "val", Type: types.U8()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I16()}},
+						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
+					},
+					{
+						Key:     "val_src",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+						Body:    ir.Body{Raw: `{ return 1 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "val_src", Type: "val_src"},
+					{Key: "neg_u8", Type: "neg_u8"},
+				},
+				Edges: []graph.Edge{{
+					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
+					Target: ir.Handle{Node: "neg_u8", Param: "val"},
+				}},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+			h.SetInput("val_src", 0, telem.NewSeriesV[uint8](5, 10, 200), telem.NewSeriesSecondsTSV(1, 2, 3))
+			changed := h.Execute(ctx, "neg_u8")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			Expect(telem.UnmarshalSeries[int16](h.Output("neg_u8", 0))).To(Equal([]int16{-5, -10, -200}))
+		})
 	})
 
 	Describe("String Function Type Safety", func() {

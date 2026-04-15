@@ -384,14 +384,22 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			if funcName != "now" && funcName != "time.now" &&
-				funcName != "len" && funcName != "series.len" {
-				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
-			}
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
 				ctx.Diagnostics.Add(diagnostics.Error(fnErr, ctx.AST))
 				return
+			}
+			if callerFn != nil && scope.Exec == symbol.ExecFlow {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST,
+					"function '%s' is only available in flow statements, not in func blocks",
+					funcName,
+				))
+				return
+			}
+			if funcName != "now" && funcName != "time.now" &&
+				funcName != "len" && funcName != "series.len" {
+				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])

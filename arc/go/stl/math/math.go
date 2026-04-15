@@ -505,7 +505,7 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 }
 
 func createNegateSymbol(name string) symbol.Symbol {
-	constraint := types.NumericConstraint()
+	constraint := types.SignedNumericConstraint()
 	return symbol.Symbol{
 		Name: name,
 		Kind: symbol.KindFunction,
@@ -601,6 +601,10 @@ var (
 			telem.Int32T:   op.NegateI32,
 			telem.Int16T:   op.NegateI16,
 			telem.Int8T:    op.NegateI8,
+			telem.Uint64T:  op.NegateU64,
+			telem.Uint32T:  op.NegateU32,
+			telem.Uint16T:  op.NegateU16,
+			telem.Uint8T:   op.NegateU8,
 		},
 	}
 )

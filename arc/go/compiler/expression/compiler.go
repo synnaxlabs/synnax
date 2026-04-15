@@ -224,7 +224,17 @@ func compileFunctionCallExpr(
 		concreteInputs[i].Type = argType
 		if paramType.Kind == types.KindVariable && argType.Kind != types.KindNumericConstant &&
 			argType.Kind != types.KindIntegerConstant && argType.Kind != types.KindFloatConstant {
-			varMap[paramType.Name] = argType
+			resolvedArg := argType
+			if paramType.Constraint != nil && paramType.Constraint.Kind == types.KindSignedNumericConstant {
+				resolvedArg = types.PromoteUnsignedToSigned(argType)
+				if !types.Equal(resolvedArg, argType) {
+					if err := EmitCast(ctx, argType, resolvedArg); err != nil {
+						return types.Type{}, err
+					}
+					concreteInputs[i].Type = resolvedArg
+				}
+			}
+			varMap[paramType.Name] = resolvedArg
 		}
 		if !types.Equal(argType, paramType) && paramType.Kind != types.KindVariable {
 			if err := EmitCast(ctx, argType, paramType); err != nil {

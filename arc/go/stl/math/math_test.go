@@ -486,7 +486,7 @@ var _ = Describe("Arithmetic", func() {
 		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
 		g := makeUnaryGraph(t, types.FromTelem(input.DataType))
 		analyzed, diagnostics := graph.Analyze(ctx, g, stlmath.SymbolResolver)
-		Expect(diagnostics.Ok()).To(BeTrue())
+		Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		s := node.New(analyzed)
 		inputNode := s.Node("input")
 		*inputNode.Output(0) = input
@@ -511,6 +511,10 @@ var _ = Describe("Arithmetic", func() {
 		Entry("Int32 NEG - mixed", "neg", telem.NewSeriesV[int32](10, -20, 30, -40), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[int32](-10, 20, -30, 40), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
 		Entry("Int16 NEG - positive", "neg", telem.NewSeriesV[int16](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](-5, -10, -15), telem.NewSeriesSecondsTSV(1, 2, 3)),
 		Entry("Int8 NEG - negative", "neg", telem.NewSeriesV[int8](-1, -2, -3), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[int8](1, 2, 3), telem.NewSeriesSecondsTSV(10, 20, 30)),
+		Entry("Uint8 NEG - promotes to int16", "neg", telem.NewSeriesV[uint8](5, 10, 255), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](-5, -10, -255), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint16 NEG - promotes to int32", "neg", telem.NewSeriesV[uint16](100, 500, 65535), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int32](-100, -500, -65535), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint32 NEG - promotes to int64", "neg", telem.NewSeriesV[uint32](1000, 50000, 4294967295), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](-1000, -50000, -4294967295), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Uint64 NEG - promotes to float64", "neg", telem.NewSeriesV[uint64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](-100, -200, -300), telem.NewSeriesSecondsTSV(1, 2, 3)),
 	)
 	Describe("Edge Cases", func() {
 		It("Should handle mismatched series lengths", func(ctx SpecContext) {

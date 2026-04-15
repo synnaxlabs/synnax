@@ -2495,7 +2495,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
-		It("Should reject a flow-only function called in a func body at compile time", func(ctx SpecContext) {
+		It("Should reject a flow-only function called in a func body at analysis time", func(ctx SpecContext) {
 			resolver := symbol.CompoundResolver{
 				symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
@@ -2510,11 +2510,9 @@ var _ = Describe("Text", func() {
 			sensor -> test{}
 			`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-			_, err := text.Compile(ctx, ir)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("only available in flow statements"))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("only available in flow statements"))
 		})
 	})
 })
