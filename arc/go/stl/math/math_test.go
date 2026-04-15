@@ -277,6 +277,80 @@ var _ = Describe("Math", func() {
 			res := rt.Call(ctx, "math", "neg_f64", testutil.F64(3.5))
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -3.5, 0.001))
 		})
+		It("Should add u8 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "add_u8", testutil.U32(3), testutil.U32(7))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(10)))
+		})
+		It("Should add i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "add_i64", testutil.U64(100), testutil.U64(200))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(300)))
+		})
+		It("Should add f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "add_f32", testutil.F32(1.5), testutil.F32(2.5))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 4.0, 0.001))
+		})
+		It("Should subtract u8 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "subtract_u8", testutil.U32(10), testutil.U32(3))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(7)))
+		})
+		It("Should subtract i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "subtract_i64", testutil.U64(300), testutil.U64(100))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(200)))
+		})
+		It("Should subtract f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "subtract_f32", testutil.F32(10.0), testutil.F32(3.5))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 6.5, 0.001))
+		})
+		It("Should multiply u8 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "multiply_u8", testutil.U32(4), testutil.U32(5))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(20)))
+		})
+		It("Should multiply i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "multiply_i64", testutil.U64(10), testutil.U64(20))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(200)))
+		})
+		It("Should multiply f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "multiply_f32", testutil.F32(2.5), testutil.F32(4.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 10.0, 0.001))
+		})
+		It("Should divide u8 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "divide_u8", testutil.U32(20), testutil.U32(4))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(5)))
+		})
+		It("Should divide i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "divide_i64", testutil.U64(100), testutil.U64(5))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(20)))
+		})
+		It("Should divide f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "divide_f32", testutil.F32(10.0), testutil.F32(4.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 2.5, 0.001))
+		})
+		It("Should mod u8 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "mod_u8", testutil.U32(10), testutil.U32(3))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(1)))
+		})
+		It("Should mod i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "mod_i64", testutil.U64(10), testutil.U64(3))
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(1)))
+		})
+		It("Should mod f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "mod_f32", testutil.F32(10.5), testutil.F32(3.0))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 1.5, 0.001))
+		})
+		It("Should negate i8 values", func(ctx SpecContext) {
+			var negThree int32 = -3
+			res := rt.Call(ctx, "math", "neg_i8", testutil.I32(3))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(negThree))))
+		})
+		It("Should negate i64 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "neg_i64", testutil.U64(42))
+			var expected int64 = -42
+			Expect(testutil.AsU64(res[0])).To(Equal(uint64(expected)))
+		})
+		It("Should negate f32 values", func(ctx SpecContext) {
+			res := rt.Call(ctx, "math", "neg_f32", testutil.F32(3.5))
+			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", -3.5, 0.001))
+		})
 	})
 
 	Describe("SymbolResolver", func() {
