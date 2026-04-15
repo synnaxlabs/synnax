@@ -15,6 +15,20 @@ enum EdgeKind {
   EDGE_KIND_CONDITIONAL = 2;
 }
 
+// ScopeMode defines the concurrency model of a Scope.
+enum ScopeMode {
+  SCOPE_MODE_UNSPECIFIED = 0;
+  SCOPE_MODE_PARALLEL = 1;
+  SCOPE_MODE_SEQUENTIAL = 2;
+}
+
+// Liveness defines whether a Scope is continuously active or must be activated.
+enum Liveness {
+  LIVENESS_UNSPECIFIED = 0;
+  LIVENESS_ALWAYS = 1;
+  LIVENESS_GATED = 2;
+}
+
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 message Handle {
@@ -34,48 +48,68 @@ message Edge {
   EdgeKind kind = 3;
 }
 
-// Flow is a leaf step in a sequence containing a single dataflow chain.
-message Flow {
-  // nodes contains node keys belonging to this flow step.
-  repeated string nodes = 1;
-}
-message StratumWrapper {
-  repeated string values = 1;
+// NodeRef is a Layer 2 reference to a node in the dataflow graph.
+message NodeRef {
+  // key is the key of the referenced node in IR.nodes.
+  string key = 1;
 }
 
-// Stage is a parallel execution context containing reactive flows that execute
-// concurrently. May also contain inline sub-sequences.
-message Stage {
-  // key is the stage identifier.
-  string key = 1;
-  // strata contains execution stratification for nodes in this stage.
-  repeated StratumWrapper strata = 2;
-  // sequences contains inline sub-sequences nested within this stage.
-  repeated Sequence sequences = 3;
+// TransitionTarget is a tagged union describing the destination of a sequential
+// transition. Exactly one of memberKey or exit is set.
+message TransitionTarget {
+  // member_key is the sibling member key to activate.
+  optional string member_key = 1;
+  // exit is true when the transition exits the scope, yielding to the parent.
+  optional bool exit = 2;
 }
 
-// Step is a tagged union representing a single child of a sequence. Exactly one of
-// flow, stage, or sequence is set.
-message Step {
-  // key is the name for jump targets. Empty for anonymous steps.
-  string key = 1;
-  // flow is set when this step is a leaf containing a single dataflow chain.
-  optional Flow flow = 2;
-  // stage is set when this step is a parallel execution context.
-  optional Stage stage = 3;
-  // sequence is set when this step is a nested sequential context.
-  optional Sequence sequence = 4;
+// Transition is a declarative state-transition rule on a sequential Scope.
+message Transition {
+  // on is the dataflow handle whose truthy value fires this transition.
+  Handle on = 1;
+  // target is the destination of this transition.
+  TransitionTarget target = 2;
 }
 
-// Sequence is a sequential execution context defining an ordered list of steps, where
-// each step is a flow, a stage, or a nested sequence.
-message Sequence {
-  // key is the sequence identifier.
+// Member is a tagged union representing a single child of a Scope. Exactly one of
+// nodeRef or scope is set.
+message Member {
+  // key is the position identifier of this member within its parent scope.
   string key = 1;
-  // steps contains ordered steps in this sequence.
-  repeated Step steps = 2;
-  // strata contains execution stratification for flow step nodes in this sequence.
-  repeated StratumWrapper strata = 3;
+  // node_ref is set when this member references a dataflow node.
+  optional NodeRef node_ref = 2;
+  // scope is set when this member is a nested scope.
+  optional Scope scope = 3;
+}
+
+// Phase is a single execution layer within a parallel Scope. Members in a phase have no
+// data dependency among themselves; phase N depends only on phases 0 to N-1.
+message Phase {
+  // members contains members that execute together in this phase.
+  repeated Member members = 1;
+}
+
+// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+// sequential) and liveness (always-live or gated). Parallel scopes organize members
+// into phases; sequential scopes run one member at a time and advance via transitions.
+message Scope {
+  // key is the scope identifier.
+  string key = 1;
+  // mode defines whether this scope runs members in parallel or sequentially.
+  ScopeMode mode = 2;
+  // liveness defines whether this scope is continuously active or must be activated.
+  Liveness liveness = 3;
+  // activation is the handle whose truthy value activates a gated scope. Unset for
+  // always-live scopes.
+  optional Handle activation = 4;
+  // phases contains ordered execution layers for parallel scopes. Empty for sequential
+  // scopes.
+  repeated Phase phases = 5;
+  // members contains ordered members for sequential scopes. Empty for parallel scopes.
+  repeated Member members = 6;
+  // transitions contains state-transition rules for sequential scopes. Empty for parallel
+  // scopes.
+  repeated Transition transitions = 7;
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -137,7 +171,7 @@ message IR {
   repeated Edge edges = 3;
   // authorities contains the static authority declarations for this program.
   Authorities authorities = 4;
-  // root is the top-level execution context. Its strata field holds global
-  // stratification; its sequences field holds top-level sequences.
-  Stage root = 5;
+  // root is the top-level execution context. The root is always a parallel, always-live
+  // Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+  Scope root = 5;
 }

@@ -184,28 +184,54 @@ var _ = Describe("Codec", func() {
 						Default:  func() *uint8 { v := uint8(102); return &v }(),
 						Channels: map[uint32]uint8{103: 103},
 					},
-					Root: ir.Stage{
-						Key:    "test_104",
-						Strata: [][]string{{"test_105"}},
-						Sequences: []ir.Sequence{
+					Root: ir.Scope{
+						Key:        "test_104",
+						Mode:       ir.ScopeMode(0),
+						Liveness:   ir.Liveness(0),
+						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
+						Phases: []ir.Phase{
 							{
-								Key: "test_107",
-								Steps: []ir.Step{
+								Members: []ir.Member{
 									{
-										Key:      "test_109",
-										Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
-										Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
-										Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+										Key:     "test_112",
+										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 									},
 								},
-								Strata: [][]string{{"test_113"}},
+							},
+						},
+						Members: []ir.Member{
+							{
+								Key:     "test_116",
+								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+								Scope: func() *ir.Scope {
+									v := ir.Scope{
+										Key:         "test_120",
+										Mode:        ir.ScopeMode(0),
+										Liveness:    ir.Liveness(0),
+										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+										Phases:      []ir.Phase{{}},
+										Members:     []ir.Member{{}},
+										Transitions: []ir.Transition{{}},
+									}
+									return &v
+								}(),
+							},
+						},
+						Transitions: []ir.Transition{
+							{
+								On: ir.Handle{Node: "test_129", Param: "test_130"},
+								Target: ir.TransitionTarget{
+									MemberKey: func() *string { v := string("test_132"); return &v }(),
+									Exit:      func() *bool { v := bool(true); return &v }(),
+								},
 							},
 						},
 					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{114, 115, 116},
-					OutputMemoryBases: map[string]uint32{"test_115": 116},
+					WASM:              []byte{134, 135, 136},
+					OutputMemoryBases: map[string]uint32{"test_135": 136},
 				},
 			}),
 			Entry("zero values", program.Program{
@@ -214,10 +240,14 @@ var _ = Describe("Codec", func() {
 					Nodes:       nil,
 					Edges:       nil,
 					Authorities: ir.Authorities{Default: nil, Channels: nil},
-					Root: ir.Stage{
-						Key:       "",
-						Strata:    nil,
-						Sequences: nil,
+					Root: ir.Scope{
+						Key:         "",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  nil,
+						Phases:      nil,
+						Members:     nil,
+						Transitions: nil,
 					},
 				},
 				Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
@@ -231,14 +261,18 @@ var _ = Describe("Codec", func() {
 						Default:  func() *uint8 { v := uint8(6); return &v }(),
 						Channels: map[uint32]uint8{},
 					},
-					Root: ir.Stage{
-						Key:       "test_8",
-						Strata:    [][]string{},
-						Sequences: []ir.Sequence{},
+					Root: ir.Scope{
+						Key:         "test_8",
+						Mode:        ir.ScopeMode(0),
+						Liveness:    ir.Liveness(0),
+						Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
+						Phases:      []ir.Phase{},
+						Members:     []ir.Member{},
+						Transitions: []ir.Transition{},
 					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{11, 12, 13},
+					WASM:              []byte{17, 18, 19},
 					OutputMemoryBases: map[string]uint32{},
 				},
 			}),
@@ -394,28 +428,54 @@ func BenchmarkEncodeDecodeProgram(b *testing.B) {
 				Default:  func() *uint8 { v := uint8(102); return &v }(),
 				Channels: map[uint32]uint8{103: 103},
 			},
-			Root: ir.Stage{
-				Key:    "test_104",
-				Strata: [][]string{{"test_105"}},
-				Sequences: []ir.Sequence{
+			Root: ir.Scope{
+				Key:        "test_104",
+				Mode:       ir.ScopeMode(0),
+				Liveness:   ir.Liveness(0),
+				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
+				Phases: []ir.Phase{
 					{
-						Key: "test_107",
-						Steps: []ir.Step{
+						Members: []ir.Member{
 							{
-								Key:      "test_109",
-								Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
-								Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
-								Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+								Key:     "test_112",
+								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 							},
 						},
-						Strata: [][]string{{"test_113"}},
+					},
+				},
+				Members: []ir.Member{
+					{
+						Key:     "test_116",
+						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+						Scope: func() *ir.Scope {
+							v := ir.Scope{
+								Key:         "test_120",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+								Phases:      []ir.Phase{{}},
+								Members:     []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}
+							return &v
+						}(),
+					},
+				},
+				Transitions: []ir.Transition{
+					{
+						On: ir.Handle{Node: "test_129", Param: "test_130"},
+						Target: ir.TransitionTarget{
+							MemberKey: func() *string { v := string("test_132"); return &v }(),
+							Exit:      func() *bool { v := bool(true); return &v }(),
+						},
 					},
 				},
 			},
 		},
 		Output: compiler.Output{
-			WASM:              []byte{114, 115, 116},
-			OutputMemoryBases: map[string]uint32{"test_115": 116},
+			WASM:              []byte{134, 135, 136},
+			OutputMemoryBases: map[string]uint32{"test_135": 136},
 		},
 	}
 	w := orc.NewWriter(0)
@@ -582,28 +642,54 @@ func FuzzDecodeProgram(f *testing.F) {
 					Default:  func() *uint8 { v := uint8(102); return &v }(),
 					Channels: map[uint32]uint8{103: 103},
 				},
-				Root: ir.Stage{
-					Key:    "test_104",
-					Strata: [][]string{{"test_105"}},
-					Sequences: []ir.Sequence{
+				Root: ir.Scope{
+					Key:        "test_104",
+					Mode:       ir.ScopeMode(0),
+					Liveness:   ir.Liveness(0),
+					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
+					Phases: []ir.Phase{
 						{
-							Key: "test_107",
-							Steps: []ir.Step{
+							Members: []ir.Member{
 								{
-									Key:      "test_109",
-									Flow:     func() *ir.Flow { v := ir.Flow{}; return &v }(),
-									Stage:    func() *ir.Stage { v := ir.Stage{}; return &v }(),
-									Sequence: func() *ir.Sequence { v := ir.Sequence{}; return &v }(),
+									Key:     "test_112",
+									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 								},
 							},
-							Strata: [][]string{{"test_113"}},
+						},
+					},
+					Members: []ir.Member{
+						{
+							Key:     "test_116",
+							NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+							Scope: func() *ir.Scope {
+								v := ir.Scope{
+									Key:         "test_120",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+									Phases:      []ir.Phase{{}},
+									Members:     []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
+								}
+								return &v
+							}(),
+						},
+					},
+					Transitions: []ir.Transition{
+						{
+							On: ir.Handle{Node: "test_129", Param: "test_130"},
+							Target: ir.TransitionTarget{
+								MemberKey: func() *string { v := string("test_132"); return &v }(),
+								Exit:      func() *bool { v := bool(true); return &v }(),
+							},
 						},
 					},
 				},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{114, 115, 116},
-				OutputMemoryBases: map[string]uint32{"test_115": 116},
+				WASM:              []byte{134, 135, 136},
+				OutputMemoryBases: map[string]uint32{"test_135": 136},
 			},
 		}
 		w := orc.NewWriter(0)
@@ -619,10 +705,14 @@ func FuzzDecodeProgram(f *testing.F) {
 				Nodes:       nil,
 				Edges:       nil,
 				Authorities: ir.Authorities{Default: nil, Channels: nil},
-				Root: ir.Stage{
-					Key:       "",
-					Strata:    nil,
-					Sequences: nil,
+				Root: ir.Scope{
+					Key:         "",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  nil,
+					Phases:      nil,
+					Members:     nil,
+					Transitions: nil,
 				},
 			},
 			Output: compiler.Output{WASM: nil, OutputMemoryBases: nil},
@@ -643,14 +733,18 @@ func FuzzDecodeProgram(f *testing.F) {
 					Default:  func() *uint8 { v := uint8(6); return &v }(),
 					Channels: map[uint32]uint8{},
 				},
-				Root: ir.Stage{
-					Key:       "test_8",
-					Strata:    [][]string{},
-					Sequences: []ir.Sequence{},
+				Root: ir.Scope{
+					Key:         "test_8",
+					Mode:        ir.ScopeMode(0),
+					Liveness:    ir.Liveness(0),
+					Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
+					Phases:      []ir.Phase{},
+					Members:     []ir.Member{},
+					Transitions: []ir.Transition{},
 				},
 			},
 			Output: compiler.Output{
-				WASM:              []byte{11, 12, 13},
+				WASM:              []byte{17, 18, 19},
 				OutputMemoryBases: map[string]uint32{},
 			},
 		}

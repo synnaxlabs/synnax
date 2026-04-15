@@ -77,7 +77,7 @@ Program::from_proto(const ::arc::program::pb::Program &pb) {
         cpp.authorities = v;
     }
     {
-        auto [v, err] = ::arc::ir::Stage::from_proto(pb.root());
+        auto [v, err] = ::arc::ir::Scope::from_proto(pb.root());
         if (err) return {{}, err};
         cpp.root = v;
     }

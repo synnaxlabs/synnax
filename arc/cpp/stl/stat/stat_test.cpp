@@ -27,7 +27,6 @@ runtime::node::Context make_context() {
         .reason = runtime::node::RunReason::TimerTick,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 

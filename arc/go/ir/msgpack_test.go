@@ -71,37 +71,6 @@ var _ = Describe("DecodeMsgpack", func() {
 		})
 	})
 
-	Describe("Stage", func() {
-		It("Should round-trip encode and decode", func() {
-			original := ir.Stage{
-				Key:    "stage1",
-				Strata: ir.Strata{{"n1"}, {"n2"}},
-			}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded ir.Stage
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("stage1"))
-			Expect(decoded.Strata).To(Equal(ir.Strata{{"n1"}, {"n2"}}))
-		})
-	})
-
-	Describe("Sequence", func() {
-		It("Should decode new lowercase msgpack fields", func() {
-			original := ir.Sequence{
-				Key: "seq1",
-				Steps: []ir.Step{
-					{Key: "s1", Stage: &ir.Stage{Key: "s1", Strata: ir.Strata{{"n1"}}}},
-				},
-			}
-			data := MustSucceed(msgpack.Marshal(original))
-			var decoded ir.Sequence
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Key).To(Equal("seq1"))
-			Expect(decoded.Steps).To(HaveLen(1))
-			Expect(decoded.Steps[0].Key).To(Equal("s1"))
-		})
-	})
-
 	Describe("Function", func() {
 		It("Should decode legacy uppercase Go field names", func() {
 			legacy := struct {
@@ -157,28 +126,4 @@ var _ = Describe("DecodeMsgpack", func() {
 		})
 	})
 
-	Describe("IR", func() {
-		It("Should decode legacy uppercase Go field names", func() {
-			legacy := struct {
-				Functions ir.Functions
-				Nodes     ir.Nodes
-				Edges     ir.Edges
-				Strata    ir.Strata
-				Sequences ir.Sequences
-			}{
-				Functions: ir.Functions{{Key: "fn1", Body: ir.Body{Raw: "return 1"}}},
-				Nodes:     ir.Nodes{{Key: "n1", Type: "fn1"}},
-				Edges:     ir.Edges{{Source: ir.Handle{Node: "n1", Param: "out"}}},
-				Strata:    ir.Strata{{"n1"}},
-			}
-			data := MustSucceed(msgpack.Marshal(legacy))
-			var decoded ir.IR
-			Expect(msgpack.Unmarshal(data, &decoded)).To(Succeed())
-			Expect(decoded.Functions).To(HaveLen(1))
-			Expect(decoded.Functions[0].Key).To(Equal("fn1"))
-			Expect(decoded.Nodes).To(HaveLen(1))
-			Expect(decoded.Edges).To(HaveLen(1))
-			Expect(decoded.Root.Strata).To(HaveLen(1))
-		})
-	})
 })

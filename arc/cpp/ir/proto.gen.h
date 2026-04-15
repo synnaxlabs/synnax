@@ -72,115 +72,166 @@ Edge::from_proto(const ::arc::ir::pb::Edge &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::arc::ir::pb::Flow, x::errors::Error> Flow::to_proto() const {
-    ::arc::ir::pb::Flow pb;
-    for (const auto &item: this->nodes)
-        pb.add_nodes(item);
+inline std::pair<::arc::ir::pb::NodeRef, x::errors::Error> NodeRef::to_proto() const {
+    ::arc::ir::pb::NodeRef pb;
+    pb.set_key(this->key);
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Flow, x::errors::Error>
-Flow::from_proto(const ::arc::ir::pb::Flow &pb) {
-    Flow cpp;
-    for (const auto &item: pb.nodes())
-        cpp.nodes.push_back(item);
+inline std::pair<NodeRef, x::errors::Error>
+NodeRef::from_proto(const ::arc::ir::pb::NodeRef &pb) {
+    NodeRef cpp;
+    cpp.key = pb.key();
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::arc::ir::pb::Stage, x::errors::Error> Stage::to_proto() const {
-    ::arc::ir::pb::Stage pb;
-    pb.set_key(this->key);
-    for (const auto &item: this->strata) {
-        auto *wrapper = pb.add_strata();
-        for (const auto &v: item)
-            wrapper->add_values(v);
-    }
-    for (const auto &item: this->sequences) {
-        auto [v, err] = item.to_proto();
+inline std::pair<::arc::ir::pb::TransitionTarget, x::errors::Error>
+TransitionTarget::to_proto() const {
+    ::arc::ir::pb::TransitionTarget pb;
+    if (this->member_key.has_value()) pb.set_member_key(*this->member_key);
+    if (this->exit.has_value()) pb.set_exit(*this->exit);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<TransitionTarget, x::errors::Error>
+TransitionTarget::from_proto(const ::arc::ir::pb::TransitionTarget &pb) {
+    TransitionTarget cpp;
+    if (pb.has_member_key()) cpp.member_key = pb.member_key();
+    if (pb.has_exit()) cpp.exit = pb.exit();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Transition, x::errors::Error>
+Transition::to_proto() const {
+    ::arc::ir::pb::Transition pb;
+    {
+        auto [v, err] = this->on.to_proto();
         if (err) return {{}, err};
-        *pb.add_sequences() = v;
+        *pb.mutable_on() = v;
+    }
+    {
+        auto [v, err] = this->target.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_target() = v;
     }
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Stage, x::errors::Error>
-Stage::from_proto(const ::arc::ir::pb::Stage &pb) {
-    Stage cpp;
+inline std::pair<Transition, x::errors::Error>
+Transition::from_proto(const ::arc::ir::pb::Transition &pb) {
+    Transition cpp;
+    {
+        auto [v, err] = Handle::from_proto(pb.on());
+        if (err) return {{}, err};
+        cpp.on = v;
+    }
+    {
+        auto [v, err] = TransitionTarget::from_proto(pb.target());
+        if (err) return {{}, err};
+        cpp.target = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Member, x::errors::Error> Member::to_proto() const {
+    ::arc::ir::pb::Member pb;
+    pb.set_key(this->key);
+    if (this->node_ref.has_value()) {
+        auto [v, err] = this->node_ref->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_node_ref() = v;
+    }
+    if (this->scope.has_value()) {
+        auto [v, err] = this->scope->to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_scope() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Member, x::errors::Error>
+Member::from_proto(const ::arc::ir::pb::Member &pb) {
+    Member cpp;
     cpp.key = pb.key();
-    for (const auto &wrapper: pb.strata())
-        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
-    if (auto err = x::pb::from_proto_repeated<Sequence>(cpp.sequences, pb.sequences()))
+    if (pb.has_node_ref()) {
+        auto [v, err] = NodeRef::from_proto(pb.node_ref());
+        if (err) return {{}, err};
+        cpp.node_ref = v;
+    }
+    if (pb.has_scope()) {
+        auto [v, err] = Scope::from_proto(pb.scope());
+        if (err) return {{}, err};
+        cpp.scope = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::arc::ir::pb::Phase, x::errors::Error> Phase::to_proto() const {
+    ::arc::ir::pb::Phase pb;
+    for (const auto &item: this->members) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_members() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Phase, x::errors::Error>
+Phase::from_proto(const ::arc::ir::pb::Phase &pb) {
+    Phase cpp;
+    if (auto err = x::pb::from_proto_repeated<Member>(cpp.members, pb.members()))
         return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::arc::ir::pb::Step, x::errors::Error> Step::to_proto() const {
-    ::arc::ir::pb::Step pb;
+inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const {
+    ::arc::ir::pb::Scope pb;
     pb.set_key(this->key);
-    if (this->flow.has_value()) {
-        auto [v, err] = this->flow->to_proto();
+    pb.set_mode(static_cast<::arc::ir::pb::ScopeMode>(this->mode));
+    pb.set_liveness(static_cast<::arc::ir::pb::Liveness>(this->liveness));
+    if (this->activation.has_value()) {
+        auto [v, err] = this->activation->to_proto();
         if (err) return {{}, err};
-        *pb.mutable_flow() = v;
+        *pb.mutable_activation() = v;
     }
-    if (this->stage.has_value()) {
-        auto [v, err] = this->stage->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_stage() = v;
-    }
-    if (this->sequence.has_value()) {
-        auto [v, err] = this->sequence->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_sequence() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Step, x::errors::Error>
-Step::from_proto(const ::arc::ir::pb::Step &pb) {
-    Step cpp;
-    cpp.key = pb.key();
-    if (pb.has_flow()) {
-        auto [v, err] = Flow::from_proto(pb.flow());
-        if (err) return {{}, err};
-        cpp.flow = v;
-    }
-    if (pb.has_stage()) {
-        auto [v, err] = Stage::from_proto(pb.stage());
-        if (err) return {{}, err};
-        cpp.stage = v;
-    }
-    if (pb.has_sequence()) {
-        auto [v, err] = Sequence::from_proto(pb.sequence());
-        if (err) return {{}, err};
-        cpp.sequence = v;
-    }
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::arc::ir::pb::Sequence, x::errors::Error> Sequence::to_proto() const {
-    ::arc::ir::pb::Sequence pb;
-    pb.set_key(this->key);
-    for (const auto &item: this->steps) {
+    for (const auto &item: this->phases) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.add_steps() = v;
+        *pb.add_phases() = v;
     }
-    for (const auto &item: this->strata) {
-        auto *wrapper = pb.add_strata();
-        for (const auto &v: item)
-            wrapper->add_values(v);
+    for (const auto &item: this->members) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_members() = v;
+    }
+    for (const auto &item: this->transitions) {
+        auto [v, err] = item.to_proto();
+        if (err) return {{}, err};
+        *pb.add_transitions() = v;
     }
     return {pb, x::errors::NIL};
 }
 
-inline std::pair<Sequence, x::errors::Error>
-Sequence::from_proto(const ::arc::ir::pb::Sequence &pb) {
-    Sequence cpp;
+inline std::pair<Scope, x::errors::Error>
+Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
+    Scope cpp;
     cpp.key = pb.key();
-    if (auto err = x::pb::from_proto_repeated<Step>(cpp.steps, pb.steps()))
+    cpp.mode = static_cast<ScopeMode>(pb.mode());
+    cpp.liveness = static_cast<Liveness>(pb.liveness());
+    if (pb.has_activation()) {
+        auto [v, err] = Handle::from_proto(pb.activation());
+        if (err) return {{}, err};
+        cpp.activation = v;
+    }
+    if (auto err = x::pb::from_proto_repeated<Phase>(cpp.phases, pb.phases()))
         return {{}, err};
-    for (const auto &wrapper: pb.strata())
-        cpp.strata.push_back({wrapper.values().begin(), wrapper.values().end()});
+    if (auto err = x::pb::from_proto_repeated<Member>(cpp.members, pb.members()))
+        return {{}, err};
+    if (auto err = x::pb::from_proto_repeated<Transition>(
+            cpp.transitions,
+            pb.transitions()
+        ))
+        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
@@ -377,7 +428,7 @@ inline std::pair<IR, x::errors::Error> IR::from_proto(const ::arc::ir::pb::IR &p
         cpp.authorities = v;
     }
     {
-        auto [v, err] = Stage::from_proto(pb.root());
+        auto [v, err] = Scope::from_proto(pb.root());
         if (err) return {{}, err};
         cpp.root = v;
     }

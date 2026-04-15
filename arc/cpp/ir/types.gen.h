@@ -29,15 +29,17 @@
 namespace arc::ir {
 
 struct Handle;
-struct Flow;
+struct NodeRef;
+struct TransitionTarget;
 struct Body;
 struct Node;
 struct Authorities;
+struct Transition;
 struct Function;
 struct Edge;
-struct Stage;
-struct Step;
-struct Sequence;
+struct Member;
+struct Phase;
+struct Scope;
 struct IR;
 
 enum class EdgeKind : std::uint8_t {
@@ -46,7 +48,17 @@ enum class EdgeKind : std::uint8_t {
     Conditional = 2,
 };
 
-using Stratum = std::vector<std::string>;
+enum class ScopeMode : std::uint8_t {
+    Unspecified = 0,
+    Parallel = 1,
+    Sequential = 2,
+};
+
+enum class Liveness : std::uint8_t {
+    Unspecified = 0,
+    Always = 1,
+    Gated = 2,
+};
 
 /// @brief Handle is a reference to a specific parameter on a specific node in the
 /// dataflow graph.
@@ -67,20 +79,36 @@ struct Handle {
     friend std::ostream &operator<<(std::ostream &os, const Handle &h);
 };
 
-/// @brief Flow is a leaf step in a sequence containing a single dataflow chain.
-struct Flow {
-    /// @brief nodes contains node keys belonging to this flow step.
-    std::vector<std::string> nodes;
+/// @brief NodeRef is a Layer 2 reference to a node in the dataflow graph.
+struct NodeRef {
+    /// @brief key is the key of the referenced node in IR.nodes.
+    std::string key;
 
-    static Flow parse(x::json::Parser parser);
+    static NodeRef parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::ir::pb::Flow;
-    [[nodiscard]] std::pair<::arc::ir::pb::Flow, x::errors::Error> to_proto() const;
-    static std::pair<Flow, x::errors::Error> from_proto(const ::arc::ir::pb::Flow &pb);
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Flow &f);
+    using proto_type = ::arc::ir::pb::NodeRef;
+    [[nodiscard]] std::pair<::arc::ir::pb::NodeRef, x::errors::Error> to_proto() const;
+    static std::pair<NodeRef, x::errors::Error>
+    from_proto(const ::arc::ir::pb::NodeRef &pb);
+};
+
+/// @brief TransitionTarget is a tagged union describing the destination of a sequential
+/// transition. Exactly one of memberKey or exit is set.
+struct TransitionTarget {
+    /// @brief member_key is the sibling member key to activate.
+    std::optional<std::string> member_key;
+    /// @brief exit is true when the transition exits the scope, yielding to the parent.
+    std::optional<bool> exit;
+
+    static TransitionTarget parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::TransitionTarget;
+    [[nodiscard]] std::pair<::arc::ir::pb::TransitionTarget, x::errors::Error>
+    to_proto() const;
+    static std::pair<TransitionTarget, x::errors::Error>
+    from_proto(const ::arc::ir::pb::TransitionTarget &pb);
 };
 
 /// @brief Body is raw function body source code with optional parsed AST.
@@ -141,58 +169,23 @@ struct Authorities {
     from_proto(const ::arc::ir::pb::Authorities &pb);
 };
 
-struct Strata : private std::vector<Stratum> {
-    using Base = std::vector<Stratum>;
+/// @brief Transition is a declarative state-transition rule on a sequential Scope.
+struct Transition {
+    /// @brief on is the dataflow handle whose truthy value fires this transition.
+    Handle on;
+    /// @brief target is the destination of this transition.
+    TransitionTarget target;
 
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    Strata() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Strata parse(x::json::Parser parser);
+    static Transition parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::arc::ir::pb::Transition;
+    [[nodiscard]] std::pair<::arc::ir::pb::Transition, x::errors::Error>
+    to_proto() const;
+    static std::pair<Transition, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Transition &pb);
     [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Strata &s);
+    friend std::ostream &operator<<(std::ostream &os, const Transition &t);
 };
 
 /// @brief Function is a function template definition with typed parameters, serving as
@@ -395,225 +388,84 @@ struct Edges : private std::vector<Edge> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
-struct Stages : private std::vector<Stage> {
-    using Base = std::vector<Stage>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    Stages() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Stages parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct Steps : private std::vector<Step> {
-    using Base = std::vector<Step>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    Steps() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Steps parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-struct Sequences : private std::vector<Sequence> {
-    using Base = std::vector<Sequence>;
-
-    // Inherit constructors - these are instantiated at point of use, not declaration
-    using Base::Base;
-    Sequences() = default;
-
-    // Container interface
-    using Base::begin;
-    using Base::capacity;
-    using Base::cbegin;
-    using Base::cend;
-    using Base::const_iterator;
-    using Base::const_reference;
-    using Base::const_reverse_iterator;
-    using Base::crbegin;
-    using Base::crend;
-    using Base::difference_type;
-    using Base::empty;
-    using Base::end;
-    using Base::iterator;
-    using Base::max_size;
-    using Base::rbegin;
-    using Base::reference;
-    using Base::rend;
-    using Base::reserve;
-    using Base::reverse_iterator;
-    using Base::shrink_to_fit;
-    using Base::size;
-    using Base::size_type;
-    using Base::value_type;
-    using Base::operator[];
-    using Base::assign;
-    using Base::at;
-    using Base::back;
-    using Base::clear;
-    using Base::data;
-    using Base::emplace;
-    using Base::emplace_back;
-    using Base::erase;
-    using Base::front;
-    using Base::insert;
-    using Base::pop_back;
-    using Base::push_back;
-    using Base::resize;
-    using Base::swap;
-
-    static Sequences parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-};
-
-/// @brief Stage is a parallel execution context containing reactive flows that execute
-/// concurrently. May also contain inline sub-sequences.
-struct Stage {
-    /// @brief key is the stage identifier.
+/// @brief Member is a tagged union representing a single child of a Scope. Exactly one
+/// of nodeRef or scope is set.
+struct Member {
+    /// @brief key is the position identifier of this member within its parent scope.
     std::string key;
-    /// @brief strata contains execution stratification for nodes in this stage.
-    Strata strata;
-    /// @brief sequences contains inline sub-sequences nested within this stage.
-    Sequences sequences;
+    /// @brief node_ref is set when this member references a dataflow node.
+    std::optional<NodeRef> node_ref;
+    /// @brief scope is set when this member is a nested scope.
+    x::mem::indirect<Scope> scope;
 
-    static Stage parse(x::json::Parser parser);
+    static Member parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::ir::pb::Stage;
-    [[nodiscard]] std::pair<::arc::ir::pb::Stage, x::errors::Error> to_proto() const;
-    static std::pair<Stage, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Stage &pb);
+    using proto_type = ::arc::ir::pb::Member;
+    [[nodiscard]] std::pair<::arc::ir::pb::Member, x::errors::Error> to_proto() const;
+    static std::pair<Member, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Member &pb);
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Stage &s);
+    friend std::ostream &operator<<(std::ostream &os, const Member &m);
 };
 
-/// @brief Step is a tagged union representing a single child of a sequence. Exactly one
-/// of flow, stage, or sequence is set.
-struct Step {
-    /// @brief key is the name for jump targets. Empty for anonymous steps.
-    std::string key;
-    /// @brief flow is set when this step is a leaf containing a single dataflow chain.
-    std::optional<Flow> flow;
-    /// @brief stage is set when this step is a parallel execution context.
-    x::mem::indirect<Stage> stage;
-    /// @brief sequence is set when this step is a nested sequential context.
-    x::mem::indirect<Sequence> sequence;
+/// @brief Phase is a single execution layer within a parallel Scope. Members in a phase
+/// have no data dependency among themselves; phase N depends only on phases 0 to N-1.
+struct Phase {
+    /// @brief members contains members that execute together in this phase.
+    std::vector<Member> members;
 
-    static Step parse(x::json::Parser parser);
+    static Phase parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::ir::pb::Step;
-    [[nodiscard]] std::pair<::arc::ir::pb::Step, x::errors::Error> to_proto() const;
-    static std::pair<Step, x::errors::Error> from_proto(const ::arc::ir::pb::Step &pb);
+    using proto_type = ::arc::ir::pb::Phase;
+    [[nodiscard]] std::pair<::arc::ir::pb::Phase, x::errors::Error> to_proto() const;
+    static std::pair<Phase, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Phase &pb);
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Step &s);
+    friend std::ostream &operator<<(std::ostream &os, const Phase &p);
 };
 
-/// @brief Sequence is a sequential execution context defining an ordered list of steps,
-/// where each step is a flow, a stage, or a nested sequence.
-struct Sequence {
-    /// @brief key is the sequence identifier.
+/// @brief Scope is the unified Layer 2 execution primitive. Parameterized by mode
+/// (parallel or sequential) and liveness (always-live or gated). Parallel scopes
+/// organize members into phases; sequential scopes run one member at a time and advance
+/// via transitions.
+struct Scope {
+    /// @brief key is the scope identifier.
     std::string key;
-    /// @brief steps contains ordered steps in this sequence.
-    std::vector<Step> steps;
-    /// @brief strata contains execution stratification for flow step nodes in this
-    /// sequence.
-    Strata strata;
+    /// @brief mode defines whether this scope runs members in parallel or sequentially.
+    ScopeMode mode;
+    /// @brief liveness defines whether this scope is continuously active or must be
+    /// activated.
+    Liveness liveness;
+    /// @brief activation is the handle whose truthy value activates a gated scope.
+    /// Unset
+    /// for always-live scopes.
+    std::optional<Handle> activation;
+    /// @brief phases contains ordered execution layers for parallel scopes. Empty for
+    /// sequential scopes.
+    std::vector<Phase> phases;
+    /// @brief members contains ordered members for sequential scopes. Empty for
+    /// parallel
+    /// scopes.
+    std::vector<Member> members;
+    /// @brief transitions contains state-transition rules for sequential scopes. Empty
+    /// for
+    /// parallel scopes.
+    std::vector<Transition> transitions;
 
-    static Sequence parse(x::json::Parser parser);
+    static Scope parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
 
-    using proto_type = ::arc::ir::pb::Sequence;
-    [[nodiscard]] std::pair<::arc::ir::pb::Sequence, x::errors::Error> to_proto() const;
-    static std::pair<Sequence, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Sequence &pb);
+    using proto_type = ::arc::ir::pb::Scope;
+    [[nodiscard]] std::pair<::arc::ir::pb::Scope, x::errors::Error> to_proto() const;
+    static std::pair<Scope, x::errors::Error>
+    from_proto(const ::arc::ir::pb::Scope &pb);
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Sequence &s);
+    friend std::ostream &operator<<(std::ostream &os, const Scope &s);
 };
 
 /// @brief IR is the intermediate representation of an Arc program as a dataflow graph
@@ -627,9 +479,10 @@ struct IR {
     Edges edges;
     /// @brief authorities contains the static authority declarations for this program.
     Authorities authorities;
-    /// @brief root is the top-level execution context. Its strata field holds global
-    /// stratification; its sequences field holds top-level sequences.
-    Stage root;
+    /// @brief root is the top-level execution context. The root is always a parallel,
+    /// always-live Scope whose phases mix module-scope reactive flow with top-level
+    /// gated scopes.
+    Scope root;
 
     static IR parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -643,7 +496,6 @@ struct IR {
     [[nodiscard]] std::unordered_map<std::string, std::vector<Edge>>
     edges_from(const std::string &node_key) const;
     [[nodiscard]] std::vector<Edge> edges_to(const std::string &node_key) const;
-    [[nodiscard]] const Sequence &sequence(const std::string &key) const;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const IR &ir);

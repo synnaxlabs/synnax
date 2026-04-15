@@ -42,6 +42,103 @@ var _ = Describe("Arc", func() {
 		return ir.Node{}
 	}
 
+	// findTopLevelScope returns the top-level Scope member whose key matches.
+	// Fails the spec if no such member exists.
+	findTopLevelScope := func(prog arc.Program, key string) ir.Scope {
+		for _, p := range prog.Root.Phases {
+			for _, m := range p.Members {
+				if m.Scope != nil && m.Scope.Key == key {
+					return *m.Scope
+				}
+			}
+		}
+		Fail("expected top-level scope '" + key + "'")
+		return ir.Scope{}
+	}
+
+	// findMember returns the member with the given key in a scope's
+	// Members (sequential) or its phases' member lists (parallel).
+	findMember := func(scope ir.Scope, key string) ir.Member {
+		for _, m := range scope.Members {
+			if m.Key == key {
+				return m
+			}
+		}
+		for _, p := range scope.Phases {
+			for _, m := range p.Members {
+				if m.Key == key {
+					return m
+				}
+			}
+		}
+		Fail("expected member '" + key + "' in scope '" + scope.Key + "'")
+		return ir.Member{}
+	}
+
+	// scopeNodeRefs collects every NodeRef key reachable within a scope
+	// (across all phases and direct members).
+	scopeNodeRefs := func(scope ir.Scope) []string {
+		var keys []string
+		var walk func(s ir.Scope)
+		walk = func(s ir.Scope) {
+			for _, p := range s.Phases {
+				for _, m := range p.Members {
+					if m.NodeRef != nil {
+						keys = append(keys, m.NodeRef.Key)
+					} else if m.Scope != nil {
+						walk(*m.Scope)
+					}
+				}
+			}
+			for _, m := range s.Members {
+				if m.NodeRef != nil {
+					keys = append(keys, m.NodeRef.Key)
+				} else if m.Scope != nil {
+					walk(*m.Scope)
+				}
+			}
+		}
+		walk(scope)
+		return keys
+	}
+
+	// nextMember returns the member following key in a sequential scope's
+	// Members slice, or ok=false if key is the last or not found.
+	nextMember := func(scope ir.Scope, key string) (ir.Member, bool) {
+		for i, m := range scope.Members {
+			if m.Key == key {
+				if i+1 < len(scope.Members) {
+					return scope.Members[i+1], true
+				}
+				return ir.Member{}, false
+			}
+		}
+		return ir.Member{}, false
+	}
+
+	// isStageMember reports whether the member wraps a parallel scope
+	// (mirrors the old Step.IsStage).
+	isStageMember := func(m ir.Member) bool {
+		return m.Scope != nil && m.Scope.Mode == ir.ScopeModeParallel
+	}
+
+	// isFlowMember reports whether the member wraps a parallel scope that
+	// came from an anonymous flow step. Under the current analyzer both
+	// stage and flow steps lower to PARALLEL+GATED scopes; flow steps are
+	// identified by a synthesized "step_N" key.
+	isFlowMember := func(m ir.Member) bool {
+		return m.Scope != nil &&
+			m.Scope.Mode == ir.ScopeModeParallel &&
+			strings.HasPrefix(m.Key, "step_")
+	}
+
+	_ = nextMember
+	_ = isStageMember
+	_ = isFlowMember
+	_ = scopeNodeRefs
+	_ = findMember
+	_ = findTopLevelScope
+
 	It("Should compile a basic calculated channel", func(ctx SpecContext) {
 		mod := compile(ctx,
 			`func calc(val f32) f32 {
@@ -103,10 +200,18 @@ var _ = Describe("Arc", func() {
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		Expect(mod.Root.Strata).To(HaveLen(3))
-		Expect(mod.Root.Strata[0]).To(ContainElement(onNode.Key))
-		Expect(mod.Root.Strata[1]).To(ContainElement(calcNode.Key))
-		Expect(mod.Root.Strata[2]).To(ContainElement(writeNode.Key))
+		// Root phases reflect the linear dependency chain: on → calc → write.
+		Expect(mod.Root.Phases).To(HaveLen(3))
+		phaseKeys := func(p ir.Phase) []string {
+			keys := make([]string, 0, len(p.Members))
+			for _, m := range p.Members {
+				keys = append(keys, m.Key)
+			}
+			return keys
+		}
+		Expect(phaseKeys(mod.Root.Phases[0])).To(ContainElement(onNode.Key))
+		Expect(phaseKeys(mod.Root.Phases[1])).To(ContainElement(calcNode.Key))
+		Expect(phaseKeys(mod.Root.Phases[2])).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a one-stage sequence", func(ctx SpecContext) {
@@ -125,20 +230,18 @@ var _ = Describe("Arc", func() {
 				},
 			})
 
-		Expect(mod.Root.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Root.Sequences.Find("seg"))
-		Expect(seq.Key).To(Equal("seg"))
-		Expect(seq.Steps).To(HaveLen(1))
-		Expect(seq.Entry().Key).To(Equal("init"))
+		seg := findTopLevelScope(mod, "seg")
+		Expect(seg.Mode).To(Equal(ir.ScopeModeSequential))
+		Expect(seg.Members).To(HaveLen(1))
+		Expect(seg.Members[0].Key).To(Equal("init"))
 
-		initStage := MustBeOk(seq.FindStep("init"))
-		Expect(initStage.StageNodes()).To(HaveLen(2))
+		init := findMember(seg, "init")
+		Expect(init.Scope).ToNot(BeNil())
+		Expect(scopeNodeRefs(*init.Scope)).To(HaveLen(2))
 
-		Expect(mod.Nodes).To(HaveLen(3))
-		entryNode := findNodeByType(mod.Nodes, "stage_entry")
-		Expect(entryNode.Inputs).To(HaveLen(1))
-		Expect(entryNode.Inputs.Has("activate")).To(BeTrue())
-
+		// Only constant + write nodes exist; no synthesized stage_entry
+		// under the new IR.
+		Expect(mod.Nodes).To(HaveLen(2))
 		constNode := findNodeByType(mod.Nodes, "constant")
 		Expect(constNode.Config).To(HaveLen(1))
 
@@ -150,9 +253,16 @@ var _ = Describe("Arc", func() {
 		Expect(edge.Source.Node).To(Equal(constNode.Key))
 		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		Expect(initStage.Stage.Strata).To(HaveLen(2))
-		Expect(initStage.Stage.Strata[0]).To(ContainElement(constNode.Key))
-		Expect(initStage.Stage.Strata[1]).To(ContainElement(writeNode.Key))
+		Expect(init.Scope.Phases).To(HaveLen(2))
+		phaseKeys := func(p ir.Phase) []string {
+			out := make([]string, 0, len(p.Members))
+			for _, m := range p.Members {
+				out = append(out, m.Key)
+			}
+			return out
+		}
+		Expect(phaseKeys(init.Scope.Phases[0])).To(ContainElement(constNode.Key))
+		Expect(phaseKeys(init.Scope.Phases[1])).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a three stage sequence", func(ctx SpecContext) {
@@ -195,24 +305,26 @@ sequence main {
 			},
 		})
 
-		Expect(mod.Root.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Root.Sequences.Find("main"))
-		Expect(seq.Steps).To(HaveLen(2))
+		main := findTopLevelScope(mod, "main")
+		Expect(main.Members).To(HaveLen(2))
 
-		pressStage := MustBeOk(seq.FindStep("press"))
-		Expect(pressStage.StageNodes()).ToNot(BeEmpty())
+		press := findMember(main, "press")
+		Expect(press.Scope).ToNot(BeNil())
+		Expect(scopeNodeRefs(*press.Scope)).ToNot(BeEmpty())
 
-		stopStage := MustBeOk(seq.FindStep("stop"))
-		Expect(stopStage.StageNodes()).ToNot(BeEmpty())
+		stop := findMember(main, "stop")
+		Expect(stop.Scope).ToNot(BeNil())
+		Expect(scopeNodeRefs(*stop.Scope)).ToNot(BeEmpty())
 
-		nextStage := MustBeOk(seq.NextStep("press"))
-		Expect(nextStage.Key).To(Equal("stop"))
+		nextAfterPress, ok := nextMember(main, "press")
+		Expect(ok).To(BeTrue())
+		Expect(nextAfterPress.Key).To(Equal("stop"))
 
-		_, ok := seq.NextStep("stop")
+		_, ok = nextMember(main, "stop")
 		Expect(ok).To(BeFalse())
 
-		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
-		Expect(conditionalEdges).ToNot(BeEmpty())
+		// press → stop transition comes from `press_pt > 50 => next`.
+		Expect(main.Transitions).ToNot(BeEmpty())
 
 		continuousEdges := mod.Edges.GetByKind(ir.EdgeKindContinuous)
 		Expect(continuousEdges).ToNot(BeEmpty())
@@ -273,24 +385,26 @@ sequence main {
 		MustBeOk(mod.Functions.Find("expr"))
 		MustBeOk(mod.Functions.Find("expr2"))
 
-		Expect(mod.Root.Sequences).To(HaveLen(1))
-		seq := MustBeOk(mod.Root.Sequences.Find("main"))
-		Expect(seq.Steps).To(HaveLen(2))
+		main := findTopLevelScope(mod, "main")
+		Expect(main.Members).To(HaveLen(2))
 
-		pressStage := MustBeOk(seq.FindStep("press"))
-		Expect(pressStage.Stage.Strata).ToNot(BeEmpty())
+		press := findMember(main, "press")
+		Expect(press.Scope).ToNot(BeNil())
+		Expect(press.Scope.Phases).ToNot(BeEmpty())
 
-		ventStage := MustBeOk(seq.FindStep("vent"))
-		Expect(ventStage.Stage.Strata).ToNot(BeEmpty())
+		vent := findMember(main, "vent")
+		Expect(vent.Scope).ToNot(BeNil())
+		Expect(vent.Scope.Phases).ToNot(BeEmpty())
 
-		nextFromPress := MustBeOk(seq.NextStep("press"))
-		Expect(nextFromPress.Key).To(Equal("vent"))
+		nextAfterPress, ok := nextMember(main, "press")
+		Expect(ok).To(BeTrue())
+		Expect(nextAfterPress.Key).To(Equal("vent"))
 
-		_, ok := seq.NextStep("vent")
+		_, ok = nextMember(main, "vent")
 		Expect(ok).To(BeFalse())
 
-		conditionalEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
-		Expect(len(conditionalEdges)).To(BeNumerically(">=", 2))
+		// Two => transitions: press→next and vent→press.
+		Expect(main.Transitions).To(HaveLen(2))
 	})
 
 	It("Should correctly compile a node with a unit literal", func(ctx SpecContext) {
@@ -303,7 +417,10 @@ sequence main {
 				}
 			}
 		`, time.SymbolResolver)
-		Expect(mod.Nodes).To(HaveLen(3))
+		// Under the new IR the wait node is the only IR node; stages and
+		// entries no longer materialize as nodes.
+		Expect(mod.Nodes).To(HaveLen(1))
+		Expect(mod.Nodes[0].Type).To(Equal("wait"))
 	})
 
 	It("Should generate typed state imports for stateful variables", func(ctx SpecContext) {
@@ -403,15 +520,13 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Root.Sequences.Find("main"))
-			Expect(seq.Steps).To(HaveLen(2))
-			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
-			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
-			Expect(seq.Strata).ToNot(BeEmpty())
-
-			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
-			Expect(len(oneShotEdges)).To(BeNumerically(">=", 1))
+			main := findTopLevelScope(mod, "main")
+			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+			Expect(main.Members).To(HaveLen(2))
+			Expect(isFlowMember(main.Members[0])).To(BeTrue())
+			Expect(isFlowMember(main.Members[1])).To(BeTrue())
+			// Auto-wired transitions connect the flow steps.
+			Expect(main.Transitions).ToNot(BeEmpty())
 		})
 
 		It("Should compile a stageless sequence with a function node", func(ctx SpecContext) {
@@ -433,12 +548,11 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Root.Sequences.Find("main"))
-			Expect(seq.Steps).To(HaveLen(3))
-			Expect(seq.Steps[0].IsFlow()).To(BeTrue())
-			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
-			Expect(seq.Steps[2].IsFlow()).To(BeTrue())
+			main := findTopLevelScope(mod, "main")
+			Expect(main.Members).To(HaveLen(3))
+			Expect(isFlowMember(main.Members[0])).To(BeTrue())
+			Expect(isFlowMember(main.Members[1])).To(BeTrue())
+			Expect(isFlowMember(main.Members[2])).To(BeTrue())
 		})
 
 		It("Should compile a mixed stage and flow sequence", func(ctx SpecContext) {
@@ -465,14 +579,13 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Root.Sequences.Find("main"))
-			Expect(seq.Steps).To(HaveLen(3))
-			Expect(seq.Steps[0].IsStage()).To(BeTrue())
-			Expect(seq.Steps[0].Key).To(Equal("press"))
-			Expect(seq.Steps[1].IsFlow()).To(BeTrue())
-			Expect(seq.Steps[2].IsFlow()).To(BeTrue())
-			Expect(seq.Strata).ToNot(BeEmpty())
+			main := findTopLevelScope(mod, "main")
+			Expect(main.Members).To(HaveLen(3))
+			Expect(main.Members[0].Key).To(Equal("press"))
+			Expect(isStageMember(main.Members[0])).To(BeTrue())
+			Expect(isFlowMember(main.Members[1])).To(BeTrue())
+			Expect(isFlowMember(main.Members[2])).To(BeTrue())
+			Expect(main.Transitions).ToNot(BeEmpty())
 		})
 	})
 
@@ -496,12 +609,12 @@ stage abort {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Root.Sequences.Find("abort"))
-			Expect(seq.Steps).To(HaveLen(1))
-			Expect(seq.Steps[0].IsStage()).To(BeTrue())
-			Expect(seq.Steps[0].Key).To(Equal("abort"))
-			Expect(seq.Steps[0].StageNodes()).ToNot(BeEmpty())
+			abort := findTopLevelScope(mod, "abort")
+			// Top-level stages are now parallel scopes directly under root,
+			// not wrapped in a single-step sequence.
+			Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(abort.Key).To(Equal("abort"))
+			Expect(scopeNodeRefs(abort)).ToNot(BeEmpty())
 		})
 
 		It("Should allow => name from a sequence stage to a top-level stage", func(ctx SpecContext) {
@@ -531,14 +644,10 @@ stage abort {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(2))
-			MustBeOk(mod.Root.Sequences.Find("main"))
-			abortSeq := MustBeOk(mod.Root.Sequences.Find("abort"))
-			Expect(abortSeq.Steps).To(HaveLen(1))
-			Expect(abortSeq.Steps[0].IsStage()).To(BeTrue())
-
-			oneShotEdges := mod.Edges.GetByKind(ir.EdgeKindConditional)
-			Expect(len(oneShotEdges)).To(BeNumerically(">=", 2))
+			_ = findTopLevelScope(mod, "main")
+			abort := findTopLevelScope(mod, "abort")
+			Expect(abort.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(abort.Activation).ToNot(BeNil(), "abort should carry activation from abort_btn => abort")
 		})
 	})
 
@@ -562,20 +671,18 @@ sequence main {
 				},
 			)
 
-			Expect(mod.Root.Sequences).To(HaveLen(1))
-			seq := MustBeOk(mod.Root.Sequences.Find("main"))
-			Expect(seq.Steps).To(HaveLen(3))
+			main := findTopLevelScope(mod, "main")
+			Expect(main.Members).To(HaveLen(3))
 
 			pb := MustSucceed(programpb.ProgramToPB(mod))
 			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
-			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("main"))
-			Expect(rSeq.Steps).To(HaveLen(3))
-			Expect(rSeq.Steps[0].IsFlow()).To(BeTrue())
-			Expect(rSeq.Steps[1].IsFlow()).To(BeTrue())
-			Expect(rSeq.Steps[2].IsFlow()).To(BeTrue())
-			Expect(reconstructed.Root.Strata).ToNot(BeEmpty())
+			rMain := findTopLevelScope(reconstructed, "main")
+			Expect(rMain.Members).To(HaveLen(3))
+			Expect(isFlowMember(rMain.Members[0])).To(BeTrue())
+			Expect(isFlowMember(rMain.Members[1])).To(BeTrue())
+			Expect(isFlowMember(rMain.Members[2])).To(BeTrue())
+			Expect(reconstructed.Root.Phases).ToNot(BeEmpty())
 		})
 
 		It("Should round-trip a mixed stage and flow program through proto", func(ctx SpecContext) {
@@ -605,13 +712,12 @@ sequence main {
 			pb := MustSucceed(programpb.ProgramToPB(mod))
 			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
-			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("main"))
-			Expect(rSeq.Steps).To(HaveLen(3))
-			Expect(rSeq.Steps[0].IsStage()).To(BeTrue())
-			Expect(rSeq.Steps[0].Key).To(Equal("press"))
-			Expect(rSeq.Steps[1].IsFlow()).To(BeTrue())
-			Expect(rSeq.Steps[2].IsFlow()).To(BeTrue())
+			rMain := findTopLevelScope(reconstructed, "main")
+			Expect(rMain.Members).To(HaveLen(3))
+			Expect(isStageMember(rMain.Members[0])).To(BeTrue())
+			Expect(rMain.Members[0].Key).To(Equal("press"))
+			Expect(isFlowMember(rMain.Members[1])).To(BeTrue())
+			Expect(isFlowMember(rMain.Members[2])).To(BeTrue())
 		})
 
 		It("Should round-trip a top-level stage program through proto", func(ctx SpecContext) {
@@ -636,11 +742,9 @@ stage abort {
 			pb := MustSucceed(programpb.ProgramToPB(mod))
 			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
-			Expect(reconstructed.Root.Sequences).To(HaveLen(1))
-			rSeq := MustBeOk(reconstructed.Root.Sequences.Find("abort"))
-			Expect(rSeq.Steps).To(HaveLen(1))
-			Expect(rSeq.Steps[0].IsStage()).To(BeTrue())
-			Expect(rSeq.Steps[0].StageNodes()).ToNot(BeEmpty())
+			rAbort := findTopLevelScope(reconstructed, "abort")
+			Expect(rAbort.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(scopeNodeRefs(rAbort)).ToNot(BeEmpty())
 		})
 	})
 })

@@ -31,7 +31,6 @@ runtime::node::Context make_context(
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -376,7 +375,6 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
-    ctx.activate_stage = []() {};
 
     ctx.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
@@ -495,7 +493,6 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
-    ctx.activate_stage = []() {};
 
     ctx.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));

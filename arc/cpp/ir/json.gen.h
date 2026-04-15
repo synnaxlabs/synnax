@@ -53,65 +53,95 @@ inline x::json::json Edge::to_json() const {
     return j;
 }
 
-inline Flow Flow::parse(x::json::Parser parser) {
-    return Flow{
-        .nodes = parser.field<std::vector<std::string>>("nodes"),
+inline NodeRef NodeRef::parse(x::json::Parser parser) {
+    return NodeRef{
+        .key = parser.field<std::string>("key"),
     };
 }
 
-inline x::json::json Flow::to_json() const {
+inline x::json::json NodeRef::to_json() const {
     x::json::json j;
-    j["nodes"] = this->nodes;
+    j["key"] = this->key;
     return j;
 }
 
-inline Stage Stage::parse(x::json::Parser parser) {
-    return Stage{
-        .key = parser.field<std::string>("key"),
-        .strata = parser.field<Strata>("strata"),
-        .sequences = parser.field<Sequences>("sequences"),
+inline TransitionTarget TransitionTarget::parse(x::json::Parser parser) {
+    return TransitionTarget{
+        .member_key = parser.field<std::optional<std::string>>("member_key"),
+        .exit = parser.field<std::optional<bool>>("exit"),
     };
 }
 
-inline x::json::json Stage::to_json() const {
+inline x::json::json TransitionTarget::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
-    j["strata"] = this->strata.to_json();
-    j["sequences"] = this->sequences.to_json();
+    j["member_key"] = this->member_key;
+    j["exit"] = this->exit;
     return j;
 }
 
-inline Step Step::parse(x::json::Parser parser) {
-    return Step{
-        .key = parser.field<std::string>("key"),
-        .flow = parser.field<std::optional<Flow>>("flow"),
-        .stage = parser.field<x::mem::indirect<Stage>>("stage"),
-        .sequence = parser.field<x::mem::indirect<Sequence>>("sequence"),
+inline Transition Transition::parse(x::json::Parser parser) {
+    return Transition{
+        .on = parser.field<Handle>("on"),
+        .target = parser.field<TransitionTarget>("target"),
     };
 }
 
-inline x::json::json Step::to_json() const {
+inline x::json::json Transition::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
-    if (this->flow.has_value()) j["flow"] = this->flow->to_json();
-    if (this->stage.has_value()) j["stage"] = this->stage->to_json();
-    if (this->sequence.has_value()) j["sequence"] = this->sequence->to_json();
+    j["on"] = this->on.to_json();
+    j["target"] = this->target.to_json();
     return j;
 }
 
-inline Sequence Sequence::parse(x::json::Parser parser) {
-    return Sequence{
+inline Member Member::parse(x::json::Parser parser) {
+    return Member{
         .key = parser.field<std::string>("key"),
-        .steps = parser.field<std::vector<Step>>("steps"),
-        .strata = parser.field<Strata>("strata"),
+        .node_ref = parser.field<std::optional<NodeRef>>("node_ref"),
+        .scope = parser.field<x::mem::indirect<Scope>>("scope"),
     };
 }
 
-inline x::json::json Sequence::to_json() const {
+inline x::json::json Member::to_json() const {
     x::json::json j;
     j["key"] = this->key;
-    j["steps"] = x::json::to_array(this->steps);
-    j["strata"] = this->strata.to_json();
+    if (this->node_ref.has_value()) j["node_ref"] = this->node_ref->to_json();
+    if (this->scope.has_value()) j["scope"] = this->scope->to_json();
+    return j;
+}
+
+inline Phase Phase::parse(x::json::Parser parser) {
+    return Phase{
+        .members = parser.field<std::vector<Member>>("members"),
+    };
+}
+
+inline x::json::json Phase::to_json() const {
+    x::json::json j;
+    j["members"] = x::json::to_array(this->members);
+    return j;
+}
+
+inline Scope Scope::parse(x::json::Parser parser) {
+    return Scope{
+        .key = parser.field<std::string>("key"),
+        .mode = parser.field<ScopeMode>("mode"),
+        .liveness = parser.field<Liveness>("liveness"),
+        .activation = parser.field<std::optional<Handle>>("activation"),
+        .phases = parser.field<std::vector<Phase>>("phases"),
+        .members = parser.field<std::vector<Member>>("members"),
+        .transitions = parser.field<std::vector<Transition>>("transitions"),
+    };
+}
+
+inline x::json::json Scope::to_json() const {
+    x::json::json j;
+    j["key"] = this->key;
+    j["mode"] = this->mode;
+    j["liveness"] = this->liveness;
+    if (this->activation.has_value()) j["activation"] = this->activation->to_json();
+    j["phases"] = x::json::to_array(this->phases);
+    j["members"] = x::json::to_array(this->members);
+    j["transitions"] = x::json::to_array(this->transitions);
     return j;
 }
 
@@ -193,7 +223,7 @@ inline IR IR::parse(x::json::Parser parser) {
         .nodes = parser.field<Nodes>("nodes"),
         .edges = parser.field<Edges>("edges"),
         .authorities = parser.field<Authorities>("authorities"),
-        .root = parser.field<Stage>("root"),
+        .root = parser.field<Scope>("root"),
     };
 }
 
@@ -222,51 +252,6 @@ inline x::json::json Edges::to_json() const {
     return j;
 }
 
-inline Stages Stages::parse(x::json::Parser parser) {
-    Stages result;
-    for (auto &item: parser.field<std::vector<Stage>>())
-        result.push_back(std::move(item));
-    return result;
-}
-
-inline x::json::json Stages::to_json() const {
-    x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
-        j.push_back(item.to_json());
-    }
-    return j;
-}
-
-inline Steps Steps::parse(x::json::Parser parser) {
-    Steps result;
-    for (auto &item: parser.field<std::vector<Step>>())
-        result.push_back(std::move(item));
-    return result;
-}
-
-inline x::json::json Steps::to_json() const {
-    x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
-        j.push_back(item.to_json());
-    }
-    return j;
-}
-
-inline Sequences Sequences::parse(x::json::Parser parser) {
-    Sequences result;
-    for (auto &item: parser.field<std::vector<Sequence>>())
-        result.push_back(std::move(item));
-    return result;
-}
-
-inline x::json::json Sequences::to_json() const {
-    x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
-        j.push_back(item.to_json());
-    }
-    return j;
-}
-
 inline Functions Functions::parse(x::json::Parser parser) {
     Functions result;
     for (auto &item: parser.field<std::vector<Function>>())
@@ -278,21 +263,6 @@ inline x::json::json Functions::to_json() const {
     x::json::json j = x::json::json::array();
     for (const auto &item: *this) {
         j.push_back(item.to_json());
-    }
-    return j;
-}
-
-inline Strata Strata::parse(x::json::Parser parser) {
-    Strata result;
-    for (auto &item: parser.field<std::vector<Stratum>>())
-        result.push_back(std::move(item));
-    return result;
-}
-
-inline x::json::json Strata::to_json() const {
-    x::json::json j = x::json::json::array();
-    for (const auto &item: *this) {
-        j.push_back(item);
     }
     return j;
 }

@@ -26,7 +26,6 @@ runtime::node::Context make_context() {
         .reason = runtime::node::RunReason::ChannelInput,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 

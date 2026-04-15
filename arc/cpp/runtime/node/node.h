@@ -35,7 +35,6 @@ struct Context {
     std::function<void()> mark_self_changed;
     std::function<void(x::telem::TimeSpan)> set_deadline;
     std::function<void(const x::errors::Error &)> report_error;
-    std::function<void()> activate_stage;
 };
 
 class Node {

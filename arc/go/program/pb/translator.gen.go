@@ -34,7 +34,7 @@ func ProgramToPB(r program.Program) (*Program, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootVal, err := irpb.StageToPB(r.Root)
+	rootVal, err := irpb.ScopeToPB(r.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +73,7 @@ func ProgramFromPB(pb *Program) (program.Program, error) {
 	if err != nil {
 		return program.Program{}, err
 	}
-	r.Root, err = irpb.StageFromPB(pb.Root)
+	r.Root, err = irpb.ScopeFromPB(pb.Root)
 	if err != nil {
 		return program.Program{}, err
 	}

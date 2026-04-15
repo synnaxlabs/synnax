@@ -131,34 +131,3 @@ func (n *Node) DecodeMsgpack(dec *msgpack.Decoder) error {
 	}
 	return nil
 }
-
-// DecodeMsgpack implements msgpack.CustomDecoder, supporting both legacy uppercase
-// Go field names and new lowercase msgpack tag names for backward compatibility.
-func (ir *IR) DecodeMsgpack(dec *msgpack.Decoder) error {
-	type alias IR
-	raw, err := dec.DecodeRaw()
-	if err != nil {
-		return err
-	}
-	if err = msgpack.Unmarshal(raw, (*alias)(ir)); err != nil {
-		return err
-	}
-	if ir.Functions == nil && ir.Nodes == nil {
-		var legacy struct {
-			Functions Functions
-			Nodes     Nodes
-			Edges     Edges
-			Strata    Strata
-			Sequences Sequences
-		}
-		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
-			return err
-		}
-		ir.Functions = legacy.Functions
-		ir.Nodes = legacy.Nodes
-		ir.Edges = legacy.Edges
-		ir.Root.Strata = legacy.Strata
-		ir.Root.Sequences = legacy.Sequences
-	}
-	return nil
-}

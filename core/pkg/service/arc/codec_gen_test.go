@@ -176,43 +176,47 @@ var _ = Describe("Codec", func() {
 								Default:  func() *uint8 { v := uint8(94); return &v }(),
 								Channels: map[uint32]uint8{95: 95},
 							},
-							Root: ir.Stage{
-								Key:    "test_96",
-								Strata: [][]string{{"test_97"}},
-								Sequences: []ir.Sequence{
+							Root: ir.Scope{
+								Key:        "test_96",
+								Mode:       ir.ScopeMode(0),
+								Liveness:   ir.Liveness(0),
+								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
+								Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
+								Members: []ir.Member{
 									{
-										Key:    "test_99",
-										Steps:  []ir.Step{{}},
-										Strata: [][]string{{"test_101"}},
+										Key:     "test_105",
+										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 									},
 								},
+								Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
 							},
 						},
 						Output: compiler.Output{
-							WASM:              []byte{102, 103, 104},
-							OutputMemoryBases: map[string]uint32{"test_103": 104},
+							WASM:              []byte{111, 112, 113},
+							OutputMemoryBases: map[string]uint32{"test_112": 113},
 						},
 					}
 					return &v
 				}(),
 				Status: func() *status.Status[arc.StatusDetails] {
 					v := status.Status[arc.StatusDetails]{
-						Key:         "test_105",
-						Name:        "test_106",
+						Key:         "test_114",
+						Name:        "test_115",
 						Variant:     status.Variant("success"),
-						Message:     "test_108",
-						Description: "test_109",
-						Time:        telem.TimeStamp(111),
-						Details:     arc.StatusDetails{Running: false},
+						Message:     "test_117",
+						Description: "test_118",
+						Time:        telem.TimeStamp(120),
+						Details:     arc.StatusDetails{Running: true},
 						Labels: []label.Label{
 							{
-								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-								Name: "test_115",
+								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
+								Name: "test_124",
 								Color: color.Color{
-									R: 118,
-									G: 119,
-									B: 120,
-									A: 120.5,
+									R: 127,
+									G: 128,
+									B: 129,
+									A: 129.5,
 								},
 							},
 						},
@@ -384,43 +388,47 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						Default:  func() *uint8 { v := uint8(94); return &v }(),
 						Channels: map[uint32]uint8{95: 95},
 					},
-					Root: ir.Stage{
-						Key:    "test_96",
-						Strata: [][]string{{"test_97"}},
-						Sequences: []ir.Sequence{
+					Root: ir.Scope{
+						Key:        "test_96",
+						Mode:       ir.ScopeMode(0),
+						Liveness:   ir.Liveness(0),
+						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
+						Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
+						Members: []ir.Member{
 							{
-								Key:    "test_99",
-								Steps:  []ir.Step{{}},
-								Strata: [][]string{{"test_101"}},
+								Key:     "test_105",
+								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 							},
 						},
+						Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
 					},
 				},
 				Output: compiler.Output{
-					WASM:              []byte{102, 103, 104},
-					OutputMemoryBases: map[string]uint32{"test_103": 104},
+					WASM:              []byte{111, 112, 113},
+					OutputMemoryBases: map[string]uint32{"test_112": 113},
 				},
 			}
 			return &v
 		}(),
 		Status: func() *status.Status[arc.StatusDetails] {
 			v := status.Status[arc.StatusDetails]{
-				Key:         "test_105",
-				Name:        "test_106",
+				Key:         "test_114",
+				Name:        "test_115",
 				Variant:     status.Variant("success"),
-				Message:     "test_108",
-				Description: "test_109",
-				Time:        telem.TimeStamp(111),
-				Details:     arc.StatusDetails{Running: false},
+				Message:     "test_117",
+				Description: "test_118",
+				Time:        telem.TimeStamp(120),
+				Details:     arc.StatusDetails{Running: true},
 				Labels: []label.Label{
 					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-						Name: "test_115",
+						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
+						Name: "test_124",
 						Color: color.Color{
-							R: 118,
-							G: 119,
-							B: 120,
-							A: 120.5,
+							R: 127,
+							G: 128,
+							B: 129,
+							A: 129.5,
 						},
 					},
 				},
@@ -592,43 +600,47 @@ func FuzzDecodeArc(f *testing.F) {
 							Default:  func() *uint8 { v := uint8(94); return &v }(),
 							Channels: map[uint32]uint8{95: 95},
 						},
-						Root: ir.Stage{
-							Key:    "test_96",
-							Strata: [][]string{{"test_97"}},
-							Sequences: []ir.Sequence{
+						Root: ir.Scope{
+							Key:        "test_96",
+							Mode:       ir.ScopeMode(0),
+							Liveness:   ir.Liveness(0),
+							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
+							Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
+							Members: []ir.Member{
 								{
-									Key:    "test_99",
-									Steps:  []ir.Step{{}},
-									Strata: [][]string{{"test_101"}},
+									Key:     "test_105",
+									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 								},
 							},
+							Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
 						},
 					},
 					Output: compiler.Output{
-						WASM:              []byte{102, 103, 104},
-						OutputMemoryBases: map[string]uint32{"test_103": 104},
+						WASM:              []byte{111, 112, 113},
+						OutputMemoryBases: map[string]uint32{"test_112": 113},
 					},
 				}
 				return &v
 			}(),
 			Status: func() *status.Status[arc.StatusDetails] {
 				v := status.Status[arc.StatusDetails]{
-					Key:         "test_105",
-					Name:        "test_106",
+					Key:         "test_114",
+					Name:        "test_115",
 					Variant:     status.Variant("success"),
-					Message:     "test_108",
-					Description: "test_109",
-					Time:        telem.TimeStamp(111),
-					Details:     arc.StatusDetails{Running: false},
+					Message:     "test_117",
+					Description: "test_118",
+					Time:        telem.TimeStamp(120),
+					Details:     arc.StatusDetails{Running: true},
 					Labels: []label.Label{
 						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567872"),
-							Name: "test_115",
+							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
+							Name: "test_124",
 							Color: color.Color{
-								R: 118,
-								G: 119,
-								B: 120,
-								A: 120.5,
+								R: 127,
+								G: 128,
+								B: 129,
+								A: 129.5,
 							},
 						},
 					},

@@ -45,9 +45,9 @@ type Program struct {
 	Edges []*pb.Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
 	// authorities contains the static authority declarations for this program.
 	Authorities *pb.Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
-	// root is the top-level execution context. Its strata field holds global
-	// stratification; its sequences field holds top-level sequences.
-	Root *pb.Stage `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
+	// root is the top-level execution context. The root is always a parallel, always-live
+	// Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+	Root *pb.Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
 	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`
 	// output_memory_bases contains memory base addresses for multi-output functions,
@@ -115,7 +115,7 @@ func (x *Program) GetAuthorities() *pb.Authorities {
 	return nil
 }
 
-func (x *Program) GetRoot() *pb.Stage {
+func (x *Program) GetRoot() *pb.Scope {
 	if x != nil {
 		return x.Root
 	}
@@ -146,7 +146,7 @@ const file_arc_go_program_pb_program_proto_rawDesc = "" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.StageR\x04root\x12\x12\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root\x12\x12\n" +
 	"\x04wasm\x18\x06 \x01(\fR\x04wasm\x12^\n" +
 	"\x13output_memory_bases\x18\a \x03(\v2..arc.program.pb.Program.OutputMemoryBasesEntryR\x11outputMemoryBases\x1aD\n" +
 	"\x16OutputMemoryBasesEntry\x12\x10\n" +
@@ -174,14 +174,14 @@ var file_arc_go_program_pb_program_proto_goTypes = []any{
 	(*pb.Node)(nil),        // 3: arc.ir.pb.Node
 	(*pb.Edge)(nil),        // 4: arc.ir.pb.Edge
 	(*pb.Authorities)(nil), // 5: arc.ir.pb.Authorities
-	(*pb.Stage)(nil),       // 6: arc.ir.pb.Stage
+	(*pb.Scope)(nil),       // 6: arc.ir.pb.Scope
 }
 var file_arc_go_program_pb_program_proto_depIdxs = []int32{
 	2, // 0: arc.program.pb.Program.functions:type_name -> arc.ir.pb.Function
 	3, // 1: arc.program.pb.Program.nodes:type_name -> arc.ir.pb.Node
 	4, // 2: arc.program.pb.Program.edges:type_name -> arc.ir.pb.Edge
 	5, // 3: arc.program.pb.Program.authorities:type_name -> arc.ir.pb.Authorities
-	6, // 4: arc.program.pb.Program.root:type_name -> arc.ir.pb.Stage
+	6, // 4: arc.program.pb.Program.root:type_name -> arc.ir.pb.Scope
 	1, // 5: arc.program.pb.Program.output_memory_bases:type_name -> arc.program.pb.Program.OutputMemoryBasesEntry
 	6, // [6:6] is the sub-list for method output_type
 	6, // [6:6] is the sub-list for method input_type

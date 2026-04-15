@@ -412,7 +412,7 @@ struct DeadlineRuntimeFixture {
 
         auto prog = arc::ir::testutil::Builder()
                         .node("deadline")
-                        .strata({{"deadline"}})
+                        .phases({{"deadline"}})
                         .build();
 
         state::Config state_cfg{.ir = prog, .channels = {}};

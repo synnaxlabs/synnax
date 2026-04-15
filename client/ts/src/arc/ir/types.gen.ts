@@ -21,6 +21,20 @@ export enum EdgeKind {
 }
 export const edgeKindZ = z.enum(EdgeKind);
 
+export enum ScopeMode {
+  unspecified = 0,
+  parallel = 1,
+  sequential = 2,
+}
+export const scopeModeZ = z.enum(ScopeMode);
+
+export enum Liveness {
+  unspecified = 0,
+  always = 1,
+  gated = 2,
+}
+export const livenessZ = z.enum(Liveness);
+
 /** Handle is a reference to a specific parameter on a specific node in the dataflow graph. */
 export const handleZ = z.object({
   /** node is the node identifier. */
@@ -30,12 +44,24 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
-/** Flow is a leaf step in a sequence containing a single dataflow chain. */
-export const flowZ = z.object({
-  /** nodes contains node keys belonging to this flow step. */
-  nodes: array.nullishToEmpty(z.string()),
+/** NodeRef is a Layer 2 reference to a node in the dataflow graph. */
+export const nodeRefZ = z.object({
+  /** key is the key of the referenced node in IR.nodes. */
+  key: z.string(),
 });
-export interface Flow extends z.infer<typeof flowZ> {}
+export interface NodeRef extends z.infer<typeof nodeRefZ> {}
+
+/**
+ * TransitionTarget is a tagged union describing the destination of a sequential transition.
+ * Exactly one of memberKey or exit is set.
+ */
+export const transitionTargetZ = z.object({
+  /** memberKey is the sibling member key to activate. */
+  memberKey: z.string().optional(),
+  /** exit is true when the transition exits the scope, yielding to the parent. */
+  exit: z.boolean().optional(),
+});
+export interface TransitionTarget extends z.infer<typeof transitionTargetZ> {}
 
 /** Body is raw function body source code with optional parsed AST. */
 export const bodyZ = z.object({
@@ -73,9 +99,6 @@ export const authoritiesZ = z.object({
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
 
-export const stratumZ = array.nullishToEmpty(z.string());
-export type Stratum = z.infer<typeof stratumZ>;
-
 /** Edge is a dataflow connection between node parameters in the Arc graph. */
 export const edgeZ = z.object({
   /** source is the source node parameter producing data. */
@@ -86,6 +109,15 @@ export const edgeZ = z.object({
   kind: edgeKindZ,
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
+
+/** Transition is a declarative state-transition rule on a sequential Scope. */
+export const transitionZ = z.object({
+  /** on is the dataflow handle whose truthy value fires this transition. */
+  on: handleZ,
+  /** target is the destination of this transition. */
+  target: transitionTargetZ,
+});
+export interface Transition extends z.infer<typeof transitionZ> {}
 
 /**
  * Function is a function template definition with typed parameters, serving as a
@@ -110,9 +142,6 @@ export interface Function extends z.infer<typeof functionZ> {}
 export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
 
-export const strataZ = array.nullishToEmpty(stratumZ);
-export type Strata = z.infer<typeof strataZ>;
-
 export const edgesZ = array.nullishToEmpty(edgeZ);
 export type Edges = z.infer<typeof edgesZ>;
 
@@ -120,64 +149,68 @@ export const functionsZ = array.nullishToEmpty(functionZ);
 export type Functions = z.infer<typeof functionsZ>;
 
 /**
- * Stage is a parallel execution context containing reactive flows that execute
- * concurrently. May also contain inline sub-sequences.
+ * Member is a tagged union representing a single child of a Scope. Exactly one
+ * of nodeRef or scope is set.
  */
-export interface Stage {
+export interface Member {
   key: string;
-  strata: Strata;
-  sequences: Sequences;
+  nodeRef?: NodeRef;
+  scope?: Scope;
 }
-export const stageZ: z.ZodType<Stage> = z.object({
-  /** key is the stage identifier. */
+export const memberZ: z.ZodType<Member> = z.object({
+  /** key is the position identifier of this member within its parent scope. */
   key: z.string(),
-  /** strata contains execution stratification for nodes in this stage. */
-  strata: strataZ,
-  /** sequences contains inline sub-sequences nested within this stage. */
-  get sequences() {
-    return sequencesZ;
+  /** nodeRef is set when this member references a dataflow node. */
+  nodeRef: nodeRefZ.optional(),
+  /** scope is set when this member is a nested scope. */
+  get scope() {
+    return scopeZ.optional();
   },
 });
 
 /**
- * Step is a tagged union representing a single child of a sequence. Exactly one
- * of flow, stage, or sequence is set.
+ * Phase is a single execution layer within a parallel Scope. Members in a phase
+ * have no data dependency among themselves; phase N depends only on
+ * phases 0 to N-1.
  */
-export interface Step {
-  key: string;
-  flow?: Flow;
-  stage?: Stage;
-  sequence?: Sequence;
+export interface Phase {
+  members: Member[];
 }
-export const stepZ: z.ZodType<Step> = z.object({
-  /** key is the name for jump targets. Empty for anonymous steps. */
-  key: z.string(),
-  /** flow is set when this step is a leaf containing a single dataflow chain. */
-  flow: flowZ.optional(),
-  /** stage is set when this step is a parallel execution context. */
-  stage: stageZ.optional(),
-  /** sequence is set when this step is a nested sequential context. */
-  get sequence() {
-    return sequenceZ.optional();
-  },
+export const phaseZ: z.ZodType<Phase> = z.object({
+  /** members contains members that execute together in this phase. */
+  members: array.nullishToEmpty(memberZ),
 });
 
 /**
- * Sequence is a sequential execution context defining an ordered list of steps,
- * where each step is a flow, a stage, or a nested sequence.
+ * Scope is the unified Layer 2 execution primitive. Parameterized by mode
+ * (parallel or sequential) and liveness (always-live or gated). Parallel
+ * scopes organize members into phases; sequential scopes run one member
+ * at a time and advance via transitions.
  */
-export interface Sequence {
+export interface Scope {
   key: string;
-  steps: Step[];
-  strata: Strata;
+  mode: ScopeMode;
+  liveness: Liveness;
+  activation?: Handle;
+  phases: Phase[];
+  members: Member[];
+  transitions: Transition[];
 }
-export const sequenceZ: z.ZodType<Sequence> = z.object({
-  /** key is the sequence identifier. */
+export const scopeZ: z.ZodType<Scope> = z.object({
+  /** key is the scope identifier. */
   key: z.string(),
-  /** steps contains ordered steps in this sequence. */
-  steps: array.nullishToEmpty(stepZ),
-  /** strata contains execution stratification for flow step nodes in this sequence. */
-  strata: strataZ,
+  /** mode defines whether this scope runs members in parallel or sequentially. */
+  mode: scopeModeZ,
+  /** liveness defines whether this scope is continuously active or must be activated. */
+  liveness: livenessZ,
+  /** activation is the handle whose truthy value activates a gated scope. Unset for always-live scopes. */
+  activation: handleZ.optional(),
+  /** phases contains ordered execution layers for parallel scopes. Empty for sequential scopes. */
+  phases: array.nullishToEmpty(phaseZ),
+  /** members contains ordered members for sequential scopes. Empty for parallel scopes. */
+  members: array.nullishToEmpty(memberZ),
+  /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
+  transitions: array.nullishToEmpty(transitionZ),
 });
 
 /**
@@ -195,18 +228,10 @@ export const irZ = z.object({
   /** authorities contains the static authority declarations for this program. */
   authorities: authoritiesZ,
   /**
-   * root is the top-level execution context. Its strata field holds global
-   * stratification; its sequences field holds top-level sequences.
+   * root is the top-level execution context. The root is always a
+   * parallel, always-live Scope whose phases mix module-scope
+   * reactive flow with top-level gated scopes.
    */
-  root: stageZ,
+  root: scopeZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
-
-export const stagesZ = array.nullishToEmpty(stageZ);
-export type Stages = z.infer<typeof stagesZ>;
-
-export const stepsZ = array.nullishToEmpty(stepZ);
-export type Steps = z.infer<typeof stepsZ>;
-
-export const sequencesZ = array.nullishToEmpty(sequenceZ);
-export type Sequences = z.infer<typeof sequencesZ>;

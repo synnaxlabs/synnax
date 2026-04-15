@@ -12,7 +12,6 @@
 package pb
 
 import (
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	typespb "github.com/synnaxlabs/arc/types/pb"
 	"github.com/synnaxlabs/x/errors"
@@ -134,172 +133,30 @@ func EdgesFromPB(pbs []*Edge) ([]ir.Edge, error) {
 	return result, nil
 }
 
-// FlowToPB converts Flow to Flow.
-func FlowToPB(r ir.Flow) (*Flow, error) {
-	pb := &Flow{
-		Nodes: r.Nodes,
-	}
-	return pb, nil
-}
-
-// FlowFromPB converts Flow to Flow.
-func FlowFromPB(pb *Flow) (ir.Flow, error) {
-	var r ir.Flow
-	if pb == nil {
-		return r, nil
-	}
-	r.Nodes = pb.Nodes
-	return r, nil
-}
-
-// FlowsToPB converts a slice of Flow to Flow.
-func FlowsToPB(rs []ir.Flow) ([]*Flow, error) {
-	result := make([]*Flow, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = FlowToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// FlowsFromPB converts a slice of Flow to Flow.
-func FlowsFromPB(pbs []*Flow) ([]ir.Flow, error) {
-	result := make([]ir.Flow, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = FlowFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StageToPB converts Stage to Stage.
-func StageToPB(r ir.Stage) (*Stage, error) {
-	sequencesVal, err := SequencesToPB(r.Sequences)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Stage{
-		Key:       r.Key,
-		Strata:    lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
-		Sequences: sequencesVal,
-	}
-	return pb, nil
-}
-
-// StageFromPB converts Stage to Stage.
-func StageFromPB(pb *Stage) (ir.Stage, error) {
-	var r ir.Stage
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Sequences, err = SequencesFromPB(pb.Sequences)
-	if err != nil {
-		return ir.Stage{}, err
-	}
-	r.Key = pb.Key
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
-	return r, nil
-}
-
-// StagesToPB converts a slice of Stage to Stage.
-func StagesToPB(rs []ir.Stage) ([]*Stage, error) {
-	result := make([]*Stage, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = StageToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StagesFromPB converts a slice of Stage to Stage.
-func StagesFromPB(pbs []*Stage) ([]ir.Stage, error) {
-	result := make([]ir.Stage, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = StageFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// StepToPB converts Step to Step.
-func StepToPB(r ir.Step) (*Step, error) {
-	pb := &Step{
+// NodeRefToPB converts NodeRef to NodeRef.
+func NodeRefToPB(r ir.NodeRef) (*NodeRef, error) {
+	pb := &NodeRef{
 		Key: r.Key,
 	}
-	if r.Flow != nil {
-		var err error
-		pb.Flow, err = FlowToPB(*r.Flow)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Stage != nil {
-		var err error
-		pb.Stage, err = StageToPB(*r.Stage)
-		if err != nil {
-			return nil, err
-		}
-	}
-	if r.Sequence != nil {
-		var err error
-		pb.Sequence, err = SequenceToPB(*r.Sequence)
-		if err != nil {
-			return nil, err
-		}
-	}
 	return pb, nil
 }
 
-// StepFromPB converts Step to Step.
-func StepFromPB(pb *Step) (ir.Step, error) {
-	var r ir.Step
+// NodeRefFromPB converts NodeRef to NodeRef.
+func NodeRefFromPB(pb *NodeRef) (ir.NodeRef, error) {
+	var r ir.NodeRef
 	if pb == nil {
 		return r, nil
 	}
 	r.Key = pb.Key
-	if pb.Flow != nil {
-		val, err := FlowFromPB(pb.Flow)
-		if err != nil {
-			return ir.Step{}, err
-		}
-		r.Flow = &val
-	}
-	if pb.Stage != nil {
-		val, err := StageFromPB(pb.Stage)
-		if err != nil {
-			return ir.Step{}, err
-		}
-		r.Stage = &val
-	}
-	if pb.Sequence != nil {
-		val, err := SequenceFromPB(pb.Sequence)
-		if err != nil {
-			return ir.Step{}, err
-		}
-		r.Sequence = &val
-	}
 	return r, nil
 }
 
-// StepsToPB converts a slice of Step to Step.
-func StepsToPB(rs []ir.Step) ([]*Step, error) {
-	result := make([]*Step, len(rs))
+// NodeRefsToPB converts a slice of NodeRef to NodeRef.
+func NodeRefsToPB(rs []ir.NodeRef) ([]*NodeRef, error) {
+	result := make([]*NodeRef, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = StepToPB(rs[i])
+		result[i], err = NodeRefToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -307,12 +164,12 @@ func StepsToPB(rs []ir.Step) ([]*Step, error) {
 	return result, nil
 }
 
-// StepsFromPB converts a slice of Step to Step.
-func StepsFromPB(pbs []*Step) ([]ir.Step, error) {
-	result := make([]ir.Step, len(pbs))
+// NodeRefsFromPB converts a slice of NodeRef to NodeRef.
+func NodeRefsFromPB(pbs []*NodeRef) ([]ir.NodeRef, error) {
+	result := make([]ir.NodeRef, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = StepFromPB(pb)
+		result[i], err = NodeRefFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -320,42 +177,100 @@ func StepsFromPB(pbs []*Step) ([]ir.Step, error) {
 	return result, nil
 }
 
-// SequenceToPB converts Sequence to Sequence.
-func SequenceToPB(r ir.Sequence) (*Sequence, error) {
-	stepsVal, err := StepsToPB(r.Steps)
-	if err != nil {
-		return nil, err
+// TransitionTargetToPB converts TransitionTarget to TransitionTarget.
+func TransitionTargetToPB(r ir.TransitionTarget) (*TransitionTarget, error) {
+	pb := &TransitionTarget{}
+	if r.MemberKey != nil {
+		pb.MemberKey = r.MemberKey
 	}
-	pb := &Sequence{
-		Key:    r.Key,
-		Strata: lo.Map(r.Strata, func(inner []string, _ int) *StratumWrapper { return &StratumWrapper{Values: inner} }),
-		Steps:  stepsVal,
+	if r.Exit != nil {
+		pb.Exit = r.Exit
 	}
 	return pb, nil
 }
 
-// SequenceFromPB converts Sequence to Sequence.
-func SequenceFromPB(pb *Sequence) (ir.Sequence, error) {
-	var r ir.Sequence
+// TransitionTargetFromPB converts TransitionTarget to TransitionTarget.
+func TransitionTargetFromPB(pb *TransitionTarget) (ir.TransitionTarget, error) {
+	var r ir.TransitionTarget
+	if pb == nil {
+		return r, nil
+	}
+	if pb.MemberKey != nil {
+		r.MemberKey = pb.MemberKey
+	}
+	if pb.Exit != nil {
+		r.Exit = pb.Exit
+	}
+	return r, nil
+}
+
+// TransitionTargetsToPB converts a slice of TransitionTarget to TransitionTarget.
+func TransitionTargetsToPB(rs []ir.TransitionTarget) ([]*TransitionTarget, error) {
+	result := make([]*TransitionTarget, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = TransitionTargetToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TransitionTargetsFromPB converts a slice of TransitionTarget to TransitionTarget.
+func TransitionTargetsFromPB(pbs []*TransitionTarget) ([]ir.TransitionTarget, error) {
+	result := make([]ir.TransitionTarget, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = TransitionTargetFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// TransitionToPB converts Transition to Transition.
+func TransitionToPB(r ir.Transition) (*Transition, error) {
+	onVal, err := HandleToPB(r.On)
+	if err != nil {
+		return nil, err
+	}
+	targetVal, err := TransitionTargetToPB(r.Target)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Transition{
+		On:     onVal,
+		Target: targetVal,
+	}
+	return pb, nil
+}
+
+// TransitionFromPB converts Transition to Transition.
+func TransitionFromPB(pb *Transition) (ir.Transition, error) {
+	var r ir.Transition
 	if pb == nil {
 		return r, nil
 	}
 	var err error
-	r.Steps, err = StepsFromPB(pb.Steps)
+	r.On, err = HandleFromPB(pb.On)
 	if err != nil {
-		return ir.Sequence{}, err
+		return ir.Transition{}, err
 	}
-	r.Key = pb.Key
-	r.Strata = lo.Map(pb.Strata, func(w *StratumWrapper, _ int) []string { return w.Values })
+	r.Target, err = TransitionTargetFromPB(pb.Target)
+	if err != nil {
+		return ir.Transition{}, err
+	}
 	return r, nil
 }
 
-// SequencesToPB converts a slice of Sequence to Sequence.
-func SequencesToPB(rs []ir.Sequence) ([]*Sequence, error) {
-	result := make([]*Sequence, len(rs))
+// TransitionsToPB converts a slice of Transition to Transition.
+func TransitionsToPB(rs []ir.Transition) ([]*Transition, error) {
+	result := make([]*Transition, len(rs))
 	for i := range rs {
 		var err error
-		result[i], err = SequenceToPB(rs[i])
+		result[i], err = TransitionToPB(rs[i])
 		if err != nil {
 			return nil, err
 		}
@@ -363,12 +278,240 @@ func SequencesToPB(rs []ir.Sequence) ([]*Sequence, error) {
 	return result, nil
 }
 
-// SequencesFromPB converts a slice of Sequence to Sequence.
-func SequencesFromPB(pbs []*Sequence) ([]ir.Sequence, error) {
-	result := make([]ir.Sequence, len(pbs))
+// TransitionsFromPB converts a slice of Transition to Transition.
+func TransitionsFromPB(pbs []*Transition) ([]ir.Transition, error) {
+	result := make([]ir.Transition, len(pbs))
 	for i, pb := range pbs {
 		var err error
-		result[i], err = SequenceFromPB(pb)
+		result[i], err = TransitionFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// MemberToPB converts Member to Member.
+func MemberToPB(r ir.Member) (*Member, error) {
+	pb := &Member{
+		Key: r.Key,
+	}
+	if r.NodeRef != nil {
+		var err error
+		pb.NodeRef, err = NodeRefToPB(*r.NodeRef)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if r.Scope != nil {
+		var err error
+		pb.Scope, err = ScopeToPB(*r.Scope)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// MemberFromPB converts Member to Member.
+func MemberFromPB(pb *Member) (ir.Member, error) {
+	var r ir.Member
+	if pb == nil {
+		return r, nil
+	}
+	r.Key = pb.Key
+	if pb.NodeRef != nil {
+		val, err := NodeRefFromPB(pb.NodeRef)
+		if err != nil {
+			return ir.Member{}, err
+		}
+		r.NodeRef = &val
+	}
+	if pb.Scope != nil {
+		val, err := ScopeFromPB(pb.Scope)
+		if err != nil {
+			return ir.Member{}, err
+		}
+		r.Scope = &val
+	}
+	return r, nil
+}
+
+// MembersToPB converts a slice of Member to Member.
+func MembersToPB(rs []ir.Member) ([]*Member, error) {
+	result := make([]*Member, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = MemberToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// MembersFromPB converts a slice of Member to Member.
+func MembersFromPB(pbs []*Member) ([]ir.Member, error) {
+	result := make([]ir.Member, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = MemberFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PhaseToPB converts Phase to Phase.
+func PhaseToPB(r ir.Phase) (*Phase, error) {
+	membersVal, err := MembersToPB(r.Members)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Phase{
+		Members: membersVal,
+	}
+	return pb, nil
+}
+
+// PhaseFromPB converts Phase to Phase.
+func PhaseFromPB(pb *Phase) (ir.Phase, error) {
+	var r ir.Phase
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Members, err = MembersFromPB(pb.Members)
+	if err != nil {
+		return ir.Phase{}, err
+	}
+	return r, nil
+}
+
+// PhasesToPB converts a slice of Phase to Phase.
+func PhasesToPB(rs []ir.Phase) ([]*Phase, error) {
+	result := make([]*Phase, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = PhaseToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// PhasesFromPB converts a slice of Phase to Phase.
+func PhasesFromPB(pbs []*Phase) ([]ir.Phase, error) {
+	result := make([]ir.Phase, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = PhaseFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ScopeToPB converts Scope to Scope.
+func ScopeToPB(r ir.Scope) (*Scope, error) {
+	modeVal, err := ScopeModeToPB(r.Mode)
+	if err != nil {
+		return nil, err
+	}
+	livenessVal, err := LivenessToPB(r.Liveness)
+	if err != nil {
+		return nil, err
+	}
+	phasesVal, err := PhasesToPB(r.Phases)
+	if err != nil {
+		return nil, err
+	}
+	membersVal, err := MembersToPB(r.Members)
+	if err != nil {
+		return nil, err
+	}
+	transitionsVal, err := TransitionsToPB(r.Transitions)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Scope{
+		Key:         r.Key,
+		Mode:        modeVal,
+		Liveness:    livenessVal,
+		Phases:      phasesVal,
+		Members:     membersVal,
+		Transitions: transitionsVal,
+	}
+	if r.Activation != nil {
+		var err error
+		pb.Activation, err = HandleToPB(*r.Activation)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return pb, nil
+}
+
+// ScopeFromPB converts Scope to Scope.
+func ScopeFromPB(pb *Scope) (ir.Scope, error) {
+	var r ir.Scope
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Mode, err = ScopeModeFromPB(pb.Mode)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.Liveness, err = LivenessFromPB(pb.Liveness)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.Phases, err = PhasesFromPB(pb.Phases)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.Members, err = MembersFromPB(pb.Members)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.Transitions, err = TransitionsFromPB(pb.Transitions)
+	if err != nil {
+		return ir.Scope{}, err
+	}
+	r.Key = pb.Key
+	if pb.Activation != nil {
+		val, err := HandleFromPB(pb.Activation)
+		if err != nil {
+			return ir.Scope{}, err
+		}
+		r.Activation = &val
+	}
+	return r, nil
+}
+
+// ScopesToPB converts a slice of Scope to Scope.
+func ScopesToPB(rs []ir.Scope) ([]*Scope, error) {
+	result := make([]*Scope, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ScopeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ScopesFromPB converts a slice of Scope to Scope.
+func ScopesFromPB(pbs []*Scope) ([]ir.Scope, error) {
+	result := make([]ir.Scope, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ScopeFromPB(pb)
 		if err != nil {
 			return nil, err
 		}
@@ -672,7 +815,7 @@ func IRToPB(r ir.IR) (*IR, error) {
 	if err != nil {
 		return nil, err
 	}
-	rootVal, err := StageToPB(r.Root)
+	rootVal, err := ScopeToPB(r.Root)
 	if err != nil {
 		return nil, err
 	}
@@ -709,7 +852,7 @@ func IRFromPB(pb *IR) (ir.IR, error) {
 	if err != nil {
 		return ir.IR{}, err
 	}
-	r.Root, err = StageFromPB(pb.Root)
+	r.Root, err = ScopeFromPB(pb.Root)
 	if err != nil {
 		return ir.IR{}, err
 	}
@@ -767,5 +910,61 @@ func EdgeKindFromPB(v EdgeKind) (ir.EdgeKind, error) {
 		return ir.EdgeKindConditional, nil
 	default:
 		return 0, errors.Newf("unrecognized EdgeKind value: %v", v)
+	}
+}
+
+// LivenessToPB converts ir.Liveness to Liveness.
+func LivenessToPB(v ir.Liveness) (Liveness, error) {
+	switch v {
+	case ir.LivenessUnspecified:
+		return Liveness_LIVENESS_UNSPECIFIED, nil
+	case ir.LivenessAlways:
+		return Liveness_LIVENESS_ALWAYS, nil
+	case ir.LivenessGated:
+		return Liveness_LIVENESS_GATED, nil
+	default:
+		return 0, errors.Newf("unrecognized ir.Liveness value: %v", v)
+	}
+}
+
+// LivenessFromPB converts Liveness to ir.Liveness.
+func LivenessFromPB(v Liveness) (ir.Liveness, error) {
+	switch v {
+	case Liveness_LIVENESS_UNSPECIFIED:
+		return ir.LivenessUnspecified, nil
+	case Liveness_LIVENESS_ALWAYS:
+		return ir.LivenessAlways, nil
+	case Liveness_LIVENESS_GATED:
+		return ir.LivenessGated, nil
+	default:
+		return 0, errors.Newf("unrecognized Liveness value: %v", v)
+	}
+}
+
+// ScopeModeToPB converts ir.ScopeMode to ScopeMode.
+func ScopeModeToPB(v ir.ScopeMode) (ScopeMode, error) {
+	switch v {
+	case ir.ScopeModeUnspecified:
+		return ScopeMode_SCOPE_MODE_UNSPECIFIED, nil
+	case ir.ScopeModeParallel:
+		return ScopeMode_SCOPE_MODE_PARALLEL, nil
+	case ir.ScopeModeSequential:
+		return ScopeMode_SCOPE_MODE_SEQUENTIAL, nil
+	default:
+		return 0, errors.Newf("unrecognized ir.ScopeMode value: %v", v)
+	}
+}
+
+// ScopeModeFromPB converts ScopeMode to ir.ScopeMode.
+func ScopeModeFromPB(v ScopeMode) (ir.ScopeMode, error) {
+	switch v {
+	case ScopeMode_SCOPE_MODE_UNSPECIFIED:
+		return ir.ScopeModeUnspecified, nil
+	case ScopeMode_SCOPE_MODE_PARALLEL:
+		return ir.ScopeModeParallel, nil
+	case ScopeMode_SCOPE_MODE_SEQUENTIAL:
+		return ir.ScopeModeSequential, nil
+	default:
+		return 0, errors.Newf("unrecognized ScopeMode value: %v", v)
 	}
 }

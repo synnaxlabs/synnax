@@ -53,82 +53,117 @@ Edges Edge[] {
     @doc value "is a collection of dataflow edges in an Arc graph."
 }
 
-Flow struct {
-    nodes string[] {
-        @doc value "contains node keys belonging to this flow step."
-    }
+ScopeMode enum {
+    unspecified = 0
+    parallel    = 1
+    sequential  = 2
 
-    @doc value    "is a leaf step in a sequence containing a single dataflow chain."
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Flow& f)"
+    @doc value "defines the concurrency model of a Scope."
 }
 
-Stage struct {
-    key       string      {
-        @doc value "is the stage identifier."
+Liveness enum {
+    unspecified = 0
+    always      = 1
+    gated       = 2
+
+    @doc value "defines whether a Scope is continuously active or must be activated."
+}
+
+NodeRef struct {
+    key string {
+        @doc value "is the key of the referenced node in IR.nodes."
     }
-    strata    Strata      {
-        @doc value "contains execution stratification for nodes in this stage."
+
+    @doc value "is a Layer 2 reference to a node in the dataflow graph."
+}
+
+TransitionTarget struct {
+    memberKey string?? {
+        @doc value "is the sibling member key to activate."
     }
-    sequences Sequences   {
-        @doc value "contains inline sub-sequences nested within this stage."
+    exit      bool??   {
+        @doc value "is true when the transition exits the scope, yielding to the parent."
     }
 
     @doc value """
-        is a parallel execution context containing reactive flows that execute
-        concurrently. May also contain inline sub-sequences.
+        is a tagged union describing the destination of a sequential transition.
+        Exactly one of memberKey or exit is set.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Stage& s)"
 }
 
-Stages Stage[] {
-    @doc value "is a collection of stages in an Arc sequence."
+Transition struct {
+    on     Handle           {
+        @doc value "is the dataflow handle whose truthy value fires this transition."
+    }
+    target TransitionTarget {
+        @doc value "is the destination of this transition."
+    }
+
+    @doc value    "is a declarative state-transition rule on a sequential Scope."
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "friend std::ostream& operator<<(std::ostream& os, const Transition& t)"
 }
 
-Step struct {
-    key      string      {
-        @doc value "is the name for jump targets. Empty for anonymous steps."
+Member struct {
+    key     string    {
+        @doc value "is the position identifier of this member within its parent scope."
     }
-    flow     Flow??      {
-        @doc value "is set when this step is a leaf containing a single dataflow chain."
+    nodeRef NodeRef?? {
+        @doc value "is set when this member references a dataflow node."
     }
-    stage    Stage??     {
-        @doc value "is set when this step is a parallel execution context."
-    }
-    sequence Sequence??  {
-        @doc value "is set when this step is a nested sequential context."
+    scope   Scope??   {
+        @doc value "is set when this member is a nested scope."
     }
 
     @doc value """
-        is a tagged union representing a single child of a sequence. Exactly one
-        of flow, stage, or sequence is set.
+        is a tagged union representing a single child of a Scope. Exactly one
+        of nodeRef or scope is set.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Step& s)"
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
 }
 
-Steps Step[] {
-    @doc value "is a collection of steps in an Arc sequence."
-}
-
-Sequence struct {
-    key    string   {
-        @doc value "is the sequence identifier."
-    }
-    steps  Step[]   {
-        @doc value "contains ordered steps in this sequence."
-    }
-    strata Strata   {
-        @doc value "contains execution stratification for flow step nodes in this sequence."
+Phase struct {
+    members Member[] {
+        @doc value "contains members that execute together in this phase."
     }
 
     @doc value """
-        is a sequential execution context defining an ordered list of steps,
-        where each step is a flow, a stage, or a nested sequence.
+        is a single execution layer within a parallel Scope. Members in a phase
+        have no data dependency among themselves; phase N depends only on
+        phases 0 to N-1.
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Sequence& s)"
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Phase& p)"
 }
 
-Sequences Sequence[] {
-    @doc value "is a collection of sequences in an Arc module."
+Scope struct {
+    key         string        {
+        @doc value "is the scope identifier."
+    }
+    mode        ScopeMode     {
+        @doc value "defines whether this scope runs members in parallel or sequentially."
+    }
+    liveness    Liveness      {
+        @doc value "defines whether this scope is continuously active or must be activated."
+    }
+    activation  Handle??      {
+        @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
+    }
+    phases      Phase[]       {
+        @doc value "contains ordered execution layers for parallel scopes. Empty for sequential scopes."
+    }
+    members     Member[]      {
+        @doc value "contains ordered members for sequential scopes. Empty for parallel scopes."
+    }
+    transitions Transition[]  {
+        @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
+    }
+
+    @doc value """
+        is the unified Layer 2 execution primitive. Parameterized by mode
+        (parallel or sequential) and liveness (always-live or gated). Parallel
+        scopes organize members into phases; sequential scopes run one member
+        at a time and advance via transitions.
+    """
+    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
 }
 
 Body struct {
@@ -170,21 +205,6 @@ Function struct {
 
 Functions Function[] {
     @doc value "is a collection of function definitions in an Arc module."
-}
-
-Stratum = string[] {
-    @doc value """
-        is a single execution layer containing node keys that can execute in
-        parallel.
-    """
-}
-
-Strata Stratum[] {
-    @doc value    """
-        contains stratified execution layers where stratum N depends only on
-        strata 0 to N-1, enabling glitch-free reactive evaluation.
-    """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Strata& s)"
 }
 
 Node struct {
@@ -242,10 +262,11 @@ IR struct {
     authorities Authorities {
         @doc value "contains the static authority declarations for this program."
     }
-    root        Stage        {
+    root        Scope        {
         @doc value """
-            is the top-level execution context. Its strata field holds global
-            stratification; its sequences field holds top-level sequences.
+            is the top-level execution context. The root is always a
+            parallel, always-live Scope whose phases mix module-scope
+            reactive flow with top-level gated scopes.
         """
     }
 
@@ -256,6 +277,6 @@ IR struct {
     """
     @go fields           "Symbols *symbol.Scope `json:\"-\"`" "TypeMap map[antlr.ParserRuleContext]types.Type `json:\"-\"`"
     @go imports          "github.com/antlr4-go/antlr/v4" "github.com/synnaxlabs/arc/symbol" "github.com/synnaxlabs/arc/types"
-    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] const Sequence& sequence(const std::string& key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
+    @cpp methods         "[[nodiscard]] const Node& node(const std::string& key) const" "[[nodiscard]] const Function& function(const std::string& key) const" "[[nodiscard]] std::optional<Edge> edge_to(const Handle& target) const" "[[nodiscard]] std::unordered_map<std::string, std::vector<Edge>> edges_from(const std::string& node_key) const" "[[nodiscard]] std::vector<Edge> edges_to(const std::string& node_key) const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const IR& ir)"
     @cpp system_includes "optional" "unordered_map" "ostream"
 }

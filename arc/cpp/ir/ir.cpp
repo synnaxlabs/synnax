@@ -38,101 +38,133 @@ std::ostream &operator<<(std::ostream &os, const Edge &e) {
     return os << e.to_string();
 }
 
-std::string Stage::to_string() const {
-    return this->to_string_with_prefix("");
+namespace {
+
+/// @brief returns the short label used in tree output for a scope's mode.
+const char *scope_mode_label(const ScopeMode m) {
+    switch (m) {
+        case ScopeMode::Parallel:
+            return "parallel";
+        case ScopeMode::Sequential:
+            return "sequential";
+        default:
+            return "unspecified";
+    }
 }
 
-std::string Stage::to_string_with_prefix(const std::string &prefix) const {
+/// @brief returns the short label used in tree output for a scope's liveness.
+const char *liveness_label(const Liveness l) {
+    switch (l) {
+        case Liveness::Always:
+            return "always";
+        case Liveness::Gated:
+            return "gated";
+        default:
+            return "unspecified";
+    }
+}
+
+}
+
+std::string Transition::to_string() const {
     std::ostringstream ss;
-    ss << this->key << ": [";
-    bool first = true;
-    for (const auto &stratum: this->strata) {
-        for (const auto &node_key: stratum) {
-            if (!first) ss << ", ";
-            ss << node_key;
-            first = false;
-        }
-    }
-    ss << "]";
-    bool has_strata = !this->strata.empty();
-    bool has_sequences = !this->sequences.empty();
-    if (has_strata) { ss << "\n" << this->strata.to_string_with_prefix(prefix); }
-    if (has_sequences) {
-        for (size_t i = 0; i < this->sequences.size(); ++i) {
-            bool last = (i == this->sequences.size() - 1) && !has_strata;
-            ss << "\n" << prefix << tree_prefix(last);
-            ss << this->sequences[i].to_string_with_prefix(prefix + tree_indent(last));
-        }
-    }
+    ss << "on " << this->on.node << "/" << this->on.param << " ";
+    if (this->target.member_key.has_value())
+        ss << "=> " << *this->target.member_key;
+    else if (this->target.exit.has_value() && *this->target.exit)
+        ss << "=> exit";
+    else
+        ss << "=> ?";
     return ss.str();
 }
 
-std::ostream &operator<<(std::ostream &os, const Stage &s) {
-    return os << s.to_string();
+std::ostream &operator<<(std::ostream &os, const Transition &t) {
+    return os << t.to_string();
 }
 
-std::string Strata::to_string() const {
+std::string Member::to_string() const {
     return this->to_string_with_prefix("");
 }
 
-std::string Strata::to_string_with_prefix(const std::string &prefix) const {
+std::string Member::to_string_with_prefix(const std::string &prefix) const {
+    if (this->node_ref.has_value()) {
+        std::ostringstream ss;
+        if (!this->key.empty() && this->key != this->node_ref->key)
+            ss << this->key << " -> " << this->node_ref->key;
+        else
+            ss << this->node_ref->key;
+        return ss.str();
+    }
+    if (this->scope) return this->scope->to_string_with_prefix(prefix);
+    return "(empty member)";
+}
+
+std::ostream &operator<<(std::ostream &os, const Member &m) {
+    return os << m.to_string();
+}
+
+std::string Phase::to_string() const {
+    return this->to_string_with_prefix("");
+}
+
+std::string Phase::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
-    for (size_t i = 0; i < this->size(); ++i) {
-        bool last = (i == this->size() - 1);
-        ss << prefix << tree_prefix(last) << "[" << i << "]: ";
-        const auto &stratum = (*this)[i];
-        for (size_t j = 0; j < stratum.size(); ++j) {
-            if (j > 0) ss << ", ";
-            ss << stratum[j];
-        }
+    for (size_t i = 0; i < this->members.size(); ++i) {
+        const bool last = (i == this->members.size() - 1);
+        ss << prefix << tree_prefix(last);
+        ss << this->members[i].to_string_with_prefix(prefix + tree_indent(last));
         if (!last) ss << "\n";
     }
     return ss.str();
 }
 
-std::ostream &operator<<(std::ostream &os, const Strata &s) {
-    return os << s.to_string();
+std::ostream &operator<<(std::ostream &os, const Phase &p) {
+    return os << p.to_string();
 }
 
-std::string Flow::to_string() const {
-    std::ostringstream ss;
-    ss << "(flow): [";
-    for (size_t i = 0; i < this->nodes.size(); ++i) {
-        if (i > 0) ss << ", ";
-        ss << this->nodes[i];
-    }
-    ss << "]";
-    return ss.str();
-}
-
-std::string Step::to_string() const {
+std::string Scope::to_string() const {
     return this->to_string_with_prefix("");
 }
 
-std::string Step::to_string_with_prefix(const std::string &prefix) const {
-    if (this->flow) return this->flow->to_string();
-    if (this->stage) return this->stage->to_string_with_prefix(prefix);
-    if (this->sequence) return this->sequence->to_string_with_prefix(prefix);
-    return this->key;
-}
-
-std::string Sequence::to_string() const {
-    return this->to_string_with_prefix("");
-}
-
-std::string Sequence::to_string_with_prefix(const std::string &prefix) const {
+std::string Scope::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
-    ss << this->key;
-    if (!this->strata.empty()) ss << "\n" << this->strata.to_string_with_prefix(prefix);
-    for (size_t i = 0; i < this->steps.size(); ++i) {
-        bool last = (i == this->steps.size() - 1);
-        ss << "\n" << prefix << tree_prefix(last);
-        ss << this->steps[i].to_string_with_prefix(prefix + tree_indent(last));
+    const std::string label = this->key.empty() ? std::string("(scope)") : this->key;
+    ss << label << " [" << scope_mode_label(this->mode) << ", "
+       << liveness_label(this->liveness) << "]";
+
+    const bool is_parallel = this->mode == ScopeMode::Parallel;
+    const bool has_phases = is_parallel && !this->phases.empty();
+    const bool has_members = !is_parallel && !this->members.empty();
+    const bool has_transitions = !this->transitions.empty();
+
+    if (has_phases) {
+        for (size_t i = 0; i < this->phases.size(); ++i) {
+            const bool last = (i == this->phases.size() - 1) && !has_transitions;
+            ss << "\n" << prefix << tree_prefix(last) << "phase " << i;
+            if (!this->phases[i].members.empty()) {
+                ss << "\n";
+                ss << this->phases[i].to_string_with_prefix(prefix + tree_indent(last));
+            }
+        }
+    }
+    if (has_members) {
+        for (size_t i = 0; i < this->members.size(); ++i) {
+            const bool last = (i == this->members.size() - 1) && !has_transitions;
+            ss << "\n" << prefix << tree_prefix(last);
+            ss << this->members[i].to_string_with_prefix(prefix + tree_indent(last));
+        }
+    }
+    if (has_transitions) {
+        for (size_t i = 0; i < this->transitions.size(); ++i) {
+            const bool last = (i == this->transitions.size() - 1);
+            ss << "\n" << prefix << tree_prefix(last);
+            ss << this->transitions[i].to_string();
+        }
     }
     return ss.str();
 }
 
-std::ostream &operator<<(std::ostream &os, const Sequence &s) {
+std::ostream &operator<<(std::ostream &os, const Scope &s) {
     return os << s.to_string();
 }
 
@@ -257,17 +289,23 @@ IR::edges_from(const std::string &node_key) const {
     return result;
 }
 
-const Sequence &IR::sequence(const std::string &key) const {
-    for (const auto &s: this->root.sequences)
-        if (s.key == key) return s;
-    throw std::runtime_error("sequence not found: " + key);
-}
-
 std::vector<Edge> IR::edges_to(const std::string &node_key) const {
     std::vector<Edge> result;
     for (const auto &e: this->edges)
         if (e.target.node == node_key) result.push_back(e);
     return result;
+}
+
+namespace {
+
+/// @brief reports whether a scope carries any non-zero state. Used to decide
+/// whether the Root section should appear in an IR's tree output.
+bool scope_is_zero(const Scope &s) {
+    return s.key.empty() && s.mode == ScopeMode::Unspecified &&
+           s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
+           s.phases.empty() && s.members.empty() && s.transitions.empty();
+}
+
 }
 
 std::string IR::to_string() const {
@@ -278,10 +316,10 @@ std::string IR::to_string_with_prefix(const std::string &prefix) const {
     std::ostringstream ss;
     ss << "IR";
 
-    bool has_functions = !this->functions.empty();
-    bool has_nodes = !this->nodes.empty();
-    bool has_edges = !this->edges.empty();
-    bool has_root = !this->root.strata.empty() || !this->root.sequences.empty();
+    const bool has_functions = !this->functions.empty();
+    const bool has_nodes = !this->nodes.empty();
+    const bool has_edges = !this->edges.empty();
+    const bool has_root = !scope_is_zero(this->root);
 
     if (has_functions) {
         bool last = !has_nodes && !has_edges && !has_root;

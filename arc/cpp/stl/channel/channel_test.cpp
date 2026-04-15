@@ -26,7 +26,6 @@ runtime::node::Context make_context(bool *changed = nullptr) {
                 if (changed) *changed = true;
             },
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -338,7 +337,6 @@ TEST(OnTest, NextHandlesMultipleSeries) {
         .elapsed = ::x::telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -397,7 +395,6 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
         .elapsed = ::x::telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -446,7 +443,6 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
         .elapsed = ::x::telem::SECOND,
         .mark_changed = [&call_count](const std::string &) { call_count++; },
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 
     ASSERT_NIL(node->next(ctx));
@@ -493,7 +489,6 @@ TEST(OnTest, NextCallsMarkChanged) {
         .elapsed = ::x::telem::SECOND,
         .mark_changed = [&changed_param](const std::string &p) { changed_param = p; },
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 
     ASSERT_NIL(node->next(ctx));

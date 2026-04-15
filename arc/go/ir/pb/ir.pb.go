@@ -83,6 +83,106 @@ func (EdgeKind) EnumDescriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{0}
 }
 
+// ScopeMode defines the concurrency model of a Scope.
+type ScopeMode int32
+
+const (
+	ScopeMode_SCOPE_MODE_UNSPECIFIED ScopeMode = 0
+	ScopeMode_SCOPE_MODE_PARALLEL    ScopeMode = 1
+	ScopeMode_SCOPE_MODE_SEQUENTIAL  ScopeMode = 2
+)
+
+// Enum value maps for ScopeMode.
+var (
+	ScopeMode_name = map[int32]string{
+		0: "SCOPE_MODE_UNSPECIFIED",
+		1: "SCOPE_MODE_PARALLEL",
+		2: "SCOPE_MODE_SEQUENTIAL",
+	}
+	ScopeMode_value = map[string]int32{
+		"SCOPE_MODE_UNSPECIFIED": 0,
+		"SCOPE_MODE_PARALLEL":    1,
+		"SCOPE_MODE_SEQUENTIAL":  2,
+	}
+)
+
+func (x ScopeMode) Enum() *ScopeMode {
+	p := new(ScopeMode)
+	*p = x
+	return p
+}
+
+func (x ScopeMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ScopeMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_arc_go_ir_pb_ir_proto_enumTypes[1].Descriptor()
+}
+
+func (ScopeMode) Type() protoreflect.EnumType {
+	return &file_arc_go_ir_pb_ir_proto_enumTypes[1]
+}
+
+func (x ScopeMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ScopeMode.Descriptor instead.
+func (ScopeMode) EnumDescriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{1}
+}
+
+// Liveness defines whether a Scope is continuously active or must be activated.
+type Liveness int32
+
+const (
+	Liveness_LIVENESS_UNSPECIFIED Liveness = 0
+	Liveness_LIVENESS_ALWAYS      Liveness = 1
+	Liveness_LIVENESS_GATED       Liveness = 2
+)
+
+// Enum value maps for Liveness.
+var (
+	Liveness_name = map[int32]string{
+		0: "LIVENESS_UNSPECIFIED",
+		1: "LIVENESS_ALWAYS",
+		2: "LIVENESS_GATED",
+	}
+	Liveness_value = map[string]int32{
+		"LIVENESS_UNSPECIFIED": 0,
+		"LIVENESS_ALWAYS":      1,
+		"LIVENESS_GATED":       2,
+	}
+)
+
+func (x Liveness) Enum() *Liveness {
+	p := new(Liveness)
+	*p = x
+	return p
+}
+
+func (x Liveness) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (Liveness) Descriptor() protoreflect.EnumDescriptor {
+	return file_arc_go_ir_pb_ir_proto_enumTypes[2].Descriptor()
+}
+
+func (Liveness) Type() protoreflect.EnumType {
+	return &file_arc_go_ir_pb_ir_proto_enumTypes[2]
+}
+
+func (x Liveness) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use Liveness.Descriptor instead.
+func (Liveness) EnumDescriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
+}
+
 // Handle is a reference to a specific parameter on a specific node in the dataflow
 // graph.
 type Handle struct {
@@ -203,29 +303,29 @@ func (x *Edge) GetKind() EdgeKind {
 	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
-// Flow is a leaf step in a sequence containing a single dataflow chain.
-type Flow struct {
+// NodeRef is a Layer 2 reference to a node in the dataflow graph.
+type NodeRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// nodes contains node keys belonging to this flow step.
-	Nodes         []string `protobuf:"bytes,1,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// key is the key of the referenced node in IR.nodes.
+	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Flow) Reset() {
-	*x = Flow{}
+func (x *NodeRef) Reset() {
+	*x = NodeRef{}
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Flow) String() string {
+func (x *NodeRef) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Flow) ProtoMessage() {}
+func (*NodeRef) ProtoMessage() {}
 
-func (x *Flow) ProtoReflect() protoreflect.Message {
+func (x *NodeRef) ProtoReflect() protoreflect.Message {
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -237,39 +337,44 @@ func (x *Flow) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Flow.ProtoReflect.Descriptor instead.
-func (*Flow) Descriptor() ([]byte, []int) {
+// Deprecated: Use NodeRef.ProtoReflect.Descriptor instead.
+func (*NodeRef) Descriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *Flow) GetNodes() []string {
+func (x *NodeRef) GetKey() string {
 	if x != nil {
-		return x.Nodes
+		return x.Key
 	}
-	return nil
+	return ""
 }
 
-type StratumWrapper struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Values        []string               `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
+// TransitionTarget is a tagged union describing the destination of a sequential
+// transition. Exactly one of memberKey or exit is set.
+type TransitionTarget struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// member_key is the sibling member key to activate.
+	MemberKey *string `protobuf:"bytes,1,opt,name=member_key,json=memberKey,proto3,oneof" json:"member_key,omitempty"`
+	// exit is true when the transition exits the scope, yielding to the parent.
+	Exit          *bool `protobuf:"varint,2,opt,name=exit,proto3,oneof" json:"exit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *StratumWrapper) Reset() {
-	*x = StratumWrapper{}
+func (x *TransitionTarget) Reset() {
+	*x = TransitionTarget{}
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *StratumWrapper) String() string {
+func (x *TransitionTarget) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*StratumWrapper) ProtoMessage() {}
+func (*TransitionTarget) ProtoMessage() {}
 
-func (x *StratumWrapper) ProtoReflect() protoreflect.Message {
+func (x *TransitionTarget) ProtoReflect() protoreflect.Message {
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -281,46 +386,50 @@ func (x *StratumWrapper) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use StratumWrapper.ProtoReflect.Descriptor instead.
-func (*StratumWrapper) Descriptor() ([]byte, []int) {
+// Deprecated: Use TransitionTarget.ProtoReflect.Descriptor instead.
+func (*TransitionTarget) Descriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *StratumWrapper) GetValues() []string {
-	if x != nil {
-		return x.Values
+func (x *TransitionTarget) GetMemberKey() string {
+	if x != nil && x.MemberKey != nil {
+		return *x.MemberKey
 	}
-	return nil
+	return ""
 }
 
-// Stage is a parallel execution context containing reactive flows that execute
-// concurrently. May also contain inline sub-sequences.
-type Stage struct {
+func (x *TransitionTarget) GetExit() bool {
+	if x != nil && x.Exit != nil {
+		return *x.Exit
+	}
+	return false
+}
+
+// Transition is a declarative state-transition rule on a sequential Scope.
+type Transition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the stage identifier.
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// strata contains execution stratification for nodes in this stage.
-	Strata []*StratumWrapper `protobuf:"bytes,2,rep,name=strata,proto3" json:"strata,omitempty"`
-	// sequences contains inline sub-sequences nested within this stage.
-	Sequences     []*Sequence `protobuf:"bytes,3,rep,name=sequences,proto3" json:"sequences,omitempty"`
+	// on is the dataflow handle whose truthy value fires this transition.
+	On *Handle `protobuf:"bytes,1,opt,name=on,proto3" json:"on,omitempty"`
+	// target is the destination of this transition.
+	Target        *TransitionTarget `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Stage) Reset() {
-	*x = Stage{}
+func (x *Transition) Reset() {
+	*x = Transition{}
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Stage) String() string {
+func (x *Transition) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Stage) ProtoMessage() {}
+func (*Transition) ProtoMessage() {}
 
-func (x *Stage) ProtoReflect() protoreflect.Message {
+func (x *Transition) ProtoReflect() protoreflect.Message {
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -332,62 +441,53 @@ func (x *Stage) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Stage.ProtoReflect.Descriptor instead.
-func (*Stage) Descriptor() ([]byte, []int) {
+// Deprecated: Use Transition.ProtoReflect.Descriptor instead.
+func (*Transition) Descriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Stage) GetKey() string {
+func (x *Transition) GetOn() *Handle {
 	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-func (x *Stage) GetStrata() []*StratumWrapper {
-	if x != nil {
-		return x.Strata
+		return x.On
 	}
 	return nil
 }
 
-func (x *Stage) GetSequences() []*Sequence {
+func (x *Transition) GetTarget() *TransitionTarget {
 	if x != nil {
-		return x.Sequences
+		return x.Target
 	}
 	return nil
 }
 
-// Step is a tagged union representing a single child of a sequence. Exactly one of
-// flow, stage, or sequence is set.
-type Step struct {
+// Member is a tagged union representing a single child of a Scope. Exactly one of
+// nodeRef or scope is set.
+type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the name for jump targets. Empty for anonymous steps.
+	// key is the position identifier of this member within its parent scope.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// flow is set when this step is a leaf containing a single dataflow chain.
-	Flow *Flow `protobuf:"bytes,2,opt,name=flow,proto3,oneof" json:"flow,omitempty"`
-	// stage is set when this step is a parallel execution context.
-	Stage *Stage `protobuf:"bytes,3,opt,name=stage,proto3,oneof" json:"stage,omitempty"`
-	// sequence is set when this step is a nested sequential context.
-	Sequence      *Sequence `protobuf:"bytes,4,opt,name=sequence,proto3,oneof" json:"sequence,omitempty"`
+	// node_ref is set when this member references a dataflow node.
+	NodeRef *NodeRef `protobuf:"bytes,2,opt,name=node_ref,json=nodeRef,proto3,oneof" json:"node_ref,omitempty"`
+	// scope is set when this member is a nested scope.
+	Scope         *Scope `protobuf:"bytes,3,opt,name=scope,proto3,oneof" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Step) Reset() {
-	*x = Step{}
+func (x *Member) Reset() {
+	*x = Member{}
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Step) String() string {
+func (x *Member) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Step) ProtoMessage() {}
+func (*Member) ProtoMessage() {}
 
-func (x *Step) ProtoReflect() protoreflect.Message {
+func (x *Member) ProtoReflect() protoreflect.Message {
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -399,67 +499,56 @@ func (x *Step) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Step.ProtoReflect.Descriptor instead.
-func (*Step) Descriptor() ([]byte, []int) {
+// Deprecated: Use Member.ProtoReflect.Descriptor instead.
+func (*Member) Descriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *Step) GetKey() string {
+func (x *Member) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *Step) GetFlow() *Flow {
+func (x *Member) GetNodeRef() *NodeRef {
 	if x != nil {
-		return x.Flow
+		return x.NodeRef
 	}
 	return nil
 }
 
-func (x *Step) GetStage() *Stage {
+func (x *Member) GetScope() *Scope {
 	if x != nil {
-		return x.Stage
+		return x.Scope
 	}
 	return nil
 }
 
-func (x *Step) GetSequence() *Sequence {
-	if x != nil {
-		return x.Sequence
-	}
-	return nil
-}
-
-// Sequence is a sequential execution context defining an ordered list of steps, where
-// each step is a flow, a stage, or a nested sequence.
-type Sequence struct {
+// Phase is a single execution layer within a parallel Scope. Members in a phase have no
+// data dependency among themselves; phase N depends only on phases 0 to N-1.
+type Phase struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the sequence identifier.
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// steps contains ordered steps in this sequence.
-	Steps []*Step `protobuf:"bytes,2,rep,name=steps,proto3" json:"steps,omitempty"`
-	// strata contains execution stratification for flow step nodes in this sequence.
-	Strata        []*StratumWrapper `protobuf:"bytes,3,rep,name=strata,proto3" json:"strata,omitempty"`
+	// members contains members that execute together in this phase.
+	Members       []*Member `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Sequence) Reset() {
-	*x = Sequence{}
+func (x *Phase) Reset() {
+	*x = Phase{}
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Sequence) String() string {
+func (x *Phase) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Sequence) ProtoMessage() {}
+func (*Phase) ProtoMessage() {}
 
-func (x *Sequence) ProtoReflect() protoreflect.Message {
+func (x *Phase) ProtoReflect() protoreflect.Message {
 	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -471,28 +560,119 @@ func (x *Sequence) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Sequence.ProtoReflect.Descriptor instead.
-func (*Sequence) Descriptor() ([]byte, []int) {
+// Deprecated: Use Phase.ProtoReflect.Descriptor instead.
+func (*Phase) Descriptor() ([]byte, []int) {
 	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *Sequence) GetKey() string {
+func (x *Phase) GetMembers() []*Member {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+// sequential) and liveness (always-live or gated). Parallel scopes organize members
+// into phases; sequential scopes run one member at a time and advance via transitions.
+type Scope struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the scope identifier.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// mode defines whether this scope runs members in parallel or sequentially.
+	Mode ScopeMode `protobuf:"varint,2,opt,name=mode,proto3,enum=arc.ir.pb.ScopeMode" json:"mode,omitempty"`
+	// liveness defines whether this scope is continuously active or must be activated.
+	Liveness Liveness `protobuf:"varint,3,opt,name=liveness,proto3,enum=arc.ir.pb.Liveness" json:"liveness,omitempty"`
+	// activation is the handle whose truthy value activates a gated scope. Unset for
+	// always-live scopes.
+	Activation *Handle `protobuf:"bytes,4,opt,name=activation,proto3,oneof" json:"activation,omitempty"`
+	// phases contains ordered execution layers for parallel scopes. Empty for sequential
+	// scopes.
+	Phases []*Phase `protobuf:"bytes,5,rep,name=phases,proto3" json:"phases,omitempty"`
+	// members contains ordered members for sequential scopes. Empty for parallel scopes.
+	Members []*Member `protobuf:"bytes,6,rep,name=members,proto3" json:"members,omitempty"`
+	// transitions contains state-transition rules for sequential scopes. Empty for parallel
+	// scopes.
+	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Scope) Reset() {
+	*x = Scope{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Scope) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Scope) ProtoMessage() {}
+
+func (x *Scope) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Scope.ProtoReflect.Descriptor instead.
+func (*Scope) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *Scope) GetKey() string {
 	if x != nil {
 		return x.Key
 	}
 	return ""
 }
 
-func (x *Sequence) GetSteps() []*Step {
+func (x *Scope) GetMode() ScopeMode {
 	if x != nil {
-		return x.Steps
+		return x.Mode
+	}
+	return ScopeMode_SCOPE_MODE_UNSPECIFIED
+}
+
+func (x *Scope) GetLiveness() Liveness {
+	if x != nil {
+		return x.Liveness
+	}
+	return Liveness_LIVENESS_UNSPECIFIED
+}
+
+func (x *Scope) GetActivation() *Handle {
+	if x != nil {
+		return x.Activation
 	}
 	return nil
 }
 
-func (x *Sequence) GetStrata() []*StratumWrapper {
+func (x *Scope) GetPhases() []*Phase {
 	if x != nil {
-		return x.Strata
+		return x.Phases
+	}
+	return nil
+}
+
+func (x *Scope) GetMembers() []*Member {
+	if x != nil {
+		return x.Members
+	}
+	return nil
+}
+
+func (x *Scope) GetTransitions() []*Transition {
+	if x != nil {
+		return x.Transitions
 	}
 	return nil
 }
@@ -508,7 +688,7 @@ type Body struct {
 
 func (x *Body) Reset() {
 	*x = Body{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -520,7 +700,7 @@ func (x *Body) String() string {
 func (*Body) ProtoMessage() {}
 
 func (x *Body) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -533,7 +713,7 @@ func (x *Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Body.ProtoReflect.Descriptor instead.
 func (*Body) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Body) GetRaw() string {
@@ -565,7 +745,7 @@ type Function struct {
 
 func (x *Function) Reset() {
 	*x = Function{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -577,7 +757,7 @@ func (x *Function) String() string {
 func (*Function) ProtoMessage() {}
 
 func (x *Function) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -590,7 +770,7 @@ func (x *Function) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Function.ProtoReflect.Descriptor instead.
 func (*Function) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Function) GetKey() string {
@@ -657,7 +837,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +849,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +862,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Node) GetKey() string {
@@ -740,7 +920,7 @@ type Authorities struct {
 
 func (x *Authorities) Reset() {
 	*x = Authorities{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -752,7 +932,7 @@ func (x *Authorities) String() string {
 func (*Authorities) ProtoMessage() {}
 
 func (x *Authorities) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -765,7 +945,7 @@ func (x *Authorities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Authorities.ProtoReflect.Descriptor instead.
 func (*Authorities) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Authorities) GetDefault() uint32 {
@@ -794,16 +974,16 @@ type IR struct {
 	Edges []*Edge `protobuf:"bytes,3,rep,name=edges,proto3" json:"edges,omitempty"`
 	// authorities contains the static authority declarations for this program.
 	Authorities *Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
-	// root is the top-level execution context. Its strata field holds global
-	// stratification; its sequences field holds top-level sequences.
-	Root          *Stage `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
+	// root is the top-level execution context. The root is always a parallel, always-live
+	// Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+	Root          *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IR) Reset() {
 	*x = IR{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -815,7 +995,7 @@ func (x *IR) String() string {
 func (*IR) ProtoMessage() {}
 
 func (x *IR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -828,7 +1008,7 @@ func (x *IR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IR.ProtoReflect.Descriptor instead.
 func (*IR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{11}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *IR) GetFunctions() []*Function {
@@ -859,7 +1039,7 @@ func (x *IR) GetAuthorities() *Authorities {
 	return nil
 }
 
-func (x *IR) GetRoot() *Stage {
+func (x *IR) GetRoot() *Scope {
 	if x != nil {
 		return x.Root
 	}
@@ -877,27 +1057,38 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Edge\x12)\n" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x1c\n" +
-	"\x04Flow\x12\x14\n" +
-	"\x05nodes\x18\x01 \x03(\tR\x05nodes\"(\n" +
-	"\x0eStratumWrapper\x12\x16\n" +
-	"\x06values\x18\x01 \x03(\tR\x06values\"\x7f\n" +
-	"\x05Stage\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x121\n" +
-	"\x06strata\x18\x02 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\x121\n" +
-	"\tsequences\x18\x03 \x03(\v2\x13.arc.ir.pb.SequenceR\tsequences\"\xc5\x01\n" +
-	"\x04Step\x12\x10\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x1b\n" +
+	"\aNodeRef\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\"g\n" +
+	"\x10TransitionTarget\x12\"\n" +
+	"\n" +
+	"member_key\x18\x01 \x01(\tH\x00R\tmemberKey\x88\x01\x01\x12\x17\n" +
+	"\x04exit\x18\x02 \x01(\bH\x01R\x04exit\x88\x01\x01B\r\n" +
+	"\v_member_keyB\a\n" +
+	"\x05_exit\"d\n" +
+	"\n" +
+	"Transition\x12!\n" +
+	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x123\n" +
+	"\x06target\x18\x02 \x01(\v2\x1b.arc.ir.pb.TransitionTargetR\x06target\"\x92\x01\n" +
+	"\x06Member\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
+	"\bnode_ref\x18\x02 \x01(\v2\x12.arc.ir.pb.NodeRefH\x00R\anodeRef\x88\x01\x01\x12+\n" +
+	"\x05scope\x18\x03 \x01(\v2\x10.arc.ir.pb.ScopeH\x01R\x05scope\x88\x01\x01B\v\n" +
+	"\t_node_refB\b\n" +
+	"\x06_scope\"4\n" +
+	"\x05Phase\x12+\n" +
+	"\amembers\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\amembers\"\xcb\x02\n" +
+	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
-	"\x04flow\x18\x02 \x01(\v2\x0f.arc.ir.pb.FlowH\x00R\x04flow\x88\x01\x01\x12+\n" +
-	"\x05stage\x18\x03 \x01(\v2\x10.arc.ir.pb.StageH\x01R\x05stage\x88\x01\x01\x124\n" +
-	"\bsequence\x18\x04 \x01(\v2\x13.arc.ir.pb.SequenceH\x02R\bsequence\x88\x01\x01B\a\n" +
-	"\x05_flowB\b\n" +
-	"\x06_stageB\v\n" +
-	"\t_sequence\"v\n" +
-	"\bSequence\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x12%\n" +
-	"\x05steps\x18\x02 \x03(\v2\x0f.arc.ir.pb.StepR\x05steps\x121\n" +
-	"\x06strata\x18\x03 \x03(\v2\x19.arc.ir.pb.StratumWrapperR\x06strata\"\x18\n" +
+	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
+	"\bliveness\x18\x03 \x01(\x0e2\x13.arc.ir.pb.LivenessR\bliveness\x126\n" +
+	"\n" +
+	"activation\x18\x04 \x01(\v2\x11.arc.ir.pb.HandleH\x00R\n" +
+	"activation\x88\x01\x01\x12(\n" +
+	"\x06phases\x18\x05 \x03(\v2\x10.arc.ir.pb.PhaseR\x06phases\x12+\n" +
+	"\amembers\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\amembers\x127\n" +
+	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
+	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
 	"\x03raw\x18\x01 \x01(\tR\x03raw\"\xfe\x01\n" +
 	"\bFunction\x12\x10\n" +
@@ -927,11 +1118,19 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x05nodes\x18\x02 \x03(\v2\x0f.arc.ir.pb.NodeR\x05nodes\x12%\n" +
 	"\x05edges\x18\x03 \x03(\v2\x0f.arc.ir.pb.EdgeR\x05edges\x128\n" +
 	"\vauthorities\x18\x04 \x01(\v2\x16.arc.ir.pb.AuthoritiesR\vauthorities\x12$\n" +
-	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.StageR\x04root*Z\n" +
+	"\x04root\x18\x05 \x01(\v2\x10.arc.ir.pb.ScopeR\x04root*Z\n" +
 	"\bEdgeKind\x12\x19\n" +
 	"\x15EDGE_KIND_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14EDGE_KIND_CONTINUOUS\x10\x01\x12\x19\n" +
-	"\x15EDGE_KIND_CONDITIONAL\x10\x02B\x7f\n" +
+	"\x15EDGE_KIND_CONDITIONAL\x10\x02*[\n" +
+	"\tScopeMode\x12\x1a\n" +
+	"\x16SCOPE_MODE_UNSPECIFIED\x10\x00\x12\x17\n" +
+	"\x13SCOPE_MODE_PARALLEL\x10\x01\x12\x19\n" +
+	"\x15SCOPE_MODE_SEQUENTIAL\x10\x02*M\n" +
+	"\bLiveness\x12\x18\n" +
+	"\x14LIVENESS_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fLIVENESS_ALWAYS\x10\x01\x12\x12\n" +
+	"\x0eLIVENESS_GATED\x10\x02B\x7f\n" +
 	"\rcom.arc.ir.pbB\aIrProtoP\x01Z\x1fgithub.com/synnaxlabs/arc/ir/pb\xa2\x02\x03AIP\xaa\x02\tArc.Ir.Pb\xca\x02\tArc\\Ir\\Pb\xe2\x02\x15Arc\\Ir\\Pb\\GPBMetadata\xea\x02\vArc::Ir::Pbb\x06proto3"
 
 var (
@@ -946,57 +1145,64 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 	return file_arc_go_ir_pb_ir_proto_rawDescData
 }
 
-var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
-	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
-	(*Handle)(nil),         // 1: arc.ir.pb.Handle
-	(*Edge)(nil),           // 2: arc.ir.pb.Edge
-	(*Flow)(nil),           // 3: arc.ir.pb.Flow
-	(*StratumWrapper)(nil), // 4: arc.ir.pb.StratumWrapper
-	(*Stage)(nil),          // 5: arc.ir.pb.Stage
-	(*Step)(nil),           // 6: arc.ir.pb.Step
-	(*Sequence)(nil),       // 7: arc.ir.pb.Sequence
-	(*Body)(nil),           // 8: arc.ir.pb.Body
-	(*Function)(nil),       // 9: arc.ir.pb.Function
-	(*Node)(nil),           // 10: arc.ir.pb.Node
-	(*Authorities)(nil),    // 11: arc.ir.pb.Authorities
-	(*IR)(nil),             // 12: arc.ir.pb.IR
-	nil,                    // 13: arc.ir.pb.Authorities.ChannelsEntry
-	(*pb.Param)(nil),       // 14: arc.types.pb.Param
-	(*pb.Channels)(nil),    // 15: arc.types.pb.Channels
+	(EdgeKind)(0),            // 0: arc.ir.pb.EdgeKind
+	(ScopeMode)(0),           // 1: arc.ir.pb.ScopeMode
+	(Liveness)(0),            // 2: arc.ir.pb.Liveness
+	(*Handle)(nil),           // 3: arc.ir.pb.Handle
+	(*Edge)(nil),             // 4: arc.ir.pb.Edge
+	(*NodeRef)(nil),          // 5: arc.ir.pb.NodeRef
+	(*TransitionTarget)(nil), // 6: arc.ir.pb.TransitionTarget
+	(*Transition)(nil),       // 7: arc.ir.pb.Transition
+	(*Member)(nil),           // 8: arc.ir.pb.Member
+	(*Phase)(nil),            // 9: arc.ir.pb.Phase
+	(*Scope)(nil),            // 10: arc.ir.pb.Scope
+	(*Body)(nil),             // 11: arc.ir.pb.Body
+	(*Function)(nil),         // 12: arc.ir.pb.Function
+	(*Node)(nil),             // 13: arc.ir.pb.Node
+	(*Authorities)(nil),      // 14: arc.ir.pb.Authorities
+	(*IR)(nil),               // 15: arc.ir.pb.IR
+	nil,                      // 16: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),         // 17: arc.types.pb.Param
+	(*pb.Channels)(nil),      // 18: arc.types.pb.Channels
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
-	1,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
-	1,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
+	3,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
+	3,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
-	4,  // 3: arc.ir.pb.Stage.strata:type_name -> arc.ir.pb.StratumWrapper
-	7,  // 4: arc.ir.pb.Stage.sequences:type_name -> arc.ir.pb.Sequence
-	3,  // 5: arc.ir.pb.Step.flow:type_name -> arc.ir.pb.Flow
-	5,  // 6: arc.ir.pb.Step.stage:type_name -> arc.ir.pb.Stage
-	7,  // 7: arc.ir.pb.Step.sequence:type_name -> arc.ir.pb.Sequence
-	6,  // 8: arc.ir.pb.Sequence.steps:type_name -> arc.ir.pb.Step
-	4,  // 9: arc.ir.pb.Sequence.strata:type_name -> arc.ir.pb.StratumWrapper
-	8,  // 10: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	14, // 11: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
-	14, // 12: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	14, // 13: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	15, // 14: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	14, // 15: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
-	14, // 16: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	14, // 17: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	15, // 18: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	13, // 19: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	9,  // 20: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	10, // 21: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	2,  // 22: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	11, // 23: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	5,  // 24: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Stage
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	3,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
+	6,  // 4: arc.ir.pb.Transition.target:type_name -> arc.ir.pb.TransitionTarget
+	5,  // 5: arc.ir.pb.Member.node_ref:type_name -> arc.ir.pb.NodeRef
+	10, // 6: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
+	8,  // 7: arc.ir.pb.Phase.members:type_name -> arc.ir.pb.Member
+	1,  // 8: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
+	2,  // 9: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
+	3,  // 10: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
+	9,  // 11: arc.ir.pb.Scope.phases:type_name -> arc.ir.pb.Phase
+	8,  // 12: arc.ir.pb.Scope.members:type_name -> arc.ir.pb.Member
+	7,  // 13: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
+	11, // 14: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
+	17, // 15: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
+	17, // 16: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	17, // 17: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	18, // 18: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	17, // 19: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
+	17, // 20: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	17, // 21: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	18, // 22: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	16, // 23: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	12, // 24: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	13, // 25: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 26: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	14, // 27: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	10, // 28: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	29, // [29:29] is the sub-list for method output_type
+	29, // [29:29] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1004,15 +1210,17 @@ func file_arc_go_ir_pb_ir_proto_init() {
 	if File_arc_go_ir_pb_ir_proto != nil {
 		return
 	}
+	file_arc_go_ir_pb_ir_proto_msgTypes[3].OneofWrappers = []any{}
 	file_arc_go_ir_pb_ir_proto_msgTypes[5].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[10].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[7].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[11].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   13,
+			NumEnums:      3,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

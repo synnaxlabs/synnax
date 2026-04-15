@@ -17,45 +17,73 @@ import (
 )
 
 var _ = Describe("IRBuilder", func() {
+	Describe("Phases", func() {
+		It("Should layer node members across the Root scope's phases", func() {
+			prog := testutil.NewIRBuilder().
+				Node("A").
+				Node("B").
+				Node("C").
+				Phases([][]string{{"A", "B"}, {"C"}}).
+				Build()
+
+			Expect(prog.Root.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(prog.Root.Liveness).To(Equal(ir.LivenessAlways))
+			Expect(prog.Root.Phases).To(HaveLen(2))
+			Expect(prog.Root.Phases[0].Members).To(HaveLen(2))
+			Expect(prog.Root.Phases[0].Members[0].NodeRef).ToNot(BeNil())
+			Expect(prog.Root.Phases[0].Members[0].NodeRef.Key).To(Equal("A"))
+			Expect(prog.Root.Phases[1].Members[0].NodeRef.Key).To(Equal("C"))
+		})
+	})
+
 	Describe("Sequence", func() {
-		It("Should carry strata through to the stage step", func() {
+		It("Should append a sequential gated Scope with parallel child scopes", func() {
 			prog := testutil.NewIRBuilder().
-				Sequence("main", []testutil.StageSpec{
-					{Key: "stage_a", Strata: ir.Strata{{"A", "B"}, {"C"}}},
+				Sequence("main", []testutil.ScopeSpec{
+					{Key: "stage_a", Phases: [][]string{{"A", "B"}, {"C"}}},
+					{Key: "stage_b", Phases: [][]string{{"D"}}},
 				}).
 				Build()
 
-			Expect(prog.Root.Sequences).To(HaveLen(1))
-			Expect(prog.Root.Sequences[0].Key).To(Equal("main"))
-			Expect(prog.Root.Sequences[0].Steps).To(HaveLen(1))
+			Expect(prog.Root.Phases).To(HaveLen(1))
+			members := prog.Root.Phases[0].Members
+			Expect(members).To(HaveLen(1))
+			Expect(members[0].Scope).ToNot(BeNil())
 
-			step := prog.Root.Sequences[0].Steps[0]
-			Expect(step.Key).To(Equal("stage_a"))
-			Expect(step.Stage).ToNot(BeNil())
-			Expect(step.Stage.Strata).To(Equal(ir.Strata{{"A", "B"}, {"C"}}))
+			main := members[0].Scope
+			Expect(main.Key).To(Equal("main"))
+			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+			Expect(main.Liveness).To(Equal(ir.LivenessGated))
+			Expect(main.Members).To(HaveLen(2))
+
+			stageA := main.Members[0].Scope
+			Expect(stageA).ToNot(BeNil())
+			Expect(stageA.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(stageA.Phases).To(HaveLen(2))
+			Expect(stageA.Phases[0].Members).To(HaveLen(2))
+			Expect(stageA.Phases[0].Members[0].NodeRef.Key).To(Equal("A"))
+
+			stageB := main.Members[1].Scope
+			Expect(stageB.Phases).To(HaveLen(1))
+			Expect(stageB.Phases[0].Members[0].NodeRef.Key).To(Equal("D"))
 		})
 
-		It("Should handle multiple stages", func() {
+		It("Should accept sequential child scopes via Members", func() {
 			prog := testutil.NewIRBuilder().
-				Sequence("seq", []testutil.StageSpec{
-					{Key: "first", Strata: ir.Strata{{"X"}}},
-					{Key: "second", Strata: ir.Strata{{"Y"}, {"Z"}}},
+				Sequence("main", []testutil.ScopeSpec{
+					{Key: "flow_a", Members: []string{"N1", "N2"}},
 				}).
 				Build()
 
-			Expect(prog.Root.Sequences[0].Steps).To(HaveLen(2))
-			Expect(prog.Root.Sequences[0].Steps[0].Stage.Strata).To(Equal(ir.Strata{{"X"}}))
-			Expect(prog.Root.Sequences[0].Steps[1].Stage.Strata).To(Equal(ir.Strata{{"Y"}, {"Z"}}))
-		})
+			main := prog.Root.Phases[0].Members[0].Scope
+			Expect(main.Members).To(HaveLen(1))
 
-		It("Should handle empty strata", func() {
-			prog := testutil.NewIRBuilder().
-				Sequence("empty", []testutil.StageSpec{
-					{Key: "stage", Strata: nil},
-				}).
-				Build()
-
-			Expect(prog.Root.Sequences[0].Steps[0].Stage.Strata).To(BeNil())
+			flowA := main.Members[0].Scope
+			Expect(flowA).ToNot(BeNil())
+			Expect(flowA.Mode).To(Equal(ir.ScopeModeSequential))
+			Expect(flowA.Members).To(HaveLen(2))
+			Expect(flowA.Members[0].NodeRef.Key).To(Equal("N1"))
+			Expect(flowA.Members[1].NodeRef.Key).To(Equal("N2"))
 		})
 	})
 

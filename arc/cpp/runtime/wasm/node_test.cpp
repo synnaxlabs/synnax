@@ -70,7 +70,6 @@ node::Context make_context() {
         .elapsed = x::telem::SECOND,
         .mark_changed = [](const std::string &) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
