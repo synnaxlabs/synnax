@@ -632,7 +632,7 @@ private:
         for (size_t i = 0; i < n; i++) {
             auto a = lhs->at<T>(static_cast<int>(std::min(i, lhs->size() - 1)));
             auto b = rhs->at<T>(static_cast<int>(std::min(i, rhs->size() - 1)));
-            T result;
+            T result{};
             switch (this->op) {
                 case Op::Add:
                     result = a + b;
