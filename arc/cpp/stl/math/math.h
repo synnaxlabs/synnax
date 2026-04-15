@@ -168,6 +168,7 @@ private:
                 "math",
                 "divide_" + suffix,
                 [](W a, W b) -> W {
+                    if (b == W{0}) return W{0};
                     return static_cast<W>(static_cast<T>(a) / static_cast<T>(b));
                 }
             )
@@ -177,6 +178,7 @@ private:
                 "math",
                 "mod_" + suffix,
                 [](W a, W b) -> W {
+                    if (b == W{0}) return W{0};
                     return static_cast<W>(static_cast<T>(a) % static_cast<T>(b));
                 }
             )
@@ -644,10 +646,10 @@ private:
                     result = a * b;
                     break;
                 case Op::Divide:
-                    result = a / b;
+                    result = safe_div(a, b);
                     break;
                 case Op::Mod:
-                    result = mod_impl(a, b);
+                    result = safe_mod(a, b);
                     break;
             }
             output->set(static_cast<int>(i), result);
@@ -655,13 +657,21 @@ private:
     }
 
     template<typename T>
-    static T mod_impl(T a, T b) {
+    static T safe_div(T a, T b) {
+        if constexpr (std::is_floating_point_v<T>)
+            return a / b;
+        else
+            return (b == 0) ? T{} : a / b;
+    }
+
+    template<typename T>
+    static T safe_mod(T a, T b) {
         if constexpr (std::is_floating_point_v<T>)
             return static_cast<T>(
                 std::fmod(static_cast<double>(a), static_cast<double>(b))
             );
         else
-            return a % b;
+            return (b == 0) ? T{} : a % b;
     }
 };
 

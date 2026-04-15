@@ -103,8 +103,8 @@ var scalarArithmeticOps = []Operation{
 // Reverse scalar arithmetic operations (scalar op series -> same type)
 // Used for non-commutative operations where scalar is on the left
 var reverseScalarArithmeticOps = []Operation{
-	{Name: "ReverseSubtractScalar", Op: "-"},              // scalar - series
-	{Name: "ReverseDivideScalar", Op: "/", IsDiv: true},   // scalar / series
+	{Name: "ReverseSubtractScalar", Op: "-"},            // scalar - series
+	{Name: "ReverseDivideScalar", Op: "/", IsDiv: true}, // scalar / series
 }
 
 // Reverse modulo for integers only (floats use math.Mod, handled separately)

@@ -1289,6 +1289,46 @@ TEST(MathModTest, ModsI32ElementWise) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(2), 3);
 }
 
+// ───────────────── Divide by zero ─────────────────
+
+TEST(MathDivideTest, IntegerDivideByZeroReturnsZero) {
+    BinaryTestSetup setup(types::Kind::I32, "divide");
+    FlowModule module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_i32(lhs, {10, 20, 30}, {sec, 2 * sec, 3 * sec});
+    write_rhs_i32(rhs, {5, 0, 3}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 2);
+    EXPECT_EQ(checker.output(0)->at<int32_t>(1), 0);
+    EXPECT_EQ(checker.output(0)->at<int32_t>(2), 10);
+}
+
+TEST(MathModTest, IntegerModByZeroReturnsZero) {
+    BinaryTestSetup setup(types::Kind::I32, "mod");
+    FlowModule module;
+    auto node = ASSERT_NIL_P(module.create(
+        runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
+    ));
+    const auto sec = x::telem::SECOND.nanoseconds();
+    auto lhs = setup.make_lhs_node();
+    auto rhs = setup.make_rhs_node();
+    write_lhs_i32(lhs, {10, 20, 30}, {sec, 2 * sec, 3 * sec});
+    write_rhs_i32(rhs, {3, 0, 7}, {sec, 2 * sec, 3 * sec});
+    auto ctx = make_context();
+    ASSERT_NIL(node->next(ctx));
+    auto checker = setup.make_target_node();
+    EXPECT_EQ(checker.output(0)->at<int32_t>(0), 1);
+    EXPECT_EQ(checker.output(0)->at<int32_t>(1), 0);
+    EXPECT_EQ(checker.output(0)->at<int32_t>(2), 2);
+}
+
 // ───────────────── Neg ─────────────────
 
 TEST(MathNegTest, NegatesF64ElementWise) {
