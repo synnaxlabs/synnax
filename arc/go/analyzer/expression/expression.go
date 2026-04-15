@@ -384,7 +384,8 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			if funcName != "now" && funcName != "time.now" {
+			if funcName != "now" && funcName != "time.now" &&
+				funcName != "len" && funcName != "series.len" {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)

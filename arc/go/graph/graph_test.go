@@ -17,6 +17,8 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl/selector"
+	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
@@ -1126,5 +1128,106 @@ var _ = Describe("Graph", func() {
 			})
 		})
 
+	})
+
+	Describe("Qualified Module Names", func() {
+		It("Should analyze selector.select with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "sel",
+						Type: "selector.select",
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sel", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				selector.SymbolResolver,
+				symbol.MapResolver{
+					"100": symbol.Symbol{
+						Name: "flag",
+						Type: types.Chan(types.U8()),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
+
+		It("Should analyze stable.stable_for with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "sf",
+						Type: "stable.stable_for",
+						Config: map[string]any{
+							"duration": int(telem.Millisecond),
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sf", Param: ir.DefaultInputParam},
+					},
+				},
+			}
+			resolver := symbol.CompoundResolver{
+				stable.SymbolResolver,
+				symbol.MapResolver{
+					"100": symbol.Symbol{
+						Name: "sensor",
+						Type: types.Chan(types.U8()),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
 	})
 })

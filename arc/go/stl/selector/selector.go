@@ -38,7 +38,11 @@ var (
 			},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
+	bareResolver   = symbol.MapResolver{symbolName: symbolSelect}
+	SymbolResolver = symbol.CompoundResolver{
+		bareResolver,
+		&symbol.ModuleResolver{Name: "selector", Members: bareResolver},
+	}
 )
 
 type Module struct{}

@@ -64,13 +64,16 @@ func (s *Server) Hover(
 		return nil, nil
 	}
 
-	contents := s.getHoverContents(word)
 	qualifiedWord := lsp.GetQualifiedWordAtPosition(
 		displayContent,
 		params.Position,
 	)
-	if contents == "" && qualifiedWord != word {
+	var contents string
+	if qualifiedWord != word {
 		contents = s.getHoverContents(qualifiedWord)
+	}
+	if contents == "" {
+		contents = s.getHoverContents(word)
 	}
 	if contents == "" && d.IR.Symbols != nil {
 		scopeAtCursor := d.findScopeAtPosition(params.Position)
@@ -385,9 +388,33 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		arcCode("result := math.pow(base, exp)"),
 	).Render(),
+	"selector.select": doc.New(
+		doc.TitleWithKind("selector.select", "Function"),
+		doc.Paragraph("Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false."),
+		doc.Divider(),
+		arcCode("flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	).Render(),
+	"stable.stable_for": doc.New(
+		doc.TitleWithKind("stable.stable_for", "Function"),
+		doc.Paragraph("Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations."),
+		doc.Divider(),
+		arcCode("sensor -> stable.stable_for{duration=5s} -> output"),
+	).Render(),
+	"series.len": doc.New(
+		doc.TitleWithKind("series.len", "Function"),
+		doc.Paragraph("Returns the length of a series as i64."),
+		doc.Divider(),
+		arcCode("length := series.len(data)"),
+	).Render(),
+	"string.len": doc.New(
+		doc.TitleWithKind("string.len", "Function"),
+		doc.Paragraph("Returns the length of a string as i64."),
+		doc.Divider(),
+		arcCode("length := string.len(name)"),
+	).Render(),
 	"len": doc.New(
 		doc.TitleWithKind("len", "Function"),
-		doc.Paragraph("Returns the length of a series."),
+		doc.Paragraph("Returns the length of a series or string as i64. Dispatches to series.len() or string.len() based on argument type."),
 		doc.Divider(),
 		arcCode("length := len(data)"),
 	).Render(),

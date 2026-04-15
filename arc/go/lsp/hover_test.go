@@ -162,6 +162,70 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("#### math.pow"))
 		})
 
+		It("should provide hover for 'selector.select' function", func(ctx SpecContext) {
+			content := "flag -> selector.select{} -> output"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 16},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### selector.select"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Routes input values"))
+		})
+
+		It("should provide hover for 'stable.stable_for' function", func(ctx SpecContext) {
+			content := "sensor -> stable.stable_for{duration=5s} -> output"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 18},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.stable_for"))
+			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
+		})
+
+		It("should provide hover for 'series.len' function", func(ctx SpecContext) {
+			content := "length := series.len(data)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 18},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### series.len"))
+			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
+		})
+
+		It("should provide hover for 'string.len' function", func(ctx SpecContext) {
+			content := "length := string.len(name)"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 18},
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### string.len"))
+			Expect(hover.Contents.Value).To(ContainSubstring("length of a string"))
+		})
+
 		It("should provide hover for 'now' function", func(ctx SpecContext) {
 			content := "time := now()"
 			OpenArcDocument(server, ctx, uri, content)
