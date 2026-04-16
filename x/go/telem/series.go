@@ -10,7 +10,7 @@
 package telem
 
 import (
-	"bytes"
+	"encoding/binary"
 	"fmt"
 	"iter"
 	"slices"
@@ -23,8 +23,6 @@ import (
 	xunsafe "github.com/synnaxlabs/x/unsafe"
 )
 
-const newLineChar = '\n'
-
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
 	if len(s.Data) == 0 {
@@ -32,7 +30,16 @@ func (s Series) Len() int64 {
 	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
-			cl := int64(bytes.Count(s.Data, []byte{newLineChar}))
+			var cl int64
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				if offset+variableLengthPrefixSize+length > len(s.Data) {
+					break
+				}
+				offset += variableLengthPrefixSize + length
+				cl++
+			}
 			s.cachedLength = &cl
 		}
 		return *s.cachedLength
@@ -47,18 +54,17 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
-			var (
-				buf    []byte
-				offset int
-			)
-			for i := range s.Data {
-				if s.Data[i] == newLineChar {
-					buf = s.Data[offset:i]
-					offset = i + 1
-					if !yield(buf) {
-						return
-					}
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				offset += variableLengthPrefixSize
+				if offset+length > len(s.Data) {
+					return
 				}
+				if !yield(s.Data[offset : offset+length]) {
+					return
+				}
+				offset += length
 			}
 			return
 		}
@@ -76,15 +82,18 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		var offset int
-		for j := range s.Data {
-			if s.Data[j] == newLineChar {
-				if i == 0 {
-					return s.Data[offset:j]
-				}
-				i--
-				offset = j + 1
+		offset := 0
+		for offset+variableLengthPrefixSize <= len(s.Data) {
+			length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+			offset += variableLengthPrefixSize
+			if offset+length > len(s.Data) {
+				break
 			}
+			if i == 0 {
+				return s.Data[offset : offset+length]
+			}
+			i--
+			offset += length
 		}
 		panic(fmt.Sprintf(
 			"index %v out of bounds for series with length %v",
@@ -189,14 +198,12 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		iLines := bytes.Split(s.Data, []byte{newLineChar})
-		oLines := make([][]byte, 0, len(iLines)/factor+1)
-		for i := 0; i < len(iLines); i += factor {
-			if i < len(iLines) {
-				oLines = append(oLines, iLines[i])
-			}
+		samples := unmarshalVariable[[]byte](s.Data)
+		downsampled := make([][]byte, 0, len(samples)/factor+1)
+		for i := 0; i < len(samples); i += factor {
+			downsampled = append(downsampled, samples[i])
 		}
-		oData = bytes.Join(oLines, []byte{newLineChar})
+		oData = marshalVariable(downsampled)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)
