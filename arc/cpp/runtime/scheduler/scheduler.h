@@ -27,6 +27,12 @@
 
 namespace arc::runtime::scheduler {
 
+/// @brief sentinel value indicating an absent or unresolved index. Used
+/// across the scheduler where a node or scope reference may be missing
+/// (unresolved IR keys, inactive sequential steps, uninitialized
+/// curr_node). Long-lived node and scope references are dense size_t
+/// indices into Scheduler::nodes / Scheduler::scopes; the type system
+/// does not distinguish them — tests cover the mixups.
 static constexpr size_t NO_INDEX = ~size_t{0};
 
 namespace detail {
@@ -60,9 +66,10 @@ class Scheduler {
         /// @brief marked_flags index for sequential-scope transitions
         /// sourced from this output, or NO_INDEX if none.
         size_t mark_handle_idx = NO_INDEX;
-        /// @brief gated scopes whose activation handle is this output;
-        /// activated by mark_changed when the source fires.
-        std::vector<ScopeState *> activates;
+        /// @brief gated scopes whose activation handle is this output
+        /// (dense Scheduler::scopes indices); activated by mark_changed
+        /// when the source fires.
+        std::vector<size_t> activates;
     };
 
     /// @brief pairs a runtime node with its pre-resolved per-output
@@ -79,19 +86,19 @@ class Scheduler {
     };
 
     /// @brief mirrors an ir::Member: exactly one of node or scope is set.
-    /// An unresolved node key leaves both nullptr and is skipped at execution.
+    /// An unresolved node key leaves both fields set to NO_INDEX and the
+    /// member is skipped at execution.
     struct MemberState {
         /// @brief IR member key, used for `=> name` transition lookups.
         std::string key;
-        /// @brief resolved leaf-node target, nullptr for scope members and
-        /// unresolved node keys. Points into Scheduler::nodes; remains valid
-        /// for the Scheduler's lifetime because nodes is reserved exactly
-        /// at construction and never grows.
-        Node *node = nullptr;
-        /// @brief nested scope state, nullptr for leaf-node members.
-        std::unique_ptr<ScopeState> scope;
+        /// @brief dense index into Scheduler::nodes for leaf-node targets;
+        /// NO_INDEX for scope members and for unresolved node keys.
+        size_t node = NO_INDEX;
+        /// @brief dense index into Scheduler::scopes for nested scopes;
+        /// NO_INDEX for leaf-node members.
+        size_t scope = NO_INDEX;
 
-        [[nodiscard]] bool is_node() const { return scope == nullptr; }
+        [[nodiscard]] bool is_node() const { return scope == NO_INDEX; }
     };
 
     /// @brief runtime mirror of an ir::Scope, holding activation bookkeeping
@@ -129,9 +136,9 @@ class Scheduler {
         /// @brief transition_on_idx[i] is the marked_flags index for
         /// transition i's `on`-handle, or NO_INDEX if unresolved.
         std::vector<size_t> transition_on_idx;
-        /// @brief transition_on_node[i] is the source node of transition
-        /// i's `on`-handle, or nullptr if unresolved.
-        std::vector<Node *> transition_on_node;
+        /// @brief transition_on_node[i] is the Scheduler::nodes index of
+        /// transition i's `on`-handle source; NO_INDEX if unresolved.
+        std::vector<size_t> transition_on_node;
         /// @brief transition_on_output_idx[i] is the output ordinal on
         /// transition_on_node[i] for transition i's `on`-handle, or
         /// NO_INDEX if unresolved. Paired with transition_on_node[i] so
@@ -139,11 +146,14 @@ class Scheduler {
         std::vector<size_t> transition_on_output_idx;
     };
 
-    /// @brief owns every runtime Node wrapper. Sized exactly at construction
-    /// via reserve + emplace_back so raw Node* pointers held by MemberState
-    /// and ScopeState::transition_on_node remain valid for the Scheduler's
-    /// lifetime. Never grown after construction.
+    /// @brief owns every runtime Node wrapper. Dense: a size_t index
+    /// addresses a slot directly. Sized once at construction.
     std::vector<Node> nodes;
+    /// @brief owns every runtime ScopeState. scopes[0] is the program's
+    /// always-live root scope; all other scopes are nested members reached
+    /// from it. Dense: a size_t index addresses a slot directly. Sized
+    /// once at construction.
+    std::vector<ScopeState> scopes;
     /// @brief changed_flags[i] is set when node i has a pending upstream
     /// change for the current cycle. Cleared at end of cycle.
     std::vector<uint8_t> changed_flags;
@@ -155,8 +165,6 @@ class Scheduler {
     /// transition handle i fired truthy this cycle. Cleared at end of
     /// cycle so transitions fire on fresh marks, not stale truthiness.
     std::vector<uint8_t> marked_flags;
-    /// @brief program's parallel + always-live root scope.
-    std::unique_ptr<ScopeState> root;
     /// @brief how early a timer-based node may fire relative to its deadline.
     x::telem::TimeSpan tolerance;
     /// @brief receives errors raised by nodes via ctx.report_error.
@@ -168,10 +176,10 @@ class Scheduler {
     /// cycle. Reset to TimeSpan::max at the start of every next();
     /// exposed via next_deadline().
     x::telem::TimeSpan min_deadline = x::telem::TimeSpan::max();
-    /// @brief node whose next is currently executing, cached so
-    /// mark_changed / mark_self_changed callbacks know whom they came
-    /// from. nullptr between cycles.
-    Node *curr_node = nullptr;
+    /// @brief index into nodes of the node whose next is currently
+    /// executing, cached so mark_changed / mark_self_changed callbacks
+    /// know whom they came from. NO_INDEX between cycles.
+    size_t curr_node = NO_INDEX;
     /// @brief owns the IR by value so the ir::Scope * pointers held by
     /// every ScopeState remain valid for the Scheduler's lifetime.
     ir::IR prog;
@@ -190,17 +198,20 @@ public:
     Scheduler &operator=(const Scheduler &) = delete;
 
     /// @brief clears all per-cycle state, calls reset on every node, and
-    /// re-activates the root scope. Used by the runtime when stopping a
-    /// program so subsequent runs start from a clean state.
+    /// re-activates the root scope (scopes[0]). Used by the runtime when
+    /// stopping a program so subsequent runs start from a clean state.
     void reset() {
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->self_changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
-        this->curr_node = nullptr;
-        this->reset_scope_state(*this->root);
+        this->curr_node = NO_INDEX;
+        for (auto &sc: this->scopes) {
+            sc.active = false;
+            sc.active_step = NO_INDEX;
+        }
         for (auto &n: this->nodes)
             n.node->reset();
-        this->activate_scope(*this->root);
+        this->activate_scope(this->scopes[0]);
     }
 
     /// @brief executes one cycle of the reactive computation. Nodes with
@@ -213,7 +224,7 @@ public:
         this->ctx.tolerance = this->tolerance;
         this->ctx.reason = reason;
 
-        this->walk(*this->root);
+        this->walk(this->scopes[0]);
 
         std::ranges::fill(this->changed_flags, 0);
         std::ranges::fill(this->marked_flags, 0);
@@ -264,33 +275,33 @@ private:
     /// A leaf runs when stratum_idx==0, when changed_flags is set, or when
     /// the node was self-changed on a prior cycle.
     void execute_member(const size_t stratum_idx, MemberState &m) {
-        if (m.scope) {
-            this->walk(*m.scope);
+        if (m.scope != NO_INDEX) {
+            this->walk(this->scopes[m.scope]);
             return;
         }
-        if (m.node == nullptr) return;
-        const size_t idx = m.node->idx;
+        if (m.node == NO_INDEX) return;
+        const size_t idx = m.node;
         const bool was_self_changed = this->self_changed_flags[idx] != 0;
         if (was_self_changed) this->self_changed_flags[idx] = 0;
         if (stratum_idx == 0 || this->changed_flags[idx] || was_self_changed) {
             this->curr_node = m.node;
-            this->curr_node->node->next(this->ctx);
+            this->nodes[this->curr_node].node->next(this->ctx);
         }
     }
 
     /// @brief clears self-changed and calls reset on m's node. No-op if m is
     /// a scope member or an unresolved node-key.
     void reset_leaf_node(MemberState &m) {
-        if (m.is_node() && m.node) {
-            this->self_changed_flags[m.node->idx] = 0;
-            m.node->node->reset();
+        if (m.is_node() && m.node != NO_INDEX) {
+            this->self_changed_flags[m.node] = 0;
+            this->nodes[m.node].node->reset();
         }
     }
 
     /// @brief clears self-changed on m's node. No-op if m is a scope member
     /// or an unresolved node-key.
     void clear_leaf_node_self_changed(MemberState &m) {
-        if (m.is_node() && m.node) this->self_changed_flags[m.node->idx] = 0;
+        if (m.is_node() && m.node != NO_INDEX) this->self_changed_flags[m.node] = 0;
     }
 
     /// @brief fires the first transition whose `on` handle was freshly
@@ -309,7 +320,7 @@ private:
         for (const size_t i: state.transitions_for_step[state.active_step]) {
             const size_t handle_idx = state.transition_on_idx[i];
             if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) continue;
-            if (!state.transition_on_node[i]->node->is_output_truthy(
+            if (!this->nodes[state.transition_on_node[i]].node->is_output_truthy(
                     state.transition_on_output_idx[i]
                 ))
                 continue;
@@ -345,9 +356,11 @@ private:
                 this->reset_leaf_node(m);
                 continue;
             }
-            if (m.scope && m.scope->ir->liveness == ir::Liveness::Gated &&
-                !m.scope->ir->activation.has_value())
-                this->activate_scope(*m.scope);
+            if (m.scope == NO_INDEX) continue;
+            auto &child = this->scopes[m.scope];
+            if (child.ir->liveness == ir::Liveness::Gated &&
+                !child.ir->activation.has_value())
+                this->activate_scope(child);
         }
     }
 
@@ -360,15 +373,15 @@ private:
             this->reset_leaf_node(m);
             return;
         }
-        if (m.scope) this->activate_scope(*m.scope);
+        if (m.scope != NO_INDEX) this->activate_scope(this->scopes[m.scope]);
     }
 
     /// @brief clears self-changed for the step's node, or marks a nested
     /// scope inactive. Nested-scope state freezes and is overwritten on
     /// the next parent activation.
     void deactivate_step(MemberState &m) {
-        if (m.scope) {
-            this->deactivate_scope(*m.scope);
+        if (m.scope != NO_INDEX) {
+            this->deactivate_scope(this->scopes[m.scope]);
             return;
         }
         this->clear_leaf_node_self_changed(m);
@@ -384,16 +397,6 @@ private:
         state.active = false;
     }
 
-    /// @brief recursively resets every scope state in the tree to inactive
-    /// with active_step = NO_INDEX. Does not call node reset — reset()
-    /// handles that for all nodes via direct iteration.
-    void reset_scope_state(ScopeState &state) {
-        state.active = false;
-        state.active_step = NO_INDEX;
-        for (auto &m: state.members)
-            if (m.scope) this->reset_scope_state(*m.scope);
-    }
-
     void report_error(const x::errors::Error &e) const {
         LOG(ERROR) << "[arc.scheduler] node encountered error: " << e;
         this->error_handler(e);
@@ -402,9 +405,12 @@ private:
     /// @brief propagates the current node's output to downstream nodes,
     /// records a fresh transition mark when truthy, and fires any gated
     /// scope activations attached to this output. Conditional edges
-    /// propagate only when the source is truthy.
+    /// propagate only when the source is truthy. Only callable from
+    /// inside a node's next() — curr_node is set by execute_member
+    /// immediately before the call.
     void mark_changed(const size_t output_idx) {
-        auto &n = *this->curr_node;
+        DCHECK(this->curr_node != NO_INDEX);
+        auto &n = this->nodes[this->curr_node];
         if (output_idx >= n.outputs.size()) return;
         auto &out = n.outputs[output_idx];
         const bool truthy = n.node->is_output_truthy(output_idx);
@@ -412,22 +418,27 @@ private:
             this->marked_flags[out.mark_handle_idx] = 1;
         for (const auto &edge: out.edges)
             if (!edge.conditional || truthy) this->changed_flags[edge.target_idx] = 1;
-        for (auto *scope: out.activates)
-            if (!scope->active) this->activate_scope(*scope);
+        for (const size_t scope_idx: out.activates) {
+            auto &scope = this->scopes[scope_idx];
+            if (!scope.active) this->activate_scope(scope);
+        }
     }
 
-    void mark_self_changed() { this->self_changed_flags[this->curr_node->idx] = 1; }
+    void mark_self_changed() {
+        DCHECK(this->curr_node != NO_INDEX);
+        this->self_changed_flags[this->curr_node] = 1;
+    }
 };
 
 namespace detail {
 
 /// @brief assembles a Scheduler from a compiled IR. Owns every piece of
-/// state needed only during wiring — the node-key map, the per-node
-/// param-to-ordinal maps, and the running marked_flags handle counter — so
-/// the resulting Scheduler holds only what the hot path consults. Builder
-/// state is destroyed when build returns; raw Node* pointers stay valid
-/// because Scheduler::nodes is reserved exactly at construction and never
-/// grows.
+/// state needed only during wiring — the key → node-index map, the
+/// per-node param-to-ordinal maps, and the running marked_flags handle
+/// counter — so the resulting Scheduler holds only what the hot path
+/// consults. Builder state is destroyed when build returns; the
+/// Scheduler's long-lived references into its own vectors are dense
+/// size_t indices, which stay valid regardless of vector reallocation.
 class Builder {
 public:
     void build(
@@ -437,45 +448,45 @@ public:
         this->s = &s;
         this->populate_nodes(node_impls);
         this->wire_edges();
-        s.root = this->build_scope_state(&s.prog.root);
-        this->register_scope(*s.root);
+        s.scopes.reserve(count_scopes(s.prog.root));
+        const size_t root_idx = this->build_scope_state(&s.prog.root);
+        this->register_scope(root_idx);
         s.marked_flags.assign(this->next_handle_idx, 0);
-        s.activate_scope(*s.root);
+        s.activate_scope(s.scopes[root_idx]);
     }
 
 private:
     /// @brief Scheduler being assembled; held as a raw pointer for the
     /// duration of build.
     Scheduler *s = nullptr;
-    /// @brief node key to its wrapper pointer (into Scheduler::nodes).
-    std::unordered_map<std::string, Scheduler::Node *> nodes_by_key;
+    /// @brief node key to its dense index into Scheduler::nodes.
+    std::unordered_map<std::string, size_t> nodes_by_key;
     /// @brief per-node "output name → ordinal" map used to find or
-    /// allocate matching entries in Node::outputs while wiring. Kept off
-    /// Scheduler::Node so the long-lived wrapper stays lean.
-    std::unordered_map<Scheduler::Node *, std::unordered_map<std::string, size_t>>
-        output_by_param;
+    /// allocate matching entries in Node::outputs while wiring. Indexed
+    /// by Node::idx (dense [0, N)); kept off Scheduler::Node so the
+    /// long-lived wrapper stays lean.
+    std::vector<std::unordered_map<std::string, size_t>> output_by_param;
     /// @brief next index to assign to a freshly-discovered transition-source
     /// handle. After build, this is the final length of marked_flags.
     size_t next_handle_idx = 0;
 
-    /// @brief reserves nodes to exactly prog.nodes.size() then emplace-backs
-    /// each Node wrapper. The reserve is load-bearing: every Node* held by
-    /// MemberState and ScopeState::transition_on_node would dangle on
-    /// reallocation, so the vector must never grow past its initial
-    /// capacity.
+    /// @brief allocates the flat nodes vector and builds the key → node
+    /// index map. Node::idx equals the slot in Scheduler::nodes, so dense
+    /// auxiliary structures (output_by_param, hot-path index arrays) can
+    /// be indexed by it directly.
     void populate_nodes(
         std::unordered_map<std::string, std::unique_ptr<node::Node>> &node_impls
     ) {
         const size_t n = this->s->prog.nodes.size();
-        this->s->nodes.reserve(n);
+        this->s->nodes.resize(n);
         this->s->changed_flags.assign(n, 0);
         this->s->self_changed_flags.assign(n, 0);
         this->nodes_by_key.reserve(n);
-        this->output_by_param.reserve(n);
+        this->output_by_param.resize(n);
 
         for (size_t idx = 0; idx < n; ++idx) {
             const auto &ir_node = this->s->prog.nodes[idx];
-            auto &wrapper = this->s->nodes.emplace_back();
+            auto &wrapper = this->s->nodes[idx];
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
             const auto impl_it = node_impls.find(ir_node.key);
@@ -485,14 +496,13 @@ private:
             // wiring passes below use get_or_create_output, which finds
             // these pre-seeded entries by name via the side map.
             wrapper.outputs.reserve(ir_node.outputs.size());
-            std::unordered_map<std::string, size_t> params;
+            auto &params = this->output_by_param[idx];
             params.reserve(ir_node.outputs.size());
             for (const auto &p: ir_node.outputs) {
                 params[p.name] = wrapper.outputs.size();
                 wrapper.outputs.push_back(Scheduler::OutputResolved{});
             }
-            this->nodes_by_key[ir_node.key] = &wrapper;
-            this->output_by_param[&wrapper] = std::move(params);
+            this->nodes_by_key[ir_node.key] = idx;
         }
     }
 
@@ -501,23 +511,48 @@ private:
     /// flag-slice index so mark_changed needs zero hash lookups per edge.
     void wire_edges() {
         for (const auto &edge: this->s->prog.edges) {
-            Scheduler::Node *src = this->lookup_node(edge.source.node);
-            if (src == nullptr) continue;
-            Scheduler::Node *tgt = this->lookup_node(edge.target.node);
-            if (tgt == nullptr) continue;
-            const size_t out_idx = this->get_or_create_output(*src, edge.source.param);
-            src->outputs[out_idx].edges.push_back(
-                Scheduler::OutEdge{tgt->idx, edge.kind == ir::EdgeKind::Conditional}
+            const size_t src = this->lookup_node(edge.source.node);
+            if (src == NO_INDEX) continue;
+            const size_t tgt = this->lookup_node(edge.target.node);
+            if (tgt == NO_INDEX) continue;
+            auto &src_node = this->s->nodes[src];
+            const size_t out_idx = this->get_or_create_output(
+                src_node,
+                edge.source.param
+            );
+            src_node.outputs[out_idx].edges.push_back(
+                Scheduler::OutEdge{tgt, edge.kind == ir::EdgeKind::Conditional}
             );
         }
     }
 
+    /// @brief counts every scope reachable from sc (including sc itself).
+    /// Used to size Scheduler::scopes exactly once so the recursive build
+    /// doesn't need to reallocate.
+    static size_t count_scopes(const ir::Scope &sc) {
+        size_t n = 1;
+        const auto count_member = [&](const ir::Member &m) {
+            if (m.scope) n += count_scopes(*m.scope);
+        };
+        if (sc.mode == ir::ScopeMode::Parallel) {
+            for (const auto &stratum: sc.strata)
+                for (const auto &m: stratum)
+                    count_member(m);
+        } else if (sc.mode == ir::ScopeMode::Sequential) {
+            for (const auto &m: sc.steps)
+                count_member(m);
+        }
+        return n;
+    }
+
     /// @brief recursively constructs a ScopeState mirror of the IR scope
-    /// tree. The returned state is inert — activation runs only after
-    /// build completes, via Scheduler::activate_scope on the root.
-    std::unique_ptr<Scheduler::ScopeState> build_scope_state(const ir::Scope *sc) {
-        auto state = std::make_unique<Scheduler::ScopeState>();
-        state->ir = sc;
+    /// tree into Scheduler::scopes and returns its index. The returned
+    /// state is inert — activation runs only after build completes, via
+    /// Scheduler::activate_scope on the root.
+    size_t build_scope_state(const ir::Scope *sc) {
+        const size_t this_idx{this->s->scopes.size()};
+        this->s->scopes.emplace_back();
+        this->s->scopes[this_idx].ir = sc;
 
         const auto append_member = [&](const ir::Member &m) {
             Scheduler::MemberState ms;
@@ -527,7 +562,9 @@ private:
             } else if (m.scope) {
                 ms.scope = this->build_scope_state(&*m.scope);
             }
-            state->members.push_back(std::move(ms));
+            // Re-index rather than holding a reference across the recursion,
+            // which may push onto scopes.
+            this->s->scopes[this_idx].members.push_back(std::move(ms));
         };
 
         if (sc->mode == ir::ScopeMode::Parallel) {
@@ -539,60 +576,66 @@ private:
                 append_member(m);
         }
 
-        state->member_by_key.reserve(state->members.size());
-        for (size_t i = 0; i < state->members.size(); ++i)
-            state->member_by_key[state->members[i].key] = i;
-        return state;
+        auto &state = this->s->scopes[this_idx];
+        state.member_by_key.reserve(state.members.size());
+        for (size_t i = 0; i < state.members.size(); ++i)
+            state.member_by_key[state.members[i].key] = i;
+        return this_idx;
     }
 
     /// @brief recursively wires per-output activation entries on source
     /// Nodes (so mark_changed needs zero scheduler-wide hash lookups) and
-    /// resolves the per-sequential-scope transition tables.
-    void register_scope(Scheduler::ScopeState &state) {
+    /// resolves the per-sequential-scope transition tables. Takes a
+    /// size_t so it can record it into OutputResolved::activates.
+    void register_scope(const size_t idx) {
+        auto &state = this->s->scopes[idx];
         if (state.ir->liveness == ir::Liveness::Gated &&
             state.ir->activation.has_value()) {
-            if (Scheduler::Node *src = this->lookup_node(state.ir->activation->node);
-                src != nullptr) {
+            if (const size_t src = this->lookup_node(state.ir->activation->node);
+                src != NO_INDEX) {
+                auto &src_node = this->s->nodes[src];
                 const size_t out_idx = this->get_or_create_output(
-                    *src,
+                    src_node,
                     state.ir->activation->param
                 );
-                src->outputs[out_idx].activates.push_back(&state);
+                src_node.outputs[out_idx].activates.push_back(idx);
             }
         }
         if (state.ir->mode == ir::ScopeMode::Sequential)
             this->resolve_transitions(state);
         for (auto &m: state.members)
-            if (m.scope) this->register_scope(*m.scope);
+            if (m.scope != NO_INDEX) this->register_scope(m.scope);
     }
 
     /// @brief populates the parallel transition slices on state from the
     /// IR's transition list. Each transition's on-handle is resolved to a
-    /// (Node*, output ordinal) pair so the hot-path truthy check is a
+    /// (node-index, output ordinal) pair so the hot-path truthy check is a
     /// direct virtual call. The handle is also assigned a dense
     /// marked_flags index for the fresh-mark check, and the source node
     /// is mapped back to its owning member so transitions originating in
     /// inactive siblings can be skipped. Transitions whose on-node is
-    /// unknown get nullptr/NO_INDEX throughout and are silently skipped
+    /// unknown get NO_INDEX/NO_INDEX throughout and are silently skipped
     /// at evaluation time.
     void resolve_transitions(Scheduler::ScopeState &state) {
-        std::unordered_map<Scheduler::Node *, size_t> node_to_member;
+        // Key: node index (dense [0, N)); value: owning member index.
+        std::unordered_map<size_t, size_t> node_to_member;
         for (size_t i = 0; i < state.members.size(); ++i)
             collect_member_nodes(state.members[i], i, node_to_member);
 
         const auto &transitions = state.ir->transitions;
         state.transition_owner.assign(transitions.size(), NO_INDEX);
         state.transition_on_idx.assign(transitions.size(), NO_INDEX);
-        state.transition_on_node.assign(transitions.size(), nullptr);
+        state.transition_on_node.assign(transitions.size(), NO_INDEX);
         state.transition_on_output_idx.assign(transitions.size(), NO_INDEX);
         for (size_t i = 0; i < transitions.size(); ++i) {
-            Scheduler::Node *on = this->lookup_node(transitions[i].on.node);
-            if (on == nullptr) continue;
+            const size_t on = this->lookup_node(transitions[i].on.node);
+            if (on == NO_INDEX) continue;
+            auto &on_node = this->s->nodes[on];
             const size_t out_idx = this->get_or_create_output(
-                *on,
+                on_node,
                 transitions[i].on.param
             );
-            auto &out = on->outputs[out_idx];
+            auto &out = on_node.outputs[out_idx];
             if (out.mark_handle_idx == NO_INDEX)
                 out.mark_handle_idx = this->next_handle_idx++;
             state.transition_on_node[i] = on;
@@ -621,7 +664,7 @@ private:
     /// known. Used by every wiring pass — edges, transition sources, and
     /// activation sources — onto the owning Node.
     size_t get_or_create_output(Scheduler::Node &n, const std::string &param) {
-        auto &params = this->output_by_param[&n];
+        auto &params = this->output_by_param[n.idx];
         const auto it = params.find(param);
         if (it != params.end()) return it->second;
         const size_t idx = n.outputs.size();
@@ -630,39 +673,40 @@ private:
         return idx;
     }
 
-    /// @brief returns the wrapper for the given node key, or nullptr if the
-    /// key is unknown.
-    Scheduler::Node *lookup_node(const std::string &key) {
+    /// @brief returns the Scheduler::nodes index for the given node key,
+    /// or NO_INDEX when the key is unknown.
+    size_t lookup_node(const std::string &key) {
         const auto it = this->nodes_by_key.find(key);
-        return it == this->nodes_by_key.end() ? nullptr : it->second;
+        return it == this->nodes_by_key.end() ? NO_INDEX : it->second;
     }
 
     /// @brief adds every node owned (directly or transitively) by m to out,
     /// tagged with the member index. A leaf-node member owns one node; a
     /// nested-scope member owns every node reachable through its scope
-    /// tree. Unresolved node keys are skipped.
-    static void collect_member_nodes(
+    /// tree. Unresolved node keys are skipped. Keyed by node index.
+    void collect_member_nodes(
         Scheduler::MemberState &m,
         const size_t idx,
-        std::unordered_map<Scheduler::Node *, size_t> &out
-    ) {
+        std::unordered_map<size_t, size_t> &out
+    ) const {
         if (m.is_node()) {
-            if (m.node) out[m.node] = idx;
+            if (m.node != NO_INDEX) out[m.node] = idx;
             return;
         }
-        if (m.scope) collect_scope_nodes(*m.scope, idx, out);
+        if (m.scope != NO_INDEX)
+            collect_scope_nodes(this->s->scopes[m.scope], idx, out);
     }
 
-    static void collect_scope_nodes(
-        Scheduler::ScopeState &s,
+    void collect_scope_nodes(
+        Scheduler::ScopeState &sc,
         const size_t idx,
-        std::unordered_map<Scheduler::Node *, size_t> &out
-    ) {
-        for (auto &inner: s.members) {
+        std::unordered_map<size_t, size_t> &out
+    ) const {
+        for (auto &inner: sc.members) {
             if (inner.is_node()) {
-                if (inner.node) out[inner.node] = idx;
-            } else if (inner.scope)
-                collect_scope_nodes(*inner.scope, idx, out);
+                if (inner.node != NO_INDEX) out[inner.node] = idx;
+            } else if (inner.scope != NO_INDEX)
+                collect_scope_nodes(this->s->scopes[inner.scope], idx, out);
         }
     }
 };
