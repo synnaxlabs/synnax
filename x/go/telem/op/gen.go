@@ -253,13 +253,14 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] {{.Op}} rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -283,11 +284,11 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal {{.Op}} rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 {{else}}
@@ -353,6 +354,7 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 {{end}}`
 
 // Template for scalar comparison operations (series op scalar -> uint8)
+// The single-store result pattern compiles to a branchless conditional-set.
 const scalarCompFuncTemplate = `{{range $.Operations}}
 func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, output *telem.Series) {
 	length := series.Len()
@@ -362,11 +364,11 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] {{.Op}} scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 {{end}}`

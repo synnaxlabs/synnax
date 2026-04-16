@@ -28,13 +28,14 @@ func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -58,11 +59,11 @@ func GreaterThanF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -81,13 +82,14 @@ func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -111,11 +113,11 @@ func GreaterThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -134,13 +136,14 @@ func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -164,11 +167,11 @@ func LessThanF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -187,13 +190,14 @@ func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -217,11 +221,11 @@ func LessThanOrEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -240,13 +244,14 @@ func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -270,11 +275,11 @@ func EqualF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -293,13 +298,14 @@ func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -323,11 +329,11 @@ func NotEqualF64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -526,13 +532,14 @@ func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -556,11 +563,11 @@ func GreaterThanF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -579,13 +586,14 @@ func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -609,11 +617,11 @@ func GreaterThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -632,13 +640,14 @@ func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -662,11 +671,11 @@ func LessThanF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -685,13 +694,14 @@ func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -715,11 +725,11 @@ func LessThanOrEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -738,13 +748,14 @@ func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -768,11 +779,11 @@ func EqualF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -791,13 +802,14 @@ func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -821,11 +833,11 @@ func NotEqualF32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1024,13 +1036,14 @@ func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1054,11 +1067,11 @@ func GreaterThanI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1077,13 +1090,14 @@ func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1107,11 +1121,11 @@ func GreaterThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1130,13 +1144,14 @@ func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1160,11 +1175,11 @@ func LessThanI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1183,13 +1198,14 @@ func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1213,11 +1229,11 @@ func LessThanOrEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1236,13 +1252,14 @@ func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1266,11 +1283,11 @@ func EqualI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1289,13 +1306,14 @@ func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1319,11 +1337,11 @@ func NotEqualI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1522,13 +1540,14 @@ func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1552,11 +1571,11 @@ func GreaterThanI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1575,13 +1594,14 @@ func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1605,11 +1625,11 @@ func GreaterThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1628,13 +1648,14 @@ func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1658,11 +1679,11 @@ func LessThanI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1681,13 +1702,14 @@ func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1711,11 +1733,11 @@ func LessThanOrEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1734,13 +1756,14 @@ func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1764,11 +1787,11 @@ func EqualI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -1787,13 +1810,14 @@ func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -1817,11 +1841,11 @@ func NotEqualI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2020,13 +2044,14 @@ func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2050,11 +2075,11 @@ func GreaterThanI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2073,13 +2098,14 @@ func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2103,11 +2129,11 @@ func GreaterThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2126,13 +2152,14 @@ func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2156,11 +2183,11 @@ func LessThanI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2179,13 +2206,14 @@ func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2209,11 +2237,11 @@ func LessThanOrEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2232,13 +2260,14 @@ func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2262,11 +2291,11 @@ func EqualI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2285,13 +2314,14 @@ func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2315,11 +2345,11 @@ func NotEqualI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2518,13 +2548,14 @@ func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2548,11 +2579,11 @@ func GreaterThanI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2571,13 +2602,14 @@ func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2601,11 +2633,11 @@ func GreaterThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2624,13 +2656,14 @@ func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2654,11 +2687,11 @@ func LessThanI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2677,13 +2710,14 @@ func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2707,11 +2741,11 @@ func LessThanOrEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2730,13 +2764,14 @@ func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2760,11 +2795,11 @@ func EqualI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -2783,13 +2818,14 @@ func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -2813,11 +2849,11 @@ func NotEqualI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3016,13 +3052,14 @@ func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3046,11 +3083,11 @@ func GreaterThanU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3069,13 +3106,14 @@ func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3099,11 +3137,11 @@ func GreaterThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3122,13 +3160,14 @@ func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3152,11 +3191,11 @@ func LessThanU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3175,13 +3214,14 @@ func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3205,11 +3245,11 @@ func LessThanOrEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3228,13 +3268,14 @@ func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3258,11 +3299,11 @@ func EqualU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3281,13 +3322,14 @@ func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3311,11 +3353,11 @@ func NotEqualU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3514,13 +3556,14 @@ func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3544,11 +3587,11 @@ func GreaterThanU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3567,13 +3610,14 @@ func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3597,11 +3641,11 @@ func GreaterThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3620,13 +3664,14 @@ func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3650,11 +3695,11 @@ func LessThanU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3673,13 +3718,14 @@ func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3703,11 +3749,11 @@ func LessThanOrEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3726,13 +3772,14 @@ func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3756,11 +3803,11 @@ func EqualU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -3779,13 +3826,14 @@ func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -3809,11 +3857,11 @@ func NotEqualU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4012,13 +4060,14 @@ func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4042,11 +4091,11 @@ func GreaterThanU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4065,13 +4114,14 @@ func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4095,11 +4145,11 @@ func GreaterThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4118,13 +4168,14 @@ func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4148,11 +4199,11 @@ func LessThanU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4171,13 +4222,14 @@ func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4201,11 +4253,11 @@ func LessThanOrEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4224,13 +4276,14 @@ func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4254,11 +4307,11 @@ func EqualU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4277,13 +4330,14 @@ func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4307,11 +4361,11 @@ func NotEqualU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4510,13 +4564,14 @@ func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] > rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4540,11 +4595,11 @@ func GreaterThanU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal > rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4563,13 +4618,14 @@ func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] >= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4593,11 +4649,11 @@ func GreaterThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal >= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4616,13 +4672,14 @@ func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] < rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4646,11 +4703,11 @@ func LessThanU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal < rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4669,13 +4726,14 @@ func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] <= rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4699,11 +4757,11 @@ func LessThanOrEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal <= rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4722,13 +4780,14 @@ func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] == rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4752,11 +4811,11 @@ func EqualU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal == rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -4775,13 +4834,14 @@ func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 
 	// Equal-length fast path: avoids the per-iteration branches in the broadcast
 	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	// The single-store result pattern compiles to a branchless conditional-set.
 	if lhsLen == rhsLen {
 		for i := int64(0); i < lhsLen; i++ {
+			var v uint8
 			if lhsData[i] != rhsData[i] {
-				outData[i] = 1
-			} else {
-				outData[i] = 0
+				v = 1
 			}
+			outData[i] = v
 		}
 		return
 	}
@@ -4805,11 +4865,11 @@ func NotEqualU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		var v uint8
 		if lhsVal != rhsVal {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -7955,11 +8015,11 @@ func GreaterThanScalarF64(series telem.Series, scalar float64, output *telem.Ser
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -7971,11 +8031,11 @@ func GreaterThanOrEqualScalarF64(series telem.Series, scalar float64, output *te
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -7987,11 +8047,11 @@ func LessThanScalarF64(series telem.Series, scalar float64, output *telem.Series
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8003,11 +8063,11 @@ func LessThanOrEqualScalarF64(series telem.Series, scalar float64, output *telem
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8019,11 +8079,11 @@ func EqualScalarF64(series telem.Series, scalar float64, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8035,11 +8095,11 @@ func NotEqualScalarF64(series telem.Series, scalar float64, output *telem.Series
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8051,11 +8111,11 @@ func GreaterThanScalarF32(series telem.Series, scalar float32, output *telem.Ser
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8067,11 +8127,11 @@ func GreaterThanOrEqualScalarF32(series telem.Series, scalar float32, output *te
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8083,11 +8143,11 @@ func LessThanScalarF32(series telem.Series, scalar float32, output *telem.Series
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8099,11 +8159,11 @@ func LessThanOrEqualScalarF32(series telem.Series, scalar float32, output *telem
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8115,11 +8175,11 @@ func EqualScalarF32(series telem.Series, scalar float32, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8131,11 +8191,11 @@ func NotEqualScalarF32(series telem.Series, scalar float32, output *telem.Series
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8147,11 +8207,11 @@ func GreaterThanScalarI64(series telem.Series, scalar int64, output *telem.Serie
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8163,11 +8223,11 @@ func GreaterThanOrEqualScalarI64(series telem.Series, scalar int64, output *tele
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8179,11 +8239,11 @@ func LessThanScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8195,11 +8255,11 @@ func LessThanOrEqualScalarI64(series telem.Series, scalar int64, output *telem.S
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8211,11 +8271,11 @@ func EqualScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8227,11 +8287,11 @@ func NotEqualScalarI64(series telem.Series, scalar int64, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8243,11 +8303,11 @@ func GreaterThanScalarI32(series telem.Series, scalar int32, output *telem.Serie
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8259,11 +8319,11 @@ func GreaterThanOrEqualScalarI32(series telem.Series, scalar int32, output *tele
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8275,11 +8335,11 @@ func LessThanScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8291,11 +8351,11 @@ func LessThanOrEqualScalarI32(series telem.Series, scalar int32, output *telem.S
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8307,11 +8367,11 @@ func EqualScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8323,11 +8383,11 @@ func NotEqualScalarI32(series telem.Series, scalar int32, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8339,11 +8399,11 @@ func GreaterThanScalarI16(series telem.Series, scalar int16, output *telem.Serie
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8355,11 +8415,11 @@ func GreaterThanOrEqualScalarI16(series telem.Series, scalar int16, output *tele
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8371,11 +8431,11 @@ func LessThanScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8387,11 +8447,11 @@ func LessThanOrEqualScalarI16(series telem.Series, scalar int16, output *telem.S
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8403,11 +8463,11 @@ func EqualScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8419,11 +8479,11 @@ func NotEqualScalarI16(series telem.Series, scalar int16, output *telem.Series) 
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8435,11 +8495,11 @@ func GreaterThanScalarI8(series telem.Series, scalar int8, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8451,11 +8511,11 @@ func GreaterThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8467,11 +8527,11 @@ func LessThanScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8483,11 +8543,11 @@ func LessThanOrEqualScalarI8(series telem.Series, scalar int8, output *telem.Ser
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8499,11 +8559,11 @@ func EqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8515,11 +8575,11 @@ func NotEqualScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8531,11 +8591,11 @@ func GreaterThanScalarU64(series telem.Series, scalar uint64, output *telem.Seri
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8547,11 +8607,11 @@ func GreaterThanOrEqualScalarU64(series telem.Series, scalar uint64, output *tel
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8563,11 +8623,11 @@ func LessThanScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8579,11 +8639,11 @@ func LessThanOrEqualScalarU64(series telem.Series, scalar uint64, output *telem.
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8595,11 +8655,11 @@ func EqualScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8611,11 +8671,11 @@ func NotEqualScalarU64(series telem.Series, scalar uint64, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8627,11 +8687,11 @@ func GreaterThanScalarU32(series telem.Series, scalar uint32, output *telem.Seri
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8643,11 +8703,11 @@ func GreaterThanOrEqualScalarU32(series telem.Series, scalar uint32, output *tel
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8659,11 +8719,11 @@ func LessThanScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8675,11 +8735,11 @@ func LessThanOrEqualScalarU32(series telem.Series, scalar uint32, output *telem.
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8691,11 +8751,11 @@ func EqualScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8707,11 +8767,11 @@ func NotEqualScalarU32(series telem.Series, scalar uint32, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8723,11 +8783,11 @@ func GreaterThanScalarU16(series telem.Series, scalar uint16, output *telem.Seri
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8739,11 +8799,11 @@ func GreaterThanOrEqualScalarU16(series telem.Series, scalar uint16, output *tel
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8755,11 +8815,11 @@ func LessThanScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8771,11 +8831,11 @@ func LessThanOrEqualScalarU16(series telem.Series, scalar uint16, output *telem.
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8787,11 +8847,11 @@ func EqualScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8803,11 +8863,11 @@ func NotEqualScalarU16(series telem.Series, scalar uint16, output *telem.Series)
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8819,11 +8879,11 @@ func GreaterThanScalarU8(series telem.Series, scalar uint8, output *telem.Series
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] > scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8835,11 +8895,11 @@ func GreaterThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] >= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8851,11 +8911,11 @@ func LessThanScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] < scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8867,11 +8927,11 @@ func LessThanOrEqualScalarU8(series telem.Series, scalar uint8, output *telem.Se
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] <= scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8883,11 +8943,11 @@ func EqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] == scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
 
@@ -8899,10 +8959,10 @@ func NotEqualScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	outData := output.Data
 
 	for i := int64(0); i < length; i++ {
+		var v uint8
 		if inData[i] != scalar {
-			outData[i] = 1
-		} else {
-			outData[i] = 0
+			v = 1
 		}
+		outData[i] = v
 	}
 }
