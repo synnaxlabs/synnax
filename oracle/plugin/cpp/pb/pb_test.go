@@ -652,6 +652,45 @@ var _ = Describe("C++ PB Plugin", func() {
 						"wrapper->add_values(v)",
 					)
 			})
+
+			It("Should delegate to to_proto/from_proto when inner element is a struct", func(ctx SpecContext) {
+				source := `
+					@cpp output "arc/cpp/ir"
+					@pb output "arc/go/ir/pb"
+
+					Cell struct {
+						key string
+						value int32
+					}
+
+					Row = Cell[]
+					Grid Row[]
+
+					Matrix struct {
+						cells Grid
+					}
+				`
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: delegate per-cell via to_proto with error propagation
+						"for (const auto& item : this->cells)",
+						"auto* wrapper = pb.add_cells()",
+						"auto [v_pb, err] = v.to_proto()",
+						"if (err) return {{}, err}",
+						"*wrapper->add_values() = v_pb",
+						// Backward: delegate per-cell via from_proto_repeated
+						"for (const auto& wrapper : pb.cells())",
+						"std::vector<Cell> inner",
+						"x::pb::from_proto_repeated<Cell>(inner, wrapper.values())",
+						"cpp.cells.push_back(std::move(inner))",
+					).
+					ToNotContain(
+						// Must not fall through to the primitive add_values(v) form
+						"for (const auto& v : item) wrapper->add_values(v);",
+					)
+			})
 		})
 
 		Describe("Array Wrapper Proto Generation", func() {
@@ -955,6 +994,167 @@ var _ = Describe("C++ PB Plugin", func() {
 
 				ExpectContent(resp, "proto.gen.h").
 					ToContain("id")
+			})
+
+			It("Should cast through a true distinct (non-alias) primitive wrapper", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Priority uint16
+
+					Task struct {
+						priority Priority
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// generateDistinctConversion primitive branch routes through
+						// primitiveToProtoType — uint16 maps to uint32_t on the wire.
+						"pb.set_priority(static_cast<uint32_t>(this->priority))",
+						"cpp.priority = Priority(pb.priority())",
+					)
+			})
+		})
+
+		Context("fixed-size uint8 array", func() {
+			It("Should use set_<field>(data(), size()) forward and std::copy backward", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@pb output "core/pkg/service/types/pb"
+
+					Hash uint8[32]
+
+					Digest struct {
+						hash Hash
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"#include <algorithm>",
+						"pb.set_hash(this->hash.data(), this->hash.size())",
+						"std::copy(pb.hash().begin(), pb.hash().end(), cpp.hash.begin());",
+					)
+			})
+		})
+
+		Context("proto include resolution", func() {
+			It("Should add the proto header from the @go output path (+ /pb + namespace.pb.h)", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/status"
+					@go output "core/status"
+					@pb
+
+					Status struct {
+						key string
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// deriveProtoInclude builds "<pbPath>/<namespace>.pb.h".
+						`#include "core/status/pb/status.pb.h"`,
+					)
+			})
+		})
+
+		Context("array wrapper with explicit @pb name", func() {
+			It("Should emit a proto-wrapped array translator for primitive elements", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@go output "core/types"
+					@pb
+
+					Channels uint32[] {
+						@pb name "Channels"
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Primitive-element wrappers add each item directly to the
+						// wrapper's "values" repeated field.
+						"pb.add_values(item)",
+						"cpp.push_back(item)",
+					)
+			})
+
+			It("Should emit a proto-wrapped array translator for struct elements with error handling", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+					@go output "core/types"
+					@pb
+
+					Item struct {
+						key string
+					}
+
+					Items Item[] {
+						@pb name "Items"
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Struct-element wrapper delegates to to_proto/from_proto
+						// per-element, propagating errors out of the wrapper.
+						"auto [v, err] = item.to_proto()",
+						"x::pb::from_proto_repeated<Item>",
+					)
+			})
+		})
+
+		Context("generic struct type parameter field", func() {
+			It("Should emit JSON-bridge conversion for unconstrained type-param field", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/status"
+					@pb output "x/go/status/pb"
+
+					Status struct<Details> {
+						key     string
+						details Details
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						// Forward: compile-time branch on Details via if constexpr,
+						// ultimately calling x::json::to_any.
+						"if constexpr (std::is_same_v<Details, std::monostate>)",
+						"*pb.mutable_details() = x::json::to_any",
+						// Backward: x::json::from_any with Parser::parse fallback.
+						"auto [val, err] = x::json::from_any(pb.details())",
+						"Details::parse(x::json::Parser(val))",
+					)
+			})
+
+			It("Should emit optional-guarded JSON-bridge conversion for hard-optional type-param field", func(ctx SpecContext) {
+				source := `
+					@cpp output "x/cpp/status"
+					@pb output "x/go/status/pb"
+
+					Status struct<Details> {
+						key     string
+						details Details??
+					}
+				`
+				resp := MustGenerate(ctx, source, "status", loader, pbPlugin)
+
+				ExpectContent(resp, "proto.gen.h").
+					ToContain(
+						"if (this->details.has_value())",
+						"*pb.mutable_details() = x::json::to_any",
+						"if (pb.has_details())",
+						"auto [val, err] = x::json::from_any(pb.details())",
+					)
 			})
 		})
 	})
