@@ -154,8 +154,8 @@ TEST(SetStatusTest, NextHandlesSetterError) {
 /// @brief Test that is_output_truthy always returns false.
 TEST(SetStatusTest, IsOutputTruthyReturnsFalse) {
     SetStatus node(make_status(), noop_setter);
-    EXPECT_FALSE(node.is_output_truthy("output"));
-    EXPECT_FALSE(node.is_output_truthy("anything"));
+    EXPECT_FALSE(node.is_output_truthy(0));
+    EXPECT_FALSE(node.is_output_truthy(1));
 }
 
 /// @brief Test that module creates nodes that set status on the cluster.

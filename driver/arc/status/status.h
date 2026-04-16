@@ -43,11 +43,7 @@ public:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override { return {}; }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 class Module : public ::arc::stl::Module {
