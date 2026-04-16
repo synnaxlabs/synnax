@@ -51,7 +51,7 @@ type WriterConfig struct {
 }
 
 var (
-	errWriterClosed     = resource.NewClosedError("domain.writer")
+	ErrWriterClosed     = resource.NewClosedError("domain.writer")
 	DefaultWriterConfig = WriterConfig{
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
@@ -206,7 +206,7 @@ func (w *Writer) Len() int64 { return w.len }
 // returns.
 func (w *Writer) Write(p []byte) (int, error) {
 	if w.closed {
-		return 0, errWriterClosed
+		return 0, ErrWriterClosed
 	}
 	n, err := w.internal.Write(p)
 	w.fileSize += telem.Size(n)
@@ -244,7 +244,7 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 	defer span.End()
 
 	if w.closed {
-		return span.Error(errWriterClosed)
+		return span.Error(ErrWriterClosed)
 	}
 	if w.presetEnd && end.After(w.End) {
 		return span.Error(errors.Newf(

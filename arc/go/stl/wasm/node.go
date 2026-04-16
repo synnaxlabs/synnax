@@ -15,6 +15,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -51,6 +52,8 @@ type nodeImpl struct {
 	initialized   bool
 	isEntryNode   bool
 	nodeKeySetter NodeKeySetter
+	stringInputs  []bool
+	strings       *stlstrings.ProgramState
 }
 
 func (n *nodeImpl) call(ctx context.Context, params ...uint64) ([]result, error) {
@@ -152,7 +155,16 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for i := int64(0); i < maxLength; i++ {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
-			n.params[n.configCount+j] = valueAt(n.Input(j), int(i%inputLen))
+			idx := int(i % inputLen)
+			if !n.stringInputs[j] {
+				n.params[n.configCount+j] = valueAt(n.Input(j), idx)
+			} else {
+				// String channels are variable-length but WASM expects
+				// i32 handles. Convert inline — string channels are
+				// virtual (length 1), so At(idx) is always O(1).
+				data := n.Input(j).At(idx)
+				n.params[n.configCount+j] = uint64(n.strings.Create(string(data)))
+			}
 		}
 		res, err := n.call(ctx.Context, n.params...)
 		if err != nil {

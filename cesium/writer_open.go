@@ -152,7 +152,7 @@ func (c WriterConfig) authority(i int) xcontrol.Authority {
 // NewStreamWriter implements DB.
 func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (StreamWriter, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -162,7 +162,7 @@ func (db *DB) NewStreamWriter(ctx context.Context, cfgs ...WriterConfig) (Stream
 // OpenWriter implements DB.
 func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (*Writer, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()

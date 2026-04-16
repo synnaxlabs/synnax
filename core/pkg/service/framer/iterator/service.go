@@ -230,14 +230,14 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	if len(concreteBaseKeys) > 0 {
 		if err := s.cfg.Channel.NewRetrieve().
 			Entries(&concreteBaseChannels).
-			WhereKeys(concreteBaseKeys.ToSlice()...).
+			WhereKeys(concreteBaseKeys.Slice()...).
 			Exec(ctx, nil); err != nil {
 			return nil, err
 		}
 	}
 
 	// Update cfg.Keys to include concrete base keys and their indices
-	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.ToSlice()...))
+	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Slice()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {

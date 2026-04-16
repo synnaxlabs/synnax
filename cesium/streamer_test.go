@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -27,8 +26,8 @@ import (
 
 var _ = Describe("Streamer Behavior", func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
@@ -273,7 +272,7 @@ var _ = Describe("Streamer Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+					Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

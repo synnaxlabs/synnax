@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
@@ -24,7 +23,7 @@ import (
 var _ = Describe("Iterator Behavior", func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, Ordered, func() {
-			ShouldNotLeakRoutinesJustBeforeEach()
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				fs      fs.FS
@@ -384,15 +383,12 @@ var _ = Describe("Iterator Behavior", func() {
 						DataType: telem.TimeStampT,
 						IsIndex:  true,
 					})).To(Succeed())
-					var (
-						i = MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{key}}))
-						e = resource.NewClosedError("cesium.iterator")
-					)
+					i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{key}}))
 					Expect(i.Close()).To(Succeed())
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.SeekFirst()).To(BeFalse())
 					Expect(i.Valid()).To(BeFalse())
-					Expect(i.Error()).To(HaveOccurredAs(e))
+					Expect(i.Error()).To(MatchError(cesium.ErrIteratorClosed))
 					Expect(i.Close()).To(Succeed())
 				})
 
@@ -408,7 +404,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+					Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -425,7 +421,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.NewStreamIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []cesium.ChannelKey{key}})
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+					Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})
@@ -442,7 +438,7 @@ var _ = Describe("Iterator Behavior", func() {
 					})).To(Succeed())
 					Expect(subDB.Close()).To(Succeed())
 					_, err := subDB.Read(ctx, telem.TimeRangeMax, key)
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+					Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 					Expect(fs.Remove("closed-fs")).To(Succeed())
 				})

@@ -95,7 +95,7 @@ var _ = Describe("StableFor", func() {
 				State: s.Node("stable"),
 			}
 			_, err := module.Create(ctx, cfg)
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 

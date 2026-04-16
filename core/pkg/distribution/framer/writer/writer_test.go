@@ -167,26 +167,22 @@ var _ = Describe("Writer", func() {
 		BeforeAll(func(ctx SpecContext) { s = gatewayOnlyScenario(ctx) })
 		AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 		It("Should return an error if no keys are provided", func(ctx SpecContext) {
-			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
 				Keys:  []channel.Key{},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
-			})
-			Expect(err).To(MatchError(ContainSubstring("keys: must be non-empty")))
+			})).Error().To(MatchError(ContainSubstring("keys: must be non-empty")))
 		})
 		It("Should return an error if the channel can't be found", func(ctx SpecContext) {
-			_, err := s.dist.Framer.OpenWriter(ctx, writer.Config{
-				Keys: []channel.Key{
-					channel.NewKey(0, 22),
-					s.keys[0],
-				},
+			Expect(s.dist.Framer.OpenWriter(ctx, writer.Config{
+				Keys:  []channel.Key{channel.NewKey(0, 22), s.keys[0]},
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
-			})
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
-			Expect(err.Error()).To(ContainSubstring("Channel"))
-			Expect(err.Error()).To(ContainSubstring("22"))
-			Expect(err.Error()).ToNot(ContainSubstring("1"))
+			})).Error().To(SatisfyAll(
+				MatchError(query.ErrNotFound),
+				MatchError(ContainSubstring("Channel")),
+				MatchError(ContainSubstring("22")),
+			))
 		})
 	})
 
@@ -200,7 +196,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			_, err := writer.Write(frame.NewMulti(
+			Expect(writer.Write(frame.NewMulti(
 				append(s.keys, channel.NewKey(12, 22)),
 				[]telem.Series{
 					telem.NewSeriesV[int64](1, 2, 3),
@@ -208,9 +204,8 @@ var _ = Describe("Writer", func() {
 					telem.NewSeriesV[int64](5, 6, 7),
 					telem.NewSeriesV[int64](5, 6, 7),
 				},
-			))
-			Expect(err).To(HaveOccurredAs(validate.ErrValidation))
-			Expect(writer.Close()).To(HaveOccurredAs(validate.ErrValidation))
+			))).Error().To(MatchError(validate.ErrValidation))
+			Expect(writer.Close()).To(MatchError(validate.ErrValidation))
 		})
 	})
 
@@ -332,7 +327,10 @@ var _ = Describe("Writer", func() {
 	Describe("Free Write Alignment", Ordered, func() {
 		It("Should correctly set alignments on indexed free channels", func(ctx SpecContext) {
 			var (
-				s     = gatewayOnlyScenario(ctx)
+				s = gatewayOnlyScenario(ctx)
+			)
+			defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+			var (
 				idxCh = channel.Channel{
 					Name:        "free_time",
 					IsIndex:     true,

@@ -141,6 +141,10 @@ var (
 	_ freighter.Transport                = (*Transport)(nil)
 )
 
+// New constructs a Transport that uses the supplied pool for client
+// connections. The Transport does NOT take ownership of the pool — closing
+// the Transport will not close the pool. The caller is responsible for
+// closing the pool after every Transport that references it has been closed.
 func New(pool *fgrpc.Pool) *Transport {
 	return &Transport{
 		pledgeClient: &pledgeClient{

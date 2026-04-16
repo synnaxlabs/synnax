@@ -76,7 +76,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
 	}
-	errWriterClosed = resource.NewClosedError("unary.writer")
+	ErrWriterClosed = resource.NewClosedError("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -246,7 +246,7 @@ func Write(
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
@@ -287,20 +287,26 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 
 	if w.Channel.IsIndex {
 		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
-		return ts, w.wrapError(err)
+		if err != nil {
+			return 0, w.wrapError(err)
+		}
+		return ts, nil
 	}
 	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
-	return ts, w.wrapError(err)
+	if err != nil {
+		return 0, w.wrapError(err)
+	}
+	return ts, nil
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return w.wrapError(errWriterClosed)
+		return w.wrapError(ErrWriterClosed)
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return w.wrapError(err)

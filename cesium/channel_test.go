@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -29,8 +28,8 @@ import (
 
 var _ = Describe("Channel", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				fs      fs.FS
@@ -90,7 +89,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -106,11 +105,10 @@ var _ = Describe("Channel", Ordered, func() {
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
-						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
-						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
-
+						Expect(subDB.RetrieveChannel(ctx, key)).Error().
+							To(MatchError(cesium.ErrDBClosed))
+						Expect(subDB.RetrieveChannels(ctx, key)).
+							Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 				})
@@ -386,10 +384,18 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Specify("Virtual", func(ctx SpecContext) {
 						By("Opening writers")
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Start:          0,
+								Channels:       []cesium.ChannelKey{errorKey2},
+								ControlSubject: control.Subject{Key: "rekey writer"},
+							},
+						))
 
 						By("Trying to rekey")
-						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).To(MatchError(ContainSubstring("1 unclosed writers")))
+						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).
+							To(MatchError(ContainSubstring("1 unclosed writers")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())
@@ -495,7 +501,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.RenameChannel(ctx, key, "new_name")).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+					Expect(db.RenameChannel(ctx, key, "new_name")).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 		})

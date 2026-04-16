@@ -15,6 +15,7 @@ import (
 
 	"github.com/tetratelabs/wazero"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	xmath "github.com/synnaxlabs/x/math"
@@ -27,9 +28,10 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Members: symbol.MapResolver{
 		"pow": {
 			Name: "pow",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
-				Outputs: types.Params{{Name: "result", Type: types.Variable("T", &numConstraint)}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
 			}),
 		},
 	},

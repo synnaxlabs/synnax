@@ -96,7 +96,11 @@ const TOKEN_CONFIG = {
   function: {
     dark: "#556bf8",
     light: "#3774D0",
-    scopes: ["entity.name.function.arc", "support.function.builtin.arc"],
+    scopes: [
+      "entity.name.function.arc",
+      "support.function.builtin.arc",
+      "support.function.arc",
+    ],
   },
   stage: {
     dark: "#dadada",

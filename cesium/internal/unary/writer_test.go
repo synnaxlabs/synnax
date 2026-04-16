@@ -17,7 +17,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -454,7 +453,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							ErrOnUnauthorizedOpen: new(true),
 						})
 						Expect(t.Occurred()).To(BeFalse())
-						Expect(err).To(HaveOccurredAs(control.ErrUnauthorized))
+						Expect(err).To(MatchError(control.ErrUnauthorized))
 						Expect(w2).To(BeNil())
 						t = MustSucceed(w1.Close())
 						Expect(t.Occurred()).To(BeTrue())
@@ -506,20 +505,18 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should not allow operations on a closed writer", func(ctx SpecContext) {
-					var (
-						w, t = MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
-							Start:   10 * telem.SecondTS,
-							Subject: control.Subject{Key: "foo"}},
-						))
-						e = resource.NewClosedError("unary.writer")
-					)
+					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
+						Start:   10 * telem.SecondTS,
+						Subject: control.Subject{Key: "foo"}},
+					))
 					Expect(t.Occurred()).To(BeTrue())
 					MustSucceed(w.Close())
-					var _, err = w.Commit(ctx)
-					Expect(err).To(HaveOccurredAs(e))
-					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
+					Expect(w.Commit(ctx)).Error().To(SatisfyAll(
+						MatchError(unary.ErrWriterClosed),
+						MatchError(ContainSubstring("channel [gauss]<%d>", key))),
+					)
 					Expect(w.Write(telem.Series{Data: []byte{1, 2, 3}})).
-						Error().To(HaveOccurredAs(e))
+						Error().To(MatchError(unary.ErrWriterClosed))
 					MustSucceed(w.Close())
 				})
 				It("Should not open a writer on a closed database", func(ctx SpecContext) {
@@ -528,12 +525,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Start:   10 * telem.SecondTS,
 						Subject: control.Subject{Key: "foo"}},
 					)
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("unary.db")))
+					Expect(err).To(MatchError(unary.ErrDBClosed))
 					Expect(err).To(MatchError(ContainSubstring("channel [gauss]<%d>", key)))
 				})
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
-					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(HaveOccurredAs(resource.NewClosedError("unary.db")))
+					Expect(unary.Write(ctx, db, 0, telem.NewSeriesV[int64](0, 1, 2))).To(MatchError(unary.ErrDBClosed))
 				})
 			})
 		})

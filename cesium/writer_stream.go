@@ -561,7 +561,7 @@ func (w *idxWriter) validateWrite(fr Frame) error {
 
 	if numChannelsWrittenTo != expectedChannels {
 		if numChannelsWrittenTo < expectedChannels {
-			keys := set.FromSlice(fr.KeysSlice())
+			keys := set.New(fr.KeysSlice()...)
 			for k, db := range w.internal {
 				if !keys.Contains(k) {
 					dataChannels := make([]Channel, 0, expectedChannels)

@@ -53,7 +53,7 @@ func ConfigPath() string { return filepath.Join(ConfigDir(), "config.yaml") }
 
 // configKeysToExclude contains keys that should not be written to the config file.
 // These are either service-specific (not needed at runtime) or internal.
-var configKeysToExclude = set.FromSlice([]string{"auto-start", "delayed-start"})
+var configKeysToExclude = set.New("auto-start", "delayed-start")
 
 // WriteConfig writes the current viper configuration to the config file.
 // This captures all the core configuration flags set during service installation,

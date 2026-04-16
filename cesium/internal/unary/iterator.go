@@ -54,7 +54,7 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = resource.NewClosedError("unary.iterator")
+var ErrIteratorClosed = resource.NewClosedError("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
@@ -109,7 +109,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
@@ -120,7 +120,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 // SeekLast moves the iterator to the end of the last domain in its bounds.
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -130,7 +130,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 
@@ -149,7 +149,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 
@@ -172,7 +172,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 // entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Next")
@@ -335,7 +335,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 // until the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Prev")

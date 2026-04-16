@@ -128,7 +128,7 @@ var _ = Describe("DB", func() {
 				}))
 				Expect(db.Close()).To(Succeed())
 				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(HaveOccurredAs(domain.ErrDBClosed))
+				Expect(err).To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})
