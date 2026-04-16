@@ -120,16 +120,29 @@ func NewJSONSeries[T any](data []T) (Series, error) {
 // marshalled into JSON.
 func NewJSONSeriesV[T any](data ...T) (Series, error) { return NewJSONSeries(data) }
 
-const newLine = '\n'
+// variableLengthPrefixSize is the number of bytes used for the uint32 LE length prefix
+// in variable-density series encoding.
+const variableLengthPrefixSize = 4
+
+// MarshalVariableSample wraps a single variable-length sample with a uint32 LE length
+// prefix. This is useful for code that accumulates samples into a Series.Data buffer
+// incrementally rather than using NewSeriesV.
+func MarshalVariableSample(sample []byte) []byte {
+	b := make([]byte, variableLengthPrefixSize+len(sample))
+	binary.LittleEndian.PutUint32(b, uint32(len(sample)))
+	copy(b[variableLengthPrefixSize:], sample)
+	return b
+}
 
 func marshalVariable[T VariableSample](data []T) []byte {
-	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + 1 })
+	total := lo.SumBy(data, func(v T) int64 { return int64(len(v)) + variableLengthPrefixSize })
 	b := make([]byte, total)
 	offset := 0
 	for _, d := range data {
+		binary.LittleEndian.PutUint32(b[offset:], uint32(len(d)))
+		offset += variableLengthPrefixSize
 		copy(b[offset:], d)
-		b[offset+len(d)] = newLine
-		offset += len(d) + 1
+		offset += len(d)
 	}
 	return b
 }
@@ -184,17 +197,16 @@ func UnmarshalSeries[T Sample](series Series) []T {
 func unmarshalFixed[T FixedSample](b []byte) []T { return unsafe.CastSlice[byte, T](b) }
 
 func unmarshalVariable[T VariableSample](b []byte) []T {
-	var (
-		offset int
-		data   []T
-	)
-	for offset < len(b) {
-		end := offset
-		for b[end] != newLine {
-			end++
+	var data []T
+	offset := 0
+	for offset+variableLengthPrefixSize <= len(b) {
+		length := int(binary.LittleEndian.Uint32(b[offset:]))
+		offset += variableLengthPrefixSize
+		if offset+length > len(b) {
+			break
 		}
-		data = append(data, T(b[offset:end]))
-		offset = end + 1
+		data = append(data, T(b[offset:offset+length]))
+		offset += length
 	}
 	return data
 }
