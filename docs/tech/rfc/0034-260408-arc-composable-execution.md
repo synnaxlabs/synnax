@@ -65,15 +65,15 @@ each step into its own named stage with an explicit `=> next` transition:
 ```arc
 sequence main {
     stage open_valve {
-        1 -> valve_cmd,
-        wait{duration=2s} => next,
+        1 -> valve_cmd
+        wait{duration=2s} => next
     }
     stage close_valve {
-        0 -> valve_cmd,
-        wait{duration=1s} => next,
+        0 -> valve_cmd
+        wait{duration=1s} => next
     }
     stage open_vent {
-        1 -> vent_cmd,
+        1 -> vent_cmd
     }
 }
 ```
@@ -255,11 +255,11 @@ that step until a subsequent tick produces a truthy result.
 
 ```arc
 sequence main {
-    1 -> valve_cmd           // write: immediately truthy, advances
-    wait{duration=2s}        // gate: blocks for 2s, then truthy
-    0 -> valve_cmd           // write: advances
-    pressure > 50            // gate: blocks until truthy
-    1 -> vent_cmd            // write: advances
+    1 -> valve_cmd // write: immediately truthy, advances
+    wait{duration=2s} // gate: blocks for 2s, then truthy
+    0 -> valve_cmd // write: advances
+    pressure > 50 // gate: blocks until truthy
+    1 -> vent_cmd // write: advances
 }
 ```
 
@@ -377,8 +377,12 @@ The authoritative implementation lives in `arc/go/text/analyze.go`.
 
 ```arc
 sequence main {
-    stage press { ... }
-    stage done { ... }
+    stage press {
+        ...
+    }
+    stage done {
+        ...
+    }
 }
 ```
 
@@ -404,8 +408,8 @@ The Scope is added as a `Member{scope: ...}` in `IR.root`'s phases.
 
 ```arc
 stage abort {
-    0 -> ox_cmd,
-    1 -> vent_cmd,
+    0 -> ox_cmd
+    1 -> vent_cmd
 }
 ```
 
@@ -484,8 +488,8 @@ For the last step, `target.exit = true` instead of a member key. The implementat
 
 ```arc
 stage press {
-    1 -> press_cmd,
-    pressure > 50 => next,
+    1 -> press_cmd
+    pressure > 50 => next
 }
 ```
 
@@ -510,9 +514,9 @@ stage fire {
         1 -> ox_cmd
         wait{duration=500ms}
         1 -> fuel_cmd
-    },
-    interval{period=100ms} -> control,
-    ox_pt < 15 => next,
+    }
+    interval{period=100ms} -> control
+    ox_pt < 15 => next
 }
 ```
 
@@ -525,11 +529,13 @@ stage's phases. Its `activation` is nil; it inherits the stage's activation casc
 ```arc
 sequence main {
     stage press {
-        abort_btn => abort,
+        abort_btn => abort
     }
 }
 
-stage abort { ... }
+stage abort {
+    ...
+}
 ```
 
 `abort_btn => abort` names a top-level scope that is not a sibling in any enclosing
@@ -824,16 +830,16 @@ exits after member 2's transition fires `exit: true`.
 sequence main {
     1 -> ox_mpv_cmd
     stage {
-        interval{period=100ms} -> control_tpc{},
-        ox_pt_1 < 15 => next,
-        wait{duration=30s} => abort,
+        interval{period=100ms} -> control_tpc{}
+        ox_pt_1 < 15 => next
+        wait{duration=30s} => abort
     }
     0 -> ox_mpv_cmd
 }
 
 stage abort {
-    0 -> ox_mpv_cmd,
-    1 -> vent_cmd,
+    0 -> ox_mpv_cmd
+    1 -> vent_cmd
 }
 ```
 
@@ -850,9 +856,9 @@ sequence main {
         pressure > 50
     }
     stage hold {
-        0 -> press_cmd,
-        wait{duration=2s} => next,
-        pressure < 40 => pressurize,
+        0 -> press_cmd
+        wait{duration=2s} => next
+        pressure < 40 => pressurize
     }
 }
 ```
@@ -883,8 +889,8 @@ conditional jump, wrap the flow in an explicit `stage {}`:
 ```arc
 sequence main {
     stage {
-        1 -> press_cmd,
-        pressure < 40 => abort,
+        1 -> press_cmd
+        pressure < 40 => abort
     }
     0 -> press_cmd
 }
@@ -902,11 +908,11 @@ Before:
 ```arc
 sequence main {
     stage open_ox {
-        1 -> ox_mpv_cmd,
-        wait{duration=500ms} => next,
+        1 -> ox_mpv_cmd
+        wait{duration=500ms} => next
     }
     stage open_fuel {
-        1 -> fuel_mpv_cmd,
+        1 -> fuel_mpv_cmd
     }
 }
 ```
@@ -928,39 +934,39 @@ Before:
 ```arc
 sequence main {
     stage initialize {
-        0 -> ox_press_cmd,
-        0 -> ox_mpv_cmd,
-        0 -> gas_booster_iso_cmd,
-        1 -> ox_vent_cmd,
-        ox_vent_state == 1 => next,
+        0 -> ox_press_cmd
+        0 -> ox_mpv_cmd
+        0 -> gas_booster_iso_cmd
+        1 -> ox_vent_cmd
+        ox_vent_state == 1 => next
     }
     stage press {
-        1 -> press_iso_cmd,
-        1 -> ox_press_cmd,
-        1 -> gas_booster_iso_cmd,
-        ox_pt_1 > 50 => next,
+        1 -> press_iso_cmd
+        1 -> ox_press_cmd
+        1 -> gas_booster_iso_cmd
+        ox_pt_1 > 50 => next
     }
     stage press_high {
-        0 -> ox_press_cmd,
-        0 -> press_iso_cmd,
-        1 -> gas_booster_iso_cmd,
-        press_pt_1 > 150 => next,
+        0 -> ox_press_cmd
+        0 -> press_iso_cmd
+        1 -> gas_booster_iso_cmd
+        press_pt_1 > 150 => next
     }
     stage hold {
-        0 -> gas_booster_iso_cmd,
-        wait{duration=2s} => next,
+        0 -> gas_booster_iso_cmd
+        wait{duration=2s} => next
     }
     stage tpc {
-        1 -> ox_mpv_cmd,
-        1 -> press_iso_cmd,
-        interval{period=100ms} -> control_tpc{},
-        ox_pt_1 < 15 => next,
+        1 -> ox_mpv_cmd
+        1 -> press_iso_cmd
+        interval{period=100ms} -> control_tpc{}
+        ox_pt_1 < 15 => next
     }
     stage safe {
-        0 -> ox_press_cmd,
-        0 -> ox_mpv_cmd,
-        0 -> gas_booster_iso_cmd,
-        1 -> ox_vent_cmd,
+        0 -> ox_press_cmd
+        0 -> ox_mpv_cmd
+        0 -> gas_booster_iso_cmd
+        1 -> ox_vent_cmd
     }
 }
 ```
@@ -970,37 +976,37 @@ After:
 ```arc
 sequence main {
     stage initialize {
-        0 -> ox_press_cmd,
-        0 -> ox_mpv_cmd,
-        0 -> gas_booster_iso_cmd,
-        1 -> ox_vent_cmd,
-        ox_vent_state == 1 => next,
+        0 -> ox_press_cmd
+        0 -> ox_mpv_cmd
+        0 -> gas_booster_iso_cmd
+        1 -> ox_vent_cmd
+        ox_vent_state == 1 => next
     }
     stage press {
-        1 -> press_iso_cmd,
-        1 -> ox_press_cmd,
-        1 -> gas_booster_iso_cmd,
-        ox_pt_1 > 50 => next,
+        1 -> press_iso_cmd
+        1 -> ox_press_cmd
+        1 -> gas_booster_iso_cmd
+        ox_pt_1 > 50 => next
     }
     stage press_high {
-        0 -> ox_press_cmd,
-        0 -> press_iso_cmd,
-        1 -> gas_booster_iso_cmd,
-        press_pt_1 > 150 => next,
+        0 -> ox_press_cmd
+        0 -> press_iso_cmd
+        1 -> gas_booster_iso_cmd
+        press_pt_1 > 150 => next
     }
     0 -> gas_booster_iso_cmd
     wait{duration=2s}
     stage tpc {
-        1 -> ox_mpv_cmd,
-        1 -> press_iso_cmd,
-        interval{period=100ms} -> control_tpc{},
-        ox_pt_1 < 15 => next,
+        1 -> ox_mpv_cmd
+        1 -> press_iso_cmd
+        interval{period=100ms} -> control_tpc{}
+        ox_pt_1 < 15 => next
     }
     stage safe {
-        0 -> ox_press_cmd,
-        0 -> ox_mpv_cmd,
-        0 -> gas_booster_iso_cmd,
-        1 -> ox_vent_cmd,
+        0 -> ox_press_cmd
+        0 -> ox_mpv_cmd
+        0 -> gas_booster_iso_cmd
+        1 -> ox_vent_cmd
     }
 }
 ```
@@ -1020,9 +1026,9 @@ sequence main {
             set_authority{value=220}
             wait{duration=100ms}
             set_authority{value=200}
-        },
-        interval{period=100ms} -> control_tpc{},
-        ox_pt_1 < 15 => next,
+        }
+        interval{period=100ms} -> control_tpc{}
+        ox_pt_1 < 15 => next
     }
     0 -> ox_mpv_cmd
     0 -> fuel_mpv_cmd
@@ -1060,8 +1066,8 @@ stage main {
         1 -> valve_cmd
         wait{duration=2s}
         0 -> valve_cmd
-    },
-    pressure > 200 => abort,
+    }
+    pressure > 200 => abort
 }
 ```
 

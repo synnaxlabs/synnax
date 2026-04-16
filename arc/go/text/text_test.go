@@ -124,18 +124,16 @@ var _ = Describe("Text", func() {
 		It("Should correctly parse a text-based arc program", func() {
 			source := `
 			func add(a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
 			func adder{} (a i64, b i64) i64 {
-				return add(a, b)
+			    return add(a, b)
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
 		})
@@ -145,18 +143,16 @@ var _ = Describe("Text", func() {
 		It("Should correctly analyze a text-based arc program", func(ctx SpecContext) {
 			source := `
 			func add(a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
 			func adder{} (a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
@@ -192,11 +188,9 @@ var _ = Describe("Text", func() {
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 				}
 				source := `
-				func print{} () {
-				}
+				func print{} () {}
 
-				sensor -> print{}
-				`
+				sensor -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -221,11 +215,9 @@ var _ = Describe("Text", func() {
 
 			It("Should report error for unresolved channel", func(ctx SpecContext) {
 				source := `
-				func print{} () {
-				}
+				func print{} () {}
 
-				unknown_channel -> print{}
-				`
+				unknown_channel -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -237,14 +229,12 @@ var _ = Describe("Text", func() {
 			It("Should analyze flow with expression nodes", func(ctx SpecContext) {
 				source := `
 				func add(a i64, b i64) i64 {
-					return a + b
+				    return a + b
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				add(1, 2) -> print{}
-				`
+				add(1, 2) -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -301,18 +291,13 @@ var _ = Describe("Text", func() {
 		Context("Config Values", func() {
 			It("Should extract named config values", func(ctx SpecContext) {
 				source := `
-				func processor{
-					threshold i64,
-					scale f64
-				} () i64 {
-					return threshold
+				func processor{threshold i64, scale f64} () i64 {
+				    return threshold
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				processor{threshold=100, scale=2.5} -> print{}
-				`
+				processor{threshold=100, scale=2.5} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -331,19 +316,13 @@ var _ = Describe("Text", func() {
 
 			It("Should handle simple config with multiple values", func(ctx SpecContext) {
 				source := `
-				func calculator{
-					a i64,
-					b i64,
-					c i64
-				} () i64 {
-					return a + b + c
+				func calculator{a i64, b i64, c i64} () i64 {
+				    return a + b + c
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				calculator{a=10,b=20,c=30} -> print{}
-				`
+				calculator{a=10, b=20, c=30} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -366,17 +345,13 @@ var _ = Describe("Text", func() {
 					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
 				}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=temp_sensor} -> display{}
-				`
+				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -394,17 +369,13 @@ var _ = Describe("Text", func() {
 					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10043},
 				}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=temp_sensor} -> display{}
-				`
+				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -418,17 +389,13 @@ var _ = Describe("Text", func() {
 			It("Should produce diagnostic error when channel name is not found in resolver", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=unknown_sensor} -> display{}
-				`
+				reader{channel=unknown_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -451,11 +418,10 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func source{} () u8 {
-					return 1
+				    return 1
 				}
 
-				source{} -> set_authority{value=200, channel=read_sensor}
-				`
+				source{} -> set_authority{value=200, channel=read_sensor}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -466,18 +432,15 @@ var _ = Describe("Text", func() {
 					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},
 				}
 				source := `
-				func writer{
-					channel chan f64
-				} (value f64) {
-					channel = value
+				func writer{channel chan f64} (value f64) {
+				    channel = value
 				}
 
 				func source{} () f64 {
-					return 1.0
+				    return 1.0
 				}
 
-				source{} -> writer{channel=output_channel}
-				`
+				source{} -> writer{channel=output_channel}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -499,17 +462,16 @@ var _ = Describe("Text", func() {
 					"counter_2": {Name: "counter_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10014},
 				}
 				source := `
-				func count_rising{counter chan f32}(input u8) {
-					prev $= input
-					if input != 0 and prev == 0 {
-						counter = counter + 1.0
-					}
-					prev = input
+				func count_rising{counter chan f32} (input u8) {
+				    prev $= input
+				    if input != 0 and prev == 0 {
+				        counter = counter + 1.0
+				    }
+				    prev = input
 				}
 
 				toggle_1 -> count_rising{counter=counter_1}
-				toggle_2 -> count_rising{counter=counter_2}
-				`
+				toggle_2 -> count_rising{counter=counter_2}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -533,16 +495,15 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func count_rising(input u8) {
-					counter $= counter_1
-					prev $= input
-					if input != 0 and prev == 0 {
-						counter = counter + 1.0
-					}
-					prev = input
+				    counter $= counter_1
+				    prev $= input
+				    if input != 0 and prev == 0 {
+				        counter = counter + 1.0
+				    }
+				    prev = input
 				}
 
-				toggle_1 -> count_rising{}
-				`
+				toggle_1 -> count_rising{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -563,25 +524,24 @@ var _ = Describe("Text", func() {
 					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
 				}
 				source := `
-				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
-					prev $= input
-					counter f32 $= 0
-					read_val := max_ch + f32(0.0)
+				func count_rising_test{counter_ch chan f32, max_ch chan f32} (input u8) {
+				    prev $= input
+				    counter f32 $= 0
+				    read_val := max_ch + f32(0.0)
 
-					if counter < read_val {
-						counter = read_val
-					}
+				    if counter < read_val {
+				        counter = read_val
+				    }
 
-					if input and not prev {
-						counter = counter + 1.0
-					}
+				    if input and not prev {
+				        counter = counter + 1.0
+				    }
 
-					counter_ch = counter
-					prev = input
+				    counter_ch = counter
+				    prev = input
 				}
 
-				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}
-				`
+				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -600,19 +560,13 @@ var _ = Describe("Text", func() {
 				B := 20
 				C := 30
 
-				func calculator{
-					a i64,
-					b i64,
-					c i64
-				} () i64 {
-					return a + b + c
+				func calculator{a i64, b i64, c i64} () i64 {
+				    return a + b + c
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				calculator{a=A, b=B, c=C} -> print{}
-				`
+				calculator{a=A, b=B, c=C} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -635,18 +589,13 @@ var _ = Describe("Text", func() {
 				SCALE := 2.5
 				OFFSET := 0.1
 
-				func transform{
-					scale f64,
-					offset f64
-				} (x f64) f64 {
-					return x * scale + offset
+				func transform{scale f64, offset f64} (x f64) f64 {
+				    return x * scale + offset
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				transform{scale=SCALE, offset=OFFSET} -> sink{}
-				`
+				transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -667,18 +616,13 @@ var _ = Describe("Text", func() {
 				source := `
 				THRESHOLD := 100
 
-				func filter{
-					threshold i64,
-					enabled i64
-				} (x i64) i64 {
-					return x
+				func filter{threshold i64, enabled i64} (x i64) i64 {
+				    return x
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				filter{threshold=THRESHOLD, enabled=1} -> sink{}
-				`
+				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -700,17 +644,13 @@ var _ = Describe("Text", func() {
 				source := `
 				MAX_VALUE i32 := 255
 
-				func clamp{
-					max i32
-				} (x i32) i32 {
-					return x
+				func clamp{max i32} (x i32) i32 {
+				    return x
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				clamp{max=MAX_VALUE} -> sink{}
-				`
+				clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -724,17 +664,13 @@ var _ = Describe("Text", func() {
 
 			It("Should resolve anonymous config values by position into IR nodes", func(ctx SpecContext) {
 				source := `
-				func transform{
-					scale f64,
-					offset f64
-				} (x f64) f64 {
-					return x * scale + offset
+				func transform{scale f64, offset f64} (x f64) f64 {
+				    return x * scale + offset
 				}
 
 				func sink{} () {}
 
-				transform{2.5, 0.1} -> sink{}
-				`
+				transform{2.5, 0.1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -749,17 +685,13 @@ var _ = Describe("Text", func() {
 
 			It("Should resolve partial anonymous config with defaults into IR nodes", func(ctx SpecContext) {
 				source := `
-				func controller{
-					setpoint f64,
-					gain f64 = 1.0
-				} (x f64) f64 {
-					return x
+				func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
+				    return x
 				}
 
 				func sink{} () {}
 
-				controller{100.0} -> sink{}
-				`
+				controller{100.0} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -777,15 +709,11 @@ var _ = Describe("Text", func() {
 					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
 				}
 				source := `
-				func controller{
-					sensor chan f64,
-					setpoint f64
-				} () {
-					v := sensor
+				func controller{sensor chan f64, setpoint f64} () {
+				    v := sensor
 				}
 
-				sensor_chan -> controller{sensor_chan, 100.0}
-				`
+				sensor_chan -> controller{sensor_chan, 100.0}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -830,11 +758,10 @@ var _ = Describe("Text", func() {
 				DRIVE_SP := 2500
 
 				sequence main {
-					stage init {
-						DRIVE_SP => drive_speed_sp
-					}
-				}
-				`
+				    stage init {
+				        DRIVE_SP => drive_speed_sp
+				    }
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -857,15 +784,14 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func filter{} (data i64) i64 {
-					return data
+				    return data
 				}
 
 				func transform{} (value i64) i64 {
-					return value * 2
+				    return value * 2
 				}
 
-				sensor -> filter{} -> transform{}
-				`
+				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -903,15 +829,14 @@ var _ = Describe("Text", func() {
 			It("Should handle functions with custom input parameter names", func(ctx SpecContext) {
 				source := `
 				func generator{} () i64 {
-					return 42
+				    return 42
 				}
 
 				func processor{} (inputValue i64) i64 {
-					return inputValue * 2
+				    return inputValue * 2
 				}
 
-				generator{} -> processor{}
-				`
+				generator{} -> processor{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -933,11 +858,9 @@ var _ = Describe("Text", func() {
 					"temp": {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10044},
 				}
 				source := `
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				temp -> display{}
-				`
+				temp -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -955,14 +878,12 @@ var _ = Describe("Text", func() {
 			It("Should handle binary operator parameter names", func(ctx SpecContext) {
 				source := `
 				func add{} (a i64, b i64) i64 {
-					return a + b
+				    return a + b
 				}
 
-				func print{} (value i64) {
-				}
+				func print{} (value i64) {}
 
-				add{} -> print{}
-				`
+				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -987,24 +908,21 @@ var _ = Describe("Text", func() {
 			It("Should analyze simple output routing with multiple targets", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
-				func logger{} (value f64) {
-				}
+				func logger{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: alarm{},
-					low: logger{}
-				}
-				`
+				    high: alarm{},
+				    low: logger{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1034,24 +952,22 @@ var _ = Describe("Text", func() {
 			It("Should handle routing with chained processing", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
 				func amplify{} (signal f64) f64 {
-					return signal * 2
+				    return signal * 2
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: amplify{} -> display{}
-				}
-				`
+				    high: amplify{} -> display{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1075,24 +991,22 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func increment{ch chan u32}() {
-					ch = ch + 1
+				func increment{ch chan u32} () {
+				    ch = ch + 1
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: increment{ch=counter} -> alarm{}
-				}
-				`
+				    high: increment{ch=counter} -> alarm{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1112,16 +1026,14 @@ var _ = Describe("Text", func() {
 			It("Should report error for non-existent output parameter", func(ctx SpecContext) {
 				source := `
 				func simple{} () (bob i64) {
-					bob = 42
+				    bob = 42
 				}
 
-				func display{} (value i64) {
-				}
+				func display{} (value i64) {}
 
 				simple{} -> {
-					nonexistent: display{}
-				}
-				`
+				    nonexistent: display{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -1136,15 +1048,14 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func filter{} (data i64) i64 {
-					return data
+				    return data
 				}
 
 				func transform{} (value i64) i64 {
-					return value * 2
+				    return value * 2
 				}
 
-				sensor -> filter{} -> transform{}
-				`
+				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1158,24 +1069,21 @@ var _ = Describe("Text", func() {
 			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
-				func logger{} (value f64) {
-				}
+				func logger{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: alarm{},
-					low: logger{}
-				}
-				`
+				    high: alarm{},
+				    low: logger{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1197,11 +1105,10 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func double{} (x f32) f32 {
-					return x * 2
+				    return x * 2
 				}
 
-				input_chan -> double{} -> output_chan
-				`
+				input_chan -> double{} -> output_chan`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1246,18 +1153,17 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
 				demux{threshold=100.0} -> {
-					high: high_chan,
-					low: low_chan
-				}
-				`
+				    high: high_chan,
+				    low: low_chan
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1283,11 +1189,9 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
-					func print{} () {
-					}
+					func print{} () {}
 
-					print{}
-				`),
+					print{}`),
 				Entry("single channel identifier", `sensor`),
 			)
 		})
@@ -1299,12 +1203,10 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence main {
-					stage run {
-					}
+				    stage run {}
 				}
 
-				trigger => main
-				`
+				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1338,12 +1240,10 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence main {
-					stage run {
-					}
+				    stage run {}
 				}
 
-				sensor -> main
-				`
+				sensor -> main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1363,14 +1263,11 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence main {
-					stage first {
-					}
-					stage second {
-					}
+				    stage first {}
+				    stage second {}
 				}
 
-				trigger => main
-				`
+				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1392,11 +1289,9 @@ var _ = Describe("Text", func() {
 					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
-				sequence empty {
-				}
+				sequence empty {}
 
-				trigger => empty
-				`
+				trigger => empty`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -1409,23 +1304,21 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence alarm {
-					stage active {
-					}
+				    stage active {}
 				}
 
 				func demux{threshold f64} (value f64) (high u8, low f64) {
-					if (value > threshold) {
-						high = 1
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = value
+				    }
 				}
 
 				demux{threshold=100.0} -> {
-					high: alarm,
-					low: high_chan
-				}
-				`
+				    high: alarm,
+				    low: high_chan
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1456,11 +1349,10 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence main {
-					stage first {
-						input > 10 => second
-					}
-					stage second {
-					}
+				    stage first {
+				        input > 10 => second
+				    }
+				    stage second {}
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
@@ -1484,7 +1376,7 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				stage {
-					1 -> ch,
+				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
@@ -1509,7 +1401,7 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence {
-					1 -> ch
+				    1 -> ch
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
@@ -1533,13 +1425,13 @@ var _ = Describe("Text", func() {
 			It("Should emit a member-key transition targeting the following stage", func(ctx SpecContext) {
 				source := `
 				sequence main {
-					stage first {
-						1 -> output,
-						input > 10 => next
-					}
-					stage second {
-						0 -> output
-					}
+				    stage first {
+				        1 -> output
+				        input > 10 => next
+				    }
+				    stage second {
+				        0 -> output
+				    }
 				}`
 				resolver := symbol.MapResolver{
 					"input":  {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10091},
@@ -1568,9 +1460,9 @@ var _ = Describe("Text", func() {
 				Entry("next in last stage",
 					`
 					sequence main {
-						stage only {
-							input > 10 => next
-						}
+					    stage only {
+					        input > 10 => next
+					    }
 					}`,
 					symbol.MapResolver{
 						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
@@ -1593,11 +1485,9 @@ var _ = Describe("Text", func() {
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				sensor > 20 => alarm{}
-				`
+				sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1632,11 +1522,9 @@ var _ = Describe("Text", func() {
 					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10152},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				temp + pressure > 100 => alarm{}
-				`
+				temp + pressure > 100 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1689,11 +1577,9 @@ var _ = Describe("Text", func() {
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				sensor -> sensor > 20 => alarm{}
-				`
+				sensor -> sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1712,13 +1598,11 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				sequence main {
-					stage monitoring {
-						sensor > 100 => next
-					}
-					stage alarm {
-					}
-				}
-				`
+				    stage monitoring {
+				        sensor > 100 => next
+				    }
+				    stage alarm {}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1744,11 +1628,9 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				func press{} () {
-				}
+				func press{} () {}
 
-				interval{period=50ms} => press{}
-				`
+				interval{period=50ms} => press{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1779,11 +1661,9 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				func handler{} () {
-				}
+				func handler{} () {}
 
-				interval{period=50ms} -> handler{}
-				`
+				interval{period=50ms} -> handler{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1808,15 +1688,21 @@ var _ = Describe("Text", func() {
 				}
 			},
 			Entry("error when adding incompatible dimensions",
-				`func bad() f64 { return 5psi + 3s }`,
+				`func bad() f64 {
+    return 5psi + 3s
+}`,
 				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
-				`func good() f64 { return 100psi + 50psi }`,
+				`func good() f64 {
+    return 100psi + 50psi
+}`,
 				true, "",
 			),
 			Entry("allow multiplying different dimensions",
-				`func velocity() f64 { return 100m / 10s }`,
+				`func velocity() f64 {
+    return 100m / 10s
+}`,
 				true, "",
 			),
 		)
@@ -1825,15 +1711,13 @@ var _ = Describe("Text", func() {
 	Describe("Single Invocations in Stages", func() {
 		It("Should compile standalone function invocation to IR node", func(ctx SpecContext) {
 			source := `
-			func setup() {
-			}
+			func setup() {}
 
 			sequence main {
-				stage start {
-					setup{},
-				}
-			}
-			`
+			    stage start {
+			        setup{}
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1850,11 +1734,10 @@ var _ = Describe("Text", func() {
 		It("Should compile standalone expression to IR node", func(ctx SpecContext) {
 			source := `
 			sequence main {
-				stage start {
-					1 + 2,
-				}
-			}
-			`
+			    stage start {
+			        1 + 2
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1879,18 +1762,16 @@ var _ = Describe("Text", func() {
 				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
 			}
 			source := `
-			func increment{ch chan u32}() {
-				ch = ch + 1
+			func increment{ch chan u32} () {
+			    ch = ch + 1
 			}
 
 			sequence main {
-				stage first {
-					trigger => increment{ch=counter} => next,
-				}
-				stage second {
-				}
-			}
-			`
+			    stage first {
+			        trigger => increment{ch=counter} => next
+			    }
+			    stage second {}
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeFalse())
@@ -1900,15 +1781,14 @@ var _ = Describe("Text", func() {
 		It("Should place a single-invocation step's node in its stage's first phase", func(ctx SpecContext) {
 			source := `
 			func initialize() u8 {
-				return 1
+			    return 1
 			}
 
 			sequence main {
-				stage start {
-					initialize{},
-				}
-			}
-			`
+			    stage start {
+			        initialize{}
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1933,9 +1813,10 @@ var _ = Describe("Text", func() {
 			source := `
 			authority 200
 
-			func a{} () f64 { return 0.0 }
-			a{} -> valve
-			`
+			func a{} () f64 {
+			    return 0.0
+			}
+			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1949,11 +1830,16 @@ var _ = Describe("Text", func() {
 				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 			}
 			source := `
-			authority (200 valve 100 vent 150)
+			authority (
+			    200
+			    valve 100
+			    vent 150
+			)
 
-			func a{} () f64 { return 0.0 }
-			a{} -> valve
-			`
+			func a{} () f64 {
+			    return 0.0
+			}
+			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1969,8 +1855,7 @@ var _ = Describe("Text", func() {
 			func a{} () {}
 			authority 200
 			func b{} () {}
-			a{} -> b{}
-			`
+			a{} -> b{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeFalse())
@@ -1982,14 +1867,12 @@ var _ = Describe("Text", func() {
 		It("Should compile a simple arc program to WebAssembly", func(ctx SpecContext) {
 			source := `
 			func adder{} (a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2017,30 +1900,34 @@ var _ = Describe("Text", func() {
 			}
 			source := `
 			func tolerance_alarm{
-				tolerance_upper f32,
-				tolerance_lower f32,
-				set_point chan f32,
-				samples i64
+			    tolerance_upper f32,
+			    tolerance_lower f32,
+			    set_point chan f32,
+			    samples i64,
 			} (value f32) u8 {
-				count i64 $= 0
-				sp := set_point
+			    count i64 $= 0
+			    sp := set_point
 
-				if value >= (sp + tolerance_upper) {
-					count = count + 1
-				} else if value <= (sp - tolerance_lower) {
-					count = count + 1
-				} else {
-					count = 0
-				}
+			    if value >= (sp + tolerance_upper) {
+			        count = count + 1
+			    } else if value <= (sp - tolerance_lower) {
+			        count = count + 1
+			    } else {
+			        count = 0
+			    }
 
-				if count >= samples {
-					return 1
-				}
-				return 0
+			    if count >= samples {
+			        return 1
+			    }
+			    return 0
 			}
 
-			virt_1 -> tolerance_alarm{tolerance_upper=200.0, tolerance_lower=0.0, set_point=virt_1, samples=10} -> alarm_out
-			`
+			virt_1 -> tolerance_alarm{
+			    tolerance_upper = 200.0,
+			    tolerance_lower = 0.0,
+			    set_point = virt_1,
+			    samples = 10
+			} -> alarm_out`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2078,16 +1965,13 @@ var _ = Describe("Text", func() {
 				},
 			}
 			source := `
-			func writer{
-				output chan f32
-			} (value f32) u8 {
-				out := output
-				out = value * 2.0
-				return 0
+			func writer{output chan f32} (value f32) u8 {
+			    out := output
+			    out = value * 2.0
+			    return 0
 			}
 
-			input_ch -> writer{output=write_target} -> sink_ch
-			`
+			input_ch -> writer{output=write_target} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -2130,13 +2014,12 @@ var _ = Describe("Text", func() {
 			}
 			source := `
 			func writer{} (value f32) u8 {
-				out := output_ch
-				out = value * 3.0
-				return 0
+			    out := output_ch
+			    out = value * 3.0
+			    return 0
 			}
 
-			input_ch -> writer{} -> sink_ch
-			`
+			input_ch -> writer{} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())

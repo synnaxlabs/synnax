@@ -19,11 +19,11 @@ import (
 
 var demuxSource = `
 func demux{threshold f64} (value f64) (high f64, low f64) {
-	if (value > threshold) {
-		high = value
-	} else {
-		low = value
-	}
+    if (value > threshold) {
+        high = value
+    } else {
+        low = value
+    }
 }
 `
 
@@ -152,21 +152,20 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func classify{} (value i64) (negative i64, zero i64, positive i64) {
-					if (value < 0) {
-						negative = value
-					} else if (value > 0) {
-						positive = value
-					} else {
-						zero = value
-					}
+				    if (value < 0) {
+				        negative = value
+				    } else if (value > 0) {
+				        positive = value
+				    } else {
+				        zero = value
+				    }
 				}
 
 				sensor -> classify{} -> {
-					negative: neg_out,
-					zero: zero_out,
-					positive: pos_out
-				}
-			`, resolver,
+				    negative: neg_out,
+				    zero: zero_out,
+				    positive: pos_out
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Int64T},
 				channel.Digest{Key: 200, DataType: telem.Int64T},
 				channel.Digest{Key: 300, DataType: telem.Int64T},
@@ -203,13 +202,12 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, demuxSource+`
 				func amplify{} (signal f64) f64 {
-					return signal * 2.0
+				    return signal * 2.0
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: amplify{} -> alarm_out
-				}
-			`, resolver,
+				    high: amplify{} -> alarm_out
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -238,13 +236,12 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, demuxSource+`
 				func amplify{} (signal f64) f64 {
-					return signal * 2.0
+				    return signal * 2.0
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: amplify{} -> alarm_out
-				}
-			`, resolver,
+				    high: amplify{} -> alarm_out
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -271,13 +268,12 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, demuxSource+`
 				func amplify{} (signal f64) f64 {
-					return signal * 2.0
+				    return signal * 2.0
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: amplify{} -> alarm_out
-				}
-			`, resolver,
+				    high: amplify{} -> alarm_out
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 			)
@@ -309,23 +305,22 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func demux{threshold f64} (value f64) (high u8, low f64) {
-					if (value > threshold) {
-						high = 1
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = value
+				    }
 				}
 
 				sequence alarm {
-					stage active {
-						1 -> vlv_cmd
-					}
+				    stage active {
+				        1 -> vlv_cmd
+				    }
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: alarm
-				}
-			`, resolver,
+				    high: alarm
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 			)
@@ -367,23 +362,22 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func demux{threshold f64} (value f64) (high u8, low f64) {
-					if (value > threshold) {
-						high = 1
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = value
+				    }
 				}
 
 				sequence alarm {
-					stage active {
-						1 -> vlv_cmd
-					}
+				    stage active {
+				        1 -> vlv_cmd
+				    }
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: alarm
-				}
-			`, resolver,
+				    high: alarm
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 			)
@@ -407,30 +401,29 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func classify{threshold f64} (value f64) (above u8, below u8) {
-					if (value > threshold) {
-						above = 1
-					} else {
-						below = 1
-					}
+				    if (value > threshold) {
+				        above = 1
+				    } else {
+				        below = 1
+				    }
 				}
 
 				sequence open_valve {
-					stage active {
-						1 -> open_cmd
-					}
+				    stage active {
+				        1 -> open_cmd
+				    }
 				}
 
 				sequence log_event {
-					stage active {
-						1 -> log_cmd
-					}
+				    stage active {
+				        1 -> log_cmd
+				    }
 				}
 
 				sensor -> classify{threshold=100.0} -> {
-					above: open_valve,
-					below: log_event
-				}
-			`, resolver,
+				    above: open_valve,
+				    below: log_event
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
@@ -469,31 +462,30 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func demux{threshold f64} (value f64) (high u8, low f64) {
-					if (value > threshold) {
-						high = 1
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = value
+				    }
 				}
 
 				func check_pressure(p f32) u8 {
-					return p > 100
+				    return p > 100
 				}
 
 				sequence pressurize {
-					stage fill {
-						1 -> vlv_cmd,
-						press_pt -> check_pressure{} => next
-					}
-					stage hold {
-						0 -> vlv_cmd
-					}
+				    stage fill {
+				        1 -> vlv_cmd
+				        press_pt -> check_pressure{} => next
+				    }
+				    stage hold {
+				        0 -> vlv_cmd
+				    }
 				}
 
 				sensor -> demux{threshold=50.0} -> {
-					high: pressurize
-				}
-			`, resolver,
+				    high: pressurize
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
@@ -541,22 +533,21 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				flag -> select{} -> {
-					true: open_valve,
-					false: shut_valve
+				    true: open_valve,
+				    false: shut_valve
 				}
 
 				sequence open_valve {
-					stage active {
-						1 -> open_cmd
-					}
+				    stage active {
+				        1 -> open_cmd
+				    }
 				}
 
 				sequence shut_valve {
-					stage active {
-						1 -> shut_cmd
-					}
-				}
-			`, resolver,
+				    stage active {
+				        1 -> shut_cmd
+				    }
+				}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
@@ -608,26 +599,25 @@ var _ = Describe("Routing Table Runtime", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func demux{threshold f64} (value f64) (high u8, low u8) {
-					if (value > threshold) {
-						high = 1
-					} else {
-						low = 1
-					}
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = 1
+				    }
 				}
 
 				trigger => main
 
 				sequence main {
-					stage first {
-						sensor -> demux{threshold=50.0} -> {
-							high: pressurize,
-						},
-					}
-					stage pressurize {
-						1 -> vlv_cmd
-					}
-				}
-			`, resolver,
+				    stage first {
+				        sensor -> demux{threshold=50.0} -> {
+				            high: pressurize,
+				        }
+				    }
+				    stage pressurize {
+				        1 -> vlv_cmd
+				    }
+				}`, resolver,
 				channel.Digest{Key: 50, DataType: telem.Uint8T},
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},

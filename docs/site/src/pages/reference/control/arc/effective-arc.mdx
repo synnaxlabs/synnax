@@ -59,14 +59,11 @@ Each stage should do one thing. Split complex operations:
 
 ```arc
 // Good: clear purpose for each stage
-stage verify_sensors {
-}
+stage verify_sensors {}
 /* check sensors */
-stage pressurize {
-}
+stage pressurize {}
 /* bring to pressure */
-stage hold {
-}
+stage hold {}
 /* maintain pressure */
 // Avoid: one stage trying to do everything
 stage do_everything {

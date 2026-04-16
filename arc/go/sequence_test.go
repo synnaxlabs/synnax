@@ -271,21 +271,20 @@ var _ = Describe("Sequence", func() {
 				LOW f32 := 5
 
 				sequence main {
-					stage press {
-						1 -> press_vlv_cmd,
-						pressure > HIGH => vent
-					}
-					stage vent {
-						0 -> press_vlv_cmd,
-						1 -> vent_vlv_cmd,
-						pressure < LOW => done
-					}
-					stage done {
-						0 -> vent_vlv_cmd,
-					}
+				    stage press {
+				        1 -> press_vlv_cmd
+				        pressure > HIGH => vent
+				    }
+				    stage vent {
+				        0 -> press_vlv_cmd
+				        1 -> vent_vlv_cmd
+				        pressure < LOW => done
+				    }
+				    stage done {
+				        0 -> vent_vlv_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
@@ -475,10 +474,9 @@ var _ = Describe("Sequence", func() {
 				SOME_CONST f32 := 42.0
 
 				sequence main {
-					SOME_CONST => const_output
+				    SOME_CONST => const_output
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 			)
@@ -498,10 +496,9 @@ var _ = Describe("Sequence", func() {
 				SOME_CONST f32 := -49.5
 
 				sequence main {
-					SOME_CONST * 2 => const_output
+				    SOME_CONST * 2 => const_output
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 			)
