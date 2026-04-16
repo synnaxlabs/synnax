@@ -197,6 +197,29 @@ var _ = Describe("C++ JSON Plugin", func() {
 					)
 			})
 
+			It("Should handle cycles through a distinct struct wrapper", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					A struct {
+						b BWrap??
+					}
+					B struct {
+						a A??
+					}
+					BWrap B
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`parser.field<x::mem::indirect<BWrap>>("b")`,
+						`parser.field<x::mem::indirect<A>>("a")`,
+						`if (this->b.has_value()) j["b"] = this->b->to_json()`,
+						`if (this->a.has_value()) j["a"] = this->a->to_json()`,
+					)
+			})
+
 			It("Should handle nested self-references via type arguments", func(ctx SpecContext) {
 				source := `
 					@cpp output "arc/cpp/types"

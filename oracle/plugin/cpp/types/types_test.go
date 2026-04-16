@@ -1003,18 +1003,16 @@ var _ = Describe("C++ Types Plugin", func() {
 					a A??
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
-
-			req := &plugin.Request{Resolutions: table}
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
-
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`x::mem::indirect<B> b;`))
-			Expect(content).To(ContainSubstring(`x::mem::indirect<A> a;`))
-			Expect(content).NotTo(ContainSubstring(`std::optional<A>`))
-			Expect(content).NotTo(ContainSubstring(`std::optional<B>`))
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`x::mem::indirect<B> b;`,
+					`x::mem::indirect<A> a;`,
+				).
+				ToNotContain(
+					`std::optional<A>`,
+					`std::optional<B>`,
+				)
 		})
 
 		It("Should use indirect for cycles through array wrappers", func(ctx SpecContext) {
@@ -1029,16 +1027,34 @@ var _ = Describe("C++ Types Plugin", func() {
 					nodes Node[]
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "types", loader)
-			Expect(diag.Ok()).To(BeTrue())
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`x::mem::indirect<Parent> parent;`).
+				ToNotContain(`std::optional<Parent>`)
+		})
 
-			req := &plugin.Request{Resolutions: table}
-			resp, err := cppPlugin.Generate(req)
-			Expect(err).To(BeNil())
+		It("Should use indirect for cycles through a distinct struct wrapper", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`x::mem::indirect<Parent> parent;`))
-			Expect(content).NotTo(ContainSubstring(`std::optional<Parent>`))
+				A struct {
+					b BWrap??
+				}
+				B struct {
+					a A??
+				}
+				BWrap B
+			`
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`x::mem::indirect<BWrap> b;`,
+					`x::mem::indirect<A> a;`,
+				).
+				ToNotContain(
+					`std::optional<BWrap>`,
+					`std::optional<A>`,
+				)
 		})
 
 		It("Should use optional for non-self-referential optional fields", func(ctx SpecContext) {

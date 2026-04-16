@@ -837,20 +837,46 @@ var _ = Describe("TS Types Plugin", func() {
 					a A?
 				}
 			`
-			table, diag := analyzer.AnalyzeSource(ctx, source, "cycle", loader)
-			Expect(diag.Ok()).To(BeTrue())
+			resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(
+					`export interface A {`,
+					`export interface B {`,
+					`export const aZ: z.ZodType<A> = z.object({`,
+					`export const bZ: z.ZodType<B> = z.object({`,
+				).
+				ToNotContain(
+					`extends z.infer<typeof aZ>`,
+					`extends z.infer<typeof bZ>`,
+				)
+		})
 
-			req := &plugin.Request{Resolutions: table}
-			resp, err := typesPlugin.Generate(req)
-			Expect(err).To(BeNil())
+		It("Should emit Zod v4 recursive pattern for cycles through a distinct wrapper", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
 
-			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export interface A {`))
-			Expect(content).To(ContainSubstring(`export interface B {`))
-			Expect(content).To(ContainSubstring(`export const aZ: z.ZodType<A> = z.object({`))
-			Expect(content).To(ContainSubstring(`export const bZ: z.ZodType<B> = z.object({`))
-			Expect(content).NotTo(ContainSubstring(`extends z.infer<typeof aZ>`))
-			Expect(content).NotTo(ContainSubstring(`extends z.infer<typeof bZ>`))
+				A struct {
+					b BWrap?
+				}
+
+				B struct {
+					a A?
+				}
+
+				BWrap B
+			`
+			resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(
+					`export interface A {`,
+					`export interface B {`,
+					`export const aZ: z.ZodType<A> = z.object({`,
+					`export const bZ: z.ZodType<B> = z.object({`,
+				).
+				ToNotContain(
+					`extends z.infer<typeof aZ>`,
+					`extends z.infer<typeof bZ>`,
+				)
 		})
 
 		It("Should generate getter for struct with multiple recursive fields", func(ctx SpecContext) {

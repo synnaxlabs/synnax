@@ -643,6 +643,16 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
         j["%s"] = this->%s.to_json();`, typeName, jsonName, fieldName, typeName, jsonName, jsonName, fieldName)
 	}
 
+	// Self-referential hard-optional fields are wrapped as x::mem::indirect<T>
+	// by the types plugin. indirect<T> has the same has_value() + -> interface
+	// as std::optional<T>, and the underlying T (struct, or a distinct/alias
+	// resolving to one) always has to_json(). Emit the unwrap pattern here so
+	// the cycle-through-distinct case doesn't fall through to the default
+	// assignment below, which would be ill-typed against indirect<T>.
+	if isSelfRef {
+		return fmt.Sprintf(`if (this->%s.has_value()) j["%s"] = this->%s->to_json();`, fieldName, jsonName, fieldName)
+	}
+
 	if resolved, ok := typeRef.Resolve(data.table); ok {
 		if distinctForm, isDistinct := resolved.Form.(resolution.DistinctForm); isDistinct {
 			if distinctForm.Base.Name == "Array" && len(distinctForm.Base.TypeArgs) > 0 {
