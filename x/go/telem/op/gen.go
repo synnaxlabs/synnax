@@ -251,6 +251,19 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := output.Data
 
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			if lhsData[i] {{.Op}} rhsData[i] {
+				outData[i] = 1
+			} else {
+				outData[i] = 0
+			}
+		}
+		return
+	}
+
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
 		lhsLast = lhsData[lhsLen-1]
@@ -290,6 +303,15 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = lhsData[i] {{.Op}} rhsData[i]
+		}
+		return
+	}
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
@@ -410,6 +432,15 @@ func Modulo{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 	lhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](lhs.Data)
 	rhsData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](rhs.Data)
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
+
+	// Equal-length fast path: avoids the per-iteration branches in the broadcast
+	// loop below, which defeat the compiler's ability to keep the inner loop tight.
+	if lhsLen == rhsLen {
+		for i := int64(0); i < lhsLen; i++ {
+			outData[i] = {{$.Type.GoType}}(math.Mod(float64(lhsData[i]), float64(rhsData[i])))
+		}
+		return
+	}
 
 	var lhsLast, rhsLast {{$.Type.GoType}}
 	if lhsLen > 0 {
