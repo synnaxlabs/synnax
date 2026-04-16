@@ -11,8 +11,6 @@
 
 #include <cstddef>
 #include <functional>
-#include <string>
-#include <vector>
 
 #include "x/cpp/errors/errors.h"
 #include "x/cpp/telem/telem.h"
@@ -35,7 +33,7 @@ struct Context {
     RunReason reason;
     /// @brief records that one of the current node's outputs has a new
     /// value for the current cycle. The ordinal is the output's 0-based
-    /// position in the list returned by Node::outputs(). Zero hash
+    /// position in the owning ir::Node's outputs slice. Zero hash
     /// lookups on the hot path.
     std::function<void(size_t output_idx)> mark_changed;
     std::function<void()> mark_self_changed;
@@ -54,19 +52,12 @@ public:
     /// Default implementation does nothing.
     virtual void reset() {}
 
-    /// @brief Returns the output param names in canonical order. The
-    /// position of a name in this list is its ordinal for mark_changed
-    /// and is_output_truthy calls. The scheduler pre-populates its
-    /// per-output propagation tables from this list so that ordinals
-    /// are stable and known statically to the node implementation.
-    [[nodiscard]] virtual std::vector<std::string> outputs() const { return {}; }
-
-    /// @brief Checks if the output at the given param name is truthy.
-    /// Used by the scheduler to evaluate one-shot edges - edges only fire
-    /// when the source output is truthy.
-    /// @param param The name of the output parameter to check.
-    /// @returns true if the output exists and its last value is non-zero, false
-    /// otherwise.
-    [[nodiscard]] virtual bool is_output_truthy(const std::string &param) const = 0;
+    /// @brief reports whether the output at the given 0-based ordinal is
+    /// truthy. Used by the scheduler to evaluate conditional edges and
+    /// sequential-scope transitions — both fire only when the source
+    /// output is truthy (non-zero for numeric types). Nodes that embed
+    /// state::Node automatically inherit an implementation that indexes
+    /// into the output cache without any string lookup.
+    [[nodiscard]] virtual bool is_output_truthy(size_t output_idx) const = 0;
 };
 }

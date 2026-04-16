@@ -34,15 +34,11 @@ type Node interface {
 	// one-shot state. Nodes with custom state should override and call the
 	// embedded Reset() first.
 	Reset()
-	// Outputs returns the output param names in canonical order. The
-	// position of a name in this list is its ordinal for MarkChanged and
-	// IsOutputTruthy calls. The scheduler pre-populates its per-output
-	// propagation tables from this list so ordinals are stable and known
-	// statically to the node implementation.
-	Outputs() []string
-	// IsOutputTruthy checks if the output at the given param name is truthy.
-	// Used by the scheduler to evaluate one-shot edges - edges only fire
-	// when the source output is truthy (non-zero for numeric types).
-	// Nodes that embed *state.Node automatically inherit this implementation.
-	IsOutputTruthy(paramName string) bool
+	// IsOutputTruthy reports whether the output at the given 0-based
+	// ordinal is truthy. Used by the scheduler to evaluate one-shot edges
+	// and sequential-scope transitions — edges only fire when the source
+	// output is truthy (non-zero for numeric types). Nodes that embed
+	// *state.Node automatically inherit this implementation, which indexes
+	// into the output cache without any string lookup.
+	IsOutputTruthy(outputIdx int) bool
 }

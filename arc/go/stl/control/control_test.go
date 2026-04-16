@@ -300,9 +300,9 @@ var _ = Describe("Authority", func() {
 				State: s.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			Expect(n.IsOutputTruthy("")).To(BeFalse())
-			Expect(n.IsOutputTruthy("output")).To(BeFalse())
-			Expect(n.IsOutputTruthy("anything")).To(BeFalse())
+			Expect(n.IsOutputTruthy(0)).To(BeFalse())
+			Expect(n.IsOutputTruthy(1)).To(BeFalse())
+			Expect(n.IsOutputTruthy(-1)).To(BeFalse())
 		})
 	})
 

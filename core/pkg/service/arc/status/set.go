@@ -80,7 +80,7 @@ func (s *setStatus) Reset() {}
 
 func (s *setStatus) Outputs() []string { return nil }
 
-func (s *setStatus) IsOutputTruthy(output string) bool {
+func (s *setStatus) IsOutputTruthy(int) bool {
 	return false
 }
 

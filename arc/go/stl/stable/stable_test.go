@@ -106,9 +106,9 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
 			n, _ := module.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 		})
 
 		It("Should not emit when value is not stable for duration", func(ctx SpecContext) {
@@ -118,13 +118,13 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(0)
 			n, _ := module.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 			currentTime = telem.SecondTS / 2
-			outputs = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 		})
 
 		It("Should emit when value is stable for duration", func(ctx SpecContext) {
@@ -143,17 +143,17 @@ var _ = Describe("StableFor", func() {
 			*source.Output(0) = telem.NewSeriesV[uint8](5)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			n, _ := module.Create(ctx, cfg)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 
 			// Advance time to exactly duration (no new input data)
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			outputs = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
@@ -186,22 +186,22 @@ var _ = Describe("StableFor", func() {
 			// Send different value 10 at time 1s
 			*source.Output(0) = telem.NewSeriesV[uint8](10)
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 
 			// Advance to 1.5 seconds from start (0.5s since change at time 1s)
 			currentTime = telem.SecondTS + telem.SecondTS/2
-			outputs = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
 			// Should not emit yet - value changed at 1s, only 0.5s elapsed
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			Expect(outputs.Contains(0)).To(BeFalse())
 
 			// Advance to 2 seconds from start (1s since change at time 1s)
 			currentTime = telem.SecondTS * 2
-			outputs = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 		})
 
 		It("Should not emit same value twice", func(ctx SpecContext) {
@@ -225,17 +225,17 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 2
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 
 			// Call again with same value - should not emit
 			currentTime = telem.SecondTS * 3
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			outputs = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			outputs = make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeFalse())
 		})
 
 		It("Should emit different value after stable period", func(ctx SpecContext) {
@@ -268,9 +268,9 @@ var _ = Describe("StableFor", func() {
 
 			// Wait for stability
 			currentTime = telem.SecondTS * 3
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
@@ -304,9 +304,9 @@ var _ = Describe("StableFor", func() {
 
 			// Should track last value (7) with time 0.4s, so wait until 1.4s elapsed
 			currentTime = telem.SecondTS + telem.SecondTS*2/5 // 1.4s
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			output := stableNode.Output(0)
@@ -334,9 +334,9 @@ var _ = Describe("StableFor", func() {
 			currentTime = telem.SecondTS * 100 // Set current time far in future
 			*source.Output(0) = telem.NewSeriesV[uint8]()
 			*source.OutputTime(0) = telem.NewSeriesSecondsTSV()
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 
 			stableNode := s.Node("stable")
 			outputTime := stableNode.OutputTime(0)
@@ -369,9 +369,9 @@ var _ = Describe("StableFor", func() {
 
 			// Should use time from first occurrence (0)
 			currentTime = telem.SecondTS
-			outputs := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(n.Outputs()[i]) }})
-			Expect(outputs.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			outputs := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { outputs.Add(i) }})
+			Expect(outputs.Contains(0)).To(BeTrue())
 		})
 	})
 

@@ -59,7 +59,6 @@ class Node {
     std::vector<ir::Handle> outputs;
     std::vector<size_t> input_source_idx;
     std::vector<size_t> output_idx;
-    std::unordered_map<std::string, size_t> output_name_idx;
 
     struct InputEntry {
         size_t source;
@@ -79,7 +78,6 @@ class Node {
         std::vector<ir::Handle> outputs,
         std::vector<size_t> input_source_idx,
         std::vector<size_t> output_idx,
-        std::unordered_map<std::string, size_t> output_name_idx,
         std::vector<InputEntry> accumulated,
         std::vector<Series> aligned_data,
         std::vector<Series> aligned_time
@@ -89,7 +87,6 @@ class Node {
         outputs(std::move(outputs)),
         input_source_idx(std::move(input_source_idx)),
         output_idx(std::move(output_idx)),
-        output_name_idx(std::move(output_name_idx)),
         accumulated(std::move(accumulated)),
         aligned_data(std::move(aligned_data)),
         aligned_time(std::move(aligned_time)) {}
@@ -120,7 +117,9 @@ public:
     void
     write_series(types::ChannelKey key, const Series &data, const Series &time) const;
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const;
+    /// @brief reports whether the cached output at the given 0-based
+    /// ordinal is truthy. Out-of-range ordinals report false.
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const;
 
     /// @brief Checks if a series is truthy by examining its last element.
     /// Empty series are falsy. A series with a last element of zero is falsy.

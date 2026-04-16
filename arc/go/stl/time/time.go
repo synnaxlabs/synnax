@@ -216,8 +216,6 @@ func (i *Interval) Reset() {
 	i.lastFired = -i.period
 }
 
-func (i *Interval) Outputs() []string { return []string{ir.DefaultOutputParam} }
-
 // Wait is a one-shot timer that fires once after a specified duration.
 type Wait struct {
 	*node.State
@@ -259,5 +257,3 @@ func (w *Wait) Reset() {
 	w.startTime = -1
 	w.fired = false
 }
-
-func (w *Wait) Outputs() []string { return []string{ir.DefaultOutputParam} }

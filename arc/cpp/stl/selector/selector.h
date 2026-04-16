@@ -25,6 +25,13 @@ namespace arc::stl::selector {
 inline const std::string true_param = "true";
 inline const std::string false_param = "false";
 
+/// @brief Output ordinals the runtime implementation passes to
+/// mark_changed and is_output_truthy. Mirrors the declaration order of
+/// true_param and false_param in the symbol's outputs and must stay in
+/// sync with it.
+inline constexpr size_t TRUE_OUTPUT_IDX = 0;
+inline constexpr size_t FALSE_OUTPUT_IDX = 1;
+
 /// @brief Select routes a u8 input to its "true" or "false" output based on
 /// value: input samples equal to 1 produce samples on the "true" output,
 /// all others produce samples on the "false" output. Both outputs emit a
@@ -85,12 +92,8 @@ public:
         return x::errors::NIL;
     }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        return {true_param, false_param};
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 

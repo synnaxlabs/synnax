@@ -148,16 +148,8 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        std::vector<std::string> names;
-        names.reserve(this->ir.outputs.size());
-        for (const auto &o: this->ir.outputs)
-            names.push_back(o.name);
-        return names;
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 }

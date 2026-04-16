@@ -18,54 +18,52 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
-	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // benchNode is a minimal node.Node used in scheduler benchmarks. It avoids
 // the bookkeeping overhead of MockNode (NextCalled tracking, elapsed slice
 // append) so benchmarks measure scheduler cost rather than test harness
-// cost. Outputs are identified by their declared position — the scheduler
-// pre-seeds its propagation tables from Outputs() so Next can call
-// MarkChanged(i) without any string-based resolution.
+// cost. Output names live in the IR; this node fires MarkChanged for every
+// declared truthy ordinal each cycle.
 type benchNode struct {
-	outputNames []string
-	truthy      set.Set[string]
+	truthy []bool
 }
 
 func (b *benchNode) Next(ctx node.Context) {
-	for i := range b.outputNames {
-		ctx.MarkChanged(i)
+	for i, t := range b.truthy {
+		if t {
+			ctx.MarkChanged(i)
+		}
 	}
 }
 
 func (*benchNode) Reset() {}
 
-func (b *benchNode) Outputs() []string { return b.outputNames }
-
-func (b *benchNode) IsOutputTruthy(p string) bool { return b.truthy.Contains(p) }
-
-func newBenchNode(markAndTruthy ...string) *benchNode {
-	t := make(set.Set[string], len(markAndTruthy))
-	for _, p := range markAndTruthy {
-		t.Add(p)
+func (b *benchNode) IsOutputTruthy(idx int) bool {
+	if idx < 0 || idx >= len(b.truthy) {
+		return false
 	}
-	return &benchNode{outputNames: markAndTruthy, truthy: t}
+	return b.truthy[idx]
 }
+
+// newBenchNode constructs a benchNode with the given per-ordinal truthy
+// values. Pass nothing for a silent node.
+func newBenchNode(truthy ...bool) *benchNode { return &benchNode{truthy: truthy} }
 
 // buildFlatParallel constructs an N-node single-phase parallel root. Each
 // node is phase-0 so every node runs every cycle.
 func buildFlatParallel(n int) (ir.IR, map[string]node.Node) {
-	keys := make([]string, n)
+	irNodes := make([]ir.Node, n)
 	members := make([]ir.Member, n)
 	nodes := make(map[string]node.Node, n)
 	for i := range n {
 		k := "n" + strconv.Itoa(i)
-		keys[i] = k
+		irNodes[i] = irNode(k)
 		members[i] = noderef(k)
 		nodes[k] = newBenchNode()
 	}
-	return programOf(keys, nil, rootScope(members...)), nodes
+	return programOf(irNodes, nil, rootScope(members...)), nodes
 }
 
 // buildFanoutChain constructs an N-node two-phase parallel root where a
@@ -75,28 +73,28 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 	if n < 2 {
 		n = 2
 	}
-	keys := make([]string, n)
+	irNodes := make([]ir.Node, 0, n)
 	edges := make([]ir.Edge, 0, n-1)
 	p0 := []ir.Member{noderef("src")}
 	p1 := make([]ir.Member, 0, n-1)
 	nodes := make(map[string]node.Node, n)
-	keys[0] = "src"
-	nodes["src"] = newBenchNode("out")
+	irNodes = append(irNodes, irNode("src", "out"))
+	nodes["src"] = newBenchNode(true)
 	for i := 1; i < n; i++ {
 		k := "t" + strconv.Itoa(i)
-		keys[i] = k
+		irNodes = append(irNodes, irNode(k))
 		p1 = append(p1, noderef(k))
 		edges = append(edges, continuousEdge("src", "out", k, "in"))
 		nodes[k] = newBenchNode()
 	}
-	return programOf(keys, edges, rootWithPhases(phase(p0...), phase(p1...))), nodes
+	return programOf(irNodes, edges, rootWithPhases(phase(p0...), phase(p1...))), nodes
 }
 
 // buildDeepNested constructs a chain of D nested gated-parallel scopes with
 // one node at the leaf. The outer scope is activated once; the walk has to
 // descend D levels every cycle.
 func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
-	keys := []string{"leaf"}
+	irNodes := []ir.Node{irNode("leaf")}
 	nodes := map[string]node.Node{"leaf": newBenchNode()}
 	current := parallelScope("s0", phase(noderef("leaf")))
 	for i := 1; i < depth; i++ {
@@ -109,30 +107,30 @@ func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 	}
 	// Wrap the outermost gated scope with an always-live root and activate
 	// via an external source so the whole chain is live each cycle.
-	keys = append(keys, "trigger")
-	nodes["trigger"] = newBenchNode("go")
+	irNodes = append(irNodes, irNode("trigger", "go"))
+	nodes["trigger"] = newBenchNode(true)
 	current.Activation = &ir.Handle{Node: "trigger", Param: "go"}
 	root := rootWithPhases(phase(noderef("trigger"), scopeMember(current)))
-	return programOf(keys, nil, root), nodes
+	return programOf(irNodes, nil, root), nodes
 }
 
 // buildSequentialChain constructs a sequential scope of N members with a
 // transition from member i to member i+1. On each tick every member fires
 // its transition, cascading through the full chain within one Next call.
 func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
-	keys := make([]string, 0, n+1)
+	irNodes := make([]ir.Node, 0, n+1)
 	members := make([]ir.Member, n)
 	transitions := make([]ir.Transition, 0, n)
 	nodes := make(map[string]node.Node, n+1)
-	keys = append(keys, "trigger")
-	nodes["trigger"] = newBenchNode("go")
+	irNodes = append(irNodes, irNode("trigger", "go"))
+	nodes["trigger"] = newBenchNode(true)
 	for i := range n {
 		k := "m" + strconv.Itoa(i)
-		keys = append(keys, k)
-		members[i] = noderef(k)
 		// Each member's output "next" is truthy, so a transition targeting
 		// the successor fires on every cycle this member runs.
-		nodes[k] = newBenchNode("next")
+		irNodes = append(irNodes, irNode(k, "next"))
+		members[i] = noderef(k)
+		nodes[k] = newBenchNode(true)
 		if i+1 < n {
 			next := "m" + strconv.Itoa(i+1)
 			transitions = append(transitions, ir.Transition{
@@ -148,7 +146,7 @@ func buildSequentialChain(n int) (ir.IR, map[string]node.Node) {
 	}
 	seq := sequentialScope("seq", members, transitions...)
 	seq.Activation = &ir.Handle{Node: "trigger", Param: "go"}
-	return programOf(keys, nil, rootWithPhases(phase(noderef("trigger"), scopeMember(seq)))), nodes
+	return programOf(irNodes, nil, rootWithPhases(phase(noderef("trigger"), scopeMember(seq)))), nodes
 }
 
 func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {

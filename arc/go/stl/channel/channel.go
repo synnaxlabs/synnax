@@ -189,15 +189,11 @@ func (s *source) Next(ctx node.Context) {
 	}
 }
 
-func (s *source) Outputs() []string { return []string{ir.DefaultOutputParam} }
-
 type sink struct {
 	*node.State
 	state *ProgramState
 	key   uint32
 }
-
-func (s *sink) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 func (s *sink) Next(ctx node.Context) {
 	if !s.RefreshInputs() {

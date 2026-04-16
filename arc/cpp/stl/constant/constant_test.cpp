@@ -188,7 +188,7 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     auto ctx = make_context();
     node.next(ctx);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that mark_changed is called on first next().
@@ -196,18 +196,14 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) {
-        changed_called = true;
-        changed_param = node.outputs()[i];
-    };
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     node.next(ctx);
 
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that mark_changed is not called on subsequent next() calls.

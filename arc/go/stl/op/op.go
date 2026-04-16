@@ -12,7 +12,6 @@ package op
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
@@ -79,8 +78,6 @@ func (n *binary) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-func (n *binary) Outputs() []string { return []string{ir.DefaultOutputParam} }
-
 type unary struct {
 	*node.State
 	op telemOp.Unary
@@ -101,5 +98,3 @@ func (n *unary) Next(ctx node.Context) {
 	n.OutputTime(0).TimeRange = input.TimeRange
 	ctx.MarkChanged(0)
 }
-
-func (n *unary) Outputs() []string { return []string{ir.DefaultOutputParam} }

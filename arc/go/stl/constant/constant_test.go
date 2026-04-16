@@ -110,7 +110,7 @@ var _ = Describe("Constant", func() {
 		var (
 			s       *node.ProgramState
 			factory node.Factory
-			outputs []string
+			marked  []int
 		)
 		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewModule()
@@ -126,7 +126,7 @@ var _ = Describe("Constant", func() {
 			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
-			outputs = []string{}
+			marked = nil
 		})
 
 		It("Should emit output on Next with int value", func(ctx SpecContext) {
@@ -136,10 +136,9 @@ var _ = Describe("Constant", func() {
 			}
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-				outputs = append(outputs, n.Outputs()[i])
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
-			Expect(outputs[0]).To(Equal(ir.DefaultOutputParam))
+			Expect(marked).To(ConsistOf(0))
 		})
 
 		It("Should set output data on Next", func(ctx SpecContext) {
@@ -294,13 +293,13 @@ var _ = Describe("Constant", func() {
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-				outputs = append(outputs, n.Outputs()[i])
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
+			Expect(marked).To(HaveLen(1))
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-				outputs = append(outputs, n.Outputs()[i])
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
+			Expect(marked).To(HaveLen(1))
 		})
 
 		It("Should emit again after Reset is called", func(ctx SpecContext) {
@@ -312,14 +311,14 @@ var _ = Describe("Constant", func() {
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-				outputs = append(outputs, n.Outputs()[i])
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
+			Expect(marked).To(HaveLen(1))
 			n.Reset()
 			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
-				outputs = append(outputs, n.Outputs()[i])
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(2))
+			Expect(marked).To(HaveLen(2))
 		})
 	})
 

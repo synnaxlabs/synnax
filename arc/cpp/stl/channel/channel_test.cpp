@@ -484,16 +484,16 @@ TEST(OnTest, NextCallsMarkChanged) {
     frame.emplace(11, std::move(time));
     s.ingest(frame);
 
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx = runtime::node::Context{
         .elapsed = ::x::telem::SECOND,
-        .mark_changed = [&changed_param,
-                         &node](size_t i) { changed_param = node->outputs()[i]; },
+        .mark_changed = [&](size_t i) { marked.push_back(i); },
         .report_error = [](const x::errors::Error &) {},
     };
 
     ASSERT_NIL(node->next(ctx));
-    EXPECT_EQ(changed_param, ir::default_output_param);
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 TEST(WriteTest, NextWritesDataWhenInputAvailable) {

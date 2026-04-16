@@ -152,8 +152,6 @@ type statNode struct {
 
 var _ node.Node = (*statNode)(nil)
 
-func (s *statNode) Outputs() []string { return []string{ir.DefaultOutputParam} }
-
 func (r *statNode) Reset() {
 	r.State.Reset()
 	r.sampleCount = 0
@@ -304,8 +302,6 @@ type derivativeNode struct {
 }
 
 var _ node.Node = (*derivativeNode)(nil)
-
-func (d *derivativeNode) Outputs() []string { return []string{ir.DefaultOutputParam} }
 
 func (d *derivativeNode) Reset() {
 	d.State.Reset()

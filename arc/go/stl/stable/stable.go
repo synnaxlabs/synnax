@@ -123,5 +123,3 @@ func (s *forNode) Next(ctx node.Context) {
 		}
 	}
 }
-
-func (s *forNode) Outputs() []string { return []string{ir.DefaultOutputParam} }

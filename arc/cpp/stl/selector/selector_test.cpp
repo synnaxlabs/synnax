@@ -153,13 +153,13 @@ TEST(SelectTest, AllTrueInput) {
     auto source = setup.make_source_node();
     write_source(source, {1, 1, 1}, {100, 200, 300});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_FALSE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 3);
@@ -177,13 +177,13 @@ TEST(SelectTest, AllFalseInput) {
     auto source = setup.make_source_node();
     write_source(source, {0, 0, 0}, {100, 200, 300});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_FALSE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_FALSE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 0);
@@ -201,13 +201,13 @@ TEST(SelectTest, MixedInput) {
     auto source = setup.make_source_node();
     write_source(source, {1, 0, 1, 0}, {100, 200, 300, 400});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 2);
@@ -262,13 +262,13 @@ TEST(SelectTest, SingleTrueValue) {
     auto source = setup.make_source_node();
     write_source(source, {1}, {100});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(changed_params.contains("true"));
-    EXPECT_FALSE(changed_params.contains("false"));
+    EXPECT_TRUE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(0)->size(), 1);
@@ -284,13 +284,13 @@ TEST(SelectTest, SingleFalseValue) {
     auto source = setup.make_source_node();
     write_source(source, {0}, {100});
 
-    std::set<std::string> changed_params;
+    std::set<size_t> changed_params;
     auto ctx = make_context();
-    ctx.mark_changed = [&](size_t i) { changed_params.insert(node.outputs()[i]); };
+    ctx.mark_changed = [&](size_t i) { changed_params.insert(i); };
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_FALSE(changed_params.contains("true"));
-    EXPECT_TRUE(changed_params.contains("false"));
+    EXPECT_FALSE(changed_params.contains(TRUE_OUTPUT_IDX));
+    EXPECT_TRUE(changed_params.contains(FALSE_OUTPUT_IDX));
 
     auto checker = setup.make_select_node();
     EXPECT_EQ(checker.output(1)->size(), 1);
@@ -383,8 +383,8 @@ TEST(SelectTest, IsOutputTruthyDelegatesToState) {
     Select node(setup.make_select_node());
 
     // Before any output, should be false.
-    EXPECT_FALSE(node.is_output_truthy("true"));
-    EXPECT_FALSE(node.is_output_truthy("false"));
+    EXPECT_FALSE(node.is_output_truthy(TRUE_OUTPUT_IDX));
+    EXPECT_FALSE(node.is_output_truthy(FALSE_OUTPUT_IDX));
 }
 
 /// @brief Test that alignment and time_range are propagated to outputs.

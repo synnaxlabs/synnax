@@ -67,5 +67,3 @@ func (c *constant) Next(ctx node.Context) {
 }
 
 func (c *constant) Reset() { c.initialized = false }
-
-func (c *constant) Outputs() []string { return []string{ir.DefaultOutputParam} }

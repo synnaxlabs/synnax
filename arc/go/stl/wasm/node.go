@@ -205,14 +205,6 @@ func (n *nodeImpl) Reset() {
 	n.initialized = false
 }
 
-func (n *nodeImpl) Outputs() []string {
-	names := make([]string, len(n.ir.Outputs))
-	for i, o := range n.ir.Outputs {
-		names[i] = o.Name
-	}
-	return names
-}
-
 func setValueAt(s telem.Series, i int, v uint64) {
 	density := s.DataType.Density()
 	offset := i * int(density)

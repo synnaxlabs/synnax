@@ -272,17 +272,13 @@ TEST(IntervalTest, CallsMarkChangedOnFire) {
     const auto cfg = ASSERT_NIL_P(IntervalConfig::create(setup.ir.nodes[0].config));
     Interval node(cfg, setup.make_node());
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx = make_context(x::telem::SECOND);
-    ctx.mark_changed = [&](size_t i) {
-        changed_called = true;
-        changed_param = node.outputs()[i];
-    };
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     ASSERT_NIL(node.next(ctx));
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that Interval does not call mark_changed when not firing.
@@ -311,7 +307,7 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Interval is_output_truthy returns false before firing.
@@ -320,7 +316,7 @@ TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
     const auto cfg = ASSERT_NIL_P(IntervalConfig::create(setup.ir.nodes[0].config));
     Interval node(cfg, setup.make_node());
 
-    EXPECT_FALSE(node.is_output_truthy("output"));
+    EXPECT_FALSE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Interval is_output_truthy returns false for unknown param.
@@ -332,7 +328,7 @@ TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
 
-    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+    EXPECT_FALSE(node.is_output_truthy(7));
 }
 
 /// @brief Test that Interval reset allows it to fire immediately again.
@@ -692,17 +688,13 @@ TEST(WaitTest, CallsMarkChangedOnFire) {
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](size_t i) {
-        changed_called = true;
-        changed_param = node.outputs()[i];
-    };
+    ctx2.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     node.next(ctx2);
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that Wait does not call mark_changed when not firing.
@@ -731,7 +723,7 @@ TEST(WaitTest, IsOutputTruthyDelegatesToState) {
     auto ctx2 = make_context(x::telem::SECOND);
     node.next(ctx2);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Wait reset restarts timing from zero.

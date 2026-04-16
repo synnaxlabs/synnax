@@ -190,12 +190,8 @@ public:
         this->last_reset_time = x::telem::TimeStamp(0);
     }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        return {ir::default_output_param};
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 
 private:
@@ -322,12 +318,8 @@ public:
         this->prev_timestamp_ns = 0;
     }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        return {ir::default_output_param};
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 
 private:

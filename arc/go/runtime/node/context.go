@@ -31,7 +31,7 @@ const (
 type Context struct {
 	context.Context
 	// MarkChanged signals that an output has new data, identified by the
-	// output's 0-based position in the list returned by Node.Outputs().
+	// output's 0-based position in the owning ir.Node's Outputs slice.
 	// This triggers dependent nodes to execute in the next scheduler pass.
 	// Zero hash lookups on the hot path.
 	MarkChanged func(outputIdx int)

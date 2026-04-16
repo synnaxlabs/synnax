@@ -218,15 +218,13 @@ func (n *State) OutputTime(paramIndex int) *telem.Series {
 	return &n.outputCache[paramIndex].time
 }
 
-// IsOutputTruthy checks if the output at the given param name is truthy.
-func (n *State) IsOutputTruthy(paramName string) bool {
-	for i, h := range n.ir.outputs {
-		if h.Param == paramName {
-			series := &n.outputCache[i].data
-			return isSeriesTruthy(*series)
-		}
+// IsOutputTruthy reports whether the output at the given 0-based ordinal
+// is truthy. Out-of-range ordinals report false.
+func (n *State) IsOutputTruthy(outputIdx int) bool {
+	if outputIdx < 0 || outputIdx >= len(n.outputCache) {
+		return false
 	}
-	return false
+	return isSeriesTruthy(n.outputCache[outputIdx].data)
 }
 
 func isSeriesTruthy(s telem.Series) bool {

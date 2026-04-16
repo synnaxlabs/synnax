@@ -17,24 +17,23 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/runtime/scheduler"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
 // MockNode is a configurable runtime node used across scheduler tests.
-// Outputs are identified by their declared ordinal — the scheduler
-// pre-seeds its propagation tables from Outputs(), so tests use
-// AddOutput to register an output and then pass its ordinal to
-// MarkChanged. Idx resolves a registered name back to its ordinal for
-// hand-written on-next lambdas.
+// It deals exclusively in ordinals — output names live in ir.Node.Outputs
+// and are declared at the IR construction layer (programOf + node).
+// Tests construct mocks via the Describe-level mock helper, which takes
+// a per-ordinal truthy slice that drives both IsOutputTruthy and the
+// auto-mark loop in Next.
 type MockNode struct {
-	// OutputNames is the declared output order. Populated via AddOutput.
-	OutputNames []string
-	// OutputTruthy aligns with OutputNames; drives IsOutputTruthy and the
-	// auto-mark loop in Next unless SuppressAutoMark is set.
+	// OutputTruthy[i] reports whether output ordinal i is truthy. Drives
+	// IsOutputTruthy and (unless SuppressAutoMark is set) the auto-mark
+	// loop in Next. Length need not match the IR's declared output count
+	// — out-of-range ordinals are treated as non-truthy.
 	OutputTruthy []bool
-	// nameToIdx backs IsOutputTruthy lookups and Idx.
-	nameToIdx map[string]int
 	// SuppressAutoMark disables the default behavior of calling
 	// MarkChanged for every currently-truthy output on each Next. Tests
 	// that want to model a node whose output stays truthy across cycles
@@ -47,27 +46,17 @@ type MockNode struct {
 	ResetCalled      int
 }
 
-func NewMockNode() *MockNode {
-	return &MockNode{nameToIdx: make(map[string]int)}
-}
+func NewMockNode() *MockNode { return &MockNode{} }
 
-// AddOutput registers an output name (idempotent) and sets its
-// truthiness. Returns the ordinal.
-func (m *MockNode) AddOutput(name string, truthy bool) int {
-	if idx, ok := m.nameToIdx[name]; ok {
-		m.OutputTruthy[idx] = truthy
-		return idx
+// SetTruthy marks the given ordinal as truthy, growing OutputTruthy as
+// needed. Returns the receiver for chaining.
+func (m *MockNode) SetTruthy(ordinal int) *MockNode {
+	for ordinal >= len(m.OutputTruthy) {
+		m.OutputTruthy = append(m.OutputTruthy, false)
 	}
-	idx := len(m.OutputNames)
-	m.OutputNames = append(m.OutputNames, name)
-	m.OutputTruthy = append(m.OutputTruthy, truthy)
-	m.nameToIdx[name] = idx
-	return idx
+	m.OutputTruthy[ordinal] = true
+	return m
 }
-
-// Idx returns the ordinal previously assigned to name, or registers it
-// fresh as non-truthy.
-func (m *MockNode) Idx(name string) int { return m.AddOutput(name, false) }
 
 func (m *MockNode) Next(ctx node.Context) {
 	m.NextCalled++
@@ -86,22 +75,19 @@ func (m *MockNode) Next(ctx node.Context) {
 
 func (m *MockNode) Reset() { m.ResetCalled++ }
 
-func (m *MockNode) Outputs() []string { return m.OutputNames }
-
-func (m *MockNode) IsOutputTruthy(param string) bool {
-	if idx, ok := m.nameToIdx[param]; ok {
-		return m.OutputTruthy[idx]
+func (m *MockNode) IsOutputTruthy(idx int) bool {
+	if idx < 0 || idx >= len(m.OutputTruthy) {
+		return false
 	}
-	return false
+	return m.OutputTruthy[idx]
 }
 
-// MarkOnNext configures the node to mark the named output as changed
-// each time Next runs. Registers the output if not already known but
-// does not alter its truthiness — callers that need a truthy output
-// should call AddOutput(name, true) alongside.
-func (m *MockNode) MarkOnNext(param string) {
-	i := m.Idx(param)
-	m.OnNext = func(ctx node.Context) { ctx.MarkChanged(i) }
+// markOnNext returns an OnNext callback that calls MarkChanged for the
+// given ordinal each time Next runs. Replaces the symbolic
+// MarkOnNext("name") form — the ordinal comes from the test's IR
+// declaration.
+func markOnNext(ordinal int) func(node.Context) {
+	return func(ctx node.Context) { ctx.MarkChanged(ordinal) }
 }
 
 // MockErrorHandler collects scheduler-reported errors for assertion.
@@ -213,14 +199,25 @@ func exitTarget() ir.TransitionTarget {
 	return ir.TransitionTarget{Exit: &exit}
 }
 
-// programOf builds an IR program with the given nodes, edges, and root
-// scope. Nodes are created as minimal ir.Node records keyed only.
-func programOf(nodeKeys []string, edges []ir.Edge, root ir.Scope) ir.IR {
-	irNodes := make([]ir.Node, 0, len(nodeKeys))
-	for _, k := range nodeKeys {
-		irNodes = append(irNodes, ir.Node{Key: k})
+// irNode builds an ir.Node with the given key and ordered output names.
+// The IR owns output names; ordinals used by the runtime mock are this
+// list's positions. Pass no names for a node with no outputs.
+func irNode(key string, outputs ...string) ir.Node {
+	n := ir.Node{Key: key}
+	if len(outputs) > 0 {
+		n.Outputs = make(types.Params, len(outputs))
+		for i, name := range outputs {
+			n.Outputs[i] = types.Param{Name: name}
+		}
 	}
-	return ir.IR{Nodes: irNodes, Edges: edges, Root: root}
+	return n
+}
+
+// programOf builds an IR program from the given nodes, edges, and root
+// scope. Output names are declared per node via the node helper — the
+// scheduler reads them exclusively from ir.Node.Outputs.
+func programOf(nodes []ir.Node, edges []ir.Edge, root ir.Scope) ir.IR {
+	return ir.IR{Nodes: nodes, Edges: edges, Root: root}
 }
 
 var _ = Describe("Scheduler", func() {
@@ -229,8 +226,16 @@ var _ = Describe("Scheduler", func() {
 		mocks map[string]*MockNode
 	)
 
-	mock := func(key string) *MockNode {
+	// mock registers a MockNode under key with per-ordinal initial truthy
+	// values. Pass no values for a silent mock; pass true/false per
+	// declared output ordinal otherwise. The corresponding ir.Node and
+	// its output names are declared separately at the IR layer (programOf
+	// + node) — the mock is name-agnostic.
+	mock := func(key string, truthy ...bool) *MockNode {
 		m := NewMockNode()
+		if len(truthy) > 0 {
+			m.OutputTruthy = truthy
+		}
 		nodes[key] = m
 		mocks[key] = m
 		return m
@@ -256,7 +261,7 @@ var _ = Describe("Scheduler", func() {
 			mock("B")
 			mock("C")
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A"), irNode("B"), irNode("C")},
 				nil,
 				rootScope(noderef("A"), noderef("B"), noderef("C")),
 			)
@@ -271,7 +276,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Phase-based execution", func() {
 		It("Should execute phase-0 members unconditionally each cycle", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
@@ -283,7 +288,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "input")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -296,9 +301,9 @@ var _ = Describe("Scheduler", func() {
 		It("Should propagate continuous edges to downstream members", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "input")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -311,10 +316,10 @@ var _ = Describe("Scheduler", func() {
 		It("Should gate conditional edges on source output truthiness", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
 			// Output is not truthy — B must not fire.
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "input")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -324,7 +329,7 @@ var _ = Describe("Scheduler", func() {
 			Expect(nodeB.NextCalled).To(Equal(0))
 
 			// Flip A's output truthy; now the conditional edge fires.
-			nodeA.AddOutput("output", true)
+			nodeA.SetTruthy(0)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -332,37 +337,29 @@ var _ = Describe("Scheduler", func() {
 		It("Should replay a self-changed node on the next cycle", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.OnNext = func(ctx node.Context) { ctx.MarkSelfChanged() }
+			// trigger sits in phase 0 with an edge into A, but only
+			// announces a change on its second cycle. Once A has run
+			// once it self-marks and should replay every subsequent
+			// cycle without further upstream activity.
+			trigger := mock("trigger")
+			trigger.SuppressAutoMark = true
+			triggerCalls := 0
+			trigger.OnNext = func(c node.Context) {
+				triggerCalls++
+				if triggerCalls == 2 {
+					c.MarkChanged(0)
+				}
+			}
 			prog := programOf(
-				[]string{"A", "B"},
-				nil,
-				rootWithPhases(
-					phase(noderef("marker")),
-					phase(noderef("A")),
-				),
-			)
-			// "marker" is a phase-0 node to force the walk to run phase 1
-			// on each cycle via the selfChanged replay; without it the
-			// phase-0 loop would trivially re-execute A via the phase-0
-			// fast path, masking the behavior we want to test.
-			mock("marker")
-			_ = prog
-			// Re-build the program with A in phase-1 only.
-			prog = programOf(
-				[]string{"marker", "A"},
-				nil,
-				rootWithPhases(
-					phase(noderef("marker")),
-					phase(noderef("A")),
-				),
+				[]ir.Node{irNode("trigger", "kick"), irNode("A")},
+				[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
+				rootWithPhases(phase(noderef("trigger")), phase(noderef("A"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			// A is not in phase 0 and nothing forwarded a change, so it
-			// shouldn't have executed.
+			// Trigger ran but didn't mark; A is in phase 1 with no
+			// change pending, so it shouldn't have executed.
 			Expect(nodeA.NextCalled).To(Equal(0))
-			// Seed A as externally changed so it runs this cycle; then
-			// it self-marks and should replay on the subsequent cycle.
-			s.MarkNodeChanged("A")
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
@@ -373,7 +370,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Context pass-through", func() {
 		It("Should pass elapsed time to node context", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, 5*telem.Microsecond, node.ReasonTimerTick)
 			s.Next(ctx, 10*telem.Microsecond, node.ReasonTimerTick)
@@ -388,7 +385,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA.OnNext = func(ctx node.Context) { ctx.SetDeadline(10 * telem.Microsecond) }
 			nodeB.OnNext = func(ctx node.Context) { ctx.SetDeadline(3 * telem.Microsecond) }
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
 				rootScope(noderef("A"), noderef("B")),
 			)
@@ -401,7 +398,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			targetErr := errors.New("boom")
 			nodeA.OnNext = func(ctx node.Context) { ctx.ReportError(targetErr) }
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			h := &MockErrorHandler{}
 			s.SetErrorHandler(h)
@@ -420,7 +417,7 @@ var _ = Describe("Scheduler", func() {
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "stage_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(gated)),
 			)
@@ -431,14 +428,13 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should activate a gated scope once its activation handle is truthy", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			stage := mock("stage_node")
-			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "stage_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(gated)),
 			)
@@ -472,17 +468,20 @@ var _ = Describe("Scheduler", func() {
 			main.Activation = &trigger
 			main.Liveness = ir.LivenessGated
 			return programOf(
-				[]string{"trigger", "first_node", "second_node"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("first_node", "output"),
+					irNode("second_node"),
+				},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
 		}
 
 		It("Should advance the active member when a transition's handle fires", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			firstNode := mock("first_node")
 			secondNode := mock("second_node")
-			trigger.AddOutput("output", true)
 			prog := buildTwoStepSeq("first_node")
 			s := build(prog)
 
@@ -494,7 +493,7 @@ var _ = Describe("Scheduler", func() {
 
 			// Cycle 2: first_node becomes truthy, the transition fires; the
 			// sequence advances to `second` in the same cycle.
-			firstNode.AddOutput("output", true)
+			firstNode.SetTruthy(0)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(firstNode.NextCalled).To(Equal(2))
 			Expect(secondNode.NextCalled).To(Equal(1))
@@ -504,17 +503,16 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should exit the sequence when target is exit", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			trigger := mock("trigger", true)
 			firstNode := mock("first_node")
 			// Model a one-shot rising-edge trigger: fires on cycle 1
 			// (so main activates), then releases on later cycles so the
 			// activation handle isn't re-satisfying after exit.
-			trigger.AddOutput("output", true)
 			cycleCount := 0
 			trigger.OnNext = func(ctx node.Context) {
 				cycleCount++
 				if cycleCount > 1 {
-					trigger.AddOutput("output", false)
+					trigger.OutputTruthy[0] = false
 				}
 			}
 			first := parallelScope("first", phase(noderef("first_node")))
@@ -528,7 +526,7 @@ var _ = Describe("Scheduler", func() {
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
 			prog := programOf(
-				[]string{"trigger", "first_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
@@ -538,7 +536,7 @@ var _ = Describe("Scheduler", func() {
 
 			// Trip exit transition on cycle 2. The exit deactivates main;
 			// trigger has already been released, so no re-activation.
-			firstNode.AddOutput("output", true)
+			firstNode.SetTruthy(0)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			countAtExit := firstNode.NextCalled
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick)
@@ -546,9 +544,8 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should honor source-order when multiple transitions become truthy simultaneously", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			firstNode := mock("first_node")
-			trigger.AddOutput("output", true)
 			// Two transitions from first, in source order: first jumps to
 			// `a`, the second would jump to `b`. Both are truthy at the
 			// same cycle.
@@ -575,13 +572,18 @@ var _ = Describe("Scheduler", func() {
 			mock("a_node")
 			mock("b_node")
 			prog := programOf(
-				[]string{"trigger", "first_node", "a_node", "b_node"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("first_node", "output"),
+					irNode("a_node"),
+					irNode("b_node"),
+				},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			firstNode.AddOutput("output", true)
+			firstNode.SetTruthy(0)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			// First-match-wins: `a` activated, `b` did not.
 			Expect(mocks["a_node"].NextCalled).To(Equal(1))
@@ -591,13 +593,10 @@ var _ = Describe("Scheduler", func() {
 		It("Should cascade multiple transitions within a single cycle", func(ctx SpecContext) {
 			// three-step sequence where step 1 immediately transitions to
 			// step 2, step 2 immediately to step 3, all in one cycle.
-			trigger := mock("trigger")
-			s1 := mock("s1")
-			s2 := mock("s2")
+			mock("trigger", true)
+			s1 := mock("s1", true)
+			s2 := mock("s2", true)
 			s3 := mock("s3")
-			trigger.AddOutput("output", true)
-			s1.AddOutput("output", true)
-			s2.AddOutput("output", true)
 			mkStep := func(key, nodeKey string) ir.Scope {
 				return parallelScope(key, phase(noderef(nodeKey)))
 			}
@@ -622,7 +621,12 @@ var _ = Describe("Scheduler", func() {
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
 			prog := programOf(
-				[]string{"trigger", "s1", "s2", "s3"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("s1", "output"),
+					irNode("s2", "output"),
+					irNode("s3"),
+				},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
@@ -639,14 +643,13 @@ var _ = Describe("Scheduler", func() {
 
 	Describe("Activation cascading & reset", func() {
 		It("Should reset member nodes on activation", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			stageNode := mock("n")
-			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			stage := parallelScope("stage", phase(noderef("n")))
 			stage.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "n"},
+				[]ir.Node{irNode("trigger", "output"), irNode("n")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(stage)),
 			)
@@ -656,15 +659,14 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should cascade reset into nested gated scopes on activation", func(ctx SpecContext) {
-			trigger := mock("trigger")
-			trigger.AddOutput("output", true)
+			mock("trigger", true)
 			inner := mock("inner")
 			nested := parallelScope("nested", phase(noderef("inner")))
 			outer := parallelScope("outer", phase(scopeMember(nested)))
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			outer.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "inner"},
+				[]ir.Node{irNode("trigger", "output"), irNode("inner")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(outer)),
 			)
@@ -683,7 +685,7 @@ var _ = Describe("Scheduler", func() {
 			inner := mock("n")
 			stage := parallelScope("anon", phase(noderef("n")))
 			prog := programOf(
-				[]string{"n"},
+				[]ir.Node{irNode("n")},
 				nil,
 				rootScope(scopeMember(stage)),
 			)
@@ -694,35 +696,15 @@ var _ = Describe("Scheduler", func() {
 		})
 	})
 
-	Describe("External change injection", func() {
-		It("Should execute a higher-phase node when marked from outside", func(ctx SpecContext) {
-			nodeA := mock("A")
-			nodeB := mock("B")
-			prog := programOf(
-				[]string{"A", "B"},
-				nil,
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
-			)
-			s := build(prog)
-			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeB.NextCalled).To(Equal(0))
-
-			s.MarkNodeChanged("B")
-			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
-			Expect(nodeA.NextCalled).To(Equal(2))
-			Expect(nodeB.NextCalled).To(Equal(1))
-		})
-	})
-
 	Describe("Change propagation", func() {
 		It("Should fire only the edge whose source param was marked", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			xIdx := nodeA.Idx("x")
-			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged(xIdx) }
+			// A declares two outputs ("x", "y"); only "x" (ordinal 0) fires.
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "x", "y"), irNode("B"), irNode("C")},
 				[]ir.Edge{
 					continuousEdge("A", "x", "B", "in"),
 					continuousEdge("A", "y", "C", "in"),
@@ -742,9 +724,9 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			nodeA.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "output"), irNode("B"), irNode("C")},
 				[]ir.Edge{
 					continuousEdge("A", "output", "B", "in"),
 					continuousEdge("A", "output", "C", "in"),
@@ -764,10 +746,10 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			nodeA.MarkOnNext("output")
-			nodeB.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
+			nodeB.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "output"), irNode("B", "output"), irNode("C")},
 				[]ir.Edge{
 					continuousEdge("A", "output", "C", "a"),
 					continuousEdge("B", "output", "C", "b"),
@@ -788,10 +770,10 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			nodeB := mock("B")
 			nodeC := mock("C")
-			nodeA.MarkOnNext("output")
-			nodeB.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
+			nodeB.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "output"), irNode("B", "output"), irNode("C")},
 				[]ir.Edge{
 					continuousEdge("A", "output", "B", "in"),
 					continuousEdge("B", "output", "C", "in"),
@@ -810,12 +792,17 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should execute a diamond graph's sink exactly once", func(ctx SpecContext) {
-			mock("A").MarkOnNext("output")
-			mock("B").MarkOnNext("output")
-			mock("C").MarkOnNext("output")
+			mock("A").OnNext = markOnNext(0)
+			mock("B").OnNext = markOnNext(0)
+			mock("C").OnNext = markOnNext(0)
 			nodeD := mock("D")
 			prog := programOf(
-				[]string{"A", "B", "C", "D"},
+				[]ir.Node{
+					irNode("A", "output"),
+					irNode("B", "output"),
+					irNode("C", "output"),
+					irNode("D"),
+				},
 				[]ir.Edge{
 					continuousEdge("A", "output", "B", "in"),
 					continuousEdge("A", "output", "C", "in"),
@@ -836,9 +823,9 @@ var _ = Describe("Scheduler", func() {
 		It("Should not propagate when no edge targets the source's changed param", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeB := mock("B")
-			nodeA.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				nil,
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -851,11 +838,10 @@ var _ = Describe("Scheduler", func() {
 
 	Describe("Conditional edge semantics", func() {
 		It("Should fire every cycle while the source stays truthy", func(ctx SpecContext) {
-			nodeA := mock("A")
+			mock("A", true)
 			nodeB := mock("B")
-			nodeA.AddOutput("output", true)
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -867,11 +853,10 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should stop firing when the source transitions from truthy to falsy", func(ctx SpecContext) {
-			nodeA := mock("A")
+			nodeA := mock("A", true)
 			nodeB := mock("B")
-			nodeA.AddOutput("output", true)
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -879,7 +864,7 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 
-			nodeA.AddOutput("output", false)
+			nodeA.OutputTruthy[0] = false
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
 			Expect(nodeB.NextCalled).To(Equal(1))
 		})
@@ -889,10 +874,9 @@ var _ = Describe("Scheduler", func() {
 			// propagate the change.
 			nodeA := mock("A")
 			nodeB := mock("B")
-			outputIdx := nodeA.Idx("output")
-			nodeA.OnNext = func(ctx node.Context) { ctx.MarkChanged(outputIdx) }
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "in")},
 				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
 			)
@@ -902,18 +886,18 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should fire each conditional edge independently per param truthiness", func(ctx SpecContext) {
-			nodeA := mock("A")
+			// A declares two outputs ("x", "y"); only "x" (ordinal 0) is
+			// truthy. Both fire MarkChanged but only the conditional edge
+			// from "x" propagates.
+			nodeA := mock("A", true, false)
 			nodeB := mock("B")
 			nodeC := mock("C")
-			xIdx := nodeA.AddOutput("x", true)
-			yIdx := nodeA.Idx("y")
 			nodeA.OnNext = func(ctx node.Context) {
-				ctx.MarkChanged(xIdx)
-				ctx.MarkChanged(yIdx)
+				ctx.MarkChanged(0)
+				ctx.MarkChanged(1)
 			}
-			// "y" is not truthy — its conditional edge must not fire.
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "x", "y"), irNode("B"), irNode("C")},
 				[]ir.Edge{
 					conditionalEdge("A", "x", "B", "in"),
 					conditionalEdge("A", "y", "C", "in"),
@@ -940,14 +924,25 @@ var _ = Describe("Scheduler", func() {
 					c.MarkSelfChanged()
 				}
 			}
+			// trigger fires a single change into A on cycle 1, then
+			// stays quiet. A's self-marking should drive the next two
+			// replays on its own; once it stops marking, the scheduler
+			// must not replay again.
+			trigger := mock("trigger")
+			trigger.SuppressAutoMark = true
+			triggerFired := false
+			trigger.OnNext = func(c node.Context) {
+				if !triggerFired {
+					c.MarkChanged(0)
+					triggerFired = true
+				}
+			}
 			prog := programOf(
-				[]string{"marker", "A"},
-				nil,
-				rootWithPhases(phase(noderef("marker")), phase(noderef("A"))),
+				[]ir.Node{irNode("trigger", "kick"), irNode("A")},
+				[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
+				rootWithPhases(phase(noderef("trigger")), phase(noderef("A"))),
 			)
-			mock("marker")
 			s := build(prog)
-			s.MarkNodeChanged("A")
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)   // initial run, marks self
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick) // replay, marks self
 			s.Next(ctx, 3*telem.Microsecond, node.ReasonTimerTick) // replay, stops marking
@@ -960,16 +955,15 @@ var _ = Describe("Scheduler", func() {
 			// contains a node that self-marks; after a transition, the
 			// old member is deactivated and the self-changed should be
 			// cleared.
-			trigger := mock("trigger")
-			stageNode := mock("stage_node")
+			mock("trigger", true)
+			stageNode := mock("stage_node", true)
 			mock("second_node")
 			triggerFired := false
-			doneIdx := stageNode.AddOutput("done", true)
 			stageNode.OnNext = func(c node.Context) {
 				c.MarkSelfChanged()
 				if !triggerFired {
 					triggerFired = true
-					c.MarkChanged(doneIdx)
+					c.MarkChanged(0)
 				}
 			}
 
@@ -984,10 +978,13 @@ var _ = Describe("Scheduler", func() {
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
-			trigger.AddOutput("output", true)
 
 			prog := programOf(
-				[]string{"trigger", "stage_node", "second_node"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("stage_node", "done"),
+					irNode("second_node"),
+				},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
@@ -1006,7 +1003,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("NextDeadline", func() {
 		It("Should return TimeSpanMax when no node sets a deadline", func(ctx SpecContext) {
 			mock("A")
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
@@ -1021,7 +1018,7 @@ var _ = Describe("Scheduler", func() {
 					c.SetDeadline(telem.Second)
 				}
 			}
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.Second))
@@ -1030,15 +1027,14 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should track deadlines from nodes inside an active gated scope", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			stageNode := mock("stage_node")
-			trigger.AddOutput("output", true)
 			stageNode.OnNext = func(c node.Context) { c.SetDeadline(2 * telem.Second) }
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "stage_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(gated)),
 			)
@@ -1056,7 +1052,7 @@ var _ = Describe("Scheduler", func() {
 			nodeC := mock("C")
 			nodeA.OnNext = func(c node.Context) { c.ReportError(errA) }
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A"), irNode("B"), irNode("C")},
 				nil,
 				rootWithPhases(phase(noderef("A"), noderef("B"), noderef("C"))),
 			)
@@ -1076,7 +1072,7 @@ var _ = Describe("Scheduler", func() {
 			mock("A").OnNext = func(c node.Context) { c.ReportError(errA) }
 			mock("B").OnNext = func(c node.Context) { c.ReportError(errB) }
 			prog := programOf(
-				[]string{"A", "B"},
+				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
 				rootScope(noderef("A"), noderef("B")),
 			)
@@ -1090,7 +1086,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should swallow errors silently when no handler is configured", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.OnNext = func(c node.Context) { c.ReportError(errors.New("dropped")) }
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			Expect(func() {
 				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1102,7 +1098,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Edge cases", func() {
 		It("Should accept zero elapsed time", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, 0, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
@@ -1113,7 +1109,7 @@ var _ = Describe("Scheduler", func() {
 			var received node.RunReason
 			nodeA := mock("A")
 			nodeA.OnNext = func(c node.Context) { received = c.Reason }
-			prog := programOf([]string{"A"}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonChannelInput)
 			Expect(received).To(Equal(node.ReasonChannelInput))
@@ -1121,9 +1117,9 @@ var _ = Describe("Scheduler", func() {
 
 		It("Should tolerate a self-loop edge in phase 0", func(ctx SpecContext) {
 			nodeA := mock("A")
-			nodeA.MarkOnNext("output")
+			nodeA.OnNext = markOnNext(0)
 			prog := programOf(
-				[]string{"A"},
+				[]ir.Node{irNode("A", "output")},
 				[]ir.Edge{continuousEdge("A", "output", "A", "in")},
 				rootScope(noderef("A")),
 			)
@@ -1136,8 +1132,7 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should tolerate an empty sequential scope", func(ctx SpecContext) {
-			trigger := mock("trigger")
-			trigger.AddOutput("output", true)
+			trigger := mock("trigger", true)
 			main := ir.Scope{
 				Key:      "main",
 				Mode:     ir.ScopeModeSequential,
@@ -1146,7 +1141,7 @@ var _ = Describe("Scheduler", func() {
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
 			prog := programOf(
-				[]string{"trigger"},
+				[]ir.Node{irNode("trigger", "output")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
@@ -1160,14 +1155,13 @@ var _ = Describe("Scheduler", func() {
 
 	Describe("Complex graph and sequence interactions", func() {
 		It("Should not re-activate an already-active gated scope on a subsequent cycle", func(ctx SpecContext) {
-			trigger := mock("trigger")
+			mock("trigger", true)
 			stageNode := mock("stage_node")
-			trigger.AddOutput("output", true)
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			gated := parallelScope("stage", phase(noderef("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
-				[]string{"trigger", "stage_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(gated)),
 			)
@@ -1182,11 +1176,10 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should keep two top-level sequences independent", func(ctx SpecContext) {
-			triggerA := mock("trigger_a")
-			_ = mock("trigger_b")
+			mock("trigger_a", true)
+			mock("trigger_b")
 			a := mock("A")
 			b := mock("B")
-			triggerA.AddOutput("output", true)
 			// trigger_b stays falsy — only `a` should activate.
 			stageA := parallelScope("stage_a", phase(noderef("A")))
 			actA := ir.Handle{Node: "trigger_a", Param: "output"}
@@ -1195,7 +1188,12 @@ var _ = Describe("Scheduler", func() {
 			actB := ir.Handle{Node: "trigger_b", Param: "output"}
 			stageB.Activation = &actB
 			prog := programOf(
-				[]string{"trigger_a", "trigger_b", "A", "B"},
+				[]ir.Node{
+					irNode("trigger_a", "output"),
+					irNode("trigger_b", "output"),
+					irNode("A"),
+					irNode("B"),
+				},
 				nil,
 				rootScope(
 					noderef("trigger_a"),
@@ -1211,17 +1209,15 @@ var _ = Describe("Scheduler", func() {
 		})
 
 		It("Should mix continuous and conditional edges in a single graph", func(ctx SpecContext) {
-			nodeA := mock("A")
+			nodeA := mock("A", true, true)
 			nodeB := mock("B")
 			nodeC := mock("C")
-			dataIdx := nodeA.AddOutput("data", true)
-			triggerIdx := nodeA.AddOutput("trigger", true)
 			nodeA.OnNext = func(c node.Context) {
-				c.MarkChanged(dataIdx)
-				c.MarkChanged(triggerIdx)
+				c.MarkChanged(0)
+				c.MarkChanged(1)
 			}
 			prog := programOf(
-				[]string{"A", "B", "C"},
+				[]ir.Node{irNode("A", "data", "trigger"), irNode("B"), irNode("C")},
 				[]ir.Edge{
 					continuousEdge("A", "data", "B", "in"),
 					conditionalEdge("A", "trigger", "C", "in"),
@@ -1240,21 +1236,19 @@ var _ = Describe("Scheduler", func() {
 		It("Should reset sequence members when reactivated after an exit", func(ctx SpecContext) {
 			// One-shot trigger: cycle 1 activates main, exit transition
 			// fires on cycle 2, cycle 3 re-triggers, main re-activates.
-			trigger := mock("trigger")
-			firstNode := mock("first_node")
+			trigger := mock("trigger", true)
+			firstNode := mock("first_node", true)
 			cycle := 0
-			trigger.AddOutput("output", true)
 			trigger.OnNext = func(c node.Context) {
 				cycle++
 				// Release after cycle 1, re-assert on cycle 3.
 				if cycle == 2 {
-					trigger.AddOutput("output", false)
+					trigger.OutputTruthy[0] = false
 				}
 				if cycle == 3 {
-					trigger.AddOutput("output", true)
+					trigger.OutputTruthy[0] = true
 				}
 			}
-			firstNode.AddOutput("output", true) // transition fires immediately
 			first := parallelScope("first", phase(noderef("first_node")))
 			main := sequentialScope("main",
 				[]ir.Member{{Key: "first", Scope: &first}},
@@ -1266,7 +1260,7 @@ var _ = Describe("Scheduler", func() {
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
 			prog := programOf(
-				[]string{"trigger", "first_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)
@@ -1294,11 +1288,9 @@ var _ = Describe("Scheduler", func() {
 			// auto-mark behavior, so its IsOutputTruthy returns true
 			// forever while MarkChanged is never called. A correctly
 			// gated scheduler must not fire the transition.
-			trigger := mock("trigger")
-			trigger.AddOutput("output", true)
-			latch := mock("latch")
+			mock("trigger", true)
+			latch := mock("latch", true)
 			latch.SuppressAutoMark = true
-			latch.AddOutput("output", true)
 			mock("worker")
 
 			body := parallelScope("body", phase(noderef("worker")))
@@ -1312,7 +1304,12 @@ var _ = Describe("Scheduler", func() {
 			main.Activation = &triggerH
 
 			prog := programOf(
-				[]string{"trigger", "latch", "worker"}, nil,
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("latch", "output"),
+					irNode("worker"),
+				},
+				nil,
 				rootScope(
 					noderef("trigger"),
 					noderef("latch"),
@@ -1336,16 +1333,14 @@ var _ = Describe("Scheduler", func() {
 			// scheduler must fire the transition exactly once (on the
 			// cycle MarkChanged was called), not again on later cycles
 			// where the on-handle is still truthy.
-			trigger := mock("trigger")
-			trigger.AddOutput("output", true)
-			latch := mock("latch")
+			mock("trigger", true)
+			latch := mock("latch", true)
 			latch.SuppressAutoMark = true
-			latchOutput := latch.AddOutput("output", true)
 			marks := 0
 			latch.OnNext = func(c node.Context) {
 				marks++
 				if marks == 1 {
-					c.MarkChanged(latchOutput)
+					c.MarkChanged(0)
 				}
 			}
 			mock("worker_a")
@@ -1364,7 +1359,12 @@ var _ = Describe("Scheduler", func() {
 			main.Activation = &triggerH
 
 			prog := programOf(
-				[]string{"trigger", "latch", "worker_a", "worker_b"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("latch", "output"),
+					irNode("worker_a"),
+					irNode("worker_b"),
+				},
 				nil,
 				rootScope(
 					noderef("trigger"),
@@ -1400,16 +1400,15 @@ var _ = Describe("Scheduler", func() {
 			// Positive companion test: ensure the gating change does
 			// not break the case where a source marks changed anew on a
 			// later cycle. The transition must fire on that cycle.
-			trigger := mock("trigger")
-			trigger.AddOutput("output", true)
+			mock("trigger", true)
 			latch := mock("latch")
 			latch.SuppressAutoMark = true
 			cycle := 0
 			latch.OnNext = func(c node.Context) {
 				cycle++
 				if cycle == 2 {
-					idx := latch.AddOutput("output", true)
-					c.MarkChanged(idx)
+					latch.SetTruthy(0)
+					c.MarkChanged(0)
 				}
 			}
 			mock("worker_a")
@@ -1428,7 +1427,12 @@ var _ = Describe("Scheduler", func() {
 			main.Activation = &triggerH
 
 			prog := programOf(
-				[]string{"trigger", "latch", "worker_a", "worker_b"},
+				[]ir.Node{
+					irNode("trigger", "output"),
+					irNode("latch", "output"),
+					irNode("worker_a"),
+					irNode("worker_b"),
+				},
 				nil,
 				rootScope(
 					noderef("trigger"),
@@ -1453,10 +1457,8 @@ var _ = Describe("Scheduler", func() {
 			// the transition would fire, reactivate the same member, and
 			// re-fire. The convergence bound must keep this from looping
 			// forever within a cycle.
-			trigger := mock("trigger")
-			loopNode := mock("loop_node")
-			trigger.AddOutput("output", true)
-			loopNode.AddOutput("output", true)
+			mock("trigger", true)
+			loopNode := mock("loop_node", true)
 			loop := parallelScope("loop", phase(noderef("loop_node")))
 			main := sequentialScope("main",
 				[]ir.Member{{Key: "loop", Scope: &loop}},
@@ -1468,7 +1470,7 @@ var _ = Describe("Scheduler", func() {
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
 			prog := programOf(
-				[]string{"trigger", "loop_node"},
+				[]ir.Node{irNode("trigger", "output"), irNode("loop_node", "output")},
 				nil,
 				rootScope(noderef("trigger"), scopeMember(main)),
 			)

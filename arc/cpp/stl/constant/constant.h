@@ -56,12 +56,8 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        return {ir::default_output_param};
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 };
 

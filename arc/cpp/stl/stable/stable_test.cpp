@@ -202,15 +202,11 @@ TEST(StableForTest, EmitsWhenStableForDuration) {
     // Advance past the duration (start + 1s).
     const auto emit_ns = start_ns + x::telem::SECOND.nanoseconds();
     current_time = x::telem::TimeStamp(emit_ns);
-    bool changed = false;
-    std::string changed_param;
-    ctx.mark_changed = [&](size_t i) {
-        changed = true;
-        changed_param = node.outputs()[i];
-    };
+    std::vector<size_t> marked;
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
     ASSERT_NIL(node.next(ctx));
-    EXPECT_TRUE(changed);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->size(), 1);
@@ -410,7 +406,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
         make_now(current_time)
     );
 
-    EXPECT_FALSE(node.is_output_truthy("output"));
+    EXPECT_FALSE(node.is_output_truthy(0));
 
     const auto start_ns = x::telem::MILLISECOND.nanoseconds();
     auto source = setup.make_source_node();
@@ -420,7 +416,7 @@ TEST(StableForTest, IsOutputTruthyDelegatesToState) {
     current_time = x::telem::TimeStamp(start_ns + x::telem::SECOND.nanoseconds());
     ASSERT_NIL(node.next(ctx));
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Same value repeated in input uses the first occurrence for stability.

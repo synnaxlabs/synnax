@@ -13,7 +13,6 @@
 #include <new>
 #include <string>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -89,28 +88,39 @@ void run_with_alloc_tracking(benchmark::State &state, F &&body) {
 
 /// @brief minimal node implementation for benchmarks. Avoids the tracking
 /// overhead of the test MockNode so measurements reflect scheduler cost.
+/// Output names live in ir::Node::outputs; this node fires mark_changed
+/// for every declared truthy ordinal each cycle.
 class BenchNode final : public node::Node {
-    std::vector<std::string> output_names;
-    std::unordered_set<std::string> truthy;
-
 public:
-    explicit BenchNode(std::vector<std::string> ts = {}):
-        output_names(ts), truthy(ts.begin(), ts.end()) {}
+    std::vector<bool> truthy;
+
+    explicit BenchNode(std::vector<bool> t = {}): truthy(std::move(t)) {}
 
     x::errors::Error next(node::Context &ctx) override {
-        for (size_t i = 0; i < this->output_names.size(); ++i)
-            ctx.mark_changed(i);
+        for (size_t i = 0; i < this->truthy.size(); ++i)
+            if (this->truthy[i]) ctx.mark_changed(i);
         return x::errors::NIL;
     }
 
-    [[nodiscard]] std::vector<std::string> outputs() const override {
-        return this->output_names;
-    }
-
-    [[nodiscard]] bool is_output_truthy(const std::string &p) const override {
-        return this->truthy.contains(p);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        if (output_idx >= this->truthy.size()) return false;
+        return this->truthy[output_idx];
     }
 };
+
+/// @brief builds an ir::Node with the given key and ordered output
+/// names. Production runtime nodes never declare names; the scheduler
+/// reads them exclusively from ir::Node::outputs.
+ir::Node ir_node(
+    const std::string &key,
+    std::initializer_list<std::string> outputs = {}
+) {
+    ir::Node n;
+    n.key = key;
+    for (const auto &name: outputs)
+        n.outputs.push_back(arc::types::Param{.name = name});
+    return n;
+}
 
 ir::Member node_ref_member(const std::string &key) {
     ir::Member m;
@@ -148,9 +158,7 @@ Program build_flat_parallel(size_t n) {
     members.reserve(n);
     for (size_t i = 0; i < n; ++i) {
         const auto k = "n" + std::to_string(i);
-        ir::Node node;
-        node.key = k;
-        p.ir.nodes.push_back(std::move(node));
+        p.ir.nodes.push_back(ir_node(k));
         members.push_back(node_ref_member(k));
         p.nodes[k] = std::make_unique<BenchNode>();
     }
@@ -165,19 +173,15 @@ Program build_flat_parallel(size_t n) {
 Program build_fanout_chain(size_t n) {
     if (n < 2) n = 2;
     Program p;
-    ir::Node src_node;
-    src_node.key = "src";
-    p.ir.nodes.push_back(std::move(src_node));
-    p.nodes["src"] = std::make_unique<BenchNode>(std::vector<std::string>{"out"});
+    p.ir.nodes.push_back(ir_node("src", {"out"}));
+    p.nodes["src"] = std::make_unique<BenchNode>(std::vector<bool>{true});
 
     std::vector<ir::Member> p0 = {node_ref_member("src")};
     std::vector<ir::Member> p1;
     p1.reserve(n - 1);
     for (size_t i = 1; i < n; ++i) {
         const auto k = "t" + std::to_string(i);
-        ir::Node tn;
-        tn.key = k;
-        p.ir.nodes.push_back(std::move(tn));
+        p.ir.nodes.push_back(ir_node(k));
         p1.push_back(node_ref_member(k));
         p.ir.edges.push_back(continuous_edge("src", "out", k, "in"));
         p.nodes[k] = std::make_unique<BenchNode>();
@@ -195,14 +199,10 @@ Program build_fanout_chain(size_t n) {
 
 Program build_deep_nested(size_t depth) {
     Program p;
-    ir::Node leaf;
-    leaf.key = "leaf";
-    p.ir.nodes.push_back(std::move(leaf));
+    p.ir.nodes.push_back(ir_node("leaf"));
     p.nodes["leaf"] = std::make_unique<BenchNode>();
-    ir::Node trig;
-    trig.key = "trigger";
-    p.ir.nodes.push_back(std::move(trig));
-    p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<std::string>{"go"});
+    p.ir.nodes.push_back(ir_node("trigger", {"go"}));
+    p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<bool>{true});
 
     ir::Scope current;
     current.key = "s0";
@@ -235,10 +235,8 @@ Program build_deep_nested(size_t depth) {
 
 Program build_sequential_chain(size_t n) {
     Program p;
-    ir::Node trig;
-    trig.key = "trigger";
-    p.ir.nodes.push_back(std::move(trig));
-    p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<std::string>{"go"});
+    p.ir.nodes.push_back(ir_node("trigger", {"go"}));
+    p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<bool>{true});
 
     std::vector<ir::Member> members;
     std::vector<ir::Transition> transitions;
@@ -246,11 +244,9 @@ Program build_sequential_chain(size_t n) {
     transitions.reserve(n);
     for (size_t i = 0; i < n; ++i) {
         const auto k = "m" + std::to_string(i);
-        ir::Node mn;
-        mn.key = k;
-        p.ir.nodes.push_back(std::move(mn));
+        p.ir.nodes.push_back(ir_node(k, {"next"}));
         members.push_back(node_ref_member(k));
-        p.nodes[k] = std::make_unique<BenchNode>(std::vector<std::string>{"next"});
+        p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
         if (i + 1 < n)
