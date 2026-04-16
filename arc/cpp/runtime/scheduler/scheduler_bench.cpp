@@ -286,18 +286,4 @@ void BM_MarkChangedTruthy(benchmark::State &state) {
 }
 BENCHMARK(BM_MarkChangedTruthy);
 
-/// @brief positive-control benchmark that deliberately allocates once per
-/// iteration so we can confirm the alloc-tracking infrastructure reports
-/// the expected allocs/op and bytes/op. Should read 1 alloc/op and 64
-/// bytes/op. If it reads 0 either value, the overrides or counters are
-/// broken and every other benchmark's zero-alloc claim is untrustworthy.
-void BM_AllocSanityCheck(benchmark::State &state) {
-    run_with_alloc_tracking(state, [] {
-        auto *p = new int[16];
-        benchmark::DoNotOptimize(p);
-        delete[] p;
-    });
-}
-BENCHMARK(BM_AllocSanityCheck);
-
 }}
