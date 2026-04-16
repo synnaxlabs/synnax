@@ -885,3 +885,135 @@ var _ = Describe("SubstituteTypeRef", func() {
 		Expect(result.TypeArgs[1].TypeArgs[0].Name).To(Equal("uuid"))
 	})
 })
+
+var _ = Describe("RefersTo", func() {
+	const target = "ns.Target"
+
+	var table *resolution.Table
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Target",
+			QualifiedName: target,
+			Namespace:     "ns",
+			Form:          resolution.StructForm{},
+		})).To(Succeed())
+	})
+
+	It("returns true on a direct name match", func() {
+		ref := resolution.TypeRef{Name: target}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is nested in a type argument", func() {
+		ref := resolution.TypeRef{
+			Name:     "Array",
+			TypeArgs: []resolution.TypeRef{{Name: target}},
+		}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is deep in nested type arguments", func() {
+		ref := resolution.TypeRef{
+			Name: "Map",
+			TypeArgs: []resolution.TypeRef{
+				{Name: "string"},
+				{Name: "Array", TypeArgs: []resolution.TypeRef{{Name: target}}},
+			},
+		}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a struct field", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "HasTarget", QualifiedName: "ns.HasTarget", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.HasTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through an alias target", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "AliasToTarget", QualifiedName: "ns.AliasToTarget", Namespace: "ns",
+			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: target}},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.AliasToTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a distinct base", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "DistinctFromTarget", QualifiedName: "ns.DistinctFromTarget", Namespace: "ns",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: target}},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.DistinctFromTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns false when the ref name is absent from the table", func() {
+		ref := resolution.TypeRef{Name: "ns.Ghost"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("returns false when the struct references only unrelated types", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "Unrelated", QualifiedName: "ns.Unrelated", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "x", Type: resolution.TypeRef{Name: "int32"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Unrelated"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("terminates on a cycle that does not involve the target", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "CycleA", QualifiedName: "ns.CycleA", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "b", Type: resolution.TypeRef{Name: "ns.CycleB"}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "CycleB", QualifiedName: "ns.CycleB", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "a", Type: resolution.TypeRef{Name: "ns.CycleA"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.CycleA"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("detects the target even when reached via a cycle", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "A", QualifiedName: "ns.A", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "b", Type: resolution.TypeRef{Name: "ns.B"}},
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "B", QualifiedName: "ns.B", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "a", Type: resolution.TypeRef{Name: "ns.A"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.B"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+})

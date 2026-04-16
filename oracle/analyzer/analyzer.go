@@ -804,19 +804,7 @@ func isRecursive(typ *resolution.Type, table *resolution.Table) bool {
 		return false
 	}
 	for _, field := range form.Fields {
-		if typeRefersTo(field.Type, typ, table) {
-			return true
-		}
-	}
-	return false
-}
-
-func typeRefersTo(ref resolution.TypeRef, target *resolution.Type, table *resolution.Table) bool {
-	if ref.Name == target.QualifiedName {
-		return true
-	}
-	for _, arg := range ref.TypeArgs {
-		if typeRefersTo(arg, target, table) {
+		if resolution.RefersTo(field.Type, typ.QualifiedName, table) {
 			return true
 		}
 	}
