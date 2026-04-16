@@ -46,7 +46,7 @@ func sum_step(n i64) i64 {
     return sum
 }
 
-func accumulate_until{limit i32}(n i32) i32 {
+func accumulate_until{limit i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         sum = sum + i
@@ -57,7 +57,7 @@ func accumulate_until{limit i32}(n i32) i32 {
     return sum
 }
 
-func sum_excluding{skip i32}(n i32) i32 {
+func sum_excluding{skip i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         if i == skip {
@@ -76,7 +76,7 @@ func countdown(n i64) i64 {
     return sum
 }
 
-func drain_until{limit i32}(start i32) i32 {
+func drain_until{limit i32} (start i32) i32 {
     sum i32 := 0
     for i := range(start, 0, -1) {
         sum = sum + i
@@ -154,7 +154,7 @@ func empty_range(n i32) i32 {
     for i := range(i32(10), i32(5)) {
         sum = sum + 1
     }
-    for i := range(i32(0), i32(10), i32(-1)) {
+    for i := range(i32(0), i32(10), i32( -1)) {
         sum = sum + 1
     }
     return sum
@@ -191,9 +191,7 @@ func loop_channel_write() {
 func sum_all() {
     data := [1.0, 2.5, 3.7, 4.2]
     sum f64 := 0.0
-    for x := data {
-        sum = sum + x
-    }
+    for x := data{sum=sum + x}
     series_sum_all = sum
 }
 
@@ -201,12 +199,11 @@ func find_peak() {
     data := [3.1, 7.5, 2.0, 9.8, 1.4]
     peak f64 := 0.0
     peak_idx i32 := 0
-    for i, x := data {
-        if x > peak {
-            peak = x
-            peak_idx = i
-        }
-    }
+    for i,
+    x := data{if x > peak {
+        peak = x
+        peak_idx = i
+    }}
     series_peak_val = peak
     series_peak_idx = peak_idx
 }

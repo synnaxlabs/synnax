@@ -19,14 +19,14 @@ authority 200
 sequence main {
     1 -> inline_stage_ox_cmd
     stage {
-        inline_stage_pressure < 15 => next,
-        wait{10s} => next,
+        inline_stage_pressure < 15 => next
+        wait{10s} => next
     }
     0 -> inline_stage_ox_cmd
     1 -> inline_stage_vent_cmd
     stage {
-        inline_stage_pressure > 9000 => next,
-        wait{2s} => next,
+        inline_stage_pressure > 9000 => next
+        wait{2s} => next
     }
     0 -> inline_stage_vent_cmd
 }

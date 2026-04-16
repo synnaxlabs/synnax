@@ -288,7 +288,7 @@ var _ = Describe("Incremental Sync", func() {
 	})
 
 	It("Should not break when selecting and replacing the first line", func(ctx SpecContext) {
-		program := "sequence main {\n    stage first {\n         1 -> ox_mpv_cmd,\n    }\n}"
+		program := "sequence main {\n    stage first {\n         1 -> ox_mpv_cmd\n    }\n}"
 		OpenArcDocument(server, ctx, uri, program)
 		baseline := client.PublishCount()
 

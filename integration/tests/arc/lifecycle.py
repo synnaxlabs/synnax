@@ -33,19 +33,18 @@ func event_log{msg str} () {
 
 press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
     true: set_status{
-        status_key="lifecycle_press_alarm",
-        name="Lifecycle Press Alarm",
-        variant="warning",
-        message="Pressure stable above 25 PSI"
+        status_key = "lifecycle_press_alarm",
+        name = "Lifecycle Press Alarm",
+        variant = "warning",
+        message = "Pressure stable above 25 PSI"
     },
     false: set_status{
-        status_key="lifecycle_press_normal",
-        name="Lifecycle Press Normal",
-        variant="warning",
-        message="Pressure below 25 PSI"
+        status_key = "lifecycle_press_normal",
+        name = "Lifecycle Press Normal",
+        variant = "warning",
+        message = "Pressure below 25 PSI"
     }
 }
-
 // Functions are deliberately scrambled (1, 3, 2) to test that channel
 // accumulation works with both forward and backward references.
 func nested_write_1() {
@@ -64,21 +63,21 @@ interval{100ms} -> nested_write_1{}
 
 sequence main {
     stage press {
-        SOME_CONST_1 => const_output,
-        1 -> press_vlv_cmd,
-        event_log{"pressurizing"},
+        SOME_CONST_1 => const_output
+        1 -> press_vlv_cmd
+        event_log{"pressurizing"}
         press_pt > PRESS_HIGH_LIMIT + 5 => maintain
     }
 
     stage maintain {
-        0 -> press_vlv_cmd,
+        0 -> press_vlv_cmd
         wait{1s} => vent
     }
 
     stage vent {
-        SOME_CONST_2 * 2 => const_output,
-        1 -> vent_vlv_cmd,
-        event_log{"venting"},
+        SOME_CONST_2 * 2 => const_output
+        1 -> vent_vlv_cmd
+        event_log{"venting"}
         press_pt < PRESS_LOW_LIMIT => complete
     }
 
@@ -86,7 +85,6 @@ sequence main {
         0 -> vent_vlv_cmd
     }
 }
-
 // Regression: stale virtual channel signal must not trigger stage re-entry.
 // When yield is first entered, the pre-existing bb_signal_start_cmd value
 // should be ignored; only a new write after activation should fire => start.
@@ -94,15 +92,15 @@ bb_signal_start_cmd => signal_ctrl
 
 sequence signal_ctrl {
     stage start {
-        "start" -> signal_stage_log,
+        "start" -> signal_stage_log
         bb_signal_stop_cmd => stop
     }
     stage stop {
-        "stop" -> signal_stage_log,
+        "stop" -> signal_stage_log
         wait{250ms} => yield
     }
     stage yield {
-        "yield" -> signal_stage_log,
+        "yield" -> signal_stage_log
         bb_signal_start_cmd => start
     }
 }

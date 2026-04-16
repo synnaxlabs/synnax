@@ -662,7 +662,7 @@ var _ = Describe("Completion", func() {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
-			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        \n    }\n}"
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        \n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 8)
@@ -676,7 +676,7 @@ var _ = Describe("Completion", func() {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
-			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        v\n    }\n}"
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        v\n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 9)

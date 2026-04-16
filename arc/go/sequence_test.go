@@ -76,12 +76,11 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					1 -> valve_cmd
-					wait{500ms}
-					0 -> valve_cmd
+				    1 -> valve_cmd
+				    wait{500ms}
+				    0 -> valve_cmd
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 			)
@@ -105,12 +104,11 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					1 -> a
-					1 -> b
-					1 -> c
+				    1 -> a
+				    1 -> b
+				    1 -> c
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
@@ -133,12 +131,11 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					1 -> press_cmd
-					pressure > 50
-					0 -> press_cmd
+				    1 -> press_cmd
+				    pressure > 50
+				    0 -> press_cmd
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},
@@ -170,16 +167,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage on {
-						1 -> press_cmd,
-						pressure > 50 => off
-					}
-					stage off {
-						0 -> press_cmd,
-					}
+				    stage on {
+				        1 -> press_cmd
+				        pressure > 50 => off
+				    }
+				    stage off {
+				        0 -> press_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},
@@ -203,16 +199,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage on {
-						1 -> toggle_cmd,
-						wait{500ms} => off,
-					}
-					stage off {
-						0 -> toggle_cmd,
-					}
+				    stage on {
+				        1 -> toggle_cmd
+				        wait{500ms} => off
+				    }
+				    stage off {
+				        0 -> toggle_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 			)
@@ -236,17 +231,16 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage normal {
-						1 -> normal_cmd,
-						pressure > 100 => emergency
-					}
-					stage emergency {
-						0 -> normal_cmd,
-						1 -> emergency_cmd
-					}
+				    stage normal {
+				        1 -> normal_cmd
+				        pressure > 100 => emergency
+				    }
+				    stage emergency {
+				        0 -> normal_cmd
+				        1 -> emergency_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
@@ -325,14 +319,13 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					1 -> ox_cmd
-					stage {
-						pressure < 15 => next,
-					}
-					0 -> ox_cmd
+				    1 -> ox_cmd
+				    stage {
+				        pressure < 15 => next
+				    }
+				    0 -> ox_cmd
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},
@@ -363,19 +356,18 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage fire {
-						sequence {
-							1 -> ox_cmd
-						},
-						pressure < 15 => exit,
-					}
-					stage exit {
-						0 -> ox_cmd,
-						1 -> vent_cmd,
-					}
+				    stage fire {
+				        sequence {
+				            1 -> ox_cmd
+				        }
+				        pressure < 15 => exit
+				    }
+				    stage exit {
+				        0 -> ox_cmd
+				        1 -> vent_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
@@ -406,16 +398,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage {
-						1 -> a,
-						b > 5 => next,
-					}
-					stage {
-						0 -> a,
-					}
+				    stage {
+				        1 -> a
+				        b > 5 => next
+				    }
+				    stage {
+				        0 -> a
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},
@@ -440,10 +431,9 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func emit() {
-					out = 7
+				    out = 7
 				}
-				interval{50ms} -> emit{}
-			`, resolver,
+				interval{50ms} -> emit{}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 			)
 			defer h.Close(ctx)
@@ -460,10 +450,9 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func dbl(v f32) f32 {
-					return v * 2
+				    return v * 2
 				}
-				sensor -> dbl{} -> out
-			`, resolver,
+				sensor -> dbl{} -> out`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 			)
@@ -530,12 +519,11 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage a {
-						"hello" -> log,
-					}
+				    stage a {
+				        "hello" -> log
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.StringT},
 			)
@@ -556,12 +544,11 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func bump() {
-					n u8 $= 0
-					n = n + 1
-					count = n
+				    n u8 $= 0
+				    n = n + 1
+				    count = n
 				}
-				trigger -> bump{}
-			`, resolver,
+				trigger -> bump{}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
@@ -594,19 +581,18 @@ var _ = Describe("Sequence", func() {
 			// declaration order.
 			h := newRuntimeHarness(ctx, `
 				func nested_1() {
-					nested_2(sensor)
+				    nested_2(sensor)
 				}
 
 				func nested_3(val f32) {
-					out = val
+				    out = val
 				}
 
 				func nested_2(val f32) {
-					nested_3(val)
+				    nested_3(val)
 				}
 
-				interval{20ms} -> nested_1{}
-			`, resolver,
+				interval{20ms} -> nested_1{}`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 			)
@@ -625,16 +611,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				func event_log{msg str} () {
-					log = msg
+				    log = msg
 				}
 
 				sequence main {
-					stage a {
-						event_log{"pressurizing"},
-					}
+				    stage a {
+				        event_log{"pressurizing"}
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.StringT},
 			)
@@ -655,16 +640,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence ctrl {
-					stage start {
-						"start" -> log,
-						stop_cmd => stop
-					}
-					stage stop {
-						"stop" -> log,
-					}
+				    stage start {
+				        "start" -> log
+				        stop_cmd => stop
+				    }
+				    stage stop {
+				        "stop" -> log
+				    }
 				}
-				start_cmd => ctrl
-			`, resolver,
+				start_cmd => ctrl`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.StringT},
@@ -692,16 +676,15 @@ var _ = Describe("Sequence", func() {
 			})
 			h := newRuntimeHarness(ctx, `
 				sequence main {
-					stage on {
-						1 -> heater_cmd,
-						(temp_a > 90 and temp_b > 90) => off,
-					}
-					stage off {
-						0 -> heater_cmd,
-					}
+				    stage on {
+				        1 -> heater_cmd
+				(temp_a > 90 and temp_b > 90) => off
+				    }
+				    stage off {
+				        0 -> heater_cmd
+				    }
 				}
-				start_cmd => main
-			`, resolver,
+				start_cmd => main`, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},

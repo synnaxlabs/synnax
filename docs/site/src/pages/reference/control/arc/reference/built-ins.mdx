@@ -29,10 +29,10 @@ Returns the length of a series or string.
 
 ```arc
 data := [1.0, 2.0, 3.0]
-length := len(data)      // 3 (i64)
+length := len(data) // 3 (i64)
 
 msg := "hello"
-chars := len(msg)        // 5 (i64)
+chars := len(msg) // 5 (i64)
 ```
 
 | Parameter   | Type              | Description                 |
@@ -45,7 +45,7 @@ chars := len(msg)        // 5 (i64)
 Returns the current timestamp in nanoseconds.
 
 ```arc
-current := now()         // i64 ns
+current := now() // i64 ns
 ```
 
 | Parameter   | Type  | Description                     |
@@ -79,7 +79,6 @@ reset and fire immediately on the next tick of the interval.
 ```arc
 // 20Hz control loop
 interval{period=50ms} -> pressure_controller{}
-
 // 1Hz data logging
 interval{period=1s} -> log_all_sensors{}
 ```
@@ -89,12 +88,12 @@ interval{period=1s} -> log_all_sensors{}
 // It fires immediately on re-entry, then every 1s after that.
 sequence main {
     stage on {
-        1 -> heater_cmd,
-        interval{period=1s} -> temp > 200 => off,
+        1 -> heater_cmd
+        interval{period=1s} -> temp > 200 => off
     }
     stage off {
-        0 -> heater_cmd,
-        start_cmd => on,
+        0 -> heater_cmd
+        start_cmd => on
     }
 }
 ```
@@ -205,7 +204,6 @@ time delta is zero or negative, the output is also `0`.
 ```arc
 // Monitor rate of temperature change
 thermocouple -> derivative{} -> temp_rate
-
 // Chain with other nodes
 pressure -> derivative{} -> rate > 100.0 => alarm
 ```
@@ -292,9 +290,9 @@ Updates a status that triggers notifications in Console.
 
 ```arc
 ox_pt_1 > 500 -> set_status{
-    statusKey="overpressure",
-    variant="error",
-    message="Pressure exceeded limit"
+    statusKey = "overpressure",
+    variant = "error",
+    message = "Pressure exceeded limit"
 }
 ```
 
@@ -360,8 +358,8 @@ set_authority{value=0}
 
 ```arc
 stage emergency {
-    set_authority{value=255},
-    0 -> press_vlv_cmd,
+    set_authority{value=255}
+    0 -> press_vlv_cmd
     1 -> vent_vlv_cmd
 }
 ```
@@ -390,8 +388,8 @@ constant{value=100.0} -> setpoint
 Arc provides the `^` operator for exponentiation:
 
 ```arc
-result := 2 ^ 8          // 256
-square := value ^ 2      // value squared
+result := 2 ^ 8 // 256
+square := value ^ 2 // value squared
 ```
 
 <Note.Note variant="warning">

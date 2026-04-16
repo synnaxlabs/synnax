@@ -42,9 +42,9 @@ others at normal priority:
 
 ```arc
 stage emergency {
-    set_authority{value=255, channel=press_vlv_cmd},
-    set_authority{value=100, channel=vent_vlv_cmd},
-    0 -> press_vlv_cmd,
+    set_authority{value=255, channel=press_vlv_cmd}
+    set_authority{value=100, channel=vent_vlv_cmd}
+    0 -> press_vlv_cmd
     1 -> vent_vlv_cmd
 }
 ```
@@ -72,7 +72,7 @@ sequence main {
 
 ```arc
 stage escalate {
-    set_authority{value=255},
+    set_authority{value=255}
     1 -> press_vlv_cmd
 }
 ```

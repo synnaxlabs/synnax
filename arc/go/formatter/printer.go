@@ -36,6 +36,22 @@ const (
 	parenContextAuthority
 )
 
+type reactiveBodyMode int
+
+const (
+	// reactiveModeEmpty represents `{}` or `{ // only-comments... }` handled as
+	// truly empty at the visible-token level. The closer skips indent/newline
+	// logic entirely.
+	reactiveModeEmpty reactiveBodyMode = iota
+	// reactiveModeInline represents `{ a, b, c }` on a single line with
+	// comma-separated items.
+	reactiveModeInline
+	// reactiveModeMultiline represents a multi-line body. The opener emits a
+	// newline and increments indent; the closer does the reverse. Items are
+	// newline-separated with no commas.
+	reactiveModeMultiline
+)
+
 type printer struct {
 	output             strings.Builder
 	indentLevel        int
@@ -52,11 +68,11 @@ type printer struct {
 	parenContextStack  []parenContext
 	inlineConfigValues bool
 	inlineConfigBlock  bool
-	// inlineReactiveBody is a stack tracking, for each open stage/sequence body
-	// on the brace stack, whether it is being formatted inline (true) or
-	// multi-line (false). Inline bodies use commas as separators; multi-line
-	// bodies use newlines and drop commas entirely.
-	inlineReactiveBody     []bool
+	// reactiveBodyModes is a stack tracking how each currently-open stage or
+	// stageless sequence body is being formatted. Each entry is one of
+	// reactiveModeEmpty, reactiveModeInline, or reactiveModeMultiline. The
+	// stack is pushed in handleOpenBrace and popped in handleCloseBrace.
+	reactiveBodyModes      []reactiveBodyMode
 	multilineParens        set.Set[int] // tracks which paren depth levels are multiline
 	allComments            []antlr.Token
 	pendingTrailingComment string
@@ -429,27 +445,31 @@ func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
 	return length <= maxLineLength
 }
 
-// shouldInlineReactiveBody reports whether a stage or stageless sequence body
-// should be formatted inline (all on one line with comma separators) vs.
-// multi-line (one item per line with no commas). The decision preserves user
-// intent: if the source put the opening and closing braces on the same line,
-// keep it inline; otherwise go multi-line. Comments or nested stage/sequence
-// declarations force multi-line regardless.
-func (p *printer) shouldInlineReactiveBody(idx int, tokens []antlr.Token) bool {
+// detectReactiveBodyMode decides how a stage or stageless sequence body
+// should be formatted. A body with no visible tokens and no comments is
+// emitted as `{}` (reactiveModeEmpty). A body that fits on a single source
+// line and contains no comments or nested multi-line constructs is emitted
+// inline with comma separators (reactiveModeInline). Everything else goes
+// multi-line with newline separators and no commas (reactiveModeMultiline).
+func (p *printer) detectReactiveBodyMode(idx int, tokens []antlr.Token) reactiveBodyMode {
 	endIdx := p.blockEndIdx(idx, tokens)
 	if endIdx == -1 {
-		return false
+		return reactiveModeMultiline
+	}
+	hasComments := p.hasCommentsInBlock(idx, tokens)
+	if p.isEmptyBlock(idx, tokens) && !hasComments {
+		return reactiveModeEmpty
+	}
+	if hasComments {
+		return reactiveModeMultiline
 	}
 	if tokens[idx].GetLine() != tokens[endIdx].GetLine() {
-		return false
-	}
-	if p.hasCommentsInBlock(idx, tokens) {
-		return false
+		return reactiveModeMultiline
 	}
 	if p.reactiveBodyHasNestedDeclaration(idx, tokens, endIdx) {
-		return false
+		return reactiveModeMultiline
 	}
-	return true
+	return reactiveModeInline
 }
 
 // reactiveBodyHasNestedDeclaration reports whether the stage or sequence body
@@ -478,13 +498,13 @@ func (p *printer) inReactiveBodyContext() bool {
 	return ctx == braceContextStageBody || ctx == braceContextSequenceBody
 }
 
-// currentReactiveBodyInline reports whether the innermost stage or sequence
-// body on the stack is being formatted inline.
-func (p *printer) currentReactiveBodyInline() bool {
-	if len(p.inlineReactiveBody) == 0 {
-		return false
+// currentReactiveBodyMode returns the formatting mode of the innermost open
+// stage or sequence body, or reactiveModeMultiline if none is open.
+func (p *printer) currentReactiveBodyMode() reactiveBodyMode {
+	if len(p.reactiveBodyModes) == 0 {
+		return reactiveModeMultiline
 	}
-	return p.inlineReactiveBody[len(p.inlineReactiveBody)-1]
+	return p.reactiveBodyModes[len(p.reactiveBodyModes)-1]
 }
 
 func (p *printer) shouldInlineConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -604,20 +624,21 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	}
 
 	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
-		inline := p.shouldInlineReactiveBody(idx, tokens)
-		p.inlineReactiveBody = append(p.inlineReactiveBody, inline)
+		mode := p.detectReactiveBodyMode(idx, tokens)
+		p.reactiveBodyModes = append(p.reactiveBodyModes, mode)
 		p.writeSpace()
 		p.emitChar("{")
-		if p.isEmptyBlock(idx, tokens) {
+		switch mode {
+		case reactiveModeEmpty:
 			return
-		}
-		if inline {
+		case reactiveModeInline:
 			p.writeSpace()
 			return
+		default:
+			p.writeNewline()
+			p.indentLevel++
+			return
 		}
-		p.writeNewline()
-		p.indentLevel++
-		return
 	}
 
 	// Add space before brace for non-config contexts (plain blocks)
@@ -649,13 +670,12 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 	}
 
 	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
-		inline := p.popInlineReactiveBody()
-		isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
-		if isEmptyBlock {
+		mode := p.popReactiveBodyMode()
+		switch mode {
+		case reactiveModeEmpty:
 			p.emitChar("}")
 			return
-		}
-		if inline {
+		case reactiveModeInline:
 			p.writeSpace()
 			p.emitChar("}")
 			return
@@ -688,12 +708,12 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 	p.emitChar("}")
 }
 
-func (p *printer) popInlineReactiveBody() bool {
-	if len(p.inlineReactiveBody) == 0 {
-		return false
+func (p *printer) popReactiveBodyMode() reactiveBodyMode {
+	if len(p.reactiveBodyModes) == 0 {
+		return reactiveModeMultiline
 	}
-	v := p.inlineReactiveBody[len(p.inlineReactiveBody)-1]
-	p.inlineReactiveBody = p.inlineReactiveBody[:len(p.inlineReactiveBody)-1]
+	v := p.reactiveBodyModes[len(p.reactiveBodyModes)-1]
+	p.reactiveBodyModes = p.reactiveBodyModes[:len(p.reactiveBodyModes)-1]
 	return v
 }
 
@@ -931,7 +951,7 @@ func (p *printer) handleComma(idx int, tokens []antlr.Token) {
 	// inline stage/sequence body are also dropped so the closing brace
 	// reads cleanly.
 	if p.inReactiveBodyContext() {
-		if !p.currentReactiveBodyInline() {
+		if p.currentReactiveBodyMode() != reactiveModeInline {
 			p.pendingBreak = true
 			return
 		}

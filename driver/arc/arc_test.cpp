@@ -581,7 +581,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         "    stage pressurize {\n"
         "        1 -> " +
         valve_cmd_name +
-        ",\n"
+        "\n"
         "        " +
         pressure_name + " -> " + pressure_name +
         " > 50 => next\n"

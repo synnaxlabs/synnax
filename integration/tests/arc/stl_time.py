@@ -13,16 +13,12 @@ from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_TIME_SOURCE = """
 authority 200
-
 // ──────────────────────────── time.now ───────────────────────────────
-
 func write_now() {
     time_now_out = time.now()
 }
 time_trigger -> write_now{}
-
 // ─────────────────────────── time.interval ──────────────────────────
-
 // interval is inherently time-triggered (that's the point of the function).
 // We use time.interval{} (qualified syntax) to verify module syntax works.
 // standalone
@@ -30,41 +26,36 @@ func count_intervals() {
     interval_count = interval_count + 1
 }
 interval{period=100ms} -> count_intervals{}
-
 // module-qualified
 func count_intervals_mod() {
     interval_count_mod = interval_count_mod + 1
 }
 time.interval{period=100ms} -> count_intervals_mod{}
-
 // ──────────────────────────── time.wait ─────────────────────────────
-
 // Regression test: wait{3s} previously took 5-7s due to a runtime bug.
 // 3 seconds was chosen because it's long enough to measure accurately
 // with wall-clock timers but short enough to keep test runtime low.
 // The [2.5, 4.0]s tolerance window accounts for OS scheduling jitter
 // and Arc's 5ms minimum timer tolerance.
-
 // standalone
 sequence main_standalone {
     stage stage1 {
-        1 -> toggle_cmd,
-        wait{3s} => stage2,
+        1 -> toggle_cmd
+        wait{3s} => stage2
     }
     stage stage2 {
-        0 -> toggle_cmd,
+        0 -> toggle_cmd
     }
 }
 start_wait_cmd => main_standalone
-
 // module-qualified
 sequence main_module {
     stage stage1 {
-        1 -> toggle_cmd_mod,
-        time.wait{3s} => stage2,
+        1 -> toggle_cmd_mod
+        time.wait{3s} => stage2
     }
     stage stage2 {
-        0 -> toggle_cmd_mod,
+        0 -> toggle_cmd_mod
     }
 }
 start_wait_mod_cmd => main_module

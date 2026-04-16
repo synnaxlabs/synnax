@@ -187,15 +187,15 @@ func output_reading() {
     tank_pressure = count
 }
 
-func check_pressure{limit f64}(reading f64) u8 {
+func check_pressure{limit f64} (reading f64) u8 {
     return reading > limit
 }
 
 tank_pressure -> check_pressure{limit=15.0} => set_status{
-    status_key="pressure_warning",
-    name="Tank Pressure Alarm",
-    variant="warning",
-    message="Tank pressure exceeded 15"
+    status_key = "pressure_warning",
+    name = "Tank Pressure Alarm",
+    variant = "warning",
+    message = "Tank pressure exceeded 15"
 }
 
 interval{period=200ms} -> output_reading{}

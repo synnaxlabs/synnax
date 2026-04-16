@@ -37,8 +37,8 @@ time per sequence.
 
 ```arc
 stage name {
-    flow_statement,
-    flow_statement,
+    flow_statement
+    flow_statement
     flow_statement
 }
 ```
@@ -51,11 +51,10 @@ run concurrently while the stage is active.
 ```arc
 stage pressurize {
     // Continuous flows (run every cycle)
-    1 -> press_vlv_cmd,
-    sensor -> controller{},
-
+    1 -> press_vlv_cmd
+    sensor -> controller{}
     // One-shot transitions (fire once)
-    pressure > 500 => next,
+    pressure > 500 => next
     abort_btn => abort
 }
 ```
@@ -70,7 +69,7 @@ Runs every execution cycle while the stage is active:
 
 ```arc
 stage active {
-    1 -> valve_cmd,              // keeps valve open
+    1 -> valve_cmd // keeps valve open
     sensor -> filter{} -> output // processes every sample
 }
 ```
@@ -81,7 +80,7 @@ Fires once when condition becomes true, then stops:
 
 ```arc
 stage wait {
-    pressure > 500 => next       // fires once
+    pressure > 500 => next // fires once
 }
 ```
 
@@ -102,10 +101,10 @@ One-shot state resets when the stage is re-entered.
 ```arc
 sequence test {
     stage step1 {
-        condition => next    // goes to step2
+        condition => next // goes to step2
     }
     stage step2 {
-        condition => next    // goes to step3
+        condition => next // goes to step3
     }
     stage step3 {
         // terminal stage
@@ -125,8 +124,8 @@ sequence test {
         start_btn => pressurize
     }
     stage pressurize {
-        pressure > 500 => hold,
-        abort_btn => idle        // can go backwards
+        pressure > 500 => hold
+        abort_btn => idle // can go backwards
     }
     stage hold {
         wait{duration=10s} => complete
@@ -142,7 +141,7 @@ sequence test {
 ```arc
 sequence main {
     stage pressurize {
-        emergency => abort       // jumps to abort sequence
+        emergency => abort // jumps to abort sequence
     }
 }
 
@@ -166,8 +165,8 @@ Cross-sequence transitions:
 Entry points trigger sequences from external events:
 
 ```arc
-start_cmd => main           // channel triggers main sequence
-emergency_stop => abort     // channel triggers abort sequence
+start_cmd => main // channel triggers main sequence
+emergency_stop => abort // channel triggers abort sequence
 ```
 
 Entry points use `=>` because they fire once when the channel value becomes truthy.
@@ -204,11 +203,11 @@ All flow statements in a stage run concurrently:
 ```arc
 stage pressurize {
     // ALL of these run simultaneously
-    sensor -> controller{target=500},    // control loop
-    ox_pt_1 > 600 => abort,              // monitoring
-    fuel_pt_1 > 400 => abort,            // monitoring
-    abort_btn => abort,                   // listening
-    pressure > 500 => next               // success check
+    sensor -> controller{target=500} // control loop
+    ox_pt_1 > 600 => abort // monitoring
+    fuel_pt_1 > 400 => abort // monitoring
+    abort_btn => abort // listening
+    pressure > 500 => next // success check
 }
 ```
 
@@ -220,12 +219,11 @@ wins:
 ```arc
 stage pressurize {
     // Safety conditions first (higher priority)
-    ox_pt_1 > 600 => abort,       // 1st priority
-    fuel_pt_1 > 400 => abort,     // 2nd priority
-    abort_btn => abort,           // 3rd priority
-
+    ox_pt_1 > 600 => abort // 1st priority
+    fuel_pt_1 > 400 => abort // 2nd priority
+    abort_btn => abort // 3rd priority
     // Success condition after safety
-    pressure > 500 => next        // only if no abort
+    pressure > 500 => next // only if no abort
 }
 ```
 
@@ -241,53 +239,49 @@ authority 200
 
 sequence main {
     stage idle {
-        0 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         start_btn => pressurize
     }
 
     stage pressurize {
         // Safety first
-        ox_pt_1 > 700 => abort,
-        fuel_pt_1 > 500 => abort,
-        abort_btn => abort,
-
+        ox_pt_1 > 700 => abort
+        fuel_pt_1 > 500 => abort
+        abort_btn => abort
         // Control
-        1 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
-
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         // Progress
         ox_pt_1 > 500 => hold
     }
 
     stage hold {
-        ox_pt_1 > 700 => abort,
-        abort_btn => abort,
-
-        1 -> press_vlv_cmd,
+        ox_pt_1 > 700 => abort
+        abort_btn => abort
+        1 -> press_vlv_cmd
         wait{duration=5s} => vent
     }
 
     stage vent {
-        0 -> press_vlv_cmd,
-        1 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
         ox_pt_1 < 50 => complete
     }
 
     stage complete {
-        0 -> press_vlv_cmd,
+        0 -> press_vlv_cmd
         0 -> vent_vlv_cmd
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }
-
 // Entry points
 start_cmd => main
 emergency_stop => abort

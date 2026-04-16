@@ -16,11 +16,11 @@ authority 200
 
 sequence main {
     stage pressurize {
-        1 -> bj_press_cmd,
+        1 -> bj_press_cmd
         bj_pressure > 50 => hold
     }
     stage hold {
-        0 -> bj_press_cmd,
+        0 -> bj_press_cmd
         bj_pressure < 30 => pressurize
     }
 }
