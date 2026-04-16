@@ -72,6 +72,7 @@ var _ = Describe("SeriesFactory", func() {
 			Specify("float64", newFixedSeriesRoundtripTest([]float64{1.0, 2.0, 3.0}, telem.Float64T))
 			Specify("timestamp", newFixedSeriesRoundtripTest([]telem.TimeStamp{1, 2, 3}, telem.TimeStampT))
 			Specify("uuid", newFixedSeriesRoundtripTest([]uuid.UUID{uuid.New(), uuid.New(), uuid.New()}, telem.UUIDT))
+			Specify("bool", newFixedSeriesRoundtripTest([]bool{true, false, true}, telem.BoolT))
 			Specify("empty", newFixedSeriesRoundtripTest([]int64{}, telem.Int64T))
 			Specify("nil", func() {
 				s := telem.NewSeries[int64](nil)
@@ -395,6 +396,20 @@ var _ = Describe("SeriesFactory", func() {
 			Entry("uuid -> BytesT", id, telem.BytesT, telem.NewSeriesV(id[:])),
 			// json
 			Entry("int → JSONT", 42, telem.JSONT, MustSucceed(telem.NewJSONSeriesV(42))),
+
+			// bool
+			Entry("bool true → BoolT", true, telem.BoolT, telem.NewSeriesV(true)),
+			Entry("bool false → BoolT", false, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("int 1 → BoolT", 1, telem.BoolT, telem.NewSeriesV(true)),
+			Entry("int 0 → BoolT", 0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("int 42 → BoolT (normalizes nonzero)", 42, telem.BoolT, telem.NewSeriesV(true)),
+			Entry("int -3 → BoolT (normalizes nonzero)", -3, telem.BoolT, telem.NewSeriesV(true)),
+			Entry("float 1.5 → BoolT (normalizes nonzero)", 1.5, telem.BoolT, telem.NewSeriesV(true)),
+			Entry("float 0.0 → BoolT", 0.0, telem.BoolT, telem.NewSeriesV(false)),
+			Entry("bool true → Uint8T", true, telem.Uint8T, telem.NewSeriesV(uint8(1))),
+			Entry("bool false → Uint8T", false, telem.Uint8T, telem.NewSeriesV(uint8(0))),
+			Entry("bool true → Int32T", true, telem.Int32T, telem.NewSeriesV(int32(1))),
+			Entry("bool true → Float64T", true, telem.Float64T, telem.NewSeriesV(float64(1))),
 		)
 
 		DescribeTable("should panic", func(input any, dt telem.DataType, msg string) {

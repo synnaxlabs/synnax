@@ -935,6 +935,9 @@ class DataType(str):
             if result is not None:
                 return result
 
+        if isinstance(value, (bool, np.bool_)):
+            return DataType.BOOL
+
         if isinstance(value, float):
             return DataType.FLOAT64
 
@@ -950,6 +953,9 @@ class DataType(str):
 
             if isinstance(value[0], TimeStamp):
                 return DataType.TIMESTAMP
+
+            if isinstance(value[0], (bool, np.bool_)):
+                return DataType.BOOL
 
             if isinstance(value[0], float):
                 return DataType.FLOAT64
@@ -1045,6 +1051,7 @@ class DataType(str):
     UINT8: DataType
     STRING: DataType
     JSON: DataType
+    BOOL: DataType
     ALL: tuple[DataType, ...]
     _TO_NUMPY: dict[DataType, DTypeLike]
     _FROM_NUMPY: dict[DTypeLike, DataType]
@@ -1066,6 +1073,7 @@ DataType.UINT16 = DataType("uint16")
 DataType.UINT8 = DataType("uint8")
 DataType.JSON = DataType("json")
 DataType.STRING = DataType("string")
+DataType.BOOL = DataType("bool")
 DataType.ALL = (
     DataType.UUID,
     DataType.FLOAT64,
@@ -1080,6 +1088,7 @@ DataType.ALL = (
     DataType.UINT8,
     DataType.STRING,
     DataType.JSON,
+    DataType.BOOL,
 )
 
 CrudeTimeStamp: TypeAlias = (
@@ -1107,6 +1116,7 @@ DataType._TO_NUMPY = {
     DataType.UINT32: np.dtype(np.uint32),
     DataType.UINT16: np.dtype(np.uint16),
     DataType.UINT8: np.dtype(np.uint8),
+    DataType.BOOL: np.dtype(np.bool_),
 }
 DataType._FROM_NUMPY = {
     np.dtype(np.float64): DataType.FLOAT64,
@@ -1119,7 +1129,7 @@ DataType._FROM_NUMPY = {
     np.dtype(np.uint32): DataType.UINT32,
     np.dtype(np.uint16): DataType.UINT16,
     np.dtype(np.uint8): DataType.UINT8,
-    np.dtype(np.bool_): DataType.UINT8,
+    np.dtype(np.bool_): DataType.BOOL,
     np.dtype(np.datetime64): DataType.TIMESTAMP,
     np.dtype(np.str_): DataType.STRING,
 }
@@ -1139,6 +1149,7 @@ DataType._DENSITIES = {
     DataType.UINT8: Density.BIT8,
     DataType.STRING: Density.UNKNOWN,
     DataType.JSON: Density.UNKNOWN,
+    DataType.BOOL: Density.BIT8,
 }
 
 

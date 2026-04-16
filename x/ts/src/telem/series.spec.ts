@@ -150,6 +150,31 @@ describe("Series", () => {
       expect(s.length).toEqual(1);
     });
 
+    it("should infer BOOLEAN from a boolean array", () => {
+      const s = new Series({ data: [true, false, true] });
+      expect(s.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      expect(s.length).toEqual(3);
+    });
+
+    it("should return boolean values from at() for a BOOLEAN series", () => {
+      const s = new Series({ data: [true, false, true, false] });
+      expect(s.at(0)).toBe(true);
+      expect(s.at(1)).toBe(false);
+      expect(s.at(2)).toBe(true);
+      expect(s.at(3)).toBe(false);
+    });
+
+    it("should encode BOOLEAN samples as canonical 0x00 and 0x01 bytes", () => {
+      const s = new Series({ data: [true, false, true, false] });
+      expect(new Uint8Array(s.buffer)).toEqual(new Uint8Array([1, 0, 1, 0]));
+    });
+
+    it("should normalize nonzero numeric inputs to 0x01 for BOOLEAN", () => {
+      const s = new Series({ data: [0, 1, 42, -3, 0], dataType: DataType.BOOLEAN });
+      expect(new Uint8Array(s.buffer)).toEqual(new Uint8Array([0, 1, 1, 1, 0]));
+      expect(s.at(2)).toBe(true);
+    });
+
     it("should correctly interpret a TimeStamp object as a data type of timestamp", () => {
       const s = new Series(TimeStamp.now());
       expect(s.dataType).toEqual(DataType.TIMESTAMP);
@@ -471,6 +496,32 @@ describe("Series", () => {
       const b = a.convert(DataType.INT64);
       expect(b.dataType.toString()).toBe(DataType.INT64.toString());
       expect(b.data).toEqual(new BigInt64Array([1n, 2n, 3n]));
+    });
+
+    test("from uint8 to boolean normalizes nonzero to 1", () => {
+      const a = new Series({
+        data: new Uint8Array([0, 1, 42, 0, 255]),
+        dataType: DataType.UINT8,
+      });
+      const b = a.convert(DataType.BOOLEAN);
+      expect(b.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([0, 1, 1, 0, 1]));
+    });
+
+    test("from boolean to uint8 copies canonical bytes", () => {
+      const a = new Series({ data: [true, false, true, true, false] });
+      const b = a.convert(DataType.UINT8);
+      expect(b.dataType.equals(DataType.UINT8)).toBe(true);
+      expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([1, 0, 1, 1, 0]));
+    });
+
+    test("from int64 to boolean normalizes nonzero to 1", () => {
+      const a = new Series({
+        data: new BigInt64Array([0n, 1n, 100n, -5n, 0n]),
+      });
+      const b = a.convert(DataType.BOOLEAN);
+      expect(b.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      expect(new Uint8Array(b.buffer)).toEqual(new Uint8Array([0, 1, 1, 1, 0]));
     });
   });
 

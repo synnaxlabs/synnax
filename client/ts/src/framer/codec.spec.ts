@@ -224,6 +224,73 @@ describe("encoder", () => {
           ],
         ),
       },
+      {
+        name: "Bool Single Sample",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [new Series({ data: [true], dataType: DataType.BOOLEAN })],
+        ),
+      },
+      {
+        name: "Bool Exact Byte Boundary",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, false, true, false, true, false],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool One Past Byte Boundary",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, false, true, false, true, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool Seven Samples Partial Last Byte",
+        channels: [1],
+        dataTypes: [DataType.BOOLEAN],
+        frame: new framer.Frame(
+          [1],
+          [
+            new Series({
+              data: [true, false, true, true, false, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Bool Mixed With Other Types",
+        channels: [1, 2, 3],
+        dataTypes: [DataType.BOOLEAN, DataType.FLOAT32, DataType.UINT8],
+        frame: new framer.Frame(
+          [1, 2, 3],
+          [
+            new Series({
+              data: [true, false, true],
+              dataType: DataType.BOOLEAN,
+            }),
+            new Series(new Float32Array([1.5, 2.5, 3.5])),
+            new Series(new Uint8Array([7, 8, 9])),
+          ],
+        ),
+      },
     ];
 
     SPECS.forEach((spec) => {

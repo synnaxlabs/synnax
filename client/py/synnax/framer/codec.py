@@ -33,6 +33,27 @@ FLAGS_SIZE = 1
 SEQ_NUM_SIZE = 4
 
 
+def _series_wire_byte_length(ser: Series) -> int:
+    if ser.data_type == DataType.BOOL:
+        return (len(ser) + 7) // 8
+    return len(ser.data)
+
+
+def _pack_bool_bits(src: bytes) -> bytes:
+    dst = bytearray((len(src) + 7) // 8)
+    for i, b in enumerate(src):
+        if b != 0:
+            dst[i >> 3] |= 1 << (i & 7)
+    return bytes(dst)
+
+
+def _unpack_bool_bits(src: memoryview, sample_count: int) -> bytes:
+    dst = bytearray(sample_count)
+    for i in range(sample_count):
+        dst[i] = (src[i >> 3] >> (i & 7)) & 1
+    return bytes(dst)
+
+
 class CodecFlags:
     def __init__(self) -> None:
         self.eq_len: bool = True
@@ -151,7 +172,7 @@ class Codec:
                 if ser.alignment != ref_align:
                     flg.eq_align = False
 
-            byte_array_size += len(ser.data)
+            byte_array_size += _series_wire_byte_length(ser)
 
         flg.time_ranges_zero = ref_tr is None or ref_tr == 0
         flg.zero_alignments = flg.eq_align and ref_align == 0
@@ -205,8 +226,13 @@ class Codec:
                 struct.pack_into("<I", buffer, offset, len_or_size)
                 offset += DATA_LENGTH_SIZE
 
-            buffer[offset : offset + len(ser.data)] = ser.data
-            offset += len(ser.data)
+            if ser.data_type == DataType.BOOL:
+                packed = _pack_bool_bits(ser.data)
+                buffer[offset : offset + len(packed)] = packed
+                offset += len(packed)
+            else:
+                buffer[offset : offset + len(ser.data)] = ser.data
+                offset += len(ser.data)
 
             if not flg.eq_tr and not flg.time_ranges_zero:
                 if ser.time_range is None:
@@ -286,8 +312,15 @@ class Codec:
             if not data_type.is_variable:
                 data_byte_len = curr_len * data_type.density
 
-            series_data = bytes(buffer[idx : idx + data_byte_len])
-            idx += data_byte_len
+            if data_type == DataType.BOOL:
+                wire_bytes = (curr_len + 7) // 8
+                series_data = _unpack_bool_bits(
+                    buffer[idx : idx + wire_bytes], curr_len
+                )
+                idx += wire_bytes
+            else:
+                series_data = bytes(buffer[idx : idx + data_byte_len])
+                idx += data_byte_len
 
             if flags.time_ranges_zero:
                 tr = TimeRange.ZERO
