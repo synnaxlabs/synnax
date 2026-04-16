@@ -343,7 +343,7 @@ export class Series<T extends TelemValue = TelemValue>
       if (typeof first === "string") this.dataType = DataType.STRING;
       else if (typeof first === "number") this.dataType = DataType.FLOAT64;
       else if (typeof first === "bigint") this.dataType = DataType.INT64;
-      else if (typeof first === "boolean") this.dataType = DataType.UINT8;
+      else if (typeof first === "boolean") this.dataType = DataType.BOOLEAN;
       else if (
         first instanceof TimeStamp ||
         first instanceof Date ||
@@ -407,6 +407,10 @@ export class Series<T extends TelemValue = TelemValue>
           offset += e.byteLength;
         }
         this._data = buf;
+      } else if (this.dataType.equals(DataType.BOOLEAN)) {
+        const bytes = new Uint8Array(data_.length);
+        for (let i = 0; i < data_.length; i++) bytes[i] = data_[i] ? 1 : 0;
+        this._data = bytes.buffer;
       } else if (this.dataType.usesBigInt && typeof first === "number")
         this._data = new this.dataType.Array(
           data_.map((v) => BigInt(Math.round(v as number))),
@@ -797,6 +801,8 @@ export class Series<T extends TelemValue = TelemValue>
       return caseconv.snakeToCamel(JSON.parse(str)) as T;
     }
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required) as T;
+    if (this.dataType.equals(DataType.BOOLEAN))
+      return this.atBoolean(index, required) as T;
     if (index < 0) index = this.length + index;
     const v = this.data[index];
     if (v == null) {
@@ -813,6 +819,16 @@ export class Series<T extends TelemValue = TelemValue>
     if (typeof this.sampleOffset === "bigint" && typeof v === "number")
       return BigInt(Math.round(v)) + this.sampleOffset;
     return math.add(v, this.sampleOffset);
+  }
+
+  private atBoolean(index: number, required: boolean): boolean | undefined {
+    if (index < 0) index = this.length + index;
+    const v = this.data[index];
+    if (v == null) {
+      if (required) throw new Error(`[series] - no value at index ${index}`);
+      return undefined;
+    }
+    return v !== 0;
   }
 
   private atUUID(index: number, required: boolean): string | undefined {

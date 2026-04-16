@@ -43,6 +43,7 @@ var _ = Describe("DataType", func() {
 		Entry("string", telem.StringT, telem.UnknownDensity),
 		Entry("bytes", telem.BytesT, telem.UnknownDensity),
 		Entry("json", telem.JSONT, telem.UnknownDensity),
+		Entry("bool", telem.BoolT, telem.Bit8),
 	)
 
 	DescribeTable("IsVariable", func(dataType telem.DataType, expected bool) {
@@ -64,6 +65,7 @@ var _ = Describe("DataType", func() {
 		Entry("string", telem.StringT, true),
 		Entry("bytes", telem.BytesT, true),
 		Entry("json", telem.JSONT, true),
+		Entry("bool", telem.BoolT, false),
 	)
 
 	Describe("Infer", func() {
