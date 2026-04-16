@@ -65,14 +65,6 @@ type seqFrame struct {
 	transitions []ir.Transition
 }
 
-// currentMember returns the key of the step being analyzed by this frame.
-func (f *seqFrame) currentMember() string {
-	if f == nil || f.activeIdx < 0 || f.activeIdx >= len(f.memberKeys) {
-		return ""
-	}
-	return f.memberKeys[f.activeIdx]
-}
-
 // nextMember returns the key of the member that follows the currently active
 // one, or the empty string if the current member is the last.
 func (f *seqFrame) nextMember() string {
@@ -118,12 +110,8 @@ func (s *shellBuilder) top() *seqFrame {
 	return s.stack[len(s.stack)-1]
 }
 
-// inSequence reports whether the analyzer is currently inside a sequential
-// scope.
-func (s *shellBuilder) inSequence() bool { return s.top() != nil }
-
 // addTransition appends a transition to the innermost sequence frame. Panics
-// if no sequence is active; callers must check inSequence first.
+// if no sequence is active; callers must check top() first.
 func (s *shellBuilder) addTransition(t ir.Transition) {
 	s.stack[len(s.stack)-1].transitions = append(
 		s.stack[len(s.stack)-1].transitions, t,
@@ -135,6 +123,26 @@ func (s *shellBuilder) addTransition(t ir.Transition) {
 // main Analyze loop once all top-level items have been processed.
 func (s *shellBuilder) registerActivation(key string, on ir.Handle) {
 	s.activations[key] = on
+}
+
+// applyTransitionIntent records a transition and/or activation against the
+// shell for a firing handle. Exactly one of isNext, memberKey, activateKey is
+// honored, in that priority; a zero intent is a no-op. When the intent is a
+// cross-scope activation and the shell is inside a sequence, an additional
+// exit transition is appended so the current sequence relinquishes control.
+func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionIntent) {
+	switch {
+	case intent.isNext:
+		next := s.top().nextMember()
+		s.addTransition(ir.Transition{On: on, TargetKey: new(next)})
+	case intent.memberKey != "":
+		s.addTransition(ir.Transition{On: on, TargetKey: new(intent.memberKey)})
+	case intent.activateKey != "":
+		s.registerActivation(intent.activateKey, on)
+		if s.top() != nil {
+			s.addTransition(ir.Transition{On: on})
+		}
+	}
 }
 
 // nodeResult describes an IR node produced by a flow-node analysis.
@@ -191,6 +199,35 @@ func firstOutputParam(outputs types.Params) string {
 		return outputs[0].Name
 	}
 	return ir.DefaultOutputParam
+}
+
+// identifierAST is the common shape of sequence and stage declarations: both
+// carry an optional IDENTIFIER token that is absent for anonymous inline
+// blocks.
+type identifierAST interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+}
+
+// resolveDeclScope returns the symbol scope for a named or anonymous
+// declaration. Named declarations resolve by identifier; anonymous ones are
+// looked up via their parser rule (registered during the collect pass under a
+// synthesized AutoName key).
+func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Scope, bool) {
+	var (
+		scope *symbol.Scope
+		err   error
+	)
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		scope, err = ctx.Scope.Resolve(ctx, id.GetText())
+	} else {
+		scope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
+	}
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nil, false
+	}
+	return scope, true
 }
 
 func analyzeFlowNode(
@@ -348,7 +385,7 @@ func analyzeNextToken(
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"'next' in last stage '%s' has no next stage",
-			frame.currentMember(),
+			frame.memberKeys[frame.activeIdx],
 		))
 		return flowNodeResult{}, false
 	}
@@ -729,37 +766,13 @@ func (p *flowChainProcessor) consumeTransition(
 		))
 		return false
 	}
-	on := p.prevOutput
-
 	// When a multi-channel expression drives a transition there is no IR
 	// node to route the extra triggers into; the primary channel output
 	// already carries the firing signal, so the extras are dropped.
 	p.additionalTriggers = nil
 
-	switch {
-	case intent.isNext:
-		next := p.shell.top().nextMember()
-		p.shell.addTransition(ir.Transition{
-			On:        on,
-			TargetKey: new(next),
-		})
-	case intent.memberKey != "":
-		p.shell.addTransition(ir.Transition{
-			On:        on,
-			TargetKey: new(intent.memberKey),
-		})
-	case intent.activateKey != "":
-		p.shell.registerActivation(intent.activateKey, on)
-		if p.shell.inSequence() {
-			p.shell.addTransition(ir.Transition{
-				On:        on,
-				TargetKey: nil,
-			})
-		}
-	}
+	p.shell.applyTransitionIntent(p.prevOutput, intent)
 	p.transitionEmitted = true
-	// prevNode stays set so that subsequent chain logic could detect misuse;
-	// in practice a transition token must be the last node in the chain.
 	return true
 }
 
@@ -774,7 +787,6 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	newNodes, newEdges, ok := analyzeOutputRoutingTable(
 		acontext.Child(p.ctx, rt),
 		*p.prevNode,
-		p.prevOutput,
 		p.kg,
 		p.shell,
 	)
@@ -907,7 +919,6 @@ func extractConfigValues(
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
-	sourceHandle ir.Handle,
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
@@ -950,35 +961,7 @@ func analyzeOutputRoutingTable(
 			}
 
 			if result.transition != nil {
-				// Terminal scope reference in a routing branch: translate
-				// into an activation (and, if the branch originates inside
-				// a sequence, an exit transition).
-				intent := *result.transition
-				if intent.activateKey != "" {
-					shell.registerActivation(intent.activateKey, prevOutputHandle)
-					if shell.inSequence() {
-						shell.addTransition(ir.Transition{
-							On:        prevOutputHandle,
-							TargetKey: nil,
-						})
-					}
-					continue
-				}
-				if intent.memberKey != "" {
-					shell.addTransition(ir.Transition{
-						On:        prevOutputHandle,
-						TargetKey: new(intent.memberKey),
-					})
-					continue
-				}
-				if intent.isNext {
-					next := shell.top().nextMember()
-					shell.addTransition(ir.Transition{
-						On:        prevOutputHandle,
-						TargetKey: new(next),
-					})
-					continue
-				}
+				shell.applyTransitionIntent(prevOutputHandle, *result.transition)
 				continue
 			}
 
@@ -1085,21 +1068,9 @@ func analyzeSequence(
 	kg *keyGenerator,
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	var seqScope *symbol.Scope
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return ir.Scope{}, nil, nil, false
-		}
-		seqScope = resolved
-	} else {
-		resolved, err := ctx.Scope.GetChildByParserRule(ctx.AST)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return ir.Scope{}, nil, nil, false
-		}
-		seqScope = resolved
+	seqScope, ok := resolveDeclScope(ctx)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
 	}
 	seqName := seqScope.Name
 	scope := ir.Scope{
@@ -1215,24 +1186,12 @@ func analyzeTopLevelStage(
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
 	// Resolve the symbol scope registered by collectTopLevelStage so that
-	// anonymous top-level stages pick up the auto-generated name (e.g.,
-	// "stage_0") and the resulting ir.Scope has a non-empty, unique Key —
-	// otherwise anonymous stages would collide at the root member level.
-	var stageSym *symbol.Scope
-	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return ir.Scope{}, nil, nil, false
-		}
-		stageSym = resolved
-	} else {
-		resolved, err := ctx.Scope.GetChildByParserRule(ctx.AST)
-		if err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-			return ir.Scope{}, nil, nil, false
-		}
-		stageSym = resolved
+	// anonymous top-level stages pick up the auto-generated name and the
+	// resulting ir.Scope has a non-empty, unique Key. Without this, anonymous
+	// stages would collide at the root member level.
+	stageSym, ok := resolveDeclScope(ctx)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
 	}
 	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
 	if !ok {
