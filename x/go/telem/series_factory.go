@@ -29,7 +29,9 @@ type NumericSample interface {
 
 // FixedSample represents any value that can be stored in a Series and has a fixed
 // density.
-type FixedSample interface{ NumericSample | uuid.UUID | bool }
+type FixedSample interface {
+	NumericSample | uuid.UUID | bool
+}
 
 // VariableSample is a type that can be stored in a variable-density series.
 type VariableSample interface{ []byte | string }
