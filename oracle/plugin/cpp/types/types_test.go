@@ -992,6 +992,71 @@ var _ = Describe("C++ Types Plugin", func() {
 			Expect(content).NotTo(ContainSubstring(`std::optional<Node>`))
 		})
 
+		It("Should use indirect for mutually recursive optional fields", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
+
+				A struct {
+					b B??
+				}
+				B struct {
+					a A??
+				}
+			`
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`x::mem::indirect<B> b;`,
+					`x::mem::indirect<A> a;`,
+				).
+				ToNotContain(
+					`std::optional<A>`,
+					`std::optional<B>`,
+				)
+		})
+
+		It("Should use indirect for cycles through array wrappers", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
+
+				Node struct {
+					children Node[]
+					parent Parent??
+				}
+				Parent struct {
+					nodes Node[]
+				}
+			`
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(`x::mem::indirect<Parent> parent;`).
+				ToNotContain(`std::optional<Parent>`)
+		})
+
+		It("Should use indirect for cycles through a distinct struct wrapper", func(ctx SpecContext) {
+			source := `
+				@cpp output "client/cpp/types"
+
+				A struct {
+					b BWrap??
+				}
+				B struct {
+					a A??
+				}
+				BWrap B
+			`
+			resp := MustGenerate(ctx, source, "types", loader, cppPlugin)
+			ExpectContent(resp, "types.gen.h").
+				ToContain(
+					`x::mem::indirect<BWrap> b;`,
+					`x::mem::indirect<A> a;`,
+				).
+				ToNotContain(
+					`std::optional<BWrap>`,
+					`std::optional<A>`,
+				)
+		})
+
 		It("Should use optional for non-self-referential optional fields", func(ctx SpecContext) {
 			source := `
 				@cpp output "client/cpp/types"
