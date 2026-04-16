@@ -33,18 +33,19 @@ const seriesWireByteLength = (series: SeriesPayload): number => {
   return series.data.byteLength;
 };
 
-const packBoolBits = (src: ArrayBuffer): Uint8Array => {
-  const srcBytes = new Uint8Array(src);
+const packBoolBits = (src: ArrayBuffer | Uint8Array): Uint8Array => {
+  const srcBytes = src instanceof Uint8Array ? src : new Uint8Array(src);
   const dst = new Uint8Array(Math.ceil(srcBytes.length / 8));
   for (let i = 0; i < srcBytes.length; i++)
     if (srcBytes[i] !== 0) dst[i >> 3] |= 1 << (i & 7);
   return dst;
 };
 
-const unpackBoolBits = (src: Uint8Array, sampleCount: number): Uint8Array => {
-  const dst = new Uint8Array(sampleCount);
+const unpackBoolBits = (src: Uint8Array, sampleCount: number): ArrayBuffer => {
+  const buf = new ArrayBuffer(sampleCount);
+  const dst = new Uint8Array(buf);
   for (let i = 0; i < sampleCount; i++) dst[i] = (src[i >> 3] >> (i & 7)) & 1;
-  return dst;
+  return buf;
 };
 
 interface KeyedSeries extends SeriesPayload {
@@ -228,14 +229,11 @@ export class Codec {
         view.setUint32(offset, seriesLengthOrSize, true);
         offset += DATA_LENGTH_SIZE;
       }
-      if (series.dataType.equals(DataType.BOOLEAN)) {
-        const packed = packBoolBits(series.data);
-        buffer.set(packed, offset);
-        offset += packed.byteLength;
-      } else {
-        buffer.set(new Uint8Array(series.data), offset);
-        offset += series.data.byteLength;
-      }
+      const bytes = series.dataType.equals(DataType.BOOLEAN)
+        ? packBoolBits(series.data)
+        : new Uint8Array(series.data);
+      buffer.set(bytes, offset);
+      offset += bytes.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
         offset += TIMESTAMP_SIZE;
@@ -320,12 +318,11 @@ export class Codec {
         returnFrame.keys.splice(i, 1);
         return;
       }
-      let seriesBuffer: ArrayBuffer;
-      if (isBool) {
-        const packed = src.slice(index, index + wireByteLength);
-        seriesBuffer = unpackBoolBits(packed, currSize).buffer;
-      } else seriesBuffer = src.slice(index, index + dataByteLength).buffer;
-      const currSeries: SeriesPayload = { dataType, data: seriesBuffer };
+      const wireBytes = src.slice(index, index + wireByteLength);
+      const currSeries: SeriesPayload = {
+        dataType,
+        data: isBool ? unpackBoolBits(wireBytes, currSize) : wireBytes.buffer,
+      };
       index += wireByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
