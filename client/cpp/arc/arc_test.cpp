@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <functional>
 #include <random>
 #include <string>
 
@@ -257,8 +258,27 @@ sequence main {
     }
     ASSERT_TRUE(found_interval);
 
-    ASSERT_EQ(retrieved.program->sequences.size(), 1);
-    ASSERT_EQ(retrieved.program->sequences[0].key, "main");
-    ASSERT_EQ(retrieved.program->sequences[0].stages.size(), 2);
+    // The compiled scope tree should contain a sequential "main" scope
+    // with two member stages ("initial" and "end"). After the IR-refactor
+    // that replaced flat sequences/stages with the composable Scope tree,
+    // sequences and stages are no longer top-level struct fields; they
+    // live as nested Scopes under program->root.
+    const ::arc::ir::Scope *main_scope = nullptr;
+    std::function<void(const ::arc::ir::Scope &)> find_main;
+    find_main = [&](const ::arc::ir::Scope &scope) {
+        if (main_scope != nullptr) return;
+        if (scope.key == "main" && scope.mode == ::arc::ir::ScopeMode::Sequential) {
+            main_scope = &scope;
+            return;
+        }
+        for (const auto &phase: scope.phases)
+            for (const auto &m: phase.members)
+                if (m.scope) find_main(*m.scope);
+        for (const auto &m: scope.members)
+            if (m.scope) find_main(*m.scope);
+    };
+    find_main(retrieved.program->root);
+    ASSERT_NE(main_scope, nullptr);
+    ASSERT_EQ(main_scope->members.size(), 2);
 }
 }
