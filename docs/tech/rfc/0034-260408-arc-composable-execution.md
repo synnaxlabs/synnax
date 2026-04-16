@@ -5,43 +5,62 @@
 
 # 0 - Summary
 
-This RFC generalizes `sequence` and `stage` from a fixed parent-child relationship into
-two composable execution modes that can be nested arbitrarily. `sequence` means "run
-children in order." `stage` means "run children in parallel." This eliminates the
-verbosity of expressing sequential timed operations while preserving full backwards
-compatibility with existing Arc programs.
+This RFC redesigns Arc's execution model at two levels at once.
 
-The key architectural change is separating the execution context (what's active, what
-gets reset) from the composition mode (sequential vs parallel). The scheduler operates
-on a unified strata tree where execution contexts are boundaries within strata, not a
-separate hierarchy.
+At the surface, `sequence` and `stage` become composable execution modes that can be
+nested arbitrarily. `sequence` runs children in order. `stage` runs children in
+parallel. The fixed `sequence > stage` parent-child relationship goes away. Stageless
+sequences, inline stages within sequences, and inline sequences within stages all become
+valid.
+
+At the intermediate representation, the four execution-shell types (`Stage`, `Sequence`,
+`Step`, `Flow`) and the separate `Strata` field collapse into a single primitive,
+`Scope`, parameterized by concurrency mode (`parallel` or `sequential`) and liveness
+(`always` or `gated`). Synthesized `stage_entry` nodes and string-keyed boundary markers
+are removed. Conditional state transitions become declarative fields on sequential
+scopes rather than dataflow edges into synthetic nodes.
+
+The dataflow layer (`Function`, `Node`, `Edge`, `Handle`, `Authorities`) is unchanged.
+Every valid Arc program from before this RFC lowers to the new IR and executes with
+identical observable behavior.
 
 # 1 - Vocabulary
 
-- **Step** - A child of a sequence. Steps have three kinds: stage (parallel), sequence
-  (sequential), or flow (leaf). Stage and sequence steps are execution contexts that own
-  their own strata. Flow steps are leaves whose nodes live in the parent sequence's
-  strata.
-- **Gate** - A bare expression or `wait{}` node that appears as a step in a sequence. It
-  blocks progression until it evaluates to truthy, then the sequence advances.
-- **Execution Context Boundary** - A synthetic scheduler-level construct that represents
-  a child context (sequence or stage) within a parent's strata. It has a position in the
-  parent's topological order and contains sub-strata that it manages internally.
-- **Write Cascading** - The behavior where consecutive write steps in a sequence all
-  execute on the same tick, advancing instantly until the sequence hits a gate, stage,
-  sequence, or its end.
-- **Strata Tree** - The unified hierarchy of execution strata. Each execution context
-  has its own strata containing directly-owned nodes and execution context boundaries
-  for child contexts.
+- **Layer 1 (dataflow)** is the graph of `Function`, `Node`, and `Edge` that expresses
+  pure compute. Flat, consumed by the analyzer and the compiler. Unchanged by this RFC.
+- **Layer 2 (execution shell)** is the tree rooted at `IR.root` that governs when and in
+  what order subsets of the dataflow graph execute. Redesigned by this RFC.
+- **Scope** is the single Layer-2 primitive. Every `sequence`, `stage`, and flow step
+  lowers to a Scope.
+- **Mode** is `parallel` or `sequential`. It decides whether a scope's children run
+  together (respecting data dependencies) or one at a time (with transition rules).
+- **Liveness** is `always` or `gated`. It decides whether a scope is continuously active
+  (root-like) or activates only when its activation handle fires.
+- **Phase** is one execution layer inside a parallel scope. Members in the same phase
+  have no data dependency among themselves. Phase N depends only on phases 0 to N-1.
+- **Member** is a child of a scope. Either a reference to a Layer-1 node (`NodeRef`) or
+  a nested scope.
+- **NodeRef** is a Layer-2 handle that points at a Layer-1 node by key.
+- **Transition** is a declarative rule on a sequential scope: when a dataflow handle
+  becomes truthy, switch the active member or exit the scope.
+- **Activation** is the event of a gated scope becoming active. Activation cascades a
+  reset through directly-owned node members, and recursively activates gated children
+  that carry no activation handle of their own.
+- **Gate** is a bare expression or `wait{}` node that appears as a sequential step. It
+  advances the sequence when its output becomes truthy.
+- **Write cascading** is the behavior where consecutive write steps in a sequence
+  advance on the same tick. Each write is immediately truthy, and the sequential
+  scheduler's convergence loop keeps advancing until it hits a step whose output is not
+  truthy (a gate, a reactive stage, or a non-trivial sub-sequence).
 
 # 2 - Motivation
 
 ## 2.0 - Sequential Operations Are Verbose
 
-The most natural thing a hardware control user wants to express is a sequential
-procedure: "open valve, wait 2 seconds, close valve, wait 1 second, open vent." In
-current Arc, the only way to sequence operations over time is to split each step into
-its own named stage with an explicit `=> next` transition:
+The most common request from hardware-control users is to express a sequential
+procedure: "open valve, wait 2 seconds, close valve, wait 1 second, open vent." In the
+pre-RFC Arc surface syntax, the only way to sequence operations over time is to split
+each step into its own named stage with an explicit `=> next` transition:
 
 ```arc
 sequence main {
@@ -59,316 +78,733 @@ sequence main {
 }
 ```
 
-This is 13 lines for a 5-step procedure.
+That is thirteen lines for a five-step procedure.
 
 ## 2.1 - Boilerplate Obscures Business Logic
 
-Analysis of every Arc program in the codebase reveals:
+Across every Arc program in the codebase, the pattern repeats:
 
-- ~73% of stage content is trivial channel writes
-- ~60% of programs have trivial terminal stages (just cleanup)
-- The pattern "set values + `wait` + `=> next`" appears in almost every program
-- Real logic (interval-triggered functions, complex conditions) is diluted among
-  mechanical setup/teardown operations
+- Roughly 73% of stage bodies are trivial channel writes.
+- Roughly 60% of programs have terminal stages that only hold final cleanup writes.
+- The "set values, wait, transition" pattern appears in almost every sequence.
 
-## 2.2 - The Root Problem
+Real control logic (interval-triggered control functions, conditional predicates) is
+diluted among mechanical setup and teardown. The source no longer reads like a
+procedure.
 
-Arc's execution model is reactive: all flows within a stage execute in parallel on each
-tick. There is no concept of "this line runs before that line" within a stage. A
-constant like `1 -> valve_cmd` executes exactly once (it is a constant node), but
-`1 -> valve_cmd` and `0 -> valve_cmd` in the same stage would both execute on the first
-cycle, with the final value being nondeterministic.
+## 2.2 - Stages Are the Unit of Sequencing
 
-Stages are the unit of sequencing. The language makes reactive dataflow easy but
-imperative sequencing verbose.
+Arc's reactive model runs every flow in a stage on every tick. Two bare writes in the
+same stage body execute on the same cycle; the final value is undefined because neither
+write is "after" the other. Stages are what separate "before" from "after" in the
+language. The dataflow graph stays parallel; sequencing lives in stage boundaries and
+one-shot `=> next` transitions.
 
-## 2.3 - Existing Semantics Already Imply the Solution
+Because the language needs stages to sequence but offers no lighter-weight construct,
+users pay the stage tax on every logical step. The keywords `sequence` and `stage`
+already describe two different composition modes, just wrapped in a fixed parent-child
+shape. Treating them as composable modes is a small change to the surface grammar and a
+large improvement in the source-to-semantics mapping.
 
-The existing syntax already separates sequential from parallel:
+## 2.3 - The Existing IR Resists the Change
 
-- `sequence` bodies have no commas between children (stages). Order is positional.
-- `stage` bodies have commas between children (flows). Items are listed as coexisting.
+Adding composable execution on top of the pre-RFC IR would compound problems it already
+has. The IR describes execution through two parallel hierarchies:
 
-The keywords already describe composition modes. They are constrained to a fixed
-parent-child relationship (`sequence` contains `stage`) when they could be composable
-primitives.
+- A **composition tree**:
+  `IR.root: Stage → Stages.Sequences → Sequence.Steps → Step{Flow | Stage | Sequence}`.
+  Source-grammar aligned.
+- A **stratification field**: `Stage.strata` and `Sequence.strata` encode the execution
+  order among members of each context.
+
+These are nominally independent concerns (structure versus ordering) but are entangled
+at every integration point:
+
+1. `Strata` entries hold magic-string markers (`entry_<seq>_<step>`, `boundary_<step>`)
+   that refer back to the composition tree.
+2. The scheduler probes every strata key at runtime: "is this a real node, a boundary,
+   or a marker to skip?" (`arc/go/runtime/scheduler/scheduler.go:286-306` pre-RFC).
+3. Three separate places format and parse the `boundary_<step>` convention (stratifier,
+   Go scheduler, C++ scheduler). Drift between them produces silent activation breakage.
+4. The boundary key format is not sequence-qualified. Two top-level sequences with
+   same-keyed sub-sequences collide in the scheduler's global boundaries map.
+5. `stage_entry` nodes are synthesized into the dataflow graph purely so conditional
+   edges from transition predicates have a reactive firing point. Boundary markers serve
+   a different purpose (keeping a sub-sequence executing on every parent cycle while the
+   sub-sequence is active). Two mechanisms cooperate to produce state-machine behavior,
+   one reactive, one passive.
+
+From the scheduler's perspective, `Stage` and `Flow` differ only in whether they can
+contain sub-sequences. Their node-state lifecycle is uniform (`Reset()` on activation,
+clear `selfChanged` on deactivation). The distinction is structural, not behavioral.
+`Step` exists purely as a tagged-union wrapper around the other three because Go lacks
+sum types.
+
+Building composable execution on top of this structure would mean a third mechanism, or
+an extension of the magic-string convention, or another special case in the scheduler.
+The simpler move is to collapse Layer 2 into one primitive and express the surface
+feature through it.
 
 # 3 - Design
 
-## 3.0 - Core Idea
+## 3.0 - Two Explicit Layers
 
-Redefine `sequence` and `stage` as two composable execution modes:
+Arc programs have two explicit layers, with reference as the only coupling between them.
 
-- **`sequence`**: Children execute in order. No commas between children.
-- **`stage`**: Children execute in parallel (reactive). Commas between children.
+**Layer 1 (dataflow).** `Function`, `Node`, `Edge`, `Handle`, `Authorities`, and their
+collections. A flat graph of compute. Unchanged by this RFC. Conditional edges still
+gate dataflow propagation ("only push `changed` downstream when the source output is
+truthy"); this is a Layer-1 concern, independent of Layer-2 state-machine semantics.
 
-These can be nested arbitrarily. The existing `sequence > stage` parent-child pattern
-remains valid and is the most common form.
+**Layer 2 (execution shell).** A tree of `Scope` values rooted at `IR.root`. Layer 2
+references Layer 1 only through `NodeRef` (by node key) and `Handle` (by node key plus
+parameter name).
 
-## 3.1 - Stageless Sequences
+## 3.1 - The Scope Primitive
 
-A sequence can contain bare operations without wrapping them in stages:
+```
+Scope struct {
+    key         string
+    mode        ScopeMode        // parallel | sequential
+    liveness    Liveness         // always | gated
+    activation  Handle?          // gated only; unset for always scopes
+    phases      Phase[]          // parallel only
+    members     Member[]         // sequential only
+    transitions Transition[]     // sequential only
+}
+
+Phase struct {
+    members Member[]             // members that share this execution layer
+}
+
+Member struct {
+    key     string               // position identifier within the parent scope
+    nodeRef NodeRef?             // set when this member references a Layer-1 node
+    scope   Scope?               // set when this member is a nested scope
+}
+
+NodeRef struct {
+    key string                   // key into IR.nodes
+}
+
+Transition struct {
+    on     Handle                // a Layer-1 node output
+    target TransitionTarget
+}
+
+TransitionTarget struct {
+    memberKey string?            // target: sibling member in this scope
+    exit      bool?              // target: exit scope, yield to parent
+}
+```
+
+`Member` is a tagged union of `NodeRef | Scope`. `TransitionTarget` is a tagged union of
+`memberKey | exit`. Exactly one side of each union is set; the analyzer enforces the
+invariant. The Oracle schema does not encode the invariant because Go has no sum types.
+
+`ScopeMode` and `Liveness` are enums with `unspecified = 0` sentinels, matching the
+existing `EdgeKind` convention at `schemas/arc/ir.oracle:29`. The full schema lives at
+`schemas/arc/ir.oracle:56-167`.
+
+## 3.2 - Valid Configurations
+
+Three `(mode, liveness)` combinations appear in compiled programs.
+
+| mode         | liveness | Role                                   |
+| ------------ | -------- | -------------------------------------- |
+| `parallel`   | `always` | The program root. Continuously active. |
+| `parallel`   | `gated`  | What a `stage {}` lowers to.           |
+| `sequential` | `gated`  | What a `sequence {}` lowers to.        |
+
+The fourth combination, `sequential + always`, is theoretically expressible (a top-level
+state machine that boots at member 0) but no source construct produces it. The analyzer
+never emits it, and the scheduler need not handle it specially.
+
+## 3.3 - The Root
+
+`IR.root` is always `Scope{mode: parallel, liveness: always}`. Its phases mix `NodeRef`
+members (module-scope reactive flow: channel reads, timers, bare flow statements) and
+nested Scope members (top-level sequences and top-level stages). Top level stages are no
+longer wrapped in an implicit single-step sequence; they sit directly as members under
+the root.
+
+Because `Member` is a tagged union of `NodeRef | Scope`, a parallel scope mixes both
+kinds of child within a single phase. No special case is needed at the root.
+
+## 3.4 - What Goes Away
+
+The following are removed from the pre-RFC design:
+
+- From the IR schema: `Flow`, `Stage`, `Stages`, `Step`, `Steps`, `Sequence`,
+  `Sequences`, `Stratum`, and `Strata`.
+- From `arc/go/stl/stage/`: the `stage_entry` STL node (`EntryNodeName`,
+  `EntryActivationParam`, `EntryNodeInputs`, and its `Next` implementation).
+- From the stratifier: boundary-key synthesis, entry-node placement, and the
+  `stratifySequenceWithFlowSteps` path.
+- From the scheduler: the `boundaries` and `transitions` maps keyed by magic strings,
+  `registerBoundaries`, `registerTransitions`, and the entry-node-specific dispatch
+  branch in `execStrata`.
+
+# 4 - Language Semantics
+
+## 4.0 - Sequence Bodies Run in Order
+
+A `sequence` body is a list of steps executed in order. Each step produces a truthy or
+falsy output. When truthy, the sequence advances; when falsy, the sequence blocks on
+that step until a subsequent tick produces a truthy result.
+
+```arc
+sequence main {
+    1 -> valve_cmd           // write: immediately truthy, advances
+    wait{duration=2s}        // gate: blocks for 2s, then truthy
+    0 -> valve_cmd           // write: advances
+    pressure > 50            // gate: blocks until truthy
+    1 -> vent_cmd            // write: advances
+}
+```
+
+All steps follow the same rule, **evaluate, check truthiness, advance if truthy**. Each
+step kind differs only in what its output looks like:
+
+- A **write** (`value -> channel`) executes the write and produces an immediately truthy
+  output. Consecutive writes advance on the same tick via the convergence loop (§6.4).
+- An **expression** evaluates the expression. Truthy advances; falsy blocks until a
+  later tick produces a truthy value.
+- A **`wait{duration=D}`** is falsy until `D` elapses since the sequence reached the
+  step, then truthy.
+- A **nested `stage {}`** runs its reactive flows until one of them fires `=> next` (or
+  a named jump). The step is truthy when that firing happens.
+- A **nested `sequence {}`** runs from member 0. The step is truthy when the nested
+  sequence exits (completes its last member or fires an explicit exit transition).
+
+A sequence advances past its last step by exiting the scope.
+
+## 4.1 - Stage Bodies Run in Parallel
+
+Inside a `stage` body, execution follows the pre-RFC reactive rules:
+
+1. All flows execute reactively. A flow fires when an upstream output marks it changed.
+2. Constant writes (`1 -> channel`) execute once per activation (the constant node fires
+   once).
+3. Continuous flows propagate whenever the source changes.
+4. Conditional edges (`=> next`, `=> name`) fire once per stage activation, when the
+   source output becomes truthy.
+5. Every directly-owned node is reset on stage activation.
+
+The one observable difference from the pre-RFC model is that a stage no longer depends
+on synthetic entry nodes to receive transitions. Transition handles are evaluated
+directly on the parent sequential scope.
+
+## 4.2 - Nesting Rules
+
+**Sequence inside stage.** The sub-sequence is one of the stage's phases' members. It
+runs in parallel with the stage's other members. On stage activation, the sub-sequence
+resets to member 0; on stage deactivation it freezes in place (§4.4). Wiring
+sub-sequence completion into other stage members is deferred work (§10.0).
+
+**Stage inside sequence.** The inline stage becomes the current sequential step. The
+sequence blocks on it until the stage fires a transition targeting the parent sequence.
+
+**Sequence inside sequence.** An anonymous nested sequence is semantically equivalent to
+inlining its steps in the outer sequence. The analyzer emits the nested scope
+structurally; the scheduler treats each nested sequence as a distinct scope. Named
+nested sequences are always preserved as independent scopes because they are potential
+jump targets.
+
+**Stage inside stage.** Anonymous flattens: the inner stage's items behave as members of
+the outer. Named inner stages stay distinct (they are jump targets).
+
+## 4.3 - Transitions
+
+Transitions are declarative rules on sequential scopes. Two surface forms compile to
+transitions:
+
+- `=> next` in a flow (inside a stage inside a sequence, or inside an inline stage)
+  advances the nearest enclosing sequence to the next sibling member.
+- `=> name` inside a sequential-containing context jumps to the sibling member with that
+  name. Names resolve by walking up the enclosing-sequence chain (§4.5).
+
+A third surface form, `source => target_scope`, where `target_scope` names a top-level
+gated scope (typically an `abort` handler), compiles to two IR entities (§5.6).
+
+A flow step inside a sequence has its transition auto-wired by the analyzer: when the
+step's final node fires truthy, advance to the next step, or exit the scope if the step
+is last.
+
+## 4.4 - Reset on Entry
+
+One rule applies uniformly at every level: **reset on entry, not on exit.**
+
+When a gated scope activates:
+
+1. Each directly-owned `NodeRef` member is reset (timers restart, one-shot states clear,
+   stateful nodes reinitialize).
+2. Each nested gated scope member with no activation handle is recursively activated.
+3. Sequential scopes additionally set `activeMember = 0`.
+
+When a gated scope deactivates (because a transition exited it, or because its parent
+sequential scope advanced past it):
+
+1. Directly-owned `NodeRef` members have their `selfChanged` bit cleared. The node's
+   `Reset()` is **not** called.
+2. The `active` bit on the scope clears.
+3. Nested scope members are **not** walked. Their `activeMember` state freezes.
+
+The two asymmetries (activation cascades and resets; deactivation does not) are
+preserved exactly from the pre-RFC scheduler semantics.
+
+## 4.5 - Scope Resolution for `=> name`
+
+`=> name` resolves by walking up the enclosing-sequence chain. At each level, the
+analyzer checks the current sequential scope's direct members for one whose key matches.
+If found, that is the target. If not, the search continues in the next enclosing
+sequence.
+
+Inner scopes shadow outer scopes. Within a single sequence, sibling names must be
+unique; name collision at the same level is a compile-time error. Across levels,
+shadowing is silent and allowed. The pre-RFC requirement of globally unique names is
+relaxed.
+
+If the target is a top-level gated scope (not a sibling in any enclosing sequence), the
+analyzer falls back to cross-scope activation (§5.6).
+
+# 5 - Lowering
+
+This section specifies how every Arc surface construct lowers to the Scope primitive.
+The authoritative implementation lives in `arc/go/text/analyze.go`.
+
+## 5.0 - Top-Level Sequence
+
+```arc
+sequence main {
+    stage press { ... }
+    stage done { ... }
+}
+```
+
+Lowers to:
+
+```
+Scope{
+    key:      "main"
+    mode:     sequential
+    liveness: gated
+    activation: nil  // set if and only if some `=> main` targets it
+    members: [
+        Member{ key: "press", scope: Scope{ parallel, gated, ... } },
+        Member{ key: "done",  scope: Scope{ parallel, gated, ... } },
+    ]
+    transitions: [ /* auto-wired and explicit, see 5.3 and 5.4 */ ]
+}
+```
+
+The Scope is added as a `Member{scope: ...}` in `IR.root`'s phases.
+
+## 5.1 - Top-Level Stage
+
+```arc
+stage abort {
+    0 -> ox_cmd,
+    1 -> vent_cmd,
+}
+```
+
+Lowers directly to `Scope{parallel, gated}` under the root, without being wrapped in an
+implicit sequence:
+
+```
+Scope{
+    key:      "abort"
+    mode:     parallel
+    liveness: gated
+    phases:   [ Phase{members: [NodeRef{ox_cmd_write}, NodeRef{vent_cmd_write}]} ]
+}
+```
+
+Activation is set when some other transition targets `abort` (§5.6). If nothing
+activates it, the analyzer leaves `activation: nil` and the scope never runs. That case
+is legal (top-level stages may be referenced indirectly) and is diagnosed elsewhere if
+unreachable.
+
+Anonymous top-level stages (`stage { ... }` without a name) receive a synthesized key
+during analysis so the root's members remain uniquely keyed.
+
+## 5.2 - Stageless Sequence (Flow Steps)
 
 ```arc
 sequence main {
     1 -> valve_cmd
     wait{duration=2s}
     0 -> valve_cmd
-    wait{duration=1s}
-    1 -> vent_cmd
 }
 ```
 
-No stages, no commas, no `=> next`. Five lines for a five-step procedure.
+Each flow step is wrapped in a parallel+gated scope containing the step's nodes in a
+single phase. The parent sequential scope holds one `Member{scope: ...}` per step:
 
-Each line is a sequential step. Writes execute immediately and advance. Expressions and
-`wait` nodes act as gates: execution blocks at that step until the expression evaluates
-to truthy, then advances.
+```
+Scope{
+    key:      "main"
+    mode:     sequential
+    liveness: gated
+    members: [
+        Member{ key: "step_0", scope: Scope{ parallel, gated, phases: [ Phase{members: [NodeRef{write_valve_1}]} ] } },
+        Member{ key: "step_1", scope: Scope{ parallel, gated, phases: [ Phase{members: [NodeRef{wait_2s}]}       ] } },
+        Member{ key: "step_2", scope: Scope{ parallel, gated, phases: [ Phase{members: [NodeRef{write_valve_0}]} ] } },
+    ]
+    transitions: [ /* auto-wired, see 5.3 */ ]
+}
+```
 
-## 3.2 - Inline Sequences Within Stages
+The wrapper scope is built by `analyze.flowScope` at `arc/go/text/analyze.go:1062`.
+Multi-node flow chains (`a -> b -> c`) wrap all chain nodes in a single phase at
+analysis time; the stratifier re-layers them by data dependencies before emitting the
+final phasing (§6.1).
 
-A stage can contain a `sequence` block alongside reactive flows:
+This wrapping adds one level of nesting per flow step compared to the pre-RFC flat
+`Sequence.Strata` encoding. The runtime cost is a pointer hop per descent; the
+readability gain is a uniform lowering rule.
+
+## 5.3 - Auto-Wired Sequential Transitions
+
+For every flow-step member in a sequential scope, the analyzer emits a `Transition` on
+the parent scope that fires on the step's final node's first output:
+
+```
+Transition{
+    on:     Handle{node: lastNodeOfStepN, param: firstOutputParam},
+    target: TransitionTarget{memberKey: stepN+1.key},
+}
+```
+
+For the last step, `target.exit = true` instead of a member key. The implementation is
+`autoWireTransition` at `arc/go/text/analyze.go:1085`.
+
+## 5.4 - Explicit Transitions (`=> next`, `=> name`)
+
+```arc
+stage press {
+    1 -> press_cmd,
+    pressure > 50 => next,
+}
+```
+
+`=> next` inside a stage whose parent is a sequence emits a `Transition` on the
+enclosing sequential scope, not on the stage itself:
+
+```
+Transition{
+    on:     Handle{node: comparison_node, param: out},
+    target: TransitionTarget{memberKey: next_sibling.key},
+}
+```
+
+`=> named_target` produces the same shape with `memberKey: "named_target"` resolving
+against the enclosing sequence's members.
+
+## 5.5 - Inline Sub-Sequences in a Stage
 
 ```arc
 stage fire {
     sequence {
-        1 -> ox_mpv_cmd
+        1 -> ox_cmd
         wait{duration=500ms}
-        1 -> fuel_mpv_cmd
+        1 -> fuel_cmd
     },
-    interval{period=100ms} -> control_tpc{},
-    ox_pt_1 < 15 => next,
+    interval{period=100ms} -> control,
+    ox_pt < 15 => next,
 }
 ```
 
-The `sequence` block progresses through its steps while the reactive flows (`interval`,
-exit condition) run in parallel. The `sequence` block is one of the stage's parallel
-items and requires a trailing comma like any other stage item.
+The inline sub-sequence becomes a `Scope{sequential, gated}` member inside one of the
+stage's phases. Its `activation` is nil; it inherits the stage's activation cascadingly
+(§4.4). On stage re-activation the sub-sequence resets to member 0.
 
-## 3.3 - Inline Stages Within Sequences
-
-A sequence can contain `stage` blocks for reactive sections:
+## 5.6 - Cross-Scope Activation (`=> abort`)
 
 ```arc
 sequence main {
-    1 -> ox_mpv_cmd
-    wait{duration=500ms}
-    1 -> fuel_mpv_cmd
-    stage {
-        interval{period=100ms} -> control_tpc{},
-        ox_pt_1 < 15 => next,
+    stage press {
+        abort_btn => abort,
     }
-    0 -> ox_mpv_cmd
-    1 -> vent_cmd
 }
+
+stage abort { ... }
 ```
 
-The `stage` block runs its reactive flows until something fires `=> next`, then the
-parent sequence advances to the next step.
+`abort_btn => abort` names a top-level scope that is not a sibling in any enclosing
+sequence. The transition does not fit into within-scope `Transition` semantics. The
+analyzer decomposes it into two IR entities from the single source clause:
 
-## 3.4 - Named Blocks as Jump Targets
+1. On the enclosing sequential scope:
+   `Transition{on: abort_btn_handle, target: {exit: true}}`. When `abort_btn` fires, the
+   current sequence exits.
+2. On the target top-level scope: `activation: abort_btn_handle`. When `abort_btn`
+   fires, the abort scope activates.
 
-Named `stage` and `sequence` children within a `sequence` are jump targets for `=>`:
+Both transitions reference the same `Handle`. Their order of effect is independent. The
+exit path runs the pre-RFC deactivation rules (non-cascading); the activation path runs
+the pre-RFC activation rules (cascading reset).
+
+The implementation of the decomposition is `flowChainProcessor.consumeTransition` at
+`arc/go/text/analyze.go:724`, with cross-scope resolution handled by `analyzeStageRef` /
+`analyzeSequenceRef`.
+
+## 5.7 - Module-Scope Reactive Flow
 
 ```arc
-sequence main {
-    stage pressurize {
-        1 -> press_cmd,
-        pressure > 50 => next,
-    }
-    sequence fire {
-        1 -> ox_mpv_cmd
-        wait{duration=500ms}
-        stage {
-            interval{period=100ms} -> control_tpc{},
-            ox_pt_1 < 15 => next,
-            wait{duration=30s} => abort,
-        }
-        0 -> ox_mpv_cmd
-    }
-    stage abort {
-        0 -> ox_mpv_cmd,
-        1 -> vent_cmd,
-    }
+start_cmd => main
+sensor -> filter -> clean_sensor
+```
+
+These lower as follows:
+
+- `start_cmd => main` sets `main`'s `activation: Handle{start_cmd_node, out}`. The
+  conditional edge that would, in the pre-RFC design, terminate at `main`'s entry node
+  no longer exists; activation is declarative.
+- `sensor -> filter -> clean_sensor` produces three `NodeRef` members in `IR.root`'s
+  phases, ordered by their dataflow dependencies.
+
+# 6 - Scheduler
+
+The scheduler walks the Layer-2 scope tree on every cycle, executes the active members
+of each reachable scope, evaluates transitions on sequential scopes, and activates gated
+scopes whose activation handle fires. The authoritative implementation is in
+`arc/go/runtime/scheduler/scheduler.go` and `arc/cpp/runtime/scheduler/scheduler.h`.
+
+## 6.0 - Runtime State Tree
+
+The scheduler mirrors the static scope tree as a runtime `scopeState` tree, built once
+at construction:
+
+```
+scopeState {
+    ir           *Scope
+    mode         ScopeMode
+    liveness     Liveness
+    active       bool
+    activeMember int                // sequential only; -1 when inactive
+    members      []memberState      // one per Member of the static scope
+    memberByKey  map[string]int
+    transitionOwner []int           // which member sources each transition's handle
+    transitionOnIdx []int           // dense handle ID into markedFlags
+}
+
+memberState {
+    key     string
+    nodeKey string                  // set for NodeRef members
+    nodeIdx int                     // dense index into the flag slices
+    scope   *scopeState             // set for nested scope members
 }
 ```
 
-`=> next` advances to the next sibling in the parent sequence. `=> abort` jumps to the
-named block. `=> pressurize` would restart that stage.
+Node identity is cached in two dense per-node slices indexed by a scheduler-assigned
+integer: `changedFlags` (pending upstream change) and `selfChangedFlags` (the node
+requested re-execution on the next cycle). A third dense slice, `markedFlags`, holds one
+flag per `(node, param)` pair that sources a sequential-scope transition, pre-resolved
+at construction so evaluation is a single array load.
 
-## 3.5 - Terminal States
+Edge targets, activation targets, and transition handles are all pre-resolved onto
+per-output tables on the source node at construction time. The hot path performs no hash
+lookups.
 
-A stage in a sequence without an exit condition runs forever and never advances:
+## 6.1 - Cycle Structure
 
-```arc
-sequence main {
-    stage pressurize {
-        1 -> press_cmd,
-        pressure > 50 => next,
-    }
-    stage safe {
-        0 -> press_cmd,
-        1 -> vent_cmd,
-    }
-}
+`Next()` executes one cycle by walking from the root:
+
+```
+walk(s):
+    if not s.active: return
+    if s.mode == parallel:
+        for phase in s.ir.phases:
+            for member in phase.members:
+                execute(member)
+    else (sequential):
+        loop up to len(s.members)+1 times:
+            if s.activeMember < 0: break
+            execute(s.members[s.activeMember])
+            if not evaluate_transitions(s): break
+    for gated child c in s's members with activation handle:
+        if markChanged seen on activation output this cycle: activate(c)
+
+execute(member):
+    if member.scope: walk(member.scope)
+    else: run the node, honouring changed / selfChanged gates
 ```
 
-A sequence without an explicit exit condition advances automatically when its last step
-completes.
+The stratifier emits parallel-scope members in phase-flattened order so that
+`walkParallel` iterates `ss.members` directly, using each member's pre-resolved
+`nodeIdx` without any per-access map lookup.
 
-## 3.6 - Comma Rules
+## 6.2 - Activation and Reset
 
-The rule is consistent:
+Activation of a gated scope:
 
-- **`stage` bodies**: commas between items (parallel items are listed)
-- **`sequence` bodies**: no commas between items (order is positional)
+1. Set `active = true`.
+2. If `sequential`: set `activeMember = 0`, recurse into member 0 (reset its node or
+   activate its nested scope).
+3. If `parallel`: for each direct member, reset its NodeRef node and clear its
+   `selfChanged`. For each nested scope member that is `gated` with no activation handle
+   of its own, recursively activate it (cascade). Nested gated scopes that carry an
+   activation handle are left inactive; they wait for their handle to fire.
 
-This is already the case in existing programs. When a `sequence {}` block appears inside
-a `stage {}`, it is one of the stage's parallel items and uses a trailing comma. When a
-`stage {}` block appears inside a `sequence`, it has no trailing comma.
+Deactivation of a scope:
 
-# 4 - Detailed Semantics
+1. Clear `selfChanged` for each direct NodeRef member. Do **not** call `Reset()`.
+2. If sequential: set `activeMember = -1`.
+3. Set `active = false`. Do **not** recurse into nested scope members; their state
+   freezes.
 
-## 4.0 - Sequential Execution Model
+This preserves the pre-RFC asymmetry exactly (activation cascades and resets;
+deactivation does neither), and moves it from scattered site-specific code in the
+pre-RFC scheduler into one recursive function.
 
-Within a `sequence` body, every item is evaluated in order. Each item produces a truthy
-or falsy output. When truthy, the sequence advances to the next item. When falsy, the
-sequence blocks at that item until a subsequent tick produces a truthy result.
+## 6.3 - Transition Evaluation
 
-All items follow the same rule: **evaluate, check truthiness, advance if truthy.**
+`evaluateTransitions` walks a sequential scope's transitions in source order, firing the
+first one whose handle was freshly marked truthy during the current cycle.
 
-- **Write operations** (`value -> channel`): The write executes and immediately produces
-  a truthy output. The sequence advances on the same tick. Consecutive writes all
-  execute on the same tick because each one is immediately truthy (write cascading).
-- **Expressions** (`pressure > 50`): Evaluates the expression. If truthy, advances. If
-  falsy, blocks until a subsequent tick where it becomes truthy.
-- **`wait{}`** (`wait{duration=2s}`): Evaluates to falsy until the duration elapses,
-  then truthy. The timer starts when the sequence reaches that item.
-- **Nested `stage {}` blocks**: The stage's reactive flows execute. The item is truthy
-  when something inside fires `=> next`.
-- **Nested `sequence {}` blocks**: The inner sequence executes from item 0. The item is
-  truthy when the inner sequence completes (runs past its last item).
+Two gates apply before firing:
 
-When the sequence advances past its last item, it is "complete."
+- **Ownership.** If `transitionOwner[i] >= 0 && transitionOwner[i] != activeMember`, the
+  transition is skipped. Its source node is owned by a sibling member that is not
+  currently active, so its output is stale. A transition whose source sits outside the
+  scope (for example, a module-scope channel read driving a cross-scope activation) has
+  owner `-1` and fires regardless of which member is active.
+- **Fresh mark.** The transition fires only when `markedFlags[transitionOnIdx[i]]` is
+  non-zero. A stale-truthy source that did not re-mark this cycle does not fire. This
+  mirrors the conditional-edge firing semantic of the pre-RFC scheduler and prevents
+  one-shot nodes (wait, interval, latched comparisons) from driving spurious repeated
+  transitions on later cycles.
 
-## 4.1 - Gate Semantics
+Firing consumes the mark (clears `markedFlags[i]`), deactivates the current active
+member, then either deactivates the whole scope (for `exit: true`) or activates the
+target sibling. First match wins; later transitions are not evaluated on that cycle.
 
-A gate is any expression that appears as a bare step in a sequence:
+## 6.4 - Convergence
 
-```arc
-sequence main {
-    1 -> press_cmd          // write: executes and advances
-    pressure > 50           // gate: blocks until truthy
-    0 -> press_cmd          // write: executes after gate passes
-    wait{duration=2s}       // gate: blocks for 2 seconds
-    1 -> vent_cmd           // write: executes after wait
-}
+A cascade of same-cycle transitions (for example, a chain of writes that each advance
+the sequence on the same tick) is handled by the per-scope bounded loop in
+`walkSequential`:
+
+```
+budget = len(members) + 1
+loop budget times:
+    if activeMember < 0: break
+    execute active member
+    if not evaluate_transitions: break
 ```
 
-The `wait{duration=D}` node is a gate that becomes truthy after D elapses since it was
-first evaluated. Its timer starts on the tick when the sequence reaches that step.
+The budget allows a chain of `N` members to fire `N` consecutive transitions within one
+cycle, matching the pre-RFC `execStages` convergence-loop semantics. Integration tests
+that rely on write cascading (`integration/tests/arc/stageless_workflow.py` and others)
+continue to observe one-tick completion of simple sequences.
 
-Consecutive writes before a gate all execute on the same tick:
+Convergence is now per sequential scope, not global. Two independent top-level sequences
+each get their own budget. This is a strict refinement of the pre-RFC global-budget
+design and fixes the latent same-key collision between top-level sequences' boundaries.
 
-```arc
-sequence main {
-    1 -> valve_a            // tick 0
-    1 -> valve_b            // tick 0 (same tick)
-    0 -> press_cmd          // tick 0 (same tick)
-    wait{duration=2s}       // tick 0: starts waiting. tick N: becomes truthy
-    0 -> valve_a            // tick N (after wait)
-    0 -> valve_b            // tick N (same tick)
-}
+## 6.5 - Mark Propagation and Conditional Edges
+
+`markChanged(outputIdx)` is called by a node's `Next()` to announce that one of its
+outputs produced a new value. The scheduler uses the pre-resolved output table:
+
+1. Query truthiness on that output (`IsOutputTruthy(param)`).
+2. If truthy and the output sources a sequential transition, set the appropriate
+   `markedFlags` bit.
+3. For each outgoing edge:
+   - Continuous edge: always set the target's `changedFlags` bit.
+   - Conditional edge: set the target's bit only if the output is truthy.
+4. For each gated scope whose activation handle is this output: if it is not yet active,
+   call `activateScope` on it.
+
+No hash lookups happen on the hot path; every table is pre-resolved by key at scheduler
+construction.
+
+## 6.6 - Self-Changed
+
+`MarkSelfChanged` is called by a node that wants to re-execute on the next cycle
+regardless of upstream changes (for example, a stateful timer that has not yet reached
+its deadline). The scheduler preserves the pre-RFC semantics:
+
+- A node that called `MarkSelfChanged` during its `Next()` is re-added to the `changed`
+  set on the next cycle.
+- When a scope containing that node deactivates, the member's `selfChanged` bit is
+  cleared.
+- Activation does not explicitly add to `selfChanged`; it only clears.
+
+The logic lives in the same place it did pre-RFC; only the clearing sites move (they are
+now in `activateScope`, `activateSequentialMember`, `deactivateMember`, and
+`deactivateScope`).
+
+## 6.7 - Authority Flush Ordering
+
+Authority mutations from `set_authority` nodes versus channel writes within a cycle are
+ordered by phase dependencies: the stratifier places `set_authority` nodes in earlier
+phases than the channel writes that depend on them. This is unchanged from the pre-RFC
+design and falls out of the standard dataflow-dependency phasing. See
+`docs/tech/rfc/0031-260311-arc-scheduler-semantics.md` for the underlying invariants.
+
+# 7 - Grammar
+
+## 7.0 - Grammar Changes
+
+```
+sequenceDeclaration ::= 'sequence' IDENTIFIER? '{' sequenceItem* '}'
+sequenceItem        ::= stageDeclaration
+                      | sequenceDeclaration
+                      | flowStatement
+                      | singleInvocation
+
+stageDeclaration    ::= 'stage' IDENTIFIER? stageBody
+stageBody           ::= '{' (stageItem (',' stageItem)* ','?)? '}'
+stageItem           ::= flowStatement
+                      | singleInvocation
+                      | sequenceDeclaration
 ```
 
-## 4.2 - Parallel Execution Model (Unchanged)
+Changes from the pre-RFC grammar:
 
-Within a `stage` body, execution is unchanged from current Arc:
+1. Identifiers on `sequence` and `stage` are optional.
+2. `sequenceItem` now allows `flowStatement`, `singleInvocation`, and nested
+   `sequenceDeclaration` in addition to `stageDeclaration`.
+3. `stageItem` now allows `sequenceDeclaration`.
+4. Items in a `sequence` body are not comma-separated (order is positional).
+5. Items in a `stage` body are comma-separated (unchanged).
 
-1. All flows execute reactively on each tick.
-2. Constant writes (`1 -> channel`) execute once (constant node).
-3. Continuous flows (`source -> sink`) execute whenever source changes.
-4. One-shot edges (`condition => target`) fire once when truthy, per stage activation.
-5. Node reset occurs on stage entry.
+## 7.1 - Backwards Compatibility
 
-## 4.3 - Nesting Semantics
+Every pre-RFC Arc program parses and compiles unchanged:
 
-### `sequence` inside `stage` (parallel context)
+- `IDENTIFIER LBRACE` is unambiguous, so making the identifier optional introduces no
+  parse conflict.
+- Traditional programs use only `stageDeclaration` as the `sequenceItem`, which starts
+  with the `STAGE` keyword and cannot be confused with the new alternatives.
+- Pre-RFC programs never have `sequence` inside a stage body, so adding
+  `sequenceDeclaration` to `stageItem` is purely additive.
+- `=> next` in a stage resolves to the next step in the enclosing sequence. For
+  traditional programs where every step is a stage, this is identical to the pre-RFC
+  behavior.
+- `=> name` walks up the scope chain. For traditional programs with globally unique
+  stage names, the first chain level always resolves.
+- All stage activation, reset, and transition behaviors compile to the same runtime
+  semantics. A traditional `sequence main { stage a { ... } stage b { ... } }` is a
+  `Scope{sequential, gated}` with two gated-parallel members, each preserving its own
+  scope-level activation semantics.
 
-The sequence block is an execution context boundary in the stage's strata. It progresses
-through its steps on each tick while the other reactive flows also execute. When it
-completes, it goes idle. The parent stage continues with its other reactive flows.
-Wiring sequence completion to outgoing edges is deferred to a future RFC.
+# 8 - Edge Cases
 
-When the parent stage is re-entered, the sequence resets to step 0.
-
-### `stage` inside `sequence` (sequential context)
-
-The stage block becomes the current step. The sequence is blocked until the stage fires
-`=> next`, which advances the parent sequence. If the stage fires `=> name`, control
-jumps to that named block.
-
-### `sequence` inside `sequence`
-
-An anonymous inner sequence is semantically equivalent to its steps being inline in the
-outer sequence. The implementation may either flatten at compile time (inline the inner
-steps) or preserve the nesting in the IR and let the scheduler recurse. Named inner
-sequences are always preserved as they are jump targets.
-
-### `stage` inside `stage`
-
-Flattens semantically. An anonymous inner stage is equivalent to its items being inline.
-
-## 4.4 - Transition Semantics
-
-| Context                                      | `=> next`                      | `=> name`                                            |
-| -------------------------------------------- | ------------------------------ | ---------------------------------------------------- |
-| Flow in a `stage` child of a `sequence`      | Advances the parent `sequence` | Jumps to named block in nearest enclosing `sequence` |
-| Flow in an inline `stage {}` in a `sequence` | Advances the parent `sequence` | Jumps to named block in nearest enclosing `sequence` |
-| Flow in a `stage` inside a `stage`           | Flattens; same as parent stage | N/A                                                  |
-
-`=> next` always means "advance to the next step in the nearest enclosing sequence."
-
-## 4.5 - Reset Behavior
-
-One rule, applied uniformly at every level: **reset on entry.**
-
-When a step becomes the active step (by advancement, `=> next`, or `=> name` jump), its
-nodes are reset. Timers restart, one-shot states clear, stateful function nodes
-reinitialize.
-
-For sequence steps: entering a sequence sets `activeStepIdx = 0`, which enters step 0.
-Step 0's nodes are reset. Other steps are reset when reached.
-
-For stage steps: entering a stage resets all of its directly-owned nodes. Any sub-
-sequence within the stage enters its step 0.
-
-Deactivation does not call Reset(). It only clears nodes from selfChanged so they stop
-executing. Reset happens on the next entry, not on exit.
-
-## 4.6 - Scope Resolution for `=> name`
-
-`=> name` resolves by walking up the execution context tree. At each level, it checks
-siblings in the enclosing sequence for a matching name. If found, it targets that block.
-If not, it checks the next enclosing sequence. This continues until a match is found or
-the global scope is reached.
-
-Inner scopes shadow outer scopes. Names must be unique within a single sequence scope
-(siblings cannot share a name). Current Arc requires globally unique names; this
-restriction is relaxed to per-scope uniqueness. Shadowing is allowed silently.
-
-# 5 - Edge Cases
-
-## 5.0 - Empty Sequence
+## 8.0 - Empty Sequence
 
 ```arc
 sequence main {}
 ```
 
-Completes immediately. If inside a parent sequence, advances to the next step on the
-same tick.
+Compiles to `Scope{sequential, gated, members: []}`. On activation, `activeMember` is
+set but there are no members; the sequence exits on the same cycle. If it is a member of
+a parent sequence, the parent advances on the same cycle.
 
-## 5.1 - Sequence With Only Writes
+## 8.1 - Sequence of Only Writes
 
 ```arc
 sequence main {
@@ -378,10 +814,11 @@ sequence main {
 }
 ```
 
-All writes execute on the first tick via write cascading. Sequence completes
-immediately.
+Every step is a flow whose last node is a constant write (immediately truthy). The
+convergence loop (§6.4) advances through all three on the first cycle. The sequence
+exits after member 2's transition fires `exit: true`.
 
-## 5.2 - Multiple Exits From a Reactive Block in a Sequence
+## 8.2 - Multiple Exits from a Reactive Step
 
 ```arc
 sequence main {
@@ -400,10 +837,11 @@ stage abort {
 }
 ```
 
-If `ox_pt_1 < 15` fires first, the sequence advances past the stage. If the 30s timeout
-fires first, control jumps to `abort`.
+If `ox_pt_1 < 15` fires first, the enclosing sequence advances past the stage. If the
+30s timeout fires first, `=> abort` decomposes (§5.6) into an exit on the current
+sequence and an activation on the top-level `abort` scope.
 
-## 5.3 - Jumping Backwards
+## 8.3 - Jumping Backwards
 
 ```arc
 sequence main {
@@ -419,438 +857,45 @@ sequence main {
 }
 ```
 
-The `hold` stage runs reactively. If pressure drops below 40, `=> pressurize` fires and
-control jumps back to `pressurize`, which resets and starts from step 0. This creates a
-loop. Note that the conditional jump `pressure < 40 => pressurize` must be inside a
-`stage` because flow steps in sequences cannot jump to named blocks (section 9.3).
+Inside `hold`, `pressure < 40 => pressurize` compiles to a transition on the enclosing
+`main` scope with `memberKey: "pressurize"`. Firing activates the `pressurize` member
+(which resets and starts from its first step). The cycle re-enters `pressurize` on the
+same tick via the convergence loop.
 
-## 5.4 - `=> next` on Last Step
+`=> pressurize` must be inside a stage. Flow steps in sequences cannot jump to named
+targets (§8.5).
 
-Compile-time error. The last child of a sequence has no "next." If the last child is a
-stage, it must either be terminal or transition to a named block.
+## 8.4 - `=> next` on the Last Step
 
-# 6 - Grammar Changes
+Compile-time error. The last member of a sequence has no "next" sibling; either the
+member should be terminal (a stage that does not fire `=> next`) or it should use
+`=> name` to jump explicitly.
 
-## 6.0 - Current Grammar
+The check happens when auto-wiring transitions in `autoWireTransition` and when explicit
+`=> next` intents resolve via `shellBuilder.top().nextMember()`.
 
-```
-SequenceDeclaration ::= 'sequence' Identifier '{' StageDeclaration* '}'
-StageDeclaration    ::= 'stage' Identifier '{' (StageItem (',' StageItem)* ','?)? '}'
-StageItem           ::= FlowStatement | SingleInvocation
-```
+## 8.5 - `=> name` in a Flow Step Inside a Sequence
 
-## 6.1 - Proposed Grammar
-
-```
-SequenceDeclaration ::= 'sequence' Identifier? '{' SequenceItem* '}'
-StageDeclaration    ::= 'stage' Identifier? '{' (StageItem (',' StageItem)* ','?)? '}'
-
-SequenceItem ::= StageDeclaration
-               | SequenceDeclaration
-               | FlowStatement
-               | Expression
-
-StageItem ::= FlowStatement
-            | SingleInvocation
-            | SequenceDeclaration ','
-```
-
-Changes:
-
-1. `sequence` and `stage` identifiers are now optional (anonymous blocks).
-2. `SequenceItem` can be a stage, nested sequence, flow, or bare expression (gate).
-3. `StageItem` can now include `SequenceDeclaration` (followed by comma).
-4. Items in a `sequence` body are not comma-separated.
-5. Items in a `stage` body are comma-separated (unchanged).
-
-## 6.2 - Backwards Compatibility
-
-Every valid current Arc program remains valid. No existing syntax is changed or removed.
-
-### Syntax Compatibility
-
-The grammar changes are purely additive:
-
-- `IDENTIFIER` becomes optional on `sequence` and `stage`, but all existing programs
-  provide identifiers. No ambiguity since `IDENTIFIER LBRACE` is unambiguous.
-- `sequenceItem` adds `flowStatement`, `singleInvocation`, and `sequenceDeclaration` as
-  alternatives. Existing programs only use `stageDeclaration`, which starts with the
-  `STAGE` keyword and cannot be confused with the new alternatives.
-- `stageItem` adds `sequenceDeclaration`. Existing programs never have `sequence` inside
-  a stage body.
-
-### Semantic Compatibility
-
-- `=> next` in a stage resolves to the next step in the sequence. For traditional
-  programs where every step is a stage, this is identical to the current behavior.
-- `=> stage_name` resolves by walking up the scope tree. For traditional programs with
-  globally unique names, the first scope checked (the enclosing sequence) will always
-  find the target. Same result.
-- All stage entry, reset, transition, and convergence behaviors are preserved. A
-  traditional sequence compiles to a `Sequence` with all `StepKindStage` steps.
-
-# 7 - Runtime Scheduler
-
-## 7.0 - Separation of Concerns
-
-In the current scheduler, stages serve double duty as both execution context (what's
-active, what gets reset) and composition mode (parallel reactive flows). This proposal
-separates them:
-
-- **Step**: The execution context. The scheduler operates exclusively on steps.
-- **Stage**: A composition mode. At the scheduler level, a stage is just the content of
-  a step that happens to have parallel reactive flows.
-
-## 7.1 - One Strata Tree
-
-There is a single unified strata tree. Execution contexts are boundaries within that
-tree where activation rules change, not a separate hierarchy.
-
-An execution context (sequence or stage) appears as a boundary node in its parent's
-strata. It has a position in the parent's topological order. When the parent's strata
-execution reaches it, the scheduler enters the child context, executes its sub-strata,
-returns, and continues with the parent's remaining strata.
-
-Example:
+Compile-time error. Flow steps in sequences already carry an auto-wired transition to
+the next step. Adding a conditional jump would make advancement ambiguous. To express a
+conditional jump, wrap the flow in an explicit `stage {}`:
 
 ```arc
-stage fire {
-    sequence {
-        1 -> ox_mpv_cmd
-        wait{duration=500ms}
-        1 -> fuel_mpv_cmd
-    },
-    interval{period=100ms} -> ctrl{},
-    pressure < 15 => next,
+sequence main {
+    stage {
+        1 -> press_cmd,
+        pressure < 40 => abort,
+    }
+    0 -> press_cmd
 }
 ```
 
-The stage's strata:
+Explicit `=> next` inside a flow step is allowed silently (the auto-wiring produces the
+same result).
 
-```
-stratum 0: [sequence_context, interval_node]
-stratum 1: [ctrl_node]
-stratum 2: [pressure_expr, entry_node]
-```
+# 9 - Examples
 
-`sequence_context` is an execution context boundary at stratum 0 alongside
-`interval_node`. When the scheduler reaches it, it enters the sub-context, executes the
-active step's sub-strata, returns, and continues. The sub-context's nodes are not in the
-parent's strata directly. They are nested inside the boundary.
-
-Ordering between a sub-sequence and sibling reactive flows is determined by the sub-
-sequence's position in the parent's strata (definition order). The same positional
-priority rules apply to execution context boundaries as to regular nodes.
-
-## 7.2 - Three Kinds of Steps
-
-There are three kinds of steps: **stage** (parallel), **sequence** (sequential), and
-**flow** (leaf). The runtime mirrors the IR types:
-
-```go
-type sequenceState struct {
-    ir            ir.Sequence
-    activeStepIdx int
-    steps         []stepState
-}
-
-type stepState struct {
-    ir      ir.Step
-    subSeqs []sequenceState   // runtime state for sub-sequences (stage steps only)
-    subSeq  *sequenceState    // runtime state for nested sequence (sequence steps only)
-}
-```
-
-The step kind is determined by which field is non-nil on `ir.Step`:
-
-- `step.ir.Flow != nil`: flow step. No sub-state.
-- `step.ir.Stage != nil`: stage step. `subSeqs` tracks inline sub-sequences within the
-  stage.
-- `step.ir.Sequence != nil`: sequence step. `subSeq` points to the nested sequence's
-  runtime state.
-
-A traditional `sequence main { stage a { ... } stage b { ... } }` compiles to a
-`sequenceState` with two steps, each having `ir.Stage` populated.
-
-A stageless `sequence main { 1 -> v, wait{2s}, 0 -> v }` compiles to a `sequenceState`
-with three steps, each having `ir.Flow` populated. Each flow step's output is checked
-for truthiness. A write produces an immediately truthy output, so the sequence advances
-on the same tick. A wait produces falsy until the duration elapses. "Write cascading" is
-an emergent property of consecutive flow steps that are immediately truthy.
-
-## 7.3 - Per-Tick Step Execution
-
-The scheduler walks the strata of the active execution context. When it encounters a
-regular node key, it executes the node (if it belongs to the active flow step, for
-sequences). When it encounters an execution context boundary key, it checks whether that
-boundary is the active step and enters it if so.
-
-**Stage steps**: Execute the stage's strata. All nodes execute in parallel. Execution
-context boundaries for sub-sequences are entered and their active flow step nodes
-execute. The stage step does not advance until something fires `=> next`.
-
-**Sequence steps**: Walk the sequence's strata. Only execute nodes belonging to the
-active flow step (filtered by `activeStepIdx`). When encountering an execution context
-boundary, enter it if it's the active step. Flow step nodes use entry node + one-shot
-edge machinery to advance. When a flow's output is truthy, the one-shot edge fires the
-next step's entry node, advancing `activeStepIdx`. The scheduler re-evaluates
-immediately (same tick), producing write cascading for immediately-truthy flows.
-
-**Flow steps**: Not executed independently. Their nodes are in the parent sequence's
-strata, filtered by `activeStepIdx`.
-
-## 7.4 - Convergence
-
-The convergence loop walks the execution context tree until stable:
-
-```
-Loop until stable:
-    For each active sequence:
-        Evaluate active step:
-            Stage:    execute strata, check for transitions
-            Sequence: evaluate active item, advance if truthy, recurse
-    Stable when: no step advanced AND no transitions fired
-```
-
-Maximum convergence iterations = total number of steps across all sequences.
-
-## 7.5 - Transition Table
-
-Entry keys use the format `entry_{seqName}_{stepKey}`. With nesting, each sequence
-(including nested sequences) has its own entries in the transition table. The transition
-target includes enough information to identify both the sequence and the step within it.
-For top-level sequences this is `(seqIdx, stepIdx)` as today. For nested sequences, the
-target references the nested `sequenceState` directly (resolved during scheduler
-initialization when the runtime state tree is built from the IR tree).
-
-Named stages and named sequences get entry keys. Anonymous blocks do not.
-
-## 7.6 - Step Reset
-
-When a step becomes active:
-
-1. Its directly-owned nodes are reset.
-2. Its `firedOneShots` set is cleared.
-3. If nested sequence: `activeStepIdx` set to 0, step 0's nodes reset. Other steps reset
-   when reached.
-4. If stage with sub-sequences: each sub-sequence enters step 0.
-
-## 7.7 - Deadlines
-
-- `wait{duration=D}` gate: reports deadline of `startTime + D`. Timer starts when the
-  sequence reaches that step.
-- Boolean gate (`pressure > 50`): no deadline. Relies on channel input events.
-- Stage step: delegates to the stage's timer nodes.
-
-# 8 - IR Changes
-
-## 8.0 - Three IR Types Replace One
-
-The old `Stage` type is replaced by three distinct types, each carrying only the fields
-relevant to its execution model. `Step` is a tagged union that holds exactly one.
-
-```go
-type Flow struct {
-    Nodes []string   // node keys belonging to this flow step
-}
-
-type Stage struct {
-    Key       string       // stage name (empty if anonymous)
-    Nodes     []string     // reactive flow nodes
-    Strata    Strata       // multi-stratum reactive ordering
-    Sequences []Sequence   // inline sub-sequences within this stage
-}
-
-type Sequence struct {
-    Key    string   // sequence name (empty if anonymous)
-    Steps  []Step   // ordered steps
-    Strata Strata   // contains flow step nodes + execution context boundaries
-}
-
-type Step struct {
-    Key      string     // name for jump targets, empty for anonymous
-    Flow     *Flow      // non-nil: this step is a flow (leaf)
-    Stage    *Stage     // non-nil: this step is a stage (parallel)
-    Sequence *Sequence  // non-nil: this step is a sequence (sequential)
-}
-```
-
-Exactly one of `Flow`, `Stage`, `Sequence` is non-nil on a `Step`. The step kind is
-implicit from which field is populated.
-
-- **Flow**: A single dataflow chain. Leaf node in the execution tree. `1 -> valve_cmd`,
-  `pressure > 50`, `wait{duration=2s}`. Nodes include the flow's expression/write nodes
-  and the entry node for advancing. Flow steps do not have their own strata. Their nodes
-  live in the parent sequence's `Strata`.
-- **Stage**: Parallel reactive flows. Contains its own nodes and strata. May also
-  contain inline sub-sequences (`Sequences` field) that run alongside the reactive flows
-  as execution context boundaries in the stage's strata.
-- **Sequence**: Sequential execution. Contains ordered steps and a `Strata` field that
-  holds all flow step nodes plus execution context boundaries for stage/sequence steps.
-  The `activeStepIdx` at runtime determines which flow nodes are active. Stage and
-  sequence steps appear as boundaries in the strata.
-
-A traditional `sequence main { stage a { ... } stage b { ... } }` compiles to a
-`Sequence` with two steps, each having `Stage` populated. The sequence's own `Strata`
-contains only the execution context boundaries for those two stages.
-
-A stageless `sequence main { 1 -> v, wait{2s}, 0 -> v }` compiles to a `Sequence` with
-three flow steps. The sequence's `Strata` contains all the flow nodes (write nodes, wait
-node, entry nodes) in topological order. The scheduler uses `activeStepIdx` to determine
-which flow nodes to execute.
-
-# 9 - Analyzer Changes
-
-## 9.0 - Declaration Collection Becomes Recursive
-
-The first analyzer pass (`CollectDeclarations`) currently walks top-level sequences and
-registers their stage children. With nesting, this becomes recursive:
-
-1. Walk top-level `sequenceDeclaration` nodes. Register each sequence in the symbol
-   table with its own scope.
-2. For each sequence, walk its `sequenceItem` children:
-   - `stageDeclaration`: register stage in parent sequence's scope.
-   - `sequenceDeclaration`: register nested sequence in parent sequence's scope and
-     recurse.
-3. For each stage, walk its `stageItem` children looking for `sequenceDeclaration`.
-   Register and recurse.
-
-The symbol scope hierarchy becomes nested (sequence > stage > sequence > ...). Each
-sequence creates a scope. Name resolution via `scope.Resolve()` naturally walks up the
-tree, giving us the `=> name` scoping behavior.
-
-Name uniqueness is enforced per-scope (siblings in the same sequence cannot share a
-name). Names may shadow names in enclosing scopes. The current global uniqueness
-restriction is relaxed.
-
-## 9.1 - Step Classification
-
-The second analyzer pass walks sequence bodies and classifies each item into a step:
-
-1. `flowStatement` or `singleInvocation`: produces `ir.Step{Flow: &ir.Flow{...}}`. The
-   compiler auto-wires the flow's truthy output to an entry node for the next step via a
-   one-shot edge. This is the same pattern as today's `condition => next` in a stage,
-   but generated automatically.
-2. `stageDeclaration`: produces `ir.Step{Stage: &ir.Stage{...}}`. Analyzed recursively
-   for sub-sequences in the stage body.
-3. `sequenceDeclaration`: produces `ir.Step{Sequence: &ir.Sequence{...}}`. Analyzed
-   recursively.
-
-## 9.2 - Key Generator Stack
-
-The current `keyGenerator` has flat fields (`seqName`, `stageName`, `nextStageName`).
-With nesting, it becomes a stack:
-
-```go
-type contextFrame struct {
-    seqName     string
-    stepKey     string
-    nextStepKey string
-}
-
-type keyGenerator struct {
-    occurrences map[string]int
-    stack       []contextFrame
-}
-```
-
-Push a frame when entering a sequence, pop when leaving. The `entry()` method and `next`
-token resolution use the top frame. This generalizes cleanly to arbitrary nesting depth.
-
-## 9.3 - Flow Steps and `=>` in Sequences
-
-Flow steps in sequences always auto-wire to the next step. If the user writes an
-explicit `=> next`, it is allowed silently (redundant but not harmful). If the user
-writes `=> name` (a conditional jump to a named block), it is a compile-time error.
-Conditional jumps require a `stage {}` wrapper for concurrent monitoring.
-
-## 9.4 - Validation
-
-- `=> next` on the last step: compile-time error (same as today, checked via
-  `nextStepKey == ""` on the top stack frame).
-- `=> name` in a flow step inside a sequence: compile-time error. Use a stage for
-  conditional jumps.
-- `=> next` explicit in a flow step: allowed silently (auto-wiring produces the same
-  result).
-
-## 9.5 - Strata Computation
-
-Strata are computed per execution context:
-
-1. **Global strata** (unchanged): top-level nodes + entry nodes with global inputs.
-2. **Per-stage strata**: the stage's reactive flow nodes, stratified by data
-   dependencies. Inline sub-sequences appear as execution context boundaries (synthetic
-   keys) positioned by definition order.
-3. **Per-sequence strata**: all flow step nodes across all flow steps in the sequence,
-   stratified together. Stage and sequence steps appear as execution context boundaries.
-
-Flow steps do not get their own strata. Their nodes are part of the parent sequence's
-strata. The scheduler uses `activeStepIdx` to filter which flow nodes execute on a given
-tick.
-
-Execution context boundaries use synthetic keys (e.g., `boundary_{seqKey}` or
-`boundary_{stageKey}`) inserted into the strata at the position determined by definition
-order. The `Strata` representation stays `[][]string`. The scheduler maintains a
-`map[string]*sequenceState` (or equivalent) that maps boundary keys to child context
-runtime state. During strata execution, each key is checked against this map. If found,
-it's a boundary and the scheduler enters the child context. If not, it's a regular node.
-This avoids changing the strata type, serialization format, or C++ runtime strata
-handling.
-
-# 10 - Deferred Work
-
-## 10.0 - Sequence Completion Wiring
-
-When an inline sequence inside a stage completes, it goes idle. Wiring completion to
-outgoing edges (e.g., `sequence { ... } => next`) is deferred. The syntax for attaching
-edges to execution context boundaries needs design work.
-
-## 10.1 - Looping
-
-Sequences run once. To loop, use `=> name` from within a stage. A dedicated loop
-construct can be added without breaking changes.
-
-## 10.2 - Early Exit From Sequences
-
-A bare `condition => name` as a sequential step does not make sense. The user likely
-wants concurrent monitoring, which is what stages are for:
-
-```arc
-stage main {
-    sequence {
-        1 -> valve_cmd
-        wait{duration=2s}
-        0 -> valve_cmd
-    },
-    pressure > 200 => abort,
-}
-```
-
-Gates in sequences only advance; they do not jump.
-
-# 11 - Implementation Strategy
-
-Ship as a single change. The unified strata tree model, execution context boundaries,
-step-based sequences, and arbitrary nesting are implemented together.
-
-Existing programs compile to the same step-based IR (every stage becomes a step of kind
-`stage`), so backwards compatibility is verified by running all existing tests against
-the new model.
-
-### Implementation order:
-
-1. **IR types**: Replace `Stage` with `Flow`/`Stage`/`Sequence`/`Step` tagged union. Add
-   `Strata` to `Sequence`. Update msgpack codecs.
-2. **Parser/Grammar**: Add `SequenceItem` alternatives, optional identifiers.
-3. **Analyzer**: Handle mixed sequence bodies, nested scoping, step classification.
-4. **Stratifier**: Compute strata tree with execution context boundaries.
-5. **Scheduler**: Replace flat stage list with step-based tree walker, execution context
-   boundary handling, write cascading, convergence with nested contexts.
-6. **Tests**: Cover all step kinds, nesting combinations, convergence, reset, scoping.
-
-# 12 - Examples
-
-## 12.0 - Before and After: Valve Timing
+## 9.0 - Before and After: Valve Timing
 
 Before:
 
@@ -876,7 +921,7 @@ sequence main {
 }
 ```
 
-## 12.1 - Before and After: Full TPC Sequence
+## 9.1 - Full TPC Cold-Flow Sequence
 
 Before:
 
@@ -960,9 +1005,10 @@ sequence main {
 }
 ```
 
-The `hold` stage collapses into two bare lines. Stages with real reactive logic remain.
+The `hold` stage collapses into two bare lines. Stages with real reactive logic remain
+intact.
 
-## 12.2 - Mixed Sequential and Reactive
+## 9.2 - Mixed Sequential and Reactive
 
 ```arc
 sequence main {
@@ -984,6 +1030,82 @@ sequence main {
 }
 ```
 
-The `tpc` stage has a sequence block (authority ramp-up) running alongside reactive
-control and an exit condition. When the exit fires, the parent sequence continues with
-cleanup.
+The `tpc` stage carries an inline sub-sequence (authority ramp-down) running alongside
+reactive control and an exit predicate. When the exit fires, the parent sequence
+continues with cleanup.
+
+# 10 - Deferred Work
+
+## 10.0 - Sub-Sequence Completion Wiring
+
+When an inline sub-sequence in a stage completes, it becomes inactive and stays inactive
+until the parent stage re-activates. Wiring completion as a signal into other stage
+members (`sequence { ... } => next`) is not supported. The surface and IR changes needed
+to express "done" as a Handle on a sequential scope are future work.
+
+## 10.1 - Explicit Loop Constructs
+
+A sequence runs once per activation. To loop, use `=> name` from within a stage, or bind
+the sequence's exit to a re-activation handle. A dedicated `loop { ... }` construct can
+be added later without breaking changes.
+
+## 10.2 - Early Exit from Sequences
+
+A bare `condition => name` as a sequential step is not allowed (§8.5). The user almost
+always wants concurrent monitoring, which is what stages are for:
+
+```arc
+stage main {
+    sequence {
+        1 -> valve_cmd
+        wait{duration=2s}
+        0 -> valve_cmd
+    },
+    pressure > 200 => abort,
+}
+```
+
+Sequential gates only advance; they do not jump.
+
+# 11 - Risks and Notes
+
+## 11.0 - Wire-Format Break
+
+The IR schema is a hard break from the pre-RFC shape. Programs compiled against the
+pre-RFC IR cannot be loaded by the new runtime. No Arc programs were deployed against
+the pre-RFC IR; the change is internal and accepted.
+
+## 11.1 - TypeScript Client Regeneration
+
+`client/ts/src/arc/ir/types.gen.ts` regenerates from the schema. Any TypeScript code
+that discriminated on `Step.Flow`, `Step.Stage`, or `Step.Sequence` migrates to
+discriminating on `Member.nodeRef` versus `Member.scope` and on `Scope.mode`. Impact is
+small: the client is primarily a consumer, not an IR manipulator.
+
+## 11.2 - Error Messages
+
+Pre-RFC error paths referenced `Stage.Key`, `Step.Key`, and similar fields. These
+identifiers remain accessible as `Scope.Key` and `Member.Key`, but the surface-level
+terminology ("stage", "sequence", "step") no longer maps one-to-one onto IR types. Error
+messages should be phrased from source-level context (the AST node where the diagnostic
+fires) rather than from IR-level type names, so that a user reading a diagnostic does
+not need to know whether a given construct is a `parallel` or `sequential` Scope.
+
+# 12 - Appendix: Source References
+
+Anchors for reviewers:
+
+- IR schema: `schemas/arc/ir.oracle`
+- Generated Go IR: `arc/go/ir/types.gen.go`, `arc/go/ir/ir.go`
+- Generated C++ IR: `arc/cpp/ir/types.gen.h`
+- Analyzer: `arc/go/text/analyze.go` (`shellBuilder`, `analyzeSequence`, `analyzeStage`,
+  `flowScope`, `autoWireTransition`)
+- Stratifier: `arc/go/stratifier/stratifier.go`
+- Go scheduler: `arc/go/runtime/scheduler/scheduler.go`
+- C++ scheduler: `arc/cpp/runtime/scheduler/scheduler.h`
+- Prior scheduler RFC: `docs/tech/rfc/0031-260311-arc-scheduler-semantics.md`
+- Integration tests that exercise the surface change:
+  `integration/tests/arc/stageless_workflow.py`,
+  `integration/tests/arc/inline_sequence_in_stage.py`,
+  `integration/tests/arc/inline_stage_in_sequence.py`,
+  `integration/tests/arc/backward_jump.py`, `integration/tests/arc/edge_cases.py`
