@@ -1874,6 +1874,12 @@ describe("DataType", () => {
     it("should return true for BYTES", () => {
       expect(DataType.BYTES.isVariable).toBe(true);
     });
+    it("should return false for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.isVariable).toBe(false);
+    });
+    it("should report density BIT8 for BOOLEAN", () => {
+      expect(DataType.BOOLEAN.density.valueOf()).toBe(1);
+    });
   });
 
   describe("construct", () => {
@@ -1941,6 +1947,13 @@ describe("DataType", () => {
       [DataType.BYTES, DataType.BYTES, true],
       [DataType.BYTES, DataType.INT32, false],
       [DataType.BYTES, DataType.STRING, false],
+      [DataType.BOOLEAN, DataType.BOOLEAN, true],
+      [DataType.BOOLEAN, DataType.UINT8, true],
+      [DataType.BOOLEAN, DataType.INT32, true],
+      [DataType.BOOLEAN, DataType.FLOAT64, true],
+      [DataType.UINT8, DataType.BOOLEAN, false],
+      [DataType.INT32, DataType.BOOLEAN, false],
+      [DataType.FLOAT64, DataType.BOOLEAN, false],
     ];
     TESTS.forEach(([from, to, expected]) =>
       it(`should return ${expected} when casting from ${from.toString()} to ${to.toString()}`, () => {

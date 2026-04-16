@@ -80,6 +80,28 @@ constexpr std::size_t FLAGS_SIZE = 1;
 constexpr std::size_t SEQ_NUM_SIZE = 4;
 constexpr std::size_t TIME_RANGE_SIZE = 16;
 
+static size_t series_wire_byte_length(const x::telem::Series &ser) {
+    if (ser.data_type() == x::telem::BOOL_T) return (ser.size() + 7) / 8;
+    return ser.byte_size();
+}
+
+static std::vector<uint8_t>
+pack_bool_bits(const std::byte *src, const size_t n_samples) {
+    std::vector<uint8_t> dst((n_samples + 7) / 8, 0);
+    const auto *src_bytes = reinterpret_cast<const uint8_t *>(src);
+    for (size_t i = 0; i < n_samples; i++)
+        if (src_bytes[i] != 0) dst[i >> 3] |= static_cast<uint8_t>(1u << (i & 7));
+    return dst;
+}
+
+static std::vector<uint8_t>
+unpack_bool_bits(const uint8_t *src, const size_t n_samples) {
+    std::vector<uint8_t> dst(n_samples);
+    for (size_t i = 0; i < n_samples; i++)
+        dst[i] = (src[i >> 3] >> (i & 7)) & 1;
+    return dst;
+}
+
 x::errors::Error
 Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
     this->throw_if_uninitialized();
@@ -122,7 +144,7 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
 
     for (const auto &idx: sorting_indices | std::views::values) {
         const x::telem::Series &series = frame.series->at(idx);
-        byte_array_size += series.byte_size();
+        byte_array_size += series_wire_byte_length(series);
         if (first_series) {
             cur_data_size = series.size();
             ref_tr = series.time_range;
@@ -217,7 +239,17 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                 );
         }
 
-        if (buf.write(ser.data(), byte_size) != byte_size)
+        if (ser.data_type() == x::telem::BOOL_T) {
+            const auto packed = pack_bool_bits(ser.data(), ser.size());
+            if (buf.write(
+                    reinterpret_cast<const std::byte *>(packed.data()),
+                    packed.size()
+                ) != packed.size())
+                return x::errors::Error(
+                    x::errors::UNEXPECTED,
+                    "failed to write bit-packed bool series data"
+                );
+        } else if (buf.write(ser.data(), byte_size) != byte_size)
             return x::errors::Error(
                 x::errors::UNEXPECTED,
                 "failed to write series data: expected " + std::to_string(byte_size) +
@@ -292,7 +324,17 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         s.time_range = ref_tr;
         s.alignment = ref_alignment;
 
-        s.fill_from(reader);
+        if (it->second == x::telem::BOOL_T) {
+            const size_t wire_bytes = (local_data_len_or_byte_cap + 7) / 8;
+            std::vector<uint8_t> packed(wire_bytes);
+            reader.read(reinterpret_cast<std::byte *>(packed.data()), wire_bytes);
+            const auto unpacked = unpack_bool_bits(
+                packed.data(),
+                local_data_len_or_byte_cap
+            );
+            s.write(unpacked.data(), local_data_len_or_byte_cap);
+        } else
+            s.fill_from(reader);
 
         if (!flags.equal_time_ranges) {
             s.time_range.start = x::telem::TimeStamp(reader.int64());

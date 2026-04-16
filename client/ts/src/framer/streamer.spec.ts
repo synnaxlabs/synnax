@@ -19,7 +19,7 @@ import {
   type Streamer,
   streamerConfigZ,
 } from "@/framer/streamer";
-import { newVirtualChannel } from "@/testutil/channels";
+import { newVirtualBoolChannel, newVirtualChannel } from "@/testutil/channels";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
@@ -40,6 +40,26 @@ describe("Streamer", () => {
       }
       const d = await streamer.read();
       expect(Array.from(d.get(ch.key))).toEqual([1, 2, 3]);
+    });
+
+    test("bool stream round-trip", async () => {
+      const ch = await newVirtualBoolChannel(client);
+      const streamer = await client.openStreamer(ch.key);
+      const writer = await client.openWriter({
+        start: TimeStamp.now(),
+        channels: ch.key,
+      });
+      const samples = [true, false, true, true, false, false, false, true, true];
+      try {
+        await writer.write(
+          ch.key,
+          new Series({ data: samples, dataType: DataType.BOOLEAN }),
+        );
+      } finally {
+        await writer.close();
+      }
+      const d = await streamer.read();
+      expect(Array.from(d.get(ch.key))).toEqual(samples);
     });
     test("should preserve non-zero time ranges through codec round-trip", async () => {
       const ch = await newVirtualChannel(client);

@@ -121,6 +121,33 @@ class TestWriter:
         f = client.read(sy.TimeRange.MAX, data_ch.key)
         assert len(f) == 6
 
+    def test_write_bool_channel(self, client: sy.Synnax):
+        """Should round-trip bool samples through a BOOL channel, verifying bit-packed
+        wire format and byte-packed persistence."""
+        idx = client.channels.create(
+            name=random_name(), data_type=sy.DataType.TIMESTAMP, is_index=True
+        )
+        bool_ch = client.channels.create(
+            name=random_name(), data_type=sy.DataType.BOOL, index=idx.key
+        )
+        samples = [True, False, True, True, False, False, False, True, True]
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND, channels=[idx, bool_ch]
+        ) as w:
+            w.write(
+                pd.DataFrame(
+                    {
+                        idx.name: seconds_linspace(1, len(samples)),
+                        bool_ch.name: samples,
+                    }
+                )
+            )
+            w.commit()
+
+        f = client.read(sy.TimeRange.MAX, bool_ch.key)
+        assert len(f) == len(samples)
+        assert [bool(v) for v in list(f)] == samples
+
     def test_write_err_on_unauthorized(
         self, indexed_pair: list[sy.Channel], client: sy.Synnax
     ):

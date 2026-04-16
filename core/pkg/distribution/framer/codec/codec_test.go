@@ -204,6 +204,50 @@ var _ = Describe("Codec", func() {
 				},
 			),
 		),
+		Entry("Bool Single Sample",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{telem.NewSeriesV(true)},
+			),
+		),
+		Entry("Bool Exact Byte Boundary",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{telem.NewSeriesV(true, false, true, false, true, false, true, false)},
+			),
+		),
+		Entry("Bool One Past Byte Boundary",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{telem.NewSeriesV(true, false, true, false, true, false, true, false, true)},
+			),
+		),
+		Entry("Bool Seven Samples (Partial Last Byte)",
+			channel.Keys{1},
+			[]telem.DataType{telem.BoolT},
+			frame.NewMulti(
+				channel.Keys{1},
+				[]telem.Series{telem.NewSeriesV(true, false, true, true, false, false, true)},
+			),
+		),
+		Entry("Bool Mixed With Other Types",
+			channel.Keys{1, 2, 3},
+			[]telem.DataType{telem.BoolT, telem.Float32T, telem.Uint8T},
+			frame.NewMulti(
+				channel.Keys{1, 2, 3},
+				[]telem.Series{
+					telem.NewSeriesV(true, false, true),
+					telem.NewSeriesV[float32](1.5, 2.5, 3.5),
+					telem.NewSeriesV[uint8](7, 8, 9),
+				},
+			),
+		),
 	)
 
 	Describe("Complex Frames", func() {
