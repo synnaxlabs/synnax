@@ -488,5 +488,177 @@ var _ = Describe("C++ JSON Plugin", func() {
 					ToNotContain(`Details<`)
 			})
 		})
+
+		Context("soft-optional primitive defaults", func() {
+			It("Should call parser.field with a default value for each numeric/bool/string primitive", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Settings struct {
+						count    uint32?
+						ratio    float64?
+						enabled  bool?
+						label    string?
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						// defaultValueForPrimitive: numeric → 0, float → 0.0,
+						// bool → false, string → "".
+						`parser.field<std::uint32_t>("count", 0)`,
+						`parser.field<double>("ratio", 0.0)`,
+						`parser.field<bool>("enabled", false)`,
+						`parser.field<std::string>("label", "")`,
+					)
+			})
+
+			It("Should default soft-optional uuid fields to x::uuid::UUID{}", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Record struct {
+						owner uuid?
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`parser.field<x::uuid::UUID>("owner", x::uuid::UUID{})`)
+			})
+
+			It("Should default soft-optional signed integer fields", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Reading struct {
+						delta_small int8?
+						delta_med   int16?
+						delta_big   int64?
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						`parser.field<std::int8_t>("delta_small", 0)`,
+						`parser.field<std::int16_t>("delta_med", 0)`,
+						`parser.field<std::int64_t>("delta_big", 0)`,
+					)
+			})
+		})
+
+		Context("uuid detection through distinct and alias chains", func() {
+			It("Should detect a distinct type wrapping uuid and call to_json()", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Key uuid
+
+					Entity struct {
+						id Key
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`j["id"] = this->id.to_json();`)
+			})
+
+			It("Should detect a uuid via an alias chain and call to_json()", func(ctx SpecContext) {
+				source := `
+					@cpp output "client/cpp/types"
+
+					Primary = uuid
+					KeyRef  = Primary
+
+					Entity struct {
+						id KeyRef
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(`j["id"] = this->id.to_json();`)
+			})
+		})
+
+		Context("fixed-size uint8 array from another namespace", func() {
+			It("Should include the distinct-type-specific header, not json.gen.h, for a cross-namespace reference", func(ctx SpecContext) {
+				loader.Add("schemas/crypto", `
+					@cpp output "x/cpp/crypto"
+
+					Hash uint8[32]
+				`)
+
+				source := `
+					import "schemas/crypto"
+
+					@cpp output "client/cpp/types"
+
+					Digest struct {
+						hash crypto.Hash
+					}
+				`
+				resp := MustGenerate(ctx, source, "types", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						// isFixedSizeUint8ArrayType drives typeRefToCpp to include
+						// <output>/<snake_case name>.h rather than json.gen.h.
+						`#include "x/cpp/crypto/hash.h"`,
+						// Qualified type reference uses the derived namespace.
+						`::x::crypto::Hash`,
+					).
+					ToNotContain(
+						`#include "x/cpp/crypto/json.gen.h"`,
+					)
+			})
+		})
+
+		Context("cross-namespace struct extension", func() {
+			It("Should qualify the base type by namespace and include the base's json header", func(ctx SpecContext) {
+				loader.Add("schemas/base", `
+					@cpp output "x/cpp/base"
+
+					BaseEntity struct {
+						key string
+					}
+				`)
+
+				source := `
+					import "schemas/base"
+
+					@cpp output "client/cpp/derived"
+
+					Derived struct extends base.BaseEntity {
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "derived", loader, jsonPlugin)
+
+				ExpectContent(resp, "json.gen.h").
+					ToContain(
+						// resolveExtendsType emits the cross-namespace qualified
+						// name and registers the base's json.gen.h include.
+						`#include "x/cpp/base/json.gen.h"`,
+						`::x::base::BaseEntity`,
+					)
+			})
+		})
+
+		Context("plugin interface", func() {
+			It("Should return default options with json.gen.h filename", func() {
+				opts := json.DefaultOptions()
+				Expect(opts.FileNamePattern).To(Equal("json.gen.h"))
+			})
+
+			It("Should report nil for Check and PostWrite when formatter is disabled", func() {
+				Expect(jsonPlugin.Check(nil)).To(Succeed())
+				Expect(jsonPlugin.PostWrite(nil)).To(Succeed())
+				Expect(jsonPlugin.PostWrite([]string{})).To(Succeed())
+			})
+		})
 	})
 })
