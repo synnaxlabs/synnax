@@ -13,6 +13,7 @@ package main
 
 import (
 	"fmt"
+	"go/format"
 	"os"
 	"strings"
 	"text/template"
@@ -628,8 +629,8 @@ func main() {
 		}))
 	}
 
-	output := buf.String()
-	lo.Must0(os.WriteFile("op_generated.go", []byte(output), 0644))
+	formatted := lo.Must(format.Source([]byte(buf.String())))
+	lo.Must0(os.WriteFile("op_generated.go", formatted, 0644))
 
 	fmt.Println("Generated op_generated.go successfully")
 }
