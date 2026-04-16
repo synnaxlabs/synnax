@@ -520,29 +520,36 @@ var _ = Describe("Codec", func() {
 					Mode:       ir.ScopeMode(0),
 					Liveness:   ir.Liveness(0),
 					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
-					Phases: []ir.Phase{
+					Strata: [][]ir.Member{
 						{
-							Members: []ir.Member{
-								{
-									Key:     "test_112",
-									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
+							{
+								NodeKey: func() *string { v := string("test_111"); return &v }(),
+								Scope: func() *ir.Scope {
+									v := ir.Scope{
+										Key:         "test_113",
+										Mode:        ir.ScopeMode(0),
+										Liveness:    ir.Liveness(0),
+										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+										Strata:      [][]ir.Member{{{}}},
+										Steps:       []ir.Member{{}},
+										Transitions: []ir.Transition{{}},
+									}
+									return &v
+								}(),
 							},
 						},
 					},
-					Members: []ir.Member{
+					Steps: []ir.Member{
 						{
-							Key:     "test_116",
-							NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+							NodeKey: func() *string { v := string("test_121"); return &v }(),
 							Scope: func() *ir.Scope {
 								v := ir.Scope{
-									Key:         "test_120",
+									Key:         "test_123",
 									Mode:        ir.ScopeMode(0),
 									Liveness:    ir.Liveness(0),
 									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Phases:      []ir.Phase{{}},
-									Members:     []ir.Member{{}},
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
 									Transitions: []ir.Transition{{}},
 								}
 								return &v
@@ -551,11 +558,8 @@ var _ = Describe("Codec", func() {
 					},
 					Transitions: []ir.Transition{
 						{
-							On: ir.Handle{Node: "test_129", Param: "test_130"},
-							Target: ir.TransitionTarget{
-								MemberKey: func() *string { v := string("test_132"); return &v }(),
-								Exit:      func() *bool { v := bool(true); return &v }(),
-							},
+							On:        ir.Handle{Node: "test_132", Param: "test_133"},
+							TargetKey: func() *string { v := string("test_134"); return &v }(),
 						},
 					},
 				},
@@ -570,8 +574,8 @@ var _ = Describe("Codec", func() {
 					Mode:        ir.ScopeMode(0),
 					Liveness:    ir.Liveness(0),
 					Activation:  nil,
-					Phases:      nil,
-					Members:     nil,
+					Strata:      nil,
+					Steps:       nil,
 					Transitions: nil,
 				},
 			}),
@@ -588,8 +592,8 @@ var _ = Describe("Codec", func() {
 					Mode:        ir.ScopeMode(0),
 					Liveness:    ir.Liveness(0),
 					Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
-					Phases:      []ir.Phase{},
-					Members:     []ir.Member{},
+					Strata:      [][]ir.Member{},
+					Steps:       []ir.Member{},
 					Transitions: []ir.Transition{},
 				},
 			}),
@@ -607,37 +611,43 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", ir.Member{
-				Key:     "test_1",
-				NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_3"}; return &v }(),
+				NodeKey: func() *string { v := string("test_1"); return &v }(),
 				Scope: func() *ir.Scope {
 					v := ir.Scope{
-						Key:        "test_5",
+						Key:        "test_3",
 						Mode:       ir.ScopeMode(0),
 						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_9", Param: "test_10"}; return &v }(),
-						Phases: []ir.Phase{
+						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
+						Strata: [][]ir.Member{
 							{
-								Members: []ir.Member{
-									{
-										Key:     "test_13",
-										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
+								{
+									NodeKey: func() *string { v := string("test_10"); return &v }(),
+									Scope: func() *ir.Scope {
+										v := ir.Scope{
+											Key:         "test_12",
+											Mode:        ir.ScopeMode(0),
+											Liveness:    ir.Liveness(0),
+											Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+											Strata:      [][]ir.Member{{{}}},
+											Steps:       []ir.Member{{}},
+											Transitions: []ir.Transition{{}},
+										}
+										return &v
+									}(),
 								},
 							},
 						},
-						Members: []ir.Member{
+						Steps: []ir.Member{
 							{
-								Key:     "test_17",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_19"}; return &v }(),
+								NodeKey: func() *string { v := string("test_20"); return &v }(),
 								Scope: func() *ir.Scope {
 									v := ir.Scope{
-										Key:         "test_21",
+										Key:         "test_22",
 										Mode:        ir.ScopeMode(0),
 										Liveness:    ir.Liveness(0),
 										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-										Phases:      []ir.Phase{{}},
-										Members:     []ir.Member{{}},
+										Strata:      [][]ir.Member{{{}}},
+										Steps:       []ir.Member{{}},
 										Transitions: []ir.Transition{{}},
 									}
 									return &v
@@ -646,22 +656,15 @@ var _ = Describe("Codec", func() {
 						},
 						Transitions: []ir.Transition{
 							{
-								On: ir.Handle{Node: "test_30", Param: "test_31"},
-								Target: ir.TransitionTarget{
-									MemberKey: func() *string { v := string("test_33"); return &v }(),
-									Exit:      func() *bool { v := bool(false); return &v }(),
-								},
+								On:        ir.Handle{Node: "test_31", Param: "test_32"},
+								TargetKey: func() *string { v := string("test_33"); return &v }(),
 							},
 						},
 					}
 					return &v
 				}(),
 			}),
-			Entry("zero values", ir.Member{
-				Key:     "",
-				NodeRef: nil,
-				Scope:   nil,
-			}),
+			Entry("zero values", ir.Member{NodeKey: nil, Scope: nil}),
 		)
 	})
 	Describe("Node", func() {
@@ -923,62 +926,6 @@ var _ = Describe("Codec", func() {
 			}),
 		)
 	})
-	Describe("NodeRef", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original ir.NodeRef) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded ir.NodeRef
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ir.NodeRef{Key: "test_1"}),
-			Entry("zero values", ir.NodeRef{Key: ""}),
-		)
-	})
-	Describe("Phase", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original ir.Phase) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded ir.Phase
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ir.Phase{
-				Members: []ir.Member{
-					{
-						Key:     "test_2",
-						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_4"}; return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:        "test_6",
-								Mode:       ir.ScopeMode(0),
-								Liveness:   ir.Liveness(0),
-								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_10", Param: "test_11"}; return &v }(),
-								Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-								Members: []ir.Member{
-									{
-										Key:     "test_15",
-										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-								Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
-							}
-							return &v
-						}(),
-					},
-				},
-			}),
-			Entry("zero values", ir.Phase{Members: nil}),
-			Entry("empty collections", ir.Phase{Members: []ir.Member{}}),
-		)
-	})
 	Describe("Scope", func() {
 		DescribeTable("should round-trip encode and decode",
 			func(original ir.Scope) {
@@ -995,47 +942,71 @@ var _ = Describe("Codec", func() {
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
 				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
-				Phases: []ir.Phase{
+				Strata: [][]ir.Member{
 					{
-						Members: []ir.Member{
-							{
-								Key:     "test_9",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_11"}; return &v }(),
-								Scope: func() *ir.Scope {
-									v := ir.Scope{
-										Key:         "test_13",
-										Mode:        ir.ScopeMode(0),
-										Liveness:    ir.Liveness(0),
-										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-										Phases:      []ir.Phase{{}},
-										Members:     []ir.Member{{}},
-										Transitions: []ir.Transition{{}},
-									}
-									return &v
-								}(),
-							},
+						{
+							NodeKey: func() *string { v := string("test_8"); return &v }(),
+							Scope: func() *ir.Scope {
+								v := ir.Scope{
+									Key:        "test_10",
+									Mode:       ir.ScopeMode(0),
+									Liveness:   ir.Liveness(0),
+									Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
+									Strata: [][]ir.Member{
+										{
+											{
+												NodeKey: func() *string { v := string("test_17"); return &v }(),
+												Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+											},
+										},
+									},
+									Steps: []ir.Member{
+										{
+											NodeKey: func() *string { v := string("test_20"); return &v }(),
+											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+										},
+									},
+									Transitions: []ir.Transition{
+										{
+											On:        ir.Handle{},
+											TargetKey: func() *string { v := string("test_24"); return &v }(),
+										},
+									},
+								}
+								return &v
+							}(),
 						},
 					},
 				},
-				Members: []ir.Member{
+				Steps: []ir.Member{
 					{
-						Key:     "test_21",
-						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_23"}; return &v }(),
+						NodeKey: func() *string { v := string("test_26"); return &v }(),
 						Scope: func() *ir.Scope {
 							v := ir.Scope{
-								Key:        "test_25",
+								Key:        "test_28",
 								Mode:       ir.ScopeMode(0),
 								Liveness:   ir.Liveness(0),
-								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_29", Param: "test_30"}; return &v }(),
-								Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-								Members: []ir.Member{
+								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
+								Strata: [][]ir.Member{
 									{
-										Key:     "test_34",
-										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+										{
+											NodeKey: func() *string { v := string("test_35"); return &v }(),
+											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+										},
+									},
+								},
+								Steps: []ir.Member{
+									{
+										NodeKey: func() *string { v := string("test_38"); return &v }(),
 										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 									},
 								},
-								Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+								Transitions: []ir.Transition{
+									{
+										On:        ir.Handle{},
+										TargetKey: func() *string { v := string("test_42"); return &v }(),
+									},
+								},
 							}
 							return &v
 						}(),
@@ -1043,11 +1014,8 @@ var _ = Describe("Codec", func() {
 				},
 				Transitions: []ir.Transition{
 					{
-						On: ir.Handle{Node: "test_42", Param: "test_43"},
-						Target: ir.TransitionTarget{
-							MemberKey: func() *string { v := string("test_45"); return &v }(),
-							Exit:      func() *bool { v := bool(false); return &v }(),
-						},
+						On:        ir.Handle{Node: "test_45", Param: "test_46"},
+						TargetKey: func() *string { v := string("test_47"); return &v }(),
 					},
 				},
 			}),
@@ -1056,8 +1024,8 @@ var _ = Describe("Codec", func() {
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
 				Activation:  nil,
-				Phases:      nil,
-				Members:     nil,
+				Strata:      nil,
+				Steps:       nil,
 				Transitions: nil,
 			}),
 			Entry("empty collections", ir.Scope{
@@ -1065,8 +1033,8 @@ var _ = Describe("Codec", func() {
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
 				Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
-				Phases:      []ir.Phase{},
-				Members:     []ir.Member{},
+				Strata:      [][]ir.Member{},
+				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
 			}),
 		)
@@ -1083,34 +1051,10 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", ir.Transition{
-				On: ir.Handle{Node: "test_2", Param: "test_3"},
-				Target: ir.TransitionTarget{
-					MemberKey: func() *string { v := string("test_5"); return &v }(),
-					Exit:      func() *bool { v := bool(false); return &v }(),
-				},
+				On:        ir.Handle{Node: "test_2", Param: "test_3"},
+				TargetKey: func() *string { v := string("test_4"); return &v }(),
 			}),
-			Entry("zero values", ir.Transition{
-				On:     ir.Handle{Node: "", Param: ""},
-				Target: ir.TransitionTarget{MemberKey: nil, Exit: nil},
-			}),
-		)
-	})
-	Describe("TransitionTarget", func() {
-		DescribeTable("should round-trip encode and decode",
-			func(original ir.TransitionTarget) {
-				w := orc.NewWriter(0)
-				Expect(original.EncodeOrc(w)).To(Succeed())
-				var decoded ir.TransitionTarget
-				r := orc.NewReader(nil)
-				r.ResetBytes(w.Bytes())
-				Expect(decoded.DecodeOrc(r)).To(Succeed())
-				Expect(decoded).To(Equal(original))
-			},
-			Entry("fully populated", ir.TransitionTarget{
-				MemberKey: func() *string { v := string("test_1"); return &v }(),
-				Exit:      func() *bool { v := bool(false); return &v }(),
-			}),
-			Entry("zero values", ir.TransitionTarget{MemberKey: nil, Exit: nil}),
+			Entry("zero values", ir.Transition{On: ir.Handle{Node: "", Param: ""}, TargetKey: nil}),
 		)
 	})
 })
@@ -1588,29 +1532,36 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 			Mode:       ir.ScopeMode(0),
 			Liveness:   ir.Liveness(0),
 			Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
-			Phases: []ir.Phase{
+			Strata: [][]ir.Member{
 				{
-					Members: []ir.Member{
-						{
-							Key:     "test_112",
-							NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-							Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-						},
+					{
+						NodeKey: func() *string { v := string("test_111"); return &v }(),
+						Scope: func() *ir.Scope {
+							v := ir.Scope{
+								Key:         "test_113",
+								Mode:        ir.ScopeMode(0),
+								Liveness:    ir.Liveness(0),
+								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
+								Transitions: []ir.Transition{{}},
+							}
+							return &v
+						}(),
 					},
 				},
 			},
-			Members: []ir.Member{
+			Steps: []ir.Member{
 				{
-					Key:     "test_116",
-					NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+					NodeKey: func() *string { v := string("test_121"); return &v }(),
 					Scope: func() *ir.Scope {
 						v := ir.Scope{
-							Key:         "test_120",
+							Key:         "test_123",
 							Mode:        ir.ScopeMode(0),
 							Liveness:    ir.Liveness(0),
 							Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-							Phases:      []ir.Phase{{}},
-							Members:     []ir.Member{{}},
+							Strata:      [][]ir.Member{{{}}},
+							Steps:       []ir.Member{{}},
 							Transitions: []ir.Transition{{}},
 						}
 						return &v
@@ -1619,11 +1570,8 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 			},
 			Transitions: []ir.Transition{
 				{
-					On: ir.Handle{Node: "test_129", Param: "test_130"},
-					Target: ir.TransitionTarget{
-						MemberKey: func() *string { v := string("test_132"); return &v }(),
-						Exit:      func() *bool { v := bool(true); return &v }(),
-					},
+					On:        ir.Handle{Node: "test_132", Param: "test_133"},
+					TargetKey: func() *string { v := string("test_134"); return &v }(),
 				},
 			},
 		},
@@ -1645,37 +1593,43 @@ func BenchmarkEncodeDecodeIR(b *testing.B) {
 
 func BenchmarkEncodeDecodeMember(b *testing.B) {
 	mv := ir.Member{
-		Key:     "test_1",
-		NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_3"}; return &v }(),
+		NodeKey: func() *string { v := string("test_1"); return &v }(),
 		Scope: func() *ir.Scope {
 			v := ir.Scope{
-				Key:        "test_5",
+				Key:        "test_3",
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
-				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_9", Param: "test_10"}; return &v }(),
-				Phases: []ir.Phase{
+				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
+				Strata: [][]ir.Member{
 					{
-						Members: []ir.Member{
-							{
-								Key:     "test_13",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-							},
+						{
+							NodeKey: func() *string { v := string("test_10"); return &v }(),
+							Scope: func() *ir.Scope {
+								v := ir.Scope{
+									Key:         "test_12",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
+								}
+								return &v
+							}(),
 						},
 					},
 				},
-				Members: []ir.Member{
+				Steps: []ir.Member{
 					{
-						Key:     "test_17",
-						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_19"}; return &v }(),
+						NodeKey: func() *string { v := string("test_20"); return &v }(),
 						Scope: func() *ir.Scope {
 							v := ir.Scope{
-								Key:         "test_21",
+								Key:         "test_22",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Phases:      []ir.Phase{{}},
-								Members:     []ir.Member{{}},
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
 							}
 							return &v
@@ -1684,11 +1638,8 @@ func BenchmarkEncodeDecodeMember(b *testing.B) {
 				},
 				Transitions: []ir.Transition{
 					{
-						On: ir.Handle{Node: "test_30", Param: "test_31"},
-						Target: ir.TransitionTarget{
-							MemberKey: func() *string { v := string("test_33"); return &v }(),
-							Exit:      func() *bool { v := bool(false); return &v }(),
-						},
+						On:        ir.Handle{Node: "test_31", Param: "test_32"},
+						TargetKey: func() *string { v := string("test_33"); return &v }(),
 					},
 				},
 			}
@@ -1956,112 +1907,77 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 	}
 }
 
-func BenchmarkEncodeDecodeNodeRef(b *testing.B) {
-	nr := ir.NodeRef{Key: "test_1"}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := nr.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.NodeRef
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodePhase(b *testing.B) {
-	p := ir.Phase{
-		Members: []ir.Member{
-			{
-				Key:     "test_2",
-				NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_4"}; return &v }(),
-				Scope: func() *ir.Scope {
-					v := ir.Scope{
-						Key:        "test_6",
-						Mode:       ir.ScopeMode(0),
-						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_10", Param: "test_11"}; return &v }(),
-						Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-						Members: []ir.Member{
-							{
-								Key:     "test_15",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-							},
-						},
-						Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
-					}
-					return &v
-				}(),
-			},
-		},
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := p.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.Phase
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
 func BenchmarkEncodeDecodeScope(b *testing.B) {
 	s := ir.Scope{
 		Key:        "test_1",
 		Mode:       ir.ScopeMode(0),
 		Liveness:   ir.Liveness(0),
 		Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
-		Phases: []ir.Phase{
+		Strata: [][]ir.Member{
 			{
-				Members: []ir.Member{
-					{
-						Key:     "test_9",
-						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_11"}; return &v }(),
-						Scope: func() *ir.Scope {
-							v := ir.Scope{
-								Key:         "test_13",
-								Mode:        ir.ScopeMode(0),
-								Liveness:    ir.Liveness(0),
-								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Phases:      []ir.Phase{{}},
-								Members:     []ir.Member{{}},
-								Transitions: []ir.Transition{{}},
-							}
-							return &v
-						}(),
-					},
+				{
+					NodeKey: func() *string { v := string("test_8"); return &v }(),
+					Scope: func() *ir.Scope {
+						v := ir.Scope{
+							Key:        "test_10",
+							Mode:       ir.ScopeMode(0),
+							Liveness:   ir.Liveness(0),
+							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
+							Strata: [][]ir.Member{
+								{
+									{
+										NodeKey: func() *string { v := string("test_17"); return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+									},
+								},
+							},
+							Steps: []ir.Member{
+								{
+									NodeKey: func() *string { v := string("test_20"); return &v }(),
+									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+								},
+							},
+							Transitions: []ir.Transition{
+								{
+									On:        ir.Handle{},
+									TargetKey: func() *string { v := string("test_24"); return &v }(),
+								},
+							},
+						}
+						return &v
+					}(),
 				},
 			},
 		},
-		Members: []ir.Member{
+		Steps: []ir.Member{
 			{
-				Key:     "test_21",
-				NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_23"}; return &v }(),
+				NodeKey: func() *string { v := string("test_26"); return &v }(),
 				Scope: func() *ir.Scope {
 					v := ir.Scope{
-						Key:        "test_25",
+						Key:        "test_28",
 						Mode:       ir.ScopeMode(0),
 						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_29", Param: "test_30"}; return &v }(),
-						Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-						Members: []ir.Member{
+						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
+						Strata: [][]ir.Member{
 							{
-								Key:     "test_34",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+								{
+									NodeKey: func() *string { v := string("test_35"); return &v }(),
+									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+								},
+							},
+						},
+						Steps: []ir.Member{
+							{
+								NodeKey: func() *string { v := string("test_38"); return &v }(),
 								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 							},
 						},
-						Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+						Transitions: []ir.Transition{
+							{
+								On:        ir.Handle{},
+								TargetKey: func() *string { v := string("test_42"); return &v }(),
+							},
+						},
 					}
 					return &v
 				}(),
@@ -2069,11 +1985,8 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 		},
 		Transitions: []ir.Transition{
 			{
-				On: ir.Handle{Node: "test_42", Param: "test_43"},
-				Target: ir.TransitionTarget{
-					MemberKey: func() *string { v := string("test_45"); return &v }(),
-					Exit:      func() *bool { v := bool(false); return &v }(),
-				},
+				On:        ir.Handle{Node: "test_45", Param: "test_46"},
+				TargetKey: func() *string { v := string("test_47"); return &v }(),
 			},
 		},
 	}
@@ -2094,11 +2007,8 @@ func BenchmarkEncodeDecodeScope(b *testing.B) {
 
 func BenchmarkEncodeDecodeTransition(b *testing.B) {
 	t := ir.Transition{
-		On: ir.Handle{Node: "test_2", Param: "test_3"},
-		Target: ir.TransitionTarget{
-			MemberKey: func() *string { v := string("test_5"); return &v }(),
-			Exit:      func() *bool { v := bool(false); return &v }(),
-		},
+		On:        ir.Handle{Node: "test_2", Param: "test_3"},
+		TargetKey: func() *string { v := string("test_4"); return &v }(),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -2108,26 +2018,6 @@ func BenchmarkEncodeDecodeTransition(b *testing.B) {
 			b.Fatal(err)
 		}
 		var decoded ir.Transition
-		r.ResetBytes(w.Bytes())
-		if err := decoded.DecodeOrc(r); err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkEncodeDecodeTransitionTarget(b *testing.B) {
-	tt := ir.TransitionTarget{
-		MemberKey: func() *string { v := string("test_1"); return &v }(),
-		Exit:      func() *bool { v := bool(false); return &v }(),
-	}
-	w := orc.NewWriter(0)
-	r := orc.NewReader(nil)
-	for i := 0; i < b.N; i++ {
-		w.Reset()
-		if err := tt.EncodeOrc(w); err != nil {
-			b.Fatal(err)
-		}
-		var decoded ir.TransitionTarget
 		r.ResetBytes(w.Bytes())
 		if err := decoded.DecodeOrc(r); err != nil {
 			b.Fatal(err)
@@ -2776,29 +2666,36 @@ func FuzzDecodeIR(f *testing.F) {
 				Mode:       ir.ScopeMode(0),
 				Liveness:   ir.Liveness(0),
 				Activation: func() *ir.Handle { v := ir.Handle{Node: "test_108", Param: "test_109"}; return &v }(),
-				Phases: []ir.Phase{
+				Strata: [][]ir.Member{
 					{
-						Members: []ir.Member{
-							{
-								Key:     "test_112",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-							},
+						{
+							NodeKey: func() *string { v := string("test_111"); return &v }(),
+							Scope: func() *ir.Scope {
+								v := ir.Scope{
+									Key:         "test_113",
+									Mode:        ir.ScopeMode(0),
+									Liveness:    ir.Liveness(0),
+									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
+									Transitions: []ir.Transition{{}},
+								}
+								return &v
+							}(),
 						},
 					},
 				},
-				Members: []ir.Member{
+				Steps: []ir.Member{
 					{
-						Key:     "test_116",
-						NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_118"}; return &v }(),
+						NodeKey: func() *string { v := string("test_121"); return &v }(),
 						Scope: func() *ir.Scope {
 							v := ir.Scope{
-								Key:         "test_120",
+								Key:         "test_123",
 								Mode:        ir.ScopeMode(0),
 								Liveness:    ir.Liveness(0),
 								Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-								Phases:      []ir.Phase{{}},
-								Members:     []ir.Member{{}},
+								Strata:      [][]ir.Member{{{}}},
+								Steps:       []ir.Member{{}},
 								Transitions: []ir.Transition{{}},
 							}
 							return &v
@@ -2807,11 +2704,8 @@ func FuzzDecodeIR(f *testing.F) {
 				},
 				Transitions: []ir.Transition{
 					{
-						On: ir.Handle{Node: "test_129", Param: "test_130"},
-						Target: ir.TransitionTarget{
-							MemberKey: func() *string { v := string("test_132"); return &v }(),
-							Exit:      func() *bool { v := bool(true); return &v }(),
-						},
+						On:        ir.Handle{Node: "test_132", Param: "test_133"},
+						TargetKey: func() *string { v := string("test_134"); return &v }(),
 					},
 				},
 			},
@@ -2833,8 +2727,8 @@ func FuzzDecodeIR(f *testing.F) {
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
 				Activation:  nil,
-				Phases:      nil,
-				Members:     nil,
+				Strata:      nil,
+				Steps:       nil,
 				Transitions: nil,
 			},
 		}
@@ -2858,8 +2752,8 @@ func FuzzDecodeIR(f *testing.F) {
 				Mode:        ir.ScopeMode(0),
 				Liveness:    ir.Liveness(0),
 				Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_12", Param: "test_13"}; return &v }(),
-				Phases:      []ir.Phase{},
-				Members:     []ir.Member{},
+				Strata:      [][]ir.Member{},
+				Steps:       []ir.Member{},
 				Transitions: []ir.Transition{},
 			},
 		}
@@ -2898,37 +2792,43 @@ func FuzzDecodeIR(f *testing.F) {
 func FuzzDecodeMember(f *testing.F) {
 	{
 		seed := ir.Member{
-			Key:     "test_1",
-			NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_3"}; return &v }(),
+			NodeKey: func() *string { v := string("test_1"); return &v }(),
 			Scope: func() *ir.Scope {
 				v := ir.Scope{
-					Key:        "test_5",
+					Key:        "test_3",
 					Mode:       ir.ScopeMode(0),
 					Liveness:   ir.Liveness(0),
-					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_9", Param: "test_10"}; return &v }(),
-					Phases: []ir.Phase{
+					Activation: func() *ir.Handle { v := ir.Handle{Node: "test_7", Param: "test_8"}; return &v }(),
+					Strata: [][]ir.Member{
 						{
-							Members: []ir.Member{
-								{
-									Key:     "test_13",
-									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
+							{
+								NodeKey: func() *string { v := string("test_10"); return &v }(),
+								Scope: func() *ir.Scope {
+									v := ir.Scope{
+										Key:         "test_12",
+										Mode:        ir.ScopeMode(0),
+										Liveness:    ir.Liveness(0),
+										Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
+										Strata:      [][]ir.Member{{{}}},
+										Steps:       []ir.Member{{}},
+										Transitions: []ir.Transition{{}},
+									}
+									return &v
+								}(),
 							},
 						},
 					},
-					Members: []ir.Member{
+					Steps: []ir.Member{
 						{
-							Key:     "test_17",
-							NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_19"}; return &v }(),
+							NodeKey: func() *string { v := string("test_20"); return &v }(),
 							Scope: func() *ir.Scope {
 								v := ir.Scope{
-									Key:         "test_21",
+									Key:         "test_22",
 									Mode:        ir.ScopeMode(0),
 									Liveness:    ir.Liveness(0),
 									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Phases:      []ir.Phase{{}},
-									Members:     []ir.Member{{}},
+									Strata:      [][]ir.Member{{{}}},
+									Steps:       []ir.Member{{}},
 									Transitions: []ir.Transition{{}},
 								}
 								return &v
@@ -2937,11 +2837,8 @@ func FuzzDecodeMember(f *testing.F) {
 					},
 					Transitions: []ir.Transition{
 						{
-							On: ir.Handle{Node: "test_30", Param: "test_31"},
-							Target: ir.TransitionTarget{
-								MemberKey: func() *string { v := string("test_33"); return &v }(),
-								Exit:      func() *bool { v := bool(false); return &v }(),
-							},
+							On:        ir.Handle{Node: "test_31", Param: "test_32"},
+							TargetKey: func() *string { v := string("test_33"); return &v }(),
 						},
 					},
 				}
@@ -2955,11 +2852,7 @@ func FuzzDecodeMember(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Member{
-			Key:     "",
-			NodeRef: nil,
-			Scope:   nil,
-		}
+		seed := ir.Member{NodeKey: nil, Scope: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3286,125 +3179,6 @@ func FuzzDecodeNode(f *testing.F) {
 	})
 }
 
-func FuzzDecodeNodeRef(f *testing.F) {
-	{
-		seed := ir.NodeRef{Key: "test_1"}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := ir.NodeRef{Key: ""}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded ir.NodeRef
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded ir.NodeRef
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
-}
-
-func FuzzDecodePhase(f *testing.F) {
-	{
-		seed := ir.Phase{
-			Members: []ir.Member{
-				{
-					Key:     "test_2",
-					NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_4"}; return &v }(),
-					Scope: func() *ir.Scope {
-						v := ir.Scope{
-							Key:        "test_6",
-							Mode:       ir.ScopeMode(0),
-							Liveness:   ir.Liveness(0),
-							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_10", Param: "test_11"}; return &v }(),
-							Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-							Members: []ir.Member{
-								{
-									Key:     "test_15",
-									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-							Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
-						}
-						return &v
-					}(),
-				},
-			},
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := ir.Phase{Members: nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := ir.Phase{Members: []ir.Member{}}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded ir.Phase
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded ir.Phase
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
-}
-
 func FuzzDecodeScope(f *testing.F) {
 	{
 		seed := ir.Scope{
@@ -3412,47 +3186,71 @@ func FuzzDecodeScope(f *testing.F) {
 			Mode:       ir.ScopeMode(0),
 			Liveness:   ir.Liveness(0),
 			Activation: func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
-			Phases: []ir.Phase{
+			Strata: [][]ir.Member{
 				{
-					Members: []ir.Member{
-						{
-							Key:     "test_9",
-							NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_11"}; return &v }(),
-							Scope: func() *ir.Scope {
-								v := ir.Scope{
-									Key:         "test_13",
-									Mode:        ir.ScopeMode(0),
-									Liveness:    ir.Liveness(0),
-									Activation:  func() *ir.Handle { v := ir.Handle{}; return &v }(),
-									Phases:      []ir.Phase{{}},
-									Members:     []ir.Member{{}},
-									Transitions: []ir.Transition{{}},
-								}
-								return &v
-							}(),
-						},
+					{
+						NodeKey: func() *string { v := string("test_8"); return &v }(),
+						Scope: func() *ir.Scope {
+							v := ir.Scope{
+								Key:        "test_10",
+								Mode:       ir.ScopeMode(0),
+								Liveness:   ir.Liveness(0),
+								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_14", Param: "test_15"}; return &v }(),
+								Strata: [][]ir.Member{
+									{
+										{
+											NodeKey: func() *string { v := string("test_17"); return &v }(),
+											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+										},
+									},
+								},
+								Steps: []ir.Member{
+									{
+										NodeKey: func() *string { v := string("test_20"); return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+									},
+								},
+								Transitions: []ir.Transition{
+									{
+										On:        ir.Handle{},
+										TargetKey: func() *string { v := string("test_24"); return &v }(),
+									},
+								},
+							}
+							return &v
+						}(),
 					},
 				},
 			},
-			Members: []ir.Member{
+			Steps: []ir.Member{
 				{
-					Key:     "test_21",
-					NodeRef: func() *ir.NodeRef { v := ir.NodeRef{Key: "test_23"}; return &v }(),
+					NodeKey: func() *string { v := string("test_26"); return &v }(),
 					Scope: func() *ir.Scope {
 						v := ir.Scope{
-							Key:        "test_25",
+							Key:        "test_28",
 							Mode:       ir.ScopeMode(0),
 							Liveness:   ir.Liveness(0),
-							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_29", Param: "test_30"}; return &v }(),
-							Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-							Members: []ir.Member{
+							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_32", Param: "test_33"}; return &v }(),
+							Strata: [][]ir.Member{
 								{
-									Key:     "test_34",
-									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+									{
+										NodeKey: func() *string { v := string("test_35"); return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+									},
+								},
+							},
+							Steps: []ir.Member{
+								{
+									NodeKey: func() *string { v := string("test_38"); return &v }(),
 									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 								},
 							},
-							Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+							Transitions: []ir.Transition{
+								{
+									On:        ir.Handle{},
+									TargetKey: func() *string { v := string("test_42"); return &v }(),
+								},
+							},
 						}
 						return &v
 					}(),
@@ -3460,11 +3258,8 @@ func FuzzDecodeScope(f *testing.F) {
 			},
 			Transitions: []ir.Transition{
 				{
-					On: ir.Handle{Node: "test_42", Param: "test_43"},
-					Target: ir.TransitionTarget{
-						MemberKey: func() *string { v := string("test_45"); return &v }(),
-						Exit:      func() *bool { v := bool(false); return &v }(),
-					},
+					On:        ir.Handle{Node: "test_45", Param: "test_46"},
+					TargetKey: func() *string { v := string("test_47"); return &v }(),
 				},
 			},
 		}
@@ -3480,8 +3275,8 @@ func FuzzDecodeScope(f *testing.F) {
 			Mode:        ir.ScopeMode(0),
 			Liveness:    ir.Liveness(0),
 			Activation:  nil,
-			Phases:      nil,
-			Members:     nil,
+			Strata:      nil,
+			Steps:       nil,
 			Transitions: nil,
 		}
 		w := orc.NewWriter(0)
@@ -3496,8 +3291,8 @@ func FuzzDecodeScope(f *testing.F) {
 			Mode:        ir.ScopeMode(0),
 			Liveness:    ir.Liveness(0),
 			Activation:  func() *ir.Handle { v := ir.Handle{Node: "test_5", Param: "test_6"}; return &v }(),
-			Phases:      []ir.Phase{},
-			Members:     []ir.Member{},
+			Strata:      [][]ir.Member{},
+			Steps:       []ir.Member{},
 			Transitions: []ir.Transition{},
 		}
 		w := orc.NewWriter(0)
@@ -3535,11 +3330,8 @@ func FuzzDecodeScope(f *testing.F) {
 func FuzzDecodeTransition(f *testing.F) {
 	{
 		seed := ir.Transition{
-			On: ir.Handle{Node: "test_2", Param: "test_3"},
-			Target: ir.TransitionTarget{
-				MemberKey: func() *string { v := string("test_5"); return &v }(),
-				Exit:      func() *bool { v := bool(false); return &v }(),
-			},
+			On:        ir.Handle{Node: "test_2", Param: "test_3"},
+			TargetKey: func() *string { v := string("test_4"); return &v }(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -3548,10 +3340,7 @@ func FuzzDecodeTransition(f *testing.F) {
 		f.Add(w.Bytes())
 	}
 	{
-		seed := ir.Transition{
-			On:     ir.Handle{Node: "", Param: ""},
-			Target: ir.TransitionTarget{MemberKey: nil, Exit: nil},
-		}
+		seed := ir.Transition{On: ir.Handle{Node: "", Param: ""}, TargetKey: nil}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
 			f.Fatal(err)
@@ -3570,52 +3359,6 @@ func FuzzDecodeTransition(f *testing.F) {
 			t.Fatalf("encode after successful decode failed: %v", err)
 		}
 		var redecoded ir.Transition
-		r.ResetBytes(w1.Bytes())
-		if err := redecoded.DecodeOrc(r); err != nil {
-			t.Fatalf("re-decode failed: %v", err)
-		}
-		w2 := orc.NewWriter(w1.Len())
-		if err := redecoded.EncodeOrc(w2); err != nil {
-			t.Fatalf("re-encode failed: %v", err)
-		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
-		}
-	})
-}
-
-func FuzzDecodeTransitionTarget(f *testing.F) {
-	{
-		seed := ir.TransitionTarget{
-			MemberKey: func() *string { v := string("test_1"); return &v }(),
-			Exit:      func() *bool { v := bool(false); return &v }(),
-		}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	{
-		seed := ir.TransitionTarget{MemberKey: nil, Exit: nil}
-		w := orc.NewWriter(0)
-		if err := seed.EncodeOrc(w); err != nil {
-			f.Fatal(err)
-		}
-		f.Add(w.Bytes())
-	}
-	f.Fuzz(func(t *testing.T, data []byte) {
-		var decoded ir.TransitionTarget
-		r := orc.NewReader(nil)
-		r.ResetBytes(data)
-		if err := decoded.DecodeOrc(r); err != nil {
-			return
-		}
-		w1 := orc.NewWriter(len(data))
-		if err := decoded.EncodeOrc(w1); err != nil {
-			t.Fatalf("encode after successful decode failed: %v", err)
-		}
-		var redecoded ir.TransitionTarget
 		r.ResetBytes(w1.Bytes())
 		if err := redecoded.DecodeOrc(r); err != nil {
 			t.Fatalf("re-decode failed: %v", err)

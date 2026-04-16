@@ -69,34 +69,15 @@ Liveness enum {
     @doc value "defines whether a Scope is continuously active or must be activated."
 }
 
-NodeRef struct {
-    key string {
-        @doc value "is the key of the referenced node in IR.nodes."
-    }
-
-    @doc value "is a Layer 2 reference to a node in the dataflow graph."
-}
-
-TransitionTarget struct {
-    memberKey string?? {
-        @doc value "is the sibling member key to activate."
-    }
-    exit      bool??   {
-        @doc value "is true when the transition exits the scope, yielding to the parent."
-    }
-
-    @doc value """
-        is a tagged union describing the destination of a sequential transition.
-        Exactly one of memberKey or exit is set.
-    """
-}
-
 Transition struct {
-    on     Handle           {
+    on        Handle     {
         @doc value "is the dataflow handle whose truthy value fires this transition."
     }
-    target TransitionTarget {
-        @doc value "is the destination of this transition."
+    targetKey string??   {
+        @doc value """
+            is the sibling step key to activate. Null when the transition
+            exits the scope, yielding to the parent.
+        """
     }
 
     @doc value    "is a declarative state-transition rule on a sequential Scope."
@@ -104,34 +85,27 @@ Transition struct {
 }
 
 Member struct {
-    key     string    {
-        @doc value "is the position identifier of this member within its parent scope."
+    nodeKey string?? {
+        @doc value """
+            is the key of the referenced node in IR.nodes. Null when this
+            member is a nested scope.
+        """
     }
-    nodeRef NodeRef?? {
-        @doc value "is set when this member references a dataflow node."
-    }
-    scope   Scope??   {
+    scope   Scope??  {
         @doc value "is set when this member is a nested scope."
     }
 
     @doc value """
         is a tagged union representing a single child of a Scope. Exactly one
-        of nodeRef or scope is set.
+        of nodeKey or scope is set. The member's lookup key (used as the
+        target of `=> name` transitions) is derived from the set variant via
+        Member.key().
     """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
+    @cpp methods  "[[nodiscard]] const std::string& key() const" "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Member& m)"
 }
 
-Phase struct {
-    members Member[] {
-        @doc value "contains members that execute together in this phase."
-    }
-
-    @doc value """
-        is a single execution layer within a parallel Scope. Members in a phase
-        have no data dependency among themselves; phase N depends only on
-        phases 0 to N-1.
-    """
-    @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Phase& p)"
+Members = Member[] {
+    @doc value "is an ordered collection of Scope members, one per position."
 }
 
 Scope struct {
@@ -139,7 +113,7 @@ Scope struct {
         @doc value "is the scope identifier."
     }
     mode        ScopeMode     {
-        @doc value "defines whether this scope runs members in parallel or sequentially."
+        @doc value "defines whether this scope runs steps in parallel or sequentially."
     }
     liveness    Liveness      {
         @doc value "defines whether this scope is continuously active or must be activated."
@@ -147,11 +121,14 @@ Scope struct {
     activation  Handle??      {
         @doc value "is the handle whose truthy value activates a gated scope. Unset for always-live scopes."
     }
-    phases      Phase[]       {
-        @doc value "contains ordered execution layers for parallel scopes. Empty for sequential scopes."
+    strata      Members[]     {
+        @doc value """
+            contains stratified execution layers for parallel scopes. Empty
+            for sequential scopes. Stratum N depends only on strata 0 to N-1.
+        """
     }
-    members     Member[]      {
-        @doc value "contains ordered members for sequential scopes. Empty for parallel scopes."
+    steps       Members       {
+        @doc value "contains ordered steps for sequential scopes. Empty for parallel scopes."
     }
     transitions Transition[]  {
         @doc value "contains state-transition rules for sequential scopes. Empty for parallel scopes."
@@ -160,7 +137,7 @@ Scope struct {
     @doc value """
         is the unified Layer 2 execution primitive. Parameterized by mode
         (parallel or sequential) and liveness (always-live or gated). Parallel
-        scopes organize members into phases; sequential scopes run one member
+        scopes organize members into strata; sequential scopes run one step
         at a time and advance via transitions.
     """
     @cpp methods  "[[nodiscard]] std::string to_string() const" "[[nodiscard]] std::string to_string_with_prefix(const std::string& prefix) const" "friend std::ostream& operator<<(std::ostream& os, const Scope& s)"
@@ -265,7 +242,7 @@ IR struct {
     root        Scope        {
         @doc value """
             is the top-level execution context. The root is always a
-            parallel, always-live Scope whose phases mix module-scope
+            parallel, always-live Scope whose strata mix module-scope
             reactive flow with top-level gated scopes.
         """
     }

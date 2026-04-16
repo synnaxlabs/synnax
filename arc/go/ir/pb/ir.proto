@@ -48,65 +48,47 @@ message Edge {
   EdgeKind kind = 3;
 }
 
-// NodeRef is a Layer 2 reference to a node in the dataflow graph.
-message NodeRef {
-  // key is the key of the referenced node in IR.nodes.
-  string key = 1;
-}
-
-// TransitionTarget is a tagged union describing the destination of a sequential
-// transition. Exactly one of memberKey or exit is set.
-message TransitionTarget {
-  // member_key is the sibling member key to activate.
-  optional string member_key = 1;
-  // exit is true when the transition exits the scope, yielding to the parent.
-  optional bool exit = 2;
-}
-
 // Transition is a declarative state-transition rule on a sequential Scope.
 message Transition {
   // on is the dataflow handle whose truthy value fires this transition.
   Handle on = 1;
-  // target is the destination of this transition.
-  TransitionTarget target = 2;
+  // target_key is the sibling step key to activate. Null when the transition exits the
+  // scope, yielding to the parent.
+  optional string target_key = 2;
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
-// nodeRef or scope is set.
+// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
+// transitions) is derived from the set variant via Member.key().
 message Member {
-  // key is the position identifier of this member within its parent scope.
-  string key = 1;
-  // node_ref is set when this member references a dataflow node.
-  optional NodeRef node_ref = 2;
+  // node_key is the key of the referenced node in IR.nodes. Null when this member is a
+  // nested scope.
+  optional string node_key = 1;
   // scope is set when this member is a nested scope.
-  optional Scope scope = 3;
+  optional Scope scope = 2;
 }
-
-// Phase is a single execution layer within a parallel Scope. Members in a phase have no
-// data dependency among themselves; phase N depends only on phases 0 to N-1.
-message Phase {
-  // members contains members that execute together in this phase.
-  repeated Member members = 1;
+message MembersWrapper {
+  repeated Member values = 1;
 }
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
-// into phases; sequential scopes run one member at a time and advance via transitions.
+// into strata; sequential scopes run one step at a time and advance via transitions.
 message Scope {
   // key is the scope identifier.
   string key = 1;
-  // mode defines whether this scope runs members in parallel or sequentially.
+  // mode defines whether this scope runs steps in parallel or sequentially.
   ScopeMode mode = 2;
   // liveness defines whether this scope is continuously active or must be activated.
   Liveness liveness = 3;
   // activation is the handle whose truthy value activates a gated scope. Unset for
   // always-live scopes.
   optional Handle activation = 4;
-  // phases contains ordered execution layers for parallel scopes. Empty for sequential
-  // scopes.
-  repeated Phase phases = 5;
-  // members contains ordered members for sequential scopes. Empty for parallel scopes.
-  repeated Member members = 6;
+  // strata contains stratified execution layers for parallel scopes. Empty for sequential
+  // scopes. Stratum N depends only on strata 0 to N-1.
+  repeated MembersWrapper strata = 5;
+  // steps contains ordered steps for sequential scopes. Empty for parallel scopes.
+  repeated Member steps = 6;
   // transitions contains state-transition rules for sequential scopes. Empty for parallel
   // scopes.
   repeated Transition transitions = 7;
@@ -172,6 +154,6 @@ message IR {
   // authorities contains the static authority declarations for this program.
   Authorities authorities = 4;
   // root is the top-level execution context. The root is always a parallel, always-live
-  // Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+  // Scope whose strata mix module-scope reactive flow with top-level gated scopes.
   Scope root = 5;
 }

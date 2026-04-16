@@ -133,116 +133,17 @@ func EdgesFromPB(pbs []*Edge) ([]ir.Edge, error) {
 	return result, nil
 }
 
-// NodeRefToPB converts NodeRef to NodeRef.
-func NodeRefToPB(r ir.NodeRef) (*NodeRef, error) {
-	pb := &NodeRef{
-		Key: r.Key,
-	}
-	return pb, nil
-}
-
-// NodeRefFromPB converts NodeRef to NodeRef.
-func NodeRefFromPB(pb *NodeRef) (ir.NodeRef, error) {
-	var r ir.NodeRef
-	if pb == nil {
-		return r, nil
-	}
-	r.Key = pb.Key
-	return r, nil
-}
-
-// NodeRefsToPB converts a slice of NodeRef to NodeRef.
-func NodeRefsToPB(rs []ir.NodeRef) ([]*NodeRef, error) {
-	result := make([]*NodeRef, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = NodeRefToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// NodeRefsFromPB converts a slice of NodeRef to NodeRef.
-func NodeRefsFromPB(pbs []*NodeRef) ([]ir.NodeRef, error) {
-	result := make([]ir.NodeRef, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = NodeRefFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TransitionTargetToPB converts TransitionTarget to TransitionTarget.
-func TransitionTargetToPB(r ir.TransitionTarget) (*TransitionTarget, error) {
-	pb := &TransitionTarget{}
-	if r.MemberKey != nil {
-		pb.MemberKey = r.MemberKey
-	}
-	if r.Exit != nil {
-		pb.Exit = r.Exit
-	}
-	return pb, nil
-}
-
-// TransitionTargetFromPB converts TransitionTarget to TransitionTarget.
-func TransitionTargetFromPB(pb *TransitionTarget) (ir.TransitionTarget, error) {
-	var r ir.TransitionTarget
-	if pb == nil {
-		return r, nil
-	}
-	if pb.MemberKey != nil {
-		r.MemberKey = pb.MemberKey
-	}
-	if pb.Exit != nil {
-		r.Exit = pb.Exit
-	}
-	return r, nil
-}
-
-// TransitionTargetsToPB converts a slice of TransitionTarget to TransitionTarget.
-func TransitionTargetsToPB(rs []ir.TransitionTarget) ([]*TransitionTarget, error) {
-	result := make([]*TransitionTarget, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = TransitionTargetToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// TransitionTargetsFromPB converts a slice of TransitionTarget to TransitionTarget.
-func TransitionTargetsFromPB(pbs []*TransitionTarget) ([]ir.TransitionTarget, error) {
-	result := make([]ir.TransitionTarget, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = TransitionTargetFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // TransitionToPB converts Transition to Transition.
 func TransitionToPB(r ir.Transition) (*Transition, error) {
 	onVal, err := HandleToPB(r.On)
 	if err != nil {
 		return nil, err
 	}
-	targetVal, err := TransitionTargetToPB(r.Target)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Transition{
-		On:     onVal,
-		Target: targetVal,
+		On: onVal,
+	}
+	if r.TargetKey != nil {
+		pb.TargetKey = r.TargetKey
 	}
 	return pb, nil
 }
@@ -258,9 +159,8 @@ func TransitionFromPB(pb *Transition) (ir.Transition, error) {
 	if err != nil {
 		return ir.Transition{}, err
 	}
-	r.Target, err = TransitionTargetFromPB(pb.Target)
-	if err != nil {
-		return ir.Transition{}, err
+	if pb.TargetKey != nil {
+		r.TargetKey = pb.TargetKey
 	}
 	return r, nil
 }
@@ -293,15 +193,9 @@ func TransitionsFromPB(pbs []*Transition) ([]ir.Transition, error) {
 
 // MemberToPB converts Member to Member.
 func MemberToPB(r ir.Member) (*Member, error) {
-	pb := &Member{
-		Key: r.Key,
-	}
-	if r.NodeRef != nil {
-		var err error
-		pb.NodeRef, err = NodeRefToPB(*r.NodeRef)
-		if err != nil {
-			return nil, err
-		}
+	pb := &Member{}
+	if r.NodeKey != nil {
+		pb.NodeKey = r.NodeKey
 	}
 	if r.Scope != nil {
 		var err error
@@ -319,13 +213,8 @@ func MemberFromPB(pb *Member) (ir.Member, error) {
 	if pb == nil {
 		return r, nil
 	}
-	r.Key = pb.Key
-	if pb.NodeRef != nil {
-		val, err := NodeRefFromPB(pb.NodeRef)
-		if err != nil {
-			return ir.Member{}, err
-		}
-		r.NodeRef = &val
+	if pb.NodeKey != nil {
+		r.NodeKey = pb.NodeKey
 	}
 	if pb.Scope != nil {
 		val, err := ScopeFromPB(pb.Scope)
@@ -363,58 +252,6 @@ func MembersFromPB(pbs []*Member) ([]ir.Member, error) {
 	return result, nil
 }
 
-// PhaseToPB converts Phase to Phase.
-func PhaseToPB(r ir.Phase) (*Phase, error) {
-	membersVal, err := MembersToPB(r.Members)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Phase{
-		Members: membersVal,
-	}
-	return pb, nil
-}
-
-// PhaseFromPB converts Phase to Phase.
-func PhaseFromPB(pb *Phase) (ir.Phase, error) {
-	var r ir.Phase
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Members, err = MembersFromPB(pb.Members)
-	if err != nil {
-		return ir.Phase{}, err
-	}
-	return r, nil
-}
-
-// PhasesToPB converts a slice of Phase to Phase.
-func PhasesToPB(rs []ir.Phase) ([]*Phase, error) {
-	result := make([]*Phase, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = PhaseToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// PhasesFromPB converts a slice of Phase to Phase.
-func PhasesFromPB(pbs []*Phase) ([]ir.Phase, error) {
-	result := make([]ir.Phase, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = PhaseFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // ScopeToPB converts Scope to Scope.
 func ScopeToPB(r ir.Scope) (*Scope, error) {
 	modeVal, err := ScopeModeToPB(r.Mode)
@@ -425,11 +262,21 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 	if err != nil {
 		return nil, err
 	}
-	phasesVal, err := PhasesToPB(r.Phases)
+	strataVal, err := func() ([]*MembersWrapper, error) {
+		result := make([]*MembersWrapper, len(r.Strata))
+		for i, inner := range r.Strata {
+			vals, err := MembersToPB(inner)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = &MembersWrapper{Values: vals}
+		}
+		return result, nil
+	}()
 	if err != nil {
 		return nil, err
 	}
-	membersVal, err := MembersToPB(r.Members)
+	stepsVal, err := MembersToPB(r.Steps)
 	if err != nil {
 		return nil, err
 	}
@@ -441,8 +288,8 @@ func ScopeToPB(r ir.Scope) (*Scope, error) {
 		Key:         r.Key,
 		Mode:        modeVal,
 		Liveness:    livenessVal,
-		Phases:      phasesVal,
-		Members:     membersVal,
+		Strata:      strataVal,
+		Steps:       stepsVal,
 		Transitions: transitionsVal,
 	}
 	if r.Activation != nil {
@@ -470,11 +317,21 @@ func ScopeFromPB(pb *Scope) (ir.Scope, error) {
 	if err != nil {
 		return ir.Scope{}, err
 	}
-	r.Phases, err = PhasesFromPB(pb.Phases)
+	r.Strata, err = func() ([]ir.Members, error) {
+		result := make([]ir.Members, len(pb.Strata))
+		for i, w := range pb.Strata {
+			vals, err := MembersFromPB(w.Values)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = vals
+		}
+		return result, nil
+	}()
 	if err != nil {
 		return ir.Scope{}, err
 	}
-	r.Members, err = MembersFromPB(pb.Members)
+	r.Steps, err = MembersFromPB(pb.Steps)
 	if err != nil {
 		return ir.Scope{}, err
 	}

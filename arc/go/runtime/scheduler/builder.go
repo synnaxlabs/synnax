@@ -24,7 +24,7 @@ import (
 type builder struct {
 	// nodes maps node key to its runtime *node wrapper. Used to resolve
 	// every string-keyed reference in the IR (edge endpoints, activation
-	// handles, transition sources, NodeRef members) into a pointer the
+	// handles, transition sources, leaf-node members) into a pointer the
 	// Scheduler can hold directly.
 	nodes map[string]*node
 	// nodeIndex maps node key to its dense flag-slice index. Used to
@@ -107,7 +107,7 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 	// markedFlags is sized after the walk to match the final count.
 	s.root = b.buildScopeState(&prog.Root)
 	s.markedFlags = make([]uint8, b.nextHandleIdx)
-	// The root scope is parallel+always-live; seed it active so its phases
+	// The root scope is parallel+always-live; seed it active so its strata
 	// execute every cycle. Activating it also resets direct members and
 	// cascades into any gated children (there won't be any at the root
 	// itself, but the recursive reset is harmless).
@@ -126,14 +126,14 @@ func (b *builder) build(prog ir.IR, tolerance telem.TimeSpan) *Scheduler {
 // returns, via Scheduler.activateScope on the root.
 func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 	state := &scope{
-		ir:           sc,
-		activeMember: -1,
+		ir:         sc,
+		activeStep: -1,
 	}
 	appendMember := func(m ir.Member) {
-		ms := member{key: m.Key}
+		ms := member{key: m.Key()}
 		switch {
-		case m.NodeRef != nil:
-			ms.node = b.nodes[m.NodeRef.Key]
+		case m.NodeKey != nil:
+			ms.node = b.nodes[*m.NodeKey]
 		case m.Scope != nil:
 			ms.scope = b.buildScopeState(m.Scope)
 		}
@@ -141,13 +141,13 @@ func (b *builder) buildScopeState(sc *ir.Scope) *scope {
 	}
 	switch sc.Mode {
 	case ir.ScopeModeParallel:
-		for _, phase := range sc.Phases {
-			for _, m := range phase.Members {
+		for _, stratum := range sc.Strata {
+			for _, m := range stratum {
 				appendMember(m)
 			}
 		}
 	case ir.ScopeModeSequential:
-		for _, m := range sc.Members {
+		for _, m := range sc.Steps {
 			appendMember(m)
 		}
 	}
@@ -210,11 +210,11 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 			state.transitionOwner[i] = -1
 		}
 	}
-	// Pre-filter transitions per member so evaluateTransitions can iterate
+	// Pre-filter transitions per step so evaluateTransitions can iterate
 	// a short list instead of scanning all N transitions per cascade step.
-	// Each member's list contains transitions owned by that member plus
+	// Each step's list contains transitions owned by that step plus
 	// every external transition (owner == -1), in source order.
-	state.transitionsForMember = make([][]int, len(state.members))
+	state.transitionsForStep = make([][]int, len(state.members))
 	for m := range state.members {
 		var list []int
 		for i, owner := range state.transitionOwner {
@@ -222,7 +222,7 @@ func (b *builder) resolveTransitions(state *scope, transitions []ir.Transition) 
 				list = append(list, i)
 			}
 		}
-		state.transitionsForMember[m] = list
+		state.transitionsForStep[m] = list
 	}
 }
 
@@ -243,9 +243,9 @@ func (b *builder) getOrCreateOutput(n *node, param string) int {
 
 // collectMemberNodes adds every node owned (directly or transitively) by
 // the given member to the provided map, tagged with the member index.
-// Unresolved NodeRefs are skipped.
+// Unresolved node keys are skipped.
 func collectMemberNodes(m *member, idx int, out map[*node]int) {
-	if m.isNodeRef() {
+	if m.isNode() {
 		if m.node != nil {
 			out[m.node] = idx
 		}

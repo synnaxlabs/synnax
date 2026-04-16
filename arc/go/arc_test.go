@@ -45,8 +45,8 @@ var _ = Describe("Arc", func() {
 	// findTopLevelScope returns the top-level Scope member whose key matches.
 	// Fails the spec if no such member exists.
 	findTopLevelScope := func(prog arc.Program, key string) ir.Scope {
-		for _, p := range prog.Root.Phases {
-			for _, m := range p.Members {
+		for _, stratum := range prog.Root.Strata {
+			for _, m := range stratum {
 				if m.Scope != nil && m.Scope.Key == key {
 					return *m.Scope
 				}
@@ -57,16 +57,16 @@ var _ = Describe("Arc", func() {
 	}
 
 	// findMember returns the member with the given key in a scope's
-	// Members (sequential) or its phases' member lists (parallel).
+	// Steps (sequential) or its Strata (parallel).
 	findMember := func(scope ir.Scope, key string) ir.Member {
-		for _, m := range scope.Members {
-			if m.Key == key {
+		for _, m := range scope.Steps {
+			if m.Key() == key {
 				return m
 			}
 		}
-		for _, p := range scope.Phases {
-			for _, m := range p.Members {
-				if m.Key == key {
+		for _, stratum := range scope.Strata {
+			for _, m := range stratum {
+				if m.Key() == key {
 					return m
 				}
 			}
@@ -75,24 +75,24 @@ var _ = Describe("Arc", func() {
 		return ir.Member{}
 	}
 
-	// scopeNodeRefs collects every NodeRef key reachable within a scope
-	// (across all phases and direct members).
+	// scopeNodeRefs collects every leaf-node key reachable within a scope
+	// (across all strata and direct steps).
 	scopeNodeRefs := func(scope ir.Scope) []string {
 		var keys []string
 		var walk func(s ir.Scope)
 		walk = func(s ir.Scope) {
-			for _, p := range s.Phases {
-				for _, m := range p.Members {
-					if m.NodeRef != nil {
-						keys = append(keys, m.NodeRef.Key)
+			for _, stratum := range s.Strata {
+				for _, m := range stratum {
+					if m.NodeKey != nil {
+						keys = append(keys, *m.NodeKey)
 					} else if m.Scope != nil {
 						walk(*m.Scope)
 					}
 				}
 			}
-			for _, m := range s.Members {
-				if m.NodeRef != nil {
-					keys = append(keys, m.NodeRef.Key)
+			for _, m := range s.Steps {
+				if m.NodeKey != nil {
+					keys = append(keys, *m.NodeKey)
 				} else if m.Scope != nil {
 					walk(*m.Scope)
 				}
@@ -103,12 +103,12 @@ var _ = Describe("Arc", func() {
 	}
 
 	// nextMember returns the member following key in a sequential scope's
-	// Members slice, or ok=false if key is the last or not found.
+	// Steps slice, or ok=false if key is the last or not found.
 	nextMember := func(scope ir.Scope, key string) (ir.Member, bool) {
-		for i, m := range scope.Members {
-			if m.Key == key {
-				if i+1 < len(scope.Members) {
-					return scope.Members[i+1], true
+		for i, m := range scope.Steps {
+			if m.Key() == key {
+				if i+1 < len(scope.Steps) {
+					return scope.Steps[i+1], true
 				}
 				return ir.Member{}, false
 			}
@@ -129,7 +129,7 @@ var _ = Describe("Arc", func() {
 	isFlowMember := func(m ir.Member) bool {
 		return m.Scope != nil &&
 			m.Scope.Mode == ir.ScopeModeParallel &&
-			strings.HasPrefix(m.Key, "step_")
+			strings.HasPrefix(m.Key(), "step_")
 	}
 
 	_ = nextMember
@@ -200,18 +200,18 @@ var _ = Describe("Arc", func() {
 		Expect(edge2.Target.Node).To(Equal(writeNode.Key))
 		Expect(edge2.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		// Root phases reflect the linear dependency chain: on → calc → write.
-		Expect(mod.Root.Phases).To(HaveLen(3))
-		phaseKeys := func(p ir.Phase) []string {
-			keys := make([]string, 0, len(p.Members))
-			for _, m := range p.Members {
-				keys = append(keys, m.Key)
+		// Root strata reflect the linear dependency chain: on → calc → write.
+		Expect(mod.Root.Strata).To(HaveLen(3))
+		stratumKeys := func(stratum ir.Members) []string {
+			keys := make([]string, 0, len(stratum))
+			for _, m := range stratum {
+				keys = append(keys, m.Key())
 			}
 			return keys
 		}
-		Expect(phaseKeys(mod.Root.Phases[0])).To(ContainElement(onNode.Key))
-		Expect(phaseKeys(mod.Root.Phases[1])).To(ContainElement(calcNode.Key))
-		Expect(phaseKeys(mod.Root.Phases[2])).To(ContainElement(writeNode.Key))
+		Expect(stratumKeys(mod.Root.Strata[0])).To(ContainElement(onNode.Key))
+		Expect(stratumKeys(mod.Root.Strata[1])).To(ContainElement(calcNode.Key))
+		Expect(stratumKeys(mod.Root.Strata[2])).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a one-stage sequence", func(ctx SpecContext) {
@@ -232,8 +232,8 @@ var _ = Describe("Arc", func() {
 
 		seg := findTopLevelScope(mod, "seg")
 		Expect(seg.Mode).To(Equal(ir.ScopeModeSequential))
-		Expect(seg.Members).To(HaveLen(1))
-		Expect(seg.Members[0].Key).To(Equal("init"))
+		Expect(seg.Steps).To(HaveLen(1))
+		Expect(seg.Steps[0].Key()).To(Equal("init"))
 
 		init := findMember(seg, "init")
 		Expect(init.Scope).ToNot(BeNil())
@@ -253,16 +253,16 @@ var _ = Describe("Arc", func() {
 		Expect(edge.Source.Node).To(Equal(constNode.Key))
 		Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
 
-		Expect(init.Scope.Phases).To(HaveLen(2))
-		phaseKeys := func(p ir.Phase) []string {
-			out := make([]string, 0, len(p.Members))
-			for _, m := range p.Members {
-				out = append(out, m.Key)
+		Expect(init.Scope.Strata).To(HaveLen(2))
+		stratumKeys := func(stratum ir.Members) []string {
+			out := make([]string, 0, len(stratum))
+			for _, m := range stratum {
+				out = append(out, m.Key())
 			}
 			return out
 		}
-		Expect(phaseKeys(init.Scope.Phases[0])).To(ContainElement(constNode.Key))
-		Expect(phaseKeys(init.Scope.Phases[1])).To(ContainElement(writeNode.Key))
+		Expect(stratumKeys(init.Scope.Strata[0])).To(ContainElement(constNode.Key))
+		Expect(stratumKeys(init.Scope.Strata[1])).To(ContainElement(writeNode.Key))
 	})
 
 	It("Should compile a three stage sequence", func(ctx SpecContext) {
@@ -306,7 +306,7 @@ sequence main {
 		})
 
 		main := findTopLevelScope(mod, "main")
-		Expect(main.Members).To(HaveLen(2))
+		Expect(main.Steps).To(HaveLen(2))
 
 		press := findMember(main, "press")
 		Expect(press.Scope).ToNot(BeNil())
@@ -318,7 +318,7 @@ sequence main {
 
 		nextAfterPress, ok := nextMember(main, "press")
 		Expect(ok).To(BeTrue())
-		Expect(nextAfterPress.Key).To(Equal("stop"))
+		Expect(nextAfterPress.Key()).To(Equal("stop"))
 
 		_, ok = nextMember(main, "stop")
 		Expect(ok).To(BeFalse())
@@ -386,19 +386,19 @@ sequence main {
 		MustBeOk(mod.Functions.Find("expr2"))
 
 		main := findTopLevelScope(mod, "main")
-		Expect(main.Members).To(HaveLen(2))
+		Expect(main.Steps).To(HaveLen(2))
 
 		press := findMember(main, "press")
 		Expect(press.Scope).ToNot(BeNil())
-		Expect(press.Scope.Phases).ToNot(BeEmpty())
+		Expect(press.Scope.Strata).ToNot(BeEmpty())
 
 		vent := findMember(main, "vent")
 		Expect(vent.Scope).ToNot(BeNil())
-		Expect(vent.Scope.Phases).ToNot(BeEmpty())
+		Expect(vent.Scope.Strata).ToNot(BeEmpty())
 
 		nextAfterPress, ok := nextMember(main, "press")
 		Expect(ok).To(BeTrue())
-		Expect(nextAfterPress.Key).To(Equal("vent"))
+		Expect(nextAfterPress.Key()).To(Equal("vent"))
 
 		_, ok = nextMember(main, "vent")
 		Expect(ok).To(BeFalse())
@@ -522,9 +522,9 @@ sequence main {
 
 			main := findTopLevelScope(mod, "main")
 			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
-			Expect(main.Members).To(HaveLen(2))
-			Expect(isFlowMember(main.Members[0])).To(BeTrue())
-			Expect(isFlowMember(main.Members[1])).To(BeTrue())
+			Expect(main.Steps).To(HaveLen(2))
+			Expect(isFlowMember(main.Steps[0])).To(BeTrue())
+			Expect(isFlowMember(main.Steps[1])).To(BeTrue())
 			// Auto-wired transitions connect the flow steps.
 			Expect(main.Transitions).ToNot(BeEmpty())
 		})
@@ -549,10 +549,10 @@ sequence main {
 			)
 
 			main := findTopLevelScope(mod, "main")
-			Expect(main.Members).To(HaveLen(3))
-			Expect(isFlowMember(main.Members[0])).To(BeTrue())
-			Expect(isFlowMember(main.Members[1])).To(BeTrue())
-			Expect(isFlowMember(main.Members[2])).To(BeTrue())
+			Expect(main.Steps).To(HaveLen(3))
+			Expect(isFlowMember(main.Steps[0])).To(BeTrue())
+			Expect(isFlowMember(main.Steps[1])).To(BeTrue())
+			Expect(isFlowMember(main.Steps[2])).To(BeTrue())
 		})
 
 		It("Should compile a mixed stage and flow sequence", func(ctx SpecContext) {
@@ -580,11 +580,11 @@ sequence main {
 			)
 
 			main := findTopLevelScope(mod, "main")
-			Expect(main.Members).To(HaveLen(3))
-			Expect(main.Members[0].Key).To(Equal("press"))
-			Expect(isStageMember(main.Members[0])).To(BeTrue())
-			Expect(isFlowMember(main.Members[1])).To(BeTrue())
-			Expect(isFlowMember(main.Members[2])).To(BeTrue())
+			Expect(main.Steps).To(HaveLen(3))
+			Expect(main.Steps[0].Key()).To(Equal("press"))
+			Expect(isStageMember(main.Steps[0])).To(BeTrue())
+			Expect(isFlowMember(main.Steps[1])).To(BeTrue())
+			Expect(isFlowMember(main.Steps[2])).To(BeTrue())
 			Expect(main.Transitions).ToNot(BeEmpty())
 		})
 	})
@@ -672,17 +672,17 @@ sequence main {
 			)
 
 			main := findTopLevelScope(mod, "main")
-			Expect(main.Members).To(HaveLen(3))
+			Expect(main.Steps).To(HaveLen(3))
 
 			pb := MustSucceed(programpb.ProgramToPB(mod))
 			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
 			rMain := findTopLevelScope(reconstructed, "main")
-			Expect(rMain.Members).To(HaveLen(3))
-			Expect(isFlowMember(rMain.Members[0])).To(BeTrue())
-			Expect(isFlowMember(rMain.Members[1])).To(BeTrue())
-			Expect(isFlowMember(rMain.Members[2])).To(BeTrue())
-			Expect(reconstructed.Root.Phases).ToNot(BeEmpty())
+			Expect(rMain.Steps).To(HaveLen(3))
+			Expect(isFlowMember(rMain.Steps[0])).To(BeTrue())
+			Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
+			Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
+			Expect(reconstructed.Root.Strata).ToNot(BeEmpty())
 		})
 
 		It("Should round-trip a mixed stage and flow program through proto", func(ctx SpecContext) {
@@ -713,11 +713,11 @@ sequence main {
 			reconstructed := MustSucceed(programpb.ProgramFromPB(pb))
 
 			rMain := findTopLevelScope(reconstructed, "main")
-			Expect(rMain.Members).To(HaveLen(3))
-			Expect(isStageMember(rMain.Members[0])).To(BeTrue())
-			Expect(rMain.Members[0].Key).To(Equal("press"))
-			Expect(isFlowMember(rMain.Members[1])).To(BeTrue())
-			Expect(isFlowMember(rMain.Members[2])).To(BeTrue())
+			Expect(rMain.Steps).To(HaveLen(3))
+			Expect(isStageMember(rMain.Steps[0])).To(BeTrue())
+			Expect(rMain.Steps[0].Key()).To(Equal("press"))
+			Expect(isFlowMember(rMain.Steps[1])).To(BeTrue())
+			Expect(isFlowMember(rMain.Steps[2])).To(BeTrue())
 		})
 
 		It("Should round-trip a top-level stage program through proto", func(ctx SpecContext) {

@@ -40,7 +40,7 @@
 // to a target Handle (node + parameter), forming the dependency graph that determines
 // execution order and data routing.
 //
-// Root is a Scope (the unified Layer 2 execution primitive) whose phases
+// Root is a Scope (the unified Layer 2 execution primitive) whose strata
 // organize module-scope reactive flow and whose nested Scope members capture
 // top-level stages and sequences.
 package ir
@@ -67,8 +67,8 @@ func (s Scope) IsZero() bool {
 		s.Mode == ScopeModeUnspecified &&
 		s.Liveness == LivenessUnspecified &&
 		s.Activation == nil &&
-		len(s.Phases) == 0 &&
-		len(s.Members) == 0 &&
+		len(s.Strata) == 0 &&
+		len(s.Steps) == 0 &&
 		len(s.Transitions) == 0
 }
 
@@ -163,16 +163,22 @@ func (s Scope) stringWithPrefix(prefix string) string {
 	var b strings.Builder
 	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))
 	if s.Mode == ScopeModeParallel {
-		for i, p := range s.Phases {
-			isLast := i == len(s.Phases)-1 && len(s.Transitions) == 0
+		for i, stratum := range s.Strata {
+			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
 			b.WriteString(treePrefix(isLast))
-			lo.Must(fmt.Fprintf(&b, "phase %d\n", i))
-			b.WriteString(p.stringWithPrefix(prefix + treeIndent(isLast)))
+			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
+			childPrefix := prefix + treeIndent(isLast)
+			for j, m := range stratum {
+				isLastMember := j == len(stratum)-1
+				b.WriteString(childPrefix)
+				b.WriteString(treePrefix(isLastMember))
+				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
+			}
 		}
 	} else {
-		for i, m := range s.Members {
-			isLast := i == len(s.Members)-1 && len(s.Transitions) == 0
+		for i, m := range s.Steps {
+			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
 			b.WriteString(prefix)
 			b.WriteString(treePrefix(isLast))
 			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
@@ -195,18 +201,25 @@ func scopeLabel(s Scope) string {
 	return s.Key
 }
 
-// String returns the tree representation of a Phase.
-func (p Phase) String() string { return p.stringWithPrefix("") }
+// NodeMember builds a leaf Member referencing the node with the given key.
+func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
 
-func (p Phase) stringWithPrefix(prefix string) string {
-	var b strings.Builder
-	for i, m := range p.Members {
-		isLast := i == len(p.Members)-1
-		b.WriteString(prefix)
-		b.WriteString(treePrefix(isLast))
-		b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
+// ScopeMember builds a Member wrapping the given nested Scope.
+func ScopeMember(s Scope) Member { return Member{Scope: &s} }
+
+// Key returns the member's lookup key — the string transitions target via
+// `=> name`. Derived from the set variant: the referenced node's key for
+// leaf members, the nested scope's key for scope members. Returns the empty
+// string for an unset member.
+func (m Member) Key() string {
+	switch {
+	case m.NodeKey != nil:
+		return *m.NodeKey
+	case m.Scope != nil:
+		return m.Scope.Key
+	default:
+		return ""
 	}
-	return b.String()
 }
 
 // String returns the tree representation of a Member.
@@ -214,11 +227,8 @@ func (m Member) String() string { return m.stringWithPrefix("") }
 
 func (m Member) stringWithPrefix(prefix string) string {
 	switch {
-	case m.NodeRef != nil:
-		if m.Key != "" {
-			return fmt.Sprintf("%s -> %s\n", m.Key, m.NodeRef.Key)
-		}
-		return fmt.Sprintf("%s\n", m.NodeRef.Key)
+	case m.NodeKey != nil:
+		return fmt.Sprintf("%s\n", *m.NodeKey)
 	case m.Scope != nil:
 		return m.Scope.stringWithPrefix(prefix)
 	default:
@@ -228,12 +238,9 @@ func (m Member) stringWithPrefix(prefix string) string {
 
 // String returns a concise description of the transition.
 func (t Transition) String() string {
-	target := "?"
-	switch {
-	case t.Target.MemberKey != nil:
-		target = "=> " + *t.Target.MemberKey
-	case t.Target.Exit != nil && *t.Target.Exit:
-		target = "=> exit"
+	target := "=> exit"
+	if t.TargetKey != nil {
+		target = "=> " + *t.TargetKey
 	}
 	return fmt.Sprintf("on %s/%s %s", t.On.Node, t.On.Param, target)
 }

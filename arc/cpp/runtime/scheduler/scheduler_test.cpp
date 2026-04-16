@@ -95,47 +95,33 @@ struct MockErrorHandler {
 
 // ----- IR construction helpers -----
 
-static ir::Member node_ref_member(const std::string &key) {
-    ir::Member m;
-    m.key = key;
-    ir::NodeRef ref;
-    ref.key = key;
-    m.node_ref = std::move(ref);
-    return m;
+static ir::Members stratum_of(std::vector<ir::Member> members) {
+    ir::Members s;
+    s.reserve(members.size());
+    for (auto &m: members)
+        s.push_back(std::move(m));
+    return s;
 }
 
-static ir::Member scope_to_member(ir::Scope scope) {
-    ir::Member m;
-    m.key = scope.key;
-    m.scope = x::mem::indirect<ir::Scope>(std::move(scope));
-    return m;
-}
-
-static ir::Phase phase_of(std::vector<ir::Member> members) {
-    ir::Phase p;
-    p.members = std::move(members);
-    return p;
-}
-
-static ir::Scope parallel_scope(std::string key, std::vector<ir::Phase> phases) {
+static ir::Scope parallel_scope(std::string key, std::vector<ir::Members> strata) {
     ir::Scope s;
     s.key = std::move(key);
     s.mode = ir::ScopeMode::Parallel;
     s.liveness = ir::Liveness::Gated;
-    s.phases = std::move(phases);
+    s.strata = std::move(strata);
     return s;
 }
 
 static ir::Scope sequential_scope(
     std::string key,
-    std::vector<ir::Member> members,
+    std::vector<ir::Member> steps,
     std::vector<ir::Transition> transitions = {}
 ) {
     ir::Scope s;
     s.key = std::move(key);
     s.mode = ir::ScopeMode::Sequential;
     s.liveness = ir::Liveness::Gated;
-    s.members = std::move(members);
+    s.steps = stratum_of(std::move(steps));
     s.transitions = std::move(transitions);
     return s;
 }
@@ -144,15 +130,15 @@ static ir::Scope root_scope(std::vector<ir::Member> members) {
     ir::Scope s;
     s.mode = ir::ScopeMode::Parallel;
     s.liveness = ir::Liveness::Always;
-    if (!members.empty()) s.phases.push_back(phase_of(std::move(members)));
+    if (!members.empty()) s.strata.push_back(stratum_of(std::move(members)));
     return s;
 }
 
-static ir::Scope root_with_phases(std::vector<ir::Phase> phases) {
+static ir::Scope root_with_strata(std::vector<ir::Members> strata) {
     ir::Scope s;
     s.mode = ir::ScopeMode::Parallel;
     s.liveness = ir::Liveness::Always;
-    s.phases = std::move(phases);
+    s.strata = std::move(strata);
     return s;
 }
 
@@ -182,28 +168,23 @@ static ir::Edge conditional_edge(
     };
 }
 
-static ir::TransitionTarget member_key_target(const std::string &key) {
-    ir::TransitionTarget t;
-    t.member_key = key;
-    return t;
+static std::optional<std::string> step_key_target(const std::string &key) {
+    return key;
 }
 
-static ir::TransitionTarget exit_target() {
-    ir::TransitionTarget t;
-    t.exit = true;
-    return t;
+static std::optional<std::string> exit_target() {
+    return std::nullopt;
 }
 
 /// @brief builds an ir::Node with the given key and ordered output
 /// names. The IR owns output names; ordinals used by the runtime mock
 /// are this list's positions. Pass no names for a node with no outputs.
-static ir::Node ir_node(
-    const std::string &key,
-    std::initializer_list<std::string> outputs = {}
-) {
+static ir::Node
+ir_node(const std::string &key, std::initializer_list<std::string> outputs = {}) {
     ir::Node n;
     n.key = key;
-    for (const auto &name: outputs) n.outputs.push_back(arc::types::Param{.name = name});
+    for (const auto &name: outputs)
+        n.outputs.push_back(arc::types::Param{.name = name});
     return n;
 }
 
@@ -216,8 +197,10 @@ static ir::IR program_of(
     ir::Scope root
 ) {
     ir::IR ir;
-    for (const auto &n: nodes) ir.nodes.push_back(n);
-    for (const auto &e: edges) ir.edges.push_back(e);
+    for (const auto &n: nodes)
+        ir.nodes.push_back(n);
+    for (const auto &e: edges)
+        ir.edges.push_back(e);
     ir.root = std::move(root);
     return ir;
 }
@@ -232,10 +215,7 @@ public:
     /// per declared output ordinal otherwise. The corresponding ir::Node
     /// and its output names are declared separately at the IR layer
     /// (program_of + ir_node) — the mock is name-agnostic.
-    MockNode &mock(
-        const std::string &key,
-        std::initializer_list<bool> truthy = {}
-    ) {
+    MockNode &mock(const std::string &key, std::initializer_list<bool> truthy = {}) {
         auto node = std::make_unique<MockNode>();
         auto *ptr = node.get();
         if (truthy.size() > 0) ptr->output_truthy.assign(truthy.begin(), truthy.end());
@@ -276,7 +256,7 @@ TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
     auto ir = program_of(
         {ir_node("A"), ir_node("B"), ir_node("C")},
         {},
-        root_scope({node_ref_member("A"), node_ref_member("B"), node_ref_member("C")})
+        root_scope({ir::node_member("A"), ir::node_member("B"), ir::node_member("C")})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -289,7 +269,7 @@ TEST_F(SchedulerTest, ExecutesAllPhaseZeroMembers) {
 
 TEST_F(SchedulerTest, Phase0ExecutesUnconditionallyEachCycle) {
     auto &a = mock("A");
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     s->next(2 * x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -303,8 +283,8 @@ TEST_F(SchedulerTest, PhaseNSkipsWithoutIncomingChange) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {continuous_edge("A", "output", "B", "input")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -320,8 +300,8 @@ TEST_F(SchedulerTest, ContinuousEdgePropagatesToDownstream) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {continuous_edge("A", "output", "B", "input")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -337,8 +317,8 @@ TEST_F(SchedulerTest, ConditionalEdgeGatedOnSourceTruthiness) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {conditional_edge("A", "output", "B", "input")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -359,9 +339,9 @@ TEST_F(SchedulerTest, FiresOnlyTheEdgeWhoseSourceParamWasMarked) {
     auto ir = program_of(
         {ir_node("A", {"x", "y"}), ir_node("B"), ir_node("C")},
         {continuous_edge("A", "x", "B", "in"), continuous_edge("A", "y", "C", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}),
-             phase_of({node_ref_member("B"), node_ref_member("C")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::node_member("C")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -379,9 +359,9 @@ TEST_F(SchedulerTest, FansOutToMultipleDownstreamMembers) {
         {ir_node("A", {"output"}), ir_node("B"), ir_node("C")},
         {continuous_edge("A", "output", "B", "in"),
          continuous_edge("A", "output", "C", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}),
-             phase_of({node_ref_member("B"), node_ref_member("C")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::node_member("C")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -401,9 +381,9 @@ TEST_F(SchedulerTest, JoinNodeRunsOnceWhenMultipleInputsFire) {
         {ir_node("A", {"output"}), ir_node("B", {"output"}), ir_node("C")},
         {continuous_edge("A", "output", "C", "a"),
          continuous_edge("B", "output", "C", "b")},
-        root_with_phases(
-            {phase_of({node_ref_member("A"), node_ref_member("B")}),
-             phase_of({node_ref_member("C")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A"), ir::node_member("B")}),
+             stratum_of({ir::node_member("C")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -425,10 +405,10 @@ TEST_F(SchedulerTest, DiamondSinkRunsExactlyOnce) {
          continuous_edge("A", "output", "C", "in"),
          continuous_edge("B", "output", "D", "a"),
          continuous_edge("C", "output", "D", "b")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}),
-             phase_of({node_ref_member("B"), node_ref_member("C")}),
-             phase_of({node_ref_member("D")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::node_member("C")}),
+             stratum_of({ir::node_member("D")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -443,7 +423,7 @@ TEST_F(SchedulerTest, IgnoresEdgesWithEndpointsOutsideMembership) {
         {ir_node("A"), ir_node("B", {"y"})},
         {continuous_edge("ghost", "x", "A", "in"),
          continuous_edge("B", "y", "phantom", "in")},
-        root_scope({node_ref_member("A"), node_ref_member("B")})
+        root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -459,8 +439,8 @@ TEST_F(SchedulerTest, ConditionalFiresEveryCycleWhileTruthy) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {conditional_edge("A", "output", "B", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -476,8 +456,8 @@ TEST_F(SchedulerTest, ConditionalStopsFiringWhenSourceBecomesFalsy) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {conditional_edge("A", "output", "B", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -496,8 +476,8 @@ TEST_F(SchedulerTest, ContinuousEdgesIgnoreSourceTruthiness) {
     auto ir = program_of(
         {ir_node("A", {"output"}), ir_node("B")},
         {continuous_edge("A", "output", "B", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}), phase_of({node_ref_member("B")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}), stratum_of({ir::node_member("B")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -517,9 +497,9 @@ TEST_F(SchedulerTest, ConditionalEdgesIndependentPerParam) {
     auto ir = program_of(
         {ir_node("A", {"x", "y"}), ir_node("B"), ir_node("C")},
         {conditional_edge("A", "x", "B", "in"), conditional_edge("A", "y", "C", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}),
-             phase_of({node_ref_member("B"), node_ref_member("C")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::node_member("C")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -552,8 +532,9 @@ TEST_F(SchedulerTest, SelfChangedReplaysUntilNodeStopsMarking) {
     auto ir = program_of(
         {ir_node("trigger", {"kick"}), ir_node("A")},
         {continuous_edge("trigger", "kick", "A", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("trigger")}), phase_of({node_ref_member("A")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("trigger")}),
+             stratum_of({ir::node_member("A")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -568,7 +549,7 @@ TEST_F(SchedulerTest, SelfChangedReplaysUntilNodeStopsMarking) {
 
 TEST_F(SchedulerTest, ElapsedTimePassedThrough) {
     auto &a = mock("A");
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(5 * x::telem::MILLISECOND, node::RunReason::TimerTick);
     s->next(10 * x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -581,7 +562,7 @@ TEST_F(SchedulerTest, ReasonChannelInputPassedThrough) {
     auto &a = mock("A");
     node::RunReason received = node::RunReason::TimerTick;
     a.on_next = [&received](const node::Context &ctx) { received = ctx.reason; };
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::ChannelInput);
     EXPECT_EQ(received, node::RunReason::ChannelInput);
@@ -589,7 +570,7 @@ TEST_F(SchedulerTest, ReasonChannelInputPassedThrough) {
 
 TEST_F(SchedulerTest, NextDeadlineDefaultsToMax) {
     mock("A");
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(s->next_deadline(), x::telem::TimeSpan::max());
@@ -607,7 +588,7 @@ TEST_F(SchedulerTest, NextDeadlineReturnsMinimum) {
     auto ir = program_of(
         {ir_node("A"), ir_node("B")},
         {},
-        root_scope({node_ref_member("A"), node_ref_member("B")})
+        root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -621,7 +602,7 @@ TEST_F(SchedulerTest, NextDeadlineResetsBetweenCycles) {
         call++;
         if (call == 1) ctx.set_deadline(x::telem::SECOND);
     };
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(s->next_deadline(), x::telem::SECOND);
@@ -635,12 +616,12 @@ TEST_F(SchedulerTest, GatedScopeDoesNotExecuteBeforeActivation) {
     auto &trigger = mock("trigger");
     auto &stage_node = mock("stage_node");
     ir::Handle act{"trigger", "output"};
-    auto gated = parallel_scope("stage", {phase_of({node_ref_member("stage_node")})});
+    auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
     gated.activation = act;
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(gated))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(gated))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -652,12 +633,12 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
     mock("trigger", {true});
     auto &stage_node = mock("stage_node");
     ir::Handle act{"trigger", "output"};
-    auto gated = parallel_scope("stage", {phase_of({node_ref_member("stage_node")})});
+    auto gated = parallel_scope("stage", {stratum_of({ir::node_member("stage_node")})});
     gated.activation = act;
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("stage_node")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(gated))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(gated))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -677,8 +658,12 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
 // scope.
 TEST_F(SchedulerTest, TopLevelGatedScopeWithoutHandleAutoActivates) {
     auto &n = mock("n");
-    auto gated = parallel_scope("anon", {phase_of({node_ref_member("n")})});
-    auto ir = program_of({ir_node("n")}, {}, root_scope({scope_to_member(std::move(gated))}));
+    auto gated = parallel_scope("anon", {stratum_of({ir::node_member("n")})});
+    auto ir = program_of(
+        {ir_node("n")},
+        {},
+        root_scope({ir::scope_member(std::move(gated))})
+    );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
     EXPECT_EQ(n.reset_called, 1);
@@ -690,16 +675,16 @@ TEST_F(SchedulerTest, TopLevelGatedScopeWithoutHandleAutoActivates) {
 TEST_F(SchedulerTest, CascadeResetsNestedGatedScopeOnActivation) {
     mock("trigger", {true});
     auto &inner = mock("inner");
-    auto nested = parallel_scope("nested", {phase_of({node_ref_member("inner")})});
+    auto nested = parallel_scope("nested", {stratum_of({ir::node_member("inner")})});
     auto outer = parallel_scope(
         "outer",
-        {phase_of({scope_to_member(std::move(nested))})}
+        {stratum_of({ir::scope_member(std::move(nested))})}
     );
     outer.activation = ir::Handle{"trigger", "output"};
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("inner")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(outer))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(outer))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -716,19 +701,19 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
 
     auto first_scope = parallel_scope(
         "first",
-        {phase_of({node_ref_member("first_node")})}
+        {stratum_of({ir::node_member("first_node")})}
     );
     auto second_scope = parallel_scope(
         "second",
-        {phase_of({node_ref_member("second_node")})}
+        {stratum_of({ir::node_member("second_node")})}
     );
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
-    t.target = member_key_target("second");
+    t.target_key = step_key_target("second");
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(first_scope)),
-         scope_to_member(std::move(second_scope))},
+        {ir::scope_member(std::move(first_scope)),
+         ir::scope_member(std::move(second_scope))},
         {t}
     );
     main.activation = ir::Handle{"trigger", "output"};
@@ -738,7 +723,7 @@ TEST_F(SchedulerTest, AdvancesOnTransitionFire) {
          ir_node("first_node", {"output"}),
          ir_node("second_node")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(main))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -763,21 +748,21 @@ TEST_F(SchedulerTest, ExitTargetDeactivatesSequence) {
 
     auto first_scope = parallel_scope(
         "first",
-        {phase_of({node_ref_member("first_node")})}
+        {stratum_of({ir::node_member("first_node")})}
     );
     ir::Transition t;
     t.on = ir::Handle{"first_node", "output"};
-    t.target = exit_target();
+    t.target_key = exit_target();
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(first_scope))},
+        {ir::scope_member(std::move(first_scope))},
         {t}
     );
     main.activation = ir::Handle{"trigger", "output"};
     auto ir = program_of(
         {ir_node("trigger", {"output"}), ir_node("first_node", {"output"})},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(main))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -796,21 +781,21 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
 
     auto first_scope = parallel_scope(
         "first",
-        {phase_of({node_ref_member("first_node")})}
+        {stratum_of({ir::node_member("first_node")})}
     );
-    auto a_scope = parallel_scope("a", {phase_of({node_ref_member("a_node")})});
-    auto b_scope = parallel_scope("b", {phase_of({node_ref_member("b_node")})});
+    auto a_scope = parallel_scope("a", {stratum_of({ir::node_member("a_node")})});
+    auto b_scope = parallel_scope("b", {stratum_of({ir::node_member("b_node")})});
     ir::Transition t1;
     t1.on = ir::Handle{"first_node", "output"};
-    t1.target = member_key_target("a");
+    t1.target_key = step_key_target("a");
     ir::Transition t2;
     t2.on = ir::Handle{"first_node", "output"};
-    t2.target = member_key_target("b");
+    t2.target_key = step_key_target("b");
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(first_scope)),
-         scope_to_member(std::move(a_scope)),
-         scope_to_member(std::move(b_scope))},
+        {ir::scope_member(std::move(first_scope)),
+         ir::scope_member(std::move(a_scope)),
+         ir::scope_member(std::move(b_scope))},
         {t1, t2}
     );
     main.activation = ir::Handle{"trigger", "output"};
@@ -820,7 +805,7 @@ TEST_F(SchedulerTest, FirstMatchWinsWhenMultipleTransitionsTruthy) {
          ir_node("a_node"),
          ir_node("b_node")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(main))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -837,22 +822,22 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
     auto &s3 = mock("s3");
 
     auto mk_step = [](const std::string &key, const std::string &node_key) {
-        return parallel_scope(key, {phase_of({node_ref_member(node_key)})});
+        return parallel_scope(key, {stratum_of({ir::node_member(node_key)})});
     };
     auto sc1 = mk_step("s1", "s1");
     auto sc2 = mk_step("s2", "s2");
     auto sc3 = mk_step("s3", "s3");
     ir::Transition t1;
     t1.on = ir::Handle{"s1", "output"};
-    t1.target = member_key_target("s2");
+    t1.target_key = step_key_target("s2");
     ir::Transition t2;
     t2.on = ir::Handle{"s2", "output"};
-    t2.target = member_key_target("s3");
+    t2.target_key = step_key_target("s3");
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(sc1)),
-         scope_to_member(std::move(sc2)),
-         scope_to_member(std::move(sc3))},
+        {ir::scope_member(std::move(sc1)),
+         ir::scope_member(std::move(sc2)),
+         ir::scope_member(std::move(sc3))},
         {t1, t2}
     );
     main.activation = ir::Handle{"trigger", "output"};
@@ -862,7 +847,7 @@ TEST_F(SchedulerTest, CascadesMultipleTransitionsInOneCycle) {
          ir_node("s2", {"output"}),
          ir_node("s3")},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(main))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -883,7 +868,7 @@ TEST_F(SchedulerTest, ContinuesAfterErrorReport) {
     auto ir = program_of(
         {ir_node("A"), ir_node("B"), ir_node("C")},
         {},
-        root_scope({node_ref_member("A"), node_ref_member("B"), node_ref_member("C")})
+        root_scope({ir::node_member("A"), ir::node_member("B"), ir::node_member("C")})
     );
     const auto s = build_with_handler(std::move(ir), h.handler);
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -902,7 +887,7 @@ TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
     auto ir = program_of(
         {ir_node("A"), ir_node("B")},
         {},
-        root_scope({node_ref_member("A"), node_ref_member("B")})
+        root_scope({ir::node_member("A"), ir::node_member("B")})
     );
     const auto s = build_with_handler(std::move(ir), h.handler);
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -913,7 +898,7 @@ TEST_F(SchedulerTest, AccumulatesMultipleErrors) {
 
 TEST_F(SchedulerTest, ZeroElapsedTimeAccepted) {
     auto &a = mock("A");
-    auto ir = program_of({ir_node("A")}, {}, root_scope({node_ref_member("A")}));
+    auto ir = program_of({ir_node("A")}, {}, root_scope({ir::node_member("A")}));
     const auto s = build(std::move(ir));
     s->next(x::telem::TimeSpan(0), node::RunReason::TimerTick);
     EXPECT_EQ(a.next_called, 1);
@@ -926,7 +911,7 @@ TEST_F(SchedulerTest, SelfLoopEdgeDoesNotCrash) {
     auto ir = program_of(
         {ir_node("A", {"output"})},
         {continuous_edge("A", "output", "A", "in")},
-        root_scope({node_ref_member("A")})
+        root_scope({ir::node_member("A")})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -943,7 +928,7 @@ TEST_F(SchedulerTest, EmptySequentialScopeTolerated) {
     auto ir = program_of(
         {ir_node("trigger", {"output"})},
         {},
-        root_scope({node_ref_member("trigger"), scope_to_member(std::move(main))})
+        root_scope({ir::node_member("trigger"), ir::scope_member(std::move(main))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -957,9 +942,9 @@ TEST_F(SchedulerTest, IndependentTopLevelGatedScopes) {
     mock("trigger_b");
     auto &a = mock("A");
     auto &b = mock("B");
-    auto stage_a = parallel_scope("stage_a", {phase_of({node_ref_member("A")})});
+    auto stage_a = parallel_scope("stage_a", {stratum_of({ir::node_member("A")})});
     stage_a.activation = ir::Handle{"trigger_a", "output"};
-    auto stage_b = parallel_scope("stage_b", {phase_of({node_ref_member("B")})});
+    auto stage_b = parallel_scope("stage_b", {stratum_of({ir::node_member("B")})});
     stage_b.activation = ir::Handle{"trigger_b", "output"};
     auto ir = program_of(
         {ir_node("trigger_a", {"output"}),
@@ -968,10 +953,10 @@ TEST_F(SchedulerTest, IndependentTopLevelGatedScopes) {
          ir_node("B")},
         {},
         root_scope(
-            {node_ref_member("trigger_a"),
-             node_ref_member("trigger_b"),
-             scope_to_member(std::move(stage_a)),
-             scope_to_member(std::move(stage_b))}
+            {ir::node_member("trigger_a"),
+             ir::node_member("trigger_b"),
+             ir::scope_member(std::move(stage_a)),
+             ir::scope_member(std::move(stage_b))}
         )
     );
     const auto s = build(std::move(ir));
@@ -992,9 +977,9 @@ TEST_F(SchedulerTest, MixedContinuousAndConditionalInSameGraph) {
         {ir_node("A", {"data", "trigger"}), ir_node("B"), ir_node("C")},
         {continuous_edge("A", "data", "B", "in"),
          conditional_edge("A", "trigger", "C", "in")},
-        root_with_phases(
-            {phase_of({node_ref_member("A")}),
-             phase_of({node_ref_member("B"), node_ref_member("C")})}
+        root_with_strata(
+            {stratum_of({ir::node_member("A")}),
+             stratum_of({ir::node_member("B"), ir::node_member("C")})}
         )
     );
     const auto s = build(std::move(ir));
@@ -1021,11 +1006,11 @@ TEST_F(
     latch.suppress_auto_mark = true;
     mock("worker");
 
-    auto body = parallel_scope("body", {phase_of({node_ref_member("worker")})});
+    auto body = parallel_scope("body", {stratum_of({ir::node_member("worker")})});
     ir::Transition t_exit;
     t_exit.on = ir::Handle{"latch", "output"};
-    t_exit.target = exit_target();
-    auto main = sequential_scope("main", {scope_to_member(std::move(body))}, {t_exit});
+    t_exit.target_key = exit_target();
+    auto main = sequential_scope("main", {ir::scope_member(std::move(body))}, {t_exit});
     main.activation = ir::Handle{"trigger", "output"};
 
     auto program = program_of(
@@ -1034,9 +1019,9 @@ TEST_F(
          ir_node("worker")},
         {},
         root_scope(
-            {node_ref_member("trigger"),
-             node_ref_member("latch"),
-             scope_to_member(std::move(main))}
+            {ir::node_member("trigger"),
+             ir::node_member("latch"),
+             ir::scope_member(std::move(main))}
         )
     );
     const auto s = build(std::move(program));
@@ -1063,14 +1048,14 @@ TEST_F(
     mock("worker_a");
     mock("worker_b");
 
-    auto a = parallel_scope("a", {phase_of({node_ref_member("worker_a")})});
-    auto b = parallel_scope("b", {phase_of({node_ref_member("worker_b")})});
+    auto a = parallel_scope("a", {stratum_of({ir::node_member("worker_a")})});
+    auto b = parallel_scope("b", {stratum_of({ir::node_member("worker_b")})});
     ir::Transition t_ab;
     t_ab.on = ir::Handle{"latch", "output"};
-    t_ab.target = member_key_target("b");
+    t_ab.target_key = step_key_target("b");
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(a)), scope_to_member(std::move(b))},
+        {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
         {t_ab}
     );
     main.activation = ir::Handle{"trigger", "output"};
@@ -1082,9 +1067,9 @@ TEST_F(
          ir_node("worker_b")},
         {},
         root_scope(
-            {node_ref_member("trigger"),
-             node_ref_member("latch"),
-             scope_to_member(std::move(main))}
+            {ir::node_member("trigger"),
+             ir::node_member("latch"),
+             ir::scope_member(std::move(main))}
         )
     );
     const auto s = build(std::move(program));
@@ -1117,14 +1102,14 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
     mock("worker_a");
     mock("worker_b");
 
-    auto a = parallel_scope("a", {phase_of({node_ref_member("worker_a")})});
-    auto b = parallel_scope("b", {phase_of({node_ref_member("worker_b")})});
+    auto a = parallel_scope("a", {stratum_of({ir::node_member("worker_a")})});
+    auto b = parallel_scope("b", {stratum_of({ir::node_member("worker_b")})});
     ir::Transition t_ab;
     t_ab.on = ir::Handle{"latch", "output"};
-    t_ab.target = member_key_target("b");
+    t_ab.target_key = step_key_target("b");
     auto main = sequential_scope(
         "main",
-        {scope_to_member(std::move(a)), scope_to_member(std::move(b))},
+        {ir::scope_member(std::move(a)), ir::scope_member(std::move(b))},
         {t_ab}
     );
     main.activation = ir::Handle{"trigger", "output"};
@@ -1136,9 +1121,9 @@ TEST_F(SchedulerTest, FiresTransitionAgainWhenSourceFreshlyMarksChangedOnLaterCy
          ir_node("worker_b")},
         {},
         root_scope(
-            {node_ref_member("trigger"),
-             node_ref_member("latch"),
-             scope_to_member(std::move(main))}
+            {ir::node_member("trigger"),
+             ir::node_member("latch"),
+             ir::scope_member(std::move(main))}
         )
     );
     const auto s = build(std::move(program));

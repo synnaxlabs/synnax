@@ -72,35 +72,6 @@ Edge::from_proto(const ::arc::ir::pb::Edge &pb) {
     return {cpp, x::errors::NIL};
 }
 
-inline std::pair<::arc::ir::pb::NodeRef, x::errors::Error> NodeRef::to_proto() const {
-    ::arc::ir::pb::NodeRef pb;
-    pb.set_key(this->key);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<NodeRef, x::errors::Error>
-NodeRef::from_proto(const ::arc::ir::pb::NodeRef &pb) {
-    NodeRef cpp;
-    cpp.key = pb.key();
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::arc::ir::pb::TransitionTarget, x::errors::Error>
-TransitionTarget::to_proto() const {
-    ::arc::ir::pb::TransitionTarget pb;
-    if (this->member_key.has_value()) pb.set_member_key(*this->member_key);
-    if (this->exit.has_value()) pb.set_exit(*this->exit);
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<TransitionTarget, x::errors::Error>
-TransitionTarget::from_proto(const ::arc::ir::pb::TransitionTarget &pb) {
-    TransitionTarget cpp;
-    if (pb.has_member_key()) cpp.member_key = pb.member_key();
-    if (pb.has_exit()) cpp.exit = pb.exit();
-    return {cpp, x::errors::NIL};
-}
-
 inline std::pair<::arc::ir::pb::Transition, x::errors::Error>
 Transition::to_proto() const {
     ::arc::ir::pb::Transition pb;
@@ -109,11 +80,7 @@ Transition::to_proto() const {
         if (err) return {{}, err};
         *pb.mutable_on() = v;
     }
-    {
-        auto [v, err] = this->target.to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_target() = v;
-    }
+    if (this->target_key.has_value()) pb.set_target_key(*this->target_key);
     return {pb, x::errors::NIL};
 }
 
@@ -125,22 +92,13 @@ Transition::from_proto(const ::arc::ir::pb::Transition &pb) {
         if (err) return {{}, err};
         cpp.on = v;
     }
-    {
-        auto [v, err] = TransitionTarget::from_proto(pb.target());
-        if (err) return {{}, err};
-        cpp.target = v;
-    }
+    if (pb.has_target_key()) cpp.target_key = pb.target_key();
     return {cpp, x::errors::NIL};
 }
 
 inline std::pair<::arc::ir::pb::Member, x::errors::Error> Member::to_proto() const {
     ::arc::ir::pb::Member pb;
-    pb.set_key(this->key);
-    if (this->node_ref.has_value()) {
-        auto [v, err] = this->node_ref->to_proto();
-        if (err) return {{}, err};
-        *pb.mutable_node_ref() = v;
-    }
+    if (this->node_key.has_value()) pb.set_node_key(*this->node_key);
     if (this->scope.has_value()) {
         auto [v, err] = this->scope->to_proto();
         if (err) return {{}, err};
@@ -152,35 +110,12 @@ inline std::pair<::arc::ir::pb::Member, x::errors::Error> Member::to_proto() con
 inline std::pair<Member, x::errors::Error>
 Member::from_proto(const ::arc::ir::pb::Member &pb) {
     Member cpp;
-    cpp.key = pb.key();
-    if (pb.has_node_ref()) {
-        auto [v, err] = NodeRef::from_proto(pb.node_ref());
-        if (err) return {{}, err};
-        cpp.node_ref = v;
-    }
+    if (pb.has_node_key()) cpp.node_key = pb.node_key();
     if (pb.has_scope()) {
         auto [v, err] = Scope::from_proto(pb.scope());
         if (err) return {{}, err};
         cpp.scope = v;
     }
-    return {cpp, x::errors::NIL};
-}
-
-inline std::pair<::arc::ir::pb::Phase, x::errors::Error> Phase::to_proto() const {
-    ::arc::ir::pb::Phase pb;
-    for (const auto &item: this->members) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_members() = v;
-    }
-    return {pb, x::errors::NIL};
-}
-
-inline std::pair<Phase, x::errors::Error>
-Phase::from_proto(const ::arc::ir::pb::Phase &pb) {
-    Phase cpp;
-    if (auto err = x::pb::from_proto_repeated<Member>(cpp.members, pb.members()))
-        return {{}, err};
     return {cpp, x::errors::NIL};
 }
 
@@ -194,15 +129,18 @@ inline std::pair<::arc::ir::pb::Scope, x::errors::Error> Scope::to_proto() const
         if (err) return {{}, err};
         *pb.mutable_activation() = v;
     }
-    for (const auto &item: this->phases) {
-        auto [v, err] = item.to_proto();
-        if (err) return {{}, err};
-        *pb.add_phases() = v;
+    for (const auto &item: this->strata) {
+        auto *wrapper = pb.add_strata();
+        for (const auto &v: item) {
+            auto [v_pb, err] = v.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v_pb;
+        }
     }
-    for (const auto &item: this->members) {
+    for (const auto &item: this->steps) {
         auto [v, err] = item.to_proto();
         if (err) return {{}, err};
-        *pb.add_members() = v;
+        *pb.add_steps() = v;
     }
     for (const auto &item: this->transitions) {
         auto [v, err] = item.to_proto();
@@ -223,9 +161,13 @@ Scope::from_proto(const ::arc::ir::pb::Scope &pb) {
         if (err) return {{}, err};
         cpp.activation = v;
     }
-    if (auto err = x::pb::from_proto_repeated<Phase>(cpp.phases, pb.phases()))
-        return {{}, err};
-    if (auto err = x::pb::from_proto_repeated<Member>(cpp.members, pb.members()))
+    for (const auto &wrapper: pb.strata()) {
+        std::vector<Member> inner;
+        if (auto err = x::pb::from_proto_repeated<Member>(inner, wrapper.values()))
+            return {{}, err};
+        cpp.strata.push_back(std::move(inner));
+    }
+    if (auto err = x::pb::from_proto_repeated<Member>(cpp.steps, pb.steps()))
         return {{}, err};
     if (auto err = x::pb::from_proto_repeated<Transition>(
             cpp.transitions,

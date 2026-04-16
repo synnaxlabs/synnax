@@ -20,10 +20,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func nodeMember(key string) ir.Member {
-	return ir.Member{Key: key, NodeRef: &ir.NodeRef{Key: key}}
-}
-
 var _ = Describe("IR", func() {
 	Describe("IsZero", func() {
 		It("Should return true for zero-value IR", func() {
@@ -41,8 +37,8 @@ var _ = Describe("IR", func() {
 				Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Phases: []ir.Phase{
-						{Members: []ir.Member{nodeMember("n1")}},
+					Strata: []ir.Members{
+						{ir.NodeMember("n1")},
 					},
 				},
 			}
@@ -70,21 +66,21 @@ var _ = Describe("IR", func() {
 			Expect(ir.Scope{}.IsZero()).To(BeTrue())
 		})
 
-		It("Should return false when a phase carries members", func() {
+		It("Should return false when a stratum carries members", func() {
 			s := ir.Scope{
 				Mode:     ir.ScopeModeParallel,
 				Liveness: ir.LivenessAlways,
-				Phases:   []ir.Phase{{Members: []ir.Member{nodeMember("n1")}}},
+				Strata:   []ir.Members{{ir.NodeMember("n1")}},
 			}
 			Expect(s.IsZero()).To(BeFalse())
 		})
 
-		It("Should return false when a sequential scope carries members", func() {
+		It("Should return false when a sequential scope carries steps", func() {
 			s := ir.Scope{
 				Key:      "main",
 				Mode:     ir.ScopeModeSequential,
 				Liveness: ir.LivenessGated,
-				Members:  []ir.Member{nodeMember("n1")},
+				Steps:    ir.Members{ir.NodeMember("n1")},
 			}
 			Expect(s.IsZero()).To(BeFalse())
 		})
@@ -122,9 +118,9 @@ var _ = Describe("IR", func() {
 				Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Phases: []ir.Phase{
-						{Members: []ir.Member{nodeMember("input_a"), nodeMember("input_b")}},
-						{Members: []ir.Member{nodeMember("node1")}},
+					Strata: []ir.Members{
+						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
+						{ir.NodeMember("node1")},
 					},
 				},
 			}
@@ -140,8 +136,8 @@ var _ = Describe("IR", func() {
 			Expect(restored.Nodes).To(HaveLen(1))
 			Expect(restored.Edges).To(HaveLen(2))
 			Expect(restored.Root.Mode).To(Equal(ir.ScopeModeParallel))
-			Expect(restored.Root.Phases).To(HaveLen(2))
-			Expect(restored.Root.Phases[0].Members).To(HaveLen(2))
+			Expect(restored.Root.Strata).To(HaveLen(2))
+			Expect(restored.Root.Strata[0]).To(HaveLen(2))
 		})
 
 		It("Should handle empty IR", func() {
@@ -155,7 +151,7 @@ var _ = Describe("IR", func() {
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 			Expect(restored.Functions).To(BeEmpty())
-			Expect(restored.Root.Phases).To(BeEmpty())
+			Expect(restored.Root.Strata).To(BeEmpty())
 		})
 
 		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
@@ -167,30 +163,29 @@ var _ = Describe("IR", func() {
 		})
 
 		It("Should round-trip a sequential scope with transitions", func() {
-			memberKey := "run"
-			exit := true
+			stepKey := "run"
 			original := &ir.IR{
 				Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Phases: []ir.Phase{{Members: []ir.Member{
-						{Key: "main", Scope: &ir.Scope{
+					Strata: []ir.Members{{
+						{Scope: &ir.Scope{
 							Key:      "main",
 							Mode:     ir.ScopeModeSequential,
 							Liveness: ir.LivenessGated,
-							Members:  []ir.Member{nodeMember("init"), nodeMember("run")},
+							Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
 							Transitions: []ir.Transition{
 								{
-									On:     ir.Handle{Node: "init", Param: "done"},
-									Target: ir.TransitionTarget{MemberKey: &memberKey},
+									On:        ir.Handle{Node: "init", Param: "done"},
+									TargetKey: &stepKey,
 								},
 								{
-									On:     ir.Handle{Node: "run", Param: "done"},
-									Target: ir.TransitionTarget{Exit: &exit},
+									On:        ir.Handle{Node: "run", Param: "done"},
+									TargetKey: nil,
 								},
 							},
 						}},
-					}}},
+					}},
 				},
 			}
 
@@ -198,15 +193,14 @@ var _ = Describe("IR", func() {
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
-			main := restored.Root.Phases[0].Members[0].Scope
+			main := restored.Root.Strata[0][0].Scope
 			Expect(main).ToNot(BeNil())
 			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
-			Expect(main.Members).To(HaveLen(2))
+			Expect(main.Steps).To(HaveLen(2))
 			Expect(main.Transitions).To(HaveLen(2))
-			Expect(main.Transitions[0].Target.MemberKey).ToNot(BeNil())
-			Expect(*main.Transitions[0].Target.MemberKey).To(Equal("run"))
-			Expect(main.Transitions[1].Target.Exit).ToNot(BeNil())
-			Expect(*main.Transitions[1].Target.Exit).To(BeTrue())
+			Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
+			Expect(*main.Transitions[0].TargetKey).To(Equal("run"))
+			Expect(main.Transitions[1].TargetKey).To(BeNil())
 		})
 	})
 
@@ -249,10 +243,10 @@ var _ = Describe("IR", func() {
 				Root: ir.Scope{
 					Mode:     ir.ScopeModeParallel,
 					Liveness: ir.LivenessAlways,
-					Phases: []ir.Phase{
-						{Members: []ir.Member{nodeMember("input_a"), nodeMember("input_b")}},
-						{Members: []ir.Member{nodeMember("add_node")}},
-						{Members: []ir.Member{nodeMember("output_c")}},
+					Strata: []ir.Members{
+						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
+						{ir.NodeMember("add_node")},
+						{ir.NodeMember("output_c")},
 					},
 				},
 			}

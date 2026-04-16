@@ -303,122 +303,21 @@ func (x *Edge) GetKind() EdgeKind {
 	return EdgeKind_EDGE_KIND_UNSPECIFIED
 }
 
-// NodeRef is a Layer 2 reference to a node in the dataflow graph.
-type NodeRef struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the key of the referenced node in IR.nodes.
-	Key           string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *NodeRef) Reset() {
-	*x = NodeRef{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *NodeRef) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*NodeRef) ProtoMessage() {}
-
-func (x *NodeRef) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use NodeRef.ProtoReflect.Descriptor instead.
-func (*NodeRef) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
-}
-
-func (x *NodeRef) GetKey() string {
-	if x != nil {
-		return x.Key
-	}
-	return ""
-}
-
-// TransitionTarget is a tagged union describing the destination of a sequential
-// transition. Exactly one of memberKey or exit is set.
-type TransitionTarget struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// member_key is the sibling member key to activate.
-	MemberKey *string `protobuf:"bytes,1,opt,name=member_key,json=memberKey,proto3,oneof" json:"member_key,omitempty"`
-	// exit is true when the transition exits the scope, yielding to the parent.
-	Exit          *bool `protobuf:"varint,2,opt,name=exit,proto3,oneof" json:"exit,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *TransitionTarget) Reset() {
-	*x = TransitionTarget{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TransitionTarget) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TransitionTarget) ProtoMessage() {}
-
-func (x *TransitionTarget) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use TransitionTarget.ProtoReflect.Descriptor instead.
-func (*TransitionTarget) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *TransitionTarget) GetMemberKey() string {
-	if x != nil && x.MemberKey != nil {
-		return *x.MemberKey
-	}
-	return ""
-}
-
-func (x *TransitionTarget) GetExit() bool {
-	if x != nil && x.Exit != nil {
-		return *x.Exit
-	}
-	return false
-}
-
 // Transition is a declarative state-transition rule on a sequential Scope.
 type Transition struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// on is the dataflow handle whose truthy value fires this transition.
 	On *Handle `protobuf:"bytes,1,opt,name=on,proto3" json:"on,omitempty"`
-	// target is the destination of this transition.
-	Target        *TransitionTarget `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// target_key is the sibling step key to activate. Null when the transition exits the
+	// scope, yielding to the parent.
+	TargetKey     *string `protobuf:"bytes,2,opt,name=target_key,json=targetKey,proto3,oneof" json:"target_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Transition) Reset() {
 	*x = Transition{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +329,7 @@ func (x *Transition) String() string {
 func (*Transition) ProtoMessage() {}
 
 func (x *Transition) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,7 +342,7 @@ func (x *Transition) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Transition.ProtoReflect.Descriptor instead.
 func (*Transition) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{4}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Transition) GetOn() *Handle {
@@ -453,30 +352,30 @@ func (x *Transition) GetOn() *Handle {
 	return nil
 }
 
-func (x *Transition) GetTarget() *TransitionTarget {
-	if x != nil {
-		return x.Target
+func (x *Transition) GetTargetKey() string {
+	if x != nil && x.TargetKey != nil {
+		return *x.TargetKey
 	}
-	return nil
+	return ""
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
-// nodeRef or scope is set.
+// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
+// transitions) is derived from the set variant via Member.key().
 type Member struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// key is the position identifier of this member within its parent scope.
-	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// node_ref is set when this member references a dataflow node.
-	NodeRef *NodeRef `protobuf:"bytes,2,opt,name=node_ref,json=nodeRef,proto3,oneof" json:"node_ref,omitempty"`
+	// node_key is the key of the referenced node in IR.nodes. Null when this member is a
+	// nested scope.
+	NodeKey *string `protobuf:"bytes,1,opt,name=node_key,json=nodeKey,proto3,oneof" json:"node_key,omitempty"`
 	// scope is set when this member is a nested scope.
-	Scope         *Scope `protobuf:"bytes,3,opt,name=scope,proto3,oneof" json:"scope,omitempty"`
+	Scope         *Scope `protobuf:"bytes,2,opt,name=scope,proto3,oneof" json:"scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Member) Reset() {
 	*x = Member{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -488,7 +387,7 @@ func (x *Member) String() string {
 func (*Member) ProtoMessage() {}
 
 func (x *Member) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -501,21 +400,14 @@ func (x *Member) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Member.ProtoReflect.Descriptor instead.
 func (*Member) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{5}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *Member) GetKey() string {
-	if x != nil {
-		return x.Key
+func (x *Member) GetNodeKey() string {
+	if x != nil && x.NodeKey != nil {
+		return *x.NodeKey
 	}
 	return ""
-}
-
-func (x *Member) GetNodeRef() *NodeRef {
-	if x != nil {
-		return x.NodeRef
-	}
-	return nil
 }
 
 func (x *Member) GetScope() *Scope {
@@ -525,31 +417,28 @@ func (x *Member) GetScope() *Scope {
 	return nil
 }
 
-// Phase is a single execution layer within a parallel Scope. Members in a phase have no
-// data dependency among themselves; phase N depends only on phases 0 to N-1.
-type Phase struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// members contains members that execute together in this phase.
-	Members       []*Member `protobuf:"bytes,1,rep,name=members,proto3" json:"members,omitempty"`
+type MembersWrapper struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Values        []*Member              `protobuf:"bytes,1,rep,name=values,proto3" json:"values,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *Phase) Reset() {
-	*x = Phase{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
+func (x *MembersWrapper) Reset() {
+	*x = MembersWrapper{}
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Phase) String() string {
+func (x *MembersWrapper) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Phase) ProtoMessage() {}
+func (*MembersWrapper) ProtoMessage() {}
 
-func (x *Phase) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
+func (x *MembersWrapper) ProtoReflect() protoreflect.Message {
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -560,37 +449,37 @@ func (x *Phase) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Phase.ProtoReflect.Descriptor instead.
-func (*Phase) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{6}
+// Deprecated: Use MembersWrapper.ProtoReflect.Descriptor instead.
+func (*MembersWrapper) Descriptor() ([]byte, []int) {
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *Phase) GetMembers() []*Member {
+func (x *MembersWrapper) GetValues() []*Member {
 	if x != nil {
-		return x.Members
+		return x.Values
 	}
 	return nil
 }
 
 // Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
 // sequential) and liveness (always-live or gated). Parallel scopes organize members
-// into phases; sequential scopes run one member at a time and advance via transitions.
+// into strata; sequential scopes run one step at a time and advance via transitions.
 type Scope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// key is the scope identifier.
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
-	// mode defines whether this scope runs members in parallel or sequentially.
+	// mode defines whether this scope runs steps in parallel or sequentially.
 	Mode ScopeMode `protobuf:"varint,2,opt,name=mode,proto3,enum=arc.ir.pb.ScopeMode" json:"mode,omitempty"`
 	// liveness defines whether this scope is continuously active or must be activated.
 	Liveness Liveness `protobuf:"varint,3,opt,name=liveness,proto3,enum=arc.ir.pb.Liveness" json:"liveness,omitempty"`
 	// activation is the handle whose truthy value activates a gated scope. Unset for
 	// always-live scopes.
 	Activation *Handle `protobuf:"bytes,4,opt,name=activation,proto3,oneof" json:"activation,omitempty"`
-	// phases contains ordered execution layers for parallel scopes. Empty for sequential
-	// scopes.
-	Phases []*Phase `protobuf:"bytes,5,rep,name=phases,proto3" json:"phases,omitempty"`
-	// members contains ordered members for sequential scopes. Empty for parallel scopes.
-	Members []*Member `protobuf:"bytes,6,rep,name=members,proto3" json:"members,omitempty"`
+	// strata contains stratified execution layers for parallel scopes. Empty for sequential
+	// scopes. Stratum N depends only on strata 0 to N-1.
+	Strata []*MembersWrapper `protobuf:"bytes,5,rep,name=strata,proto3" json:"strata,omitempty"`
+	// steps contains ordered steps for sequential scopes. Empty for parallel scopes.
+	Steps []*Member `protobuf:"bytes,6,rep,name=steps,proto3" json:"steps,omitempty"`
 	// transitions contains state-transition rules for sequential scopes. Empty for parallel
 	// scopes.
 	Transitions   []*Transition `protobuf:"bytes,7,rep,name=transitions,proto3" json:"transitions,omitempty"`
@@ -600,7 +489,7 @@ type Scope struct {
 
 func (x *Scope) Reset() {
 	*x = Scope{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -612,7 +501,7 @@ func (x *Scope) String() string {
 func (*Scope) ProtoMessage() {}
 
 func (x *Scope) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -625,7 +514,7 @@ func (x *Scope) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Scope.ProtoReflect.Descriptor instead.
 func (*Scope) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *Scope) GetKey() string {
@@ -656,16 +545,16 @@ func (x *Scope) GetActivation() *Handle {
 	return nil
 }
 
-func (x *Scope) GetPhases() []*Phase {
+func (x *Scope) GetStrata() []*MembersWrapper {
 	if x != nil {
-		return x.Phases
+		return x.Strata
 	}
 	return nil
 }
 
-func (x *Scope) GetMembers() []*Member {
+func (x *Scope) GetSteps() []*Member {
 	if x != nil {
-		return x.Members
+		return x.Steps
 	}
 	return nil
 }
@@ -688,7 +577,7 @@ type Body struct {
 
 func (x *Body) Reset() {
 	*x = Body{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -700,7 +589,7 @@ func (x *Body) String() string {
 func (*Body) ProtoMessage() {}
 
 func (x *Body) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -713,7 +602,7 @@ func (x *Body) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Body.ProtoReflect.Descriptor instead.
 func (*Body) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Body) GetRaw() string {
@@ -745,7 +634,7 @@ type Function struct {
 
 func (x *Function) Reset() {
 	*x = Function{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -757,7 +646,7 @@ func (x *Function) String() string {
 func (*Function) ProtoMessage() {}
 
 func (x *Function) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -770,7 +659,7 @@ func (x *Function) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Function.ProtoReflect.Descriptor instead.
 func (*Function) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *Function) GetKey() string {
@@ -837,7 +726,7 @@ type Node struct {
 
 func (x *Node) Reset() {
 	*x = Node{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -849,7 +738,7 @@ func (x *Node) String() string {
 func (*Node) ProtoMessage() {}
 
 func (x *Node) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -862,7 +751,7 @@ func (x *Node) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Node.ProtoReflect.Descriptor instead.
 func (*Node) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Node) GetKey() string {
@@ -920,7 +809,7 @@ type Authorities struct {
 
 func (x *Authorities) Reset() {
 	*x = Authorities{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -932,7 +821,7 @@ func (x *Authorities) String() string {
 func (*Authorities) ProtoMessage() {}
 
 func (x *Authorities) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[11]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -945,7 +834,7 @@ func (x *Authorities) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Authorities.ProtoReflect.Descriptor instead.
 func (*Authorities) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{11}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Authorities) GetDefault() uint32 {
@@ -975,7 +864,7 @@ type IR struct {
 	// authorities contains the static authority declarations for this program.
 	Authorities *Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// root is the top-level execution context. The root is always a parallel, always-live
-	// Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
 	Root          *Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -983,7 +872,7 @@ type IR struct {
 
 func (x *IR) Reset() {
 	*x = IR{}
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -995,7 +884,7 @@ func (x *IR) String() string {
 func (*IR) ProtoMessage() {}
 
 func (x *IR) ProtoReflect() protoreflect.Message {
-	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[12]
+	mi := &file_arc_go_ir_pb_ir_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1008,7 +897,7 @@ func (x *IR) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IR.ProtoReflect.Descriptor instead.
 func (*IR) Descriptor() ([]byte, []int) {
-	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{12}
+	return file_arc_go_ir_pb_ir_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *IR) GetFunctions() []*Function {
@@ -1057,36 +946,29 @@ const file_arc_go_ir_pb_ir_proto_rawDesc = "" +
 	"\x04Edge\x12)\n" +
 	"\x06source\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x06source\x12)\n" +
 	"\x06target\x18\x02 \x01(\v2\x11.arc.ir.pb.HandleR\x06target\x12'\n" +
-	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"\x1b\n" +
-	"\aNodeRef\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\"g\n" +
-	"\x10TransitionTarget\x12\"\n" +
-	"\n" +
-	"member_key\x18\x01 \x01(\tH\x00R\tmemberKey\x88\x01\x01\x12\x17\n" +
-	"\x04exit\x18\x02 \x01(\bH\x01R\x04exit\x88\x01\x01B\r\n" +
-	"\v_member_keyB\a\n" +
-	"\x05_exit\"d\n" +
+	"\x04kind\x18\x03 \x01(\x0e2\x13.arc.ir.pb.EdgeKindR\x04kind\"b\n" +
 	"\n" +
 	"Transition\x12!\n" +
-	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x123\n" +
-	"\x06target\x18\x02 \x01(\v2\x1b.arc.ir.pb.TransitionTargetR\x06target\"\x92\x01\n" +
-	"\x06Member\x12\x10\n" +
-	"\x03key\x18\x01 \x01(\tR\x03key\x122\n" +
-	"\bnode_ref\x18\x02 \x01(\v2\x12.arc.ir.pb.NodeRefH\x00R\anodeRef\x88\x01\x01\x12+\n" +
-	"\x05scope\x18\x03 \x01(\v2\x10.arc.ir.pb.ScopeH\x01R\x05scope\x88\x01\x01B\v\n" +
-	"\t_node_refB\b\n" +
-	"\x06_scope\"4\n" +
-	"\x05Phase\x12+\n" +
-	"\amembers\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\amembers\"\xcb\x02\n" +
+	"\x02on\x18\x01 \x01(\v2\x11.arc.ir.pb.HandleR\x02on\x12\"\n" +
+	"\n" +
+	"target_key\x18\x02 \x01(\tH\x00R\ttargetKey\x88\x01\x01B\r\n" +
+	"\v_target_key\"l\n" +
+	"\x06Member\x12\x1e\n" +
+	"\bnode_key\x18\x01 \x01(\tH\x00R\anodeKey\x88\x01\x01\x12+\n" +
+	"\x05scope\x18\x02 \x01(\v2\x10.arc.ir.pb.ScopeH\x01R\x05scope\x88\x01\x01B\v\n" +
+	"\t_node_keyB\b\n" +
+	"\x06_scope\";\n" +
+	"\x0eMembersWrapper\x12)\n" +
+	"\x06values\x18\x01 \x03(\v2\x11.arc.ir.pb.MemberR\x06values\"\xd0\x02\n" +
 	"\x05Scope\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12(\n" +
 	"\x04mode\x18\x02 \x01(\x0e2\x14.arc.ir.pb.ScopeModeR\x04mode\x12/\n" +
 	"\bliveness\x18\x03 \x01(\x0e2\x13.arc.ir.pb.LivenessR\bliveness\x126\n" +
 	"\n" +
 	"activation\x18\x04 \x01(\v2\x11.arc.ir.pb.HandleH\x00R\n" +
-	"activation\x88\x01\x01\x12(\n" +
-	"\x06phases\x18\x05 \x03(\v2\x10.arc.ir.pb.PhaseR\x06phases\x12+\n" +
-	"\amembers\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\amembers\x127\n" +
+	"activation\x88\x01\x01\x121\n" +
+	"\x06strata\x18\x05 \x03(\v2\x19.arc.ir.pb.MembersWrapperR\x06strata\x12'\n" +
+	"\x05steps\x18\x06 \x03(\v2\x11.arc.ir.pb.MemberR\x05steps\x127\n" +
 	"\vtransitions\x18\a \x03(\v2\x15.arc.ir.pb.TransitionR\vtransitionsB\r\n" +
 	"\v_activation\"\x18\n" +
 	"\x04Body\x12\x10\n" +
@@ -1146,63 +1028,59 @@ func file_arc_go_ir_pb_ir_proto_rawDescGZIP() []byte {
 }
 
 var file_arc_go_ir_pb_ir_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_arc_go_ir_pb_ir_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_arc_go_ir_pb_ir_proto_goTypes = []any{
-	(EdgeKind)(0),            // 0: arc.ir.pb.EdgeKind
-	(ScopeMode)(0),           // 1: arc.ir.pb.ScopeMode
-	(Liveness)(0),            // 2: arc.ir.pb.Liveness
-	(*Handle)(nil),           // 3: arc.ir.pb.Handle
-	(*Edge)(nil),             // 4: arc.ir.pb.Edge
-	(*NodeRef)(nil),          // 5: arc.ir.pb.NodeRef
-	(*TransitionTarget)(nil), // 6: arc.ir.pb.TransitionTarget
-	(*Transition)(nil),       // 7: arc.ir.pb.Transition
-	(*Member)(nil),           // 8: arc.ir.pb.Member
-	(*Phase)(nil),            // 9: arc.ir.pb.Phase
-	(*Scope)(nil),            // 10: arc.ir.pb.Scope
-	(*Body)(nil),             // 11: arc.ir.pb.Body
-	(*Function)(nil),         // 12: arc.ir.pb.Function
-	(*Node)(nil),             // 13: arc.ir.pb.Node
-	(*Authorities)(nil),      // 14: arc.ir.pb.Authorities
-	(*IR)(nil),               // 15: arc.ir.pb.IR
-	nil,                      // 16: arc.ir.pb.Authorities.ChannelsEntry
-	(*pb.Param)(nil),         // 17: arc.types.pb.Param
-	(*pb.Channels)(nil),      // 18: arc.types.pb.Channels
+	(EdgeKind)(0),          // 0: arc.ir.pb.EdgeKind
+	(ScopeMode)(0),         // 1: arc.ir.pb.ScopeMode
+	(Liveness)(0),          // 2: arc.ir.pb.Liveness
+	(*Handle)(nil),         // 3: arc.ir.pb.Handle
+	(*Edge)(nil),           // 4: arc.ir.pb.Edge
+	(*Transition)(nil),     // 5: arc.ir.pb.Transition
+	(*Member)(nil),         // 6: arc.ir.pb.Member
+	(*MembersWrapper)(nil), // 7: arc.ir.pb.MembersWrapper
+	(*Scope)(nil),          // 8: arc.ir.pb.Scope
+	(*Body)(nil),           // 9: arc.ir.pb.Body
+	(*Function)(nil),       // 10: arc.ir.pb.Function
+	(*Node)(nil),           // 11: arc.ir.pb.Node
+	(*Authorities)(nil),    // 12: arc.ir.pb.Authorities
+	(*IR)(nil),             // 13: arc.ir.pb.IR
+	nil,                    // 14: arc.ir.pb.Authorities.ChannelsEntry
+	(*pb.Param)(nil),       // 15: arc.types.pb.Param
+	(*pb.Channels)(nil),    // 16: arc.types.pb.Channels
 }
 var file_arc_go_ir_pb_ir_proto_depIdxs = []int32{
 	3,  // 0: arc.ir.pb.Edge.source:type_name -> arc.ir.pb.Handle
 	3,  // 1: arc.ir.pb.Edge.target:type_name -> arc.ir.pb.Handle
 	0,  // 2: arc.ir.pb.Edge.kind:type_name -> arc.ir.pb.EdgeKind
 	3,  // 3: arc.ir.pb.Transition.on:type_name -> arc.ir.pb.Handle
-	6,  // 4: arc.ir.pb.Transition.target:type_name -> arc.ir.pb.TransitionTarget
-	5,  // 5: arc.ir.pb.Member.node_ref:type_name -> arc.ir.pb.NodeRef
-	10, // 6: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
-	8,  // 7: arc.ir.pb.Phase.members:type_name -> arc.ir.pb.Member
-	1,  // 8: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
-	2,  // 9: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
-	3,  // 10: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
-	9,  // 11: arc.ir.pb.Scope.phases:type_name -> arc.ir.pb.Phase
-	8,  // 12: arc.ir.pb.Scope.members:type_name -> arc.ir.pb.Member
-	7,  // 13: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
-	11, // 14: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
-	17, // 15: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
-	17, // 16: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
-	17, // 17: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
-	18, // 18: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
-	17, // 19: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
-	17, // 20: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
-	17, // 21: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
-	18, // 22: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
-	16, // 23: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
-	12, // 24: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
-	13, // 25: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
-	4,  // 26: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
-	14, // 27: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
-	10, // 28: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
-	29, // [29:29] is the sub-list for method output_type
-	29, // [29:29] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	8,  // 4: arc.ir.pb.Member.scope:type_name -> arc.ir.pb.Scope
+	6,  // 5: arc.ir.pb.MembersWrapper.values:type_name -> arc.ir.pb.Member
+	1,  // 6: arc.ir.pb.Scope.mode:type_name -> arc.ir.pb.ScopeMode
+	2,  // 7: arc.ir.pb.Scope.liveness:type_name -> arc.ir.pb.Liveness
+	3,  // 8: arc.ir.pb.Scope.activation:type_name -> arc.ir.pb.Handle
+	7,  // 9: arc.ir.pb.Scope.strata:type_name -> arc.ir.pb.MembersWrapper
+	6,  // 10: arc.ir.pb.Scope.steps:type_name -> arc.ir.pb.Member
+	5,  // 11: arc.ir.pb.Scope.transitions:type_name -> arc.ir.pb.Transition
+	9,  // 12: arc.ir.pb.Function.body:type_name -> arc.ir.pb.Body
+	15, // 13: arc.ir.pb.Function.config:type_name -> arc.types.pb.Param
+	15, // 14: arc.ir.pb.Function.inputs:type_name -> arc.types.pb.Param
+	15, // 15: arc.ir.pb.Function.outputs:type_name -> arc.types.pb.Param
+	16, // 16: arc.ir.pb.Function.channels:type_name -> arc.types.pb.Channels
+	15, // 17: arc.ir.pb.Node.config:type_name -> arc.types.pb.Param
+	15, // 18: arc.ir.pb.Node.inputs:type_name -> arc.types.pb.Param
+	15, // 19: arc.ir.pb.Node.outputs:type_name -> arc.types.pb.Param
+	16, // 20: arc.ir.pb.Node.channels:type_name -> arc.types.pb.Channels
+	14, // 21: arc.ir.pb.Authorities.channels:type_name -> arc.ir.pb.Authorities.ChannelsEntry
+	10, // 22: arc.ir.pb.IR.functions:type_name -> arc.ir.pb.Function
+	11, // 23: arc.ir.pb.IR.nodes:type_name -> arc.ir.pb.Node
+	4,  // 24: arc.ir.pb.IR.edges:type_name -> arc.ir.pb.Edge
+	12, // 25: arc.ir.pb.IR.authorities:type_name -> arc.ir.pb.Authorities
+	8,  // 26: arc.ir.pb.IR.root:type_name -> arc.ir.pb.Scope
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_arc_go_ir_pb_ir_proto_init() }
@@ -1210,17 +1088,17 @@ func file_arc_go_ir_pb_ir_proto_init() {
 	if File_arc_go_ir_pb_ir_proto != nil {
 		return
 	}
+	file_arc_go_ir_pb_ir_proto_msgTypes[2].OneofWrappers = []any{}
 	file_arc_go_ir_pb_ir_proto_msgTypes[3].OneofWrappers = []any{}
 	file_arc_go_ir_pb_ir_proto_msgTypes[5].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[7].OneofWrappers = []any{}
-	file_arc_go_ir_pb_ir_proto_msgTypes[11].OneofWrappers = []any{}
+	file_arc_go_ir_pb_ir_proto_msgTypes[9].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_arc_go_ir_pb_ir_proto_rawDesc), len(file_arc_go_ir_pb_ir_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   14,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

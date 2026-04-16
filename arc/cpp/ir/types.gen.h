@@ -29,8 +29,6 @@
 namespace arc::ir {
 
 struct Handle;
-struct NodeRef;
-struct TransitionTarget;
 struct Body;
 struct Node;
 struct Authorities;
@@ -38,7 +36,6 @@ struct Transition;
 struct Function;
 struct Edge;
 struct Member;
-struct Phase;
 struct Scope;
 struct IR;
 
@@ -77,38 +74,6 @@ struct Handle {
     from_proto(const ::arc::ir::pb::Handle &pb);
     [[nodiscard]] std::string to_string() const;
     friend std::ostream &operator<<(std::ostream &os, const Handle &h);
-};
-
-/// @brief NodeRef is a Layer 2 reference to a node in the dataflow graph.
-struct NodeRef {
-    /// @brief key is the key of the referenced node in IR.nodes.
-    std::string key;
-
-    static NodeRef parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::NodeRef;
-    [[nodiscard]] std::pair<::arc::ir::pb::NodeRef, x::errors::Error> to_proto() const;
-    static std::pair<NodeRef, x::errors::Error>
-    from_proto(const ::arc::ir::pb::NodeRef &pb);
-};
-
-/// @brief TransitionTarget is a tagged union describing the destination of a sequential
-/// transition. Exactly one of memberKey or exit is set.
-struct TransitionTarget {
-    /// @brief member_key is the sibling member key to activate.
-    std::optional<std::string> member_key;
-    /// @brief exit is true when the transition exits the scope, yielding to the parent.
-    std::optional<bool> exit;
-
-    static TransitionTarget parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::TransitionTarget;
-    [[nodiscard]] std::pair<::arc::ir::pb::TransitionTarget, x::errors::Error>
-    to_proto() const;
-    static std::pair<TransitionTarget, x::errors::Error>
-    from_proto(const ::arc::ir::pb::TransitionTarget &pb);
 };
 
 /// @brief Body is raw function body source code with optional parsed AST.
@@ -173,8 +138,9 @@ struct Authorities {
 struct Transition {
     /// @brief on is the dataflow handle whose truthy value fires this transition.
     Handle on;
-    /// @brief target is the destination of this transition.
-    TransitionTarget target;
+    /// @brief target_key is the sibling step key to activate. Null when the transition
+    /// exits the scope, yielding to the parent.
+    std::optional<std::string> target_key;
 
     static Transition parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;
@@ -388,13 +354,16 @@ struct Edges : private std::vector<Edge> {
     [[nodiscard]] x::json::json to_json() const;
 };
 
+using Members = std::vector<Member>;
+
 /// @brief Member is a tagged union representing a single child of a Scope. Exactly one
-/// of nodeRef or scope is set.
+/// of nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
+/// transitions) is derived from the set variant via Member.key().
 struct Member {
-    /// @brief key is the position identifier of this member within its parent scope.
-    std::string key;
-    /// @brief node_ref is set when this member references a dataflow node.
-    std::optional<NodeRef> node_ref;
+    /// @brief node_key is the key of the referenced node in IR.nodes. Null when this
+    /// member
+    /// is a nested scope.
+    std::optional<std::string> node_key;
     /// @brief scope is set when this member is a nested scope.
     x::mem::indirect<Scope> scope;
 
@@ -405,37 +374,20 @@ struct Member {
     [[nodiscard]] std::pair<::arc::ir::pb::Member, x::errors::Error> to_proto() const;
     static std::pair<Member, x::errors::Error>
     from_proto(const ::arc::ir::pb::Member &pb);
+    [[nodiscard]] const std::string &key() const;
     [[nodiscard]] std::string to_string() const;
     [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
     friend std::ostream &operator<<(std::ostream &os, const Member &m);
 };
 
-/// @brief Phase is a single execution layer within a parallel Scope. Members in a phase
-/// have no data dependency among themselves; phase N depends only on phases 0 to N-1.
-struct Phase {
-    /// @brief members contains members that execute together in this phase.
-    std::vector<Member> members;
-
-    static Phase parse(x::json::Parser parser);
-    [[nodiscard]] x::json::json to_json() const;
-
-    using proto_type = ::arc::ir::pb::Phase;
-    [[nodiscard]] std::pair<::arc::ir::pb::Phase, x::errors::Error> to_proto() const;
-    static std::pair<Phase, x::errors::Error>
-    from_proto(const ::arc::ir::pb::Phase &pb);
-    [[nodiscard]] std::string to_string() const;
-    [[nodiscard]] std::string to_string_with_prefix(const std::string &prefix) const;
-    friend std::ostream &operator<<(std::ostream &os, const Phase &p);
-};
-
 /// @brief Scope is the unified Layer 2 execution primitive. Parameterized by mode
 /// (parallel or sequential) and liveness (always-live or gated). Parallel scopes
-/// organize members into phases; sequential scopes run one member at a time and advance
+/// organize members into strata; sequential scopes run one step at a time and advance
 /// via transitions.
 struct Scope {
     /// @brief key is the scope identifier.
     std::string key;
-    /// @brief mode defines whether this scope runs members in parallel or sequentially.
+    /// @brief mode defines whether this scope runs steps in parallel or sequentially.
     ScopeMode mode;
     /// @brief liveness defines whether this scope is continuously active or must be
     /// activated.
@@ -444,13 +396,13 @@ struct Scope {
     /// Unset
     /// for always-live scopes.
     std::optional<Handle> activation;
-    /// @brief phases contains ordered execution layers for parallel scopes. Empty for
-    /// sequential scopes.
-    std::vector<Phase> phases;
-    /// @brief members contains ordered members for sequential scopes. Empty for
-    /// parallel
+    /// @brief strata contains stratified execution layers for parallel scopes. Empty
+    /// for
+    /// sequential scopes. Stratum N depends only on strata 0 to N-1.
+    std::vector<Members> strata;
+    /// @brief steps contains ordered steps for sequential scopes. Empty for parallel
     /// scopes.
-    std::vector<Member> members;
+    Members steps;
     /// @brief transitions contains state-transition rules for sequential scopes. Empty
     /// for
     /// parallel scopes.
@@ -480,7 +432,7 @@ struct IR {
     /// @brief authorities contains the static authority declarations for this program.
     Authorities authorities;
     /// @brief root is the top-level execution context. The root is always a parallel,
-    /// always-live Scope whose phases mix module-scope reactive flow with top-level
+    /// always-live Scope whose strata mix module-scope reactive flow with top-level
     /// gated scopes.
     Scope root;
 

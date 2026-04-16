@@ -681,6 +681,22 @@ func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Ty
 			if _, isStruct := elemResolved.Form.(resolution.StructForm); isStruct {
 				return fmt.Sprintf(`j["%s"] = x::json::to_array(this->%s);`, jsonName, fieldName)
 			}
+			// Nested-array-of-struct case: outer element resolves to another
+			// array (e.g., Members = []Member) whose inner element is a
+			// struct. nlohmann_json can't serialize vector<vector<Struct>>
+			// directly — serialize each inner array via to_array and bundle
+			// them in a JSON array.
+			if innerElem, ok := p.resolveToArrayElement(elemType, data); ok {
+				if innerResolved, ok := innerElem.Resolve(data.table); ok {
+					if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+						return fmt.Sprintf(`{
+        auto arr = x::json::json::array();
+        for (const auto& inner : this->%s) arr.push_back(x::json::to_array(inner));
+        j["%s"] = arr;
+    }`, fieldName, jsonName)
+					}
+				}
+			}
 		}
 
 		return fmt.Sprintf(`j["%s"] = this->%s;`, jsonName, fieldName)

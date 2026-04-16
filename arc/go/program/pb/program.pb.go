@@ -46,7 +46,7 @@ type Program struct {
 	// authorities contains the static authority declarations for this program.
 	Authorities *pb.Authorities `protobuf:"bytes,4,opt,name=authorities,proto3" json:"authorities,omitempty"`
 	// root is the top-level execution context. The root is always a parallel, always-live
-	// Scope whose phases mix module-scope reactive flow with top-level gated scopes.
+	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
 	Root *pb.Scope `protobuf:"bytes,5,opt,name=root,proto3" json:"root,omitempty"`
 	// wasm is compiled WebAssembly bytecode for sandboxed execution.
 	Wasm []byte `protobuf:"bytes,6,opt,name=wasm,proto3" json:"wasm,omitempty"`

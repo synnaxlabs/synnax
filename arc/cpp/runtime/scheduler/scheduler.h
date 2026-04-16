@@ -29,7 +29,9 @@ namespace arc::runtime::scheduler {
 
 static constexpr size_t NO_INDEX = ~size_t{0};
 
-namespace detail { class Builder; }
+namespace detail {
+class Builder;
+}
 
 /// @brief executes an Arc program by walking the Layer-2 Scope tree attached to
 /// the IR's Root. Each cycle the scheduler walks the tree, executes the active
@@ -77,19 +79,19 @@ class Scheduler {
     };
 
     /// @brief mirrors an ir::Member: exactly one of node or scope is set.
-    /// An unresolved NodeRef leaves both nullptr and is skipped at execution.
+    /// An unresolved node key leaves both nullptr and is skipped at execution.
     struct MemberState {
         /// @brief IR member key, used for `=> name` transition lookups.
         std::string key;
-        /// @brief resolved NodeRef target, nullptr for scope members and
-        /// unresolved refs. Points into Scheduler::nodes; remains valid
+        /// @brief resolved leaf-node target, nullptr for scope members and
+        /// unresolved node keys. Points into Scheduler::nodes; remains valid
         /// for the Scheduler's lifetime because nodes is reserved exactly
         /// at construction and never grows.
         Node *node = nullptr;
-        /// @brief nested scope state, nullptr for NodeRef members.
+        /// @brief nested scope state, nullptr for leaf-node members.
         std::unique_ptr<ScopeState> scope;
 
-        [[nodiscard]] bool is_node_ref() const { return scope == nullptr; }
+        [[nodiscard]] bool is_node() const { return scope == nullptr; }
     };
 
     /// @brief runtime mirror of an ir::Scope, holding activation bookkeeping
@@ -99,31 +101,31 @@ class Scheduler {
         const ir::Scope *ir = nullptr;
         /// @brief gates whether walk descends into this scope.
         bool active = false;
-        /// @brief running sequential member's index, or NO_INDEX when
+        /// @brief running sequential step's index, or NO_INDEX when
         /// inactive or in a parallel scope.
-        size_t active_member = NO_INDEX;
-        /// @brief members flattened in execution order: phase-major for
+        size_t active_step = NO_INDEX;
+        /// @brief members flattened in execution order: stratum-major for
         /// parallel scopes, sequence order for sequential.
         std::vector<MemberState> members;
-        /// @brief resolves `=> name` transition targets to member indices.
+        /// @brief resolves `=> name` transition targets to step indices.
         std::unordered_map<std::string, size_t> member_by_key;
-        /// @brief transition_owner[i] is the member index that owns
+        /// @brief transition_owner[i] is the step index that owns
         /// transition i's `on`-handle source, or NO_INDEX if the source is
-        /// outside this scope. Transitions owned by inactive members are
+        /// outside this scope. Transitions owned by inactive steps are
         /// skipped each cycle.
         std::vector<size_t> transition_owner;
-        /// @brief transitions_for_member[m] holds transition indices to
-        /// evaluate when member m is active, in source order. Each entry
+        /// @brief transitions_for_step[s] holds transition indices to
+        /// evaluate when step s is active, in source order. Each entry
         /// is the union of:
-        ///   - transitions whose owner is m (sourced inside that member)
+        ///   - transitions whose owner is s (sourced inside that step)
         ///   - transitions whose owner is NO_INDEX (sourced outside the
         ///     scope, always evaluated)
         /// Pre-computed once at construction so evaluate_transitions
-        /// iterates a short per-member list instead of the full
+        /// iterates a short per-step list instead of the full
         /// transitions slice. Reduces sequential-cascade work from O(N²)
-        /// to O(N·K) where K is the typical per-member transition count
+        /// to O(N·K) where K is the typical per-step transition count
         /// (almost always 1).
-        std::vector<std::vector<size_t>> transitions_for_member;
+        std::vector<std::vector<size_t>> transitions_for_step;
         /// @brief transition_on_idx[i] is the marked_flags index for
         /// transition i's `on`-handle, or NO_INDEX if unresolved.
         std::vector<size_t> transition_on_idx;
@@ -196,7 +198,8 @@ public:
         std::ranges::fill(this->marked_flags, 0);
         this->curr_node = nullptr;
         this->reset_scope_state(*this->root);
-        for (auto &n: this->nodes) n.node->reset();
+        for (auto &n: this->nodes)
+            n.node->reset();
         this->activate_scope(*this->root);
     }
 
@@ -233,34 +236,34 @@ private:
         this->walk_parallel(state);
     }
 
-    /// @brief runs every member of a parallel scope in phase order.
-    /// Members are stored phase-flattened in state.members; state.ir->phases
-    /// is read only for the phase-index argument passed to execute_member.
+    /// @brief runs every member of a parallel scope in stratum order.
+    /// Members are stored stratum-flattened in state.members; state.ir->strata
+    /// is read only for the stratum-index argument passed to execute_member.
     void walk_parallel(ScopeState &state) {
-        const auto &phases = state.ir->phases;
+        const auto &strata = state.ir->strata;
         size_t flat = 0;
-        for (size_t phase_idx = 0; phase_idx < phases.size(); ++phase_idx)
-            for (size_t i = 0; i < phases[phase_idx].members.size(); ++i)
-                this->execute_member(phase_idx, state.members[flat++]);
+        for (size_t stratum_idx = 0; stratum_idx < strata.size(); ++stratum_idx)
+            for (size_t i = 0; i < strata[stratum_idx].size(); ++i)
+                this->execute_member(stratum_idx, state.members[flat++]);
     }
 
-    /// @brief executes the active member and loops on its transitions for
-    /// same-cycle cascading. Bounded by members+1 so a chain of N members
-    /// can fire N transitions. phase_idx=0 forces the active member to run
-    /// unconditionally, matching phase-0 parallel semantics.
+    /// @brief executes the active step and loops on its transitions for
+    /// same-cycle cascading. Bounded by members+1 so a chain of N steps
+    /// can fire N transitions. stratum_idx=0 forces the active step to run
+    /// unconditionally, matching stratum-0 parallel semantics.
     void walk_sequential(ScopeState &state) {
         const size_t budget = state.members.size() + 1;
         for (size_t i = 0; i < budget; ++i) {
-            if (state.active_member == NO_INDEX) return;
-            this->execute_member(0, state.members[state.active_member]);
+            if (state.active_step == NO_INDEX) return;
+            this->execute_member(0, state.members[state.active_step]);
             if (!this->evaluate_transitions(state)) return;
         }
     }
 
-    /// @brief walks a nested-scope member or runs a NodeRef member.
-    /// A NodeRef runs when phase_idx==0, when changed_flags is set, or when
+    /// @brief walks a nested-scope member or runs a leaf-node member.
+    /// A leaf runs when stratum_idx==0, when changed_flags is set, or when
     /// the node was self-changed on a prior cycle.
-    void execute_member(const size_t phase_idx, MemberState &m) {
+    void execute_member(const size_t stratum_idx, MemberState &m) {
         if (m.scope) {
             this->walk(*m.scope);
             return;
@@ -269,42 +272,41 @@ private:
         const size_t idx = m.node->idx;
         const bool was_self_changed = this->self_changed_flags[idx] != 0;
         if (was_self_changed) this->self_changed_flags[idx] = 0;
-        if (phase_idx == 0 || this->changed_flags[idx] || was_self_changed) {
+        if (stratum_idx == 0 || this->changed_flags[idx] || was_self_changed) {
             this->curr_node = m.node;
             this->curr_node->node->next(this->ctx);
         }
     }
 
     /// @brief clears self-changed and calls reset on m's node. No-op if m is
-    /// a scope member or an unresolved NodeRef.
-    void reset_node_ref(MemberState &m) {
-        if (m.is_node_ref() && m.node) {
+    /// a scope member or an unresolved node-key.
+    void reset_leaf_node(MemberState &m) {
+        if (m.is_node() && m.node) {
             this->self_changed_flags[m.node->idx] = 0;
             m.node->node->reset();
         }
     }
 
     /// @brief clears self-changed on m's node. No-op if m is a scope member
-    /// or an unresolved NodeRef.
-    void clear_node_ref_self_changed(MemberState &m) {
-        if (m.is_node_ref() && m.node)
-            this->self_changed_flags[m.node->idx] = 0;
+    /// or an unresolved node-key.
+    void clear_leaf_node_self_changed(MemberState &m) {
+        if (m.is_node() && m.node) this->self_changed_flags[m.node->idx] = 0;
     }
 
     /// @brief fires the first transition whose `on` handle was freshly
-    /// marked truthy by the active member this cycle. Inactive-owner
+    /// marked truthy by the active step this cycle. Inactive-owner
     /// transitions and stale truthiness without a fresh mark are both
     /// ignored — the latter prevents latched comparisons from driving
-    /// repeat transitions. Iterates the pre-filtered transitions_for_member
-    /// list for the active member, which interleaves external transitions
-    /// and the active member's own transitions in source order. Returns
+    /// repeat transitions. Iterates the pre-filtered transitions_for_step
+    /// list for the active step, which interleaves external transitions
+    /// and the active step's own transitions in source order. Returns
     /// true if a transition fired.
     bool evaluate_transitions(ScopeState &state) {
-        if (state.active_member == NO_INDEX ||
-            state.active_member >= state.transitions_for_member.size())
+        if (state.active_step == NO_INDEX ||
+            state.active_step >= state.transitions_for_step.size())
             return false;
         const auto &transitions = state.ir->transitions;
-        for (const size_t i: state.transitions_for_member[state.active_member]) {
+        for (const size_t i: state.transitions_for_step[state.active_step]) {
             const size_t handle_idx = state.transition_on_idx[i];
             if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) continue;
             if (!state.transition_on_node[i]->node->is_output_truthy(
@@ -312,15 +314,15 @@ private:
                 ))
                 continue;
             this->marked_flags[handle_idx] = 0;
-            if (state.active_member != NO_INDEX)
-                this->deactivate_member(state.members[state.active_member]);
-            const auto &target = transitions[i].target;
-            if (target.exit.has_value() && *target.exit) {
+            if (state.active_step != NO_INDEX)
+                this->deactivate_step(state.members[state.active_step]);
+            const auto &target_key = transitions[i].target_key;
+            if (!target_key.has_value()) {
                 this->deactivate_scope(state);
-            } else if (target.member_key.has_value()) {
-                const auto mit = state.member_by_key.find(*target.member_key);
+            } else {
+                const auto mit = state.member_by_key.find(*target_key);
                 if (mit == state.member_by_key.end()) return false;
-                this->activate_sequential_member(state, mit->second);
+                this->activate_sequential_step(state, mit->second);
             }
             return true;
         }
@@ -328,19 +330,19 @@ private:
     }
 
     /// @brief marks a scope active and primes its members. Sequential
-    /// scopes activate member 0; parallel scopes reset every NodeRef
+    /// scopes activate step 0; parallel scopes reset every leaf-node
     /// member and cascade-activate nested gated scopes that have no
     /// Activation handle — gated children with a handle wait for it to
     /// fire via mark_changed.
     void activate_scope(ScopeState &state) {
         state.active = true;
         if (state.ir->mode == ir::ScopeMode::Sequential) {
-            if (!state.members.empty()) this->activate_sequential_member(state, 0);
+            if (!state.members.empty()) this->activate_sequential_step(state, 0);
             return;
         }
         for (auto &m: state.members) {
-            if (m.is_node_ref()) {
-                this->reset_node_ref(m);
+            if (m.is_node()) {
+                this->reset_leaf_node(m);
                 continue;
             }
             if (m.scope && m.scope->ir->liveness == ir::Liveness::Gated &&
@@ -350,44 +352,44 @@ private:
     }
 
     /// @brief points the active pointer at idx and resets (or
-    /// cascade-activates) that member.
-    void activate_sequential_member(ScopeState &state, const size_t idx) {
-        state.active_member = idx;
+    /// cascade-activates) that step.
+    void activate_sequential_step(ScopeState &state, const size_t idx) {
+        state.active_step = idx;
         auto &m = state.members[idx];
-        if (m.is_node_ref()) {
-            this->reset_node_ref(m);
+        if (m.is_node()) {
+            this->reset_leaf_node(m);
             return;
         }
         if (m.scope) this->activate_scope(*m.scope);
     }
 
-    /// @brief clears self-changed for the member's node, or marks a nested
+    /// @brief clears self-changed for the step's node, or marks a nested
     /// scope inactive. Nested-scope state freezes and is overwritten on
     /// the next parent activation.
-    void deactivate_member(MemberState &m) {
+    void deactivate_step(MemberState &m) {
         if (m.scope) {
             this->deactivate_scope(*m.scope);
             return;
         }
-        this->clear_node_ref_self_changed(m);
+        this->clear_leaf_node_self_changed(m);
     }
 
     /// @brief marks a scope inactive and clears self-changed on its direct
-    /// NodeRef members. Does not recurse — nested scope state freezes
+    /// leaf-node members. Does not recurse — nested scope state freezes
     /// until the next activation overwrites it.
     void deactivate_scope(ScopeState &state) {
-        if (state.ir->mode == ir::ScopeMode::Sequential)
-            state.active_member = NO_INDEX;
-        for (auto &m: state.members) this->clear_node_ref_self_changed(m);
+        if (state.ir->mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
+        for (auto &m: state.members)
+            this->clear_leaf_node_self_changed(m);
         state.active = false;
     }
 
     /// @brief recursively resets every scope state in the tree to inactive
-    /// with active_member = NO_INDEX. Does not call node reset — reset()
+    /// with active_step = NO_INDEX. Does not call node reset — reset()
     /// handles that for all nodes via direct iteration.
     void reset_scope_state(ScopeState &state) {
         state.active = false;
-        state.active_member = NO_INDEX;
+        state.active_step = NO_INDEX;
         for (auto &m: state.members)
             if (m.scope) this->reset_scope_state(*m.scope);
     }
@@ -477,8 +479,7 @@ private:
             wrapper.key = ir_node.key;
             wrapper.idx = idx;
             const auto impl_it = node_impls.find(ir_node.key);
-            if (impl_it != node_impls.end())
-                wrapper.node = std::move(impl_it->second);
+            if (impl_it != node_impls.end()) wrapper.node = std::move(impl_it->second);
             // Pre-seed outputs in the IR's declared order. Node impls
             // hardcode integer ordinals that match positions in this list;
             // wiring passes below use get_or_create_output, which finds
@@ -505,10 +506,9 @@ private:
             Scheduler::Node *tgt = this->lookup_node(edge.target.node);
             if (tgt == nullptr) continue;
             const size_t out_idx = this->get_or_create_output(*src, edge.source.param);
-            src->outputs[out_idx].edges.push_back(Scheduler::OutEdge{
-                tgt->idx,
-                edge.kind == ir::EdgeKind::Conditional
-            });
+            src->outputs[out_idx].edges.push_back(
+                Scheduler::OutEdge{tgt->idx, edge.kind == ir::EdgeKind::Conditional}
+            );
         }
     }
 
@@ -521,9 +521,9 @@ private:
 
         const auto append_member = [&](const ir::Member &m) {
             Scheduler::MemberState ms;
-            ms.key = m.key;
-            if (m.node_ref.has_value()) {
-                ms.node = this->lookup_node(m.node_ref->key);
+            ms.key = m.key();
+            if (m.node_key.has_value()) {
+                ms.node = this->lookup_node(*m.node_key);
             } else if (m.scope) {
                 ms.scope = this->build_scope_state(&*m.scope);
             }
@@ -531,10 +531,12 @@ private:
         };
 
         if (sc->mode == ir::ScopeMode::Parallel) {
-            for (const auto &phase: sc->phases)
-                for (const auto &m: phase.members) append_member(m);
+            for (const auto &stratum: sc->strata)
+                for (const auto &m: stratum)
+                    append_member(m);
         } else if (sc->mode == ir::ScopeMode::Sequential) {
-            for (const auto &m: sc->members) append_member(m);
+            for (const auto &m: sc->steps)
+                append_member(m);
         }
 
         state->member_by_key.reserve(state->members.size());
@@ -599,14 +601,14 @@ private:
             if (const auto it = node_to_member.find(on); it != node_to_member.end())
                 state.transition_owner[i] = it->second;
         }
-        // Pre-filter transitions per member so evaluate_transitions can
+        // Pre-filter transitions per step so evaluate_transitions can
         // iterate a short list instead of scanning all N transitions per
-        // cascade step. Each member's list contains transitions owned by
-        // that member plus every external transition (owner == NO_INDEX),
+        // cascade step. Each step's list contains transitions owned by
+        // that step plus every external transition (owner == NO_INDEX),
         // in source order.
-        state.transitions_for_member.assign(state.members.size(), {});
+        state.transitions_for_step.assign(state.members.size(), {});
         for (size_t m = 0; m < state.members.size(); ++m) {
-            auto &list = state.transitions_for_member[m];
+            auto &list = state.transitions_for_step[m];
             for (size_t i = 0; i < transitions.size(); ++i) {
                 const size_t owner = state.transition_owner[i];
                 if (owner == NO_INDEX || owner == m) list.push_back(i);
@@ -636,15 +638,15 @@ private:
     }
 
     /// @brief adds every node owned (directly or transitively) by m to out,
-    /// tagged with the member index. A NodeRef member owns one node; a
+    /// tagged with the member index. A leaf-node member owns one node; a
     /// nested-scope member owns every node reachable through its scope
-    /// tree. Unresolved NodeRefs are skipped.
+    /// tree. Unresolved node keys are skipped.
     static void collect_member_nodes(
         Scheduler::MemberState &m,
         const size_t idx,
         std::unordered_map<Scheduler::Node *, size_t> &out
     ) {
-        if (m.is_node_ref()) {
+        if (m.is_node()) {
             if (m.node) out[m.node] = idx;
             return;
         }
@@ -657,7 +659,7 @@ private:
         std::unordered_map<Scheduler::Node *, size_t> &out
     ) {
         for (auto &inner: s.members) {
-            if (inner.is_node_ref()) {
+            if (inner.is_node()) {
                 if (inner.node) out[inner.node] = idx;
             } else if (inner.scope)
                 collect_scope_nodes(*inner.scope, idx, out);

@@ -107,44 +107,34 @@ func (h *MockErrorHandler) HandleError(_ context.Context, nodeKey string, err er
 
 // ----- IR construction helpers -----
 
-// noderef builds a Member wrapping a NodeRef keyed by nodeKey.
-func noderef(nodeKey string) ir.Member {
-	return ir.Member{Key: nodeKey, NodeRef: &ir.NodeRef{Key: nodeKey}}
-}
+// stratum builds a Members slice from the given member list, representing
+// one execution stratum within a parallel scope.
+func stratum(members ...ir.Member) ir.Members { return ir.Members(members) }
 
-// scopeMember wraps a nested scope as a member whose key equals the
-// scope's own key.
-func scopeMember(s ir.Scope) ir.Member {
-	return ir.Member{Key: s.Key, Scope: &s}
-}
-
-// phase builds a Phase from the given member list.
-func phase(members ...ir.Member) ir.Phase { return ir.Phase{Members: members} }
-
-// parallelScope composes a parallel+gated Scope from one or more phases.
-func parallelScope(key string, phases ...ir.Phase) ir.Scope {
+// parallelScope composes a parallel+gated Scope from one or more strata.
+func parallelScope(key string, strata ...ir.Members) ir.Scope {
 	return ir.Scope{
 		Key:      key,
 		Mode:     ir.ScopeModeParallel,
 		Liveness: ir.LivenessGated,
-		Phases:   phases,
+		Strata:   strata,
 	}
 }
 
 // sequentialScope composes a sequential+gated Scope with the given
-// ordered members and transitions.
-func sequentialScope(key string, members []ir.Member, transitions ...ir.Transition) ir.Scope {
+// ordered steps and transitions.
+func sequentialScope(key string, steps []ir.Member, transitions ...ir.Transition) ir.Scope {
 	return ir.Scope{
 		Key:         key,
 		Mode:        ir.ScopeModeSequential,
 		Liveness:    ir.LivenessGated,
-		Members:     members,
+		Steps:       steps,
 		Transitions: transitions,
 	}
 }
 
 // rootScope wraps top-level members in a parallel+always-live root scope
-// with a single catch-all phase. Matches the shape the analyzer emits
+// with a single catch-all stratum. Matches the shape the analyzer emits
 // before stratification.
 func rootScope(members ...ir.Member) ir.Scope {
 	root := ir.Scope{
@@ -152,17 +142,17 @@ func rootScope(members ...ir.Member) ir.Scope {
 		Liveness: ir.LivenessAlways,
 	}
 	if len(members) > 0 {
-		root.Phases = []ir.Phase{{Members: members}}
+		root.Strata = []ir.Members{members}
 	}
 	return root
 }
 
-// rootWithPhases builds a parallel+always-live root with explicit phases.
-func rootWithPhases(phases ...ir.Phase) ir.Scope {
+// rootWithStrata builds a parallel+always-live root with explicit strata.
+func rootWithStrata(strata ...ir.Members) ir.Scope {
 	return ir.Scope{
 		Mode:     ir.ScopeModeParallel,
 		Liveness: ir.LivenessAlways,
-		Phases:   phases,
+		Strata:   strata,
 	}
 }
 
@@ -185,18 +175,16 @@ func conditionalEdge(src, srcParam, tgt, tgtParam string) ir.Edge {
 	}
 }
 
-// memberKeyTarget builds a TransitionTarget that jumps to the named
-// sibling member.
-func memberKeyTarget(key string) ir.TransitionTarget {
-	k := key
-	return ir.TransitionTarget{MemberKey: &k}
+// stepKeyTarget builds a transition target key that jumps to the named
+// sibling step.
+func stepKeyTarget(key string) *string {
+	return new(key)
 }
 
-// exitTarget builds a TransitionTarget that exits the sequence, yielding
+// exitTarget returns the nil target key that exits the sequence, yielding
 // to the parent scope.
-func exitTarget() ir.TransitionTarget {
-	exit := true
-	return ir.TransitionTarget{Exit: &exit}
+func exitTarget() *string {
+	return nil
 }
 
 // irNode builds an ir.Node with the given key and ordered output names.
@@ -263,7 +251,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B"), irNode("C")},
 				nil,
-				rootScope(noderef("A"), noderef("B"), noderef("C")),
+				rootScope(ir.NodeMember("A"), ir.NodeMember("B"), ir.NodeMember("C")),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -276,7 +264,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Phase-based execution", func() {
 		It("Should execute phase-0 members unconditionally each cycle", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			s.Next(ctx, 2*telem.Microsecond, node.ReasonTimerTick)
@@ -290,7 +278,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "input")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -305,7 +293,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "input")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -321,7 +309,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "input")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -353,7 +341,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "kick"), irNode("A")},
 				[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
-				rootWithPhases(phase(noderef("trigger")), phase(noderef("A"))),
+				rootWithStrata(stratum(ir.NodeMember("trigger")), stratum(ir.NodeMember("A"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -370,7 +358,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Context pass-through", func() {
 		It("Should pass elapsed time to node context", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, 5*telem.Microsecond, node.ReasonTimerTick)
 			s.Next(ctx, 10*telem.Microsecond, node.ReasonTimerTick)
@@ -387,7 +375,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
-				rootScope(noderef("A"), noderef("B")),
+				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -398,7 +386,7 @@ var _ = Describe("Scheduler", func() {
 			nodeA := mock("A")
 			targetErr := errors.New("boom")
 			nodeA.OnNext = func(ctx node.Context) { ctx.ReportError(targetErr) }
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			h := &MockErrorHandler{}
 			s.SetErrorHandler(h)
@@ -414,12 +402,12 @@ var _ = Describe("Scheduler", func() {
 			trigger := mock("trigger")
 			stage := mock("stage_node")
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			gated := parallelScope("stage", phase(noderef("stage_node")))
+			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(gated)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -431,12 +419,12 @@ var _ = Describe("Scheduler", func() {
 			mock("trigger", true)
 			stage := mock("stage_node")
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			gated := parallelScope("stage", phase(noderef("stage_node")))
+			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(gated)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -454,14 +442,14 @@ var _ = Describe("Scheduler", func() {
 		buildTwoStepSeq := func(onNode string) ir.IR {
 			// sequence main { stage first; stage second; } with a
 			// transition first->second driven by `onNode`'s output.
-			first := parallelScope("first", phase(noderef("first_node")))
-			second := parallelScope("second", phase(noderef("second_node")))
+			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
+			second := parallelScope("second", stratum(ir.NodeMember("second_node")))
 			main := sequentialScope("main", []ir.Member{
-				{Key: "first", Scope: &first},
-				{Key: "second", Scope: &second},
+				{Scope: &first},
+				{Scope: &second},
 			}, ir.Transition{
-				On:     ir.Handle{Node: onNode, Param: "output"},
-				Target: memberKeyTarget("second"),
+				On:        ir.Handle{Node: onNode, Param: "output"},
+				TargetKey: stepKeyTarget("second"),
 			})
 			// Module-scope trigger to activate the sequence.
 			trigger := ir.Handle{Node: "trigger", Param: "output"}
@@ -474,7 +462,7 @@ var _ = Describe("Scheduler", func() {
 					irNode("second_node"),
 				},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 		}
 
@@ -515,12 +503,12 @@ var _ = Describe("Scheduler", func() {
 					trigger.OutputTruthy[0] = false
 				}
 			}
-			first := parallelScope("first", phase(noderef("first_node")))
+			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
 			main := sequentialScope("main",
-				[]ir.Member{{Key: "first", Scope: &first}},
+				[]ir.Member{{Scope: &first}},
 				ir.Transition{
-					On:     ir.Handle{Node: "first_node", Param: "output"},
-					Target: exitTarget(),
+					On:        ir.Handle{Node: "first_node", Param: "output"},
+					TargetKey: exitTarget(),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -528,7 +516,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -549,22 +537,22 @@ var _ = Describe("Scheduler", func() {
 			// Two transitions from first, in source order: first jumps to
 			// `a`, the second would jump to `b`. Both are truthy at the
 			// same cycle.
-			first := parallelScope("first", phase(noderef("first_node")))
-			aScope := parallelScope("a", phase(noderef("a_node")))
-			bScope := parallelScope("b", phase(noderef("b_node")))
+			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
+			aScope := parallelScope("a", stratum(ir.NodeMember("a_node")))
+			bScope := parallelScope("b", stratum(ir.NodeMember("b_node")))
 			main := sequentialScope("main",
 				[]ir.Member{
-					{Key: "first", Scope: &first},
-					{Key: "a", Scope: &aScope},
-					{Key: "b", Scope: &bScope},
+					{Scope: &first},
+					{Scope: &aScope},
+					{Scope: &bScope},
 				},
 				ir.Transition{
-					On:     ir.Handle{Node: "first_node", Param: "output"},
-					Target: memberKeyTarget("a"),
+					On:        ir.Handle{Node: "first_node", Param: "output"},
+					TargetKey: stepKeyTarget("a"),
 				},
 				ir.Transition{
-					On:     ir.Handle{Node: "first_node", Param: "output"},
-					Target: memberKeyTarget("b"),
+					On:        ir.Handle{Node: "first_node", Param: "output"},
+					TargetKey: stepKeyTarget("b"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -579,7 +567,7 @@ var _ = Describe("Scheduler", func() {
 					irNode("b_node"),
 				},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -598,24 +586,24 @@ var _ = Describe("Scheduler", func() {
 			s2 := mock("s2", true)
 			s3 := mock("s3")
 			mkStep := func(key, nodeKey string) ir.Scope {
-				return parallelScope(key, phase(noderef(nodeKey)))
+				return parallelScope(key, stratum(ir.NodeMember(nodeKey)))
 			}
 			scope1 := mkStep("s1", "s1")
 			scope2 := mkStep("s2", "s2")
 			scope3 := mkStep("s3", "s3")
 			main := sequentialScope("main",
 				[]ir.Member{
-					{Key: "s1", Scope: &scope1},
-					{Key: "s2", Scope: &scope2},
-					{Key: "s3", Scope: &scope3},
+					{Scope: &scope1},
+					{Scope: &scope2},
+					{Scope: &scope3},
 				},
 				ir.Transition{
-					On:     ir.Handle{Node: "s1", Param: "output"},
-					Target: memberKeyTarget("s2"),
+					On:        ir.Handle{Node: "s1", Param: "output"},
+					TargetKey: stepKeyTarget("s2"),
 				},
 				ir.Transition{
-					On:     ir.Handle{Node: "s2", Param: "output"},
-					Target: memberKeyTarget("s3"),
+					On:        ir.Handle{Node: "s2", Param: "output"},
+					TargetKey: stepKeyTarget("s3"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -628,7 +616,7 @@ var _ = Describe("Scheduler", func() {
 					irNode("s3"),
 				},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			// Cycle 1 activates s1 and runs it. In that same cycle the
@@ -646,12 +634,12 @@ var _ = Describe("Scheduler", func() {
 			mock("trigger", true)
 			stageNode := mock("n")
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			stage := parallelScope("stage", phase(noderef("n")))
+			stage := parallelScope("stage", stratum(ir.NodeMember("n")))
 			stage.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("n")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(stage)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(stage)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -661,14 +649,14 @@ var _ = Describe("Scheduler", func() {
 		It("Should cascade reset into nested gated scopes on activation", func(ctx SpecContext) {
 			mock("trigger", true)
 			inner := mock("inner")
-			nested := parallelScope("nested", phase(noderef("inner")))
-			outer := parallelScope("outer", phase(scopeMember(nested)))
+			nested := parallelScope("nested", stratum(ir.NodeMember("inner")))
+			outer := parallelScope("outer", stratum(ir.ScopeMember(nested)))
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			outer.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("inner")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(outer)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(outer)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -683,11 +671,11 @@ var _ = Describe("Scheduler", func() {
 			// cascade targets any gated child lacking an Activation handle,
 			// regardless of whether the parent is root or a nested scope.
 			inner := mock("n")
-			stage := parallelScope("anon", phase(noderef("n")))
+			stage := parallelScope("anon", stratum(ir.NodeMember("n")))
 			prog := programOf(
 				[]ir.Node{irNode("n")},
 				nil,
-				rootScope(scopeMember(stage)),
+				rootScope(ir.ScopeMember(stage)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -709,9 +697,9 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("A", "x", "B", "in"),
 					continuousEdge("A", "y", "C", "in"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B"), noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -731,9 +719,9 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("A", "output", "B", "in"),
 					continuousEdge("A", "output", "C", "in"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B"), noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -754,9 +742,9 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("A", "output", "C", "a"),
 					continuousEdge("B", "output", "C", "b"),
 				},
-				rootWithPhases(
-					phase(noderef("A"), noderef("B")),
-					phase(noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A"), ir.NodeMember("B")),
+					stratum(ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -778,10 +766,10 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("A", "output", "B", "in"),
 					continuousEdge("B", "output", "C", "in"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B")),
-					phase(noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B")),
+					stratum(ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -809,10 +797,10 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("B", "output", "D", "a"),
 					continuousEdge("C", "output", "D", "b"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B"), noderef("C")),
-					phase(noderef("D")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
+					stratum(ir.NodeMember("D")),
 				),
 			)
 			s := build(prog)
@@ -827,7 +815,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				nil,
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -843,7 +831,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -858,7 +846,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{conditionalEdge("A", "output", "B", "in")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -878,7 +866,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output"), irNode("B")},
 				[]ir.Edge{continuousEdge("A", "output", "B", "in")},
-				rootWithPhases(phase(noderef("A")), phase(noderef("B"))),
+				rootWithStrata(stratum(ir.NodeMember("A")), stratum(ir.NodeMember("B"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -902,9 +890,9 @@ var _ = Describe("Scheduler", func() {
 					conditionalEdge("A", "x", "B", "in"),
 					conditionalEdge("A", "y", "C", "in"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B"), noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -940,7 +928,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "kick"), irNode("A")},
 				[]ir.Edge{continuousEdge("trigger", "kick", "A", "in")},
-				rootWithPhases(phase(noderef("trigger")), phase(noderef("A"))),
+				rootWithStrata(stratum(ir.NodeMember("trigger")), stratum(ir.NodeMember("A"))),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)   // initial run, marks self
@@ -967,13 +955,13 @@ var _ = Describe("Scheduler", func() {
 				}
 			}
 
-			first := parallelScope("first", phase(noderef("stage_node")))
-			second := parallelScope("second", phase(noderef("second_node")))
+			first := parallelScope("first", stratum(ir.NodeMember("stage_node")))
+			second := parallelScope("second", stratum(ir.NodeMember("second_node")))
 			main := sequentialScope("main",
-				[]ir.Member{{Key: "first", Scope: &first}, {Key: "second", Scope: &second}},
+				[]ir.Member{{Scope: &first}, {Scope: &second}},
 				ir.Transition{
-					On:     ir.Handle{Node: "stage_node", Param: "done"},
-					Target: memberKeyTarget("second"),
+					On:        ir.Handle{Node: "stage_node", Param: "done"},
+					TargetKey: stepKeyTarget("second"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -986,7 +974,7 @@ var _ = Describe("Scheduler", func() {
 					irNode("second_node"),
 				},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1003,7 +991,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("NextDeadline", func() {
 		It("Should return TimeSpanMax when no node sets a deadline", func(ctx SpecContext) {
 			mock("A")
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.TimeSpanMax))
@@ -1018,7 +1006,7 @@ var _ = Describe("Scheduler", func() {
 					c.SetDeadline(telem.Second)
 				}
 			}
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(s.NextDeadline()).To(Equal(telem.Second))
@@ -1031,12 +1019,12 @@ var _ = Describe("Scheduler", func() {
 			stageNode := mock("stage_node")
 			stageNode.OnNext = func(c node.Context) { c.SetDeadline(2 * telem.Second) }
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			gated := parallelScope("stage", phase(noderef("stage_node")))
+			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(gated)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1054,7 +1042,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B"), irNode("C")},
 				nil,
-				rootWithPhases(phase(noderef("A"), noderef("B"), noderef("C"))),
+				rootWithStrata(stratum(ir.NodeMember("A"), ir.NodeMember("B"), ir.NodeMember("C"))),
 			)
 			s := build(prog)
 			h := &MockErrorHandler{}
@@ -1074,7 +1062,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A"), irNode("B")},
 				nil,
-				rootScope(noderef("A"), noderef("B")),
+				rootScope(ir.NodeMember("A"), ir.NodeMember("B")),
 			)
 			s := build(prog)
 			h := &MockErrorHandler{}
@@ -1086,7 +1074,7 @@ var _ = Describe("Scheduler", func() {
 		It("Should swallow errors silently when no handler is configured", func(ctx SpecContext) {
 			nodeA := mock("A")
 			nodeA.OnNext = func(c node.Context) { c.ReportError(errors.New("dropped")) }
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			Expect(func() {
 				s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1098,7 +1086,7 @@ var _ = Describe("Scheduler", func() {
 	Describe("Edge cases", func() {
 		It("Should accept zero elapsed time", func(ctx SpecContext) {
 			nodeA := mock("A")
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, 0, node.ReasonTimerTick)
 			Expect(nodeA.NextCalled).To(Equal(1))
@@ -1109,7 +1097,7 @@ var _ = Describe("Scheduler", func() {
 			var received node.RunReason
 			nodeA := mock("A")
 			nodeA.OnNext = func(c node.Context) { received = c.Reason }
-			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(noderef("A")))
+			prog := programOf([]ir.Node{irNode("A")}, nil, rootScope(ir.NodeMember("A")))
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonChannelInput)
 			Expect(received).To(Equal(node.ReasonChannelInput))
@@ -1121,7 +1109,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("A", "output")},
 				[]ir.Edge{continuousEdge("A", "output", "A", "in")},
-				rootScope(noderef("A")),
+				rootScope(ir.NodeMember("A")),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1143,7 +1131,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			Expect(func() {
@@ -1158,12 +1146,12 @@ var _ = Describe("Scheduler", func() {
 			mock("trigger", true)
 			stageNode := mock("stage_node")
 			act := ir.Handle{Node: "trigger", Param: "output"}
-			gated := parallelScope("stage", phase(noderef("stage_node")))
+			gated := parallelScope("stage", stratum(ir.NodeMember("stage_node")))
 			gated.Activation = &act
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("stage_node")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(gated)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(gated)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
@@ -1181,10 +1169,10 @@ var _ = Describe("Scheduler", func() {
 			a := mock("A")
 			b := mock("B")
 			// trigger_b stays falsy — only `a` should activate.
-			stageA := parallelScope("stage_a", phase(noderef("A")))
+			stageA := parallelScope("stage_a", stratum(ir.NodeMember("A")))
 			actA := ir.Handle{Node: "trigger_a", Param: "output"}
 			stageA.Activation = &actA
-			stageB := parallelScope("stage_b", phase(noderef("B")))
+			stageB := parallelScope("stage_b", stratum(ir.NodeMember("B")))
 			actB := ir.Handle{Node: "trigger_b", Param: "output"}
 			stageB.Activation = &actB
 			prog := programOf(
@@ -1196,10 +1184,10 @@ var _ = Describe("Scheduler", func() {
 				},
 				nil,
 				rootScope(
-					noderef("trigger_a"),
-					noderef("trigger_b"),
-					scopeMember(stageA),
-					scopeMember(stageB),
+					ir.NodeMember("trigger_a"),
+					ir.NodeMember("trigger_b"),
+					ir.ScopeMember(stageA),
+					ir.ScopeMember(stageB),
 				),
 			)
 			s := build(prog)
@@ -1222,9 +1210,9 @@ var _ = Describe("Scheduler", func() {
 					continuousEdge("A", "data", "B", "in"),
 					conditionalEdge("A", "trigger", "C", "in"),
 				},
-				rootWithPhases(
-					phase(noderef("A")),
-					phase(noderef("B"), noderef("C")),
+				rootWithStrata(
+					stratum(ir.NodeMember("A")),
+					stratum(ir.NodeMember("B"), ir.NodeMember("C")),
 				),
 			)
 			s := build(prog)
@@ -1249,12 +1237,12 @@ var _ = Describe("Scheduler", func() {
 					trigger.OutputTruthy[0] = true
 				}
 			}
-			first := parallelScope("first", phase(noderef("first_node")))
+			first := parallelScope("first", stratum(ir.NodeMember("first_node")))
 			main := sequentialScope("main",
-				[]ir.Member{{Key: "first", Scope: &first}},
+				[]ir.Member{{Scope: &first}},
 				ir.Transition{
-					On:     ir.Handle{Node: "first_node", Param: "output"},
-					Target: exitTarget(),
+					On:        ir.Handle{Node: "first_node", Param: "output"},
+					TargetKey: exitTarget(),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -1262,7 +1250,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("first_node", "output")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)   // activate + run + exit
@@ -1293,12 +1281,12 @@ var _ = Describe("Scheduler", func() {
 			latch.SuppressAutoMark = true
 			mock("worker")
 
-			body := parallelScope("body", phase(noderef("worker")))
+			body := parallelScope("body", stratum(ir.NodeMember("worker")))
 			main := sequentialScope("main", []ir.Member{
-				{Key: "body", Scope: &body},
+				{Scope: &body},
 			}, ir.Transition{
-				On:     ir.Handle{Node: "latch", Param: "output"},
-				Target: exitTarget(),
+				On:        ir.Handle{Node: "latch", Param: "output"},
+				TargetKey: exitTarget(),
 			})
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
@@ -1311,9 +1299,9 @@ var _ = Describe("Scheduler", func() {
 				},
 				nil,
 				rootScope(
-					noderef("trigger"),
-					noderef("latch"),
-					scopeMember(main),
+					ir.NodeMember("trigger"),
+					ir.NodeMember("latch"),
+					ir.ScopeMember(main),
 				),
 			)
 			s := build(prog)
@@ -1346,14 +1334,14 @@ var _ = Describe("Scheduler", func() {
 			mock("worker_a")
 			mock("worker_b")
 
-			a := parallelScope("a", phase(noderef("worker_a")))
-			b := parallelScope("b", phase(noderef("worker_b")))
+			a := parallelScope("a", stratum(ir.NodeMember("worker_a")))
+			b := parallelScope("b", stratum(ir.NodeMember("worker_b")))
 			main := sequentialScope("main", []ir.Member{
-				{Key: "a", Scope: &a},
-				{Key: "b", Scope: &b},
+				{Scope: &a},
+				{Scope: &b},
 			}, ir.Transition{
-				On:     ir.Handle{Node: "latch", Param: "output"},
-				Target: memberKeyTarget("b"),
+				On:        ir.Handle{Node: "latch", Param: "output"},
+				TargetKey: stepKeyTarget("b"),
 			})
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
@@ -1367,9 +1355,9 @@ var _ = Describe("Scheduler", func() {
 				},
 				nil,
 				rootScope(
-					noderef("trigger"),
-					noderef("latch"),
-					scopeMember(main),
+					ir.NodeMember("trigger"),
+					ir.NodeMember("latch"),
+					ir.ScopeMember(main),
 				),
 			)
 			s := build(prog)
@@ -1414,14 +1402,14 @@ var _ = Describe("Scheduler", func() {
 			mock("worker_a")
 			mock("worker_b")
 
-			a := parallelScope("a", phase(noderef("worker_a")))
-			b := parallelScope("b", phase(noderef("worker_b")))
+			a := parallelScope("a", stratum(ir.NodeMember("worker_a")))
+			b := parallelScope("b", stratum(ir.NodeMember("worker_b")))
 			main := sequentialScope("main", []ir.Member{
-				{Key: "a", Scope: &a},
-				{Key: "b", Scope: &b},
+				{Scope: &a},
+				{Scope: &b},
 			}, ir.Transition{
-				On:     ir.Handle{Node: "latch", Param: "output"},
-				Target: memberKeyTarget("b"),
+				On:        ir.Handle{Node: "latch", Param: "output"},
+				TargetKey: stepKeyTarget("b"),
 			})
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
 			main.Activation = &triggerH
@@ -1435,9 +1423,9 @@ var _ = Describe("Scheduler", func() {
 				},
 				nil,
 				rootScope(
-					noderef("trigger"),
-					noderef("latch"),
-					scopeMember(main),
+					ir.NodeMember("trigger"),
+					ir.NodeMember("latch"),
+					ir.ScopeMember(main),
 				),
 			)
 			s := build(prog)
@@ -1459,12 +1447,12 @@ var _ = Describe("Scheduler", func() {
 			// forever within a cycle.
 			mock("trigger", true)
 			loopNode := mock("loop_node", true)
-			loop := parallelScope("loop", phase(noderef("loop_node")))
+			loop := parallelScope("loop", stratum(ir.NodeMember("loop_node")))
 			main := sequentialScope("main",
-				[]ir.Member{{Key: "loop", Scope: &loop}},
+				[]ir.Member{{Scope: &loop}},
 				ir.Transition{
-					On:     ir.Handle{Node: "loop_node", Param: "output"},
-					Target: memberKeyTarget("loop"),
+					On:        ir.Handle{Node: "loop_node", Param: "output"},
+					TargetKey: stepKeyTarget("loop"),
 				},
 			)
 			triggerH := ir.Handle{Node: "trigger", Param: "output"}
@@ -1472,7 +1460,7 @@ var _ = Describe("Scheduler", func() {
 			prog := programOf(
 				[]ir.Node{irNode("trigger", "output"), irNode("loop_node", "output")},
 				nil,
-				rootScope(noderef("trigger"), scopeMember(main)),
+				rootScope(ir.NodeMember("trigger"), ir.ScopeMember(main)),
 			)
 			s := build(prog)
 			done := make(chan struct{})

@@ -19,25 +19,25 @@
 namespace arc::ir::testutil {
 
 /// @brief describes a nested Scope for use with Builder::sequence. Each
-/// ScopeSpec becomes one Member of the sequential scope appended by
-/// Builder::sequence. Exactly one of phases or members should be non-empty:
-/// phases produces a parallel+gated child scope; members produces a
+/// ScopeSpec becomes one step of the sequential scope appended by
+/// Builder::sequence. Exactly one of strata or steps should be non-empty:
+/// strata produces a parallel+gated child scope; steps produces a
 /// sequential+gated child scope.
 struct ScopeSpec {
     /// @brief key is the member key and the nested scope's own key.
     std::string key;
-    /// @brief phases is the phase layering of a parallel nested scope. Each
-    /// inner vector is a phase of node keys with no dependency among them;
-    /// phase N depends only on phases 0..N-1.
-    std::vector<std::vector<std::string>> phases;
-    /// @brief members is the ordered list of node keys for a sequential
-    /// nested scope. Mutually exclusive with phases.
-    std::vector<std::string> members;
+    /// @brief strata is the stratum layering of a parallel nested scope. Each
+    /// inner vector is a stratum of node keys with no dependency among them;
+    /// stratum N depends only on strata 0..N-1.
+    std::vector<std::vector<std::string>> strata;
+    /// @brief steps is the ordered list of node keys for a sequential
+    /// nested scope. Mutually exclusive with strata.
+    std::vector<std::string> steps;
 };
 
 /// @brief fluent builder for constructing IR in tests. Produces the new
-/// unified Scope IR: Root is a parallel+always-live scope; Phases sets its
-/// phase layering; Sequence appends a nested sequential scope member.
+/// unified Scope IR: Root is a parallel+always-live scope; Strata sets its
+/// stratum layering; Sequence appends a nested sequential scope member.
 ///
 /// Example usage:
 /// @code
@@ -45,7 +45,7 @@ struct ScopeSpec {
 ///     .node("A")
 ///     .node("B")
 ///     .edge("A", "output", "B", "input")
-///     .phases({{"A"}, {"B"}})
+///     .strata({{"A"}, {"B"}})
 ///     .build();
 /// @endcode
 class Builder {
@@ -99,40 +99,36 @@ public:
         return *this;
     }
 
-    /// @brief sets the Root scope's phase layering. Each inner vector is a
-    /// phase of node keys with no data dependency among them; phase N
-    /// depends only on phases 0..N-1.
-    Builder &phases(std::vector<std::vector<std::string>> phases_spec) {
-        this->prog.root.phases.clear();
-        this->prog.root.phases.reserve(phases_spec.size());
-        for (auto &phase_keys: phases_spec) {
-            Phase p;
-            p.members.reserve(phase_keys.size());
-            for (auto &key: phase_keys)
-                p.members.push_back(node_member(key));
-            this->prog.root.phases.push_back(std::move(p));
+    /// @brief sets the Root scope's stratum layering. Each inner vector is
+    /// a stratum of node keys with no data dependency among them; stratum
+    /// N depends only on strata 0..N-1.
+    Builder &strata(std::vector<std::vector<std::string>> strata_spec) {
+        this->prog.root.strata.clear();
+        this->prog.root.strata.reserve(strata_spec.size());
+        for (auto &stratum_keys: strata_spec) {
+            Members layer;
+            layer.reserve(stratum_keys.size());
+            for (auto &key: stratum_keys)
+                layer.push_back(node_member(key));
+            this->prog.root.strata.push_back(std::move(layer));
         }
         return *this;
     }
 
     /// @brief appends a sequential, gated nested Scope to the Root as a
-    /// member of its final phase (creating a phase if the Root has none).
-    /// Each ScopeSpec becomes one Member of the sequential scope.
+    /// member of its final stratum (creating a stratum if the Root has none).
+    /// Each ScopeSpec becomes one step of the sequential scope.
     Builder &sequence(const std::string &key, std::vector<ScopeSpec> specs) {
         Scope seq;
         seq.key = key;
         seq.mode = ScopeMode::Sequential;
         seq.liveness = Liveness::Gated;
-        seq.members.reserve(specs.size());
+        seq.steps.reserve(specs.size());
         for (auto &spec: specs)
-            seq.members.push_back(scope_member_from(std::move(spec)));
+            seq.steps.push_back(scope_member_from(std::move(spec)));
 
-        if (prog.root.phases.empty()) prog.root.phases.emplace_back();
-        auto &last_phase = prog.root.phases.back();
-        Member m;
-        m.key = key;
-        m.scope = x::mem::indirect<Scope>(std::move(seq));
-        last_phase.members.push_back(std::move(m));
+        if (prog.root.strata.empty()) prog.root.strata.emplace_back();
+        prog.root.strata.back().push_back(scope_member(std::move(seq)));
         return *this;
     }
 
@@ -140,44 +136,31 @@ public:
     IR build() { return std::move(this->prog); }
 
 private:
-    /// @brief constructs a Member wrapping a NodeRef keyed by node_key.
-    static Member node_member(const std::string &node_key) {
-        Member m;
-        m.key = node_key;
-        NodeRef ref;
-        ref.key = node_key;
-        m.node_ref = std::move(ref);
-        return m;
-    }
-
     /// @brief builds a Member wrapping a nested Scope for ScopeSpec.
-    /// ScopeSpec.members (non-empty) takes priority and produces a
-    /// sequential nested scope; otherwise ScopeSpec.phases produces a
-    /// parallel nested scope.
+    /// ScopeSpec.steps (non-empty) takes priority and produces a sequential
+    /// nested scope; otherwise ScopeSpec.strata produces a parallel nested
+    /// scope.
     static Member scope_member_from(ScopeSpec spec) {
         Scope nested;
         nested.key = spec.key;
         nested.liveness = Liveness::Gated;
-        if (!spec.members.empty()) {
+        if (!spec.steps.empty()) {
             nested.mode = ScopeMode::Sequential;
-            nested.members.reserve(spec.members.size());
-            for (auto &k: spec.members)
-                nested.members.push_back(node_member(k));
+            nested.steps.reserve(spec.steps.size());
+            for (auto &k: spec.steps)
+                nested.steps.push_back(node_member(k));
         } else {
             nested.mode = ScopeMode::Parallel;
-            nested.phases.reserve(spec.phases.size());
-            for (auto &phase_keys: spec.phases) {
-                Phase p;
-                p.members.reserve(phase_keys.size());
-                for (auto &k: phase_keys)
-                    p.members.push_back(node_member(k));
-                nested.phases.push_back(std::move(p));
+            nested.strata.reserve(spec.strata.size());
+            for (auto &stratum_keys: spec.strata) {
+                Members layer;
+                layer.reserve(stratum_keys.size());
+                for (auto &k: stratum_keys)
+                    layer.push_back(node_member(k));
+                nested.strata.push_back(std::move(layer));
             }
         }
-        Member m;
-        m.key = spec.key;
-        m.scope = x::mem::indirect<Scope>(std::move(nested));
-        return m;
+        return scope_member(std::move(nested));
     }
 };
 

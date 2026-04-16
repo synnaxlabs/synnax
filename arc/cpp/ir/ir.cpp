@@ -69,12 +69,10 @@ const char *liveness_label(const Liveness l) {
 std::string Transition::to_string() const {
     std::ostringstream ss;
     ss << "on " << this->on.node << "/" << this->on.param << " ";
-    if (this->target.member_key.has_value())
-        ss << "=> " << *this->target.member_key;
-    else if (this->target.exit.has_value() && *this->target.exit)
-        ss << "=> exit";
+    if (this->target_key.has_value())
+        ss << "=> " << *this->target_key;
     else
-        ss << "=> ?";
+        ss << "=> exit";
     return ss.str();
 }
 
@@ -82,44 +80,25 @@ std::ostream &operator<<(std::ostream &os, const Transition &t) {
     return os << t.to_string();
 }
 
+const std::string &Member::key() const {
+    static const std::string empty;
+    if (this->node_key.has_value()) return *this->node_key;
+    if (this->scope) return this->scope->key;
+    return empty;
+}
+
 std::string Member::to_string() const {
     return this->to_string_with_prefix("");
 }
 
 std::string Member::to_string_with_prefix(const std::string &prefix) const {
-    if (this->node_ref.has_value()) {
-        std::ostringstream ss;
-        if (!this->key.empty() && this->key != this->node_ref->key)
-            ss << this->key << " -> " << this->node_ref->key;
-        else
-            ss << this->node_ref->key;
-        return ss.str();
-    }
+    if (this->node_key.has_value()) return *this->node_key;
     if (this->scope) return this->scope->to_string_with_prefix(prefix);
     return "(empty member)";
 }
 
 std::ostream &operator<<(std::ostream &os, const Member &m) {
     return os << m.to_string();
-}
-
-std::string Phase::to_string() const {
-    return this->to_string_with_prefix("");
-}
-
-std::string Phase::to_string_with_prefix(const std::string &prefix) const {
-    std::ostringstream ss;
-    for (size_t i = 0; i < this->members.size(); ++i) {
-        const bool last = (i == this->members.size() - 1);
-        ss << prefix << tree_prefix(last);
-        ss << this->members[i].to_string_with_prefix(prefix + tree_indent(last));
-        if (!last) ss << "\n";
-    }
-    return ss.str();
-}
-
-std::ostream &operator<<(std::ostream &os, const Phase &p) {
-    return os << p.to_string();
 }
 
 std::string Scope::to_string() const {
@@ -133,25 +112,32 @@ std::string Scope::to_string_with_prefix(const std::string &prefix) const {
        << liveness_label(this->liveness) << "]";
 
     const bool is_parallel = this->mode == ScopeMode::Parallel;
-    const bool has_phases = is_parallel && !this->phases.empty();
-    const bool has_members = !is_parallel && !this->members.empty();
+    const bool has_strata = is_parallel && !this->strata.empty();
+    const bool has_steps = !is_parallel && !this->steps.empty();
     const bool has_transitions = !this->transitions.empty();
 
-    if (has_phases) {
-        for (size_t i = 0; i < this->phases.size(); ++i) {
-            const bool last = (i == this->phases.size() - 1) && !has_transitions;
-            ss << "\n" << prefix << tree_prefix(last) << "phase " << i;
-            if (!this->phases[i].members.empty()) {
-                ss << "\n";
-                ss << this->phases[i].to_string_with_prefix(prefix + tree_indent(last));
+    if (has_strata) {
+        for (size_t i = 0; i < this->strata.size(); ++i) {
+            const bool last = (i == this->strata.size() - 1) && !has_transitions;
+            ss << "\n" << prefix << tree_prefix(last) << "stratum " << i;
+            const auto &stratum = this->strata[i];
+            if (!stratum.empty()) {
+                const std::string inner_prefix = prefix + tree_indent(last);
+                for (size_t j = 0; j < stratum.size(); ++j) {
+                    const bool m_last = (j == stratum.size() - 1);
+                    ss << "\n" << inner_prefix << tree_prefix(m_last);
+                    ss << stratum[j].to_string_with_prefix(
+                        inner_prefix + tree_indent(m_last)
+                    );
+                }
             }
         }
     }
-    if (has_members) {
-        for (size_t i = 0; i < this->members.size(); ++i) {
-            const bool last = (i == this->members.size() - 1) && !has_transitions;
+    if (has_steps) {
+        for (size_t i = 0; i < this->steps.size(); ++i) {
+            const bool last = (i == this->steps.size() - 1) && !has_transitions;
             ss << "\n" << prefix << tree_prefix(last);
-            ss << this->members[i].to_string_with_prefix(prefix + tree_indent(last));
+            ss << this->steps[i].to_string_with_prefix(prefix + tree_indent(last));
         }
     }
     if (has_transitions) {
@@ -303,7 +289,7 @@ namespace {
 bool scope_is_zero(const Scope &s) {
     return s.key.empty() && s.mode == ScopeMode::Unspecified &&
            s.liveness == Liveness::Unspecified && !s.activation.has_value() &&
-           s.phases.empty() && s.members.empty() && s.transitions.empty();
+           s.strata.empty() && s.steps.empty() && s.transitions.empty();
 }
 
 }

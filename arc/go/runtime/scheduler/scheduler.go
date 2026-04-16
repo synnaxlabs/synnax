@@ -55,21 +55,21 @@ type node struct {
 }
 
 // member mirrors an ir.Member: exactly one of node or scope is set.
-// An unresolved NodeRef leaves both nil and is skipped at execution.
+// An unresolved node key leaves both nil and is skipped at execution.
 type member struct {
 	// key is the IR member key, used for `=> name` transition lookups.
 	key string
-	// node is the resolved NodeRef target, nil for scope members and
-	// unresolved refs.
+	// node is the resolved leaf-node target, nil for scope members and
+	// unresolved node keys.
 	node *node
-	// scope is the nested scope state, nil for NodeRef members.
+	// scope is the nested scope state, nil for leaf-node members.
 	scope *scope
 }
 
-// isNodeRef reports whether this member refers to a dataflow node rather
-// than a nested scope. Returns true for unresolved NodeRefs as well; callers
+// isNode reports whether this member refers to a dataflow node rather
+// than a nested scope. Returns true for unresolved node keys as well; callers
 // must nil-check m.node before dereferencing.
-func (m *member) isNodeRef() bool { return m.scope == nil }
+func (m *member) isNode() bool { return m.scope == nil }
 
 // scope is the runtime mirror of an ir.Scope, holding activation
 // bookkeeping for one scope.
@@ -78,17 +78,17 @@ type scope struct {
 	ir *ir.Scope
 	// active gates whether walk descends into this scope.
 	active bool
-	// activeMember is the running sequential member's index, or -1 when
+	// activeStep is the running sequential step's index, or -1 when
 	// inactive or in a parallel scope.
-	activeMember int
-	// members are flattened in execution order: phase-major for parallel
+	activeStep int
+	// members are flattened in execution order: stratum-major for parallel
 	// scopes, sequence order for sequential.
 	members []member
 	// memberByKey resolves `=> name` transition targets to member indices.
 	memberByKey map[string]int
-	// transitionOwner[i] is the member index that owns transition i's
+	// transitionOwner[i] is the step index that owns transition i's
 	// `on`-handle source, or -1 if the source is outside this scope.
-	// Transitions owned by inactive members are skipped each cycle.
+	// Transitions owned by inactive steps are skipped each cycle.
 	transitionOwner []int
 	// transitionOnIdx[i] is the markedFlags index for transition i's
 	// `on`-handle, or -1 if unresolved.
@@ -100,16 +100,16 @@ type scope struct {
 	// for transition i's `on`-handle, or -1 if unresolved. Paired with
 	// transitionOnNode[i] so the truthy check is a direct virtual call.
 	transitionOnOutputIdx []int
-	// transitionsForMember[m] holds transition indices to evaluate when
-	// member m is active, in source order. Each entry is the union of:
-	//   - transitions whose owner is m (sourced inside that member)
+	// transitionsForStep[s] holds transition indices to evaluate when
+	// step s is active, in source order. Each entry is the union of:
+	//   - transitions whose owner is s (sourced inside that step)
 	//   - transitions whose owner is -1 (sourced outside the scope, always
 	//     evaluated)
 	// Pre-computed once at construction so evaluateTransitions iterates a
-	// short per-member list instead of the full transitions slice. Reduces
+	// short per-step list instead of the full transitions slice. Reduces
 	// sequential-cascade work from O(N²) to O(N·K) where K is the typical
-	// per-member transition count (almost always 1).
-	transitionsForMember [][]int
+	// per-step transition count (almost always 1).
+	transitionsForStep [][]int
 }
 
 // Scheduler executes one tick of a compiled Arc program per Next call.
@@ -169,7 +169,7 @@ func (s *Scheduler) SetErrorHandler(handler ErrorHandler) {
 func (s *Scheduler) NextDeadline() telem.TimeSpan { return s.nextDeadline }
 
 // Next executes one cycle of the reactive computation. Nodes with pending
-// changes execute in phase order; sequential scopes advance via their
+// changes execute in stratum order; sequential scopes advance via their
 // transitions; gated scopes activate when their activation handle fires.
 func (s *Scheduler) Next(ctx context.Context, elapsed telem.TimeSpan, reason rnode.RunReason) {
 	s.nextDeadline = telem.TimeSpanMax
@@ -194,40 +194,40 @@ func (s *Scheduler) walk(ss *scope) {
 	s.walkParallel(ss)
 }
 
-// walkParallel runs every member of a parallel scope in phase order.
-// Members are stored phase-flattened in ss.members; ss.ir.Phases is read
-// only for the phase-index argument passed to executeMember.
+// walkParallel runs every member of a parallel scope in stratum order.
+// Members are stored stratum-flattened in ss.members; ss.ir.Strata is read
+// only for the stratum-index argument passed to executeMember.
 func (s *Scheduler) walkParallel(ss *scope) {
 	flat := 0
-	for phaseIdx, phase := range ss.ir.Phases {
-		for range phase.Members {
-			s.executeMember(phaseIdx, &ss.members[flat])
+	for stratumIdx, stratum := range ss.ir.Strata {
+		for range stratum {
+			s.executeMember(stratumIdx, &ss.members[flat])
 			flat++
 		}
 	}
 }
 
-// walkSequential executes the active member and loops on its transitions
+// walkSequential executes the active step and loops on its transitions
 // for same-cycle cascading. Bounded by len(members)+1 so a chain of N
-// members can fire N transitions. phaseIdx=0 forces the active member to
-// run unconditionally, matching phase-0 parallel semantics.
+// steps can fire N transitions. stratumIdx=0 forces the active step to
+// run unconditionally, matching stratum-0 parallel semantics.
 func (s *Scheduler) walkSequential(ss *scope) {
 	budget := len(ss.members) + 1
 	for range budget {
-		if ss.activeMember < 0 {
+		if ss.activeStep < 0 {
 			return
 		}
-		s.executeMember(0, &ss.members[ss.activeMember])
+		s.executeMember(0, &ss.members[ss.activeStep])
 		if !s.evaluateTransitions(ss) {
 			return
 		}
 	}
 }
 
-// executeMember walks a nested-scope member or runs a NodeRef member.
-// A NodeRef runs when phaseIdx==0, when changedFlags is set, or when the
+// executeMember walks a nested-scope member or runs a leaf-node member.
+// A leaf runs when stratumIdx==0, when changedFlags is set, or when the
 // node was self-changed on a prior cycle.
-func (s *Scheduler) executeMember(phaseIdx int, m *member) {
+func (s *Scheduler) executeMember(stratumIdx int, m *member) {
 	if m.scope != nil {
 		s.walk(m.scope)
 		return
@@ -240,25 +240,25 @@ func (s *Scheduler) executeMember(phaseIdx int, m *member) {
 	if wasSelfChanged {
 		s.selfChangedFlags[idx] = 0
 	}
-	if phaseIdx == 0 || s.changedFlags[idx] != 0 || wasSelfChanged {
+	if stratumIdx == 0 || s.changedFlags[idx] != 0 || wasSelfChanged {
 		s.currNode = m.node
 		s.currNode.Next(s.nodeCtx)
 	}
 }
 
 // evaluateTransitions fires the first transition whose `on` handle was
-// freshly marked truthy by the active member this cycle. Inactive-owner
+// freshly marked truthy by the active step this cycle. Inactive-owner
 // transitions and stale truthiness without a fresh mark are both ignored
 // — the latter prevents latched comparisons from driving repeat
-// transitions. Iterates the pre-filtered transitionsForMember list for
-// the active member, which interleaves external transitions and the
-// active member's own transitions in source order. Returns true if a
+// transitions. Iterates the pre-filtered transitionsForStep list for
+// the active step, which interleaves external transitions and the
+// active step's own transitions in source order. Returns true if a
 // transition fired.
 func (s *Scheduler) evaluateTransitions(ss *scope) bool {
-	if ss.activeMember < 0 || ss.activeMember >= len(ss.transitionsForMember) {
+	if ss.activeStep < 0 || ss.activeStep >= len(ss.transitionsForStep) {
 		return false
 	}
-	for _, i := range ss.transitionsForMember[ss.activeMember] {
+	for _, i := range ss.transitionsForStep[ss.activeStep] {
 		handleIdx := ss.transitionOnIdx[i]
 		if handleIdx < 0 || s.markedFlags[handleIdx] == 0 {
 			continue
@@ -267,55 +267,55 @@ func (s *Scheduler) evaluateTransitions(ss *scope) bool {
 			continue
 		}
 		s.markedFlags[handleIdx] = 0
-		if ss.activeMember >= 0 {
-			s.deactivateMember(&ss.members[ss.activeMember])
+		if ss.activeStep >= 0 {
+			s.deactivateStep(&ss.members[ss.activeStep])
 		}
 		t := ss.ir.Transitions[i]
-		if t.Target.Exit != nil && *t.Target.Exit {
+		if t.TargetKey == nil {
 			s.deactivateScope(ss)
-		} else if t.Target.MemberKey != nil {
-			idx, ok := ss.memberByKey[*t.Target.MemberKey]
+		} else {
+			idx, ok := ss.memberByKey[*t.TargetKey]
 			if !ok {
 				return false
 			}
-			s.activateSequentialMember(ss, idx)
+			s.activateSequentialStep(ss, idx)
 		}
 		return true
 	}
 	return false
 }
 
-// resetNodeRef clears selfChanged and calls Reset on m's node.
-func (s *Scheduler) resetNodeRef(m *member) {
-	if n := m.node; m.isNodeRef() && n != nil {
+// resetLeafNode clears selfChanged and calls Reset on m's node.
+func (s *Scheduler) resetLeafNode(m *member) {
+	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
 		n.Reset()
 	}
 }
 
-// clearNodeRefSelfChanged clears selfChanged on m's node.
-func (s *Scheduler) clearNodeRefSelfChanged(m *member) {
-	if n := m.node; m.isNodeRef() && n != nil {
+// clearLeafNodeSelfChanged clears selfChanged on m's node.
+func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
+	if n := m.node; m.isNode() && n != nil {
 		s.selfChangedFlags[n.idx] = 0
 	}
 }
 
 // activateScope marks a scope active and primes its members. Sequential
-// scopes activate member 0; parallel scopes reset every NodeRef member and
+// scopes activate step 0; parallel scopes reset every leaf-node member and
 // cascade-activate nested gated scopes that have no Activation handle —
 // gated children with a handle wait for it to fire via markChanged.
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
 	if ss.ir.Mode == ir.ScopeModeSequential {
 		if len(ss.members) > 0 {
-			s.activateSequentialMember(ss, 0)
+			s.activateSequentialStep(ss, 0)
 		}
 		return
 	}
 	for i := range ss.members {
 		m := &ss.members[i]
-		if m.isNodeRef() {
-			s.resetNodeRef(m)
+		if m.isNode() {
+			s.resetLeafNode(m)
 			continue
 		}
 		if m.scope != nil &&
@@ -326,13 +326,13 @@ func (s *Scheduler) activateScope(ss *scope) {
 	}
 }
 
-// activateSequentialMember points the active pointer at idx and resets
-// (or cascade-activates) that member.
-func (s *Scheduler) activateSequentialMember(ss *scope, idx int) {
-	ss.activeMember = idx
+// activateSequentialStep points the active pointer at idx and resets
+// (or cascade-activates) that step.
+func (s *Scheduler) activateSequentialStep(ss *scope, idx int) {
+	ss.activeStep = idx
 	m := &ss.members[idx]
-	if m.isNodeRef() {
-		s.resetNodeRef(m)
+	if m.isNode() {
+		s.resetLeafNode(m)
 		return
 	}
 	if m.scope != nil {
@@ -340,26 +340,26 @@ func (s *Scheduler) activateSequentialMember(ss *scope, idx int) {
 	}
 }
 
-// deactivateMember clears selfChanged for the member's node, or marks a
+// deactivateStep clears selfChanged for the step's node, or marks a
 // nested scope inactive. Nested-scope state freezes and is overwritten
 // on the next parent activation.
-func (s *Scheduler) deactivateMember(m *member) {
+func (s *Scheduler) deactivateStep(m *member) {
 	if m.scope != nil {
 		s.deactivateScope(m.scope)
 		return
 	}
-	s.clearNodeRefSelfChanged(m)
+	s.clearLeafNodeSelfChanged(m)
 }
 
 // deactivateScope marks a scope inactive and clears selfChanged on its
-// direct NodeRef members. Does not recurse — nested scope state freezes
+// direct leaf-node members. Does not recurse — nested scope state freezes
 // until the next activation overwrites it.
 func (s *Scheduler) deactivateScope(ss *scope) {
 	if ss.ir.Mode == ir.ScopeModeSequential {
-		ss.activeMember = -1
+		ss.activeStep = -1
 	}
 	for i := range ss.members {
-		s.clearNodeRefSelfChanged(&ss.members[i])
+		s.clearLeafNodeSelfChanged(&ss.members[i])
 	}
 	ss.active = false
 }

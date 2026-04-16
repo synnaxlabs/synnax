@@ -494,9 +494,9 @@ func Analyze(
 		Liveness: ir.LivenessAlways,
 	}
 	// rootMembers accumulates every top-level item as a Member of the root
-	// scope. Module-scope flow nodes become NodeRef members; top-level
+	// scope. Module-scope flow nodes become leaf-node members; top-level
 	// sequence and stage declarations become nested Scope members.
-	var rootMembers []ir.Member
+	var rootMembers ir.Members
 
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
@@ -505,10 +505,7 @@ func Analyze(
 				return i, aCtx.Diagnostics
 			}
 			for _, n := range nodes {
-				rootMembers = append(rootMembers, ir.Member{
-					Key:     n.Key,
-					NodeRef: &ir.NodeRef{Key: n.Key},
-				})
+				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
@@ -521,10 +518,7 @@ func Analyze(
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
-			rootMembers = append(rootMembers, ir.Member{
-				Key:   seqScope.Key,
-				Scope: &seqScope,
-			})
+			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
@@ -536,32 +530,28 @@ func Analyze(
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
-			rootMembers = append(rootMembers, ir.Member{
-				Key:   stgScope.Key,
-				Scope: &stgScope,
-			})
+			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
 
 	if len(rootMembers) > 0 {
-		i.Root.Phases = []ir.Phase{{Members: rootMembers}}
+		i.Root.Strata = []ir.Members{rootMembers}
 	}
 
 	// Apply deferred activations collected by flow statements that target
 	// top-level scopes (for example `trigger => main`). The activation is
 	// stamped directly onto the corresponding nested Scope member.
-	if len(shell.activations) > 0 && len(i.Root.Phases) > 0 {
-		phase := &i.Root.Phases[0]
-		for idx := range phase.Members {
-			m := &phase.Members[idx]
+	if len(shell.activations) > 0 && len(i.Root.Strata) > 0 {
+		stratum := i.Root.Strata[0]
+		for idx := range stratum {
+			m := &stratum[idx]
 			if m.Scope == nil {
 				continue
 			}
 			if handle, ok := shell.activations[m.Scope.Key]; ok {
-				h := handle
-				m.Scope.Activation = &h
+				m.Scope.Activation = new(handle)
 			}
 		}
 	}
@@ -748,24 +738,22 @@ func (p *flowChainProcessor) consumeTransition(
 
 	switch {
 	case intent.isNext:
-		mk := p.shell.top().nextMember()
+		next := p.shell.top().nextMember()
 		p.shell.addTransition(ir.Transition{
-			On:     on,
-			Target: ir.TransitionTarget{MemberKey: &mk},
+			On:        on,
+			TargetKey: new(next),
 		})
 	case intent.memberKey != "":
-		mk := intent.memberKey
 		p.shell.addTransition(ir.Transition{
-			On:     on,
-			Target: ir.TransitionTarget{MemberKey: &mk},
+			On:        on,
+			TargetKey: new(intent.memberKey),
 		})
 	case intent.activateKey != "":
 		p.shell.registerActivation(intent.activateKey, on)
 		if p.shell.inSequence() {
-			exit := true
 			p.shell.addTransition(ir.Transition{
-				On:     on,
-				Target: ir.TransitionTarget{Exit: &exit},
+				On:        on,
+				TargetKey: nil,
 			})
 		}
 	}
@@ -969,27 +957,25 @@ func analyzeOutputRoutingTable(
 				if intent.activateKey != "" {
 					shell.registerActivation(intent.activateKey, prevOutputHandle)
 					if shell.inSequence() {
-						exit := true
 						shell.addTransition(ir.Transition{
-							On:     prevOutputHandle,
-							Target: ir.TransitionTarget{Exit: &exit},
+							On:        prevOutputHandle,
+							TargetKey: nil,
 						})
 					}
 					continue
 				}
 				if intent.memberKey != "" {
-					mk := intent.memberKey
 					shell.addTransition(ir.Transition{
-						On:     prevOutputHandle,
-						Target: ir.TransitionTarget{MemberKey: &mk},
+						On:        prevOutputHandle,
+						TargetKey: new(intent.memberKey),
 					})
 					continue
 				}
 				if intent.isNext {
-					mk := shell.top().nextMember()
+					next := shell.top().nextMember()
 					shell.addTransition(ir.Transition{
-						On:     prevOutputHandle,
-						Target: ir.TransitionTarget{MemberKey: &mk},
+						On:        prevOutputHandle,
+						TargetKey: new(next),
 					})
 					continue
 				}
@@ -1057,8 +1043,8 @@ func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
 }
 
 // flowScope wraps a set of flow-step nodes into a parallel+gated scope whose
-// single phase contains them in source order. The stratifier will later
-// re-layer this phase; for now all members sit in phase 0.
+// single stratum contains them in source order. The stratifier will later
+// re-layer this stratum; for now all members sit in stratum 0.
 func flowScope(key string, nodes []ir.Node) ir.Scope {
 	scope := ir.Scope{
 		Key:      key,
@@ -1068,14 +1054,11 @@ func flowScope(key string, nodes []ir.Node) ir.Scope {
 	if len(nodes) == 0 {
 		return scope
 	}
-	members := make([]ir.Member, 0, len(nodes))
+	members := make(ir.Members, 0, len(nodes))
 	for _, n := range nodes {
-		members = append(members, ir.Member{
-			Key:     n.Key,
-			NodeRef: &ir.NodeRef{Key: n.Key},
-		})
+		members = append(members, ir.Member{NodeKey: new(n.Key)})
 	}
-	scope.Phases = []ir.Phase{{Members: members}}
+	scope.Strata = []ir.Members{members}
 	return scope
 }
 
@@ -1090,15 +1073,11 @@ func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey str
 		Node:  lastNode.Key,
 		Param: firstOutputParam(lastNode.Outputs),
 	}
-	var target ir.TransitionTarget
+	var targetKey *string
 	if nextMemberKey != "" {
-		mk := nextMemberKey
-		target = ir.TransitionTarget{MemberKey: &mk}
-	} else {
-		exit := true
-		target = ir.TransitionTarget{Exit: &exit}
+		targetKey = new(nextMemberKey)
 	}
-	shell.addTransition(ir.Transition{On: on, Target: target})
+	shell.addTransition(ir.Transition{On: on, TargetKey: targetKey})
 }
 
 func analyzeSequence(
@@ -1161,10 +1140,12 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			scope.Members = append(scope.Members, ir.Member{
-				Key:   si.key,
-				Scope: &stgScope,
-			})
+			// Anonymous inline stages inherit the synthesized step key as
+			// their own Key so Member.Key() is derivable from the scope.
+			if stgScope.Key == "" {
+				stgScope.Key = si.key
+			}
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &stgScope})
 			allNodes = append(allNodes, nodes...)
 			allEdges = append(allEdges, edges...)
 			continue
@@ -1180,10 +1161,7 @@ func analyzeSequence(
 				return ir.Scope{}, nil, nil, false
 			}
 			child := flowScope(si.key, nodes)
-			scope.Members = append(scope.Members, ir.Member{
-				Key:   si.key,
-				Scope: &child,
-			})
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
 			allEdges = append(allEdges, edges...)
 			if len(nodes) > 0 {
@@ -1201,10 +1179,7 @@ func analyzeSequence(
 				return ir.Scope{}, nil, nil, false
 			}
 			child := flowScope(si.key, []ir.Node{node})
-			scope.Members = append(scope.Members, ir.Member{
-				Key:   si.key,
-				Scope: &child,
-			})
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, node)
 			autoWireTransition(shell, node, nextKey)
 			continue
@@ -1219,10 +1194,12 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			scope.Members = append(scope.Members, ir.Member{
-				Key:   si.key,
-				Scope: &nestedScope,
-			})
+			// Anonymous inline nested sequences inherit the synthesized step
+			// key so Member.Key() is derivable from the scope.
+			if nestedScope.Key == "" {
+				nestedScope.Key = si.key
+			}
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &nestedScope})
 			allNodes = append(allNodes, nodes...)
 			allEdges = append(allEdges, edges...)
 		}
@@ -1303,10 +1280,7 @@ func analyzeStage(
 			nodes = append(nodes, itemNodes...)
 			edges = append(edges, itemEdges...)
 			for _, n := range itemNodes {
-				members = append(members, ir.Member{
-					Key:     n.Key,
-					NodeRef: &ir.NodeRef{Key: n.Key},
-				})
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
 			}
 			continue
 		}
@@ -1316,10 +1290,7 @@ func analyzeStage(
 				return ir.Scope{}, nil, nil, false
 			}
 			nodes = append(nodes, node)
-			members = append(members, ir.Member{
-				Key:     node.Key,
-				NodeRef: &ir.NodeRef{Key: node.Key},
-			})
+			members = append(members, ir.Member{NodeKey: new(node.Key)})
 			continue
 		}
 		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
@@ -1338,16 +1309,13 @@ func analyzeStage(
 			}
 			nodes = append(nodes, subNodes...)
 			edges = append(edges, subEdges...)
-			members = append(members, ir.Member{
-				Key:   subScope.Key,
-				Scope: &subScope,
-			})
+			members = append(members, ir.Member{Scope: &subScope})
 			continue
 		}
 	}
 
 	if len(members) > 0 {
-		scope.Phases = []ir.Phase{{Members: members}}
+		scope.Strata = []ir.Members{members}
 	}
 	return scope, nodes, edges, true
 }

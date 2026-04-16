@@ -66,10 +66,10 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 
 // findTopLevelScope returns the top-level Scope member whose key matches.
 // Fails the spec if no such member exists. Top-level scopes are always
-// members of the root scope's first phase.
+// members of the root scope's first stratum.
 func findTopLevelScope(prog ir.IR, key string) ir.Scope {
-	for _, p := range prog.Root.Phases {
-		for _, m := range p.Members {
+	for _, stratum := range prog.Root.Strata {
+		for _, m := range stratum {
 			if m.Scope != nil && m.Scope.Key == key {
 				return *m.Scope
 			}
@@ -80,17 +80,17 @@ func findTopLevelScope(prog ir.IR, key string) ir.Scope {
 }
 
 // findMember returns the first direct member of a scope with the matching key.
-// Searches both Members (sequential scopes) and Phases' members (parallel
-// scopes). Fails the spec if no such member exists.
+// Searches both Steps (sequential scopes) and Strata (parallel scopes).
+// Fails the spec if no such member exists.
 func findMember(scope ir.Scope, key string) ir.Member {
-	for _, m := range scope.Members {
-		if m.Key == key {
+	for _, m := range scope.Steps {
+		if m.Key() == key {
 			return m
 		}
 	}
-	for _, p := range scope.Phases {
-		for _, m := range p.Members {
-			if m.Key == key {
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.Key() == key {
 				return m
 			}
 		}
@@ -99,21 +99,21 @@ func findMember(scope ir.Scope, key string) ir.Member {
 	return ir.Member{}
 }
 
-// scopeNodeRefs collects every NodeRef key reachable within a scope (across
-// all phases and members). Used to assert that a set of synthesized node
-// keys belongs to a particular scope.
+// scopeNodeRefs collects every leaf-node key reachable within a scope
+// (across all strata and steps). Used to assert that a set of synthesized
+// node keys belongs to a particular scope.
 func scopeNodeRefs(scope ir.Scope) []string {
 	var keys []string
-	for _, p := range scope.Phases {
-		for _, m := range p.Members {
-			if m.NodeRef != nil {
-				keys = append(keys, m.NodeRef.Key)
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.NodeKey != nil {
+				keys = append(keys, *m.NodeKey)
 			}
 		}
 	}
-	for _, m := range scope.Members {
-		if m.NodeRef != nil {
-			keys = append(keys, m.NodeRef.Key)
+	for _, m := range scope.Steps {
+		if m.NodeKey != nil {
+			keys = append(keys, *m.NodeKey)
 		}
 	}
 	return keys
@@ -1149,10 +1149,10 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Root.Phases).To(HaveLen(3))
-				Expect(inter.Root.Phases[0].Members[0].Key).To(Equal("on_sensor_0"))
-				Expect(inter.Root.Phases[1].Members[0].Key).To(Equal("filter_0"))
-				Expect(inter.Root.Phases[2].Members[0].Key).To(Equal("transform_0"))
+				Expect(inter.Root.Strata).To(HaveLen(3))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("on_sensor_0"))
+				Expect(inter.Root.Strata[1][0].Key()).To(Equal("filter_0"))
+				Expect(inter.Root.Strata[2][0].Key()).To(Equal("transform_0"))
 			})
 
 			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
@@ -1180,10 +1180,10 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Root.Phases).To(HaveLen(2))
-				Expect(inter.Root.Phases[0].Members[0].Key).To(Equal("demux_0"))
-				keys := lo.Map(inter.Root.Phases[1].Members, func(m ir.Member, _ int) string {
-					return m.Key
+				Expect(inter.Root.Strata).To(HaveLen(2))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("demux_0"))
+				keys := lo.Map(inter.Root.Strata[1], func(m ir.Member, _ int) string {
+					return m.Key()
 				})
 				Expect(keys).To(ContainElements("alarm_0", "logger_0"))
 			})
@@ -1381,8 +1381,8 @@ var _ = Describe("Text", func() {
 				Expect(inter.Edges).To(BeEmpty())
 
 				main := findTopLevelScope(inter, "main")
-				Expect(main.Members).To(HaveLen(2))
-				Expect(main.Members[0].Key).To(Equal("first"))
+				Expect(main.Steps).To(HaveLen(2))
+				Expect(main.Steps[0].Key()).To(Equal("first"))
 				Expect(main.Activation).ToNot(BeNil())
 				Expect(main.Activation.Node).To(Equal("on_trigger_0"))
 			})
@@ -1471,8 +1471,8 @@ var _ = Describe("Text", func() {
 				main := findTopLevelScope(inter, "main")
 				Expect(main.Transitions).To(HaveLen(1))
 				t := main.Transitions[0]
-				Expect(t.Target.MemberKey).ToNot(BeNil())
-				Expect(*t.Target.MemberKey).To(Equal("second"))
+				Expect(t.TargetKey).ToNot(BeNil())
+				Expect(*t.TargetKey).To(Equal("second"))
 				Expect(t.On.Node).To(HavePrefix("expression_"))
 			})
 		})
@@ -1489,9 +1489,9 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(inter.Root.Phases).To(HaveLen(1))
+				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
-				for _, m := range inter.Root.Phases[0].Members {
+				for _, m := range inter.Root.Strata[0] {
 					if m.Scope != nil {
 						scopeMembers = append(scopeMembers, m)
 					}
@@ -1514,9 +1514,9 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(inter.Root.Phases).To(HaveLen(1))
+				Expect(inter.Root.Strata).To(HaveLen(1))
 				var scopeMembers []ir.Member
-				for _, m := range inter.Root.Phases[0].Members {
+				for _, m := range inter.Root.Strata[0] {
 					if m.Scope != nil {
 						scopeMembers = append(scopeMembers, m)
 					}
@@ -1551,7 +1551,7 @@ var _ = Describe("Text", func() {
 
 				main := findTopLevelScope(inter, "main")
 				nextT, ok := lo.Find(main.Transitions, func(t ir.Transition) bool {
-					return t.Target.MemberKey != nil && *t.Target.MemberKey == "second"
+					return t.TargetKey != nil && *t.TargetKey == "second"
 				})
 				Expect(ok).To(BeTrue(), "expected a transition targeting 'second'")
 				Expect(nextT.On.Node).To(HavePrefix("expression_"))
@@ -1920,7 +1920,7 @@ var _ = Describe("Text", func() {
 			start := findMember(main, "start")
 			Expect(start.Scope).ToNot(BeNil())
 			Expect(start.Scope.Mode).To(Equal(ir.ScopeModeParallel))
-			Expect(start.Scope.Phases).ToNot(BeEmpty())
+			Expect(start.Scope.Strata).ToNot(BeEmpty())
 			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(initNode.Key))
 		})
 	})

@@ -111,31 +111,13 @@ public:
 /// @brief builds an ir::Node with the given key and ordered output
 /// names. Production runtime nodes never declare names; the scheduler
 /// reads them exclusively from ir::Node::outputs.
-ir::Node ir_node(
-    const std::string &key,
-    std::initializer_list<std::string> outputs = {}
-) {
+ir::Node
+ir_node(const std::string &key, std::initializer_list<std::string> outputs = {}) {
     ir::Node n;
     n.key = key;
     for (const auto &name: outputs)
         n.outputs.push_back(arc::types::Param{.name = name});
     return n;
-}
-
-ir::Member node_ref_member(const std::string &key) {
-    ir::Member m;
-    m.key = key;
-    ir::NodeRef ref;
-    ref.key = key;
-    m.node_ref = std::move(ref);
-    return m;
-}
-
-ir::Member scope_member(ir::Scope s) {
-    ir::Member m;
-    m.key = s.key;
-    m.scope = x::mem::indirect<ir::Scope>(std::move(s));
-    return m;
 }
 
 ir::Edge continuous_edge(
@@ -154,19 +136,17 @@ struct Program {
 
 Program build_flat_parallel(size_t n) {
     Program p;
-    std::vector<ir::Member> members;
-    members.reserve(n);
+    ir::Members stratum;
+    stratum.reserve(n);
     for (size_t i = 0; i < n; ++i) {
         const auto k = "n" + std::to_string(i);
         p.ir.nodes.push_back(ir_node(k));
-        members.push_back(node_ref_member(k));
+        stratum.push_back(ir::node_member(k));
         p.nodes[k] = std::make_unique<BenchNode>();
     }
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
-    ir::Phase ph;
-    ph.members = std::move(members);
-    p.ir.root.phases.push_back(std::move(ph));
+    p.ir.root.strata.push_back(std::move(stratum));
     return p;
 }
 
@@ -176,24 +156,20 @@ Program build_fanout_chain(size_t n) {
     p.ir.nodes.push_back(ir_node("src", {"out"}));
     p.nodes["src"] = std::make_unique<BenchNode>(std::vector<bool>{true});
 
-    std::vector<ir::Member> p0 = {node_ref_member("src")};
-    std::vector<ir::Member> p1;
-    p1.reserve(n - 1);
+    ir::Members s0 = {ir::node_member("src")};
+    ir::Members s1;
+    s1.reserve(n - 1);
     for (size_t i = 1; i < n; ++i) {
         const auto k = "t" + std::to_string(i);
         p.ir.nodes.push_back(ir_node(k));
-        p1.push_back(node_ref_member(k));
+        s1.push_back(ir::node_member(k));
         p.ir.edges.push_back(continuous_edge("src", "out", k, "in"));
         p.nodes[k] = std::make_unique<BenchNode>();
     }
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
-    ir::Phase phase0;
-    phase0.members = std::move(p0);
-    ir::Phase phase1;
-    phase1.members = std::move(p1);
-    p.ir.root.phases.push_back(std::move(phase0));
-    p.ir.root.phases.push_back(std::move(phase1));
+    p.ir.root.strata.push_back(std::move(s0));
+    p.ir.root.strata.push_back(std::move(s1));
     return p;
 }
 
@@ -208,18 +184,14 @@ Program build_deep_nested(size_t depth) {
     current.key = "s0";
     current.mode = ir::ScopeMode::Parallel;
     current.liveness = ir::Liveness::Gated;
-    ir::Phase ph0;
-    ph0.members = {node_ref_member("leaf")};
-    current.phases.push_back(std::move(ph0));
+    current.strata.push_back(ir::Members{ir::node_member("leaf")});
 
     for (size_t i = 1; i < depth; ++i) {
         ir::Scope outer;
         outer.key = "s" + std::to_string(i);
         outer.mode = ir::ScopeMode::Parallel;
         outer.liveness = ir::Liveness::Gated;
-        ir::Phase ph;
-        ph.members = {scope_member(std::move(current))};
-        outer.phases.push_back(std::move(ph));
+        outer.strata.push_back(ir::Members{ir::scope_member(std::move(current))});
         current = std::move(outer);
     }
     ir::Handle act{"trigger", "go"};
@@ -227,9 +199,9 @@ Program build_deep_nested(size_t depth) {
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
-    ir::Phase rphase;
-    rphase.members = {node_ref_member("trigger"), scope_member(std::move(current))};
-    p.ir.root.phases.push_back(std::move(rphase));
+    p.ir.root.strata.push_back(
+        ir::Members{ir::node_member("trigger"), ir::scope_member(std::move(current))}
+    );
     return p;
 }
 
@@ -238,21 +210,19 @@ Program build_sequential_chain(size_t n) {
     p.ir.nodes.push_back(ir_node("trigger", {"go"}));
     p.nodes["trigger"] = std::make_unique<BenchNode>(std::vector<bool>{true});
 
-    std::vector<ir::Member> members;
+    ir::Members steps;
     std::vector<ir::Transition> transitions;
-    members.reserve(n);
+    steps.reserve(n);
     transitions.reserve(n);
     for (size_t i = 0; i < n; ++i) {
         const auto k = "m" + std::to_string(i);
         p.ir.nodes.push_back(ir_node(k, {"next"}));
-        members.push_back(node_ref_member(k));
+        steps.push_back(ir::node_member(k));
         p.nodes[k] = std::make_unique<BenchNode>(std::vector<bool>{true});
         ir::Transition t;
         t.on = ir::Handle{k, "next"};
-        if (i + 1 < n)
-            t.target.member_key = "m" + std::to_string(i + 1);
-        else
-            t.target.exit = true;
+        if (i + 1 < n) t.target_key = "m" + std::to_string(i + 1);
+        // leaving target_key unset signals exit for the terminal step.
         transitions.push_back(std::move(t));
     }
 
@@ -260,16 +230,16 @@ Program build_sequential_chain(size_t n) {
     seq.key = "seq";
     seq.mode = ir::ScopeMode::Sequential;
     seq.liveness = ir::Liveness::Gated;
-    seq.members = std::move(members);
+    seq.steps = std::move(steps);
     seq.transitions = std::move(transitions);
     ir::Handle act{"trigger", "go"};
     seq.activation = act;
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;
-    ir::Phase rphase;
-    rphase.members = {node_ref_member("trigger"), scope_member(std::move(seq))};
-    p.ir.root.phases.push_back(std::move(rphase));
+    p.ir.root.strata.push_back(
+        ir::Members{ir::node_member("trigger"), ir::scope_member(std::move(seq))}
+    );
     return p;
 }
 

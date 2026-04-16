@@ -223,14 +223,11 @@ func Analyze(
 		Liveness: ir.LivenessAlways,
 	}
 	if len(irNodes) > 0 {
-		members := make([]ir.Member, 0, len(irNodes))
+		members := make(ir.Members, 0, len(irNodes))
 		for _, n := range irNodes {
-			members = append(members, ir.Member{
-				Key:     n.Key,
-				NodeRef: &ir.NodeRef{Key: n.Key},
-			})
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
 		}
-		root.Phases = []ir.Phase{{Members: members}}
+		root.Strata = []ir.Members{members}
 	}
 	out := ir.IR{
 		Functions: g.Functions,

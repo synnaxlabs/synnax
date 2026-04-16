@@ -44,25 +44,6 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
-/** NodeRef is a Layer 2 reference to a node in the dataflow graph. */
-export const nodeRefZ = z.object({
-  /** key is the key of the referenced node in IR.nodes. */
-  key: z.string(),
-});
-export interface NodeRef extends z.infer<typeof nodeRefZ> {}
-
-/**
- * TransitionTarget is a tagged union describing the destination of a sequential transition.
- * Exactly one of memberKey or exit is set.
- */
-export const transitionTargetZ = z.object({
-  /** memberKey is the sibling member key to activate. */
-  memberKey: z.string().optional(),
-  /** exit is true when the transition exits the scope, yielding to the parent. */
-  exit: z.boolean().optional(),
-});
-export interface TransitionTarget extends z.infer<typeof transitionTargetZ> {}
-
 /** Body is raw function body source code with optional parsed AST. */
 export const bodyZ = z.object({
   /** raw is the raw source code text. */
@@ -114,8 +95,11 @@ export interface Edge extends z.infer<typeof edgeZ> {}
 export const transitionZ = z.object({
   /** on is the dataflow handle whose truthy value fires this transition. */
   on: handleZ,
-  /** target is the destination of this transition. */
-  target: transitionTargetZ,
+  /**
+   * targetKey is the sibling step key to activate. Null when the transition
+   * exits the scope, yielding to the parent.
+   */
+  targetKey: z.string().optional(),
 });
 export interface Transition extends z.infer<typeof transitionZ> {}
 
@@ -150,18 +134,20 @@ export type Functions = z.infer<typeof functionsZ>;
 
 /**
  * Member is a tagged union representing a single child of a Scope. Exactly one
- * of nodeRef or scope is set.
+ * of nodeKey or scope is set. The member's lookup key (used as the
+ * target of `=> name` transitions) is derived from the set variant via
+ * Member.key().
  */
 export interface Member {
-  key: string;
-  nodeRef?: NodeRef;
+  nodeKey?: string;
   scope?: Scope;
 }
 export const memberZ: z.ZodType<Member> = z.object({
-  /** key is the position identifier of this member within its parent scope. */
-  key: z.string(),
-  /** nodeRef is set when this member references a dataflow node. */
-  nodeRef: nodeRefZ.optional(),
+  /**
+   * nodeKey is the key of the referenced node in IR.nodes. Null when this
+   * member is a nested scope.
+   */
+  nodeKey: z.string().optional(),
   /** scope is set when this member is a nested scope. */
   get scope() {
     return scopeZ.optional();
@@ -169,22 +155,9 @@ export const memberZ: z.ZodType<Member> = z.object({
 });
 
 /**
- * Phase is a single execution layer within a parallel Scope. Members in a phase
- * have no data dependency among themselves; phase N depends only on
- * phases 0 to N-1.
- */
-export interface Phase {
-  members: Member[];
-}
-export const phaseZ: z.ZodType<Phase> = z.object({
-  /** members contains members that execute together in this phase. */
-  members: array.nullishToEmpty(memberZ),
-});
-
-/**
  * Scope is the unified Layer 2 execution primitive. Parameterized by mode
  * (parallel or sequential) and liveness (always-live or gated). Parallel
- * scopes organize members into phases; sequential scopes run one member
+ * scopes organize members into strata; sequential scopes run one step
  * at a time and advance via transitions.
  */
 export interface Scope {
@@ -192,23 +165,30 @@ export interface Scope {
   mode: ScopeMode;
   liveness: Liveness;
   activation?: Handle;
-  phases: Phase[];
-  members: Member[];
+  strata: Members[];
+  steps: Members;
   transitions: Transition[];
 }
 export const scopeZ: z.ZodType<Scope> = z.object({
   /** key is the scope identifier. */
   key: z.string(),
-  /** mode defines whether this scope runs members in parallel or sequentially. */
+  /** mode defines whether this scope runs steps in parallel or sequentially. */
   mode: scopeModeZ,
   /** liveness defines whether this scope is continuously active or must be activated. */
   liveness: livenessZ,
   /** activation is the handle whose truthy value activates a gated scope. Unset for always-live scopes. */
   activation: handleZ.optional(),
-  /** phases contains ordered execution layers for parallel scopes. Empty for sequential scopes. */
-  phases: array.nullishToEmpty(phaseZ),
-  /** members contains ordered members for sequential scopes. Empty for parallel scopes. */
-  members: array.nullishToEmpty(memberZ),
+  /**
+   * strata contains stratified execution layers for parallel scopes. Empty
+   * for sequential scopes. Stratum N depends only on strata 0 to N-1.
+   */
+  get strata() {
+    return array.nullishToEmpty(membersZ);
+  },
+  /** steps contains ordered steps for sequential scopes. Empty for parallel scopes. */
+  get steps() {
+    return membersZ;
+  },
   /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
   transitions: array.nullishToEmpty(transitionZ),
 });
@@ -229,9 +209,12 @@ export const irZ = z.object({
   authorities: authoritiesZ,
   /**
    * root is the top-level execution context. The root is always a
-   * parallel, always-live Scope whose phases mix module-scope
+   * parallel, always-live Scope whose strata mix module-scope
    * reactive flow with top-level gated scopes.
    */
   root: scopeZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
+
+export const membersZ = array.nullishToEmpty(memberZ);
+export type Members = z.infer<typeof membersZ>;

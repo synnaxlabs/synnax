@@ -181,15 +181,26 @@ var _ = Describe("Codec", func() {
 								Mode:       ir.ScopeMode(0),
 								Liveness:   ir.Liveness(0),
 								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-								Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-								Members: []ir.Member{
+								Strata: [][]ir.Member{
 									{
-										Key:     "test_105",
-										NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+										{
+											NodeKey: func() *string { v := string("test_103"); return &v }(),
+											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+										},
+									},
+								},
+								Steps: []ir.Member{
+									{
+										NodeKey: func() *string { v := string("test_106"); return &v }(),
 										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 									},
 								},
-								Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+								Transitions: []ir.Transition{
+									{
+										On:        ir.Handle{},
+										TargetKey: func() *string { v := string("test_110"); return &v }(),
+									},
+								},
 							},
 						},
 						Output: compiler.Output{
@@ -393,15 +404,26 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 						Mode:       ir.ScopeMode(0),
 						Liveness:   ir.Liveness(0),
 						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-						Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-						Members: []ir.Member{
+						Strata: [][]ir.Member{
 							{
-								Key:     "test_105",
-								NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+								{
+									NodeKey: func() *string { v := string("test_103"); return &v }(),
+									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+								},
+							},
+						},
+						Steps: []ir.Member{
+							{
+								NodeKey: func() *string { v := string("test_106"); return &v }(),
 								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 							},
 						},
-						Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+						Transitions: []ir.Transition{
+							{
+								On:        ir.Handle{},
+								TargetKey: func() *string { v := string("test_110"); return &v }(),
+							},
+						},
 					},
 				},
 				Output: compiler.Output{
@@ -605,15 +627,26 @@ func FuzzDecodeArc(f *testing.F) {
 							Mode:       ir.ScopeMode(0),
 							Liveness:   ir.Liveness(0),
 							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-							Phases:     []ir.Phase{{Members: []ir.Member{{}}}},
-							Members: []ir.Member{
+							Strata: [][]ir.Member{
 								{
-									Key:     "test_105",
-									NodeRef: func() *ir.NodeRef { v := ir.NodeRef{}; return &v }(),
+									{
+										NodeKey: func() *string { v := string("test_103"); return &v }(),
+										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
+									},
+								},
+							},
+							Steps: []ir.Member{
+								{
+									NodeKey: func() *string { v := string("test_106"); return &v }(),
 									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
 								},
 							},
-							Transitions: []ir.Transition{{On: ir.Handle{}, Target: ir.TransitionTarget{}}},
+							Transitions: []ir.Transition{
+								{
+									On:        ir.Handle{},
+									TargetKey: func() *string { v := string("test_110"); return &v }(),
+								},
+							},
 						},
 					},
 					Output: compiler.Output{

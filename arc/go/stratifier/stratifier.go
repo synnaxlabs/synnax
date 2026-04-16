@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package stratifier computes per-scope execution phases for an Arc IR. For
+// Package stratifier computes per-scope execution strata for an Arc IR. For
 // every parallel scope in the program's Scope tree, the stratifier rewrites
-// the scope's Phases so that phase N's members depend only on phases 0..N-1
+// the scope's Strata so that stratum N's members depend only on strata 0..N-1
 // under the scope's intra-scope dataflow edges. Sequential scopes carry no
-// phasing; the stratifier only recurses into their nested scope members.
+// strata; the stratifier only recurses into their nested scope members.
 package stratifier
 
 import (
@@ -22,8 +22,8 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// Stratify walks the Scope tree rooted at prog.Root and assigns phases to
-// every parallel scope in depth-first order. Any pre-existing phase layout
+// Stratify walks the Scope tree rooted at prog.Root and assigns strata to
+// every parallel scope in depth-first order. Any pre-existing strata layout
 // on a parallel scope is discarded in favor of the freshly-computed one.
 // The program is modified in place. Diagnostics are appended to diag; the
 // returned value is diag for convenient chaining.
@@ -38,7 +38,7 @@ func Stratify(
 	return stratifyScope(&prog.Root, prog.Edges, diag)
 }
 
-// stratifyScope dispatches on a scope's mode: parallel scopes are re-phased
+// stratifyScope dispatches on a scope's mode: parallel scopes are re-stratified
 // from the dataflow edges among their members; sequential scopes pass
 // through, recursing into nested scope members.
 func stratifyScope(
@@ -50,9 +50,9 @@ func stratifyScope(
 	case ir.ScopeModeParallel:
 		return stratifyParallel(s, edges, diag)
 	case ir.ScopeModeSequential:
-		for i := range s.Members {
-			if s.Members[i].Scope != nil {
-				if d := stratifyScope(s.Members[i].Scope, edges, diag); d != nil && !d.Ok() {
+		for i := range s.Steps {
+			if s.Steps[i].Scope != nil {
+				if d := stratifyScope(s.Steps[i].Scope, edges, diag); d != nil && !d.Ok() {
 					return d
 				}
 			}
@@ -61,25 +61,25 @@ func stratifyScope(
 	return diag
 }
 
-// stratifyParallel assigns members of a parallel scope to phases using a
+// stratifyParallel assigns members of a parallel scope to strata using a
 // longest-path relaxation over the scope's intra-scope dataflow edges. Any
-// previous phasing of the scope is discarded and rebuilt.
+// previous stratification of the scope is discarded and rebuilt.
 func stratifyParallel(
 	s *ir.Scope,
 	edges []ir.Edge,
 	diag *diagnostics.Diagnostics,
 ) *diagnostics.Diagnostics {
 	// Flatten the pre-existing membership. The analyzer populates a single
-	// catch-all phase; older constructions may have split their members
-	// across phases that no longer reflect dependency order.
-	members := make([]ir.Member, 0)
-	for _, p := range s.Phases {
-		members = append(members, p.Members...)
+	// catch-all stratum; older constructions may have split their members
+	// across strata that no longer reflect dependency order.
+	members := make(ir.Members, 0)
+	for _, stratum := range s.Strata {
+		members = append(members, stratum...)
 	}
-	members = append(members, s.Members...)
-	s.Members = nil
+	members = append(members, s.Steps...)
+	s.Steps = nil
 	if len(members) == 0 {
-		s.Phases = nil
+		s.Strata = nil
 		return diag
 	}
 
@@ -89,14 +89,14 @@ func stratifyParallel(
 	// member that wraps them at this level.
 	ownership := collectOwnership(members)
 
-	// Longest-path phase assignment. Each member starts at phase 0; for each
-	// cross-member edge, push the target's phase past the source's phase.
+	// Longest-path stratum assignment. Each member starts at stratum 0; for
+	// each cross-member edge, push the target's stratum past the source's.
 	// Activation handles on nested gated scopes count as implicit
 	// dependencies: the handle's source must run before the scope can
 	// activate, so the scope lands after its source. Converges in at most
 	// len(members) passes over the constraint set; a failure to converge
 	// indicates a cycle.
-	phase := make([]int, len(members))
+	stratum := make([]int, len(members))
 	maxPasses := len(members) + 1
 	for pass := 0; pass <= maxPasses; pass++ {
 		changed := false
@@ -106,8 +106,8 @@ func stratifyParallel(
 			if !srcOK || !tgtOK || src == tgt {
 				continue
 			}
-			if phase[src] >= phase[tgt] {
-				phase[tgt] = phase[src] + 1
+			if stratum[src] >= stratum[tgt] {
+				stratum[tgt] = stratum[src] + 1
 				changed = true
 			}
 		}
@@ -119,8 +119,8 @@ func stratifyParallel(
 			if !ok || src == i {
 				continue
 			}
-			if phase[src] >= phase[i] {
-				phase[i] = phase[src] + 1
+			if stratum[src] >= stratum[i] {
+				stratum[i] = stratum[src] + 1
 				changed = true
 			}
 		}
@@ -138,33 +138,33 @@ func stratifyParallel(
 		}
 	}
 
-	// Bucket members by computed phase, preserving source order within each
-	// phase. Empty phases are dropped so the resulting slice is dense.
-	maxPhase := 0
-	for _, p := range phase {
-		if p > maxPhase {
-			maxPhase = p
+	// Bucket members by computed stratum, preserving source order within
+	// each stratum. Empty strata are dropped so the resulting slice is dense.
+	maxStratum := 0
+	for _, p := range stratum {
+		if p > maxStratum {
+			maxStratum = p
 		}
 	}
-	buckets := make([]ir.Phase, maxPhase+1)
+	buckets := make([]ir.Members, maxStratum+1)
 	for i, m := range members {
-		buckets[phase[i]].Members = append(buckets[phase[i]].Members, m)
+		buckets[stratum[i]] = append(buckets[stratum[i]], m)
 	}
 	dense := buckets[:0]
-	for _, p := range buckets {
-		if len(p.Members) > 0 {
-			dense = append(dense, p)
+	for _, b := range buckets {
+		if len(b) > 0 {
+			dense = append(dense, b)
 		}
 	}
-	s.Phases = dense
+	s.Strata = dense
 
 	// Recurse into nested scope members. Transitions and activations are
-	// not dataflow edges and do not participate in phasing; they are handled
-	// at runtime by the scheduler.
-	for pi := range s.Phases {
-		for mi := range s.Phases[pi].Members {
-			if s.Phases[pi].Members[mi].Scope != nil {
-				if d := stratifyScope(s.Phases[pi].Members[mi].Scope, edges, diag); d != nil && !d.Ok() {
+	// not dataflow edges and do not participate in stratification; they are
+	// handled at runtime by the scheduler.
+	for si := range s.Strata {
+		for mi := range s.Strata[si] {
+			if s.Strata[si][mi].Scope != nil {
+				if d := stratifyScope(s.Strata[si][mi].Scope, edges, diag); d != nil && !d.Ok() {
 					return d
 				}
 			}
@@ -185,8 +185,8 @@ func collectOwnership(members []ir.Member) map[string]int {
 }
 
 func collectMemberOwnership(m ir.Member, idx int, own map[string]int) {
-	if m.NodeRef != nil {
-		own[m.NodeRef.Key] = idx
+	if m.NodeKey != nil {
+		own[*m.NodeKey] = idx
 		return
 	}
 	if m.Scope != nil {
@@ -195,21 +195,21 @@ func collectMemberOwnership(m ir.Member, idx int, own map[string]int) {
 }
 
 // collectScopeOwnership walks a nested scope and attributes every node key
-// it contains to the outer owner idx. The nested scope's own phasing does
-// not matter at this level of recursion.
+// it contains to the outer owner idx. The nested scope's own stratification
+// does not matter at this level of recursion.
 func collectScopeOwnership(s ir.Scope, idx int, own map[string]int) {
-	for _, p := range s.Phases {
-		for _, m := range p.Members {
-			if m.NodeRef != nil {
-				own[m.NodeRef.Key] = idx
+	for _, stratum := range s.Strata {
+		for _, m := range stratum {
+			if m.NodeKey != nil {
+				own[*m.NodeKey] = idx
 			} else if m.Scope != nil {
 				collectScopeOwnership(*m.Scope, idx, own)
 			}
 		}
 	}
-	for _, m := range s.Members {
-		if m.NodeRef != nil {
-			own[m.NodeRef.Key] = idx
+	for _, m := range s.Steps {
+		if m.NodeKey != nil {
+			own[*m.NodeKey] = idx
 		} else if m.Scope != nil {
 			collectScopeOwnership(*m.Scope, idx, own)
 		}
@@ -279,14 +279,8 @@ func findCycle(members []ir.Member, edges []ir.Edge, ownership map[string]int) [
 }
 
 func memberLabel(m ir.Member) string {
-	if m.Key != "" {
-		return m.Key
-	}
-	if m.NodeRef != nil {
-		return m.NodeRef.Key
-	}
-	if m.Scope != nil {
-		return m.Scope.Key
+	if k := m.Key(); k != "" {
+		return k
 	}
 	return "(unknown)"
 }

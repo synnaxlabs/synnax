@@ -53,71 +53,31 @@ inline x::json::json Edge::to_json() const {
     return j;
 }
 
-inline NodeRef NodeRef::parse(x::json::Parser parser) {
-    return NodeRef{
-        .key = parser.field<std::string>("key"),
-    };
-}
-
-inline x::json::json NodeRef::to_json() const {
-    x::json::json j;
-    j["key"] = this->key;
-    return j;
-}
-
-inline TransitionTarget TransitionTarget::parse(x::json::Parser parser) {
-    return TransitionTarget{
-        .member_key = parser.field<std::optional<std::string>>("member_key"),
-        .exit = parser.field<std::optional<bool>>("exit"),
-    };
-}
-
-inline x::json::json TransitionTarget::to_json() const {
-    x::json::json j;
-    j["member_key"] = this->member_key;
-    j["exit"] = this->exit;
-    return j;
-}
-
 inline Transition Transition::parse(x::json::Parser parser) {
     return Transition{
         .on = parser.field<Handle>("on"),
-        .target = parser.field<TransitionTarget>("target"),
+        .target_key = parser.field<std::optional<std::string>>("target_key"),
     };
 }
 
 inline x::json::json Transition::to_json() const {
     x::json::json j;
     j["on"] = this->on.to_json();
-    j["target"] = this->target.to_json();
+    j["target_key"] = this->target_key;
     return j;
 }
 
 inline Member Member::parse(x::json::Parser parser) {
     return Member{
-        .key = parser.field<std::string>("key"),
-        .node_ref = parser.field<std::optional<NodeRef>>("node_ref"),
+        .node_key = parser.field<std::optional<std::string>>("node_key"),
         .scope = parser.field<x::mem::indirect<Scope>>("scope"),
     };
 }
 
 inline x::json::json Member::to_json() const {
     x::json::json j;
-    j["key"] = this->key;
-    if (this->node_ref.has_value()) j["node_ref"] = this->node_ref->to_json();
+    j["node_key"] = this->node_key;
     if (this->scope.has_value()) j["scope"] = this->scope->to_json();
-    return j;
-}
-
-inline Phase Phase::parse(x::json::Parser parser) {
-    return Phase{
-        .members = parser.field<std::vector<Member>>("members"),
-    };
-}
-
-inline x::json::json Phase::to_json() const {
-    x::json::json j;
-    j["members"] = x::json::to_array(this->members);
     return j;
 }
 
@@ -127,8 +87,8 @@ inline Scope Scope::parse(x::json::Parser parser) {
         .mode = parser.field<ScopeMode>("mode"),
         .liveness = parser.field<Liveness>("liveness"),
         .activation = parser.field<std::optional<Handle>>("activation"),
-        .phases = parser.field<std::vector<Phase>>("phases"),
-        .members = parser.field<std::vector<Member>>("members"),
+        .strata = parser.field<std::vector<Members>>("strata"),
+        .steps = parser.field<std::vector<Member>>("steps"),
         .transitions = parser.field<std::vector<Transition>>("transitions"),
     };
 }
@@ -139,8 +99,13 @@ inline x::json::json Scope::to_json() const {
     j["mode"] = this->mode;
     j["liveness"] = this->liveness;
     if (this->activation.has_value()) j["activation"] = this->activation->to_json();
-    j["phases"] = x::json::to_array(this->phases);
-    j["members"] = x::json::to_array(this->members);
+    {
+        auto arr = x::json::json::array();
+        for (const auto &inner: this->strata)
+            arr.push_back(x::json::to_array(inner));
+        j["strata"] = arr;
+    }
+    j["steps"] = x::json::to_array(this->steps);
     j["transitions"] = x::json::to_array(this->transitions);
     return j;
 }
