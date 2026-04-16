@@ -272,7 +272,7 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 	case parser.ArcLexerRBRACKET:
 		p.handleCloseBracket()
 	case parser.ArcLexerCOMMA:
-		p.handleComma()
+		p.handleComma(idx, tokens)
 	case parser.ArcLexerCOLON:
 		p.handleColon()
 	default:
@@ -321,17 +321,49 @@ func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
-	prevTok := tokens[idx-1]
-	if prevTok.GetTokenType() != parser.ArcLexerIDENTIFIER {
+	if tokens[idx-1].GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return false
 	}
-	if idx >= 2 {
-		prevPrevTok := tokens[idx-2]
-		prevPrevType := prevPrevTok.GetTokenType()
-		if prevPrevType == parser.ArcLexerFUNC ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
+	// Walk back through the preceding expression to find the enclosing
+	// statement context. If the brace closes a control-flow condition
+	// (if/for/else) or a declaration header (func/stage/sequence), it
+	// opens a block body, not a call-site config values block.
+	parenDepth, bracketDepth := 0, 0
+	for i := idx - 1; i >= 0; i-- {
+		t := tokens[i].GetTokenType()
+		switch t {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+			continue
+		case parser.ArcLexerLPAREN:
+			if parenDepth == 0 {
+				return true
+			}
+			parenDepth--
+			continue
+		case parser.ArcLexerRBRACKET:
+			bracketDepth++
+			continue
+		case parser.ArcLexerLBRACKET:
+			if bracketDepth == 0 {
+				return true
+			}
+			bracketDepth--
+			continue
+		}
+		if parenDepth != 0 || bracketDepth != 0 {
+			continue
+		}
+		switch t {
+		case parser.ArcLexerIF, parser.ArcLexerFOR, parser.ArcLexerELSE,
+			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
 			return false
+		case parser.ArcLexerLBRACE, parser.ArcLexerRBRACE,
+			parser.ArcLexerCOMMA, parser.ArcLexerCOLON,
+			parser.ArcLexerARROW, parser.ArcLexerTRANSITION,
+			parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE,
+			parser.ArcLexerASSIGN, parser.ArcLexerRETURN:
+			return true
 		}
 	}
 	if p.isEmptyBlock(idx, tokens) {
@@ -753,13 +785,35 @@ func (p *printer) handleCloseBracket() {
 	p.emitChar("]")
 }
 
-func (p *printer) handleComma() {
+func (p *printer) handleComma(idx int, tokens []antlr.Token) {
+	if p.isTrailingCommaInInlinedBlock(idx, tokens) {
+		return
+	}
 	p.emitChar(",")
 	if p.shouldBreakAfterComma() {
 		p.pendingBreak = true
 	} else {
 		p.needsSpace = true
 	}
+}
+
+// isTrailingCommaInInlinedBlock reports whether the comma at idx is the final
+// separator in a config values or config block that is being collapsed onto
+// a single line (i.e., the next non-whitespace token is the closing brace).
+// Such trailing commas must be dropped so the inlined form reads cleanly.
+func (p *printer) isTrailingCommaInInlinedBlock(idx int, tokens []antlr.Token) bool {
+	inlined := (p.inConfigValuesContext() && p.inlineConfigValues) ||
+		(p.inConfigBlockContext() && p.inlineConfigBlock)
+	if !inlined {
+		return false
+	}
+	for i := idx + 1; i < len(tokens); i++ {
+		if tokens[i].GetTokenType() == parser.ArcLexerWS {
+			continue
+		}
+		return tokens[i].GetTokenType() == parser.ArcLexerRBRACE
+	}
+	return false
 }
 
 func (p *printer) handleColon() {
@@ -943,7 +997,8 @@ func (p *printer) isUnaryMinus(tokType int) bool {
 func (p *printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
-		parser.ArcLexerRETURN, parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
+		parser.ArcLexerFOR, parser.ArcLexerRETURN,
+		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
 		return true
 	}
