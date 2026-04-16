@@ -464,21 +464,21 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 ) {
 	startApprox, align, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
 	startSample := pickSampleOffset(startApprox)
 	startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
 	endSample := pickSampleOffset(endApprox)
 	endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
 	return startOffset, align, endOffset - startOffset, nil
 }

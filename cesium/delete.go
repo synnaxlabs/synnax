@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -233,7 +234,7 @@ func (db *DB) DeleteTimeRange(
 		if _, ok := db.mu.dbs.virtual[ch]; ok {
 			continue
 		}
-		return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
+		return channel.NewNotFoundError(ch)
 	}
 
 	for _, ch := range dataChannels {

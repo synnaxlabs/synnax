@@ -97,7 +97,10 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(unary.Write(ctx, jsonDB, 20*telem.SecondTS, jsonSeries)).To(Succeed())
 					frame := MustSucceed(jsonDB.Read(ctx, (20 * telem.SecondTS).Range(22*telem.SecondTS)))
 					Expect(frame.Count()).To(Equal(1))
-					Expect(frame.SeriesAt(0).Len()).To(Equal(int64(2)))
+					series := frame.SeriesAt(0)
+					Expect(series.Len()).To(Equal(int64(2)))
+					Expect(string(series.At(0))).To(Equal(`{"key":"value"}`))
+					Expect(string(series.At(1))).To(Equal(`{"num":42}`))
 				})
 				It("Should write and read bytes data", func(ctx SpecContext) {
 					bytesDB := MustSucceed(unary.Open(ctx, unary.Config{
@@ -297,8 +300,14 @@ var _ = Describe("Variable-length channel", func() {
 						(200 * telem.SecondTS).Range(205 * telem.SecondTS),
 					)))
 					Expect(iter.SeekFirst(ctx)).To(BeTrue())
-					Expect(iter.Next(ctx, telem.TimeSpanMax)).To(BeTrue())
-					Expect(iter.Value().Count()).To(BeNumerically(">=", 1))
+					var all []string
+					for iter.Next(ctx, telem.TimeSpanMax) {
+						f := iter.Value()
+						for i := 0; i < f.Count(); i++ {
+							all = append(all, telem.UnmarshalSeries[string](f.SeriesAt(i))...)
+						}
+					}
+					Expect(all).To(Equal([]string{"x", "y", "z", "w", "v"}))
 					Expect(iter.Close()).To(Succeed())
 				})
 			})

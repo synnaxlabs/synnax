@@ -149,7 +149,7 @@ func (db *DB) calculateStartOffset(
 		index.MustBeContinuous,
 	)
 	if err != nil {
-		return 0, ts, err
+		return 0, 0, err
 	}
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
@@ -161,7 +161,10 @@ func (db *DB) calculateStartOffset(
 			// sampleOffset, we want to stamp the last written sample.
 			if sampleOffset == 0 {
 				byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
-				return byteOff, ts, err
+				if err != nil {
+					return 0, 0, err
+				}
+				return byteOff, ts, nil
 			}
 			approxStamp, err = db.index().Stamp(
 				ctx,
@@ -201,7 +204,10 @@ func (db *DB) calculateStartOffset(
 		}
 	}
 	byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
-	return byteOff, ts, err
+	if err != nil {
+		return 0, 0, err
+	}
+	return byteOff, ts, nil
 }
 
 // calculateEndOffset calculates the distance from a domain's start to the given time
@@ -227,7 +233,7 @@ func (db *DB) calculateEndOffset(
 		index.MustBeContinuous,
 	)
 	if err != nil {
-		return 0, ts, err
+		return 0, 0, err
 	}
 	sampleOffset = approxDist.Upper
 	if !approxDist.Exact() {
@@ -274,5 +280,8 @@ func (db *DB) calculateEndOffset(
 		}
 	}
 	byteOff, err := db.resolveByteOffset(ctx, domainStart, sampleOffset)
-	return byteOff, ts, err
+	if err != nil {
+		return 0, 0, err
+	}
+	return byteOff, ts, nil
 }

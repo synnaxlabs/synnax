@@ -61,7 +61,7 @@ func (c *offsetCache) set(domainIdx uint32, t *offsetTable) {
 func (c *offsetCache) invalidateAll() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.tables = make(map[uint32]*offsetTable)
+	clear(c.tables)
 }
 
 func buildOffsetTable(r *domain.Reader, domainSize telem.Size) (*offsetTable, error) {
