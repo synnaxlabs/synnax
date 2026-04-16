@@ -11,9 +11,46 @@ package parser
 
 import "github.com/antlr4-go/antlr/v4"
 
-// IsLiteral checks if an expression is a single literal value with no operators.
+// IsLiteral checks if an expression is a single literal value (optionally negated)
+// with no other operators.
 func IsLiteral(expr IExpressionContext) bool {
 	return isLiteral(expr.LogicalOrExpression())
+}
+
+// IsNegatedLiteral returns true if the expression is a negated literal (e.g. -3h).
+func IsNegatedLiteral(expr IExpressionContext) bool {
+	return isNegatedLiteral(expr.LogicalOrExpression())
+}
+
+func isNegatedLiteral(node antlr.ParserRuleContext) bool {
+	if node == nil {
+		return false
+	}
+	switch ctx := node.(type) {
+	case ILogicalOrExpressionContext:
+		ands := ctx.AllLogicalAndExpression()
+		return len(ands) == 1 && isNegatedLiteral(ands[0])
+	case ILogicalAndExpressionContext:
+		eqs := ctx.AllEqualityExpression()
+		return len(eqs) == 1 && isNegatedLiteral(eqs[0])
+	case IEqualityExpressionContext:
+		rels := ctx.AllRelationalExpression()
+		return len(rels) == 1 && isNegatedLiteral(rels[0])
+	case IRelationalExpressionContext:
+		adds := ctx.AllAdditiveExpression()
+		return len(adds) == 1 && isNegatedLiteral(adds[0])
+	case IAdditiveExpressionContext:
+		muls := ctx.AllMultiplicativeExpression()
+		return len(muls) == 1 && isNegatedLiteral(muls[0])
+	case IMultiplicativeExpressionContext:
+		pows := ctx.AllPowerExpression()
+		return len(pows) == 1 && isNegatedLiteral(pows[0])
+	case IPowerExpressionContext:
+		return ctx.CARET() == nil && isNegatedLiteral(ctx.UnaryExpression())
+	case IUnaryExpressionContext:
+		return ctx.MINUS() != nil && ctx.UnaryExpression() != nil && isLiteral(ctx.UnaryExpression())
+	}
+	return false
 }
 
 func isLiteral(node antlr.ParserRuleContext) bool {
@@ -42,6 +79,9 @@ func isLiteral(node antlr.ParserRuleContext) bool {
 	case IPowerExpressionContext:
 		return ctx.CARET() == nil && isLiteral(ctx.UnaryExpression())
 	case IUnaryExpressionContext:
+		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
+			return isLiteral(ctx.UnaryExpression())
+		}
 		return ctx.UnaryExpression() == nil && isLiteral(ctx.PostfixExpression())
 	case IPostfixExpressionContext:
 		return len(ctx.AllIndexOrSlice()) == 0 &&
@@ -100,6 +140,9 @@ func GetLiteralNode(node antlr.ParserRuleContext) ILiteralContext {
 			return GetLiteralNode(ctx.UnaryExpression())
 		}
 	case IUnaryExpressionContext:
+		if ctx.MINUS() != nil && ctx.UnaryExpression() != nil {
+			return GetLiteralNode(ctx.UnaryExpression())
+		}
 		if ctx.UnaryExpression() == nil {
 			return GetLiteralNode(ctx.PostfixExpression())
 		}
@@ -209,10 +252,15 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 }
 
 // QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.pow").
+// (e.g., "math.pow", "authority.set").
 func QualifiedName(qid IQualifiedIdentifierContext) string {
 	ids := qid.AllIDENTIFIER()
-	return ids[0].GetText() + "." + ids[1].GetText()
+	// When the module name is a keyword (e.g., AUTHORITY), it won't appear
+	// in AllIDENTIFIER(). Fall back to the first child token text.
+	if len(ids) == 2 {
+		return ids[0].GetText() + "." + ids[1].GetText()
+	}
+	return qid.GetChild(0).(antlr.TerminalNode).GetText() + "." + ids[0].GetText()
 }
 
 // FunctionName extracts the name from a function context, handling both

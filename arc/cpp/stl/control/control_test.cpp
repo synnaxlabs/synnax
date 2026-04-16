@@ -13,6 +13,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/control/control.h"
 
@@ -82,6 +83,31 @@ TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
         module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::VALIDATION
     );
+}
+
+TEST(SetAuthorityModuleTest, CreatesNodeWithQualifiedMemberName) {
+    TestSetup setup(100, 42);
+    auto ir_node = setup.ir.nodes[0];
+    ir_node.type = "set";
+
+    authority::Module module(setup.state);
+    auto node = ASSERT_NIL_P(
+        module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
+    );
+    ASSERT_NE(node, nullptr);
+}
+
+TEST(SetAuthorityModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    TestSetup setup(100, 42);
+    auto ir_node = setup.ir.nodes[0];
+    ir_node.type = "authority.set";
+
+    auto module = std::make_shared<authority::Module>(setup.state);
+    runtime::node::MultiFactory multi({module});
+    auto node = ASSERT_NIL_P(
+        multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
+    );
+    ASSERT_NE(node, nullptr);
 }
 
 TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {

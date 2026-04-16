@@ -36,6 +36,7 @@ type mockFactory struct {
 	returnNode   node.Node
 	returnError  error
 	nodeType     string
+	moduleName   string
 	createCalled int
 }
 
@@ -46,6 +47,8 @@ func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	}
 	return m.returnNode, m.returnError
 }
+
+func (m *mockFactory) ModuleName() string { return m.moduleName }
 
 func newTestConfig(ctx context.Context, nodeType string) node.Config {
 	g := graph.Graph{
@@ -130,6 +133,46 @@ var _ = Describe("Node", func() {
 			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "test")))
 			Expect(n).To(Equal(expectedNode))
 			Expect(factory3.createCalled).To(Equal(0))
+		})
+
+		It("Should strip module prefix from qualified node type", func(ctx SpecContext) {
+			factory := &mockFactory{nodeType: "interval", returnNode: &mockNode{}}
+			compound := node.CompoundFactory{factory}
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "time.interval")))
+			Expect(n).ToNot(BeNil())
+			Expect(factory.createCalled).To(Equal(1))
+		})
+
+		It("Should leave bare node types unchanged", func(ctx SpecContext) {
+			factory := &mockFactory{nodeType: "set_authority", returnNode: &mockNode{}}
+			compound := node.CompoundFactory{factory}
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "set_authority")))
+			Expect(n).ToNot(BeNil())
+			Expect(factory.createCalled).To(Equal(1))
+		})
+
+		It("Should route qualified types to the correct module when member names collide", func(ctx SpecContext) {
+			authorityNode := &mockNode{}
+			statusNode := &mockNode{}
+			authorityFactory := &mockFactory{nodeType: "set", moduleName: "authority", returnNode: authorityNode}
+			statusFactory := &mockFactory{nodeType: "set", moduleName: "status", returnNode: statusNode}
+			compound := node.CompoundFactory{statusFactory, authorityFactory}
+
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "authority.set")))
+			Expect(n).To(Equal(authorityNode))
+			Expect(authorityFactory.createCalled).To(Equal(1))
+			Expect(statusFactory.createCalled).To(Equal(0))
+		})
+
+		It("Should skip mismatched modules but still try factories without a module name", func(ctx SpecContext) {
+			wrongModule := &mockFactory{nodeType: "set", moduleName: "authority"}
+			noModule := &mockFactory{nodeType: "set", returnNode: &mockNode{}}
+			compound := node.CompoundFactory{wrongModule, noModule}
+
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "status.set")))
+			Expect(n).ToNot(BeNil())
+			Expect(wrongModule.createCalled).To(Equal(0))
+			Expect(noModule.createCalled).To(Equal(1))
 		})
 	})
 

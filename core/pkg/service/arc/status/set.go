@@ -27,24 +27,47 @@ import (
 	"go.uber.org/zap"
 )
 
+const (
+	bareSymbolName      = "set_status"
+	qualifiedMemberName = "set"
+	moduleName          = "status"
+)
+
+// Two separate resolvers are needed because the bare name ("set_status")
+// differs from the qualified member name ("set"). The bare form will be
+// deprecated and removed once users migrate to status.set{}.
 var (
-	symbolName = "set_status"
-	symbolSet  = symbol.Symbol{
-		Name: "set_status",
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "status_key", Type: types.String()},
-				{Name: "variant", Type: types.String()},
-				{Name: "message", Type: types.String()},
-				{Name: "name", Type: types.String(), Value: ""},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
-			},
-		}),
+	symbolProps = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "status_key", Type: types.String()},
+			{Name: "variant", Type: types.String()},
+			{Name: "message", Type: types.String()},
+			{Name: "name", Type: types.String(), Value: ""},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8()},
+		},
+	})
+	bareResolver = symbol.MapResolver{
+		bareSymbolName: {
+			Name: bareSymbolName,
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: symbolProps,
+		},
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolSet}
+	moduleResolver = &symbol.ModuleResolver{
+		Name: moduleName,
+		Members: symbol.MapResolver{
+			qualifiedMemberName: {
+				Name: qualifiedMemberName,
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: symbolProps,
+			},
+		},
+	}
+	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
 type Module struct {
@@ -62,6 +85,8 @@ func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error
 func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
 	return SymbolResolver.Search(ctx, term)
 }
+
+func (m *Module) ModuleName() string { return moduleName }
 
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	f := &statusFactory{stat: m.stat}
@@ -97,16 +122,18 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"status_key": zyn.String(),
 	"message":    zyn.String(),
 	"variant":    zyn.String(),
+	"name":       zyn.String().Optional(),
 })
 
 type nodeConfig struct {
 	StatusKey string `json:"status_key"`
 	Message   string `json:"message"`
 	Variant   string `json:"variant"`
+	Name      string `json:"name"`
 }
 
 func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig
@@ -121,6 +148,7 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 		return nil, err
 	}
 	stat.Key = nodeCfg.StatusKey
+	stat.Name = nodeCfg.Name
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
 	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil

@@ -25,6 +25,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"from_literal": {
 			Name:     "from_literal",
 			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
 			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
@@ -34,6 +35,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"concat": {
 			Name: "concat",
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecWASM,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
@@ -42,6 +44,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"equal": {
 			Name: "equal",
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecWASM,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
@@ -50,6 +53,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"len": {
 			Name: "len",
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecWASM,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},

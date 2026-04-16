@@ -14,6 +14,7 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stable/stable.h"
 
@@ -486,5 +487,19 @@ TEST(StableForTest, ResetAllowsSameValueToEmitAgain) {
 
     auto checker = setup.make_stable_node();
     EXPECT_EQ(checker.output(0)->at<uint8_t>(0), 5);
+}
+
+TEST(StableModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    const auto dur = x::telem::SECOND.nanoseconds();
+    TestSetup setup(dur);
+    auto ir_node = setup.ir.nodes[1];
+    ir_node.type = "stable.stable_for";
+
+    auto module = std::make_shared<Module>();
+    runtime::node::MultiFactory multi({module});
+    auto node = ASSERT_NIL_P(
+        multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_stable_node()))
+    );
+    ASSERT_NE(node, nullptr);
 }
 }

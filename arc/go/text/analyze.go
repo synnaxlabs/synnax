@@ -29,6 +29,25 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// deprecatedBareFunctions maps bare function names to their qualified replacements.
+// When the analyzer encounters one of these names, it emits a deprecation warning.
+var deprecatedBareFunctions = map[string]string{
+	"set_authority": "authority.set",
+	"avg":           "math.avg",
+	"min":           "math.min",
+	"max":           "math.max",
+	"derivative":    "math.derivative",
+	"add":           "math.add",
+	"subtract":      "math.subtract",
+	"multiply":      "math.multiply",
+	"divide":        "math.divide",
+	"mod":           "math.mod",
+	"neg":           "math.neg",
+	"select":        "selector.select",
+	"stable_for":    "stable.stable_for",
+	"set_status":    "status.set",
+}
+
 type keyGenerator struct {
 	occurrences   map[string]int
 	seqName       string
@@ -244,6 +263,22 @@ func analyzeFunctionNode(
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nodeResult{}, false
+	}
+	if alt, ok := deprecatedBareFunctions[name]; ok {
+		ctx.Diagnostics.Add(diagnostics.Warningf(
+			ctx.AST,
+			"'%s' is deprecated, use '%s' instead",
+			name,
+			alt,
+		))
+	}
+	if sym.Exec == symbol.ExecWASM {
+		ctx.Diagnostics.Add(diagnostics.Errorf(
+			ctx.AST,
+			"function '%s' is only available in func blocks, not in flow statements",
+			name,
+		))
 		return nodeResult{}, false
 	}
 	if sym.Type.Kind != types.KindFunction {
@@ -631,11 +666,15 @@ func extractConfigValues(
 			return nil, false
 		}
 
+		negated := parser.IsNegatedLiteral(expr)
 		literalCtx := parser.GetLiteral(expr)
 		parsedValue, err := literal.Parse(literalCtx, paramType)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, expr))
 			return nil, false
+		}
+		if negated {
+			parsedValue.Value = literal.Negate(parsedValue.Value)
 		}
 		return parsedValue.Value, true
 	}

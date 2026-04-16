@@ -21,22 +21,47 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+const (
+	bareSymbolName      = "set_authority"
+	qualifiedMemberName = "set"
+	moduleName          = "authority"
+)
+
+// Two separate resolvers are needed because the bare name ("set_authority")
+// differs from the qualified member name ("set"). Most STL modules share a
+// single resolver for both forms (e.g. time uses "interval" for both bare
+// and time.interval). The bare form will be deprecated and removed once
+// users migrate to authority.set{}.
 var (
-	symbolName = "set_authority"
-	symbolDef  = symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "value", Type: types.U8()},
-				{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
-			},
-		}),
+	symbolProps = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "value", Type: types.U8()},
+			{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+		},
+	})
+	bareResolver = symbol.MapResolver{
+		bareSymbolName: {
+			Name: bareSymbolName,
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecFlow,
+			Type: symbolProps,
+		},
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolDef}
+	moduleResolver = &symbol.ModuleResolver{
+		Name: moduleName,
+		Members: symbol.MapResolver{
+			qualifiedMemberName: {
+				Name: qualifiedMemberName,
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: symbolProps,
+			},
+		},
+	}
+	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
 type Module struct {
@@ -44,6 +69,8 @@ type Module struct {
 }
 
 func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
+
+func (m *Module) ModuleName() string { return moduleName }
 
 func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
 	return SymbolResolver.Resolve(ctx, name)
@@ -54,7 +81,7 @@ func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, erro
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var nodeCfg nodeConfig

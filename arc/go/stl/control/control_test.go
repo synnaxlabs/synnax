@@ -68,6 +68,33 @@ var _ = Describe("Authority", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
+		It("Should create node for qualified member name", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "set",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(200)},
+						{Name: "channel", Type: types.U8(), Value: uint32(42)},
+					},
+				},
+				State: s.Node("set_auth"),
+			}
+			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
+		})
+		It("Should create node for authority.set via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "authority.set",
+					Config: types.Params{
+						{Name: "value", Type: types.U8(), Value: uint8(200)},
+						{Name: "channel", Type: types.U8(), Value: uint32(42)},
+					},
+				},
+				State: s.Node("set_auth"),
+			}
+			Expect(MustSucceed(compound.Create(ctx, cfg))).ToNot(BeNil())
+		})
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
@@ -306,20 +333,24 @@ var _ = Describe("Authority", func() {
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve set_authority symbol", func(ctx SpecContext) {
-			sym, ok := control.SymbolResolver["set_authority"]
-			Expect(ok).To(BeTrue())
+		It("Should resolve bare set_authority symbol", func(ctx SpecContext) {
+			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
 			Expect(sym.Name).To(Equal("set_authority"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
+		It("Should resolve qualified authority.set symbol", func(ctx SpecContext) {
+			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "authority.set"))
+			Expect(sym.Name).To(Equal("set"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
 		It("Should have optional input", func(ctx SpecContext) {
-			sym := control.SymbolResolver["set_authority"]
+			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Value).To(Equal(uint8(0)))
 		})
 		It("Should have config params", func(ctx SpecContext) {
-			sym := control.SymbolResolver["set_authority"]
+			sym := MustSucceed(control.SymbolResolver.Resolve(ctx, "set_authority"))
 			Expect(sym.Type.Config).To(HaveLen(2))
 			Expect(sym.Type.Config[0].Name).To(Equal("value"))
 			Expect(sym.Type.Config[1].Name).To(Equal("channel"))

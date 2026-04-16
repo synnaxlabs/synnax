@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-var _ = Describe("Stat Flow Chains", func() {
+var _ = Describe("Math Flow Chains", func() {
 	Describe("avg", func() {
 		It("Should compute the average through a flow chain", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
@@ -70,6 +70,26 @@ var _ = Describe("Stat Flow Chains", func() {
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int32](out.Get(200).Series[0])[0]).To(BeNumerically("~", 20, 1))
 		})
+
+		It("Should compute the average using qualified math.avg name", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"my_sensor":     {types.F64(), 100},
+				"output_sensor": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `my_sensor -> math.avg{} -> output_sensor`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(10.0, 20.0, 30.0))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			result := h.Output("math.avg_0", 0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 20.0, 0.01))
+		})
 	})
 
 	Describe("min", func() {
@@ -96,6 +116,26 @@ var _ = Describe("Stat Flow Chains", func() {
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0]).To(BeNumerically("~", 10.0, 0.01))
+		})
+
+		It("Should compute the minimum using qualified math.min name", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"my_sensor":     {types.F64(), 100},
+				"output_sensor": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `my_sensor -> math.min{} -> output_sensor`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(50.0, 10.0, 30.0))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			result := h.Output("math.min_0", 0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 10.0, 0.01))
 		})
 	})
 
@@ -124,6 +164,26 @@ var _ = Describe("Stat Flow Chains", func() {
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])[0]).To(BeNumerically("~", 50.0, 0.01))
 		})
+
+		It("Should compute the maximum using qualified math.max name", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"my_sensor":     {types.F64(), 100},
+				"output_sensor": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `my_sensor -> math.max{} -> output_sensor`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV(10.0, 50.0, 30.0))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			result := h.Output("math.max_0", 0)
+			Expect(result.Len()).To(Equal(int64(1)))
+			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 50.0, 0.01))
+		})
 	})
 
 	Describe("derivative", func() {
@@ -151,6 +211,33 @@ var _ = Describe("Stat Flow Chains", func() {
 			Expect(changed).To(BeTrue())
 			vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
 			Expect(vals).To(HaveLen(3))
+			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
+			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
+			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))
+		})
+
+		It("Should compute derivative using qualified math.derivative name", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"my_sensor": {types.F64(), 100},
+				"rate_out":  {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `my_sensor -> math.derivative{} -> rate_out`, resolver,
+				channel.Digest{Key: 99, DataType: telem.TimeStampT},
+				channel.Digest{Key: 100, DataType: telem.Float64T, Index: 99},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			h.IngestIndexed(99, telem.NewSeriesSecondsTSV(1, 2, 4), 100, telem.NewSeriesV(10.0, 20.0, 40.0))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			result := h.Output("math.derivative_0", 0)
+			Expect(result.Len()).To(Equal(int64(3)))
+
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			vals := telem.UnmarshalSeries[float64](out.Get(200).Series[0])
 			Expect(vals[0]).To(BeNumerically("~", 0.0, 0.01))
 			Expect(vals[1]).To(BeNumerically("~", 10.0, 0.01))
 			Expect(vals[2]).To(BeNumerically("~", 10.0, 0.01))

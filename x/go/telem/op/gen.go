@@ -46,6 +46,11 @@ type Operation struct {
 	Name   string
 	Op     string
 	IsComp bool
+	// IsDiv marks operations that divide by the rhs operand (/, %).
+	// Integer division by zero panics in Go, so guarded templates
+	// emit a zero-check, mirroring how derivativeFuncTemplate guards
+	// against dtSeconds <= 0.
+	IsDiv bool
 }
 
 type UnaryOperation struct {
@@ -69,11 +74,11 @@ var operations = []Operation{
 	{Name: "Add", Op: "+"},
 	{Name: "Subtract", Op: "-"},
 	{Name: "Multiply", Op: "*"},
-	{Name: "Divide", Op: "/"},
+	{Name: "Divide", Op: "/", IsDiv: true},
 }
 
 // Modulo operations - uses % for integers, math.Mod for floats
-var moduloIntOp = Operation{Name: "Modulo", Op: "%"}
+var moduloIntOp = Operation{Name: "Modulo", Op: "%", IsDiv: true}
 
 // Logical operations only for uint8 (boolean) types
 var logicalOperations = []Operation{
@@ -92,21 +97,21 @@ var scalarArithmeticOps = []Operation{
 	{Name: "AddScalar", Op: "+"},
 	{Name: "SubtractScalar", Op: "-"},
 	{Name: "MultiplyScalar", Op: "*"},
-	{Name: "DivideScalar", Op: "/"},
+	{Name: "DivideScalar", Op: "/", IsDiv: true},
 }
 
 // Reverse scalar arithmetic operations (scalar op series -> same type)
 // Used for non-commutative operations where scalar is on the left
 var reverseScalarArithmeticOps = []Operation{
-	{Name: "ReverseSubtractScalar", Op: "-"}, // scalar - series
-	{Name: "ReverseDivideScalar", Op: "/"},   // scalar / series
+	{Name: "ReverseSubtractScalar", Op: "-"},            // scalar - series
+	{Name: "ReverseDivideScalar", Op: "/", IsDiv: true}, // scalar / series
 }
 
 // Reverse modulo for integers only (floats use math.Mod, handled separately)
-var reverseModuloScalarIntOp = Operation{Name: "ReverseModuloScalar", Op: "%"}
+var reverseModuloScalarIntOp = Operation{Name: "ReverseModuloScalar", Op: "%", IsDiv: true}
 
 // Modulo scalar operation - uses % for integers, math.Mod for floats
-var moduloScalarIntOp = Operation{Name: "ModuloScalar", Op: "%"}
+var moduloScalarIntOp = Operation{Name: "ModuloScalar", Op: "%", IsDiv: true}
 
 // Scalar comparison operations (series op scalar -> uint8)
 var scalarComparisonOps = []Operation{
@@ -310,7 +315,15 @@ func {{.Name}}{{$.Type.Name}}(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
+		{{- if and .IsDiv (not $.Type.IsFloat)}}
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal {{.Op}} rhsVal
+		}
+		{{- else}}
 		outData[i] = lhsVal {{.Op}} rhsVal
+		{{- end}}
 	}
 }
 {{end}}{{end}}`
@@ -325,7 +338,15 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
+		{{- if and .IsDiv (not $.Type.IsFloat)}}
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] {{.Op}} scalar
+		}
+		{{- else}}
 		outData[i] = inData[i] {{.Op}} scalar
+		{{- end}}
 	}
 }
 {{end}}`
@@ -360,7 +381,15 @@ func {{.Name}}{{$.Type.Name}}(series telem.Series, scalar {{$.Type.GoType}}, out
 	outData := xunsafe.CastSlice[uint8, {{$.Type.GoType}}](output.Data)
 
 	for i := int64(0); i < length; i++ {
+		{{- if and .IsDiv (not $.Type.IsFloat)}}
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar {{.Op}} inData[i]
+		}
+		{{- else}}
 		outData[i] = scalar {{.Op}} inData[i]
+		{{- end}}
 	}
 }
 {{end}}`

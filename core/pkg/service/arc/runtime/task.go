@@ -29,7 +29,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/stl/stage"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -144,7 +143,8 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
+	mathMod, err := stlmath.NewModule(ctx, wasmRT)
+	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
@@ -165,7 +165,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlcontrol.NewModule(drt.state.control),
-		&stat.Module{},
+		mathMod,
 	}
 
 	if len(t.prog.Program.WASM) > 0 {

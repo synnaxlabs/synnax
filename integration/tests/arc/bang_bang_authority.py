@@ -57,7 +57,7 @@ func low_bang{
 sequence bang_bang_controller {
     stage start {
         set_authority{value=220, channel=press_vlv_cmd},
-        set_authority{value=220, channel=vent_vlv_cmd},
+        authority.set{value=220, channel=vent_vlv_cmd},
         interval{200ms} -> high_bang{
             sensor=press_pt,
             set_point=50,
@@ -80,7 +80,7 @@ sequence bang_bang_controller {
         wait{250ms} => yield
     }
     stage yield {
-        set_authority{value=0, channel=press_vlv_cmd},
+        authority.set{value=0, channel=press_vlv_cmd},
         set_authority{value=0, channel=vent_vlv_cmd},
         bb_start_cmd => start
     }
@@ -93,6 +93,9 @@ bb_start_cmd => bang_bang_controller
 class BangBangAuthority(ArcConsoleCase):
     """Test that a bang-bang controller with per-channel set_authority correctly
     releases and reclaims authority on both channels symmetrically.
+
+    Deliberately mixes bare (set_authority{}) and qualified (authority.set{})
+    syntax to verify both forms work end-to-end through compile and runtime.
 
     Verifies:
     1. Stale bb_start_cmd does NOT cause re-entry on yield activation.

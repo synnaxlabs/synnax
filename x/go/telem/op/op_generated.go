@@ -1170,7 +1170,11 @@ func DivideI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -1554,7 +1558,11 @@ func DivideI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -1938,7 +1946,11 @@ func DivideI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -2322,7 +2334,11 @@ func DivideI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -2706,7 +2722,11 @@ func DivideU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -3090,7 +3110,11 @@ func DivideU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -3474,7 +3498,11 @@ func DivideU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -3858,7 +3886,11 @@ func DivideU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal / rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal / rhsVal
+		}
 	}
 }
 
@@ -3966,7 +3998,11 @@ func ModuloI64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4002,7 +4038,11 @@ func ModuloI32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4038,7 +4078,11 @@ func ModuloI16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4074,7 +4118,11 @@ func ModuloI8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4110,7 +4158,11 @@ func ModuloU64(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4146,7 +4198,11 @@ func ModuloU32(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4182,7 +4238,11 @@ func ModuloU16(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -4218,7 +4278,11 @@ func ModuloU8(lhs, rhs telem.Series, output *telem.Series) {
 			rhsVal = rhsData[i]
 			rhsLast = rhsVal
 		}
-		outData[i] = lhsVal % rhsVal
+		if rhsVal == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = lhsVal % rhsVal
+		}
 	}
 }
 
@@ -5858,7 +5922,11 @@ func DivideScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -5906,7 +5974,11 @@ func DivideScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -5954,7 +6026,11 @@ func DivideScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6002,7 +6078,11 @@ func DivideScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6050,7 +6130,11 @@ func DivideScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6098,7 +6182,11 @@ func DivideScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6146,7 +6234,11 @@ func DivideScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6194,7 +6286,11 @@ func DivideScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] / scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] / scalar
+		}
 	}
 }
 
@@ -6266,7 +6362,11 @@ func ReverseDivideScalarI64(series telem.Series, scalar int64, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6290,7 +6390,11 @@ func ReverseDivideScalarI32(series telem.Series, scalar int32, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6314,7 +6418,11 @@ func ReverseDivideScalarI16(series telem.Series, scalar int16, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6338,7 +6446,11 @@ func ReverseDivideScalarI8(series telem.Series, scalar int8, output *telem.Serie
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6362,7 +6474,11 @@ func ReverseDivideScalarU64(series telem.Series, scalar uint64, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6386,7 +6502,11 @@ func ReverseDivideScalarU32(series telem.Series, scalar uint32, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6410,7 +6530,11 @@ func ReverseDivideScalarU16(series telem.Series, scalar uint16, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6434,7 +6558,11 @@ func ReverseDivideScalarU8(series telem.Series, scalar uint8, output *telem.Seri
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar / inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar / inData[i]
+		}
 	}
 }
 
@@ -6470,7 +6598,11 @@ func ReverseModuloScalarI64(series telem.Series, scalar int64, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6482,7 +6614,11 @@ func ReverseModuloScalarI32(series telem.Series, scalar int32, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6494,7 +6630,11 @@ func ReverseModuloScalarI16(series telem.Series, scalar int16, output *telem.Ser
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6506,7 +6646,11 @@ func ReverseModuloScalarI8(series telem.Series, scalar int8, output *telem.Serie
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6518,7 +6662,11 @@ func ReverseModuloScalarU64(series telem.Series, scalar uint64, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6530,7 +6678,11 @@ func ReverseModuloScalarU32(series telem.Series, scalar uint32, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6542,7 +6694,11 @@ func ReverseModuloScalarU16(series telem.Series, scalar uint16, output *telem.Se
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6554,7 +6710,11 @@ func ReverseModuloScalarU8(series telem.Series, scalar uint8, output *telem.Seri
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = scalar % inData[i]
+		if inData[i] == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = scalar % inData[i]
+		}
 	}
 }
 
@@ -6590,7 +6750,11 @@ func ModuloScalarI64(series telem.Series, scalar int64, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6602,7 +6766,11 @@ func ModuloScalarI32(series telem.Series, scalar int32, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6614,7 +6782,11 @@ func ModuloScalarI16(series telem.Series, scalar int16, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6626,7 +6798,11 @@ func ModuloScalarI8(series telem.Series, scalar int8, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, int8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6638,7 +6814,11 @@ func ModuloScalarU64(series telem.Series, scalar uint64, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint64](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6650,7 +6830,11 @@ func ModuloScalarU32(series telem.Series, scalar uint32, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint32](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6662,7 +6846,11 @@ func ModuloScalarU16(series telem.Series, scalar uint16, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint16](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 
@@ -6674,7 +6862,11 @@ func ModuloScalarU8(series telem.Series, scalar uint8, output *telem.Series) {
 	outData := xunsafe.CastSlice[uint8, uint8](output.Data)
 
 	for i := int64(0); i < length; i++ {
-		outData[i] = inData[i] % scalar
+		if scalar == 0 {
+			outData[i] = 0
+		} else {
+			outData[i] = inData[i] % scalar
+		}
 	}
 }
 

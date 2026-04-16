@@ -74,7 +74,8 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should create node for qualified time.interval type", func(ctx SpecContext) {
+		It("Should create node for qualified time.interval via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.interval",
@@ -84,7 +85,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("interval_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(compound.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
@@ -350,7 +351,8 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
-		It("Should create node for qualified time.wait type", func(ctx SpecContext) {
+		It("Should create node for qualified time.wait via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "time.wait",
@@ -360,7 +362,7 @@ var _ = Describe("Time", func() {
 				},
 				State: s.Node("wait_1"),
 			}
-			n := MustSucceed(factory.Create(ctx, cfg))
+			n := MustSucceed(compound.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
 		It("Should not fire before duration elapses", func(ctx SpecContext) {
@@ -912,6 +914,14 @@ var _ = Describe("Time", func() {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
 			Expect(sym.Name).To(Equal("wait"))
 		})
+		It("Should resolve now symbol", func(ctx SpecContext) {
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "now"))
+			Expect(sym.Name).To(Equal("now"))
+		})
+		It("Should resolve now via module-qualified name", func(ctx SpecContext) {
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "time.now"))
+			Expect(sym.Name).To(Equal("now"))
+		})
 	})
 	Describe("CalculateTolerance", func() {
 		It("Should return half of base interval for 100ms", func(ctx SpecContext) {
@@ -1431,6 +1441,262 @@ var _ = Describe("Time", func() {
 				})
 				Expect(deadline).To(Equal(11 * telem.Second))
 			})
+		})
+	})
+	Describe("Now", func() {
+		var factory *time.Module
+		var s *node.ProgramState
+		var changedOutputs []string
+		BeforeEach(func(ctx SpecContext) {
+			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
+			changedOutputs = []string{}
+			g := graph.Graph{
+				Nodes: []graph.Node{{
+					Key:  "now_1",
+					Type: "now",
+				}},
+				Functions: []graph.Function{{
+					Key:     "now",
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
+				}},
+			}
+			analyzed, diagnostics := graph.Analyze(ctx, g, time.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			s = node.New(analyzed)
+		})
+		It("Should create node for now type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
+		It("Should output current wall-clock timestamp when triggered", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			before := telem.Now()
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 5 * telem.Second,
+				Reason:  node.ReasonTimerTick,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now()
+
+			Expect(changedOutputs).To(HaveLen(1))
+			Expect(changedOutputs[0]).To(Equal(ir.DefaultOutputParam))
+			output := nowNode.Output(0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
+		})
+		It("Should fire on channel input reason", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			n.Next(node.Context{
+				Context: ctx,
+				Elapsed: 0,
+				Reason:  node.ReasonChannelInput,
+				MarkChanged: func(output string) {
+					changedOutputs = append(changedOutputs, output)
+				},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+
+			Expect(changedOutputs).To(HaveLen(1))
+			output := nowNode.Output(0)
+			Expect(output.Len()).To(Equal(int64(1)))
+		})
+		It("Should create node for qualified time.now via CompoundFactory", func(ctx SpecContext) {
+			compound := node.CompoundFactory{factory}
+			cfg := node.Config{
+				Node:  ir.Node{Type: "time.now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(compound.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
+		It("Should not update base interval", func(ctx SpecContext) {
+			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			MustSucceed(factory.Create(ctx, cfg))
+			Expect(factory.BaseInterval).To(Equal(telem.TimeSpanMax))
+		})
+		It("Should set matching output and output time", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         0,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) {},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+
+			output := nowNode.Output(0)
+			outputTime := nowNode.OutputTime(0)
+			Expect(output.Len()).To(Equal(int64(1)))
+			Expect(outputTime.Len()).To(Equal(int64(1)))
+			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+			tsTime := telem.ValueAt[telem.TimeStamp](*outputTime, 0)
+			Expect(ts).To(Equal(tsTime))
+		})
+		It("Should work after reset", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         0,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) { changedOutputs = append(changedOutputs, output) },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+
+			n.Reset()
+			changedOutputs = []string{}
+
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         telem.Second,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) { changedOutputs = append(changedOutputs, output) },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			Expect(changedOutputs).To(HaveLen(1))
+			output := nowNode.Output(0)
+			Expect(output.Len()).To(Equal(int64(1)))
+		})
+		It("Should add positive offset to wall-clock timestamp", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "now",
+					Config: types.Params{
+						{Name: "offset", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			before := telem.Now() + telem.TimeStamp(telem.Second)
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         0,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) { changedOutputs = append(changedOutputs, output) },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now() + telem.TimeStamp(telem.Second)
+
+			Expect(changedOutputs).To(HaveLen(1))
+			output := nowNode.Output(0)
+			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
+		})
+		It("Should subtract negative offset from wall-clock timestamp", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "now",
+					Config: types.Params{
+						{Name: "offset", Type: types.TimeSpan(), Value: -telem.Second},
+					},
+				},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			before := telem.Now() - telem.TimeStamp(telem.Second)
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         0,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) { changedOutputs = append(changedOutputs, output) },
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now() - telem.TimeStamp(telem.Second)
+
+			Expect(changedOutputs).To(HaveLen(1))
+			output := nowNode.Output(0)
+			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
+		})
+		It("Should default to zero offset when config is absent", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node:  ir.Node{Type: "now"},
+				State: s.Node("now_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			nowNode := s.Node("now_1")
+			*nowNode.Output(0) = telem.NewSeriesV[telem.TimeStamp]()
+			*nowNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
+
+			before := telem.Now()
+			n.Next(node.Context{
+				Context:         ctx,
+				Elapsed:         0,
+				Reason:          node.ReasonTimerTick,
+				MarkChanged:     func(output string) {},
+				MarkSelfChanged: func() {},
+				SetDeadline:     func(_ telem.TimeSpan) {},
+			})
+			after := telem.Now()
+
+			output := nowNode.Output(0)
+			ts := telem.ValueAt[telem.TimeStamp](*output, 0)
+			Expect(ts).To(BeNumerically(">=", before))
+			Expect(ts).To(BeNumerically("<=", after))
 		})
 	})
 })

@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_STRING_SOURCE = """
@@ -127,18 +127,7 @@ class StlString(ArcConsoleCase):
         for name, dtype in VIRTUAL_CHANNELS:
             create_virtual_channel(self.client, name, dtype)
         for name, dtype in INDEXED_CHANNELS:
-            idx = self.client.channels.create(
-                name=f"{name}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=name,
-                data_type=dtype,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, name, dtype)
         super().setup()
 
     def _trigger(self) -> None:

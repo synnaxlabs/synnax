@@ -26,6 +26,7 @@ var (
 	symbolDef  = symbol.Symbol{
 		Name: symbolName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Config: types.Params{
 				{Name: "duration", Type: types.TimeSpan()},
@@ -38,7 +39,11 @@ var (
 			},
 		}),
 	}
-	SymbolResolver = symbol.MapResolver{symbolName: symbolDef}
+	bareResolver   = symbol.MapResolver{symbolName: symbolDef}
+	SymbolResolver = symbol.CompoundResolver{
+		bareResolver,
+		&symbol.ModuleResolver{Name: "stable", Members: bareResolver},
+	}
 )
 
 type Module struct {

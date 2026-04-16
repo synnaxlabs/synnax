@@ -36,6 +36,7 @@ var userSymbols = symbol.MapResolver{
 	"len": {
 		Name: "len",
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -44,7 +45,7 @@ var userSymbols = symbol.MapResolver{
 }
 
 func hostSym(name string, t types.Type) symbol.Symbol {
-	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Internal: true, Type: t}
+	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Exec: symbol.ExecWASM, Internal: true, Type: t}
 }
 
 var hostSymbols = symbol.MapResolver{
@@ -84,8 +85,25 @@ var hostSymbols = symbol.MapResolver{
 	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 }
 
+// moduleMembers contains symbols accessible via the "series" module namespace.
+// The "len" entry is a non-internal copy of the host symbol so that series.len()
+// resolves through the scope (which filters Internal symbols) while preserving
+// the concrete WASM types needed for correct import resolution.
+var moduleMembers = symbol.MapResolver{
+	"len": {
+		Name: "len",
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "handle", Type: types.I32()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+		}),
+	},
+}
+
 var SymbolResolver = symbol.CompoundResolver{
 	userSymbols,
+	&symbol.ModuleResolver{Name: "series", Members: moduleMembers},
 	&symbol.ModuleResolver{Name: "series", Members: hostSymbols},
 }
 
