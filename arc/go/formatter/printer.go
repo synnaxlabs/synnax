@@ -24,6 +24,7 @@ const (
 	braceContextConfigBlock
 	braceContextConfigValues
 	braceContextStageBody
+	braceContextSequenceBody
 )
 
 type parenContext int
@@ -36,21 +37,26 @@ const (
 )
 
 type printer struct {
-	output                 strings.Builder
-	indentLevel            int
-	linePos                int
-	lastTokenType          int
-	prevToken              antlr.Token
-	needsSpace             bool
-	atLineStart            bool
-	prevLine               int
-	lastWasUnaryMinus      bool
-	indentCache            []string
-	delimiterStack         []int
-	braceContextStack      []braceContext
-	parenContextStack      []parenContext
-	inlineConfigValues     bool
-	inlineConfigBlock      bool
+	output             strings.Builder
+	indentLevel        int
+	linePos            int
+	lastTokenType      int
+	prevToken          antlr.Token
+	needsSpace         bool
+	atLineStart        bool
+	prevLine           int
+	lastWasUnaryMinus  bool
+	indentCache        []string
+	delimiterStack     []int
+	braceContextStack  []braceContext
+	parenContextStack  []parenContext
+	inlineConfigValues bool
+	inlineConfigBlock  bool
+	// inlineReactiveBody is a stack tracking, for each open stage/sequence body
+	// on the brace stack, whether it is being formatted inline (true) or
+	// multi-line (false). Inline bodies use commas as separators; multi-line
+	// bodies use newlines and drop commas entirely.
+	inlineReactiveBody     []bool
 	multilineParens        set.Set[int] // tracks which paren depth levels are multiline
 	allComments            []antlr.Token
 	pendingTrailingComment string
@@ -166,9 +172,6 @@ func (p *printer) shouldAddTrailingComma(tok antlr.Token, idx int, tokens []antl
 	if nextType == parser.ArcLexerRBRACE && len(p.braceContextStack) > 0 {
 		ctx := p.braceContextStack[len(p.braceContextStack)-1]
 		if ctx == braceContextConfigBlock && !p.inlineConfigBlock {
-			return true
-		}
-		if ctx == braceContextStageBody {
 			return true
 		}
 	}
@@ -291,6 +294,9 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	if p.isStageBody(idx, tokens) {
 		return braceContextStageBody
 	}
+	if p.isSequenceBody(idx, tokens) {
+		return braceContextSequenceBody
+	}
 	if p.isConfigValuesBlock(idx, tokens) {
 		return braceContextConfigValues
 	}
@@ -298,13 +304,35 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 }
 
 func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
-	if idx < 2 {
+	if idx < 1 {
 		return false
 	}
-	prevTok := tokens[idx-1]
-	prevPrevTok := tokens[idx-2]
-	return prevTok.GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		prevPrevTok.GetTokenType() == parser.ArcLexerSTAGE
+	// stage { ... }  or  stage IDENT { ... }
+	if tokens[idx-1].GetTokenType() == parser.ArcLexerSTAGE {
+		return true
+	}
+	if idx >= 2 &&
+		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[idx-2].GetTokenType() == parser.ArcLexerSTAGE {
+		return true
+	}
+	return false
+}
+
+func (p *printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
+	if idx < 1 {
+		return false
+	}
+	// sequence { ... }  or  sequence IDENT { ... }
+	if tokens[idx-1].GetTokenType() == parser.ArcLexerSEQUENCE {
+		return true
+	}
+	if idx >= 2 &&
+		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[idx-2].GetTokenType() == parser.ArcLexerSEQUENCE {
+		return true
+	}
+	return false
 }
 
 func (p *printer) isFuncConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -399,6 +427,64 @@ func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
 	}
 	length := p.calculateConfigValuesLength(idx, tokens)
 	return length <= maxLineLength
+}
+
+// shouldInlineReactiveBody reports whether a stage or stageless sequence body
+// should be formatted inline (all on one line with comma separators) vs.
+// multi-line (one item per line with no commas). The decision preserves user
+// intent: if the source put the opening and closing braces on the same line,
+// keep it inline; otherwise go multi-line. Comments or nested stage/sequence
+// declarations force multi-line regardless.
+func (p *printer) shouldInlineReactiveBody(idx int, tokens []antlr.Token) bool {
+	endIdx := p.blockEndIdx(idx, tokens)
+	if endIdx == -1 {
+		return false
+	}
+	if tokens[idx].GetLine() != tokens[endIdx].GetLine() {
+		return false
+	}
+	if p.hasCommentsInBlock(idx, tokens) {
+		return false
+	}
+	if p.reactiveBodyHasNestedDeclaration(idx, tokens, endIdx) {
+		return false
+	}
+	return true
+}
+
+// reactiveBodyHasNestedDeclaration reports whether the stage or sequence body
+// delimited by tokens[idx..endIdx] contains any construct that is itself
+// always formatted multi-line (nested stage, sequence, if, or for). Inlining a
+// body that contains such a construct would produce an ugly mixed layout with
+// the opening/closing braces on one line and the inner block on several.
+func (p *printer) reactiveBodyHasNestedDeclaration(idx int, tokens []antlr.Token, endIdx int) bool {
+	for i := idx + 1; i < endIdx; i++ {
+		switch tokens[i].GetTokenType() {
+		case parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE,
+			parser.ArcLexerIF, parser.ArcLexerFOR:
+			return true
+		}
+	}
+	return false
+}
+
+// inReactiveBodyContext reports whether the innermost open brace is a stage
+// or stageless sequence body.
+func (p *printer) inReactiveBodyContext() bool {
+	if len(p.braceContextStack) == 0 {
+		return false
+	}
+	ctx := p.braceContextStack[len(p.braceContextStack)-1]
+	return ctx == braceContextStageBody || ctx == braceContextSequenceBody
+}
+
+// currentReactiveBodyInline reports whether the innermost stage or sequence
+// body on the stack is being formatted inline.
+func (p *printer) currentReactiveBodyInline() bool {
+	if len(p.inlineReactiveBody) == 0 {
+		return false
+	}
+	return p.inlineReactiveBody[len(p.inlineReactiveBody)-1]
 }
 
 func (p *printer) shouldInlineConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -517,7 +603,24 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 		p.inlineConfigBlock = false
 	}
 
-	// Add space before brace for non-config contexts (blocks, stage bodies)
+	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
+		inline := p.shouldInlineReactiveBody(idx, tokens)
+		p.inlineReactiveBody = append(p.inlineReactiveBody, inline)
+		p.writeSpace()
+		p.emitChar("{")
+		if p.isEmptyBlock(idx, tokens) {
+			return
+		}
+		if inline {
+			p.writeSpace()
+			return
+		}
+		p.writeNewline()
+		p.indentLevel++
+		return
+	}
+
+	// Add space before brace for non-config contexts (plain blocks)
 	if ctx != braceContextConfigValues && ctx != braceContextConfigBlock {
 		p.writeSpace()
 	}
@@ -545,6 +648,31 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		return
 	}
 
+	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
+		inline := p.popInlineReactiveBody()
+		isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
+		if isEmptyBlock {
+			p.emitChar("}")
+			return
+		}
+		if inline {
+			p.writeSpace()
+			p.emitChar("}")
+			return
+		}
+		p.flushPendingTrailingComment()
+		p.indentLevel--
+		if p.indentLevel < 0 {
+			p.indentLevel = 0
+		}
+		if !p.atLineStart {
+			p.writeNewline()
+		}
+		p.writeIndent()
+		p.emitChar("}")
+		return
+	}
+
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
 		p.flushPendingTrailingComment()
@@ -558,6 +686,15 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		p.writeIndent()
 	}
 	p.emitChar("}")
+}
+
+func (p *printer) popInlineReactiveBody() bool {
+	if len(p.inlineReactiveBody) == 0 {
+		return false
+	}
+	v := p.inlineReactiveBody[len(p.inlineReactiveBody)-1]
+	p.inlineReactiveBody = p.inlineReactiveBody[:len(p.inlineReactiveBody)-1]
+	return v
 }
 
 func (p *printer) popBraceContext() braceContext {
@@ -789,12 +926,41 @@ func (p *printer) handleComma(idx int, tokens []antlr.Token) {
 	if p.isTrailingCommaInInlinedBlock(idx, tokens) {
 		return
 	}
+	// In multi-line stage/sequence bodies, commas are dropped entirely —
+	// newlines are the item separator. Trailing commas at the end of an
+	// inline stage/sequence body are also dropped so the closing brace
+	// reads cleanly.
+	if p.inReactiveBodyContext() {
+		if !p.currentReactiveBodyInline() {
+			p.pendingBreak = true
+			return
+		}
+		if p.isTrailingCommaInReactiveBody(idx, tokens) {
+			return
+		}
+		p.emitChar(",")
+		p.needsSpace = true
+		return
+	}
 	p.emitChar(",")
 	if p.shouldBreakAfterComma() {
 		p.pendingBreak = true
 	} else {
 		p.needsSpace = true
 	}
+}
+
+// isTrailingCommaInReactiveBody reports whether the comma at idx is the final
+// separator in an inline stage or sequence body (next non-whitespace token is
+// the closing brace). Such trailing commas are dropped from the inlined form.
+func (p *printer) isTrailingCommaInReactiveBody(idx int, tokens []antlr.Token) bool {
+	for i := idx + 1; i < len(tokens); i++ {
+		if tokens[i].GetTokenType() == parser.ArcLexerWS {
+			continue
+		}
+		return tokens[i].GetTokenType() == parser.ArcLexerRBRACE
+	}
+	return false
 }
 
 // isTrailingCommaInInlinedBlock reports whether the comma at idx is the final
