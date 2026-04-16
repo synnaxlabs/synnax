@@ -271,14 +271,14 @@ sequence main {
             main_scope = &scope;
             return;
         }
-        for (const auto &phase: scope.phases)
-            for (const auto &m: phase.members)
+        for (const auto &stratum: scope.strata)
+            for (const auto &m: stratum)
                 if (m.scope) find_main(*m.scope);
-        for (const auto &m: scope.members)
+        for (const auto &m: scope.steps)
             if (m.scope) find_main(*m.scope);
     };
     find_main(retrieved.program->root);
     ASSERT_NE(main_scope, nullptr);
-    ASSERT_EQ(main_scope->members.size(), 2);
+    ASSERT_EQ(main_scope->steps.size(), 2);
 }
 }
