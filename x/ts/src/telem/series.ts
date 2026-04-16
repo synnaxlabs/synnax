@@ -114,7 +114,7 @@ const nullArrayZ = z
   .union([z.null(), z.undefined()])
   .transform(() => new Uint8Array().buffer);
 
-const NEW_LINE = 10;
+const UINT32_SIZE = 4;
 
 type JSType = "string" | "number" | "bigint";
 
@@ -358,12 +358,42 @@ export class Series<T extends TelemValue = TelemValue>
         data_ = data_.map((v) => new TimeStamp(v as CrudeTimeStamp).valueOf());
       if (this.dataType.equals(DataType.STRING)) {
         this.cachedLength = data_.length;
-        this._data = new TextEncoder().encode(`${data_.join("\n")}\n`).buffer;
+        const encoded = (data_ as string[]).map((s) => new TextEncoder().encode(s));
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
+        const buf = new ArrayBuffer(totalBytes);
+        const view = new DataView(buf);
+        const bytes = new Uint8Array(buf);
+        let offset = 0;
+        for (const e of encoded) {
+          view.setUint32(offset, e.byteLength, true);
+          offset += UINT32_SIZE;
+          bytes.set(e, offset);
+          offset += e.byteLength;
+        }
+        this._data = buf;
       } else if (this.dataType.equals(DataType.JSON)) {
         this.cachedLength = data_.length;
-        this._data = new TextEncoder().encode(
-          `${data_.map((d) => binary.JSON_CODEC.encodeString(d)).join("\n")}\n`,
-        ).buffer;
+        const encoded = data_.map((d) =>
+          new TextEncoder().encode(binary.JSON_CODEC.encodeString(d)),
+        );
+        const totalBytes = encoded.reduce(
+          (acc, e) => acc + UINT32_SIZE + e.byteLength,
+          0,
+        );
+        const buf = new ArrayBuffer(totalBytes);
+        const view = new DataView(buf);
+        const bytes = new Uint8Array(buf);
+        let offset = 0;
+        for (const e of encoded) {
+          view.setUint32(offset, e.byteLength, true);
+          offset += UINT32_SIZE;
+          bytes.set(e, offset);
+          offset += e.byteLength;
+        }
+        this._data = buf;
       } else if (this.dataType.usesBigInt && typeof first === "number")
         this._data = new this.dataType.Array(
           data_.map((v) => BigInt(Math.round(v as number))),
@@ -456,14 +486,25 @@ export class Series<T extends TelemValue = TelemValue>
   private writeVariable(other: Series): number {
     if (this.writePos === FULL_BUFFER) return 0;
     const available = this.byteCapacity.valueOf() - this.writePos;
-    const toWrite = other.subBytes(0, available);
-    this.writeToUnderlyingData(toWrite);
-    this.writePos += toWrite.byteLength.valueOf();
-    if (this.cachedLength != null) {
-      this.cachedLength += toWrite.length;
-      this.calculateCachedLength();
+    const otherBuf = other.buffer;
+    const otherByteLen = other.byteLength.valueOf();
+    const view = new DataView(otherBuf);
+    let offset = 0;
+    let samplesWritten = 0;
+    while (offset + UINT32_SIZE <= otherByteLen) {
+      const sampleLen = view.getUint32(offset, true);
+      const recordSize = UINT32_SIZE + sampleLen;
+      if (offset + recordSize > available) break;
+      offset += recordSize;
+      samplesWritten++;
     }
-    return toWrite.length;
+    if (offset === 0) return 0;
+    const toWrite = other.subBytes(0, offset);
+    this.writeToUnderlyingData(toWrite);
+    this.writePos += offset;
+    this.cachedLength = (this.cachedLength ?? 0) + samplesWritten;
+    this._cachedIndexes = undefined;
+    return samplesWritten;
   }
 
   private writeFixed(other: Series): number {
@@ -511,8 +552,21 @@ export class Series<T extends TelemValue = TelemValue>
    * @returns An array of string representations of the series values.
    */
   toStrings(): string[] {
-    if (this.dataType.isVariable)
-      return new TextDecoder().decode(this.underlyingData).split("\n").slice(0, -1);
+    if (this.dataType.isVariable) {
+      const result: string[] = [];
+      const buf = this.buffer;
+      const byteLen = this.byteLength.valueOf();
+      const view = new DataView(buf);
+      const decoder = new TextDecoder();
+      let offset = 0;
+      while (offset + UINT32_SIZE <= byteLen) {
+        const len = view.getUint32(offset, true);
+        offset += UINT32_SIZE;
+        result.push(decoder.decode(new Uint8Array(buf, offset, len)));
+        offset += len;
+      }
+      return result;
+    }
     return Array.from(this).map((d) => d.toString());
   }
 
@@ -560,7 +614,7 @@ export class Series<T extends TelemValue = TelemValue>
 
   /**
    * Returns the number of samples in this array.
-   * For variable length data types, this is calculated by counting newlines.
+   * For variable length data types, this is calculated by scanning uint32 length prefixes.
    * @returns The number of samples in the series.
    */
   get length(): number {
@@ -575,12 +629,18 @@ export class Series<T extends TelemValue = TelemValue>
     if (!this.dataType.isVariable)
       throw new Error("cannot calculate length of a non-variable length data type");
     let cl = 0;
-    const ci: number[] = [0];
-    this.data.forEach((v, i) => {
-      if (v !== NEW_LINE) return;
+    const ci: number[] = [];
+    const buf = this.buffer;
+    const byteLen = this.byteLength.valueOf();
+    const view = new DataView(buf);
+    let offset = 0;
+    while (offset + UINT32_SIZE <= byteLen) {
+      const len = view.getUint32(offset, true);
+      offset += UINT32_SIZE;
+      ci.push(offset);
+      offset += len;
       cl++;
-      ci.push(i + 1);
-    });
+    }
     this._cachedIndexes = ci;
     this.cachedLength = cl;
     return cl;
@@ -742,28 +802,40 @@ export class Series<T extends TelemValue = TelemValue>
 
   private atVariable(index: number, required: boolean): T | undefined {
     let start = 0;
-    let end = 0;
+    let len = 0;
+    const buf = this.buffer;
+    const view = new DataView(buf);
     if (this._cachedIndexes != null) {
+      if (index < 0) index = this._cachedIndexes.length + index;
+      if (index < 0 || index >= this._cachedIndexes.length) {
+        if (required) throw new Error(`[series] - no value at index ${index}`);
+        return undefined;
+      }
       start = this._cachedIndexes[index];
-      end = this._cachedIndexes[index + 1] - 1;
+      len = view.getUint32(start - UINT32_SIZE, true);
     } else {
       if (index < 0) index = this.length + index;
-      for (let i = 0; i < this.data.length; i++)
-        if (this.data[i] === NEW_LINE) {
-          if (index === 0) {
-            end = i;
-            break;
-          }
-          start = i + 1;
-          index--;
+      const byteLen = this.byteLength.valueOf();
+      let offset = 0;
+      let found = false;
+      while (offset + UINT32_SIZE <= byteLen) {
+        const sampleLen = view.getUint32(offset, true);
+        offset += UINT32_SIZE;
+        if (index === 0) {
+          start = offset;
+          len = sampleLen;
+          found = true;
+          break;
         }
-      if (end === 0) end = this.data.length;
-      if (start >= end || index > 0) {
+        offset += sampleLen;
+        index--;
+      }
+      if (!found) {
         if (required) throw new Error(`[series] - no value at index ${index}`);
         return undefined;
       }
     }
-    const slice = this.data.slice(start, end);
+    const slice = new Uint8Array(buf, start, len);
     if (this.dataType.equals(DataType.STRING))
       return new TextDecoder().decode(slice) as T;
     return caseconv.snakeToCamel(JSON.parse(new TextDecoder().decode(slice))) as T;
@@ -1069,8 +1141,9 @@ class SubIterator<T> implements Iterator<T> {
 
 class StringSeriesIterator implements Iterator<string> {
   private readonly series: Series;
-  private index: number;
+  private byteOffset: number;
   private readonly decoder: TextDecoder;
+  private readonly view: DataView;
 
   constructor(series: Series) {
     if (!series.dataType.isVariable)
@@ -1078,18 +1151,21 @@ class StringSeriesIterator implements Iterator<string> {
         "cannot create a variable series iterator for a non-variable series",
       );
     this.series = series;
-    this.index = 0;
+    this.byteOffset = 0;
     this.decoder = new TextDecoder();
+    this.view = new DataView(series.buffer);
   }
 
   next(): IteratorResult<string> {
-    const start = this.index;
-    const data = this.series.data;
-    while (this.index < data.length && data[this.index] !== NEW_LINE) this.index++;
-    const end = this.index;
-    if (start === end) return { done: true, value: undefined };
-    this.index++;
-    const s = this.decoder.decode(this.series.buffer.slice(start, end));
+    const byteLen = this.series.byteLength.valueOf();
+    if (this.byteOffset + UINT32_SIZE > byteLen)
+      return { done: true, value: undefined };
+    const len = this.view.getUint32(this.byteOffset, true);
+    this.byteOffset += UINT32_SIZE;
+    const s = this.decoder.decode(
+      new Uint8Array(this.series.buffer, this.byteOffset, len),
+    );
+    this.byteOffset += len;
     return { done: false, value: s };
   }
 }

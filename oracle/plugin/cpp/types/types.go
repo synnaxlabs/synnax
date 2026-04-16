@@ -773,7 +773,7 @@ func getUnderlyingPrimitive(typeRef resolution.TypeRef, table *resolution.Table)
 
 func (p *Plugin) processField(field resolution.Field, entry resolution.Type, data *templateData) fieldData {
 	cppType := p.typeRefToCpp(field.Type, data)
-	isSelfRef := isSelfReference(field.Type, entry)
+	isSelfRef := resolution.RefersTo(field.Type, entry.QualifiedName, data.table)
 	underlyingPrimitive := getUnderlyingPrimitive(field.Type, data.table)
 
 	if field.IsHardOptional {
@@ -819,18 +819,6 @@ func (p *Plugin) processField(field resolution.Field, entry resolution.Type, dat
 		IsSelfRef:    isSelfRef,
 		DefaultValue: defaultValue,
 	}
-}
-
-func isSelfReference(t resolution.TypeRef, parent resolution.Type) bool {
-	if t.Name == parent.QualifiedName {
-		return true
-	}
-	for _, arg := range t.TypeArgs {
-		if isSelfReference(arg, parent) {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) string {

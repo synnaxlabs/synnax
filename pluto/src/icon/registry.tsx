@@ -153,6 +153,7 @@ import {
   MdSaveAlt,
   MdSensors,
   MdShield,
+  MdSquare,
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
@@ -238,6 +239,7 @@ import { Valve } from "@/icon/Valve";
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(HiOutlinePlus, "add");

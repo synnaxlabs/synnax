@@ -29,8 +29,8 @@ var _ = Describe("Paths", func() {
 	Describe("RepoRoot", func() {
 		It("Should find repo root from current directory", func() {
 			root := MustSucceed(paths.RepoRoot())
-			Expect(root).To(HaveSuffix("synnax"))
-			Expect(filepath.Join(root, ".git")).To(BeADirectory())
+			Expect(filepath.Join(root, "pnpm-workspace.yaml")).To(BeAnExistingFile())
+			Expect(filepath.Join(root, "MODULE.bazel")).To(BeAnExistingFile())
 		})
 
 		It("Should find repo root from a subdirectory", func() {

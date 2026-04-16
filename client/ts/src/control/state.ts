@@ -46,13 +46,14 @@ export class StateTracker
   implements observe.ObservableAsyncCloseable<Transfer[]>
 {
   readonly states: Map<channel.Key, State>;
-  private readonly codec: binary.Codec;
+  private readonly codec: binary.JSONCodec;
 
   constructor(streamer: framer.Streamer) {
     super(streamer, (frame) => {
-      const update: Update = this.codec.decode(frame.series[0].buffer, updateZ);
-      this.merge(update);
-      return [update.transfers, true];
+      const raw = Array.from(frame.series[0].as("string"));
+      const updates: Update[] = raw.map((r) => this.codec.decodeString(r, updateZ));
+      updates.forEach((u) => this.merge(u));
+      return [updates.flatMap((u) => u.transfers), true];
     });
     this.states = new Map();
     this.codec = new binary.JSONCodec();
