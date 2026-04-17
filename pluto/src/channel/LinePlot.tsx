@@ -56,6 +56,15 @@ export interface BaseLineProps {
   label?: string;
   downsample?: number;
   downsampleMode?: telem.DownsampleMode;
+  /**
+   * An upper bound on the alignmentMultiple of data returned from the server
+   * for this line's channels. A value of 1n (the default) requests raw data;
+   * higher values allow the server to return decimated data whose
+   * alignmentMultiple is at most `fidelity`. Useful for rendering long time
+   * ranges without transferring every sample. Callers typically compute this
+   * from their viewport width and the channel's native rate.
+   */
+  fidelity?: bigint;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -373,6 +382,7 @@ const DynamicLine = ({
     timeSpan,
     channels: { x, y },
     axes,
+    fidelity,
     ...rest
   },
 }: {
@@ -384,6 +394,7 @@ const DynamicLine = ({
       timeSpan,
       channel: y,
       keepFor,
+      fidelity,
     });
     const hasX = x != null && x !== 0;
     const xTelem = telem.streamChannelData({
@@ -391,9 +402,10 @@ const DynamicLine = ({
       channel: hasX ? x : y,
       useIndexOfChannel: !hasX,
       keepFor,
+      fidelity,
     });
     return { xTelem, yTelem };
-  }, [timeSpan.valueOf(), x, y]);
+  }, [timeSpan.valueOf(), x, y, fidelity]);
   return (
     <Base.Line
       key={key}
@@ -411,21 +423,23 @@ const StaticLine = ({
     timeRange,
     key,
     channels: { x, y },
+    fidelity,
     ...rest
   },
 }: {
   line: StaticLineProps;
 }): ReactElement => {
   const { xTelem, yTelem } = useMemo(() => {
-    const yTelem = telem.channelData({ timeRange, channel: y });
+    const yTelem = telem.channelData({ timeRange, channel: y, fidelity });
     const hasX = x != null && x !== 0;
     const xTelem = telem.channelData({
       timeRange,
       channel: hasX ? x : y,
       useIndexOfChannel: !hasX,
+      fidelity,
     });
     return { xTelem, yTelem };
-  }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y]);
+  }, [timeRange.start.valueOf(), timeRange.end.valueOf(), x, y, fidelity]);
   return (
     <Base.Line
       key={key}
