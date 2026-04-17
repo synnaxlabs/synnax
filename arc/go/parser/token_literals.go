@@ -32,6 +32,7 @@ const (
 	LiteralU64           = "u64"
 	LiteralF32           = "f32"
 	LiteralF64           = "f64"
+	LiteralBOOL          = "bool"
 	LiteralSTR           = "str"
 	LiteralSERIES        = "series"
 	LiteralARROW         = "->"

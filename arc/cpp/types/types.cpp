@@ -115,6 +115,7 @@ size_t Type::density() const {
     switch (kind) {
         case Kind::U8:
         case Kind::I8:
+        case Kind::Bool:
             return 1;
         case Kind::U16:
         case Kind::I16:
@@ -173,6 +174,9 @@ std::string Type::to_string() const {
         case Kind::F64:
             base = "f64";
             break;
+        case Kind::Bool:
+            base = "bool";
+            break;
         case Kind::String:
             return "str";
         case Kind::Chan:
@@ -211,6 +215,8 @@ x::telem::DataType Type::telem() const {
             return x::telem::FLOAT32_T;
         case Kind::F64:
             return x::telem::FLOAT64_T;
+        case Kind::Bool:
+            return x::telem::BOOL_T;
         case Kind::String:
             return x::telem::STRING_T;
         default:
@@ -270,6 +276,12 @@ to_sample_value(const x::json::json &value, const Type &type) {
         case Kind::F64:
             return value.is_number() ? std::optional(value.get<double>())
                                      : std::nullopt;
+        case Kind::Bool:
+            if (value.is_boolean())
+                return static_cast<uint8_t>(value.get<bool>() ? 1 : 0);
+            if (value.is_number())
+                return static_cast<uint8_t>(value.get<double>() != 0.0 ? 1 : 0);
+            return std::nullopt;
         case Kind::String:
             return value.is_string() ? std::optional(value.get<std::string>())
                                      : std::nullopt;

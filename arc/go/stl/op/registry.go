@@ -15,8 +15,8 @@ import (
 )
 
 var (
-	logicalOps    = map[string]op.Binary{orSymbolName: op.OrU8, andSymbolName: op.AndU8}
-	unaryOps      = map[string]op.Unary{notSymbolName: op.NotU8}
+	logicalOps    = map[string]op.Binary{orSymbolName: op.OrBool, andSymbolName: op.AndBool}
+	unaryOps      = map[string]op.Unary{notSymbolName: op.NotBool}
 	typedUnaryOps = map[string]map[telem.DataType]op.Unary{
 		negSymbolName: {
 			telem.Float64T: op.NegateF64,
@@ -87,6 +87,7 @@ var (
 			telem.Uint32T:  op.EqualU32,
 			telem.Uint16T:  op.EqualU16,
 			telem.Uint8T:   op.EqualU8,
+			telem.BoolT:    op.EqualU8,
 		},
 		neSymbolName: {
 			telem.Float64T: op.NotEqualF64,
@@ -99,6 +100,7 @@ var (
 			telem.Uint32T:  op.NotEqualU32,
 			telem.Uint16T:  op.NotEqualU16,
 			telem.Uint8T:   op.NotEqualU8,
+			telem.BoolT:    op.NotEqualU8,
 		},
 		addSymbolName: {
 			telem.Float64T: op.AddF64,

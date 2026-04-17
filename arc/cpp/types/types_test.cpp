@@ -71,3 +71,35 @@ TEST(ToSampleValue, U64FromBoolReturnsNullopt) {
     auto sv = arc::types::to_sample_value(x::json::json(true), t);
     ASSERT_FALSE(sv.has_value());
 }
+
+TEST(ToSampleValue, BoolFromJsonTrue) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(true), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(std::get<uint8_t>(*sv), 1);
+}
+
+TEST(ToSampleValue, BoolFromJsonFalse) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(false), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(std::get<uint8_t>(*sv), 0);
+}
+
+TEST(ToSampleValue, BoolFromNonzeroNumber) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    auto sv = arc::types::to_sample_value(x::json::json(42), t);
+    ASSERT_TRUE(sv.has_value());
+    ASSERT_EQ(std::get<uint8_t>(*sv), 1);
+}
+
+TEST(Type, BoolDensity) {
+    arc::types::Type t;
+    t.kind = arc::types::Kind::Bool;
+    ASSERT_EQ(t.density(), 1u);
+    ASSERT_EQ(t.to_string(), "bool");
+    ASSERT_EQ(t.telem(), x::telem::BOOL_T);
+}

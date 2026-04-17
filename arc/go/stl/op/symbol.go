@@ -33,7 +33,7 @@ func createBinaryOpSymbol(name string, outputs types.Params) symbol.Symbol {
 func createComparisonSymbol(name string) symbol.Symbol {
 	return createBinaryOpSymbol(
 		name,
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 	)
 }
 
@@ -59,9 +59,23 @@ func createUnaryOpSymbol(name string, inputType types.Type, outputs types.Params
 func createNotSymbol(name string) symbol.Symbol {
 	return createUnaryOpSymbol(
 		name,
-		types.U8(),
-		types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+		types.Bool(),
+		types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 	)
+}
+
+func createLogicalBinarySymbol(name string) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.LHSInputParam, Type: types.Bool()},
+				{Name: ir.RHSInputParam, Type: types.Bool()},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
+		}),
+	}
 }
 
 func createNegateSymbol(name string) symbol.Symbol {
@@ -98,8 +112,8 @@ var SymbolResolver = symbol.MapResolver{
 	ltSymbolName:  createComparisonSymbol(ltSymbolName),
 	eqSymbolName:  createComparisonSymbol(eqSymbolName),
 	neSymbolName:  createComparisonSymbol(neSymbolName),
-	andSymbolName: createArithmeticSymbol(andSymbolName),
-	orSymbolName:  createArithmeticSymbol(orSymbolName),
+	andSymbolName: createLogicalBinarySymbol(andSymbolName),
+	orSymbolName:  createLogicalBinarySymbol(orSymbolName),
 	addSymbolName: createArithmeticSymbol(addSymbolName),
 	subSymbolName: createArithmeticSymbol(subSymbolName),
 	mulSymbolName: createArithmeticSymbol(mulSymbolName),

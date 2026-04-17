@@ -59,7 +59,7 @@ func makeStatGraphWithReset(nodeType string, dt types.Type) graph.Graph {
 		},
 		Functions: []graph.Function{
 			{Key: "input", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}}},
-			{Key: "reset_signal", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
+			{Key: "reset_signal", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}}},
 		},
 	}
 }

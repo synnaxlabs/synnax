@@ -114,8 +114,8 @@ var _ = Describe("Type Inference", func() {
 			Entry("integer literal", "42", types.KindVariable, types.KindIntegerConstant),
 			Entry("float literal", "3.14", types.KindVariable, types.KindFloatConstant),
 			Entry("string literal", `"hello"`, types.KindString, types.KindInvalid),
-			Entry("boolean true", "true", types.KindU8, types.KindInvalid),
-			Entry("boolean false", "false", types.KindU8, types.KindInvalid),
+			Entry("boolean true", "true", types.KindBool, types.KindInvalid),
+			Entry("boolean false", "false", types.KindBool, types.KindInvalid),
 		)
 
 		DescribeTable("literal inference from context",
@@ -133,12 +133,12 @@ var _ = Describe("Type Inference", func() {
 				t := inferExprType(bCtx, testResolver, expr)
 				Expect(t.Kind).To(Equal(expectedKind))
 			},
-			Entry("greater than", "temp_sensor > 100", types.KindU8),
-			Entry("less than", "pressure < 50", types.KindU8),
-			Entry("equality", "temp_sensor == 0", types.KindU8),
-			Entry("inequality", "pressure != 0", types.KindU8),
-			Entry("logical and", "temp_sensor > 100 and pressure < 50", types.KindU8),
-			Entry("logical or", "temp_sensor > 100 or pressure < 50", types.KindU8),
+			Entry("greater than", "temp_sensor > 100", types.KindBool),
+			Entry("less than", "pressure < 50", types.KindBool),
+			Entry("equality", "temp_sensor == 0", types.KindBool),
+			Entry("inequality", "pressure != 0", types.KindBool),
+			Entry("logical and", "temp_sensor > 100 and pressure < 50", types.KindBool),
+			Entry("logical or", "temp_sensor > 100 or pressure < 50", types.KindBool),
 		)
 
 		DescribeTable("complex expressions",

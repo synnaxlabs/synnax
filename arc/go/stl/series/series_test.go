@@ -104,7 +104,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+suffix, testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.Uint8T))
+					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
 				}
 
 				for _, name := range []string{
@@ -186,7 +186,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+suffix, testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.Uint8T))
+					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
 				}
 
 				for _, name := range []string{
@@ -264,7 +264,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+"f32", testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.Uint8T))
+					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
 				}
 
 				for _, name := range []string{
@@ -342,7 +342,7 @@ var _ = Describe("Series", func() {
 					rh := callU32(ctx, name+"f64", testutil.U32(h1), testutil.U32(h2))
 					Expect(rh).ToNot(BeZero())
 					cmpSer := MustBeOk(ss.Get(rh))
-					Expect(cmpSer.DataType).To(Equal(telem.Uint8T))
+					Expect(cmpSer.DataType).To(Equal(telem.BoolT))
 				}
 
 				for _, name := range []string{
@@ -408,15 +408,15 @@ var _ = Describe("Series", func() {
 		})
 	})
 
-	Describe("not_u8", func() {
-		It("Should bitwise-NOT a u8 series", func(ctx SpecContext) {
-			h := callU32(ctx, "create_empty_u8", testutil.U32(2))
-			callU32(ctx, "set_element_u8", testutil.U32(h), testutil.U32(0), testutil.U32(0))
-			callU32(ctx, "set_element_u8", testutil.U32(h), testutil.U32(1), testutil.U32(255))
-			rh := callU32(ctx, "not_u8", testutil.U32(h))
+	Describe("not_bool", func() {
+		It("Should logically NOT a bool series", func(ctx SpecContext) {
+			h := callU32(ctx, "create_empty_bool", testutil.U32(2))
+			callU32(ctx, "set_element_bool", testutil.U32(h), testutil.U32(0), testutil.U32(0))
+			callU32(ctx, "set_element_bool", testutil.U32(h), testutil.U32(1), testutil.U32(1))
+			rh := callU32(ctx, "not_bool", testutil.U32(h))
 			Expect(rh).ToNot(BeZero())
 			ser := MustBeOk(ss.Get(rh))
-			Expect(telem.ValueAt[uint8](ser, 0)).To(Equal(uint8(255)))
+			Expect(telem.ValueAt[uint8](ser, 0)).To(Equal(uint8(1)))
 			Expect(telem.ValueAt[uint8](ser, 1)).To(Equal(uint8(0)))
 		})
 	})

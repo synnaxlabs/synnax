@@ -862,40 +862,40 @@ var _ = Describe("WASM", func() {
 	Describe("Series Comparison Operations", func() {
 		DescribeTable("comparison operators",
 			expectOutput[uint8],
-			Entry("less than", "series_lt", types.U8(), `{
+			Entry("less than", "series_lt", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a < b
+				c series bool := a < b
 				return c[0]
 			}`, nil, uint8(1)),
-			Entry("greater than", "series_gt", types.U8(), `{
+			Entry("greater than", "series_gt", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a > b
+				c series bool := a > b
 				return c[1]
 			}`, nil, uint8(1)),
-			Entry("equal", "series_eq", types.U8(), `{
+			Entry("equal", "series_eq", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a == b
+				c series bool := a == b
 				return c[2]
 			}`, nil, uint8(1)),
-			Entry("not equal", "series_ne", types.U8(), `{
+			Entry("not equal", "series_ne", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [1.0, 4.0, 3.0]
-				c series u8 := a != b
+				c series bool := a != b
 				return c[1]
 			}`, nil, uint8(1)),
-			Entry("less than or equal", "series_le", types.U8(), `{
+			Entry("less than or equal", "series_le", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a <= b
+				c series bool := a <= b
 				return c[2]
 			}`, nil, uint8(1)),
-			Entry("greater than or equal", "series_ge", types.U8(), `{
+			Entry("greater than or equal", "series_ge", types.Bool(), `{
 				a series f64 := [1.0, 5.0, 3.0]
 				b series f64 := [2.0, 4.0, 3.0]
-				c series u8 := a >= b
+				c series bool := a >= b
 				return c[1]
 			}`, nil, uint8(1)),
 		)

@@ -349,7 +349,7 @@ func emitLiteralValue[T antlr.ParserRuleContext](
 	defaultVal any,
 ) error {
 	switch paramType.Kind {
-	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32:
+	case types.KindI8, types.KindI16, types.KindI32, types.KindU8, types.KindU16, types.KindU32, types.KindBool:
 		var i32Val int32
 		switch v := defaultVal.(type) {
 		case int8:

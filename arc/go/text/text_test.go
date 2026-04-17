@@ -514,12 +514,12 @@ var _ = Describe("Text", func() {
 
 			It("Should resolve read-only config param channel in Channels.Read", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
-					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
+					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10201},
 					"do_0_counter":     {Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
 					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
 				}
 				source := `
-				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
+				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input bool) {
 					prev $= input
 					counter f32 $= 0
 					read_val := max_ch + f32(0.0)
@@ -1254,7 +1254,7 @@ var _ = Describe("Text", func() {
 		Context("Sequence Targeting", func() {
 			It("Should connect one-shot edge to sequence's first stage entry node", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10051},
 				}
 				source := `
 				sequence main {
@@ -1294,7 +1294,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle continuous flow to sequence", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
-					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10061},
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10061},
 				}
 				source := `
 				sequence main {
@@ -1317,7 +1317,7 @@ var _ = Describe("Text", func() {
 
 			It("Should handle sequence with multiple stages - connects to first stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10051},
 				}
 				source := `
 				sequence main {
@@ -1343,7 +1343,7 @@ var _ = Describe("Text", func() {
 
 			It("Should error when targeting empty sequence (no stages)", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
-					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10051},
 				}
 				source := `
 				sequence empty {
@@ -1367,7 +1367,7 @@ var _ = Describe("Text", func() {
 					}
 				}
 
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux{threshold f64} (value f64) (high bool, low f64) {
 					if (value > threshold) {
 						high = 1
 					} else {
@@ -1485,7 +1485,7 @@ var _ = Describe("Text", func() {
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
+				func alarm{} (value bool) {
 				}
 
 				sensor > 20 => alarm{}
@@ -1524,7 +1524,7 @@ var _ = Describe("Text", func() {
 					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10152},
 				}
 				source := `
-				func alarm{} (value u8) {
+				func alarm{} (value bool) {
 				}
 
 				temp + pressure > 100 => alarm{}
@@ -1581,7 +1581,7 @@ var _ = Describe("Text", func() {
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
+				func alarm{} (value bool) {
 				}
 
 				sensor -> sensor > 20 => alarm{}
@@ -1764,7 +1764,7 @@ var _ = Describe("Text", func() {
 		It("Should reject void functions mid-chain in flow statements", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
-				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.Bool()), ID: 10202},
 			}
 			source := `
 			func increment{ch chan u32}() {

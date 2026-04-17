@@ -159,7 +159,7 @@ var _ = Describe("Stage", func() {
 			fnType := sym.Type
 			Expect(fnType.Kind).To(Equal(types.KindFunction))
 			Expect(fnType.Inputs).To(HaveLen(1))
-			Expect(fnType.Inputs[0].Type).To(Equal(types.U8()))
+			Expect(fnType.Inputs[0].Type).To(Equal(types.Bool()))
 		})
 	})
 })

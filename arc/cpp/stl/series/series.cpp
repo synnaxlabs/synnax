@@ -447,6 +447,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     BIND_SERIES_OPS(i64, int64_t, x::telem::INT64_T)
     BIND_SERIES_OPS(f32, float, x::telem::FLOAT32_T)
     BIND_SERIES_OPS(f64, double, x::telem::FLOAT64_T)
+    BIND_SERIES_OPS(bool, uint8_t, x::telem::BOOL_T)
 
 #undef BIND_SERIES_OPS
 
@@ -476,7 +477,7 @@ void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     linker
         .func_wrap(
             "series",
-            "not_u8",
+            "not_bool",
             [ss](uint32_t handle) -> uint32_t {
                 auto *s = ss->get(handle);
                 if (s == nullptr) return 0;

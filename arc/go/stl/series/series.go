@@ -63,6 +63,8 @@ var hostSymbols = symbol.MapResolver{
 	"series_mul":        hostSym("series_mul", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"series_div":        hostSym("series_div", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"series_mod":        hostSym("series_mod", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_and":        hostSym("series_and", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"series_or":         hostSym("series_or", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"compare_gt":        hostSym("compare_gt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"compare_lt":        hostSym("compare_lt", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"compare_ge":        hostSym("compare_ge", polyFunc(types.Params{{Name: "a", Type: i32}, {Name: "b", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
@@ -79,7 +81,7 @@ var hostSymbols = symbol.MapResolver{
 	"set_element":       hostSym("set_element", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}, {Name: "value", Type: tv()}}, types.Params{{Name: "result", Type: i32}})),
 	"index":             hostSym("index", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "idx", Type: i32}}, types.Params{{Name: "value", Type: tv()}})),
 	"negate":            hostSym("negate", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
-	"not_u8":            hostSym("not_u8", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
+	"not_bool":          hostSym("not_bool", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 	"len":               hostSym("len", polyFunc(types.Params{{Name: "handle", Type: i32}}, types.Params{{Name: "length", Type: i64}})),
 	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 }
@@ -112,6 +114,7 @@ func NewModule(
 	builder = bindI64(builder, s)
 	builder = bindF32(builder, s)
 	builder = bindF64(builder, s)
+	builder = bindBool(builder, s)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle uint32) uint64 {
 			if ser, ok := s.Get(handle); ok {
@@ -150,10 +153,10 @@ func NewModule(
 			if !ok {
 				return 0
 			}
-			result := telem.Series{DataType: telem.Uint8T}
-			op.NotU8(ser, &result)
+			result := telem.Series{DataType: telem.BoolT}
+			op.NotBool(ser, &result)
 			return s.Store(result)
-		}).Export("not_u8")
+		}).Export("not_bool")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -332,7 +335,7 @@ func bindCompareScalarI32[T i32Scalar](
 				if !ok {
 					return 0
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(ser, T(scalar), &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -405,7 +408,7 @@ func bindCompareOps[T any](
 				if s1.Len() != s2.Len() {
 					panic("arc panic: series length mismatch in comparison")
 				}
-				result := telem.Series{DataType: telem.Uint8T}
+				result := telem.Series{DataType: telem.BoolT}
 				fn(s1, s2, &result)
 				return s.Store(result)
 			}).Export(entry.name + suffix)
@@ -684,6 +687,86 @@ func bindFloatType[T float32 | float64](
 	builder = bindCompareOps(builder, s, suffix, ops)
 	if ops.negate != nil {
 		builder = bindNegate(builder, s, suffix, ops.negate)
+	}
+	return builder
+}
+
+// bindBool binds the series operations valid for boolean element types. Bool
+// has no arithmetic or ordering comparisons; only equality, inequality, and
+// logical and/or are exported. Bool series are byte-identical to u8 at the
+// storage layer, so the u8 implementations are reused under bool names.
+func bindBool(builder wazero.HostModuleBuilder, s *ProgramState) wazero.HostModuleBuilder {
+	const suffix = "bool"
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, length uint32) uint32 {
+			return s.Store(telem.MakeSeries(telem.BoolT, int(length)))
+		}).Export("create_empty_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32, value uint32) uint32 {
+			if ser, ok := s.Get(handle); ok {
+				if int64(index) < ser.Len() {
+					var b uint8
+					if value != 0 {
+						b = 1
+					}
+					telem.SetValueAt[uint8](ser, int(index), b)
+				}
+			}
+			return handle
+		}).Export("set_element_" + suffix)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32, index uint32) uint32 {
+			if ser, ok := s.Get(handle); ok {
+				if int64(index) < ser.Len() {
+					return uint32(telem.ValueAt[uint8](ser, int(index)))
+				}
+			}
+			return 0
+		}).Export("index_" + suffix)
+
+	for _, entry := range []struct {
+		name string
+		fn   func(telem.Series, telem.Series, *telem.Series)
+	}{
+		{"compare_eq_", op.EqualU8},
+		{"compare_ne_", op.NotEqualU8},
+		{"series_and_", op.AndBool},
+		{"series_or_", op.OrBool},
+	} {
+		fn := entry.fn
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, h1 uint32, h2 uint32) uint32 {
+				s1, ok1 := s.Get(h1)
+				s2, ok2 := s.Get(h2)
+				if !ok1 || !ok2 {
+					return 0
+				}
+				if s1.Len() != s2.Len() {
+					panic("arc panic: series length mismatch in " + entry.name)
+				}
+				result := telem.Series{DataType: telem.BoolT}
+				fn(s1, s2, &result)
+				return s.Store(result)
+			}).Export(entry.name + suffix)
+	}
+	for _, entry := range []struct {
+		name string
+		fn   func(telem.Series, uint8, *telem.Series)
+	}{
+		{"compare_eq_scalar_", op.EqualScalarU8},
+		{"compare_ne_scalar_", op.NotEqualScalarU8},
+	} {
+		fn := entry.fn
+		builder = builder.NewFunctionBuilder().
+			WithFunc(func(_ context.Context, handle uint32, scalar uint32) uint32 {
+				ser, ok := s.Get(handle)
+				if !ok {
+					return 0
+				}
+				result := telem.Series{DataType: telem.BoolT}
+				fn(ser, uint8(scalar), &result)
+				return s.Store(result)
+			}).Export(entry.name + suffix)
 	}
 	return builder
 }

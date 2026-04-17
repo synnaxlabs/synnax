@@ -275,7 +275,7 @@ private:
         if (this->data_type() != other.data_type())
             throw std::runtime_error("series type mismatch for comparison");
 
-        auto result = Series(UINT8_T, this->size());
+        auto result = Series(BOOL_T, this->size());
         result.resize(this->size());
 
         const auto dt = this->data_type();
@@ -351,7 +351,7 @@ private:
 
     template<typename T, typename Op>
     Series apply_scalar_comparison_op(T scalar, Op op) const {
-        auto result = Series(UINT8_T, this->size());
+        auto result = Series(BOOL_T, this->size());
         result.resize(this->size());
 
         const auto dt = this->data_type();
@@ -1341,56 +1341,65 @@ public:
         }
     }
 
-    /// @brief Series > Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series > Series comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator>(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a > b; });
     }
 
-    /// @brief Series < Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series < Series comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator<(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a < b; });
     }
 
-    /// @brief Series >= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series >= Series comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator>=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a >= b; });
     }
 
-    /// @brief Series <= Series comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series <= Series comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator<=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a <= b; });
     }
 
-    /// @brief Series == Series element-wise comparison. Returns UINT8_T Series.
-    /// Note: This performs element-wise comparison, not structural equality.
+    /// @brief Series == Series element-wise comparison. Returns BOOL_T Series
+    /// with canonical 0/1 values. This performs element-wise comparison, not
+    /// structural equality.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator==(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a == b; });
     }
 
-    /// @brief Series != Series element-wise comparison. Returns UINT8_T Series.
+    /// @brief Series != Series element-wise comparison. Returns BOOL_T Series
+    /// with canonical 0/1 values.
     /// @throws std::runtime_error if series lengths or types don't match.
     Series operator!=(const Series &other) const {
         return apply_comparison_op(other, [](auto a, auto b) { return a != b; });
     }
 
-    /// @brief Series > scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series > scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator>(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a > b; });
     }
 
-    /// @brief Series < scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series < scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator<(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) { return a < b; });
     }
 
-    /// @brief Series >= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series >= scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator>=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1398,7 +1407,8 @@ public:
         });
     }
 
-    /// @brief Series <= scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series <= scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator<=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1406,7 +1416,8 @@ public:
         });
     }
 
-    /// @brief Series == scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series == scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator==(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1414,7 +1425,8 @@ public:
         });
     }
 
-    /// @brief Series != scalar comparison. Returns UINT8_T Series with 0/1 values.
+    /// @brief Series != scalar comparison. Returns BOOL_T Series with canonical 0/1
+    /// values.
     template<typename T>
     Series operator!=(T scalar) const {
         return apply_scalar_comparison_op(scalar, [](auto a, auto b) {
@@ -1449,8 +1461,8 @@ public:
         });
     }
 
-    /// @brief Logical NOT. Returns a UINT8_T Series where each element is
-    /// 1 if the original was 0, and 0 if the original was non-zero.
+    /// @brief Logical NOT. Returns a BOOL_T Series where each element is 1 if
+    /// the original was 0, and 0 if the original was non-zero.
     [[nodiscard]] Series logical_not() const {
         return apply_scalar_comparison_op(0, [](auto a, auto b) { return a == b; });
     }

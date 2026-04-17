@@ -142,10 +142,10 @@ var _ = Describe("Type Casts", func() {
 
 	DescribeTable("Boolean and Edge Cases",
 		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
-		Entry("u8 in boolean context", `
+		Entry("bool values in boolean context", `
 			func testFunc() {
-				x u8 := 1
-				y u8 := 0
+				x bool := bool(1)
+				y bool := bool(0)
 				result := x and y
 			}
 		`),

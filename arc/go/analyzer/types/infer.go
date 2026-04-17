@@ -57,10 +57,13 @@ func inferPrimitiveType(ctx parser.IPrimitiveTypeContext) (types.Type, error) {
 	if numeric := ctx.NumericType(); numeric != nil {
 		return inferNumericType(numeric)
 	}
+	if ctx.BOOL() != nil {
+		return types.Bool(), nil
+	}
 	if ctx.STR() != nil {
 		return types.String(), nil
 	}
-	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, str, etc.)")
+	return types.Type{}, errors.New("unknown type: expected a primitive (i32, f64, bool, str, etc.)")
 }
 
 func inferNumericType(ctx parser.INumericTypeContext) (types.Type, error) {
@@ -215,6 +218,9 @@ func LiteralAssignmentCompatible(
 		return true
 	}
 	if variableType.IsInteger() && literalType.IsSignedInteger() {
+		return true
+	}
+	if variableType.IsBool() && literalType.IsNumeric() {
 		return true
 	}
 	return variableType.IsFloat() && literalType.IsNumeric()

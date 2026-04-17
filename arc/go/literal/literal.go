@@ -233,7 +233,10 @@ func parseIntegerLiteral(intValue int64, targetType types.Type) (ParsedValue, er
 	case types.KindF64:
 		return ParsedValue{Value: float64(intValue), Type: types.F64()}, nil
 	default:
-		// Default to i64 if type not recognized
+		// Default to i64 if type not recognized. Bool targets fall through here
+		// because a literal is never natively bool; the cast expression wraps
+		// the literal and emits a numeric-to-bool normalization at the WASM
+		// layer.
 		return ParsedValue{Value: intValue, Type: types.I64()}, nil
 	}
 }

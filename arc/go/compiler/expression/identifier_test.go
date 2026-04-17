@@ -87,14 +87,14 @@ var _ = Describe("Identifier Compilation", func() {
 				OpLocalGet, 0, // Resolve 'limit'
 				OpI32GtS, // value > limit
 			))
-			Expect(exprType).To(Equal(types.U8())) // Comparisons return boolean
+			Expect(exprType).To(Equal(types.Bool())) // Comparisons return bool
 		})
 
 		It("Should compile logical operations with local variables", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
-			scopeEnabled := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.U8()}))
+			scopeEnabled := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "enabled", Kind: symbol.KindVariable, Type: types.Bool()}))
 			Expect(scopeEnabled).ToNot(BeNil())
-			scopeReady := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "ready", Kind: symbol.KindVariable, Type: types.U8()}))
+			scopeReady := MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "ready", Kind: symbol.KindVariable, Type: types.Bool()}))
 			Expect(scopeReady).ToNot(BeNil())
 			bytecode, exprType := compileWithCtx(ctx, "enabled and ready")
 			Expect(bytecode).To(MatchOpcodes(
@@ -115,7 +115,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI32Ne,
 				OpEnd,
 			))
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 		})
 	})
 
@@ -150,7 +150,7 @@ var _ = Describe("Identifier Compilation", func() {
 			ctx := NewContext(bCtx)
 			MustSucceed(ctx.Scope.Add(ctx, symbol.Symbol{Name: "press_pt", Kind: symbol.KindChannel, Type: types.Chan(types.I32())}))
 			byteCode, exprType := compileWithCtx(ctx, "press_pt > 1")
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 			Expect(byteCode).To(MatchOpcodes(
 				OpI32Const, int32(0),
 				OpCall, uint32(0),
@@ -308,7 +308,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI64Const, int64(100),
 				OpI64GtS,
 			))
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 		})
 	})
 
@@ -435,7 +435,7 @@ var _ = Describe("Identifier Compilation", func() {
 				OpI64Const, int64(10),
 				OpI64GtS,
 			))
-			Expect(exprType).To(Equal(types.U8()))
+			Expect(exprType).To(Equal(types.Bool()))
 		})
 	})
 

@@ -44,7 +44,7 @@ var baseSymbolResolver = symbol.MapResolver{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
 	},
@@ -52,7 +52,7 @@ var baseSymbolResolver = symbol.MapResolver{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
 	},

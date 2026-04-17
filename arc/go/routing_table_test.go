@@ -308,7 +308,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"vlv_cmd": {types.U8(), 200},
 			})
 			h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux{threshold f64} (value f64) (high bool, low f64) {
 					if (value > threshold) {
 						high = 1
 					} else {
@@ -366,7 +366,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"vlv_cmd": {types.U8(), 200},
 			})
 			h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux{threshold f64} (value f64) (high bool, low f64) {
 					if (value > threshold) {
 						high = 1
 					} else {
@@ -406,7 +406,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"log_cmd":  {types.U8(), 300},
 			})
 			h := newRuntimeHarness(ctx, `
-				func classify{threshold f64} (value f64) (above u8, below u8) {
+				func classify{threshold f64} (value f64) (above bool, below bool) {
 					if (value > threshold) {
 						above = 1
 					} else {
@@ -468,7 +468,7 @@ var _ = Describe("Routing Table Runtime", func() {
 				"vlv_cmd":  {types.U8(), 200},
 			})
 			h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low f64) {
+				func demux{threshold f64} (value f64) (high bool, low f64) {
 					if (value > threshold) {
 						high = 1
 					} else {
@@ -476,7 +476,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 
-				func check_pressure(p f32) u8 {
+				func check_pressure(p f32) bool {
 					return p > 100
 				}
 
@@ -535,7 +535,7 @@ var _ = Describe("Routing Table Runtime", func() {
 	Describe("Routing with select{}", func() {
 		It("Should use select to route a boolean channel into different sequence stages", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"flag":     {types.U8(), 100},
+				"flag":     {types.Bool(), 100},
 				"open_cmd": {types.U8(), 200},
 				"shut_cmd": {types.U8(), 300},
 			})
@@ -557,7 +557,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 100, DataType: telem.BoolT},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
@@ -602,12 +602,12 @@ var _ = Describe("Routing Table Runtime", func() {
 	Describe("Routing to Stages", func() {
 		It("Should compile and execute a routing table that targets a stage within the same sequence", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
-				"trigger": {types.U8(), 50},
+				"trigger": {types.Bool(), 50},
 				"sensor":  {types.F64(), 100},
 				"vlv_cmd": {types.U8(), 200},
 			})
 			h := newRuntimeHarness(ctx, `
-				func demux{threshold f64} (value f64) (high u8, low u8) {
+				func demux{threshold f64} (value f64) (high bool, low bool) {
 					if (value > threshold) {
 						high = 1
 					} else {
@@ -628,7 +628,7 @@ var _ = Describe("Routing Table Runtime", func() {
 					}
 				}
 			`, resolver,
-				channel.Digest{Key: 50, DataType: telem.Uint8T},
+				channel.Digest{Key: 50, DataType: telem.BoolT},
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 200, DataType: telem.Uint8T},
 			)

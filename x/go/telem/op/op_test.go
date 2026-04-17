@@ -455,6 +455,98 @@ var _ = Describe("Vectorized Operations", func() {
 		})
 	})
 
+	Describe("Bool Logical Operations", func() {
+		Context("AndBool", func() {
+			It("should perform logical AND on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.AndBool(a, b, &output)
+
+				expected := []uint8{1, 0, 0, 0}
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.DataType).To(Equal(telem.BoolT))
+			})
+
+			It("should handle mismatched lengths with last-value repetition", func() {
+				a := telem.NewSeriesV[bool](true, false)
+				b := telem.NewSeriesV[bool](true, true, true, true, true)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.AndBool(a, b, &output)
+
+				// a values after repetition: [1, 0, 0, 0, 0]
+				expected := []uint8{1, 0, 0, 0, 0}
+				Expect(output.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+			})
+		})
+
+		Context("OrBool", func() {
+			It("should perform logical OR on equal length series", func() {
+				a := telem.NewSeriesV[bool](true, true, false, false)
+				b := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.OrBool(a, b, &output)
+
+				expected := []uint8{1, 1, 1, 0}
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.DataType).To(Equal(telem.BoolT))
+			})
+
+			It("should handle mismatched lengths with last-value repetition", func() {
+				a := telem.NewSeriesV[bool](true, false)
+				b := telem.NewSeriesV[bool](false, false, false, false, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.OrBool(a, b, &output)
+
+				expected := []uint8{1, 0, 0, 0, 0}
+				Expect(output.Len()).To(Equal(int64(5)))
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+			})
+		})
+
+		Context("NotBool", func() {
+			It("should map canonical 0 to 1 and 1 to 0", func() {
+				input := telem.NewSeriesV[bool](true, false, true, false)
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				expected := []uint8{0, 1, 0, 1}
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+				Expect(output.DataType).To(Equal(telem.BoolT))
+			})
+
+			It("should normalize any non-zero byte to 0", func() {
+				// Non-canonical bool bytes (e.g. 255) should still be treated
+				// as truthy and map to 0 under logical NOT.
+				input := telem.Series{
+					DataType: telem.BoolT,
+					Data:     []byte{0, 1, 42, 255},
+				}
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				expected := []uint8{1, 0, 0, 0}
+				Expect(telem.UnmarshalSeries[uint8](output)).To(Equal(expected))
+			})
+
+			It("should handle empty series", func() {
+				input := telem.Series{DataType: telem.BoolT}
+				output := telem.Series{DataType: telem.BoolT}
+
+				op.NotBool(input, &output)
+
+				Expect(output.Len()).To(Equal(int64(0)))
+			})
+		})
+	})
+
 	Describe("Scalar Operations", func() {
 		Describe("Scalar Arithmetic", func() {
 			It("should add scalar to all elements for F64", func() {
