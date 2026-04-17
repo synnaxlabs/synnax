@@ -35,12 +35,15 @@ const (
 )
 
 type Series struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	TimeRange         *TimeRange             `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	DataType          string                 `protobuf:"bytes,2,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	Data              []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	Alignment         uint64                 `protobuf:"varint,4,opt,name=alignment,proto3" json:"alignment,omitempty"`
-	AlignmentMultiple uint64                 `protobuf:"varint,5,opt,name=alignment_multiple,json=alignmentMultiple,proto3" json:"alignment_multiple,omitempty"`
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	TimeRange *TimeRange             `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	DataType  string                 `protobuf:"bytes,2,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	Data      []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Alignment uint64                 `protobuf:"varint,4,opt,name=alignment,proto3" json:"alignment,omitempty"`
+	// alignment_multiple is the number of native samples represented by each
+	// sample in this series. 0 on the wire is interpreted as 1 (native
+	// resolution) for backward compatibility.
+	AlignmentMultiple uint64 `protobuf:"varint,5,opt,name=alignment_multiple,json=alignmentMultiple,proto3" json:"alignment_multiple,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -167,13 +170,14 @@ var File_x_go_telem_pb_frame_proto protoreflect.FileDescriptor
 const file_x_go_telem_pb_frame_proto_rawDesc = "" +
 	"\n" +
 	"\x19x/go/telem/pb/frame.proto\x12\n" +
-	"x.telem.pb\x1a\x19x/go/telem/pb/telem.proto\"\x8d\x01\n" +
+	"x.telem.pb\x1a\x19x/go/telem/pb/telem.proto\"\xbc\x01\n" +
 	"\x06Series\x124\n" +
 	"\n" +
 	"time_range\x18\x01 \x01(\v2\x15.x.telem.pb.TimeRangeR\ttimeRange\x12\x1b\n" +
 	"\tdata_type\x18\x02 \x01(\tR\bdataType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\x12\x1c\n" +
-	"\talignment\x18\x04 \x01(\x04R\talignment\"G\n" +
+	"\talignment\x18\x04 \x01(\x04R\talignment\x12-\n" +
+	"\x12alignment_multiple\x18\x05 \x01(\x04R\x11alignmentMultiple\"G\n" +
 	"\x05Frame\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12*\n" +
 	"\x06series\x18\x02 \x03(\v2\x12.x.telem.pb.SeriesR\x06seriesB\x88\x01\n" +

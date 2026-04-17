@@ -65,10 +65,10 @@ type Series struct {
 	// data.
 	Alignment Alignment `json:"alignment" msgpack:"alignment"`
 	// AlignmentMultiple is the number of alignment steps (equivalently, native samples)
-	// represented by each sample in this series. A value of 1 means the series is at
-	// native resolution; values greater than 1 indicate the series has been reduced from
-	// raw data by decimation, bucketing, or averaging. A zero value is treated as 1 for
-	// backward compatibility.
+	// represented by each sample in this series. A value of 1 means the series is at native
+	// resolution; values greater than 1 indicate the series has been reduced from raw data
+	// by decimation, bucketing, or averaging. A zero value is treated as 1 for backward
+	// compatibility.
 	AlignmentMultiple uint64 `json:"alignment_multiple" msgpack:"alignment_multiple"`
 	cachedLength      *int64
 }
