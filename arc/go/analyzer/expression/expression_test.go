@@ -96,15 +96,15 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical AND on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := bool(0)
+					b bool := bool(1)
 					c := a and b
 				}
 			`),
 			Entry("logical OR on booleans", `
 				func testFunc() {
-					a u8 := 0
-					b u8 := 1
+					a bool := bool(0)
+					b bool := bool(1)
 					c := a or b
 				}
 			`),
@@ -423,7 +423,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("logical not on boolean", `
 				func testFunc() {
-					x u8 := 1
+					x bool := bool(1)
 					y := not x
 				}
 			`),
@@ -442,7 +442,7 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("double not", `
 				func testFunc() {
-					x u8 := 1
+					x bool := bool(1)
 					y := not not x
 				}
 			`),
@@ -572,9 +572,9 @@ var _ = Describe("Expressions", func() {
 			`),
 			Entry("chained logical operations", `
 				func testFunc() {
-					a u8 := 1
-					b u8 := 0
-					c u8 := 1
+					a bool := bool(1)
+					b bool := bool(0)
+					c bool := bool(1)
 					result := a and b or c
 					result2 := a or b and c
 				}
@@ -584,8 +584,8 @@ var _ = Describe("Expressions", func() {
 					x i32 := 10
 					y i32 := 20
 					z i32 := 30
-					a u8 := x < y
-					b u8 := y > z
+					a bool := x < y
+					b bool := y > z
 					result := a and b or (x + y == z)
 				}
 			`),
@@ -1071,7 +1071,7 @@ var _ = Describe("Expressions", func() {
 				},
 			}),
 			Entry("comparison", `
-				func testFunc() u8 {
+				func testFunc() bool {
 					return sensor > 100
 				}
 			`, symbol.MapResolver{
@@ -1103,10 +1103,49 @@ var _ = Describe("Expressions", func() {
 				},
 			}
 			expectFailure(ctx, `
-				func testFunc() u8 {
+				func testFunc() bool {
 					return sensor and 1
 				}
 			`, resolver, "cannot use f32 in and operation")
+		})
+
+		It("Should reject u8 operands in logical AND", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() bool {
+					a u8 := 1
+					b u8 := 0
+					return a and b
+				}
+			`, nil, "cannot use u8 in and operation")
+		})
+
+		It("Should reject u8 operands in logical OR", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() bool {
+					a u8 := 1
+					b u8 := 0
+					return a or b
+				}
+			`, nil, "cannot use u8 in or operation")
+		})
+
+		It("Should reject u8 operand in unary NOT", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() bool {
+					a u8 := 1
+					return not a
+				}
+			`, nil, "operator 'not' requires boolean operand")
+		})
+
+		It("Should reject NOT on a non-bool series element type", func(ctx SpecContext) {
+			expectFailure(ctx, `
+				func testFunc() bool {
+					s series u8 := [0, 1, 0]
+					t := not s
+					return t[0]
+				}
+			`, nil, "operator 'not' requires boolean operand")
 		})
 	})
 

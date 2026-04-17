@@ -498,7 +498,7 @@ func compileOutputAssignment(
 
 	// Write the appropriate store instruction based on type
 	switch scope.Type.Kind {
-	case types.KindI8, types.KindU8:
+	case types.KindI8, types.KindU8, types.KindBool:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store8, 0, 0)
 	case types.KindI16, types.KindU16:
 		ctx.Writer.WriteMemoryOp(wasm.OpI32Store16, 1, 0)

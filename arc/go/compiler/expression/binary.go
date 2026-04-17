@@ -205,13 +205,13 @@ func compileBinaryRelational(ctx context.Context[parser.IRelationalExpressionCon
 		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext]) (types.Type, error) {
@@ -252,7 +252,7 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 		if err := ctx.Resolver.EmitSeriesComparison(ctx.Writer, ctx.WriterID, op, elemType); err != nil {
 			return types.Type{}, err
 		}
-		return types.Series(types.U8()), nil
+		return types.Series(types.Bool()), nil
 	}
 
 	if hintType.Kind == types.KindString {
@@ -260,11 +260,11 @@ func compileBinaryEquality(ctx context.Context[parser.IEqualityExpressionContext
 		if op == "!=" {
 			ctx.Writer.WriteI32Eqz()
 		}
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if err = ctx.Writer.WriteBinaryOpInferred(op, hintType); err != nil {
 		return types.Type{}, err
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }

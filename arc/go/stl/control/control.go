@@ -32,7 +32,7 @@ var (
 				{Name: "channel", Type: types.WriteChan(types.Variable("T", nil)), Value: uint32(0)},
 			},
 			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8(), Value: uint8(0)},
+				{Name: ir.DefaultOutputParam, Type: types.Bool(), Value: uint8(0)},
 			},
 		}),
 	}

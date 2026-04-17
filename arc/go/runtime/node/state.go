@@ -255,6 +255,8 @@ func isSeriesTruthy(s telem.Series) bool {
 		return telem.ValueAt[uint16](s, -1) != 0
 	case telem.Uint8T:
 		return telem.ValueAt[uint8](s, -1) != 0
+	case telem.BoolT:
+		return telem.ValueAt[uint8](s, -1) != 0
 	case telem.TimeStampT:
 		return telem.ValueAt[telem.TimeStamp](s, -1) != 0
 	default:

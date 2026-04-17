@@ -238,13 +238,13 @@ func (r *Resolver) EmitSeriesNegate(w *wasm.Writer, wID int, elemType types.Type
 	r.emitCallWithSuffix(w, wID, "series.negate", ct, elemType.String())
 }
 
-// EmitSeriesNotU8 emits a call to series.not_u8.
-func (r *Resolver) EmitSeriesNotU8(w *wasm.Writer, wID int) {
+// EmitSeriesNotBool emits a call to series.not_bool.
+func (r *Resolver) EmitSeriesNotBool(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{
 		Inputs:  types.Params{{Type: types.I32()}},
 		Outputs: types.Params{{Type: types.I32()}},
 	})
-	r.EmitCall(w, wID, "series.not_u8", ct)
+	r.EmitCall(w, wID, "series.not_bool", ct)
 }
 
 // EmitSeriesLen emits a call to series.len.

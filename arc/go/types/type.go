@@ -15,6 +15,7 @@
 // Primitive Types:
 //   - Integer types: u8, u16, u32, u64, i8, i16, i32, i64
 //   - Floating-point types: f32, f64
+//   - Boolean type: bool (canonical {0, 1} byte, distinct from u8)
 //   - String type: str
 //
 // Compound Types:
@@ -233,6 +234,8 @@ func (t Type) String() string {
 		base = "f32"
 	case KindF64:
 		base = "f64"
+	case KindBool:
+		base = "bool"
 	case KindString:
 		return "str"
 	case KindChan:
@@ -327,6 +330,12 @@ func F32() Type { return Type{Kind: KindF32} }
 
 // F64 returns a 64-bit floating-point type.
 func F64() Type { return Type{Kind: KindF64} }
+
+// Bool returns a boolean type. A canonical bool sample is exactly 0x00 or 0x01;
+// in memory and on disk it shares u8's density of 1 byte per sample, but is
+// distinct from u8 in the type system so operators and channel codecs can
+// specialize on it.
+func Bool() Type { return Type{Kind: KindBool} }
 
 // String returns a UTF-8 string type.
 func String() Type { return Type{Kind: KindString} }
@@ -473,9 +482,9 @@ func (t Type) IsFloat() bool {
 	}
 }
 
-// IsBool returns true if the type is a boolean type (u8).
+// IsBool returns true if the type is a boolean type.
 func (t Type) IsBool() bool {
-	return t.Unwrap().Kind == KindU8
+	return t.Unwrap().Kind == KindBool
 }
 
 // Unwrap returns the value type of chan/series types, or the type itself otherwise.
@@ -581,7 +590,7 @@ func (t Type) Is64Bit() bool {
 // Density returns the size in bytes of the primitive type.
 func (t Type) Density() int {
 	switch t.Kind {
-	case KindU8, KindI8:
+	case KindU8, KindI8, KindBool:
 		return 1
 	case KindU16, KindI16:
 		return 2
@@ -602,7 +611,11 @@ var (
 	// Floats contains all floating-point types.
 	Floats = []Type{F32(), F64()}
 	// Numerics contains all numeric types (unsigned, signed, and floating-point).
+	// Bool is intentionally excluded; arithmetic on bool is not permitted.
 	Numerics = slices.Concat(UnsignedIntegers, SignedIntegers, Floats)
+	// Booleans contains the boolean type. Kept as a slice for symmetry with
+	// other type groupings and to simplify table-driven tests.
+	Booleans = []Type{Bool()}
 )
 
 // FromTelem converts a telemetry data type to an Arc type.
@@ -628,6 +641,8 @@ func FromTelem(t telem.DataType) Type {
 		return F32()
 	case telem.Float64T:
 		return F64()
+	case telem.BoolT:
+		return Bool()
 	case telem.StringT, telem.JSONT, telem.UUIDT:
 		return String()
 	case telem.TimeStampT:
@@ -656,6 +671,8 @@ func ToTelem(t Type) telem.DataType {
 		return telem.Float32T
 	case KindF64:
 		return telem.Float64T
+	case KindBool:
+		return telem.BoolT
 	case KindString:
 		return telem.StringT
 	case KindI8:

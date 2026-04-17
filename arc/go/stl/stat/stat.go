@@ -58,7 +58,7 @@ func createBaseSymbol(name string) symbol.Symbol {
 			},
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
-				{Name: resetInputParam, Type: types.U8(), Value: 0},
+				{Name: resetInputParam, Type: types.Bool(), Value: 0},
 			},
 			Outputs: types.Params{
 				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},

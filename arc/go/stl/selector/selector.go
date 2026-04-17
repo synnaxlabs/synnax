@@ -29,11 +29,11 @@ var (
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.U8()},
+				{Name: ir.DefaultOutputParam, Type: types.Bool()},
 			},
 			Outputs: types.Params{
-				{Name: "true", Type: types.U8()},
-				{Name: "false", Type: types.U8()},
+				{Name: "true", Type: types.Bool()},
+				{Name: "false", Type: types.Bool()},
 			},
 		}),
 	}

@@ -123,7 +123,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect(fnSym.Type.Kind).To(Equal(types.KindFunction))
 			Expect(fnSym.Type.Config).To(BeEmpty())
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
-			Expect(output.Type).To(Equal(types.U8()))
+			Expect(output.Type).To(Equal(types.Bool()))
 		})
 
 		It("should accumulate read channels from expression", func(bCtx SpecContext) {
@@ -155,7 +155,7 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			fnSym := MustSucceed(ctx.Scope.Resolve(ctx, "expression_0"))
 			Expect(fnSym.Kind).To(Equal(symbol.KindFunction))
 			output := MustBeOk(fnSym.Type.Outputs.Get(ir.DefaultOutputParam))
-			Expect(output.Type).To(Equal(types.U8()))
+			Expect(output.Type).To(Equal(types.Bool()))
 		})
 
 		It("should auto-increment expression names", func(bCtx SpecContext) {

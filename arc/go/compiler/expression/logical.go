@@ -43,7 +43,7 @@ func compileLogicalOrImpl(
 		normalizeBoolean(ctx)
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionContext]) (types.Type, error) {
@@ -76,7 +76,7 @@ func compileLogicalAndImpl(ctx context.Context[parser.ILogicalAndExpressionConte
 		ctx.Writer.WriteOpcode(wasm.OpEnd)
 	}
 
-	return types.U8(), nil
+	return types.Bool(), nil
 }
 
 // normalizeBoolean converts any non-zero i32 value to 1

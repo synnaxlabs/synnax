@@ -39,7 +39,7 @@ var userSymbols = symbol.MapResolver{
 		Kind: symbol.KindFunction,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Bool()}},
 			Config:  types.Params{{Name: "channel", Type: types.WriteChan(types.Variable("T", nil))}},
 		}),
 	},

@@ -191,6 +191,7 @@ public:
         bind_ops<int64_t>(linker, "i64", x::telem::INT64_T);
         bind_ops<float>(linker, "f32", x::telem::FLOAT32_T);
         bind_ops<double>(linker, "f64", x::telem::FLOAT64_T);
+        bind_ops<uint8_t>(linker, "bool", x::telem::BOOL_T);
         bind_str_ops(linker);
     }
 

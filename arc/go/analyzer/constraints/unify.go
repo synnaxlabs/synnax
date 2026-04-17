@@ -256,9 +256,11 @@ func (s *System) unifyTypeVariableWithVisited(
 			)
 		}
 	} else if tv.Constraint.Kind == types.KindIntegerConstant {
-		// Integer constraint: accepts any numeric type (for literal coercion)
-		// Integer literals can be coerced to floats: `x f32 := 42` is valid
-		if !checkType.IsNumeric() {
+		// Integer constraint: accepts any numeric type (for literal coercion).
+		// Integer literals can be coerced to floats (`x f32 := 42`) or to bool
+		// (`b bool := 1`); in the bool case the WASM layer normalizes the value
+		// to 0 or 1.
+		if !checkType.IsNumeric() && !checkType.IsBool() {
 			return errors.Wrapf(
 				ErrConstraintViolation,
 				"%v does not satisfy integer constraint",

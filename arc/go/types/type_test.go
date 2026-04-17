@@ -473,22 +473,25 @@ var _ = Describe("Types", func() {
 		})
 
 		Describe("IsBool", func() {
-			It("Should return true for U8", func() {
-				Expect(types.U8().IsBool()).To(BeTrue())
+			It("Should return true for Bool", func() {
+				Expect(types.Bool().IsBool()).To(BeTrue())
 			})
 
-			It("Should return false for other types", func() {
+			It("Should return false for other types, including U8", func() {
+				Expect(types.U8().IsBool()).To(BeFalse())
 				Expect(types.I32().IsBool()).To(BeFalse())
 				Expect(types.String().IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for channels", func() {
-				Expect(types.Chan(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.Bool()).IsBool()).To(BeTrue())
+				Expect(types.Chan(types.U8()).IsBool()).To(BeFalse())
 				Expect(types.Chan(types.I32()).IsBool()).To(BeFalse())
 			})
 
 			It("Should check value type for series", func() {
-				Expect(types.Series(types.U8()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.Bool()).IsBool()).To(BeTrue())
+				Expect(types.Series(types.U8()).IsBool()).To(BeFalse())
 				Expect(types.Series(types.I32()).IsBool()).To(BeFalse())
 			})
 		})
@@ -737,6 +740,7 @@ var _ = Describe("Types", func() {
 			Entry("Int64T", telem.Int64T, types.I64()),
 			Entry("Float32T", telem.Float32T, types.F32()),
 			Entry("Float64T", telem.Float64T, types.F64()),
+			Entry("BoolT", telem.BoolT, types.Bool()),
 			Entry("StringT", telem.StringT, types.String()),
 			Entry("JSONT", telem.JSONT, types.String()),
 			Entry("UUIDT", telem.UUIDT, types.String()),
@@ -762,6 +766,7 @@ var _ = Describe("Types", func() {
 			Entry("I64", types.I64(), telem.Int64T),
 			Entry("F32", types.F32(), telem.Float32T),
 			Entry("F64", types.F64(), telem.Float64T),
+			Entry("Bool", types.Bool(), telem.BoolT),
 			Entry("String", types.String(), telem.StringT),
 			Entry("TimeStamp", types.TimeStamp(), telem.TimeStampT),
 			Entry("TimeSpan", types.TimeSpan(), telem.TimeStampT),
@@ -783,6 +788,7 @@ var _ = Describe("Types", func() {
 			},
 			Entry("U8 -> 1 byte", types.U8(), 1),
 			Entry("I8 -> 1 byte", types.I8(), 1),
+			Entry("Bool -> 1 byte", types.Bool(), 1),
 			Entry("U16 -> 2 bytes", types.U16(), 2),
 			Entry("I16 -> 2 bytes", types.I16(), 2),
 			Entry("U32 -> 4 bytes", types.U32(), 4),

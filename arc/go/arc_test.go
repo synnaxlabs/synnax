@@ -189,7 +189,7 @@ sequence main {
 			"start_seq_cmd": arc.Symbol{
 				Name: "start_seq_cmd",
 				Kind: symbol.KindChannel,
-				Type: types.Chan(types.U8()),
+				Type: types.Chan(types.Bool()),
 				ID:   3,
 			},
 		})
@@ -221,11 +221,11 @@ sequence main {
 		mod := compile(ctx, `
 		start_seq_cmd => main
 
-		func expr(in f32) u8 {
+		func expr(in f32) bool {
 			return in > 2
 		}
 
-		func expr2(in f32) u8 {
+		func expr2(in f32) bool {
 			return in < 0.3
 		}
 
@@ -263,7 +263,7 @@ sequence main {
 				"start_seq_cmd": arc.Symbol{
 					Name: "start_seq_cmd",
 					Kind: symbol.KindChannel,
-					Type: types.Chan(types.U8()),
+					Type: types.Chan(types.Bool()),
 					ID:   3,
 				},
 			})

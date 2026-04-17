@@ -283,6 +283,7 @@ unitSuffix
 
 primitiveType
     : numericType
+    | BOOL
     | STR
     ;
 

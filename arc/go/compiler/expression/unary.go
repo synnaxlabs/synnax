@@ -56,16 +56,16 @@ func compileUnary(ctx context.Context[parser.IUnaryExpressionContext]) (types.Ty
 		if innerType.Kind == types.KindSeries {
 			if !innerType.IsBool() {
 				return types.Type{}, errors.Newf(
-					"logical NOT on series requires boolean (u8) element type, got %s",
+					"logical NOT on series requires boolean element type, got %s",
 					innerType.Unwrap(),
 				)
 			}
-			ctx.Resolver.EmitSeriesNotU8(ctx.Writer, ctx.WriterID)
+			ctx.Resolver.EmitSeriesNotBool(ctx.Writer, ctx.WriterID)
 			return innerType, nil
 		}
 
 		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
-		return types.U8(), nil
+		return types.Bool(), nil
 	}
 
 	if postfix := ctx.AST.PostfixExpression(); postfix != nil {

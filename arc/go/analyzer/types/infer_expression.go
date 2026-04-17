@@ -34,7 +34,7 @@ func InferFromExpression(ctx context.Context[parser.IExpressionContext]) types.T
 func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) types.Type {
 	ands := ctx.AST.AllLogicalAndExpression()
 	if len(ands) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(ands) == 1 {
 		return InferLogicalAnd(context.Child(ctx, ands[0]))
@@ -45,7 +45,7 @@ func InferLogicalOr(ctx context.Context[parser.ILogicalOrExpressionContext]) typ
 func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) types.Type {
 	equalities := ctx.AST.AllEqualityExpression()
 	if len(equalities) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(equalities) == 1 {
 		return InferEquality(context.Child(ctx, equalities[0]))
@@ -56,7 +56,7 @@ func InferLogicalAnd(ctx context.Context[parser.ILogicalAndExpressionContext]) t
 func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types.Type {
 	relExpressions := ctx.AST.AllRelationalExpression()
 	if len(relExpressions) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(relExpressions) == 1 {
 		return InferRelational(context.Child(ctx, relExpressions[0]))
@@ -67,7 +67,7 @@ func InferEquality(ctx context.Context[parser.IEqualityExpressionContext]) types
 func InferRelational(ctx context.Context[parser.IRelationalExpressionContext]) types.Type {
 	additives := ctx.AST.AllAdditiveExpression()
 	if len(additives) > 1 {
-		return types.U8()
+		return types.Bool()
 	}
 	if len(additives) == 1 {
 		return InferAdditive(context.Child(ctx, additives[0]))
@@ -246,7 +246,7 @@ func inferPrimaryType(ctx context.Context[parser.IPrimaryExpressionContext]) typ
 		text := id.GetText()
 		// Handle boolean literals (parsed as identifiers in the grammar)
 		if text == "true" || text == "false" {
-			return types.U8()
+			return types.Bool()
 		}
 		if varScope, err := ctx.Scope.Resolve(ctx, text); err == nil {
 			if varScope.Type.Kind != types.KindInvalid {

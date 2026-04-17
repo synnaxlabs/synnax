@@ -26,8 +26,16 @@ func compileTypeCast(
 	if !targetType.IsValid() {
 		return types.Type{}, errors.New("unknown cast target type")
 	}
-	// Pass the target type as a hint so literals can be emitted with the correct type directly
-	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
+	// Pass the target type as a hint so literals can be emitted with the correct
+	// type directly. Bool is an exception: a literal is never natively bool, so
+	// letting the literal take its natural numeric type and then emitting a
+	// numeric-to-bool normalization in EmitCast is simpler and keeps the cast
+	// matrix centralized.
+	hint := targetType
+	if targetType.Kind == types.KindBool {
+		hint = types.Type{}
+	}
+	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(hint))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -39,6 +47,9 @@ func compileTypeCast(
 
 func extractType(typeCtx parser.ITypeContext) types.Type {
 	if prim := typeCtx.PrimitiveType(); prim != nil {
+		if prim.BOOL() != nil {
+			return types.Bool()
+		}
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {
 				if intType.I8() != nil {
@@ -74,6 +85,16 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	from, to types.Type,
 ) error {
+	if from.Kind == to.Kind {
+		return nil
+	}
+	if to.Kind == types.KindBool {
+		return emitCastToBool(ctx, from)
+	}
+	if from.Kind == types.KindBool {
+		emitCastFromBool(ctx, to)
+		return nil
+	}
 	var (
 		fromWasm = wasm.ConvertType(from)
 		toWasm   = wasm.ConvertType(to)
@@ -126,4 +147,47 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	}
 	ctx.Writer.WriteOpcode(opCode)
 	return nil
+}
+
+// emitCastToBool normalizes any numeric value on the stack to canonical bool:
+// nonzero maps to 1, zero maps to 0. The result is always an i32.
+func emitCastToBool[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	from types.Type,
+) error {
+	switch wasm.ConvertType(from) {
+	case wasm.I32:
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
+	case wasm.I64:
+		ctx.Writer.WriteOpcode(wasm.OpI64Eqz)
+		ctx.Writer.WriteOpcode(wasm.OpI32Eqz)
+	case wasm.F32:
+		ctx.Writer.WriteF32Const(0)
+		ctx.Writer.WriteOpcode(wasm.OpF32Ne)
+	case wasm.F64:
+		ctx.Writer.WriteF64Const(0)
+		ctx.Writer.WriteOpcode(wasm.OpF64Ne)
+	default:
+		return errors.Newf("cannot cast %s to bool", from)
+	}
+	return nil
+}
+
+// emitCastFromBool widens a canonical bool (i32 0 or 1 on the stack) to a
+// numeric type. Since bool bytes are already canonical, no normalization is
+// needed, only any width/representation conversion.
+func emitCastFromBool[ASTNode antlr.ParserRuleContext](
+	ctx context.Context[ASTNode],
+	to types.Type,
+) {
+	switch wasm.ConvertType(to) {
+	case wasm.I32:
+	case wasm.I64:
+		ctx.Writer.WriteOpcode(wasm.OpI64ExtendI32U)
+	case wasm.F32:
+		ctx.Writer.WriteOpcode(wasm.OpF32ConvertI32U)
+	case wasm.F64:
+		ctx.Writer.WriteOpcode(wasm.OpF64ConvertI32U)
+	}
 }

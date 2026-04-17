@@ -111,6 +111,89 @@ var _ = Describe("Type Cast Compilation", func() {
 			int32(42),
 			OpF32ConvertI32U,
 		),
+
+		// Bool casts (RFC 0036 §3.6). Numeric-to-bool normalizes to canonical
+		// 0/1 via double-eqz (i32/i64), or != 0 (floats). Bool-to-numeric is
+		// a no-op for i32 and a widen/convert for larger types.
+		Entry(
+			"i32 to bool - nonzero",
+			"bool(i32(5))",
+			types.Bool(),
+			OpI32Const,
+			int32(5),
+			OpI32Eqz,
+			OpI32Eqz,
+		),
+		Entry(
+			"i32 to bool - zero",
+			"bool(i32(0))",
+			types.Bool(),
+			OpI32Const,
+			int32(0),
+			OpI32Eqz,
+			OpI32Eqz,
+		),
+		Entry(
+			"i64 to bool",
+			"bool(i64(42))",
+			types.Bool(),
+			OpI64Const,
+			int64(42),
+			OpI64Eqz,
+			OpI32Eqz,
+		),
+		Entry(
+			"f32 to bool",
+			"bool(f32(3.14))",
+			types.Bool(),
+			OpF32Const,
+			float32(3.14),
+			OpF32Const,
+			float32(0),
+			OpF32Ne,
+		),
+		Entry(
+			"f64 to bool",
+			"bool(f64(2.71))",
+			types.Bool(),
+			OpF64Const,
+			float64(2.71),
+			OpF64Const,
+			float64(0),
+			OpF64Ne,
+		),
+		// The inner integer literal of a bool cast defaults to i64 (no hint
+		// is passed through so the literal takes its natural type), which is
+		// then normalized to an i32 bool via OpI64Eqz/OpI32Eqz.
+		Entry(
+			"bool to i32",
+			"i32(bool(1))",
+			types.I32(),
+			OpI64Const,
+			int64(1),
+			OpI64Eqz,
+			OpI32Eqz,
+		),
+		Entry(
+			"bool to i64",
+			"i64(bool(1))",
+			types.I64(),
+			OpI64Const,
+			int64(1),
+			OpI64Eqz,
+			OpI32Eqz,
+			OpI64ExtendI32U,
+		),
+		Entry(
+			"bool to f64",
+			"f64(bool(1))",
+			types.F64(),
+			OpI64Const,
+			int64(1),
+			OpI64Eqz,
+			OpI32Eqz,
+			OpF64ConvertI32U,
+		),
 	)
 
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {

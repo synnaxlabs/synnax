@@ -1380,7 +1380,7 @@ sequence main {
 	Describe("Sequence Stages and Flow Operators", func() {
 		It("Should compile sequences with stage targets and mixed flow operators", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func threshold{} (val f32) u8 {
+			func threshold{} (val f32) bool {
 				return val > 100
 			}
 

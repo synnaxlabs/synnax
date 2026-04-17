@@ -26,10 +26,13 @@ const (
 	EntryActivationParam = "activate"
 )
 
-// EntryNodeInputs defines the input parameters for stage entry nodes.
+// EntryNodeInputs defines the input parameters for stage entry nodes. The
+// activation signal is a bool; any upstream source feeding the transition (a
+// boolean condition or a bool channel) must type-match. Numeric sources can be
+// normalized explicitly via bool(x) at the flow site.
 var EntryNodeInputs = types.Params{{
 	Name:  EntryActivationParam,
-	Type:  types.U8(),
+	Type:  types.Bool(),
 	Value: uint8(0),
 }}
 

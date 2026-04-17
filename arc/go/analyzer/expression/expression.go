@@ -645,5 +645,14 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
 	}
+	// Bool participates in the numeric cast matrix: any numeric can be normalized
+	// to bool (nonzero -> 1), and bool widens directly to any numeric (canonical
+	// 0 or 1 bytes are valid in every integer and float representation).
+	if source.IsBool() && target.IsNumeric() {
+		return true
+	}
+	if source.IsNumeric() && target.IsBool() {
+		return true
+	}
 	return source.IsNumeric() && target.IsNumeric()
 }
