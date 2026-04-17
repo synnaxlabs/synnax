@@ -75,13 +75,18 @@ Integer literals default to `i64`. Float literals default to `f64`.
 Unit suffixes attach directly to numbers (no whitespace):
 
 ```arc
-100ms // 100 milliseconds (i64)
-5s // 5 seconds (i64)
-1min // 1 minute (i64)
-2h // 2 hours (i64)
-10hz // 10 Hz frequency (converts to 100ms period)
-1khz // 1 kHz frequency (converts to 1ms period)
+100ms // 100 milliseconds
+5s    // 5 seconds
+1min  // 1 minute
+2h    // 2 hours
+10hz  // 10 hertz
+1khz  // 1 kilohertz
 ```
+
+A suffix tags the literal with a dimensioned unit from the built-in registry. The
+compiler tracks dimensions (time, frequency, length, pressure, etc.) but does not
+implicitly convert between them. A `10hz` value is a frequency and will not satisfy a
+parameter that expects a time span.
 
 | Temporal Units | Meaning      |
 | -------------- | ------------ |

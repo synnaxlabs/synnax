@@ -27,10 +27,10 @@ A channel in Arc references a channel that exists in your Synnax cluster. You do
 declare channels. Just use them by name:
 
 ```arc
-// Read from a pressure transducer
-value := tank_pressure
-// Write to a valve command
-valve_cmd = 1
+// Read from a pressure transducer and scale it into another channel
+tank_pressure -> scale{factor=2.0} -> pressure_scaled
+// Write a fixed value to a valve command
+1 -> valve_cmd
 ```
 
 Channel names follow the same conventions as Synnax channels: start with a letter or
@@ -94,8 +94,8 @@ Channels can be passed to functions through config parameters:
 func monitor{sensor chan f64, limit f64} () u8 {
     return sensor > limit
 }
-// Wire it up
-monitor{sensor=tank_pressure, limit=500.0}
+// Wire it up on a 50ms cadence
+interval{period=50ms} -> monitor{sensor=tank_pressure, limit=500.0} -> pressure_high
 ```
 
 This lets you write reusable functions that work with different channels.

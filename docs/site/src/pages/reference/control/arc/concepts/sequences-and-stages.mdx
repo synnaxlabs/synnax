@@ -382,21 +382,3 @@ emergency_stop => abort
 Notice that safety conditions are listed before success conditions in each stage. The
 `abort` sequence can be triggered from any stage or from the `emergency_stop` button.
 Transitioning to `abort` leaves the `main` sequence entirely.
-
-<Divider.Divider x />
-
-## Direct Assignments
-
-Inside stages, you can use both flow syntax and direct assignment:
-
-```arc
-stage pressurize {
-    // Flow syntax: reactive pipeline
-    sensor -> filter{} -> display
-    // Direct assignment: equivalent to "1 -> valve_cmd"
-    valve_cmd = 1
-}
-```
-
-Direct assignments behave like constant flows. They continuously set the value while the
-stage is active. Use whichever is clearer for your use case.
