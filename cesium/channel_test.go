@@ -138,6 +138,47 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 			})
 
+			Describe("Variable Channel Lifecycle", func() {
+				It("Should create and retrieve a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-lc-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-lc-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					ch := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(ch.DataType).To(Equal(telem.StringT))
+					Expect(ch.Name).To(Equal("var-lc-str"))
+				})
+				It("Should rename a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-rn-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-rn-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.RenameChannel(ctx, data, "renamed")).To(Succeed())
+					ch := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(ch.Name).To(Equal("renamed"))
+				})
+				It("Should delete a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-del-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-del-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.DeleteChannel(data)).To(Succeed())
+					Expect(db.RetrieveChannel(ctx, data)).Error().To(MatchError(cesium.ErrChannelNotFound))
+				})
+			})
+
 			Describe("Rekey", func() {
 				var (
 					unaryKey      = GenerateChannelKey()

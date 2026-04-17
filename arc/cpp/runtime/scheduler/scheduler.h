@@ -55,8 +55,6 @@ class Scheduler {
         bool conditional;
     };
 
-    struct ScopeState;
-
     /// @brief per-output propagation table built at construction and indexed
     /// by the node-local output ordinal. Hot-path access is pure array
     /// indexing.
@@ -105,7 +103,7 @@ class Scheduler {
     /// for one scope.
     struct ScopeState {
         /// @brief static IR scope this state mirrors.
-        const ir::Scope *ir = nullptr;
+        ir::Scope ir;
         /// @brief gates whether walk descends into this scope.
         bool active = false;
         /// @brief running sequential step's index, or NO_INDEX when
@@ -240,7 +238,7 @@ private:
     /// @brief executes one pass over a scope; no-op if inactive.
     void walk(ScopeState &state) {
         if (!state.active) return;
-        if (state.ir->mode == ir::ScopeMode::Sequential) {
+        if (state.ir.mode == ir::ScopeMode::Sequential) {
             this->walk_sequential(state);
             return;
         }
@@ -248,10 +246,10 @@ private:
     }
 
     /// @brief runs every member of a parallel scope in stratum order.
-    /// Members are stored stratum-flattened in state.members; state.ir->strata
+    /// Members are stored stratum-flattened in state.members; state.ir.strata
     /// is read only for the stratum-index argument passed to execute_member.
     void walk_parallel(ScopeState &state) {
-        const auto &strata = state.ir->strata;
+        const auto &strata = state.ir.strata;
         size_t flat = 0;
         for (size_t stratum_idx = 0; stratum_idx < strata.size(); ++stratum_idx)
             for (size_t i = 0; i < strata[stratum_idx].size(); ++i)
@@ -316,7 +314,7 @@ private:
         if (state.active_step == NO_INDEX ||
             state.active_step >= state.transitions_for_step.size())
             return false;
-        const auto &transitions = state.ir->transitions;
+        const auto &transitions = state.ir.transitions;
         for (const size_t i: state.transitions_for_step[state.active_step]) {
             const size_t handle_idx = state.transition_on_idx[i];
             if (handle_idx == NO_INDEX || !this->marked_flags[handle_idx]) continue;
@@ -347,7 +345,7 @@ private:
     /// fire via mark_changed.
     void activate_scope(ScopeState &state) {
         state.active = true;
-        if (state.ir->mode == ir::ScopeMode::Sequential) {
+        if (state.ir.mode == ir::ScopeMode::Sequential) {
             if (!state.members.empty()) this->activate_sequential_step(state, 0);
             return;
         }
@@ -358,8 +356,8 @@ private:
             }
             if (m.scope == NO_INDEX) continue;
             auto &child = this->scopes[m.scope];
-            if (child.ir->liveness == ir::Liveness::Gated &&
-                !child.ir->activation.has_value())
+            if (child.ir.liveness == ir::Liveness::Gated &&
+                !child.ir.activation.has_value())
                 this->activate_scope(child);
         }
     }
@@ -391,7 +389,7 @@ private:
     /// leaf-node members. Does not recurse — nested scope state freezes
     /// until the next activation overwrites it.
     void deactivate_scope(ScopeState &state) {
-        if (state.ir->mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
+        if (state.ir.mode == ir::ScopeMode::Sequential) state.active_step = NO_INDEX;
         for (auto &m: state.members)
             this->clear_leaf_node_self_changed(m);
         state.active = false;
@@ -410,9 +408,9 @@ private:
     /// immediately before the call.
     void mark_changed(const size_t output_idx) {
         DCHECK(this->curr_node != NO_INDEX);
-        auto &n = this->nodes[this->curr_node];
+        const auto &n = this->nodes[this->curr_node];
         if (output_idx >= n.outputs.size()) return;
-        auto &out = n.outputs[output_idx];
+        const auto &out = n.outputs[output_idx];
         const bool truthy = n.node->is_output_truthy(output_idx);
         if (truthy && out.mark_handle_idx != NO_INDEX)
             this->marked_flags[out.mark_handle_idx] = 1;
@@ -449,7 +447,7 @@ public:
         this->populate_nodes(node_impls);
         this->wire_edges();
         s.scopes.reserve(count_scopes(s.prog.root));
-        const size_t root_idx = this->build_scope_state(&s.prog.root);
+        const size_t root_idx = this->build_scope_state(s.prog.root);
         this->register_scope(root_idx);
         s.marked_flags.assign(this->next_handle_idx, 0);
         s.activate_scope(s.scopes[root_idx]);
@@ -549,7 +547,7 @@ private:
     /// tree into Scheduler::scopes and returns its index. The returned
     /// state is inert — activation runs only after build completes, via
     /// Scheduler::activate_scope on the root.
-    size_t build_scope_state(const ir::Scope *sc) {
+    size_t build_scope_state(const ir::Scope &sc) {
         const size_t this_idx{this->s->scopes.size()};
         this->s->scopes.emplace_back();
         this->s->scopes[this_idx].ir = sc;
@@ -560,19 +558,19 @@ private:
             if (m.node_key.has_value()) {
                 ms.node = this->lookup_node(*m.node_key);
             } else if (m.scope) {
-                ms.scope = this->build_scope_state(&*m.scope);
+                ms.scope = this->build_scope_state(*m.scope);
             }
             // Re-index rather than holding a reference across the recursion,
             // which may push onto scopes.
             this->s->scopes[this_idx].members.push_back(std::move(ms));
         };
 
-        if (sc->mode == ir::ScopeMode::Parallel) {
-            for (const auto &stratum: sc->strata)
+        if (sc.mode == ir::ScopeMode::Parallel) {
+            for (const auto &stratum: sc.strata)
                 for (const auto &m: stratum)
                     append_member(m);
-        } else if (sc->mode == ir::ScopeMode::Sequential) {
-            for (const auto &m: sc->steps)
+        } else if (sc.mode == ir::ScopeMode::Sequential) {
+            for (const auto &m: sc.steps)
                 append_member(m);
         }
 
@@ -589,19 +587,19 @@ private:
     /// size_t so it can record it into OutputResolved::activates.
     void register_scope(const size_t idx) {
         auto &state = this->s->scopes[idx];
-        if (state.ir->liveness == ir::Liveness::Gated &&
-            state.ir->activation.has_value()) {
-            if (const size_t src = this->lookup_node(state.ir->activation->node);
+        if (state.ir.liveness == ir::Liveness::Gated &&
+            state.ir.activation.has_value()) {
+            if (const size_t src = this->lookup_node(state.ir.activation->node);
                 src != NO_INDEX) {
                 auto &src_node = this->s->nodes[src];
                 const size_t out_idx = this->get_or_create_output(
                     src_node,
-                    state.ir->activation->param
+                    state.ir.activation->param
                 );
                 src_node.outputs[out_idx].activates.push_back(idx);
             }
         }
-        if (state.ir->mode == ir::ScopeMode::Sequential)
+        if (state.ir.mode == ir::ScopeMode::Sequential)
             this->resolve_transitions(state);
         for (auto &m: state.members)
             if (m.scope != NO_INDEX) this->register_scope(m.scope);
@@ -622,7 +620,7 @@ private:
         for (size_t i = 0; i < state.members.size(); ++i)
             collect_member_nodes(state.members[i], i, node_to_member);
 
-        const auto &transitions = state.ir->transitions;
+        const auto &transitions = state.ir.transitions;
         state.transition_owner.assign(transitions.size(), NO_INDEX);
         state.transition_on_idx.assign(transitions.size(), NO_INDEX);
         state.transition_on_node.assign(transitions.size(), NO_INDEX);

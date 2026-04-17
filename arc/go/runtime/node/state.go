@@ -125,7 +125,7 @@ type inputEntry struct {
 	consumed      bool
 }
 
-// Node provides node-specific access to state, handling input alignment and
+// State provides node-specific access to state, handling input alignment and
 // output storage.
 type State struct {
 	ir struct {

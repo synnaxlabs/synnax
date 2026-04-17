@@ -70,13 +70,11 @@ func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, err
 // retrieveChannel retrieves a channel from the database. This method is not safe for
 // concurrent use, and the db must be locked before calling.
 func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error) {
-	uCh, uOk := db.mu.unaryDBs[key]
-	if uOk {
-		return uCh.Channel(), nil
+	if u, ok := db.mu.dbs.unary[key]; ok {
+		return u.Channel(), nil
 	}
-	vCh, vOk := db.mu.virtualDBs[key]
-	if vOk {
-		return vCh.Channel(), nil
+	if v, ok := db.mu.dbs.virtual[key]; ok {
+		return v.Channel(), nil
 	}
 	return Channel{}, channel.NewNotFoundError(key)
 }
@@ -109,29 +107,26 @@ func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string)
 	return db.renameChannel(ctx, key, newName)
 }
 
-// RenameChannel renames the channel with the specified key to newName.
+// RenameChannel renames the channel with the specified key to newName. There is a
+// race condition here: one could rename a channel while it is being read or streamed
+// from or written to. We choose to not address this since the name is purely
+// decorative in Cesium and not used to identify channels whereas the key is the
+// unique identifier. The same goes for the virtual database.
 func (db *DB) renameChannel(ctx context.Context, key ChannelKey, newName string) error {
-	udb, uok := db.mu.unaryDBs[key]
-	if uok {
-		// There is a race condition here: one could rename a channel while it is being
-		// read or streamed from or written to. We choose to not address this since the
-		// name is purely decorative in Cesium and not used to identify channels whereas
-		// the key is the unique identifier. The same goes for the virtual database.
-		if err := udb.RenameChannelInMeta(ctx, newName); err != nil {
+	if u, ok := db.mu.dbs.unary[key]; ok {
+		if err := u.RenameChannelInMeta(ctx, newName); err != nil {
 			return err
 		}
-		db.mu.unaryDBs[key] = udb
+		db.mu.dbs.unary[key] = u
 		return nil
 	}
-	vdb, vok := db.mu.virtualDBs[key]
-	if vok {
-		if err := vdb.RenameChannel(ctx, newName); err != nil {
+	if v, ok := db.mu.dbs.virtual[key]; ok {
+		if err := v.RenameChannel(ctx, newName); err != nil {
 			return err
 		}
-		db.mu.virtualDBs[key] = vdb
+		db.mu.dbs.virtual[key] = v
 		return nil
 	}
-
 	return channel.NewNotFoundError(key)
 }
 
@@ -166,8 +161,8 @@ func (db *DB) validateNewChannel(ch Channel) error {
 	if err := ch.Validate(); err != nil {
 		return err
 	}
-	_, unaryExists := db.mu.unaryDBs[ch.Key]
-	_, virtualExists := db.mu.virtualDBs[ch.Key]
+	_, unaryExists := db.mu.dbs.unary[ch.Key]
+	_, virtualExists := db.mu.dbs.virtual[ch.Key]
 	if unaryExists || virtualExists {
 		return errors.Wrapf(validate.ErrValidation, "cannot create channel %v because it already exists", ch)
 	}
@@ -175,7 +170,7 @@ func (db *DB) validateNewChannel(ch Channel) error {
 		return nil
 	}
 	if ch.Index != 0 && !ch.IsIndex {
-		indexDB, ok := db.mu.unaryDBs[ch.Index]
+		indexDB, ok := db.mu.dbs.unary[ch.Index]
 		if !ok {
 			return validate.PathedError(indexChannelNotFoundError(ch.Index), "index")
 		}
@@ -196,9 +191,13 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
-	_, uOk := db.mu.unaryDBs[newKey]
-	_, vOk := db.mu.virtualDBs[newKey]
-	if uOk || vOk {
+	if _, ok := db.mu.dbs.unary[newKey]; ok {
+		return errors.Newf(
+			"cannot rekey channel to %d since a channel with the same key already exists in the database",
+			newKey,
+		)
+	}
+	if _, ok := db.mu.dbs.virtual[newKey]; ok {
 		return errors.Newf(
 			"cannot rekey channel to %d since a channel with the same key already exists in the database",
 			newKey,
@@ -207,9 +206,8 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 
 	oldDir := keyToDirName(oldKey)
 	newDir := keyToDirName(newKey)
-	uDB, uOk := db.mu.unaryDBs[oldKey]
-	if uOk {
-		if err := uDB.Close(); err != nil {
+	if u, ok := db.mu.dbs.unary[oldKey]; ok {
+		if err := u.Close(); err != nil {
 			return err
 		}
 		if err := db.fs.Rename(oldDir, newDir); err != nil {
@@ -219,7 +217,7 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		if err != nil {
 			return err
 		}
-		newCh := uDB.Channel()
+		newCh := u.Channel()
 		newCh.Key = newKey
 		if newCh.IsIndex {
 			newCh.Index = newKey
@@ -236,29 +234,26 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
 			return err
 		}
-		delete(db.mu.unaryDBs, oldKey)
-		db.mu.unaryDBs[newKey] = *newDB
+		delete(db.mu.dbs.unary, oldKey)
+		db.mu.dbs.unary[newKey] = *newDB
 
-		// If the DB is an index channel, we need to update the databases that depend on
-		// this channel.
-		if uDB.Channel().IsIndex {
-			for otherDBKey := range db.mu.unaryDBs {
-				otherDB := db.mu.unaryDBs[otherDBKey]
-				// If the other database uses this channel as its index, and it's not
-				// the index itself.
+		// If the DB is an index channel, update every unary DB that referenced the
+		// old key as its index.
+		if u.Channel().IsIndex {
+			for otherDBKey := range db.mu.dbs.unary {
+				otherDB := db.mu.dbs.unary[otherDBKey]
 				if otherDB.Channel().Index == oldKey && otherDBKey != newKey {
 					if err = otherDB.SetIndexKeyInMeta(ctx, newKey); err != nil {
 						return err
 					}
 					otherDB.SetIndex((*newDB).Index())
-					db.mu.unaryDBs[otherDBKey] = otherDB
+					db.mu.dbs.unary[otherDBKey] = otherDB
 				}
 			}
 		}
 		return nil
 	}
-	vDB, vOk := db.mu.virtualDBs[oldKey]
-	if vOk {
+	if vDB, ok := db.mu.dbs.virtual[oldKey]; ok {
 		if err := vDB.Close(); err != nil {
 			return err
 		}
@@ -283,8 +278,8 @@ func (db *DB) RekeyChannel(ctx context.Context, oldKey ChannelKey, newKey channe
 		if err = newDB.SetChannelKeyInMeta(ctx, newKey); err != nil {
 			return err
 		}
-		delete(db.mu.virtualDBs, oldKey)
-		db.mu.virtualDBs[newKey] = *newDB
+		delete(db.mu.dbs.virtual, oldKey)
+		db.mu.dbs.virtual[newKey] = *newDB
 	}
 
 	return nil
