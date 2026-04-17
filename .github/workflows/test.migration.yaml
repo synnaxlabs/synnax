@@ -56,7 +56,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Build client wheels
         run: |
@@ -112,13 +112,13 @@ jobs:
         run: integration/scripts/download_artifacts_unix.sh
 
       - name: Download Client Wheels
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: synnax-client-wheels
           path: ~/synnax-wheels
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Set up Python
         uses: actions/setup-python@v6

@@ -486,7 +486,7 @@ jobs:
 
       - name: Upload Driver to Release
         if: inputs.driver && inputs.upload_to_release
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -662,7 +662,7 @@ jobs:
 
       - name: Upload Core to Release
         if: inputs.core && inputs.upload_to_release
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -900,7 +900,7 @@ jobs:
 
       - name: Upload macOS Release Assets
         if: inputs.upload_to_release && startsWith(matrix.os, 'macos')
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
