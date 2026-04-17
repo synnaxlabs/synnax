@@ -29,17 +29,15 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
-export const pendingUploadZ = z
-  .object({
-    version: z.string(),
-    nodes: z.array(z.unknown()),
-    edges: z.array(z.unknown()),
-    props: z.record(z.string(), z.unknown()),
-    legend: z.unknown().optional(),
-    snapshot: z.boolean(),
-    authority: z.number().optional(),
-  })
-  .optional();
+export const pendingUploadZ = z.object({
+  version: z.string(),
+  nodes: z.array(z.unknown()),
+  edges: z.array(z.unknown()),
+  props: z.record(z.string(), z.unknown()),
+  legend: z.unknown().optional(),
+  snapshot: z.boolean(),
+  authority: z.number().optional(),
+});
 export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
@@ -52,7 +50,7 @@ export const stateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
   viewport: viewportZ,
-  pendingUpload: pendingUploadZ,
+  pendingUpload: pendingUploadZ.optional(),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
@@ -92,17 +90,15 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     editable: state.editable,
     fitViewOnResize: state.fitViewOnResize,
     viewport: state.viewport,
-    pendingUpload: state.remoteCreated
-      ? undefined
-      : {
-          version: state.version,
-          nodes: state.nodes,
-          edges: state.edges,
-          props: state.props,
-          legend: state.legend,
-          snapshot: state.snapshot,
-          authority: state.authority,
-        },
+    pendingUpload: {
+      version: state.version,
+      nodes: state.nodes,
+      edges: state.edges,
+      props: state.props,
+      legend: state.legend,
+      snapshot: state.snapshot,
+      authority: state.authority,
+    },
   }),
 });
 

@@ -31,8 +31,10 @@ type Writer struct {
 	actionObserver observe.Observer[ScopedAction]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given schematic within the workspace provided. If ws is
+// uuid.Nil, the schematic is created as an orphan with no parent workspace
+// relationship. If the schematic does not have a key, a new key will be
+// generated.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -56,6 +58,9 @@ func (w Writer) Create(
 	otgID := OntologyID(s.Key)
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
+	}
+	if ws == uuid.Nil {
+		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,

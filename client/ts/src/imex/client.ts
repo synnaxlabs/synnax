@@ -12,17 +12,16 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const envelopeZ = z.object({
+export const envelopeZ = z.looseObject({
   version: z.union([z.number(), z.string()]),
   type: z.string(),
   key: z.string(),
   name: z.string().default(""),
-  data: z.record(z.string(), z.unknown()).default({}),
 });
-export interface Envelope extends z.input<typeof envelopeZ> {}
+export type Envelope = z.input<typeof envelopeZ>;
 
 const importReqZ = z.object({
-  parent: ontology.idZ,
+  parent: ontology.idZ.optional(),
   resources: envelopeZ.array(),
 });
 const importResZ = z.object({});
@@ -37,11 +36,14 @@ export class Client {
     this.client = client;
   }
 
-  async import_(parent: ontology.ID, resources: Envelope[]): Promise<void> {
+  async import_(
+    parent: ontology.ID | null,
+    resources: Envelope[],
+  ): Promise<void> {
     await sendRequired(
       this.client,
-      "/api/v1/import",
-      { parent, resources },
+      "/import",
+      { parent: parent ?? undefined, resources },
       importReqZ,
       importResZ,
     );
@@ -50,7 +52,7 @@ export class Client {
   async export_(resources: ontology.ID[]): Promise<Envelope[]> {
     const res = await sendRequired(
       this.client,
-      "/api/v1/export",
+      "/export",
       { resources },
       exportReqZ,
       exportResZ,

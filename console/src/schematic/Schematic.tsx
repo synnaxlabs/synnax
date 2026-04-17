@@ -53,12 +53,12 @@ import {
   setEditable,
   setFitViewOnResize,
   setSelected,
-  type StoreState,
   setViewport,
+  type StoreState,
 } from "@/schematic/slice";
-import { Workspace } from "@/workspace";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { Selector } from "@/selector";
+import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
 
@@ -129,18 +129,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     selectPendingUpload(state, layoutKey),
   );
   useEffect(() => {
-    if (pendingUpload == null || client == null || workspaceKey == null) return;
-    const parent: ontology.ID = { type: "workspace", key: workspaceKey };
+    console.log(pendingUpload, client);
+    if (pendingUpload == null || client == null) return;
+    const parent: ontology.ID | null =
+      workspaceKey != null ? { type: "workspace", key: workspaceKey } : null;
     const envelope = {
-      version: pendingUpload.version,
+      ...pendingUpload,
       type: "schematic",
       key: layoutKey,
       name,
-      ...pendingUpload,
     };
-    void client.imex.import_(parent, [envelope]).then(() => {
-      dispatch(clearPendingUpload({ key: layoutKey }));
-    });
+    void client.imex
+      .import_(parent, [envelope])
+      .then(() => dispatch(clearPendingUpload({ key: layoutKey })))
+      .catch((err) => console.error("[schematic] upload failed", err));
   }, [pendingUpload, client, workspaceKey, layoutKey, name, dispatch]);
 
   const hasUpdatePermission =

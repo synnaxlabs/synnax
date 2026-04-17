@@ -43,9 +43,12 @@ func (s *Service) Import(
 	if err != nil {
 		key = uuid.New()
 	}
-	wsKey, err := uuid.Parse(parent.Key)
-	if err != nil {
-		return err
+	var wsKey uuid.UUID
+	if !parent.IsZero() {
+		wsKey, err = uuid.Parse(parent.Key)
+		if err != nil {
+			return err
+		}
 	}
 	name := env.Name
 	if name == "" {
