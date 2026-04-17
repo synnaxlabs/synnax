@@ -24,6 +24,10 @@ message Series {
   string data_type = 2;
   bytes data = 3;
   uint64 alignment = 4;
+  // alignment_multiple is the number of native samples represented by each
+  // sample in this series. 0 on the wire is interpreted as 1 (native
+  // resolution) for backward compatibility.
+  uint64 alignment_multiple = 5;
 }
 
 message Frame {

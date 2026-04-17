@@ -35,13 +35,14 @@ const (
 )
 
 type Series struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TimeRange     *TimeRange             `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
-	DataType      string                 `protobuf:"bytes,2,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
-	Data          []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
-	Alignment     uint64                 `protobuf:"varint,4,opt,name=alignment,proto3" json:"alignment,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	TimeRange         *TimeRange             `protobuf:"bytes,1,opt,name=time_range,json=timeRange,proto3" json:"time_range,omitempty"`
+	DataType          string                 `protobuf:"bytes,2,opt,name=data_type,json=dataType,proto3" json:"data_type,omitempty"`
+	Data              []byte                 `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
+	Alignment         uint64                 `protobuf:"varint,4,opt,name=alignment,proto3" json:"alignment,omitempty"`
+	AlignmentMultiple uint64                 `protobuf:"varint,5,opt,name=alignment_multiple,json=alignmentMultiple,proto3" json:"alignment_multiple,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Series) Reset() {
@@ -98,6 +99,13 @@ func (x *Series) GetData() []byte {
 func (x *Series) GetAlignment() uint64 {
 	if x != nil {
 		return x.Alignment
+	}
+	return 0
+}
+
+func (x *Series) GetAlignmentMultiple() uint64 {
+	if x != nil {
+		return x.AlignmentMultiple
 	}
 	return 0
 }

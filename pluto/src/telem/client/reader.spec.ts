@@ -43,8 +43,8 @@ export class MockRetriever implements channel.Retriever {
 
 const basicRemoteReadFunc =
   (fn: Mock): ReadRemoteFunc =>
-  async (tr, keys) => {
-    fn(tr, keys);
+  async (tr, keys, fidelity) => {
+    fn(tr, keys, fidelity);
     return new Frame(
       keys,
       keys.map(
@@ -52,6 +52,7 @@ const basicRemoteReadFunc =
           new Series({
             data: new Float32Array([1, 2, 3]),
             alignment: 0n,
+            alignmentMultiple: fidelity,
             timeRange: tr,
           }),
       ),
@@ -78,7 +79,7 @@ describe("read", () => {
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     const res = await reader.read(tr, 1);
     expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 1n);
     expect(res.length).toEqual(3);
     expect(res.at(0)).toEqual(1);
     expect(() => cache.get(1)).not.toThrow();
@@ -95,7 +96,7 @@ describe("read", () => {
     });
     const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
     const res = await reader.read(tr, 1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1]);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 1n);
     expect(res).toHaveLength(3);
     expect(res.at(0)).toEqual(1);
     const res2 = await reader.read(tr, 1);
@@ -120,7 +121,7 @@ describe("read", () => {
       reader.read(tr, 5),
     ]);
     expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(tr, [1, 2, 3, 4, 5]);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1, 2, 3, 4, 5], 1n);
     expect(res[0]).toHaveLength(3);
     expect(res[1]).toHaveLength(3);
     expect(res[2]).toHaveLength(3);
@@ -146,8 +147,8 @@ describe("read", () => {
       reader.read(tr2, 5),
     ]);
     expect(remoteReadF).toHaveBeenCalledTimes(2);
-    expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2]);
-    expect(remoteReadF).toHaveBeenCalledWith(tr2, [3, 4, 5]);
+    expect(remoteReadF).toHaveBeenCalledWith(tr1, [1, 2], 1n);
+    expect(remoteReadF).toHaveBeenCalledWith(tr2, [3, 4, 5], 1n);
     expect(res[0]).toHaveLength(3);
     expect(res[0].timeRange.equals(tr1)).toBe(true);
     expect(res[1]).toHaveLength(3);
@@ -158,6 +159,72 @@ describe("read", () => {
     expect(res[3].timeRange.equals(tr2)).toBe(true);
     expect(res[4]).toHaveLength(3);
     expect(res[4].timeRange.equals(tr2)).toBe(true);
+  });
+
+  it("should pass native fidelity by default when fidelity is omitted", async () => {
+    const cache = newCache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      instrumentation: alamos.NOOP,
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await reader.read(tr, 1);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 1n);
+  });
+
+  it("should NOT coalesce requests at different fidelities into a single batch", async () => {
+    const cache = newCache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      instrumentation: alamos.NOOP,
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    await Promise.all([reader.read(tr, 1, 1n), reader.read(tr, 2, 4n)]);
+    expect(remoteReadF).toHaveBeenCalledTimes(2);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 1n);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [2], 4n);
+  });
+
+  it("should satisfy a coarse request from a finer cached tier without refetching", async () => {
+    const cache = newCache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      instrumentation: alamos.NOOP,
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    // First read at native fidelity populates the native tier.
+    await reader.read(tr, 1, 1n);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    // A subsequent read at a coarser fidelity should hit the native tier and
+    // not refetch, because the native tier satisfies any coarser request.
+    await reader.read(tr, 1, 4n);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+  });
+
+  it("should refetch when a finer fidelity is requested than what is cached", async () => {
+    const cache = newCache();
+    const remoteReadF = vi.fn();
+    const reader = new Reader({
+      cache,
+      readRemote: basicRemoteReadFunc(remoteReadF),
+      instrumentation: alamos.NOOP,
+    });
+    const tr = new TimeRange(TimeSpan.seconds(1), TimeSpan.seconds(3));
+    // First read at coarse fidelity populates a coarse tier.
+    await reader.read(tr, 1, 4n);
+    expect(remoteReadF).toHaveBeenCalledTimes(1);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 4n);
+    // Requesting at native fidelity cannot be satisfied by the coarse tier
+    // and must refetch.
+    await reader.read(tr, 1, 1n);
+    expect(remoteReadF).toHaveBeenCalledTimes(2);
+    expect(remoteReadF).toHaveBeenCalledWith(tr, [1], 1n);
   });
 
   it("should correctly batch multiple read requests with time ranges within 5 milliseconds of each other", async () => {
@@ -183,7 +250,7 @@ describe("read", () => {
       TimeSpan.milliseconds(1001),
     );
     expect(remoteReadF).toHaveBeenCalledTimes(1);
-    expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5]);
+    expect(remoteReadF).toHaveBeenCalledWith(expectedReadTr, [1, 2, 3, 4, 5], 1n);
     expect(res[0]).toHaveLength(3);
     expect(res[0].timeRange.equals(expectedReadTr)).toBe(true);
     expect(res[0].at(0)).toEqual(1);

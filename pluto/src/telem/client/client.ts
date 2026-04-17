@@ -39,17 +39,25 @@ export interface ChannelClient {
 /** A client that can be used to read telemetry from the Synnax cluster. */
 export interface ReadClient {
   /**
-   * Reads telemetry from the given channels for the given time range.
+   * Reads telemetry from the given channel for the given time range at the
+   * given fidelity. Fidelity is an upper bound on the alignmentMultiple of
+   * the returned series: a fidelity of 1n (the default) returns raw data,
+   * and higher values allow the client to receive decimated data whose
+   * alignmentMultiple is at most the requested fidelity.
    *
    * @param tr  - The time range to read from.
-   * @param keys - The keys of the channels to read from.
-   * @returns a record with a read response for each channel in keys, regardless of
-   * whether or not data was found for the given channel. NOTE: Responses are not
-   * guaranteed to have the same topology i.e each response may contain a different
-   * number of Series with different lengths. It's up to the caller to use the
-   * 'alignment' field of the Series to normalize the data shape if necessary.
+   * @param key - The key of the channel to read from.
+   * @param fidelity - The maximum acceptable alignmentMultiple. Defaults to
+   *   1n (raw data).
+   * @returns a MultiSeries of data for the channel. NOTE: Series in the
+   * response may have different lengths and different alignmentMultiple
+   * values when data at multiple fidelity tiers satisfies the range.
    */
-  read: (tr: TimeRange, keys: channel.Key) => Promise<MultiSeries>;
+  read: (
+    tr: TimeRange,
+    key: channel.Key,
+    fidelity?: bigint,
+  ) => Promise<MultiSeries>;
 }
 
 /** A client that can be used to stream telemetry from the Synnax cluster. */
@@ -119,7 +127,12 @@ export class Core implements Client {
     });
     this.reader = new Reader({
       cache: this.cache,
-      readRemote: core.read.bind(core),
+      readRemote: async (tr, keys, fidelity) => {
+        // Translate bigint fidelity (alignmentMultiple) to the iterator's
+        // integer downsampleFactor. A fidelity of 1n means raw, no decimation.
+        const downsampleFactor = fidelity > 1n ? Number(fidelity) : 1;
+        return await core.read(tr, keys, { downsampleFactor });
+      },
       instrumentation: this.ins.child("reader"),
     });
     this.streamer = new Streamer({
@@ -137,9 +150,13 @@ export class Core implements Client {
     return res[0];
   }
 
-  /** Implements ChannelClient */
-  async read(tr: TimeRange, key: channel.Key): Promise<MultiSeries> {
-    return await this.reader.read(tr, key);
+  /** Implements ReadClient. */
+  async read(
+    tr: TimeRange,
+    key: channel.Key,
+    fidelity?: bigint,
+  ): Promise<MultiSeries> {
+    return await this.reader.read(tr, key, fidelity);
   }
 
   async stream(

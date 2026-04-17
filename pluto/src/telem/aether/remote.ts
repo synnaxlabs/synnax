@@ -143,6 +143,12 @@ const channelDataSourcePropsZ = z.object({
   timeRange: TimeRange.z,
   channel: z.number().or(z.string()),
   useIndexOfChannel: z.boolean().default(false),
+  // fidelity is an upper bound on the alignmentMultiple of returned data.
+  // 1n (the default) requests raw data; higher values allow the client to
+  // receive server-decimated data whose alignmentMultiple is at most the
+  // requested value. The caller (typically a plot) computes this from its
+  // viewport and pixel width. See Reader.read in telem/client/reader.ts.
+  fidelity: z.coerce.bigint().default(1n),
 });
 
 export type ChannelDataProps = z.input<typeof channelDataSourcePropsZ>;
@@ -194,13 +200,13 @@ export class ChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
-      const { timeRange, channel, useIndexOfChannel } = this.props;
+      const { timeRange, channel, useIndexOfChannel, fidelity } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
         channel,
         useIndexOfChannel,
       );
-      const series = await this.client.read(timeRange, this.channel.key);
+      const series = await this.client.read(timeRange, this.channel.key, fidelity);
       series.acquire();
       this.data = series;
       this.notify();
@@ -216,6 +222,10 @@ const streamChannelDataPropsZ = z.object({
   useIndexOfChannel: z.boolean().default(false),
   timeSpan: TimeSpan.z,
   keepFor: TimeSpan.z.optional(),
+  // fidelity applies to the initial historical read only. Live-streamed data
+  // always arrives at native rate; see RFC 0037. A value of 1n requests raw
+  // historical data; higher values allow the server to return decimated data.
+  fidelity: z.coerce.bigint().default(1n),
 });
 
 export type StreamChannelDataProps = z.input<typeof streamChannelDataPropsZ>;
@@ -266,7 +276,7 @@ export class StreamChannelData
   private async read(): Promise<void> {
     try {
       this.valid = true;
-      const { channel, useIndexOfChannel, timeSpan } = this.props;
+      const { channel, useIndexOfChannel, timeSpan, fidelity } = this.props;
       this.channel = await fetchChannelProperties(
         this.client,
         channel,
@@ -275,7 +285,7 @@ export class StreamChannelData
       const tr = this.now().spanRange(-timeSpan);
       if (!this.channel.virtual || this.channel.isCalculated)
         try {
-          const res = await this.client.read(tr, this.channel.key);
+          const res = await this.client.read(tr, this.channel.key, fidelity);
           res.acquire();
           this.data.push(res);
         } catch (e) {

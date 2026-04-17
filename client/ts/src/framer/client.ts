@@ -145,16 +145,22 @@ export class Client {
   async read(
     tr: CrudeTimeRange,
     channel: channel.Key | channel.Name,
+    opts?: IteratorConfig,
   ): Promise<MultiSeries>;
-  async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
+  async read(
+    tr: CrudeTimeRange,
+    channels: channel.Params,
+    opts?: IteratorConfig,
+  ): Promise<Frame>;
   async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
     tr: CrudeTimeRange | ReadRequest,
     channels?: channel.Params,
+    opts?: IteratorConfig,
   ): Promise<MultiSeries | Frame | ReadableStream<Uint8Array>> {
     if (!("start" in tr)) return this.reader.read(tr);
     const { single } = channel.analyzeParams(channels!);
-    const fr = await this.readFrame(tr, channels!);
+    const fr = await this.readFrame(tr, channels!, opts);
     if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
@@ -162,8 +168,9 @@ export class Client {
   private async readFrame(
     tr: CrudeTimeRange,
     channels: channel.Params,
+    opts?: IteratorConfig,
   ): Promise<Frame> {
-    const i = await this.openIterator(tr, channels);
+    const i = await this.openIterator(tr, channels, opts);
     const frame = new Frame();
     try {
       for await (const f of i) frame.push(f);

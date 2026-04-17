@@ -193,6 +193,7 @@ export class Series<T extends TelemValue = TelemValue>
     timeRange: TimeRange.z.optional(),
     dataType: DataType.z,
     alignment: z.coerce.bigint().optional(),
+    alignmentMultiple: z.coerce.bigint().optional(),
     data: z.union([
       stringArrayZ,
       nullArrayZ,
@@ -407,7 +408,9 @@ export class Series<T extends TelemValue = TelemValue>
 
     this.key = key;
     this.alignment = alignment;
-    this.alignmentMultiple = alignmentMultiple;
+    // A zero alignmentMultiple on the wire means "native resolution"; normalize
+    // to 1 so the field is always a valid divisor for alignmentBounds math.
+    this.alignmentMultiple = alignmentMultiple === 0n ? 1n : alignmentMultiple;
     this.sampleOffset = sampleOffset ?? 0;
     this.timeRange = timeRange ?? TimeRange.ZERO;
     this.gl = {

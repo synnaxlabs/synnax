@@ -9,18 +9,27 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { type channel, type framer } from "@synnaxlabs/client";
-import { debounce, type MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
+import { debounce, MultiSeries, sync, TimeRange, TimeSpan } from "@synnaxlabs/x";
 
+import { NATIVE_FIDELITY } from "@/telem/client/cache/unary";
 import { type Cache } from "@/telem/client/cache/cache";
 import { type ReadClient } from "@/telem/client/client";
 
-/** A function that reads a telemetry frame from the Synnax cluster. */
+/**
+ * A function that reads a telemetry frame from the Synnax cluster at the
+ * requested fidelity. A fidelity of NATIVE_FIDELITY (1n) means raw data; higher
+ * values indicate the caller is willing to receive decimated data with each
+ * output sample representing `fidelity` native samples. Implementations may
+ * clamp the actual served fidelity and report it back via the
+ * `alignmentMultiple` field on the returned Series.
+ */
 export interface ReadRemoteFunc {
-  (tr: TimeRange, keys: channel.Key[]): Promise<framer.Frame>;
+  (tr: TimeRange, keys: channel.Key[], fidelity: bigint): Promise<framer.Frame>;
 }
 
 interface ReadRequest {
   channel: channel.Key;
+  fidelity: bigint;
   gaps: TimeRange[];
   resolve: () => void;
   reject: (reason?: unknown) => void;
@@ -28,6 +37,7 @@ interface ReadRequest {
 
 interface BatchFetch {
   gap: TimeRange;
+  fidelity: bigint;
   channels: Set<channel.Key>;
 }
 
@@ -89,21 +99,26 @@ export class Reader implements ReadClient {
   }
 
   /** Implements ReadClient. */
-  async read(tr: TimeRange, channel: channel.Key): Promise<MultiSeries> {
+  async read(
+    tr: TimeRange,
+    channel: channel.Key,
+    fidelity: bigint = NATIVE_FIDELITY,
+  ): Promise<MultiSeries> {
     const { cache } = this.args;
     await cache.populateMissing([channel]);
     const unary = cache.get(channel);
-    const { series, gaps } = unary.read(tr);
+    const normalized = fidelity === 0n ? NATIVE_FIDELITY : fidelity;
+    const { series, gaps } = unary.dirtyReadAtFidelity(tr, normalized);
     if (gaps.length === 0) return series;
     const { mu } = this;
     await new Promise<void>((resolve, reject) => {
       void mu.runExclusive(async () => {
         if (mu.closed) return;
-        mu.requests.add({ channel, gaps, resolve, reject });
+        mu.requests.add({ channel, fidelity: normalized, gaps, resolve, reject });
       });
       this.debouncedRead();
     });
-    return unary.read(tr).series;
+    return unary.dirtyReadAtFidelity(tr, normalized).series;
   }
 
   private async batchRead(): Promise<void> {
@@ -117,10 +132,16 @@ export class Reader implements ReadClient {
       try {
         if (mu.closed) return finish();
         const batched: BatchFetch[] = [];
-        mu.requests.forEach(({ channel, gaps }) =>
+        // Group requests by (gap, fidelity). Requests at different fidelities
+        // cannot share a batch because they produce series with different
+        // alignmentMultiple values and must land in different cache tiers.
+        mu.requests.forEach(({ channel, fidelity, gaps }) =>
           gaps.forEach((gap) => {
-            const g = batched.find((r) => r.gap.equals(gap, overlapThreshold));
-            if (g == null) batched.push({ gap, channels: new Set([channel]) });
+            const g = batched.find(
+              (r) => r.fidelity === fidelity && r.gap.equals(gap, overlapThreshold),
+            );
+            if (g == null)
+              batched.push({ gap, fidelity, channels: new Set([channel]) });
             else {
               g.channels.add(channel);
               g.gap = TimeRange.max(g.gap, gap);
@@ -128,9 +149,22 @@ export class Reader implements ReadClient {
           }),
         );
         await Promise.all(
-          batched.map(async ({ gap, channels }) => {
-            const frame = await readRemote(gap, Array.from(channels));
-            channels.forEach((key) => cache.get(key).writeStatic(frame.get(key)));
+          batched.map(async ({ gap, fidelity, channels }) => {
+            const frame = await readRemote(gap, Array.from(channels), fidelity);
+            channels.forEach((key) => {
+              const series = frame.get(key);
+              // Key each written series by the fidelity the server actually
+              // served (the Series.alignmentMultiple field), not by what we
+              // requested; these may differ if the server clamped.
+              series.series.forEach((s) =>
+                cache
+                  .get(key)
+                  .writeStaticAtFidelity(
+                    new MultiSeries([s]),
+                    s.alignmentMultiple,
+                  ),
+              );
+            });
           }),
         );
         finish();

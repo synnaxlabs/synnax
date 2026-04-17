@@ -191,7 +191,9 @@ func (s Series) String() string {
 }
 
 // Downsample returns a copy of the Series with the data down sampled by the given
-// factor, i.e., 1 out of every factor samples is kept.
+// factor, i.e., 1 out of every factor samples is kept. The returned series has
+// AlignmentMultiple scaled by the factor so that downstream consumers can identify
+// its fidelity.
 func (s Series) Downsample(factor int) Series {
 	if factor <= 1 || len(s.Data) == 0 {
 		return s
@@ -213,11 +215,16 @@ func (s Series) Downsample(factor int) Series {
 			oData = append(oData, s.Data[start:end]...)
 		}
 	}
+	inputMultiple := s.AlignmentMultiple
+	if inputMultiple == 0 {
+		inputMultiple = 1
+	}
 	return Series{
-		TimeRange: s.TimeRange,
-		DataType:  s.DataType,
-		Data:      oData,
-		Alignment: s.Alignment,
+		TimeRange:         s.TimeRange,
+		DataType:          s.DataType,
+		Data:              oData,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: inputMultiple * uint64(factor),
 	}
 }
 
@@ -230,10 +237,11 @@ func truncateAndFormatSlice[T any](slice []T) string {
 // DeepCopy creates a deep copy of the series, including all of its data.
 func (s Series) DeepCopy() Series {
 	return Series{
-		TimeRange: s.TimeRange,
-		Alignment: s.Alignment,
-		DataType:  s.DataType,
-		Data:      slices.Clone(s.Data),
+		TimeRange:         s.TimeRange,
+		Alignment:         s.Alignment,
+		AlignmentMultiple: s.AlignmentMultiple,
+		DataType:          s.DataType,
+		Data:              slices.Clone(s.Data),
 	}
 }
 

@@ -51,15 +51,18 @@ func SeriesToPB(r telem.Series) (*Series, error) {
 		return nil, err
 	}
 	pb := &Series{
-		DataType:  string(r.DataType),
-		Data:      r.Data,
-		Alignment: uint64(r.Alignment),
-		TimeRange: timeRangeVal,
+		DataType:          string(r.DataType),
+		Data:              r.Data,
+		Alignment:         uint64(r.Alignment),
+		AlignmentMultiple: r.AlignmentMultiple,
+		TimeRange:         timeRangeVal,
 	}
 	return pb, nil
 }
 
-// SeriesFromPB converts Series to Series.
+// SeriesFromPB converts Series to Series. A zero AlignmentMultiple on the
+// wire is normalized to 1 (native resolution) so that callers can rely on the
+// field being a valid divisor.
 func SeriesFromPB(pb *Series) (telem.Series, error) {
 	var r telem.Series
 	if pb == nil {
@@ -73,6 +76,10 @@ func SeriesFromPB(pb *Series) (telem.Series, error) {
 	r.DataType = telem.DataType(pb.DataType)
 	r.Data = pb.Data
 	r.Alignment = telem.Alignment(pb.Alignment)
+	r.AlignmentMultiple = pb.AlignmentMultiple
+	if r.AlignmentMultiple == 0 {
+		r.AlignmentMultiple = 1
+	}
 	return r, nil
 }
 
