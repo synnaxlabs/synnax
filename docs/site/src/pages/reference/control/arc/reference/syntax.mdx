@@ -426,8 +426,8 @@ temperature > 100 -> alarm{}
 
 ## Blocks
 
-Braces `{}` delimit blocks. Blocks contain statements (function bodies) or flow
-statements (stage bodies).
+Braces `{}` delimit blocks. Blocks contain statements (function bodies), flow statements
+(stage bodies), or items (sequence bodies).
 
 ```arc
 func example() {
@@ -437,14 +437,30 @@ func example() {
 stage pressurize {
     // flow statements in stage block
 }
+
+sequence prime {
+    // items in sequence block
+}
 ```
 
-Stage bodies use commas to separate flow statements:
+Stage bodies contain flow statements; newlines separate them.
 
 ```arc
 stage pressurize {
     1 -> valve
     sensor -> controller{}
     pressure > 500 => next
+}
+```
+
+Sequence bodies contain items that run in order: writes, waits, condition gates, stages,
+and nested sequences.
+
+```arc
+sequence prime {
+    1 -> press_vlv_cmd
+    wait{5s}
+    tank_pressure > 500
+    0 -> press_vlv_cmd
 }
 ```

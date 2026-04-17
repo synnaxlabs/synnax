@@ -71,6 +71,47 @@ stage do_everything {
 }
 ```
 
+### Reach for a Stage Only When You Need Parallelism
+
+Stages are for steps that need to watch multiple conditions at once: a success check
+with safety monitoring, or a control loop that runs while a timeout counts down. If a
+step is just a write or a wait, make it a sequence item directly:
+
+```arc
+// Good: the linear part is linear, stages exist only where they earn their keep
+sequence prime {
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+    stage {
+        tank_pressure > 500 => next
+        wait{30s} => abort
+    }
+    0 -> press_vlv_cmd
+}
+
+// Avoid: single-flow stages that exist only to hold one write
+sequence prime {
+    stage close_vent {
+        0 -> vent_vlv_cmd
+        wait{1ms} => next
+    }
+    stage open_press {
+        1 -> press_vlv_cmd
+        wait{1ms} => next
+    }
+    stage wait_pressure {
+        tank_pressure > 500 => next
+        wait{30s} => abort
+    }
+    stage close_press {
+        0 -> press_vlv_cmd
+    }
+}
+```
+
+A stage earns its place when it holds two or more concurrent flows. A stage that holds a
+single write is noise.
+
 ### Initialize Stateful Variables Appropriately
 
 Stateful variables (`$=`) persist across invocations. Consider whether your initial
@@ -127,7 +168,7 @@ sequence main {
 
 If you leave authority at the default 255, you cannot escalate above other writers when
 an emergency occurs. Operators using schematics also need to be able to override
-automations — starting below 255 makes this possible without stopping the program.
+automations. Starting below 255 makes this possible without stopping the program.
 
 ### Name Channels Clearly
 

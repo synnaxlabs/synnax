@@ -13,9 +13,13 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-Sequences are Arc's way of building multi-step procedures. A sequence contains ordered
-stages, with only one stage active at a time. When you enter a stage, its flows execute;
-when you leave, they stop.
+Sequences are Arc's way of building multi-step procedures. A sequence runs its items in
+order: each item finishes before the next begins.
+
+The most common item is a stage, a block of flows that run in parallel and stay live
+until a transition fires. A sequence is usually a chain of stages: pressurize, hold,
+vent, complete. But a sequence can also contain simpler items (writes, waits, and
+condition gates) for the parts of a procedure that don't need parallel monitoring.
 
 This is the most common use case for Arc: test sequences, startup routines, shutdown
 procedures, and any workflow that progresses through distinct phases.
@@ -33,35 +37,34 @@ Here's a basic pressurization sequence:
 
 ```arc
 sequence main {
-    stage idle {
-        0 -> valve_cmd
-        start_btn => next
-    }
-
+    1 -> press_vlv_cmd
     stage pressurize {
-        1 -> valve_cmd
-        tank_pressure > 500 => next
+        tank_pressure > 500 => next    // target reached
+        tank_pressure > 700 => abort   // over-pressure
+        abort_btn => abort             // operator abort
     }
+    0 -> press_vlv_cmd
+}
 
-    stage hold {
-        1 -> valve_cmd
-        wait{duration=30s} => next
-    }
-
-    stage complete {
-        0 -> valve_cmd
+sequence abort {
+    stage safed {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
     }
 }
 
 start_btn => main
 ```
 
-This sequence:
+The sequence has three items:
 
-1. **Starts in `idle`**: Valve is closed (0), waiting for the operator to press start
-2. **Moves to `pressurize`**: Opens the valve (1), waits for pressure to reach 500
-3. **Moves to `hold`**: Keeps valve open for 30 seconds
-4. **Ends in `complete`**: Closes the valve
+1. Open the pressurization valve with `1 -> press_vlv_cmd`.
+2. Enter `pressurize`, a stage where all three transitions run in parallel. Arc watches
+   for target pressure, for over-pressure, and for the abort button.
+3. Close the valve with `0 -> press_vlv_cmd`.
+
+The stage exits when one of its transitions fires. `=> next` advances to the next item
+(closing the valve). `=> abort` jumps to the `abort` sequence, which vents the tank.
 
 The `start_btn => main` at the bottom is the **entry point**. When `start_btn` receives
 a truthy value (non-zero), the sequence starts.
@@ -113,13 +116,13 @@ stage running {
 
 ### Transition Targets
 
-| Syntax             | Behavior                                                 |
-| ------------------ | -------------------------------------------------------- |
-| `=> next`          | Go to the next stage in definition order                 |
-| `=> stage_name`    | Jump to any stage in the same sequence                   |
-| `=> sequence_name` | Jump to a different sequence (starts at its first stage) |
+| Syntax             | Behavior                                                |
+| ------------------ | ------------------------------------------------------- |
+| `=> next`          | Advance to the next item in the enclosing sequence      |
+| `=> stage_name`    | Jump to any named stage in the same sequence            |
+| `=> sequence_name` | Jump to a different sequence (starts at its first item) |
 
-Using `next` on the last stage is a compile error.
+Using `next` when there is no next item in the enclosing sequence is a compile error.
 
 <Divider.Divider x />
 
@@ -144,6 +147,24 @@ Entry points are typically `u8` virtual channels:
 3. When clicked, the button writes `1` to the channel
 4. Arc sees the truthy value and starts the sequence
 
+### Anonymous Sequences Start Automatically
+
+A sequence declared without a name starts on its own when the program loads. Use this
+for procedures that should run once, immediately, without an operator trigger:
+
+```arc
+authority 200
+
+sequence {
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+    wait{5s}
+    0 -> press_vlv_cmd
+}
+```
+
+A named sequence still needs a trigger to start.
+
 <Divider.Divider x />
 
 ## Stage Entry Semantics
@@ -153,13 +174,14 @@ When entering a stage:
 1. All one-shot transition states reset (can fire again)
 2. All stateful variables in the stage reset to initial values
 3. Reactive flows start fresh
-4. Channel triggers only react to new writes — values written before stage entry are
+4. Inline sub-sequences restart from their first item
+5. Channel triggers only react to new writes. Values written before stage entry are
    ignored
 
 Stages don't remember their previous state. If you transition away and come back,
 everything starts over.
 
-This is important for **resumable sequences** — a common pattern where a sequence parks
+This is important for **resumable sequences**. A common pattern is a sequence that parks
 in a `yield` stage and waits for a fresh command to re-enter:
 
 ```arc
@@ -180,6 +202,115 @@ sequence controller {
 
 start_cmd => controller
 ```
+
+<Divider.Divider x />
+
+## Sequences Without Stages
+
+A sequence item doesn't have to be a stage. For a straight-line procedure, the items can
+be writes, waits, and condition gates:
+
+```arc
+sequence prime {
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+    wait{5s}
+    tank_pressure > 500
+    0 -> press_vlv_cmd
+}
+
+start_btn => prime
+```
+
+The sequence opens the press valve, waits five seconds, then waits until pressure
+reaches 500 psi before closing the valve. Each item completes before the next starts.
+
+### Sequence Item Types
+
+| Item                 | Behavior                                         |
+| -------------------- | ------------------------------------------------ |
+| `expr -> chan`       | Write once, advance                              |
+| `wait{duration}`     | Pause for the duration, advance                  |
+| Condition expression | Pause until the expression is truthy, advance    |
+| `stage { ... }`      | Enter the stage; advance when a transition fires |
+
+A condition gate is any boolean expression on its own line. The sequence does not re-run
+earlier items while the gate holds. It just waits.
+
+<Note.Note variant="info">
+  A bare sequence can't respond to safety conditions while a gate is holding. If you
+  need to watch for abort conditions during a step, put the step inside a stage.
+</Note.Note>
+
+<Divider.Divider x />
+
+## Inline Stages in a Sequence
+
+Use an inline stage when a step needs to watch multiple conditions at once, like a
+success check with a timeout backstop. An inline stage is a stage block written directly
+as a sequence item, with or without a name:
+
+```arc
+sequence press {
+    1 -> press_vlv_cmd
+    stage {
+        tank_pressure > 700 => abort    // over-pressure safety
+        tank_pressure > 500 => next     // success condition
+        wait{30s} => abort              // timeout
+    }
+    0 -> press_vlv_cmd
+}
+```
+
+While the inline stage is live, all three transitions are armed in parallel. Whichever
+fires first wins, and line order breaks ties. `=> next` advances to the next sequence
+item; `=> abort` jumps to the `abort` sequence (defined elsewhere).
+
+This is cleaner than breaking the procedure into three named stages when the extra
+structure exists only to hold one gate.
+
+<Divider.Divider x />
+
+## Inline Sequences in a Stage
+
+The reverse nesting also works. An inline sequence inside a stage runs its items in
+order while the stage's parallel flows continue:
+
+```arc
+sequence main {
+    stage fire {
+        // Safety monitoring runs the whole time the stage is live
+        chamber_temp > 2000 => abort
+        abort_btn => abort
+        // Ordered ignition sub-procedure
+        sequence {
+            1 -> igniter_cmd
+            wait{200ms}
+            1 -> ox_main_vlv_cmd
+            1 -> fuel_main_vlv_cmd
+            wait{100ms}
+            0 -> igniter_cmd
+        }
+    }
+
+    stage abort {
+        0 -> ox_main_vlv_cmd
+        0 -> fuel_main_vlv_cmd
+        0 -> igniter_cmd
+    }
+}
+
+start_cmd => main
+```
+
+When `fire` activates, the inline sequence starts from its first item. It walks through
+the ignition steps while the safety transitions watch in parallel. If a safety
+transition fires, the stage exits and the inline sequence stops wherever it was.
+
+If the stage re-enters later, the inline sequence restarts from its first item.
+
+Use an inline sequence when a stage has a small ordered sub-procedure but still needs
+parallel safety monitoring.
 
 <Divider.Divider x />
 

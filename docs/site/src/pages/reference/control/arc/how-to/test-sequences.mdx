@@ -182,6 +182,58 @@ the required values within 10 seconds, the sequence moves to a timeout stage ins
 
 <Divider.Divider x />
 
+## Inline Gates for Linear Procedures
+
+When a test is mostly ordered writes and waits but has one step that needs to watch
+multiple conditions, an inline stage keeps the procedure readable without forcing every
+step into its own named stage:
+
+```arc
+sequence prime {
+    // Straight-line setup
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+
+    // Inline gate: success, over-pressure abort, and timeout all watched at once
+    stage {
+        tank_pressure > 700 => abort
+        abort_btn => abort
+        tank_pressure > 500 => next
+        wait{30s} => timeout
+    }
+
+    // Procedure resumes
+    0 -> press_vlv_cmd
+}
+
+sequence abort {
+    stage safed {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+sequence timeout {
+    stage safed {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_btn => prime
+emergency_stop => abort
+```
+
+All four transitions inside the inline stage are armed in parallel. Line order breaks
+ties, so the over-pressure abort wins if it fires at the same instant as the success
+check. `=> next` advances to the next item in `prime`; `=> abort` and `=> timeout` jump
+to those named sequences.
+
+Use this pattern when the rest of the procedure is straight-line and only one step needs
+a multi-exit gate.
+
+<Divider.Divider x />
+
 ## Rate-Limited Pressurization
 
 Control the pressurization rate to avoid thermal shock or mechanical stress:
