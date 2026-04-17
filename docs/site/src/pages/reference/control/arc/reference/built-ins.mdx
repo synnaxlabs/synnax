@@ -204,8 +204,9 @@ time delta is zero or negative, the output is also `0`.
 ```arc
 // Monitor rate of temperature change
 thermocouple -> derivative{} -> temp_rate
-// Chain with other nodes
-pressure -> derivative{} -> rate > 100.0 => alarm
+// Alarm when the rate exceeds a threshold
+pressure -> derivative{} -> pressure_rate
+pressure_rate > 100.0 => alarm
 ```
 
 <Divider.Divider x />
@@ -290,23 +291,25 @@ Updates a status that triggers notifications in Console.
 
 ```arc
 ox_pt_1 > 500 -> set_status{
-    statusKey = "overpressure",
+    status_key = "overpressure",
+    name = "Over-Pressure Alarm",
     variant = "error",
     message = "Pressure exceeded limit"
 }
 ```
 
-| Config      | Type  | Description                                      |
-| ----------- | ----- | ------------------------------------------------ |
-| `statusKey` | `str` | Name of status to update                         |
-| `variant`   | `str` | Severity: `"success"`, `"warning"`, or `"error"` |
-| `message`   | `str` | Notification message                             |
-| **Input**   | `u8`  | Trigger condition                                |
+| Config       | Type  | Required | Description                                      |
+| ------------ | ----- | -------- | ------------------------------------------------ |
+| `status_key` | `str` | Yes      | Key of the status to update                      |
+| `variant`    | `str` | Yes      | Severity: `"success"`, `"warning"`, or `"error"` |
+| `message`    | `str` | Yes      | Notification message                             |
+| `name`       | `str` | No       | Display name (defaults to `""`)                  |
+| **Input**    | `u8`  |          | Trigger condition                                |
 
 **Workflow:**
 
 1. Create a status in Synnax Console
-2. Reference that status in Arc using `statusKey`
+2. Reference that status in Arc using `status_key`
 3. When the input is truthy, Arc updates the status and sends a notification
 
 <Divider.Divider x />
@@ -350,8 +353,8 @@ set_authority{value=0}
 
 <Note.Note variant="warning">
   Setting `set_authority{(value = 0)}` sets authority to the minimum, allowing any other
-  writer with authority above 0 to take control. Empty stages do NOT lower authority —
-  the writer holds its current authority as long as the program is running.
+  writer with authority above 0 to take control. Empty stages do NOT lower authority.
+  The writer holds its current authority as long as the program is running.
 </Note.Note>
 
 **Usage in a stage:**

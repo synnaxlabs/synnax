@@ -54,13 +54,13 @@ interval{period=200ms} -> output_reading{}
 
 This program has two parts that work together:
 
-1. **A data generator** — Every 200 milliseconds, `output_reading` increments a counter
+1. **A data generator** -> every 200 milliseconds, `output_reading` increments a counter
    (11, 12, 13, ...) and writes the value to `tank_pressure`
-2. **A processing pipeline** — Whenever `tank_pressure` updates, Arc automatically runs
+2. **A processing pipeline** -> whenever `tank_pressure` updates, Arc automatically runs
    `scale_reading` (which doubles the value) and writes the result to `pressure_scaled`
 
 The result: `pressure_scaled` will show 22, 24, 26, 28, ... updating five times per
-second. This demonstrates Arc's reactive model—you declare how data flows, and Arc
+second. This demonstrates Arc's reactive model. You declare how data flows, and Arc
 handles the scheduling.
 
 You'll likely see red squiggly lines under `tank_pressure` and `pressure_scaled`. This
@@ -77,7 +77,7 @@ Create two [virtual channels](/reference/concepts/channels#virtual-channels):
 | `tank_pressure`   | Yes     | `float64` |
 | `pressure_scaled` | Yes     | `float64` |
 
-`float64` is a 64-bit floating-point number—the
+`float64` is a 64-bit floating-point number, the
 [channel data type](/reference/concepts/channels#data-type) that corresponds to Arc's
 [`f64` type](/reference/control/arc/reference/types#floating-point-types). Use `float64`
 for channels that store decimal values like sensor readings.
@@ -118,7 +118,7 @@ func output_reading() {
 }
 ```
 
-The `$=` operator creates a **stateful variable**—a value that persists across
+The `$=` operator creates a **stateful variable**, a value that persists across
 invocations. Regular variables (`:=`) reset every time the function runs, but stateful
 variables remember their value.
 
@@ -135,7 +135,7 @@ For more on stateful variables, see
 tank_pressure -> scale_reading{} -> pressure_scaled
 ```
 
-The `->` arrow creates a **flow**—a reactive connection that runs every time new data
+The `->` arrow creates a **flow**, a reactive connection that runs every time new data
 arrives:
 
 - `tank_pressure` is the source channel
@@ -154,7 +154,7 @@ interval{period=200ms} -> output_reading{}
 `interval` is a built-in that fires on a schedule. Here it triggers every 200
 milliseconds, which runs `output_reading` five times per second.
 
-This pattern—an interval driving a function—is common for control loops, periodic
+This pattern (an interval driving a function) is common for control loops, periodic
 sampling, and generating test data.
 
 <Divider.Divider x />
@@ -211,9 +211,9 @@ New concepts in this example:
   instantiated. Here, `limit=15.0` sets the threshold
 - **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
-- **One-shot edge** (`=>`): Unlike `->` which runs every cycle, `=>` fires once when the
-  condition becomes true. This prevents the alarm from triggering repeatedly while
-  pressure stays above the limit
+- **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike
+  `->`, which fires on every data arrival, `=>` only fires on ticks where the source
+  expression holds
 - **Built-in function** (`set_status`): Displays a notification in the Console toolbar
   when the input is truthy (non-zero)
 
@@ -231,9 +231,9 @@ how to build test procedures, startup routines, and state machines.
 
 Or explore other topics:
 
-- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**:
-  Understand how Arc schedules computations and the difference between continuous (`->`)
-  and one-shot (`=>`) edges
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)** -> how
+  Arc schedules computations and the difference between continuous (`->`) and
+  conditional (`=>`) edges
 - **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
   with telemetry data and array operations
 - **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist

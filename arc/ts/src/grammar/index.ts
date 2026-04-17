@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Raw JSON string for Monaco/VSCode extension registration
-import arcGrammarRaw from "../../../go/lsp/extensions/vscode/syntaxes/arc.tmLanguage.json?raw";
+import arcGrammarRaw from "./arc.tmLanguage.json?raw";
 
 /**
  * TextMate grammar for the Arc language.

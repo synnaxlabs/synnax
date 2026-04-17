@@ -151,28 +151,39 @@ mask := data > 2.0 // [0, 0, 1]
 
 ## Unit Annotations
 
-Types can have unit suffixes for dimensional tracking:
+Types can carry a single unit suffix for dimensional tracking. The suffix is one
+identifier drawn from the built-in registry (length, time, mass, pressure, frequency,
+voltage, current, temperature, angle, data, count):
 
 ```arc
-velocity f64 m / s := 10.0
 distance f64 m := 50.0
 duration i64 ns := 1000000000
+pressure f64 psi := 14.7
 ```
+
+Only single-identifier units are accepted in source syntax. Compound units like `m/s` or
+`m^2` are not spelled directly in declarations. They arise implicitly from arithmetic
+(see below).
 
 ### Dimensional Compatibility
 
 The compiler enforces dimensional compatibility:
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; dimensions combine
-- **Exponentiation**: Base with dimensions requires literal integer exponent
+- **Multiplication/Division**: Always valid; the result's dimensions combine
+- **Exponentiation**: A dimensioned base requires a literal integer exponent
 
 ```arc
 distance f64 m := 10.0
 time f64 s := 2.0
-speed := distance / time // f64 m/s
-area := distance ^ 2 // f64 m^2
+// Division produces a length/time quantity (a velocity)
+speed := distance / time
+// Exponentiation produces a length^2 quantity (an area)
+area := distance ^ 2
 ```
+
+The dimensions of `speed` and `area` are tracked by the compiler and checked against any
+further use, but they are not spelled in source code.
 
 <Divider.Divider x />
 

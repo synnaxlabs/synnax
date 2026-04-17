@@ -13,8 +13,8 @@ import { mdxOverrides } from "@/components/mdxOverrides";
 
 export const components = mdxOverrides;
 
-When multiple writers target the same channel — two Arc programs, an Arc program and a
-Python script, or an Arc program and a schematic control — authority determines whose
+When multiple writers target the same channel (two Arc programs, an Arc program and a
+Python script, or an Arc program and a schematic control), authority determines whose
 values take effect. Without it, writers would overwrite each other unpredictably.
 
 <Divider.Divider x />
@@ -65,7 +65,7 @@ to 150.
 
 ## Default Authority
 
-When omitted, authority defaults to 255 — the maximum. This means a program without an
+When omitted, authority defaults to 255, the maximum. This means a program without an
 explicit declaration has the highest possible priority and cannot be overridden by any
 other writer.
 
@@ -122,7 +122,7 @@ that acquired the channel first keeps control. The second writer's values are dr
 stopping or lowering its authority), the next highest writer automatically regains
 effective control. No restart or re-acquisition is needed.
 
-These rules apply uniformly across all writer types — Arc programs, Python scripts, and
+These rules apply uniformly across all writer types. Arc programs, Python scripts, and
 schematic controls all participate in the same authority system.
 
 <Divider.Divider x />
@@ -152,7 +152,7 @@ start_cmd => main
 ```
 
 At authority 100, the program runs alongside other writers. When the emergency stage
-activates, it jumps to 255 and overrides everything — including other Arc programs,
+activates, it jumps to 255 and overrides everything, including other Arc programs,
 Python scripts, and schematic controls.
 
 If you start at 255, you have no room to escalate. Starting lower preserves this
@@ -189,7 +189,7 @@ resume without restarting.
 
 <Note.Note variant="warning">
   Setting authority to 0 does not disconnect the writer. The program still holds the
-  channel — it just has the lowest possible priority. Empty stages also do not lower
+  channel. It just has the lowest possible priority. Empty stages also do not lower
   authority; the writer keeps its current authority as long as the program is running.
   You must explicitly call `set_authority&#123;value=0&#125;` to yield.
 </Note.Note>
