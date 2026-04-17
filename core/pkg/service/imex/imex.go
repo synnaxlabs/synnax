@@ -12,8 +12,6 @@ package imex
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"maps"
 	"strconv"
 	"strings"
 
@@ -28,28 +26,55 @@ import (
 //	{"version":54,"type":"log","key":"...","name":"...","channels":[...]}
 //
 // Version, Type, Key, and Name are promoted to typed fields for convenient
-// access (routing, identity, file naming). Data is the complete flat map
-// including key and name. The promoted fields are copies, not extractions.
-// Handlers receive Data with all fields intact for zyn schema parsing.
+// access (routing, identity, file naming). Data holds the raw JSON bytes of
+// the full top-level object, including the promoted fields. Handlers decode
+// Data directly into their version-specific Go struct via json.Unmarshal (or
+// the Decode helper for user-friendly error messages).
 type Envelope struct {
 	Version int
 	Type    string
 	Key     string
 	Name    string
-	Data    map[string]any
+	Data    json.RawMessage
 }
 
-// MarshalJSON flattens Data into the top-level JSON object and overwrites
-// version and type with the promoted field values (since the export version
-// is stamped by the service, not carried in Data).
+// MarshalJSON emits the flat wire format. Promoted fields (version, type,
+// optional key and name) are spliced on top of Data's raw bytes so that the
+// service-stamped export version wins over any version embedded in Data.
 func (e Envelope) MarshalJSON() ([]byte, error) {
-	m := make(map[string]any, len(e.Data)+2)
-	maps.Copy(m, e.Data)
-	m["version"] = e.Version
-	if e.Type != "" {
-		m["type"] = e.Type
+	fields := make(map[string]json.RawMessage)
+	if len(e.Data) > 0 {
+		if err := json.Unmarshal(e.Data, &fields); err != nil {
+			return nil, errors.Wrap(err, "envelope data must be a JSON object")
+		}
 	}
-	return json.Marshal(m)
+	version, err := json.Marshal(e.Version)
+	if err != nil {
+		return nil, err
+	}
+	fields["version"] = version
+	if e.Type != "" {
+		typ, err := json.Marshal(e.Type)
+		if err != nil {
+			return nil, err
+		}
+		fields["type"] = typ
+	}
+	if e.Key != "" {
+		key, err := json.Marshal(e.Key)
+		if err != nil {
+			return nil, err
+		}
+		fields["key"] = key
+	}
+	if e.Name != "" {
+		name, err := json.Marshal(e.Name)
+		if err != nil {
+			return nil, err
+		}
+		fields["name"] = name
+	}
+	return json.Marshal(fields)
 }
 
 // envelopeMeta holds the promoted fields for standard json unmarshaling.
@@ -62,10 +87,10 @@ type envelopeMeta struct {
 }
 
 // UnmarshalJSON reads a flat JSON object. Promoted fields are extracted via
-// standard json struct tags. Data receives the complete map with all fields
-// intact. The version field accepts both numeric values (new format) and
-// semver strings (old Console format), converting the latter via
-// legacyToNumeric.
+// standard json struct tags. Data receives a copy of the raw bytes with all
+// fields intact so handlers can decode into their own typed struct. The
+// version field accepts both numeric values (new format) and semver strings
+// (old Console format), converting the latter via legacyToNumeric.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
 	var meta envelopeMeta
 	if err := json.Unmarshal(b, &meta); err != nil {
@@ -81,7 +106,10 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 		}
 		e.Version = v
 	}
-	return json.Unmarshal(b, &e.Data)
+	// Copy the input so later reuse of the caller's buffer by encoding/json
+	// does not corrupt Data.
+	e.Data = append(json.RawMessage(nil), b...)
+	return nil
 }
 
 // parseVersionRaw parses a JSON-encoded version value that can be either a
@@ -95,7 +123,7 @@ func parseVersionRaw(raw json.RawMessage) (int, error) {
 	if err := json.Unmarshal(raw, &s); err == nil {
 		return legacyToNumeric(s)
 	}
-	return 0, fmt.Errorf("version must be a number or semver string, got %s", string(raw))
+	return 0, errors.Newf("version must be a number or semver string, got %s", string(raw))
 }
 
 // legacyToNumeric converts a semver string like "1.0.0" to a numeric version
@@ -103,7 +131,7 @@ func parseVersionRaw(raw json.RawMessage) (int, error) {
 func legacyToNumeric(s string) (int, error) {
 	parts := strings.Split(s, ".")
 	if len(parts) != 3 {
-		return 0, fmt.Errorf("invalid semver %q: expected major.minor.patch", s)
+		return 0, errors.Newf("invalid semver %q: expected major.minor.patch", s)
 	}
 	major, err := strconv.Atoi(parts[0])
 	if err != nil {
