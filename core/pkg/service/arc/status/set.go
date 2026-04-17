@@ -114,5 +114,3 @@ func (s *setNode) Next(ctx node.Context) {
 		s.ins.L.Error("error setting status", zap.Error(err))
 	}
 }
-
-
