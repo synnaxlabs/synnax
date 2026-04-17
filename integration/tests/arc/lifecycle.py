@@ -33,16 +33,16 @@ func event_log{msg str} () {
 
 press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
     true: set_status{
-        status_key = "lifecycle_press_alarm",
-        name = "Lifecycle Press Alarm",
-        variant = "warning",
-        message = "Pressure stable above 25 PSI"
+        status_key="lifecycle_press_alarm",
+        name="Lifecycle Press Alarm",
+        variant="warning",
+        message="Pressure stable above 25 PSI"
     },
     false: set_status{
-        status_key = "lifecycle_press_normal",
-        name = "Lifecycle Press Normal",
-        variant = "warning",
-        message = "Pressure below 25 PSI"
+        status_key="lifecycle_press_normal",
+        name="Lifecycle Press Normal",
+        variant="warning",
+        message="Pressure below 25 PSI"
     }
 }
 // Functions are deliberately scrambled (1, 3, 2) to test that channel

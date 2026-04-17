@@ -191,7 +191,9 @@ func loop_channel_write() {
 func sum_all() {
     data := [1.0, 2.5, 3.7, 4.2]
     sum f64 := 0.0
-    for x := data{sum=sum + x}
+    for x := data {
+        sum = sum + x
+    }
     series_sum_all = sum
 }
 
@@ -199,11 +201,12 @@ func find_peak() {
     data := [3.1, 7.5, 2.0, 9.8, 1.4]
     peak f64 := 0.0
     peak_idx i32 := 0
-    for i,
-    x := data{if x > peak {
-        peak = x
-        peak_idx = i
-    }}
+    for i, x := data {
+        if x > peak {
+            peak = x
+            peak_idx = i
+        }
+    }
     series_peak_val = peak
     series_peak_idx = peak_idx
 }

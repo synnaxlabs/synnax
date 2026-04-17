@@ -412,6 +412,18 @@ var _ = Describe("Formatter", func() {
 		Entry("multiline anonymous config value in stage collapses to one line",
 			"stage run {\n    sensor -> filter{\n        threshold=10\n    } -> output\n}",
 			"stage run {\n    sensor -> filter{threshold=10} -> output\n}\n"),
+		Entry("multi-line config values keep = tight (no spaces around =)",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}\n"),
+		Entry("multi-line config values strip spaces around = from source",
+			"set_status{\n    status_key = \"lifecycle_press_alarm\",\n    name = \"Lifecycle Press Alarm\",\n    variant = \"warning\",\n    message = \"Pressure stable above 25 PSI\"\n}",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}\n"),
+		Entry("for-loop body is not treated as config values (single binding)",
+			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}",
+			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}\n"),
+		Entry("for-loop body is not treated as config values (pair binding)",
+			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
+			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n"),
 	)
 
 	DescribeTable("Config Block Formatting",

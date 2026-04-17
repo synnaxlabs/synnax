@@ -52,6 +52,10 @@ type printer struct {
 	parenContextStack  []parenContext
 	inlineConfigValues bool
 	inlineConfigBlock  bool
+	// inForHeader is true between a `for` keyword and the `{` that opens its
+	// body. While set, commas are part of the for-clause (`for i, x := data`)
+	// and must not trigger line breaks.
+	inForHeader bool
 	// reactiveBodyMultiline is a stack tracking, for each currently-open stage
 	// or stageless sequence body, whether the opener emitted a newline and
 	// incremented indent (true) or emitted `{}` as a truly-empty body (false).
@@ -388,10 +392,9 @@ func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
 			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
 			return false
 		case parser.ArcLexerLBRACE, parser.ArcLexerRBRACE,
-			parser.ArcLexerCOMMA, parser.ArcLexerCOLON,
-			parser.ArcLexerARROW, parser.ArcLexerTRANSITION,
-			parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE,
-			parser.ArcLexerASSIGN, parser.ArcLexerRETURN:
+			parser.ArcLexerCOLON, parser.ArcLexerARROW,
+			parser.ArcLexerTRANSITION, parser.ArcLexerASSIGN,
+			parser.ArcLexerRETURN:
 			return true
 		}
 	}
@@ -544,6 +547,7 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	ctx := p.detectBraceContext(idx, tokens)
 	p.braceContextStack = append(p.braceContextStack, ctx)
 	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACE)
+	p.inForHeader = false
 
 	if ctx == braceContextConfigValues {
 		if p.shouldInlineConfigValues(idx, tokens) {
@@ -917,6 +921,10 @@ func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) 
 	tokType := tok.GetTokenType()
 	tokText := tok.GetText()
 
+	if tokType == parser.ArcLexerFOR {
+		p.inForHeader = true
+	}
+
 	if p.needsNewlineBefore(tokType) {
 		if !p.atLineStart {
 			p.writeNewline()
@@ -995,7 +1003,7 @@ func (p *printer) needsSpaceBefore(tok antlr.Token) bool {
 		return false
 	}
 
-	if p.inConfigValuesContext() && p.inlineConfigValues {
+	if p.inConfigValuesContext() {
 		if tokType == parser.ArcLexerASSIGN || prevType == parser.ArcLexerASSIGN {
 			return false
 		}
@@ -1153,6 +1161,9 @@ func (p *printer) shouldBreakAfterComma() bool {
 		return false
 	}
 	if p.inConfigBlockContext() && p.inlineConfigBlock {
+		return false
+	}
+	if p.inForHeader {
 		return false
 	}
 	// Break after comma in multiline paren lists

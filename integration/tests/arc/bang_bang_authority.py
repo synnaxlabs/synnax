@@ -62,18 +62,18 @@ sequence bang_bang_controller {
         set_authority{value=220, channel=press_vlv_cmd}
         set_authority{value=220, channel=vent_vlv_cmd}
         interval{200ms} -> high_bang{
-            sensor = press_pt,
-            set_point = 50,
-            lower_deadband = 5,
-            upper_deadband = 5,
-            abort_threshold = 100
+            sensor=press_pt,
+            set_point=50,
+            lower_deadband=5,
+            upper_deadband=5,
+            abort_threshold=100
         } -> press_vlv_cmd
         interval{200ms} -> low_bang{
-            sensor = press_pt,
-            set_point = 10,
-            lower_deadband = 5,
-            upper_deadband = 5,
-            abort_threshold = 100
+            sensor=press_pt,
+            set_point=10,
+            lower_deadband=5,
+            upper_deadband=5,
+            abort_threshold=100
         } -> vent_vlv_cmd
         bb_stop_cmd => stop
     }
