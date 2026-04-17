@@ -252,6 +252,9 @@ synnax-data/**
 
 # |||| EMBEDDED DRIVER ||||
 assets
+!core/pkg/driver/assets
+core/pkg/driver/assets/driver
+core/pkg/driver/assets/driver.exe
 
 # |||| OTHER ||||
 .obsidian
