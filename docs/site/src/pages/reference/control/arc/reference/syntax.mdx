@@ -385,9 +385,9 @@ Executes every cycle while active:
 sensor -> filter{} -> output
 ```
 
-### One-Shot Flow (`=>`)
+### Conditional Flow (`=>`)
 
-Fires once when condition becomes true, then stops until reset:
+Fires while the source expression is truthy:
 
 ```arc
 pressure > 500 => next

@@ -329,5 +329,5 @@ start_cmd => main
 
 <Note.Note variant="warning">
 Always list safety-critical abort conditions first in a stage. When multiple
-one-shot transitions (`=>`) are true simultaneously, the first one wins.
+conditional transitions (`=>`) are truthy in the same cycle, the first one wins.
 </Note.Note>

@@ -211,9 +211,9 @@ New concepts in this example:
   instantiated. Here, `limit=15.0` sets the threshold
 - **Return type `u8`**: An unsigned 8-bit integer. The comparison `reading > limit`
   returns 1 (true) or 0 (false)
-- **One-shot edge** (`=>`): Unlike `->` which runs every cycle, `=>` fires once when the
-  condition becomes true. This prevents the alarm from triggering repeatedly while
-  pressure stays above the limit
+- **Conditional edge** (`=>`) -> fires the target while the source is truthy. Unlike
+  `->`, which fires on every data arrival, `=>` only fires on ticks where the source
+  expression holds
 - **Built-in function** (`set_status`): Displays a notification in the Console toolbar
   when the input is truthy (non-zero)
 
@@ -231,9 +231,9 @@ how to build test procedures, startup routines, and state machines.
 
 Or explore other topics:
 
-- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)**:
-  Understand how Arc schedules computations and the difference between continuous (`->`)
-  and one-shot (`=>`) edges
+- **[Reactive Execution](/reference/control/arc/concepts/reactive-execution)** -> how
+  Arc schedules computations and the difference between continuous (`->`) and
+  conditional (`=>`) edges
 - **[Channels and Series](/reference/control/arc/concepts/channels-and-series)**: Work
   with telemetry data and array operations
 - **[Stateful Variables](/reference/control/arc/concepts/stateful-variables)**: Persist

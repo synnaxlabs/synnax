@@ -140,8 +140,8 @@ conditions and the `emergency_stop` channel can trigger it.
 
 <Note.Note variant="warning">
 Always put abort conditions before normal operation flows in each stage.
-When multiple one-shot transitions (`=>`) are true simultaneously, the first
-one listed wins. Safety conditions should always have priority.
+When multiple conditional transitions (`=>`) are truthy in the same cycle, the
+first one listed wins. Safety conditions should always have priority.
 </Note.Note>
 
 <Divider.Divider x />

@@ -90,7 +90,7 @@ stage pressurize {
     // Continuous flows (run every cycle)
     1 -> press_vlv_cmd
     sensor -> controller{}
-    // One-shot transitions (fire once)
+    // Conditional transitions (propagate while truthy)
     pressure > 500 => next
     abort_btn => abort
 }
@@ -111,17 +111,19 @@ stage active {
 }
 ```
 
-### One-Shot Flow (`=>`)
+### Conditional Flow (`=>`)
 
-Fires once when condition becomes true, then stops:
+Fires while the source expression is truthy:
 
 ```arc
 stage wait {
-    pressure > 500 => next // fires once
+    pressure > 500 => next
 }
 ```
 
-One-shot state resets when the stage is re-entered.
+A flow whose target is a stage or sequence name is a **transition** (see
+[Transition Targets](#transition-targets)). Transitioning to an already-active target is
+a no-op.
 
 <Divider.Divider x />
 
@@ -207,7 +209,9 @@ start_cmd => main // channel triggers main sequence
 emergency_stop => abort // channel triggers abort sequence
 ```
 
-Entry points use `=>` because they fire once when the channel value becomes truthy.
+Entry points use `=>` because they fire while the channel value is truthy. The target
+sequence activates on the first truthy tick; subsequent truthy ticks are no-ops because
+the sequence is already active.
 
 ### Triggering Sequences
 
@@ -273,9 +277,9 @@ stage fire {
 
 When entering a stage:
 
-1. All one-shot (`=>`) transition states reset (can fire again)
-2. All stateful variables in stage nodes reset
-3. Continuous flows (`->`) start fresh
+1. All stateful variables in stage nodes reset
+2. Continuous flows (`->`) start fresh
+3. Timing nodes (`wait`, `interval`) reset their countdowns
 4. Inline sub-sequences restart from their first item
 5. Channel triggers only react to new writes. Values written before stage activation are
    ignored
@@ -284,7 +288,7 @@ Stages are stateless between entries.
 
 <Divider.Divider x />
 
-## Concurrency Within Stages
+## Parallel Monitoring
 
 All flow statements in a stage run concurrently:
 
@@ -301,8 +305,8 @@ stage pressurize {
 
 ### Line Order and Priority
 
-When multiple one-shot transitions (`=>`) are true simultaneously, the first one listed
-wins:
+When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
+listed wins:
 
 ```arc
 stage pressurize {
@@ -385,4 +389,4 @@ emergency_stop => abort
 | `next` needs a next item    | `next` in the last item of a sequence is an error      |
 | Entry points at top level   | Entry points must be outside sequences                 |
 | Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
-| Stage transitions can cycle | One-shot transitions (`=>`) can form cycles            |
+| Stage transitions can cycle | Conditional transitions (`=>`) can form cycles         |

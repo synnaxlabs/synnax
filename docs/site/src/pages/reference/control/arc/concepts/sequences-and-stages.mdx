@@ -24,26 +24,26 @@ condition gates) for the parts of a procedure that don't need parallel monitorin
 This is the most common use case for Arc: test sequences, startup routines, shutdown
 procedures, and any workflow that progresses through distinct phases.
 
-<Note.Note variant="warning">
-  **Everything in a stage runs at the same time.** The code looks sequential, but Arc
-  executes all flows in a stage concurrently.
-</Note.Note>
-
 <Divider.Divider x />
 
 ## A Simple Example
 
-Here's a basic pressurization sequence:
+Here's a basic pressurize, hold, and vent sequence:
 
 ```arc
 sequence main {
-    1 -> press_vlv_cmd
     stage pressurize {
-        tank_pressure > 500 => next    // target reached
-        tank_pressure > 700 => abort   // over-pressure
-        abort_btn => abort             // operator abort
+        1 -> press_vlv_cmd
+        tank_pressure > 700 => abort    // safety
+        tank_pressure > 500 => next     // target reached
     }
     0 -> press_vlv_cmd
+    wait{10s}
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pressure < 50 => next
+    }
+    0 -> vent_vlv_cmd
 }
 
 sequence abort {
@@ -56,25 +56,27 @@ sequence abort {
 start_btn => main
 ```
 
-The sequence has three items:
+The `main` sequence has five items that run in order:
 
-1. Open the pressurization valve with `1 -> press_vlv_cmd`.
-2. Enter `pressurize`, a stage where all three transitions run in parallel. Arc watches
-   for target pressure, for over-pressure, and for the abort button.
-3. Close the valve with `0 -> press_vlv_cmd`.
+1. `pressurize` is a stage that holds `press_vlv_cmd` open while watching two exits: an
+   over-pressure abort at 700 psi and a success at 500 psi.
+2. `0 -> press_vlv_cmd` closes the valve once the stage exits.
+3. `wait{10s}` dwells for ten seconds.
+4. `vent` is a stage that opens the vent valve and waits for pressure to drop below 50.
+5. `0 -> vent_vlv_cmd` closes the vent valve.
 
-The stage exits when one of its transitions fires. `=> next` advances to the next item
-(closing the valve). `=> abort` jumps to the `abort` sequence, which vents the tank.
-
-The `start_btn => main` at the bottom is the **entry point**. When `start_btn` receives
-a truthy value (non-zero), the sequence starts.
+The safety abort jumps to the separate `abort` sequence, which safes the valves. The
+`start_btn => main` at the bottom is the **entry point**. When `start_btn` receives a
+truthy value (non-zero), the sequence starts.
 
 <Divider.Divider x />
 
-## Concurrency Within Stages
+## Parallel Monitoring
 
-All flows in a stage run simultaneously. This is different from traditional line-by-line
-code execution.
+<Note.Note variant="warning">
+  **Everything in a stage runs at the same time.** The code looks sequential, but Arc
+  executes all flows in a stage concurrently.
+</Note.Note>
 
 ```arc
 stage pressurize {
@@ -92,8 +94,8 @@ You don't write loops to "keep checking" these conditions. Arc monitors all of t
 concurrently while the stage is active.
 
 <Note.Note variant="info">
-**Line order determines priority for transitions.** When multiple one-shot edges
-(`=>`) could fire in the same cycle, the one listed first wins. Always put safety
+**Line order determines priority for transitions.** When multiple conditional edges
+(`=>`) are truthy in the same cycle, the one listed first wins. Always put safety
 conditions before success conditions.
 </Note.Note>
 
@@ -101,18 +103,27 @@ conditions before success conditions.
 
 ## Transitions
 
-Use `=>` (one-shot edge) to transition between stages:
+A **transition** is a flow statement whose target is a stage or sequence name. When the
+edge fires, the current stage or sequence deactivates and control jumps to the target.
 
 ```arc
 stage idle {
-    start_btn => next // advance to next stage in order
+    start_btn => next            // advance to next stage in order
 }
 
 stage running {
-    stop_btn => idle // jump to specific stage
-    emergency => abort // jump to different sequence
+    stop_btn => idle             // jump to specific stage
+    emergency => abort           // jump to different sequence
 }
 ```
+
+Most transitions use `=>`, which fires while the source expression is truthy. For
+test-stand conditions like `pressure > 500`, this means the transition fires the first
+tick the condition holds. Transitioning to an already-active target is a no-op, so a
+source that stays truthy will not re-enter a running sequence.
+
+A `->` flow into a stage or sequence name is also a transition. It fires on the first
+value the source produces, regardless of truthiness. This is rare in practice.
 
 ### Transition Targets
 
@@ -171,9 +182,9 @@ A named sequence still needs a trigger to start.
 
 When entering a stage:
 
-1. All one-shot transition states reset (can fire again)
-2. All stateful variables in the stage reset to initial values
-3. Reactive flows start fresh
+1. All stateful variables in the stage reset to initial values
+2. Reactive flows start fresh
+3. Timing nodes (`wait`, `interval`) reset their countdowns
 4. Inline sub-sequences restart from their first item
 5. Channel triggers only react to new writes. Values written before stage entry are
    ignored

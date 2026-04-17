@@ -22,7 +22,7 @@ building real control systems.
 
 ### Safety Conditions First
 
-Line order determines priority for one-shot transitions (`=>`). Always list abort
+Line order determines priority for conditional transitions (`=>`). Always list abort
 conditions before normal operations:
 
 ```arc
@@ -41,17 +41,19 @@ If multiple transitions are true simultaneously, the first one wins.
 
 ### Use `->` for Streaming, `=>` for Transitions
 
-Continuous edges (`->`) run every cycle. One-shot edges (`=>`) fire once and stop until
-the stage is re-entered.
+Continuous edges (`->`) fire on every data arrival. Conditional edges (`=>`) fire while
+the source is truthy.
 
 ```arc
 // Streaming: continuously process sensor data
 sensor -> filter{} -> output
-// Transition: fire once when condition becomes true
+// Transition: fire while the condition is truthy
 pressure > 500 => next
 ```
 
-Common mistake: using `->` for a transition and wondering why it keeps firing.
+For stage and sequence transitions, `=>` is what you want. `->` into a stage name also
+transitions but fires on the first data arrival regardless of truthiness, which rarely
+matches operator intent.
 
 ### Keep Stages Focused
 
@@ -190,25 +192,15 @@ p1, t2, cmd
 ### Using `->` When `=>` Is Needed
 
 ```arc
-// Wrong: fires every cycle, not just once
-pressure > 500 -> next // Syntax error anyway, but shows intent
-// Right: fires once when condition becomes true
+// Wrong: fires on every data arrival, regardless of truthiness
+pressure > 500 -> next
+// Right: fires while the condition is truthy
 pressure > 500 => next
 ```
 
-### Forgetting That `=>` Resets on Stage Re-Entry
-
-One-shot transitions reset when you re-enter a stage. If you loop back:
-
-```arc
-stage retry {
-    attempt_operation{}
-    operation_failed => retry // Goes back to this stage
-    operation_succeeded => next // This resets when re-entering
-}
-```
-
-Each time the stage is entered, all `=>` transitions can fire again.
+`->` into a stage name is legal syntax but transitions on the first value from the
+source rather than on truthiness. Operators writing a condition like `pressure > 500`
+almost always mean "while this is true," which is `=>`.
 
 ### Multiple Writes to Same Channel
 
