@@ -30,6 +30,7 @@ type TypeForm interface {
 
 type StructForm struct {
 	Fields        []Field
+	Actions       []Action
 	TypeParams    []TypeParam
 	Extends       []TypeRef
 	OmittedFields []string
@@ -93,6 +94,13 @@ type BuiltinGenericForm struct {
 
 func (BuiltinGenericForm) typeForm() {}
 
+type Action struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Fields  []Field
+}
+
 type Field struct {
 	AST            any
 	Domains        map[string]Domain
@@ -140,6 +148,51 @@ func (r TypeRef) Resolve(table *Table) (Type, bool) {
 
 func (r TypeRef) MustResolve(table *Table) Type {
 	return table.MustGet(r.Name)
+}
+
+// RefersTo reports whether ref directly or transitively references a type
+// identified by targetQualifiedName. The search follows type arguments, struct
+// field types, alias targets, and distinct bases, so mutual-recursion cycles
+// (A → B → A) are detected, not just direct self-reference (A → A). A visited
+// set prevents infinite loops on non-target cycles.
+//
+// This is the shared primitive behind the analyzer's IsRecursive detection
+// and the C++ plugin's decision between std::optional<T> and
+// x::mem::indirect<T> for hard-optional fields.
+func RefersTo(ref TypeRef, targetQualifiedName string, table *Table) bool {
+	return refersTo(ref, targetQualifiedName, table, set.New[string]())
+}
+
+func refersTo(ref TypeRef, targetQN string, table *Table, visited set.Set[string]) bool {
+	if ref.Name == targetQN {
+		return true
+	}
+	for _, arg := range ref.TypeArgs {
+		if refersTo(arg, targetQN, table, visited) {
+			return true
+		}
+	}
+	if visited.Contains(ref.Name) {
+		return false
+	}
+	visited.Add(ref.Name)
+	resolved, ok := table.Get(ref.Name)
+	if !ok {
+		return false
+	}
+	switch form := resolved.Form.(type) {
+	case StructForm:
+		for _, f := range form.Fields {
+			if refersTo(f.Type, targetQN, table, visited) {
+				return true
+			}
+		}
+	case AliasForm:
+		return refersTo(form.Target, targetQN, table, visited)
+	case DistinctForm:
+		return refersTo(form.Base, targetQN, table, visited)
+	}
+	return false
 }
 
 type TypeParam struct {

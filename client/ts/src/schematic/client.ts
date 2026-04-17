@@ -8,9 +8,10 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import { type Action, actionZ } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -25,10 +26,6 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -57,6 +54,11 @@ const createReqZ = z.object({
 const createResZ = z.object({ schematics: schematicZ.array() });
 
 const copyResZ = z.object({ schematic: schematicZ });
+const dispatchReqZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
 const emptyResZ = z.object({});
 
 export class Client {
@@ -95,16 +97,6 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/set-data",
-      { key, data },
-      setDataReqZ,
-      emptyResZ,
-    );
-  }
-
   async retrieve(args: RetrieveSingleParams): Promise<Schematic>;
   async retrieve(args: RetrieveMultipleParams): Promise<Schematic[]>;
   async retrieve(
@@ -128,6 +120,16 @@ export class Client {
       "/schematic/delete",
       { keys: array.toArray(keys) },
       deleteReqZ,
+      emptyResZ,
+    );
+  }
+
+  async dispatch(key: Key, actions: Action[], sessionKey: string): Promise<void> {
+    await sendRequired(
+      this.client,
+      "/schematic/dispatch",
+      { key, sessionKey, actions },
+      dispatchReqZ,
       emptyResZ,
     );
   }

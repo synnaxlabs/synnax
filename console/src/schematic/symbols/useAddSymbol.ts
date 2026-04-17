@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
-import { type Diagram, Flux, Schematic, Theming } from "@synnaxlabs/pluto";
-import { id, type xy } from "@synnaxlabs/x";
+import { Flux, Schematic, Theming } from "@synnaxlabs/pluto";
+import { id, type record, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { z } from "zod";
-
-import { addElement } from "@/schematic/slice";
 
 const dropDataZ = z.object({
   specKey: schematic.symbol.keyZ,
 });
 
-export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
+export const useAddSymbol = (schematicKey: string) => {
   const store = Flux.useStore<Schematic.Symbol.FluxSubStore>();
   const theme = Theming.use();
+  const { update: dispatch } = Schematic.useDispatch();
 
   return useCallback(
     (key: string, position?: xy.XY, data?: unknown) => {
@@ -42,17 +40,22 @@ export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
         initialProps.specKey = key;
         initialProps.label.label = initialName;
       }
-      const node: Partial<Diagram.Node> = { zIndex: spec.zIndex };
-      if (position != null) node.position = position;
-      dispatch(
-        addElement({
-          key: layoutKey,
-          elKey: id.create(),
-          node,
-          props: { key: variant, ...initialProps, ...parsedData.data },
-        }),
-      );
+      const nodeKey = id.create();
+      const node: schematic.Node = {
+        key: nodeKey,
+        position: position ?? xy.ZERO,
+        measured: { width: 0, height: 0 },
+      };
+      const props: record.Unknown = {
+        variant,
+        ...initialProps,
+        ...parsedData.data,
+      };
+      dispatch({
+        key: schematicKey,
+        actions: [schematic.addNode({ node, props })],
+      });
     },
-    [dispatch, layoutKey, theme],
+    [dispatch, schematicKey, theme, store],
   );
 };

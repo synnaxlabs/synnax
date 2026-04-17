@@ -180,6 +180,18 @@ export class Client {
 
   async readLatest(channels: channel.Params, n: number): Promise<Frame>;
 
+  /**
+   * Reads the latest n samples from the given channel(s).
+   *
+   * If fewer than n samples are available, returns only the samples that
+   * exist.
+   *
+   * @param channels - A single channel key/name or an array of channel
+   * keys/names.
+   * @param n - The maximum number of samples to read. Defaults to 1.
+   * @returns A MultiSeries when a single channel is provided, or a Frame when
+   * multiple channels are provided.
+   */
   async readLatest(
     channels: channel.Params,
     n: number = 1,

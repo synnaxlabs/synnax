@@ -12,6 +12,7 @@ package migrate
 import (
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
+	"github.com/synnaxlabs/x/set"
 )
 
 // --- Schema equality (used by detectSchemaChange) ---
@@ -22,19 +23,19 @@ func schemasEqual(
 	oldType, newType resolution.Type,
 	oldTable, newTable *resolution.Table,
 ) bool {
-	return typesEqual(oldType, newType, oldTable, newTable, make(map[string]bool))
+	return typesEqual(oldType, newType, oldTable, newTable, make(set.Set[string]))
 }
 
 func typesEqual(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) bool {
-	if visiting[old.QualifiedName] {
+	if visiting.Contains(old.QualifiedName) {
 		return true
 	}
-	visiting[old.QualifiedName] = true
-	defer delete(visiting, old.QualifiedName)
+	visiting.Add(old.QualifiedName)
+	defer visiting.Remove(old.QualifiedName)
 
 	switch oldForm := old.Form.(type) {
 	case resolution.StructForm:
@@ -91,7 +92,7 @@ func typesEqual(
 func refsEqual(
 	old, new resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) bool {
 	if len(old.TypeArgs) != len(new.TypeArgs) {
 		return false
@@ -157,7 +158,7 @@ func SchemaDiff(
 	oldTable, newTable *resolution.Table,
 ) map[string]TypeDiff {
 	result := make(map[string]TypeDiff)
-	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(map[string]bool))
+	diffWalk(oldEntry, newEntry, oldTable, newTable, result, make(set.Set[string]))
 	return result
 }
 
@@ -165,16 +166,16 @@ func diffWalk(
 	old, new resolution.Type,
 	oldTable, newTable *resolution.Table,
 	result map[string]TypeDiff,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) TypeChangeKind {
-	if visiting[old.QualifiedName] {
+	if visiting.Contains(old.QualifiedName) {
 		return TypeUnchanged
 	}
 	if existing, ok := result[old.QualifiedName]; ok {
 		return existing.Kind
 	}
-	visiting[old.QualifiedName] = true
-	defer delete(visiting, old.QualifiedName)
+	visiting.Add(old.QualifiedName)
+	defer visiting.Remove(old.QualifiedName)
 
 	goPath := output.GetPath(old, "go")
 
@@ -196,7 +197,7 @@ func diffWalk(
 	oldStruct, oldOk := old.Form.(resolution.StructForm)
 	newStruct, newOk := new.Form.(resolution.StructForm)
 	if !oldOk || !newOk {
-		if !typesEqual(old, new, oldTable, newTable, make(map[string]bool)) {
+		if !typesEqual(old, new, oldTable, newTable, make(set.Set[string])) {
 			result[old.QualifiedName] = TypeDiff{QualifiedName: old.QualifiedName, GoPath: goPath, Kind: TypeChanged}
 			return TypeChanged
 		}
@@ -311,7 +312,7 @@ func diffRefWalk(
 	ref resolution.TypeRef,
 	oldTable, newTable *resolution.Table,
 	result map[string]TypeDiff,
-	visiting map[string]bool,
+	visiting set.Set[string],
 ) TypeChangeKind {
 	oldResolved, oldOk := ref.Resolve(oldTable)
 	if !oldOk {

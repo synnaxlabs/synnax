@@ -64,6 +64,14 @@ func (v *BaseOracleParserVisitor) VisitStructBody(ctx *StructBodyContext) interf
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseOracleParserVisitor) VisitActionDef(ctx *ActionDefContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitActionBody(ctx *ActionBodyContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseOracleParserVisitor) VisitFieldOmit(ctx *FieldOmitContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -137,6 +145,10 @@ func (v *BaseOracleParserVisitor) VisitEnumBody(ctx *EnumBodyContext) interface{
 }
 
 func (v *BaseOracleParserVisitor) VisitEnumValue(ctx *EnumValueContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseOracleParserVisitor) VisitEnumValueBody(ctx *EnumValueBodyContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

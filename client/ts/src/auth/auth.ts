@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Middleware, sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ExpiredTokenError, InvalidTokenError } from "@/errors";
@@ -16,7 +17,18 @@ import { user } from "@/user";
 const insecureCredentialsZ = z.object({ username: z.string(), password: z.string() });
 interface InsecureCredentials extends z.infer<typeof insecureCredentialsZ> {}
 
-const tokenResponseZ = z.object({ token: z.string(), user: user.userZ });
+const clusterInfoZ = z.object({
+  clusterKey: z.string(),
+  nodeVersion: z.string().optional(),
+  nodeKey: z.number().optional(),
+  nodeTime: TimeStamp.z,
+});
+
+const tokenResponseZ = z.object({
+  token: z.string(),
+  user: user.userZ,
+  clusterInfo: clusterInfoZ.optional(),
+});
 
 const LOGIN_ENDPOINT = "/auth/login";
 

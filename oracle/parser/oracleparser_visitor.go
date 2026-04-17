@@ -52,6 +52,12 @@ type OracleParserVisitor interface {
 	// Visit a parse tree produced by OracleParser#structBody.
 	VisitStructBody(ctx *StructBodyContext) interface{}
 
+	// Visit a parse tree produced by OracleParser#actionDef.
+	VisitActionDef(ctx *ActionDefContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#actionBody.
+	VisitActionBody(ctx *ActionBodyContext) interface{}
+
 	// Visit a parse tree produced by OracleParser#fieldOmit.
 	VisitFieldOmit(ctx *FieldOmitContext) interface{}
 
@@ -108,6 +114,9 @@ type OracleParserVisitor interface {
 
 	// Visit a parse tree produced by OracleParser#enumValue.
 	VisitEnumValue(ctx *EnumValueContext) interface{}
+
+	// Visit a parse tree produced by OracleParser#enumValueBody.
+	VisitEnumValueBody(ctx *EnumValueBodyContext) interface{}
 
 	// Visit a parse tree produced by OracleParser#typeDefDef.
 	VisitTypeDefDef(ctx *TypeDefDefContext) interface{}

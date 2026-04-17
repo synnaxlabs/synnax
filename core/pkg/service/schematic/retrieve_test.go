@@ -13,14 +13,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Retrieve", func() {
 	It("Should retrieve a Schematic", func(ctx SpecContext) {
-		s := schematic.Schematic{Name: "test", Data: map[string]any{"key": "data"}}
+		s := schematic.Schematic{
+			Name: "test",
+			Props: map[string]msgpack.EncodedJSON{
+				"key": map[string]any{"data": "data_two"},
+			}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res schematic.Schematic
 		Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
-		Expect(res).To(Equal(s))
+		Expect(res.Key).To(Equal(s.Key))
+		Expect(res.Name).To(Equal(s.Name))
+		Expect(res.Props).To(Equal(s.Props))
 	})
 })

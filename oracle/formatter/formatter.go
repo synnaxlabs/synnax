@@ -317,7 +317,7 @@ func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
 }
 
 func isEmptyStructBody(ctx parser.IStructBodyContext) bool {
-	return len(ctx.AllFieldDef()) == 0 && len(ctx.AllDomain()) == 0 && len(ctx.AllFieldOmit()) == 0
+	return len(ctx.AllFieldDef()) == 0 && len(ctx.AllDomain()) == 0 && len(ctx.AllFieldOmit()) == 0 && len(ctx.AllActionDef()) == 0
 }
 
 func (f *formatter) formatStructAlias(ctx *parser.StructAliasContext) {
@@ -470,8 +470,18 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 		f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
 	}
 
-	// Blank line before struct-level domains if there are fields or omissions
-	if (len(fields) > 0 || len(fieldOmits) > 0) && len(domains) > 0 {
+	// Format action definitions
+	actions := ctx.AllActionDef()
+	for _, action := range actions {
+		f.emitCommentsBefore(action.GetStart().GetTokenIndex())
+		if len(fields) > 0 || len(fieldOmits) > 0 {
+			f.newline()
+		}
+		f.formatActionDef(action)
+	}
+
+	// Blank line before struct-level domains if there are fields, omissions, or actions
+	if (len(fields) > 0 || len(fieldOmits) > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 
@@ -484,6 +494,47 @@ func (f *formatter) formatFieldOmit(ctx parser.IFieldOmitContext) {
 	f.write("-")
 	f.write(ctx.IDENT().GetText())
 	f.newline()
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
+	f.writeIndent()
+	f.write("action ")
+	f.write(ctx.IDENT().GetText())
+	f.writeLine(" {")
+	f.currentIndent++
+
+	if body := ctx.ActionBody(); body != nil {
+		actionFields := body.AllFieldDef()
+		actionDomains := body.AllDomain()
+
+		maxNameLen := 0
+		maxTypeLen := 0
+		for _, field := range actionFields {
+			nameLen := len(field.IDENT().GetText())
+			if nameLen > maxNameLen {
+				maxNameLen = nameLen
+			}
+			typeLen := len(f.formatTypeRefToString(field.TypeRef()))
+			if typeLen > maxTypeLen {
+				maxTypeLen = typeLen
+			}
+		}
+
+		for _, field := range actionFields {
+			f.emitCommentsBefore(field.GetStart().GetTokenIndex())
+			f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
+		}
+
+		if len(actionFields) > 0 && len(actionDomains) > 0 {
+			f.newline()
+		}
+		f.formatDomains(actionDomains)
+	}
+
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
 	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
 }
 

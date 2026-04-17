@@ -344,7 +344,7 @@ void Master::discover_slave_pdos(slave::DiscoveryResult &slave) {
 bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
     auto &props = slave.properties;
     auto &status = slave.status;
-    VLOG(2) << "Slave " << props.position << " mbx_proto: 0x" << std::hex
+    VLOG(1) << "Slave " << props.position << " mbx_proto: 0x" << std::hex
             << static_cast<int>(this->api->slave_mbx_proto(props.position)) << std::dec;
     if ((this->api->slave_mbx_proto(props.position) & ECT_MBXPROT_COE) == 0) {
         VLOG(1) << "Slave " << props.position << " (" << props.name
@@ -352,7 +352,7 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
         return false;
     }
 
-    VLOG(2) << "Slave " << props.position << " supports CoE, reading PDO assignments";
+    VLOG(1) << "Slave " << props.position << " supports CoE, reading PDO assignments";
 
     bool tx_success = false;
     bool rx_success = false;
@@ -362,11 +362,11 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
 
     auto err = this->read_pdo_assign(props.position, ECT_SDO_TXPDOASSIGN, true, slave);
     if (err) {
-        VLOG(2) << "Failed to read TxPDO assignment for slave " << props.position
+        VLOG(1) << "Failed to read TxPDO assignment for slave " << props.position
                 << ": " << err.message() << " - trying direct PDO read";
         err = this->read_pdo_mapping(props.position, TXPDO_MAPPING_START, true, slave);
         if (err)
-            VLOG(2) << "Failed to read TxPDO mapping 0x" << std::hex
+            VLOG(1) << "Failed to read TxPDO mapping 0x" << std::hex
                     << TXPDO_MAPPING_START << std::dec << " for slave "
                     << props.position << ": " << err.message();
         else
@@ -378,11 +378,11 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
 
     err = this->read_pdo_assign(props.position, ECT_SDO_RXPDOASSIGN, false, slave);
     if (err) {
-        VLOG(2) << "Failed to read RxPDO assignment for slave " << props.position
+        VLOG(1) << "Failed to read RxPDO assignment for slave " << props.position
                 << ": " << err.message() << " - trying direct PDO read";
         err = this->read_pdo_mapping(props.position, RXPDO_MAPPING_START, false, slave);
         if (err)
-            VLOG(2) << "Failed to read RxPDO mapping 0x" << std::hex
+            VLOG(1) << "Failed to read RxPDO mapping 0x" << std::hex
                     << RXPDO_MAPPING_START << std::dec << " for slave "
                     << props.position << ": " << err.message();
         else
@@ -393,7 +393,7 @@ bool Master::discover_pdos_coe(slave::DiscoveryResult &slave) {
     }
 
     if (!tx_success && !rx_success) {
-        VLOG(2) << "Standard PDO discovery failed for slave " << props.position
+        VLOG(1) << "Standard PDO discovery failed for slave " << props.position
                 << ", scanning object dictionary";
         if (this->scan_object_dictionary_for_pdos(props.position, slave)) {
             tx_success = !props.input_pdos.empty();
@@ -422,7 +422,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     for (uint8_t t = 0; t <= 1; ++t) {
         const bool is_input = (t == 0);
         const uint16_t startpos = this->api->siifind(props.position, ECT_SII_PDO + t);
-        VLOG(2) << "Slave " << props.position << " SII category " << (ECT_SII_PDO + t)
+        VLOG(1) << "Slave " << props.position << " SII category " << (ECT_SII_PDO + t)
                 << " (" << (is_input ? "TxPDO" : "RxPDO") << ") startpos: " << startpos;
         if (startpos == 0) continue;
 
@@ -430,7 +430,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
         uint16_t length = this->api->siigetbyte(props.position, a++);
         length += (this->api->siigetbyte(props.position, a++) << 8);
 
-        VLOG(2) << "Slave " << props.position << " " << (is_input ? "TxPDO" : "RxPDO")
+        VLOG(1) << "Slave " << props.position << " " << (is_input ? "TxPDO" : "RxPDO")
                 << " length: " << length;
 
         uint16_t c = 1;
@@ -507,7 +507,7 @@ void Master::discover_pdos_sii(slave::DiscoveryResult &slave) {
     if (props.input_pdos.empty() && props.output_pdos.empty()) {
         if (this->api->slave_Ibits(props.position) > 0 ||
             this->api->slave_Obits(props.position) > 0) {
-            VLOG(2) << "Slave " << props.position
+            VLOG(1) << "Slave " << props.position
                     << " has Ibits=" << this->api->slave_Ibits(props.position)
                     << " Obits=" << this->api->slave_Obits(props.position)
                     << " but no SII PDO info";
@@ -549,7 +549,7 @@ x::errors::Error Master::read_pdo_assign(
         SDO_TIMEOUT
     );
     if (result <= 0) {
-        VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << assign_index
+        VLOG(1) << "Slave " << slave_pos << " SDO read 0x" << std::hex << assign_index
                 << ":0 failed, result=" << std::dec << result
                 << " ecx_err=" << this->api->slave_ALstatuscode(slave_pos);
         return x::errors::Error(
@@ -557,7 +557,7 @@ x::errors::Error Master::read_pdo_assign(
             "failed to read PDO assignment count"
         );
     }
-    VLOG(2) << "Slave " << slave_pos << " PDO assign 0x" << std::hex << assign_index
+    VLOG(1) << "Slave " << slave_pos << " PDO assign 0x" << std::hex << assign_index
             << " has " << std::dec << static_cast<int>(num_pdos) << " PDOs";
 
     int consecutive_failures = 0;
@@ -587,7 +587,7 @@ x::errors::Error Master::read_pdo_assign(
         if (pdo_index == 0) continue;
 
         if (auto err = this->read_pdo_mapping(slave_pos, pdo_index, is_input, slave))
-            VLOG(2) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
+            VLOG(1) << "Failed to read PDO mapping 0x" << std::hex << pdo_index
                     << " for slave " << std::dec << slave_pos << ": " << err.message();
     }
 
@@ -613,14 +613,14 @@ x::errors::Error Master::read_pdo_mapping(
         SDO_TIMEOUT
     );
     if (result <= 0) {
-        VLOG(2) << "Slave " << slave_pos << " SDO read 0x" << std::hex << pdo_index
+        VLOG(1) << "Slave " << slave_pos << " SDO read 0x" << std::hex << pdo_index
                 << ":0 failed, result=" << std::dec << result;
         return x::errors::Error(
             errors::SDO_READ_ERROR,
             "failed to read PDO mapping count"
         );
     }
-    VLOG(2) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
+    VLOG(1) << "Slave " << slave_pos << " PDO 0x" << std::hex << pdo_index << " has "
             << std::dec << static_cast<int>(num_entries) << " entries";
 
     int consecutive_failures = 0;
@@ -710,11 +710,11 @@ bool Master::scan_object_dictionary_for_pdos(
     od_list.Slave = slave_pos;
 
     if (this->api->readODlist(slave_pos, &od_list) <= 0) {
-        VLOG(2) << "Slave " << slave_pos << " failed to read object dictionary list";
+        VLOG(1) << "Slave " << slave_pos << " failed to read object dictionary list";
         return false;
     }
 
-    VLOG(2) << "Slave " << slave_pos << " object dictionary has " << od_list.Entries
+    VLOG(1) << "Slave " << slave_pos << " object dictionary has " << od_list.Entries
             << " entries";
 
     std::vector<uint16_t> txpdo_indices;
@@ -724,11 +724,11 @@ bool Master::scan_object_dictionary_for_pdos(
         const uint16_t index = od_list.Index[i];
         if (index >= TXPDO_MAPPING_START && index <= TXPDO_MAPPING_END) {
             txpdo_indices.push_back(index);
-            VLOG(2) << "Slave " << slave_pos << " found TxPDO object 0x" << std::hex
+            VLOG(1) << "Slave " << slave_pos << " found TxPDO object 0x" << std::hex
                     << index << std::dec;
         } else if (index >= RXPDO_MAPPING_START && index <= RXPDO_MAPPING_END) {
             rxpdo_indices.push_back(index);
-            VLOG(2) << "Slave " << slave_pos << " found RxPDO object 0x" << std::hex
+            VLOG(1) << "Slave " << slave_pos << " found RxPDO object 0x" << std::hex
                     << index << std::dec;
         }
     }
@@ -745,7 +745,7 @@ bool Master::scan_object_dictionary_for_pdos(
         if (!err) found_any = true;
     }
 
-    VLOG(2) << "Slave " << slave_pos << " OD scan found " << txpdo_indices.size()
+    VLOG(1) << "Slave " << slave_pos << " OD scan found " << txpdo_indices.size()
             << " TxPDO objects, " << rxpdo_indices.size() << " RxPDO objects";
 
     return found_any;
@@ -801,7 +801,7 @@ std::vector<master::Info> Manager::enumerate() {
             info.description = current->desc;
             masters.push_back(std::move(info));
         } else {
-            VLOG(2) << "[ethercat] skipping virtual interface: " << current->name;
+            VLOG(1) << "[ethercat] skipping virtual interface: " << current->name;
         }
         current = current->next;
     }

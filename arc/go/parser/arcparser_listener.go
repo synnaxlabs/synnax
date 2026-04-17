@@ -94,6 +94,9 @@ type ArcParserListener interface {
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
 
+	// EnterQualifiedIdentifier is called when entering the qualifiedIdentifier production.
+	EnterQualifiedIdentifier(c *QualifiedIdentifierContext)
+
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
 
@@ -312,6 +315,9 @@ type ArcParserListener interface {
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)
+
+	// ExitQualifiedIdentifier is called when exiting the qualifiedIdentifier production.
+	ExitQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

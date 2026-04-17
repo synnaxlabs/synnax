@@ -10,11 +10,21 @@
 import { describe, expect, it } from "vitest";
 
 import { AuthError, NotFoundError } from "@/errors";
-import { schematic } from "@/schematic";
+import { type schematic } from "@/schematic";
+import { schematic as schematicNS } from "@/schematic";
 import { createTestClientWithPolicy } from "@/testutil/access";
 import { createTestClient } from "@/testutil/client";
 
 const client = createTestClient();
+
+const newSchematic = (overrides: Partial<schematic.New> = {}): schematic.New => ({
+  name: "test",
+  legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+  nodes: [],
+  edges: [],
+  props: {},
+  ...overrides,
+});
 
 describe("schematic", () => {
   describe("access control", () => {
@@ -28,10 +38,7 @@ describe("schematic", () => {
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const randomSchematic = await client.schematics.create(ws.key, newSchematic());
       await expect(
         userClient.schematics.retrieve({ key: randomSchematic.key }),
       ).rejects.toThrow(AuthError);
@@ -40,17 +47,14 @@ describe("schematic", () => {
     it("should allow the caller to retrieve schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematicNS.ontologyID("")],
         actions: ["retrieve"],
       });
       const ws = await client.workspaces.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const randomSchematic = await client.schematics.create(ws.key, newSchematic());
       const retrieved = await userClient.schematics.retrieve({
         key: randomSchematic.key,
       });
@@ -61,23 +65,20 @@ describe("schematic", () => {
     it("should allow the caller to create schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematicNS.ontologyID("")],
         actions: ["create"],
       });
       const ws = await client.workspaces.create({
         name: "test",
         layout: {},
       });
-      await userClient.schematics.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      await userClient.schematics.create(ws.key, newSchematic());
     });
 
     it("should deny access when no create policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematicNS.ontologyID("")],
         actions: [],
       });
       const ws = await client.workspaces.create({
@@ -85,27 +86,21 @@ describe("schematic", () => {
         layout: {},
       });
       await expect(
-        userClient.schematics.create(ws.key, {
-          name: "test",
-          data: {},
-        }),
+        userClient.schematics.create(ws.key, newSchematic()),
       ).rejects.toThrow(AuthError);
     });
 
     it("should allow the caller to delete schematics with the correct policy", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematicNS.ontologyID("")],
         actions: ["delete", "retrieve"],
       });
       const ws = await client.workspaces.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const randomSchematic = await client.schematics.create(ws.key, newSchematic());
       await userClient.schematics.delete(randomSchematic.key);
       await expect(
         userClient.schematics.retrieve({ key: randomSchematic.key }),
@@ -115,17 +110,14 @@ describe("schematic", () => {
     it("should deny access when no delete policy exists", async () => {
       const userClient = await createTestClientWithPolicy(client, {
         name: "test",
-        objects: [schematic.ontologyID("")],
+        objects: [schematicNS.ontologyID("")],
         actions: [],
       });
       const ws = await client.workspaces.create({
         name: "test",
         layout: {},
       });
-      const randomSchematic = await client.schematics.create(ws.key, {
-        name: "test",
-        data: {},
-      });
+      const randomSchematic = await client.schematics.create(ws.key, newSchematic());
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toThrow(
         AuthError,
       );

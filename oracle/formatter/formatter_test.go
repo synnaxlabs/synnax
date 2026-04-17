@@ -343,4 +343,50 @@ var _ = Describe("Format", func() {
 			Expect(second).To(Equal(first))
 		})
 	})
+
+	Describe("Action Definitions", func() {
+		It("should format a struct with a single action", func() {
+			source := "User struct {\n  name string\n\n  action Rename {\n    new_name string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action Rename {"))
+			Expect(result).To(ContainSubstring("        new_name string"))
+			Expect(result).To(ContainSubstring("    }"))
+		})
+
+		It("should format a struct with multiple actions", func() {
+			source := "Doc struct {\n  title string\n\n  action SetTitle {\n    title string\n  }\n\n  action SetBody {\n    body string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action SetTitle"))
+			Expect(result).To(ContainSubstring("action SetBody"))
+		})
+
+		It("should align action payload fields", func() {
+			source := "S struct {\n  action Move {\n    x int32\n    long_name string\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("x         int32"))
+			Expect(result).To(ContainSubstring("long_name string"))
+		})
+
+		It("should format action with domains", func() {
+			source := "S struct {\n  action Move {\n    x int32\n\n    @doc value \"moves the element\"\n  }\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("action Move"))
+			Expect(result).To(ContainSubstring("@doc value"))
+		})
+
+		It("should preserve actions alongside fields and struct domains", func() {
+			source := "S struct {\n  name string\n\n  action Rename {\n    new_name string\n  }\n\n  @go output \"core/pkg\"\n}\n"
+			result := format(source)
+			Expect(result).To(ContainSubstring("name string"))
+			Expect(result).To(ContainSubstring("action Rename"))
+			Expect(result).To(ContainSubstring("@go output"))
+		})
+
+		It("should be idempotent for structs with actions", func() {
+			source := "S struct {\n  name string\n\n  action Rename {\n    new_name string\n  }\n\n  @go output \"core/pkg\"\n}\n"
+			first := format(source)
+			second := format(first)
+			Expect(second).To(Equal(first))
+		})
+	})
 })

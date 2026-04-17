@@ -236,6 +236,10 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
 		}
+		for _, a := range body.AllActionDef() {
+			action := collectAction(c, a, form.TypeParams)
+			form.Actions = append(form.Actions, action)
+		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			if existing, ok := domains[de.Name]; ok {
@@ -446,6 +450,31 @@ func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []reso
 		}
 	}
 	return field
+}
+
+func collectAction(c *analysisCtx, def parser.IActionDefContext, typeParams []resolution.TypeParam) resolution.Action {
+	name := def.IDENT().GetText()
+	action := resolution.Action{
+		Name:    name,
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
+	if body := def.ActionBody(); body != nil {
+		hasKeyDomain := false
+		for _, f := range body.AllFieldDef() {
+			field := collectField(c, f, typeParams, &hasKeyDomain)
+			action.Fields = append(action.Fields, field)
+		}
+		for _, d := range body.AllDomain() {
+			de := collectDomain(d)
+			if existing, ok := action.Domains[de.Name]; ok {
+				action.Domains[de.Name] = de.Merge(existing)
+			} else {
+				action.Domains[de.Name] = de
+			}
+		}
+	}
+	return action
 }
 
 func collectFileDomain(fd parser.IFileDomainContext) resolution.Domain {
@@ -671,6 +700,11 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 		for i := range form.Fields {
 			resolveTypeRef(c, typ, &form.Fields[i].Type)
 		}
+		for i := range form.Actions {
+			for j := range form.Actions[i].Fields {
+				resolveTypeRef(c, typ, &form.Actions[i].Fields[j].Type)
+			}
+		}
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
 				resolveTypeRef(c, typ, form.TypeParams[i].Constraint)
@@ -804,19 +838,7 @@ func isRecursive(typ *resolution.Type, table *resolution.Table) bool {
 		return false
 	}
 	for _, field := range form.Fields {
-		if typeRefersTo(field.Type, typ, table) {
-			return true
-		}
-	}
-	return false
-}
-
-func typeRefersTo(ref resolution.TypeRef, target *resolution.Type, table *resolution.Table) bool {
-	if ref.Name == target.QualifiedName {
-		return true
-	}
-	for _, arg := range ref.TypeArgs {
-		if typeRefersTo(arg, target, table) {
+		if resolution.RefersTo(field.Type, typ.QualifiedName, table) {
 			return true
 		}
 	}

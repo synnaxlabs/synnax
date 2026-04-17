@@ -25,7 +25,7 @@ func (rv Role) EncodeOrc(w *orc.Writer) error {
 
 func (rv *Role) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(rv.Key[:]); err != nil {
+	if _, err = r.Read(rv.Key[:]); err != nil {
 		return err
 	}
 	if rv.Name, err = r.String(); err != nil {

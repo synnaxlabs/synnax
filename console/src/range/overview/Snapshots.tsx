@@ -50,9 +50,7 @@ const SNAPSHOTS: Record<"schematic" | "task", SnapshotService> = {
     onClick: async ({ id: { key } }, { client, placeLayout }) => {
       if (client == null) throw new DisconnectedError();
       const s = await client.schematics.retrieve({ key });
-      placeLayout(
-        create({ ...s.data, key: s.key, name: s.name, snapshot: s.snapshot }),
-      );
+      placeLayout(create({ key: s.key, name: s.name }));
     },
     onDelete: async ({ id: { key } }, { client }) => {
       if (client == null) throw new DisconnectedError();

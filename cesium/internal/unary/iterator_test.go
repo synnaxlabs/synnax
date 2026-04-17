@@ -14,7 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
@@ -967,17 +966,13 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should not allow operations on a closed iterator", func(ctx SpecContext) {
-					var (
-						i = MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
-						e = resource.NewClosedError("unary.iterator")
-					)
+					i := MustSucceed(db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax}))
 					Expect(i.Close()).To(Succeed())
 					Expect(i.SeekFirst(ctx)).To(BeFalse())
-					Expect(i.Error()).To(HaveOccurredAs(e))
+					Expect(i.Error()).To(MatchError(unary.ErrIteratorClosed))
 					Expect(i.Error()).To(MatchError(ContainSubstring("[ludwig]<%d>", key)))
 					Expect(i.Valid()).To(BeFalse())
 					Expect(i.Close()).To(Succeed())
-
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
@@ -987,7 +982,7 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					i, err := db.OpenIterator(unary.IteratorConfig{Bounds: telem.TimeRangeMax})
 					Expect(i).To(BeNil())
-					Expect(err).To(HaveOccurredAs(unary.ErrDBClosed))
+					Expect(err).To(MatchError(unary.ErrDBClosed))
 				})
 			})
 		})

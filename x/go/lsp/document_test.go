@@ -222,6 +222,43 @@ var _ = Describe("Document", func() {
 		})
 	})
 
+	Describe("GetQualifiedWordAtPosition", func() {
+		It("Should include dots in the word", func() {
+			Expect(lsp.GetQualifiedWordAtPosition(
+				"math.pow(2, 3)",
+				protocol.Position{Line: 0, Character: 6},
+			)).To(Equal("math.pow"))
+		})
+
+		It("Should return the full qualified name when cursor is on the module part", func() {
+			Expect(lsp.GetQualifiedWordAtPosition(
+				"math.pow(2, 3)",
+				protocol.Position{Line: 0, Character: 2},
+			)).To(Equal("math.pow"))
+		})
+
+		It("Should return a bare word when there is no dot", func() {
+			Expect(lsp.GetQualifiedWordAtPosition(
+				"hello world",
+				protocol.Position{Line: 0, Character: 2},
+			)).To(Equal("hello"))
+		})
+
+		It("Should return empty for position beyond line", func() {
+			Expect(lsp.GetQualifiedWordAtPosition(
+				"hi",
+				protocol.Position{Line: 0, Character: 10},
+			)).To(Equal(""))
+		})
+
+		It("Should handle multi-segment dots", func() {
+			Expect(lsp.GetQualifiedWordAtPosition(
+				"a.b.c",
+				protocol.Position{Line: 0, Character: 2},
+			)).To(Equal("a.b.c"))
+		})
+	})
+
 	Describe("GetWordRangeAtPosition", func() {
 		It("Should return correct range for a word", func() {
 			r := lsp.GetWordRangeAtPosition("hello world", protocol.Position{Line: 0, Character: 7})

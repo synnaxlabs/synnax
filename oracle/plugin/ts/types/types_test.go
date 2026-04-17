@@ -792,11 +792,11 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const typeZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export interface Type {`))
+			Expect(content).To(ContainSubstring(`export const typeZ: z.ZodType<Type> = z.object({`))
 			Expect(content).To(ContainSubstring(`kind: kindZ`))
-			Expect(content).To(ContainSubstring(`get elem():`))
+			Expect(content).To(ContainSubstring(`get elem() {`))
 			Expect(content).To(ContainSubstring(`return typeZ.optional()`))
-			Expect(content).To(ContainSubstring(`export interface Type extends z.infer<typeof typeZ> {}`))
 		})
 
 		It("Should generate getter for array self-referencing struct", func(ctx SpecContext) {
@@ -819,10 +819,64 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const nodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get children():`))
-			// Optional arrays use zod.nullToUndefined with array schema
+			Expect(content).To(ContainSubstring(`export interface Node {`))
+			Expect(content).To(ContainSubstring(`export const nodeZ: z.ZodType<Node> = z.object({`))
+			Expect(content).To(ContainSubstring(`get children() {`))
 			Expect(content).To(ContainSubstring(`return zod.nullToUndefined(nodeZ.array())`))
+		})
+
+		It("Should emit Zod v4 recursive pattern for mutually recursive structs", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				A struct {
+					b B?
+				}
+
+				B struct {
+					a A?
+				}
+			`
+			resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(
+					`export interface A {`,
+					`export interface B {`,
+					`export const aZ: z.ZodType<A> = z.object({`,
+					`export const bZ: z.ZodType<B> = z.object({`,
+				).
+				ToNotContain(
+					`extends z.infer<typeof aZ>`,
+					`extends z.infer<typeof bZ>`,
+				)
+		})
+
+		It("Should emit Zod v4 recursive pattern for cycles through a distinct wrapper", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				A struct {
+					b BWrap?
+				}
+
+				B struct {
+					a A?
+				}
+
+				BWrap B
+			`
+			resp := MustGenerate(ctx, source, "cycle", loader, typesPlugin)
+			ExpectContent(resp, "types.gen.ts").
+				ToContain(
+					`export interface A {`,
+					`export interface B {`,
+					`export const aZ: z.ZodType<A> = z.object({`,
+					`export const bZ: z.ZodType<B> = z.object({`,
+				).
+				ToNotContain(
+					`extends z.infer<typeof aZ>`,
+					`extends z.infer<typeof bZ>`,
+				)
 		})
 
 		It("Should generate getter for struct with multiple recursive fields", func(ctx SpecContext) {
@@ -846,10 +900,11 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const mosaicNodeZ = z.object({`))
-			Expect(content).To(ContainSubstring(`get first():`))
+			Expect(content).To(ContainSubstring(`export interface MosaicNode {`))
+			Expect(content).To(ContainSubstring(`export const mosaicNodeZ: z.ZodType<MosaicNode> = z.object({`))
+			Expect(content).To(ContainSubstring(`get first() {`))
 			Expect(content).To(ContainSubstring(`return mosaicNodeZ.optional()`))
-			Expect(content).To(ContainSubstring(`get last():`))
+			Expect(content).To(ContainSubstring(`get last() {`))
 		})
 
 		It("Should generate getter for generic recursive struct with single param", func(ctx SpecContext) {
@@ -2137,6 +2192,45 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "channel", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(`concurrency: control.concurrencyZ.default(control.Concurrency.exclusive)`)
+			})
+		})
+
+		Describe("Action Generation", func() {
+			It("Should generate reduce and reduceAll for structs with actions", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/thing"
+
+					Thing struct {
+						key string
+						value int32
+
+						action SetValue {
+							value int32
+						}
+
+						action Clear {
+							key string
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "thing", loader, typesPlugin)
+				ExpectContent(resp, "actions.gen.ts").
+					ToContain(
+						`produce`,
+						`"immer"`,
+						`handleSetValue`,
+						`handleClear`,
+						`"@/thing/actions"`,
+						`Thing`,
+						`"@/thing/types.gen"`,
+						`export const reduce = (state: Thing, action: Action): Thing =>`,
+						`case "set_value":`,
+						`handleSetValue(state, action.setValue)`,
+						`case "clear":`,
+						`handleClear(state, action.clear)`,
+						`export const reduceAll = (state: Thing, actions: Action[]): Thing =>`,
+						`produce(state, (draft) => actions.forEach((action) => reduce(draft, action)))`,
+					)
 			})
 		})
 	})

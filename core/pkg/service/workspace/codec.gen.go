@@ -33,13 +33,13 @@ func (wv Workspace) EncodeOrc(w *orc.Writer) error {
 
 func (wv *Workspace) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(wv.Key[:]); err != nil {
+	if _, err = r.Read(wv.Key[:]); err != nil {
 		return err
 	}
 	if wv.Name, err = r.String(); err != nil {
 		return err
 	}
-	if _, err := r.Read(wv.Author[:]); err != nil {
+	if _, err = r.Read(wv.Author[:]); err != nil {
 		return err
 	}
 	{

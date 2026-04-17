@@ -32,7 +32,7 @@ func (lp LinePlot) EncodeOrc(w *orc.Writer) error {
 
 func (lp *LinePlot) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(lp.Key[:]); err != nil {
+	if _, err = r.Read(lp.Key[:]); err != nil {
 		return err
 	}
 	if lp.Name, err = r.String(); err != nil {

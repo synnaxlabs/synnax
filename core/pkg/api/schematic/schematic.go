@@ -92,24 +92,6 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 	})
 }
 
-type SetDataRequest struct {
-	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
-}
-
-func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
-	if err = s.access.Enforce(ctx, access.Request{
-		Subject: auth.GetSubject(ctx),
-		Action:  access.ActionUpdate,
-		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
-	}); err != nil {
-		return res, err
-	}
-	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		return s.internal.NewWriter(tx).SetData(ctx, req.Key, req.Data)
-	})
-}
-
 type (
 	RetrieveRequest struct {
 		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
@@ -133,6 +115,25 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 		return RetrieveResponse{}, err
 	}
 	return res, err
+}
+
+type DispatchRequest struct {
+	Key        uuid.UUID          `json:"key" msgpack:"key"`
+	SessionKey string             `json:"session_key" msgpack:"session_key"`
+	Actions    []schematic.Action `json:"actions" msgpack:"actions"`
+}
+
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
+	})
 }
 
 type DeleteRequest struct {

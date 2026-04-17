@@ -36,4 +36,111 @@ inline std::pair<XY, x::errors::Error> XY::from_proto(const ::x::spatial::pb::XY
     return {cpp, x::errors::NIL};
 }
 
+inline std::pair<::x::spatial::pb::Corner, x::errors::Error> Corner::to_proto() const {
+    ::x::spatial::pb::Corner pb;
+    pb.set_x(this->x);
+    pb.set_y(this->y);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Corner, x::errors::Error>
+Corner::from_proto(const ::x::spatial::pb::Corner &pb) {
+    Corner cpp;
+    cpp.x = pb.x();
+    cpp.y = pb.y();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::StickyUnits, x::errors::Error>
+StickyUnits::to_proto() const {
+    ::x::spatial::pb::StickyUnits pb;
+    pb.set_x(this->x);
+    pb.set_y(this->y);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StickyUnits, x::errors::Error>
+StickyUnits::from_proto(const ::x::spatial::pb::StickyUnits &pb) {
+    StickyUnits cpp;
+    cpp.x = pb.x();
+    cpp.y = pb.y();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::StickyXY, x::errors::Error>
+StickyXY::to_proto() const {
+    ::x::spatial::pb::StickyXY pb;
+    pb.set_x(this->x);
+    pb.set_y(this->y);
+    {
+        auto [v, err] = this->root.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_root() = v;
+    }
+    {
+        auto [v, err] = this->units.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_units() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StickyXY, x::errors::Error>
+StickyXY::from_proto(const ::x::spatial::pb::StickyXY &pb) {
+    StickyXY cpp;
+    cpp.x = pb.x();
+    cpp.y = pb.y();
+    {
+        auto [v, err] = Corner::from_proto(pb.root());
+        if (err) return {{}, err};
+        cpp.root = v;
+    }
+    {
+        auto [v, err] = StickyUnits::from_proto(pb.units());
+        if (err) return {{}, err};
+        cpp.units = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
+Dimensions::to_proto() const {
+    ::x::spatial::pb::Dimensions pb;
+    pb.set_width(this->width);
+    pb.set_height(this->height);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Dimensions, x::errors::Error>
+Dimensions::from_proto(const ::x::spatial::pb::Dimensions &pb) {
+    Dimensions cpp;
+    cpp.width = pb.width();
+    cpp.height = pb.height();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::Viewport, x::errors::Error>
+Viewport::to_proto() const {
+    ::x::spatial::pb::Viewport pb;
+    pb.set_zoom(this->zoom);
+    {
+        auto [v, err] = this->position.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_position() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Viewport, x::errors::Error>
+Viewport::from_proto(const ::x::spatial::pb::Viewport &pb) {
+    Viewport cpp;
+    cpp.zoom = pb.zoom();
+    {
+        auto [v, err] = XY::from_proto(pb.position());
+        if (err) return {{}, err};
+        cpp.position = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
 }

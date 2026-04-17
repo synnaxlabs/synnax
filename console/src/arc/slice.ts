@@ -100,8 +100,9 @@ export interface PasteSelectionPayload {
   pos: xy.XY;
 }
 
-export interface ClearSelectionPayload {
+export interface SetSelectedPayload {
   key: string;
+  selected: string[];
 }
 
 export interface SetViewportModePayload {
@@ -126,6 +127,16 @@ export interface SetModePayload {
   mode: arc.Mode;
 }
 
+export interface ApplyNodeChangesPayload {
+  key: string;
+  changes: Diagram.NodeChange[];
+}
+
+export interface ApplyEdgeChangesPayload {
+  key: string;
+  changes: Diagram.EdgeChange[];
+}
+
 export const calculatePos = (
   region: box.Box,
   cursor: xy.XY,
@@ -146,9 +157,6 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
-      // for each arc, find the keys of the selected nodes and edges
-      // and add them to the copy buffer. Then get the props of each
-      // selected node and edge and add them to the copy buffer.
       const { arcs } = state;
       const copyBuffer: latest.CopyBuffer = {
         nodes: [],
@@ -157,9 +165,10 @@ export const { actions, reducer } = createSlice({
         pos: xy.ZERO,
       };
       Object.values(arcs).forEach((arc) => {
-        const { nodes, edges, props } = arc.graph;
-        const selectedNodes = nodes.filter((node) => node.selected);
-        const selectedEdges = edges.filter((edge) => edge.selected);
+        const { nodes, edges, props, selected } = arc.graph;
+        const selectedSet = new Set(selected);
+        const selectedNodes = nodes.filter((node) => selectedSet.has(node.key));
+        const selectedEdges = edges.filter((edge) => selectedSet.has(edge.key));
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
         copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
         selectedNodes.forEach((node) => (copyBuffer.props[node.key] = props[node.key]));
@@ -177,7 +186,7 @@ export const { actions, reducer } = createSlice({
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
       const { pos, key: layoutKey } = payload;
-      const console = xy.translation(state.copy.pos, pos);
+      const offset = xy.translation(state.copy.pos, pos);
       const arc = state.arcs[layoutKey];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
@@ -186,44 +195,34 @@ export const { actions, reducer } = createSlice({
         keys[node.key] = key;
         return {
           ...node,
-          position: xy.translate(node.position, console),
+          position: xy.translate(node.position, offset),
           key,
-          selected: true,
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
         const key: string = id.create();
         return {
-          ...edge,
           key,
-          source: keys[edge.source],
-          target: keys[edge.target],
-          selected: true,
+          source: {
+            node: keys[edge.source.node] ?? edge.source.node,
+            param: edge.source.param,
+          },
+          target: {
+            node: keys[edge.target.node] ?? edge.target.node,
+            param: edge.target.param,
+          },
         };
       });
-      arc.graph.edges = [
-        ...arc.graph.edges.map((edge) => ({ ...edge, selected: false })),
-        ...nextEdges,
-      ];
-      arc.graph.nodes = [
-        ...arc.graph.nodes.map((node) => ({ ...node, selected: false })),
-        ...nextNodes,
+      arc.graph.edges = [...arc.graph.edges, ...nextEdges];
+      arc.graph.nodes = [...arc.graph.nodes, ...nextNodes];
+      arc.graph.selected = [
+        ...nextNodes.map((n) => n.key),
+        ...nextEdges.map((e) => e.key),
       ];
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
       state.arcs[layoutKey] = latest.migrateState(payload);
-      state.toolbar.activeTab = "stages";
-    },
-    clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
-      const { key: layoutKey } = payload;
-      const arc = state.arcs[layoutKey];
-      arc.graph.nodes.forEach((node) => {
-        node.selected = false;
-      });
-      arc.graph.edges.forEach((edge) => {
-        edge.selected = false;
-      });
       state.toolbar.activeTab = "stages";
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
@@ -240,7 +239,6 @@ export const { actions, reducer } = createSlice({
       if (!arc.graph.editable) return;
       arc.graph.nodes.push({
         key,
-        selected: false,
         position: xy.ZERO,
         ...node,
       });
@@ -251,10 +249,6 @@ export const { actions, reducer } = createSlice({
       const arc = state.arcs[layoutKey];
       if (key in arc.graph.props)
         arc.graph.props[key] = { ...arc.graph.props[key], ...props };
-      else {
-        const edge = arc.graph.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1) arc.graph.edges[edge] = { ...arc.graph.edges[edge], ...props };
-      }
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
@@ -267,14 +261,6 @@ export const { actions, reducer } = createSlice({
           ...nodes,
         ];
       }
-      const anySelected =
-        nodes.some((node) => node.selected) ||
-        arc.graph.edges.some((edge) => edge.selected);
-      if (anySelected) {
-        if (state.toolbar.activeTab !== "properties")
-          clearOtherSelections(state, layoutKey);
-        state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "stages";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
       const { key: layoutKey, positions } = payload;
@@ -289,10 +275,12 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, edges } = payload;
       const arc = state.arcs[layoutKey];
       arc.graph.edges = edges;
-      const anySelected =
-        edges.some((edge) => edge.selected) ||
-        arc.graph.nodes.some((node) => node.selected);
-      if (anySelected) {
+    },
+    setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+      const { key: layoutKey, selected } = payload;
+      const arc = state.arcs[layoutKey];
+      arc.graph.selected = selected;
+      if (selected.length > 0) {
         if (state.toolbar.activeTab !== "properties")
           clearOtherSelections(state, layoutKey);
         state.toolbar.activeTab = "properties";
@@ -313,7 +301,7 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { key: layoutKey, editable } = payload;
       const arc = state.arcs[layoutKey];
-      clearSelections(arc);
+      arc.graph.selected = [];
       arc.graph.editable = editable;
     },
     setFitViewOnResize: (
@@ -338,8 +326,10 @@ export const { actions, reducer } = createSlice({
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
       const { key: layoutKey } = payload;
       const arc = state.arcs[layoutKey];
-      arc.graph.nodes.forEach((node) => (node.selected = true));
-      arc.graph.edges.forEach((edge) => (edge.selected = true));
+      arc.graph.selected = [
+        ...arc.graph.nodes.map((n) => n.key),
+        ...arc.graph.edges.map((e) => e.key),
+      ];
     },
     setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
       const { key: layoutKey, raw } = payload;
@@ -351,20 +341,56 @@ export const { actions, reducer } = createSlice({
       const arc = state.arcs[key];
       if (arc != null) arc.mode = mode;
     },
+    applyNodeChanges: (state, { payload }: PayloadAction<ApplyNodeChangesPayload>) => {
+      const { key: layoutKey, changes } = payload;
+      const arc = state.arcs[layoutKey];
+      for (const change of changes) {
+        switch (change.type) {
+          case "position": {
+            const node = arc.graph.nodes.find((n) => n.key === change.key);
+            if (node != null) node.position = change.position;
+            break;
+          }
+          case "remove": {
+            arc.graph.nodes = arc.graph.nodes.filter((n) => n.key !== change.key);
+            arc.graph.edges = arc.graph.edges.filter(
+              (e) => e.source.node !== change.key && e.target.node !== change.key,
+            );
+            delete arc.graph.props[change.key];
+            arc.graph.selected = arc.graph.selected.filter((k) => k !== change.key);
+            break;
+          }
+          case "dimensions": {
+            const node = arc.graph.nodes.find((n) => n.key === change.key);
+            if (node != null) node.measured = change.dimensions;
+            break;
+          }
+        }
+      }
+    },
+    applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
+      const { key: layoutKey, changes } = payload;
+      const arc = state.arcs[layoutKey];
+      for (const change of changes) {
+        switch (change.type) {
+          case "add":
+            arc.graph.edges.push(change.edge);
+            break;
+          case "remove":
+            arc.graph.edges = arc.graph.edges.filter((e) => e.key !== change.key);
+            arc.graph.selected = arc.graph.selected.filter((k) => k !== change.key);
+            break;
+        }
+      }
+    },
   },
 });
 
 const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
   Object.keys(state.arcs).forEach((key) => {
-    // If any of the nodes or edges in other Diagram slices are selected, deselect them.
     if (key === layoutKey) return;
-    clearSelections(state.arcs[key]);
+    state.arcs[key].graph.selected = [];
   });
-};
-
-const clearSelections = (state: State): void => {
-  state.graph.nodes.forEach((node) => (node.selected = false));
-  state.graph.edges.forEach((edge) => (edge.selected = false));
 };
 
 export const {
@@ -374,7 +400,7 @@ export const {
   setEdges,
   setNodes,
   remove,
-  clearSelection,
+  setSelected,
   setFitViewOnResize,
   create: internalCreate,
   setElementProps,
@@ -387,6 +413,8 @@ export const {
   setRemoteCreated,
   setRawText,
   setMode,
+  applyNodeChanges,
+  applyEdgeChanges,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

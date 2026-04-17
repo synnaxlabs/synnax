@@ -242,7 +242,7 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: z.object({}).or(z.null()),
+  statusData: z.object({}).nullish(),
 } as const satisfies task.Schemas;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

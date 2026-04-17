@@ -268,6 +268,7 @@ export interface Spec<P extends object = object> {
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<PreviewProps<P>>;
   zIndex: number;
+  needsPosition?: boolean;
 }
 
 const Z_INDEX_UPPER = 4;
@@ -1047,6 +1048,7 @@ const value: Spec<ValueProps> = {
   Form: ValueForm,
   Symbol: Value,
   Preview: ValuePreview,
+  needsPosition: true,
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
     units: "psi",
@@ -1068,6 +1070,7 @@ const gauge: Spec<GaugeProps> = {
   Form: GaugeForm,
   Symbol: Gauge,
   Preview: GaugePreview,
+  needsPosition: true,
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
     units: "RPM",

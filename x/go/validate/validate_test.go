@@ -48,12 +48,12 @@ var _ = Describe("Validate", func() {
 	Describe("Ternaryf", func() {
 		It("Should format the error message correctly", func() {
 			v.Ternaryf("field", true, "error %d", 42)
-			Expect(v.Error().Error()).To(ContainSubstring("error 42"))
+			Expect(v.Error()).To(MatchError(ContainSubstring("error 42")))
 		})
 
 		It("Should include the field name in the error", func() {
 			v.Ternaryf("myField", true, "invalid value")
-			Expect(v.Error().Error()).To(ContainSubstring("my_field"))
+			Expect(v.Error()).To(MatchError(ContainSubstring("my_field")))
 		})
 	})
 
@@ -141,7 +141,7 @@ var _ = Describe("Validate", func() {
 
 				It("Should include bounds in error message", func() {
 					validate.InBounds(v, "field", 0, 1, 10)
-					Expect(v.Error().Error()).To(ContainSubstring("[1, 10)"))
+					Expect(v.Error()).To(MatchError(ContainSubstring("[1, 10)")))
 				})
 			})
 		})

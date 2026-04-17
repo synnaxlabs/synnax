@@ -44,6 +44,16 @@ func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 // Shape returns the base shape of the number schema.
 func (n NumberZ) Shape() Shape { return n.baseZ }
 
+// Validate checks that the data is a valid number without parsing into a destination.
+func (n NumberZ) Validate(data any) error {
+	if n.expectedType != nil {
+		dest := reflect.New(n.expectedType).Interface()
+		return n.Parse(data, dest)
+	}
+	var dest any
+	return n.Parse(data, &dest)
+}
+
 // validateDestination validates that the destination is compatible with numeric data
 func (n NumberZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {

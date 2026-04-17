@@ -189,12 +189,12 @@ func typeParamConstraint(tp resolution.TypeParam) string {
 
 // reservedNames contains single-letter variable names used in generated method
 // bodies (parameters, loop vars, temporaries) that would conflict with a receiver.
-var reservedNames = map[string]bool{
-	"w": true, "r": true, // method parameters
-	"n": true, "b": true, "v": true, "m": true, // temporaries
-	"i": true, "j": true, "k": true, "l": true, // loop indices
-	"err": true, "ok": true, // error/bool variables in method bodies
-}
+var reservedNames = set.New(
+	"w", "r", // method parameters
+	"n", "b", "v", "m", // temporaries
+	"i", "j", "k", "l", // loop indices
+	"err", "ok", // error/bool variables in method bodies
+)
 
 // ReceiverName derives a Go-idiomatic short receiver name from a type name.
 // It takes the lowercase initials of each word in the PascalCase name
@@ -208,7 +208,7 @@ func ReceiverName(goName string) string {
 		}
 	}
 	name := string(initials)
-	if reservedNames[name] {
+	if reservedNames.Contains(name) {
 		return name + "v"
 	}
 	return name
@@ -226,20 +226,21 @@ func tpNames(tps []typeParamData) string {
 // --- Encoder builder ---
 
 type encoderBuilder struct {
-	table         *resolution.Table
-	repoRoot      string
-	packageName   string
-	parentPath    string
-	imports       map[string]string
-	encodeLines   []string
-	decodeLines   []string
-	needsMath     bool
-	needsJSON     bool
-	usesErr       bool
-	depth         int
-	inBlock       int
-	skipNilCheck  bool
-	hasTypeParams bool
+	table               *resolution.Table
+	repoRoot            string
+	packageName         string
+	parentPath          string
+	imports             map[string]string
+	encodeLines         []string
+	decodeLines         []string
+	needsMath           bool
+	needsJSON           bool
+	usesErr             bool
+	depth               int
+	inBlock             int
+	skipNilCheck        bool
+	hasTypeParams       bool
+	typeParamConverters map[string]string // typeParamName -> converter func name
 }
 
 var loopIndexVars = []string{"i", "j", "k", "l", "m"}
@@ -713,7 +714,7 @@ func (b *encoderBuilder) processLeaf(
 		b.encodeLines = append(b.encodeLines,
 			ind+fmt.Sprintf("w.Write(%s[:])", getPath))
 		b.decodeLine(
-			ind + fmt.Sprintf("if _, err := r.Read(%s[:]); err != nil { return err }", setPath))
+			ind + fmt.Sprintf("if _, err = r.Read(%s[:]); err != nil { return err }", setPath))
 
 	case "record", "any":
 		b.needsJSON = true
@@ -904,6 +905,9 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 		}
 		if typemap.IsUUID(prim.Name) {
 			b.imports["github.com/google/uuid"] = "uuid"
+		}
+		if typemap.IsRecord(prim.Name) {
+			b.imports["github.com/synnaxlabs/x/encoding/msgpack"] = "msgpack"
 		}
 		return goType, nil
 	}

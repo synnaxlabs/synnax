@@ -26,7 +26,7 @@ import (
 // CreateChannel creates a channel in the database.
 func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -42,7 +42,7 @@ func (db *DB) CreateChannel(ctx context.Context, ch ...Channel) error {
 // either return all the channels or no channels if there is an error.
 func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Channel, error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -60,7 +60,7 @@ func (db *DB) RetrieveChannels(ctx context.Context, keys ...ChannelKey) ([]Chann
 // RetrieveChannel retrieves one channel from the database.
 func (db *DB) RetrieveChannel(ctx context.Context, key ChannelKey) (Channel, error) {
 	if db.closed.Load() {
-		return Channel{}, errDBClosed
+		return Channel{}, ErrDBClosed
 	}
 	db.mu.RLock()
 	defer db.mu.RUnlock()
@@ -85,7 +85,7 @@ func (db *DB) retrieveChannel(_ context.Context, key ChannelKey) (Channel, error
 // name as specified in names.
 func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []string) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -102,7 +102,7 @@ func (db *DB) RenameChannels(ctx context.Context, keys []ChannelKey, names []str
 
 func (db *DB) RenameChannel(ctx context.Context, key ChannelKey, newName string) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()

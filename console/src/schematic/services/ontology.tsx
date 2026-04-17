@@ -180,16 +180,8 @@ const loadSchematic = async (
   { key }: ontology.ID,
   placeLayout: Layout.Placer,
 ) => {
-  const schematic = await client.schematics.retrieve({ key });
-  placeLayout(
-    Schematic.create({
-      ...schematic.data,
-      key: schematic.key,
-      name: schematic.name,
-      snapshot: schematic.snapshot,
-      editable: false,
-    }),
-  );
+  const s = await client.schematics.retrieve({ key });
+  placeLayout(Schematic.create({ key: s.key, name: s.name }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -216,12 +208,11 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
   handleError,
 }) =>
   handleError(async () => {
-    const schematic = await client.schematics.retrieve({ key });
+    const s = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
-        name: schematic.name,
-        ...schematic.data,
-        key,
+        key: s.key,
+        name: s.name,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),

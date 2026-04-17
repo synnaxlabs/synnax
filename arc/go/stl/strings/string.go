@@ -12,6 +12,7 @@ package strings
 import (
 	"context"
 
+	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/tetratelabs/wazero"
@@ -22,7 +23,9 @@ var SymbolResolver = &symbol.ModuleResolver{
 	Name: "string",
 	Members: symbol.MapResolver{
 		"from_literal": {
-			Name: "from_literal",
+			Name:     "from_literal",
+			Kind:     symbol.KindFunction,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
 				Outputs: types.Params{{Name: "handle", Type: types.I32()}},
@@ -30,23 +33,26 @@ var SymbolResolver = &symbol.ModuleResolver{
 		},
 		"concat": {
 			Name: "concat",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
-				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
 		"equal": {
 			Name: "equal",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "a", Type: types.I32()}, {Name: "b", Type: types.I32()}},
-				Outputs: types.Params{{Name: "result", Type: types.I32()}},
+				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
 			}),
 		},
 		"len": {
 			Name: "len",
+			Kind: symbol.KindFunction,
 			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "handle", Type: types.I32()}},
-				Outputs: types.Params{{Name: "length", Type: types.I64()}},
+				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			}),
 		},
 	},

@@ -39,7 +39,7 @@ var _ = Describe("PrimitiveGoType", func() {
 		Entry("float64", "float64", "float64"),
 		Entry("uuid", "uuid", "uuid.UUID"),
 		Entry("bytes", "bytes", "[]byte"),
-		Entry("record", "record", "interface{}"),
+		Entry("record", "record", "msgpack.EncodedJSON"),
 		Entry("any", "any", "interface{}"),
 	)
 

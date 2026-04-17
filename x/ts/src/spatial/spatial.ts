@@ -41,4 +41,15 @@ export {
   type YLocation,
   yLocationZ,
 } from "@/spatial/base";
-export { type XY, xyZ } from "@/spatial/types.gen";
+export {
+  type Corner,
+  cornerZ,
+  type StickyUnits,
+  stickyUnitsZ,
+  type StickyXY,
+  stickyXyZ,
+  type Viewport,
+  viewportZ,
+  type XY,
+  xyZ,
+} from "@/spatial/types.gen";

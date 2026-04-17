@@ -24,38 +24,31 @@ import (
 var _ = Describe("Service", func() {
 	Describe("OpenService", func() {
 		It("Should create a service with minimal configuration", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
+			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustSucceed(search.Open())
+			testSearchIdx := MustOpen(search.Open())
 
-			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Search:   testSearchIdx,
 			}))
 			Expect(testSvc).ToNot(BeNil())
-
-			Expect(testSvc.Close()).To(Succeed())
-			Expect(testOtg.Close()).To(Succeed())
-			Expect(testDB.Close()).To(Succeed())
 		})
 
 		It("Should create a service with group configuration", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-			testSearchIdx := MustSucceed(search.Open())
-			DeferCleanup(func() {
-				Expect(testSearchIdx.Close()).To(Succeed())
-			})
-			testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+			testSearchIdx := MustOpen(search.Open())
+			testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Search:   testSearchIdx,
 			}))
 
-			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Group:    testGroup,
@@ -64,33 +57,26 @@ var _ = Describe("Service", func() {
 			Expect(testSvc).ToNot(BeNil())
 			Expect(testSvc.Group()).ToNot(BeNil())
 			Expect(testSvc.Group().Name).To(Equal("Schematic Symbols"))
-
-			Expect(testSvc.Close()).To(Succeed())
-			Expect(testOtg.Close()).To(Succeed())
-			Expect(testDB.Close()).To(Succeed())
 		})
 
 		It("Should fail with invalid configuration", func(ctx SpecContext) {
-			_, err := symbol.OpenService(ctx, symbol.ServiceConfig{
-				DB: nil,
-			})
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("db: must be non-nil"))
+			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{DB: nil})).
+				Error().To(MatchError(ContainSubstring("db: must be non-nil")))
 
 			Expect(symbol.OpenService(ctx, symbol.ServiceConfig{Ontology: otg})).
 				Error().To(MatchError(ContainSubstring("db")))
 		})
 
 		It("Should handle configuration override correctly", func(ctx SpecContext) {
-			testDB1 := gorp.Wrap(memkv.New())
-			testDB2 := gorp.Wrap(memkv.New())
-			testOtg1 := MustSucceed(ontology.Open(ctx, ontology.Config{
+			testDB1 := DeferClose(gorp.Wrap(memkv.New()))
+			testDB2 := DeferClose(gorp.Wrap(memkv.New()))
+			testOtg1 := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB1,
 			}))
-			testOtg2 := MustSucceed(ontology.Open(ctx, ontology.Config{
+			testOtg2 := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB2,
 			}))
-			testSearchIdx := MustSucceed(search.Open())
+			testSearchIdx := MustOpen(search.Open())
 
 			cfg1 := symbol.ServiceConfig{
 				DB:       testDB1,
@@ -103,16 +89,10 @@ var _ = Describe("Service", func() {
 				Search:   testSearchIdx,
 			}
 
-			testSvc := MustSucceed(symbol.OpenService(ctx, cfg1, cfg2))
+			testSvc := MustOpen(symbol.OpenService(ctx, cfg1, cfg2))
 			// Should use cfg2's values
 			Expect(testSvc.ServiceConfig.DB).To(Equal(testDB2))
 			Expect(testSvc.ServiceConfig.Ontology).To(Equal(testOtg2))
-
-			Expect(testSvc.Close()).To(Succeed())
-			Expect(testOtg1.Close()).To(Succeed())
-			Expect(testOtg2.Close()).To(Succeed())
-			Expect(testDB1.Close()).To(Succeed())
-			Expect(testDB2.Close()).To(Succeed())
 		})
 	})
 
@@ -137,13 +117,13 @@ var _ = Describe("Service", func() {
 
 	Describe("Close", func() {
 		It("Should close the service cleanly", func(ctx SpecContext) {
-			testDB := gorp.Wrap(memkv.New())
-			testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{
+			testDB := DeferClose(gorp.Wrap(memkv.New()))
+			testOtg := MustOpen(ontology.Open(ctx, ontology.Config{
 				DB: testDB,
 			}))
-			testSearchIdx := MustSucceed(search.Open())
+			testSearchIdx := MustOpen(search.Open())
 
-			testSvc := MustSucceed(symbol.OpenService(ctx, symbol.ServiceConfig{
+			testSvc := MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
 				DB:       testDB,
 				Ontology: testOtg,
 				Search:   testSearchIdx,
@@ -152,9 +132,6 @@ var _ = Describe("Service", func() {
 			Expect(testSvc.Close()).To(Succeed())
 			// Should be idempotent
 			Expect(testSvc.Close()).To(Succeed())
-
-			Expect(testOtg.Close()).To(Succeed())
-			Expect(testDB.Close()).To(Succeed())
 		})
 	})
 

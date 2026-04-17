@@ -10,8 +10,6 @@
 package ranger_test
 
 import (
-	"io"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +19,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -35,18 +32,17 @@ var _ = Describe("Ranger", Ordered, func() {
 		w        ranger.Writer
 		otg      *ontology.Ontology
 		tx       gorp.Tx
-		closer   io.Closer
 		labelSvc *label.Service
 	)
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustSucceed(search.Open())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
-		svc = MustSucceed(ranger.OpenService(ctx, ranger.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{DB: db, Ontology: otg, Group: g, Search: searchIdx}))
+		svc = MustOpen(ranger.OpenService(ctx, ranger.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
@@ -54,10 +50,6 @@ var _ = Describe("Ranger", Ordered, func() {
 			Search:   searchIdx,
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
-		closer = xio.MultiCloser{db, otg, g, svc}
-	})
-	AfterAll(func() {
-		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
@@ -184,7 +176,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					WhereIDs(parent1.OntologyID()).
 					TraverseTo(ontology.ChildrenTraverser).
 					Entry(&res2).
-					Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 			It("Should create multiple ranges with the same parent", func(ctx SpecContext) {
 				parent := ranger.Range{
@@ -231,7 +223,7 @@ var _ = Describe("Ranger", Ordered, func() {
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
 					_, err := svc.RetrieveParentKey(ctx, p.Key, tx)
-					Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+					Expect(err).To(MatchError(query.ErrNotFound))
 				})
 			})
 			Context("RetrieveParentKey", func() {
@@ -255,7 +247,7 @@ var _ = Describe("Ranger", Ordered, func() {
 						TimeRange: telem.SecondTS.SpanRange(telem.Second),
 					}
 					Expect(w.Create(ctx, &p)).To(Succeed())
-					Expect(svc.RetrieveParentKey(ctx, p.Key, tx)).Error().To(HaveOccurredAs(query.ErrNotFound))
+					Expect(svc.RetrieveParentKey(ctx, p.Key, tx)).Error().To(MatchError(query.ErrNotFound))
 				})
 			})
 		})

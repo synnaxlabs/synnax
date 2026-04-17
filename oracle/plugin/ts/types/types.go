@@ -163,6 +163,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
+	actionFiles, err := p.generateActionFiles(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, actionFiles...)
+
 	return resp, nil
 }
 
@@ -2322,6 +2328,27 @@ export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{
 
 {{ formatDoc .TSName .Doc }}
 {{- end }}
+{{- if and .IsRecursive $.GenerateTypes }}
+export interface {{ .TSName }} {
+{{- range .Fields }}
+  {{ .TSName }}{{ if or .IsOptional .IsHardOptional }}?{{ end }}: {{ .TSType }}{{ if .IsArray }}[]{{ end }};
+{{- end }}
+}
+export const {{ camelCase .TSName }}Z: z.ZodType<{{ .TSName }}> = z.object({
+{{- range .Fields }}
+{{- if .Doc }}
+  {{ formatDoc .TSName .Doc }}
+{{- end }}
+{{- if .IsSelfRef }}
+  get {{ .TSName }}() {
+    return {{ .ZodType }};
+  },
+{{- else }}
+  {{ .TSName }}: {{ .ZodType }},
+{{- end }}
+{{- end }}
+});
+{{- else }}
 export const {{ camelCase .TSName }}Z = z.object({
 {{- range .Fields }}
 {{- if .Doc }}
@@ -2338,6 +2365,7 @@ export const {{ camelCase .TSName }}Z = z.object({
 });
 {{- if $.GenerateTypes }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
+{{- end }}
 {{- end }}
 {{- end }}
 {{- end }}

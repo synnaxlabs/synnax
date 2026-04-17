@@ -74,6 +74,19 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
+		It("Should create node for qualified time.interval type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "time.interval",
+					Config: types.Params{
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("interval_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
 		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
@@ -328,6 +341,19 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "wait",
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
+		It("Should create node for qualified time.wait type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "time.wait",
 					Config: types.Params{
 						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
 					},

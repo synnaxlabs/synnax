@@ -52,9 +52,12 @@ export const selectSelectedElementDigests = (
   layoutKey: string,
 ): ElementDigest[] => {
   const arc = select(state, layoutKey);
-  return arc.graph.nodes
-    .filter((node) => node.selected)
-    .map((node) => ({ key: node.key, type: "node" }));
+  const selectedSet = new Set(arc.graph.selected);
+  const nodeKeys = new Set(arc.graph.nodes.map((n) => n.key));
+  return arc.graph.selected.map((key) => ({
+    key,
+    type: nodeKeys.has(key) ? ("node" as const) : ("edge" as const),
+  }));
 };
 
 export const useSelectSelectedElementDigests = (layoutKey: string): ElementDigest[] =>
@@ -84,8 +87,9 @@ export const selectSelectedElementsProps = (
 ): ElementInfo[] => {
   const arc = select(state, layoutKey);
   if (arc == null) return [];
+  const selectedSet = new Set(arc.graph.selected);
   const nodes: ElementInfo[] = arc.graph.nodes
-    .filter((node) => node.selected)
+    .filter((node) => selectedSet.has(node.key))
     .map((node) => ({
       key: node.key,
       type: "node",
@@ -93,10 +97,16 @@ export const selectSelectedElementsProps = (
       props: arc.graph.props[node.key],
     }));
   const edges: ElementInfo[] = arc.graph.edges
-    .filter((edge) => edge.selected)
+    .filter((edge) => selectedSet.has(edge.key))
     .map((edge) => ({ key: edge.key, type: "edge", edge }));
   return [...nodes, ...edges];
 };
+
+export const selectSelected = (state: StoreState, layoutKey: string): string[] =>
+  select(state, layoutKey).graph.selected;
+
+export const useSelectSelected = (layoutKey: string): string[] =>
+  useMemoSelect((state: StoreState) => selectSelected(state, layoutKey), [layoutKey]);
 
 export const selectEdge = (
   state: StoreState,

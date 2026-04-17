@@ -31,9 +31,9 @@ var _ = Describe("FS", func() {
 			BeforeEach(func() {
 				fsRoot = makeFS()
 				fs = MustSucceed(fsRoot.Sub("test-spec"))
-			})
-			AfterEach(func() {
-				Expect(fsRoot.Remove("test-spec")).To(Succeed())
+				DeferCleanup(func() {
+					Expect(fsRoot.Remove("test-spec")).To(Succeed())
+				})
 			})
 			AfterAll(func() { Expect(xfs.Default.Remove("testData")).To(Succeed()) })
 			Describe("Stat", func() {

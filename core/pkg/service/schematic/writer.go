@@ -15,9 +15,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/validate"
+	"github.com/synnaxlabs/x/observe"
 )
 
 // Writer is used to create, update, and delete logs within Synnax. The writer
@@ -25,14 +24,17 @@ import (
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
 type Writer struct {
-	tx        gorp.Tx
-	otgWriter ontology.Writer
-	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Schematic]
+	tx             gorp.Tx
+	otgWriter      ontology.Writer
+	otg            *ontology.Ontology
+	table          *gorp.Table[uuid.UUID, Schematic]
+	actionObserver observe.Observer[ScopedAction]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given schematic within the workspace provided. If ws is
+// uuid.Nil, the schematic is created as an orphan with no parent workspace
+// relationship. If the schematic does not have a key, a new key will be
+// generated.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -56,6 +58,9 @@ func (w Writer) Create(
 	otgID := OntologyID(s.Key)
 	if err := w.otgWriter.DefineResource(ctx, otgID); err != nil {
 		return err
+	}
+	if ws == uuid.Nil {
+		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
@@ -121,7 +126,7 @@ func (w Writer) Copy(
 	if err != nil || !ok {
 		return err
 	}
-	if err := w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
+	if err = w.otgWriter.DefineResource(ctx, OntologyID(newKey)); err != nil {
 		return err
 	}
 	// In the case of a snapshot, don't create a relationship to the workspace.
@@ -136,20 +141,24 @@ func (w Writer) Copy(
 	)
 }
 
-// SetData sets the data of the log with the given key to the provided data.
-func (w Writer) SetData(
+// Dispatch applies a sequence of actions to the schematic with the given key.
+// The sessionID identifies the originating client for broadcast deduplication.
+func (w Writer) Dispatch(
 	ctx context.Context,
 	key uuid.UUID,
-	data map[string]any,
+	sessionKey string,
+	actions []Action,
 ) error {
-	return w.table.NewUpdate().WhereKeys(key).
+	if err := w.table.NewUpdate().WhereKeys(key).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
-			if s.Snapshot {
-				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
-			}
-			s.Data = data
-			return s, nil
-		}).Exec(ctx, w.tx)
+			return ReduceAll(s, actions)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver != nil {
+		w.actionObserver.Notify(ctx, ScopedAction{Key: key, SessionKey: sessionKey, Actions: actions})
+	}
+	return nil
 }
 
 // Delete deletes the logs with the given keys.
@@ -157,8 +166,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
-	if err != nil {
+	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

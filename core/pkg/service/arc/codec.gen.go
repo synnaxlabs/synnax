@@ -47,7 +47,7 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 
 func (a *Arc) DecodeOrc(r *orc.Reader) error {
 	var err error
-	if _, err := r.Read(a.Key[:]); err != nil {
+	if _, err = r.Read(a.Key[:]); err != nil {
 		return err
 	}
 	if a.Name, err = r.String(); err != nil {

@@ -62,6 +62,263 @@ func XYsFromPB(pbs []*XY) ([]spatial.XY, error) {
 	return result, nil
 }
 
+// CornerToPB converts Corner to Corner.
+func CornerToPB(r spatial.Corner) (*Corner, error) {
+	pb := &Corner{
+		X: r.X,
+		Y: r.Y,
+	}
+	return pb, nil
+}
+
+// CornerFromPB converts Corner to Corner.
+func CornerFromPB(pb *Corner) (spatial.Corner, error) {
+	var r spatial.Corner
+	if pb == nil {
+		return r, nil
+	}
+	r.X = pb.X
+	r.Y = pb.Y
+	return r, nil
+}
+
+// CornersToPB converts a slice of Corner to Corner.
+func CornersToPB(rs []spatial.Corner) ([]*Corner, error) {
+	result := make([]*Corner, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = CornerToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// CornersFromPB converts a slice of Corner to Corner.
+func CornersFromPB(pbs []*Corner) ([]spatial.Corner, error) {
+	result := make([]spatial.Corner, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = CornerFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StickyUnitsToPB converts StickyUnits to StickyUnits.
+func StickyUnitsToPB(r spatial.StickyUnits) (*StickyUnits, error) {
+	pb := &StickyUnits{
+		X: r.X,
+		Y: r.Y,
+	}
+	return pb, nil
+}
+
+// StickyUnitsFromPB converts StickyUnits to StickyUnits.
+func StickyUnitsFromPB(pb *StickyUnits) (spatial.StickyUnits, error) {
+	var r spatial.StickyUnits
+	if pb == nil {
+		return r, nil
+	}
+	r.X = pb.X
+	r.Y = pb.Y
+	return r, nil
+}
+
+// StickyUnitsListToPB converts a slice of StickyUnits to StickyUnits.
+func StickyUnitsListToPB(rs []spatial.StickyUnits) ([]*StickyUnits, error) {
+	result := make([]*StickyUnits, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StickyUnitsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StickyUnitsListFromPB converts a slice of StickyUnits to StickyUnits.
+func StickyUnitsListFromPB(pbs []*StickyUnits) ([]spatial.StickyUnits, error) {
+	result := make([]spatial.StickyUnits, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StickyUnitsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StickyXYToPB converts StickyXY to StickyXY.
+func StickyXYToPB(r spatial.StickyXY) (*StickyXY, error) {
+	rootVal, err := CornerToPB(r.Root)
+	if err != nil {
+		return nil, err
+	}
+	unitsVal, err := StickyUnitsToPB(r.Units)
+	if err != nil {
+		return nil, err
+	}
+	pb := &StickyXY{
+		X:     r.X,
+		Y:     r.Y,
+		Root:  rootVal,
+		Units: unitsVal,
+	}
+	return pb, nil
+}
+
+// StickyXYFromPB converts StickyXY to StickyXY.
+func StickyXYFromPB(pb *StickyXY) (spatial.StickyXY, error) {
+	var r spatial.StickyXY
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Root, err = CornerFromPB(pb.Root)
+	if err != nil {
+		return spatial.StickyXY{}, err
+	}
+	r.Units, err = StickyUnitsFromPB(pb.Units)
+	if err != nil {
+		return spatial.StickyXY{}, err
+	}
+	r.X = pb.X
+	r.Y = pb.Y
+	return r, nil
+}
+
+// StickyXiesToPB converts a slice of StickyXY to StickyXY.
+func StickyXiesToPB(rs []spatial.StickyXY) ([]*StickyXY, error) {
+	result := make([]*StickyXY, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = StickyXYToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// StickyXiesFromPB converts a slice of StickyXY to StickyXY.
+func StickyXiesFromPB(pbs []*StickyXY) ([]spatial.StickyXY, error) {
+	result := make([]spatial.StickyXY, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = StickyXYFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DimensionsToPB converts Dimensions to Dimensions.
+func DimensionsToPB(r spatial.Dimensions) (*Dimensions, error) {
+	pb := &Dimensions{
+		Width:  r.Width,
+		Height: r.Height,
+	}
+	return pb, nil
+}
+
+// DimensionsFromPB converts Dimensions to Dimensions.
+func DimensionsFromPB(pb *Dimensions) (spatial.Dimensions, error) {
+	var r spatial.Dimensions
+	if pb == nil {
+		return r, nil
+	}
+	r.Width = pb.Width
+	r.Height = pb.Height
+	return r, nil
+}
+
+// DimensionsListToPB converts a slice of Dimensions to Dimensions.
+func DimensionsListToPB(rs []spatial.Dimensions) ([]*Dimensions, error) {
+	result := make([]*Dimensions, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = DimensionsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// DimensionsListFromPB converts a slice of Dimensions to Dimensions.
+func DimensionsListFromPB(pbs []*Dimensions) ([]spatial.Dimensions, error) {
+	result := make([]spatial.Dimensions, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = DimensionsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewportToPB converts Viewport to Viewport.
+func ViewportToPB(r spatial.Viewport) (*Viewport, error) {
+	positionVal, err := XYToPB(r.Position)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Viewport{
+		Zoom:     r.Zoom,
+		Position: positionVal,
+	}
+	return pb, nil
+}
+
+// ViewportFromPB converts Viewport to Viewport.
+func ViewportFromPB(pb *Viewport) (spatial.Viewport, error) {
+	var r spatial.Viewport
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Position, err = XYFromPB(pb.Position)
+	if err != nil {
+		return spatial.Viewport{}, err
+	}
+	r.Zoom = pb.Zoom
+	return r, nil
+}
+
+// ViewportsToPB converts a slice of Viewport to Viewport.
+func ViewportsToPB(rs []spatial.Viewport) ([]*Viewport, error) {
+	result := make([]*Viewport, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = ViewportToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// ViewportsFromPB converts a slice of Viewport to Viewport.
+func ViewportsFromPB(pbs []*Viewport) ([]spatial.Viewport, error) {
+	result := make([]spatial.Viewport, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = ViewportFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // OuterLocationToPB converts spatial.OuterLocation to OuterLocation.
 func OuterLocationToPB(v spatial.OuterLocation) (OuterLocation, error) {
 	switch v {
@@ -91,5 +348,29 @@ func OuterLocationFromPB(v OuterLocation) (spatial.OuterLocation, error) {
 		return spatial.OuterLocationLeft, nil
 	default:
 		return spatial.OuterLocation(""), errors.Newf("unrecognized OuterLocation value: %v", v)
+	}
+}
+
+// DirectionToPB converts spatial.Direction to Direction.
+func DirectionToPB(v spatial.Direction) (Direction, error) {
+	switch v {
+	case spatial.DirectionX:
+		return Direction_DIRECTION_X, nil
+	case spatial.DirectionY:
+		return Direction_DIRECTION_Y, nil
+	default:
+		return 0, errors.Newf("unrecognized spatial.Direction value: %v", v)
+	}
+}
+
+// DirectionFromPB converts Direction to spatial.Direction.
+func DirectionFromPB(v Direction) (spatial.Direction, error) {
+	switch v {
+	case Direction_DIRECTION_X:
+		return spatial.DirectionX, nil
+	case Direction_DIRECTION_Y:
+		return spatial.DirectionY, nil
+	default:
+		return spatial.Direction(""), errors.Newf("unrecognized Direction value: %v", v)
 	}
 }

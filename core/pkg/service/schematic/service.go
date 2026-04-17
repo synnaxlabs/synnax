@@ -11,6 +11,8 @@ package schematic
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
@@ -18,13 +20,17 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/io"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -79,9 +85,10 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying schematics from Synnax.
 type Service struct {
 	ServiceConfig
-	Symbol *symbol.Service
-	closer io.MultiCloser
-	table  *gorp.Table[uuid.UUID, Schematic]
+	Symbol         *symbol.Service
+	closer         xio.MultiCloser
+	table          *gorp.Table[uuid.UUID, Schematic]
+	actionObserver observe.Observer[ScopedAction]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -92,7 +99,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg}
+	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
@@ -114,6 +121,31 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
+
+	if cfg.Signals != nil {
+		translated := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
+			Observable: s.actionObserver,
+			Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
+				b, err := json.Marshal(sa)
+				if err != nil {
+					return nil, false
+				}
+				return []xchange.Change[[]byte, struct{}]{
+					{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
+				}, true
+			},
+		}
+		var sig io.Closer
+		if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+			Name:          "schematic_actions",
+			Observable:    translated,
+			SetChannel:    channel.Channel{Name: "sy_schematic_set", DataType: telem.JSONT, Internal: true},
+			DeleteChannel: channel.Channel{Name: "sy_schematic_delete", DataType: telem.UUIDT, Internal: true},
+		}); !ok(err, sig) {
+			return nil, err
+		}
+	}
+
 	return s, nil
 }
 
@@ -127,10 +159,11 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
-		table:     s.table,
+		tx:             tx,
+		otgWriter:      s.Ontology.NewWriter(tx),
+		otg:            s.Ontology,
+		table:          s.table,
+		actionObserver: s.actionObserver,
 	}
 }
 

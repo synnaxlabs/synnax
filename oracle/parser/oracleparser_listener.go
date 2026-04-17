@@ -52,6 +52,12 @@ type OracleParserListener interface {
 	// EnterStructBody is called when entering the structBody production.
 	EnterStructBody(c *StructBodyContext)
 
+	// EnterActionDef is called when entering the actionDef production.
+	EnterActionDef(c *ActionDefContext)
+
+	// EnterActionBody is called when entering the actionBody production.
+	EnterActionBody(c *ActionBodyContext)
+
 	// EnterFieldOmit is called when entering the fieldOmit production.
 	EnterFieldOmit(c *FieldOmitContext)
 
@@ -153,6 +159,12 @@ type OracleParserListener interface {
 
 	// ExitStructBody is called when exiting the structBody production.
 	ExitStructBody(c *StructBodyContext)
+
+	// ExitActionDef is called when exiting the actionDef production.
+	ExitActionDef(c *ActionDefContext)
+
+	// ExitActionBody is called when exiting the actionBody production.
+	ExitActionBody(c *ActionBodyContext)
 
 	// ExitFieldOmit is called when exiting the fieldOmit production.
 	ExitFieldOmit(c *FieldOmitContext)

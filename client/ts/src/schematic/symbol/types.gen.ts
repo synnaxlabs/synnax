@@ -43,15 +43,6 @@ export const handleZ = z.object({
 });
 export interface Handle extends z.infer<typeof handleZ> {}
 
-/** Viewport is the camera state for viewing or previewing a symbol. */
-export const viewportZ = z.object({
-  /** zoom is the zoom level where 1.0 equals 100%. */
-  zoom: z.number().default(1),
-  /** position is the (x, y) pan offset. */
-  position: spatial.xyZ,
-});
-export interface Viewport extends z.infer<typeof viewportZ> {}
-
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;
 
@@ -84,7 +75,7 @@ export const specZ = z.object({
   /** scaleStroke indicates whether stroke width scales with the symbol size. */
   scaleStroke: z.boolean().default(false),
   /** previewViewport is an optional viewport configuration for symbol preview rendering. */
-  previewViewport: viewportZ.optional(),
+  previewViewport: spatial.viewportZ.optional(),
 });
 export interface Spec extends z.infer<typeof specZ> {}
 
