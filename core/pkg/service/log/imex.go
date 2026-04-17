@@ -11,12 +11,14 @@ package log
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,29 +45,31 @@ func (s *Service) Import(
 	if name == "" {
 		name = "Imported Log"
 	}
-	dumped, err := v1.Schema.Dump(migrated)
+	data, err := encodedJSONFromStruct(migrated)
 	if err != nil {
 		return err
 	}
-	dumpedMap, ok := dumped.(map[string]any)
-	if !ok {
-		return errors.New("unexpected dump result type")
-	}
-	l := Log{Key: key, Name: name, Data: dumpedMap}
+	l := Log{Key: key, Name: name, Data: data}
 	return s.NewWriter(tx).Create(ctx, wsKey, &l)
 }
 
-func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
+func (s *Service) migrateData(version int, raw json.RawMessage) (v1.Data, error) {
 	switch {
 	case version >= v1.Version:
 		var d v1.Data
-		if err := v1.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
+			return v1.Data{}, err
+		}
+		if err := d.Validate(); err != nil {
 			return v1.Data{}, err
 		}
 		return d, nil
 	case version >= v0.Version:
 		var d v0.Data
-		if err := v0.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
+			return v1.Data{}, err
+		}
+		if err := d.Validate(); err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d)
@@ -87,16 +91,38 @@ func (s *Service) Export(
 	if err := s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
 		return imex.Envelope{}, err
 	}
-	data := l.Data
-	if data == nil {
-		data = make(map[string]any)
+	var d v1.Data
+	if l.Data != nil {
+		if err := l.Data.Unmarshal(&d); err != nil {
+			return imex.Envelope{}, errors.Wrap(err, "decode stored log data")
+		}
 	}
-	data["key"] = l.Key.String()
-	data["name"] = l.Name
+	d.Key = l.Key.String()
+	d.Name = l.Name
+	raw, err := json.Marshal(d)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
 	return imex.Envelope{
 		Type: string(ontology.ResourceTypeLog),
 		Key:  l.Key.String(),
 		Name: l.Name,
-		Data: data,
+		Data: raw,
 	}, nil
+}
+
+// encodedJSONFromStruct bridges from a typed migration struct into the
+// msgpack.EncodedJSON form used by the storage layer. It round-trips through
+// JSON because EncodedJSON is a map[string]any; byte-level fidelity end to end
+// is future work that would replace EncodedJSON with json.RawMessage.
+func encodedJSONFromStruct(v any) (msgpack.EncodedJSON, error) {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return nil, err
+	}
+	var m msgpack.EncodedJSON
+	if err := json.Unmarshal(b, &m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }

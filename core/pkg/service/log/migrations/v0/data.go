@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/zyn"
+import "github.com/synnaxlabs/x/errors"
 
 const Version = 0
 
@@ -22,10 +22,12 @@ type Data struct {
 	RemoteCreated bool   `json:"remote_created"`
 }
 
-// Schema validates the full log resource at version 0.0.0.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"key":            zyn.String().Optional(),
-	"name":           zyn.String().Optional(),
-	"channels":       zyn.Array(zyn.Number()),
-	"remote_created": zyn.Bool(),
-})
+// Validate enforces the structural invariants that the v0 Schema enforced
+// implicitly: channels must be present (nil is treated as missing; empty slice
+// is acceptable).
+func (d Data) Validate() error {
+	if d.Channels == nil {
+		return errors.New("v0 log data: channels field is required")
+	}
+	return nil
+}

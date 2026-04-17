@@ -10,6 +10,8 @@
 package imex_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -19,6 +21,17 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+func rawLogV1(name string) json.RawMessage {
+	return json.RawMessage(`{
+		"name": "` + name + `",
+		"channels": [],
+		"remote_created": false,
+		"timestamp_precision": 0,
+		"show_channel_names": true,
+		"show_receipt_timestamp": true
+	}`)
+}
+
 var _ = Describe("Service", func() {
 	Describe("Import", func() {
 		It("Should route to the correct service by type", func(ctx SpecContext) {
@@ -27,13 +40,7 @@ var _ = Describe("Service", func() {
 				Type:    "log",
 				Key:     "110e8400-e29b-41d4-a716-446655440000",
 				Name:    "Registry Test",
-				Data: map[string]any{
-					"channels":               []any{},
-					"remote_created":         false,
-					"timestamp_precision":    0.0,
-					"show_channel_names":     true,
-					"show_receipt_timestamp": true,
-				},
+				Data:    rawLogV1("Registry Test"),
 			}}
 			Expect(svc.Import(ctx, workspace.OntologyID(ws.Key), envs)).To(Succeed())
 		})
@@ -44,7 +51,7 @@ var _ = Describe("Service", func() {
 				Type:    "nonexistent",
 				Key:     "220e8400-e29b-41d4-a716-446655440000",
 				Name:    "Bad Type",
-				Data:    map[string]any{},
+				Data:    json.RawMessage(`{}`),
 			}}
 			Expect(svc.Import(
 				ctx, workspace.OntologyID(ws.Key), envs,
@@ -58,27 +65,23 @@ var _ = Describe("Service", func() {
 					Type:    "log",
 					Key:     "330e8400-e29b-41d4-a716-446655440000",
 					Name:    "Good Log",
-					Data: map[string]any{
-						"channels":               []any{},
-						"remote_created":         false,
-						"timestamp_precision":    0.0,
-						"show_channel_names":     true,
-						"show_receipt_timestamp": true,
-					},
+					Data:    rawLogV1("Good Log"),
 				},
 				{
 					Version: 99999,
-					Type:    "log",
+					Type:    "nonexistent",
 					Key:     "440e8400-e29b-41d4-a716-446655440000",
-					Name:    "Bad Version",
-					Data:    map[string]any{},
+					Name:    "Bad Type",
+					Data:    json.RawMessage(`{}`),
 				},
 			}
-			Expect(svc.Import(ctx, workspace.OntologyID(ws.Key), envs)).To(HaveOccurred())
+			Expect(svc.Import(
+				ctx, workspace.OntologyID(ws.Key), envs,
+			)).To(MatchError(ContainSubstring("no importer registered")))
 			Expect(svc.Export(ctx, []ontology.ID{{
 				Type: ontology.ResourceTypeLog,
 				Key:  "330e8400-e29b-41d4-a716-446655440000",
-			}})).Error().To(HaveOccurred())
+			}})).Error().To(MatchError(ContainSubstring("not found")))
 		})
 	})
 
@@ -89,13 +92,7 @@ var _ = Describe("Service", func() {
 				Type:    "log",
 				Key:     "550e8400-e29b-41d4-a716-446655440001",
 				Name:    "Export Registry Test",
-				Data: map[string]any{
-					"channels":               []any{},
-					"remote_created":         false,
-					"timestamp_precision":    0.0,
-					"show_channel_names":     true,
-					"show_receipt_timestamp": true,
-				},
+				Data:    rawLogV1("Export Registry Test"),
 			}}
 			Expect(svc.Import(ctx, workspace.OntologyID(ws.Key), envs)).To(Succeed())
 			result := MustSucceed(svc.Export(ctx, []ontology.ID{{

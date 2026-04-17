@@ -9,7 +9,7 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/zyn"
+import "github.com/synnaxlabs/x/errors"
 
 const Version = 5
 
@@ -34,21 +34,12 @@ type Data struct {
 	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
 }
 
-var channelEntrySchema = zyn.Object(map[string]zyn.Schema{
-	"channel":   zyn.Number(),
-	"color":     zyn.String(),
-	"notation":  zyn.String(),
-	"precision": zyn.Number(),
-	"alias":     zyn.String(),
-})
-
-// Schema validates the full log resource at version 1.0.0.
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"key":                    zyn.String().Optional(),
-	"name":                   zyn.String().Optional(),
-	"channels":               zyn.Array(channelEntrySchema),
-	"remote_created":         zyn.Bool(),
-	"timestamp_precision":    zyn.Number(),
-	"show_channel_names":     zyn.Bool(),
-	"show_receipt_timestamp": zyn.Bool(),
-})
+// Validate enforces the structural invariants that the v1 Schema enforced
+// implicitly: channels must be present (nil is treated as missing; empty slice
+// is acceptable).
+func (d Data) Validate() error {
+	if d.Channels == nil {
+		return errors.New("v1 log data: channels field is required")
+	}
+	return nil
+}

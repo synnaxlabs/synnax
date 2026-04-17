@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -45,9 +46,11 @@ var _ = Describe("ImportExport", func() {
 			Expect(svc.Import(ctx, tx, workspace.OntologyID(ws.Key), env)).To(Succeed())
 		})
 
-		It("Should reject invalid data", func(ctx SpecContext) {
+		It("Should reject invalid data with a user-friendly error", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_bad_data.json")
-			Expect(svc.Import(ctx, tx, workspace.OntologyID(ws.Key), env)).To(HaveOccurred())
+			Expect(svc.Import(
+				ctx, tx, workspace.OntologyID(ws.Key), env,
+			)).To(MatchError(ContainSubstring("channels")))
 		})
 	})
 
@@ -67,10 +70,9 @@ var _ = Describe("ImportExport", func() {
 			env := loadEnvelope("testdata/import_v0.json")
 			Expect(svc.Import(ctx, tx, workspace.OntologyID(ws.Key), env)).To(Succeed())
 			exported := MustSucceed(svc.Export(ctx, tx, env.Key))
-			channels, ok := exported.Data["channels"].([]any)
-			Expect(ok).To(BeTrue())
-
-			Expect(channels).To(HaveLen(3))
+			var d v1.Data
+			Expect(json.Unmarshal(exported.Data, &d)).To(Succeed())
+			Expect(d.Channels).To(HaveLen(3))
 		})
 	})
 })
