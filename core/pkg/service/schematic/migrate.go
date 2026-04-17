@@ -34,20 +34,6 @@ func MigrateSchematic(_ context.Context, old v54.Schematic) (Schematic, error) {
 	return s, nil
 }
 
-func extractViewport(data map[string]any) spatial.Viewport {
-	vp := spatial.Viewport{Zoom: 1}
-	raw, ok := data["viewport"].(map[string]any)
-	if !ok {
-		return vp
-	}
-	vp.Zoom = mapFloat64(raw, "zoom", 1)
-	if pos, ok := raw["position"].(map[string]any); ok {
-		vp.Position.X = mapFloat64(pos, "x", 0)
-		vp.Position.Y = mapFloat64(pos, "y", 0)
-	}
-	return vp
-}
-
 func extractLegend(data map[string]any) Legend {
 	leg := Legend{
 		Visible:  true,
@@ -130,14 +116,6 @@ func mapString(m map[string]any, key string, def string) string {
 	return v
 }
 
-func mapRecord(m map[string]any, key string) msgpack.EncodedJSON {
-	v, ok := m[key].(map[string]any)
-	if !ok {
-		return nil
-	}
-	return msgpack.EncodedJSON(v)
-}
-
 func extractEdges(data map[string]any) []Edge {
 	rawEdges, ok := data["edges"].([]any)
 	if !ok {
@@ -174,7 +152,7 @@ func extractProps(data map[string]any) map[string]msgpack.EncodedJSON {
 		if !ok {
 			continue
 		}
-		props[k] = msgpack.EncodedJSON(m)
+		props[k] = m
 	}
 	return props
 }
