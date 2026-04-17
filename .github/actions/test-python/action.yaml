@@ -84,7 +84,7 @@ runs:
 
     - name: Upload coverage
       if: inputs.coverage == 'true'
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}
