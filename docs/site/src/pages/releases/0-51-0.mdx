@@ -77,13 +77,13 @@ authority (
 
 sequence main {
     stage monitor {
-        sensor -> filter{} -> output,
+        sensor -> filter{} -> output
         sensor > THRESHOLD => abort
     }
     stage abort {
         // escalate at runtime to override all other writers
-        set_authority{value=255},
-        0 -> press_vlv_cmd,
+        set_authority{value=255}
+        0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }

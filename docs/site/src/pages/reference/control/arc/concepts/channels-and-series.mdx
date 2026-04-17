@@ -29,7 +29,6 @@ declare channels. Just use them by name:
 ```arc
 // Read from a pressure transducer
 value := tank_pressure
-
 // Write to a valve command
 valve_cmd = 1
 ```
@@ -67,14 +66,11 @@ which data has been processed using watermarks, so only new data triggers execut
 Inside function bodies, channel reads are **non-blocking snapshots**:
 
 ```arc
-func controller{
-    setpoint chan f64,
-    output chan f64
-} (pressure f64) f64 {
-    target := setpoint    // Read latest value (non-blocking)
+func controller{setpoint chan f64, output chan f64} (pressure f64) f64 {
+    target := setpoint // Read latest value (non-blocking)
     error := pressure - target
     if error > 10 {
-        output = error    // Write to channel
+        output = error // Write to channel
     }
     return error
 }
@@ -95,13 +91,9 @@ the `setpoint` channel. If nothing has been written yet, it returns zero.
 Channels can be passed to functions through config parameters:
 
 ```arc
-func monitor{
-    sensor chan f64,
-    limit f64
-} () u8 {
+func monitor{sensor chan f64, limit f64} () u8 {
     return sensor > limit
 }
-
 // Wire it up
 monitor{sensor=tank_pressure, limit=500.0}
 ```
@@ -115,9 +107,7 @@ This lets you write reusable functions that work with different channels.
 Inside functions, use assignment syntax to write to channels:
 
 ```arc
-func control{
-    valve chan u8
-} (pressure f64) {
+func control{valve chan u8} (pressure f64) {
     if pressure > 500 {
         valve = 1
     } else {
@@ -147,7 +137,6 @@ with buffered data.
 ```arc
 // Literal
 data := [1.0, 2.0, 3.0]
-
 // Empty (requires type annotation)
 buffer series f64 := []
 ```
@@ -157,9 +146,9 @@ buffer series f64 := []
 ```arc
 data := [10.0, 20.0, 30.0, 40.0]
 
-first := data[0]        // 10.0
-last := data[3]         // 40.0
-middle := data[1:3]     // [20.0, 30.0]
+first := data[0] // 10.0
+last := data[3] // 40.0
+middle := data[1: 3] // [20.0, 30.0]
 ```
 
 Out-of-bounds access causes a runtime error.
@@ -168,7 +157,7 @@ Out-of-bounds access causes a runtime error.
 
 ```arc
 data := [1.0, 2.0, 3.0]
-count := len(data)      // 3 (i64)
+count := len(data) // 3 (i64)
 ```
 
 <Divider.Divider x />
@@ -179,17 +168,14 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
-
 // Scalar operations (broadcast)
-scaled := data * 2.0        // [2.0, 4.0, 6.0]
-offset := data + 10.0       // [11.0, 12.0, 13.0]
-
+scaled := data * 2.0 // [2.0, 4.0, 6.0]
+offset := data + 10.0 // [11.0, 12.0, 13.0]
 // Series operations (must be equal length)
 other := [4.0, 5.0, 6.0]
-sum := data + other         // [5.0, 7.0, 9.0]
-
+sum := data + other // [5.0, 7.0, 9.0]
 // Comparisons return series u8
-mask := data > 2.0          // [0, 0, 1]
+mask := data > 2.0 // [0, 0, 1]
 ```
 
 Binary operations between two series require them to have equal length. Mismatched
@@ -202,11 +188,8 @@ lengths cause a runtime error.
 When passing channels through config parameters, you declare their type:
 
 ```arc
-func process{
-    input chan f64,
-    output chan f64
-} () {
-    // ...
+func process{input chan f64, output chan f64} () {
+// ...
 }
 ```
 

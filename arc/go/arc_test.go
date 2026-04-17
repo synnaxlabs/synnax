@@ -142,11 +142,10 @@ var _ = Describe("Arc", func() {
 	It("Should compile a basic calculated channel", func(ctx SpecContext) {
 		mod := compile(ctx,
 			`func calc(val f32) f32 {
-    			return val * 2
-			}
+    return val * 2
+}
 
-			ox_pt_1 -> calc{} -> ox_pt_doubled
-			`,
+ox_pt_1 -> calc{} -> ox_pt_doubled`,
 			symbol.MapResolver{
 				"ox_pt_1": arc.Symbol{
 					Name: "ox_pt_1",
@@ -217,10 +216,10 @@ var _ = Describe("Arc", func() {
 	It("Should compile a one-stage sequence", func(ctx SpecContext) {
 		mod := compile(ctx,
 			`sequence seg {
-				stage init {
-					1 -> output
-				}
-			}`,
+    stage init {
+        1 -> output
+    }
+}`,
 			symbol.MapResolver{
 				"output": arc.Symbol{
 					Name: "output",
@@ -271,7 +270,7 @@ start_seq_cmd => main
 
 sequence main {
     stage press {
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         press_pt > 50 => next
     }
     stage stop {
@@ -335,25 +334,24 @@ sequence main {
 		start_seq_cmd => main
 
 		func expr(in f32) u8 {
-			return in > 2
+		    return in > 2
 		}
 
 		func expr2(in f32) u8 {
-			return in < 0.3
+		    return in < 0.3
 		}
 
 		sequence main {
-			stage press {
-				1 -> press_vlv_cmd,
-				press_pt -> expr{} => next
-			}
-			stage vent {
-				1 -> vent_vlv_cmd,
-				0 -> press_vlv_cmd,
-				press_pt -> expr2{} => press
-			}
-		}
-		`,
+		    stage press {
+		        1 -> press_vlv_cmd
+		        press_pt -> expr{} => next
+		    }
+		    stage vent {
+		        1 -> vent_vlv_cmd
+		        0 -> press_vlv_cmd
+		        press_pt -> expr2{} => press
+		    }
+		}`,
 			symbol.MapResolver{
 				"press_vlv_cmd": arc.Symbol{
 					Name: "press_vlv_cmd",
@@ -410,13 +408,11 @@ sequence main {
 	It("Should correctly compile a node with a unit literal", func(ctx SpecContext) {
 		mod := compile(ctx, `
 			sequence main {
-				stage initial {
-					wait{duration=5s} => next
-				}
-				stage end {
-				}
-			}
-		`, time.SymbolResolver)
+			    stage initial {
+			        wait{duration=5s} => next
+			    }
+			    stage end {}
+			}`, time.SymbolResolver)
 		// Under the new IR the wait node is the only IR node; stages and
 		// entries no longer materialize as nodes.
 		Expect(mod.Nodes).To(HaveLen(1))
@@ -509,8 +505,8 @@ func check() {
 start_cmd => main
 
 sequence main {
-	1 -> valve_a
-	1 -> valve_b
+    1 -> valve_a
+    1 -> valve_b
 }
 `,
 				symbol.MapResolver{
@@ -534,9 +530,9 @@ sequence main {
 start_cmd => main
 
 sequence main {
-	1 -> valve_cmd
-	wait{duration=2s}
-	0 -> valve_cmd
+    1 -> valve_cmd
+    wait{duration=2s}
+    0 -> valve_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -560,12 +556,12 @@ sequence main {
 start_cmd => main
 
 sequence main {
-	stage press {
-		1 -> press_cmd,
-		press_pt > 50 => next
-	}
-	0 -> press_cmd
-	1 -> vent_cmd
+    stage press {
+        1 -> press_cmd
+        press_pt > 50 => next
+    }
+    0 -> press_cmd
+    1 -> vent_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -595,8 +591,8 @@ sequence main {
 start_cmd => abort
 
 stage abort {
-	0 -> all_valves,
-	1 -> vent_cmd,
+    0 -> all_valves
+    1 -> vent_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -622,15 +618,15 @@ stage abort {
 start_cmd => main
 
 sequence main {
-	stage fire {
-		1 -> engine_cmd,
-		abort_btn => abort,
-	}
+    stage fire {
+        1 -> engine_cmd
+        abort_btn => abort
+    }
 }
 
 stage abort {
-	0 -> engine_cmd,
-	1 -> vent_cmd,
+    0 -> engine_cmd
+    1 -> vent_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -657,9 +653,9 @@ stage abort {
 start_cmd => main
 
 sequence main {
-	1 -> valve_cmd
-	wait{duration=2s}
-	0 -> valve_cmd
+    1 -> valve_cmd
+    wait{duration=2s}
+    0 -> valve_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -690,12 +686,12 @@ sequence main {
 start_cmd => main
 
 sequence main {
-	stage press {
-		1 -> press_cmd,
-		press_pt > 50 => next
-	}
-	0 -> press_cmd
-	1 -> vent_cmd
+    stage press {
+        1 -> press_cmd
+        press_pt > 50 => next
+    }
+    0 -> press_cmd
+    1 -> vent_cmd
 }
 `,
 				symbol.CompoundResolver{
@@ -725,8 +721,8 @@ sequence main {
 start_cmd => abort
 
 stage abort {
-	0 -> all_valves,
-	1 -> vent_cmd,
+    0 -> all_valves
+    1 -> vent_cmd
 }
 `,
 				symbol.CompoundResolver{

@@ -15,30 +15,39 @@ from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_MATH_SOURCE = """
 // ─────────────────────── math.pow(const, const) ─────────────────────
-
-func pow_cc_f64() f64 { return math.pow(3.0, 2.0) }
-func pow_cc_int() f64 { return math.pow(5, 2) }
+func pow_cc_f64() f64 {
+    return math.pow(3.0, 2.0)
+}
+func pow_cc_int() f64 {
+    return math.pow(5, 2)
+}
 pow_cc_trigger -> pow_cc_f64{} -> pow_cc_f64_out
 pow_cc_trigger -> pow_cc_int{} -> pow_cc_int_out
-
 // ─────────────────────── math.pow(chan, const) ──────────────────────
-
-func pow_xc_f64(base f64) f64 { return math.pow(base, 2.0) }
-func pow_xc_i64(base i64) f64 { return math.pow(base, 2) }
+func pow_xc_f64(base f64) f64 {
+    return math.pow(base, 2.0)
+}
+func pow_xc_i64(base i64) f64 {
+    return math.pow(base, 2)
+}
 pow_xc_f64_in -> pow_xc_f64{} -> pow_xc_f64_out
 pow_xc_i64_in -> pow_xc_i64{} -> pow_xc_i64_out
-
 // ─────────────────────── math.pow(const, chan) ──────────────────────
-
-func pow_cx_f64(exp f64) f64 { return math.pow(2.0, exp) }
-func pow_cx_i64(exp i64) f64 { return math.pow(2, exp) }
+func pow_cx_f64(exp f64) f64 {
+    return math.pow(2.0, exp)
+}
+func pow_cx_i64(exp i64) f64 {
+    return math.pow(2, exp)
+}
 pow_cx_f64_in -> pow_cx_f64{} -> pow_cx_f64_out
 pow_cx_i64_in -> pow_cx_i64{} -> pow_cx_i64_out
-
 // ─────────────────────── math.pow(chan, chan) ────────────────────────
-
-func pow_xx_f64(base f64) { pow_xx_f64_out = math.pow(base, pow_xx_f64_exp) }
-func pow_xx_i64(base i64) { pow_xx_i64_out = math.pow(base, pow_xx_i64_exp) }
+func pow_xx_f64(base f64) {
+    pow_xx_f64_out = math.pow(base, pow_xx_f64_exp)
+}
+func pow_xx_i64(base i64) {
+    pow_xx_i64_out = math.pow(base, pow_xx_i64_exp)
+}
 pow_xx_f64_in -> pow_xx_f64{}
 pow_xx_i64_in -> pow_xx_i64{}
 

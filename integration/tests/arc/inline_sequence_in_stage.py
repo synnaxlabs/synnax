@@ -18,13 +18,13 @@ sequence main {
     stage fire {
         sequence {
             1 -> iss_ox_cmd
-        },
-        iss_pressure < 15 => exit,
+        }
+        iss_pressure < 15 => exit
     }
     stage exit {
-        0 -> iss_ox_cmd,
-        1 -> iss_vent_cmd,
-        iss_pressure > 100 => fire,
+        0 -> iss_ox_cmd
+        1 -> iss_vent_cmd
+        iss_pressure > 100 => fire
     }
 }
 

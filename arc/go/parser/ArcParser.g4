@@ -83,11 +83,13 @@ config
 
 // sequence main { stage precheck { } stage pressurization { } }
 // sequence { 1 -> valve_cmd   wait{duration=2s}   0 -> valve_cmd }
+// sequence { 1 -> valve_cmd, wait{duration=2s}, 0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER? LBRACE sequenceItem* RBRACE
+    : SEQUENCE IDENTIFIER? LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
     ;
 
-// Items in a sequence body. No commas between items (order is positional).
+// Items in a sequence body. Commas between items are optional; newlines and
+// whitespace work as separators too, matching stage body syntax.
 sequenceItem
     : stageDeclaration
     | sequenceDeclaration
@@ -101,9 +103,12 @@ stageDeclaration
     : STAGE IDENTIFIER? stageBody
     ;
 
-// { reactive flows and transitions, comma-separated }
+// { reactive flows and transitions }
+// Items may be separated by newlines, commas, or both. This mirrors stageless
+// sequence bodies, which never required commas, and lets users inline flows
+// on one line with comma separators or lay them out vertically without.
 stageBody
-    : LBRACE (stageItem (COMMA stageItem)* COMMA?)? RBRACE
+    : LBRACE (stageItem (COMMA? stageItem)* COMMA?)? RBRACE
     ;
 
 stageItem

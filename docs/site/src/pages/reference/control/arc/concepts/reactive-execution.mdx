@@ -64,12 +64,10 @@ Run every time data arrives:
 ```arc
 // Scale sensor readings continuously
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
-
 // Run a control loop every 50ms
 interval{period=50ms} -> controller{}
-
 // Average two sensors
-(sensor_1 + sensor_2) / 2.0 -> average_display
+ (sensor_1 + sensor_2) / 2.0 -> average_display
 ```
 
 Every time the source produces data, the entire pipeline executes.
@@ -81,10 +79,8 @@ Fire once when a condition becomes true, then stop:
 ```arc
 // Abort when pressure exceeds limit (fires once)
 tank_pressure > 600 => abort
-
 // Advance to next stage when target reached
 tank_pressure > 500 => next
-
 // Log a message once when pressure drops
 tank_pressure < 20 => log_message{}
 ```
@@ -129,8 +125,8 @@ data flow:
 
 ```arc
 stage pressurize {
-    1 -> valve_cmd,
-    tank_pressure -> controller{} -> throttle,
+    1 -> valve_cmd
+    tank_pressure -> controller{} -> throttle
     tank_pressure > 500 => next
 }
 ```
@@ -164,10 +160,8 @@ Inline expressions work as implicit functions:
 ```arc
 // Comparison
 temperature > 100 -> alarm{}
-
 // Arithmetic
-(sensor_1 + sensor_2) / 2.0 -> display
-
+ (sensor_1 + sensor_2) / 2.0 -> display
 // Logical combination
 pressure > 100 or emergency -> shutdown{}
 ```
@@ -191,7 +185,7 @@ sequence main {
         start_btn => next
     }
     stage running {
-        stop_btn => idle  // valid: can return to idle
+        stop_btn => idle // valid: can return to idle
     }
 }
 ```

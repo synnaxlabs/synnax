@@ -35,28 +35,28 @@ export const components = mdxOverrides;
 Integer division truncates toward zero:
 
 ```arc
-result := 10 / 3       // 3 (not 3.333)
-result := -10 / 3      // -3
+result := 10 / 3 // 3 (not 3.333)
+result := -10 / 3 // -3
 ```
 
 Float division produces a float:
 
 ```arc
-result := 10.0 / 3.0   // 3.333...
+result := 10.0 / 3.0 // 3.333...
 ```
 
 ### Exponentiation
 
 ```arc
-power := 2 ^ 8         // 256
-square := 5 ^ 2        // 25
-cube := 2.0 ^ 3        // 8.0
+power := 2 ^ 8 // 256
+square := 5 ^ 2 // 25
+cube := 2.0 ^ 3 // 8.0
 ```
 
 Exponentiation is right-associative:
 
 ```arc
-result := 2 ^ 3 ^ 2    // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
+result := 2 ^ 3 ^ 2 // 2 ^ (3 ^ 2) = 2 ^ 9 = 512
 ```
 
 <Divider.Divider x />
@@ -105,9 +105,9 @@ safe := b != 0 and (a / b) > 10
 Any non-zero value is truthy:
 
 ```arc
-result := 5 and 3      // 1 (both truthy)
-result := 0 or 7       // 1 (7 is truthy)
-negated := not 42      // 0
+result := 5 and 3 // 1 (both truthy)
+result := 0 or 7 // 1 (7 is truthy)
+negated := not 42 // 0
 ```
 
 <Divider.Divider x />
@@ -123,7 +123,7 @@ Unary minus applies to numeric values:
 
 ```arc
 x := 5
-y := -x        // -5
+y := -x // -5
 ```
 
 <Divider.Divider x />
@@ -193,14 +193,11 @@ Operators listed from highest to lowest precedence.
 
 ```arc
 // Exponentiation binds tighter than unary minus
--2 ^ 2           // -(2 ^ 2) = -4
-
+-2 ^ 2 // -(2 ^ 2) = -4
 // Multiplication before addition
-2 + 3 * 4        // 2 + (3 * 4) = 14
-
+2 + 3 * 4 // 2 + (3 * 4) = 14
 // Comparison before logical
 a > 5 and b < 10 // (a > 5) and (b < 10)
-
 // Use parentheses for clarity
 (a + b) * c
 ```
@@ -213,15 +210,12 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
-
 // Series with scalar
-scaled := data * 2.0         // [2.0, 4.0, 6.0]
-
+scaled := data * 2.0 // [2.0, 4.0, 6.0]
 // Series with series (must be equal length)
-sum := data + [4.0, 5.0, 6.0]    // [5.0, 7.0, 9.0]
-
+sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
 // Comparison returns series u8
-mask := data > 2.0           // [0, 0, 1]
+mask := data > 2.0 // [0, 0, 1]
 ```
 
 <Divider.Divider x />
@@ -236,6 +230,6 @@ mask := data > 2.0           // [0, 0, 1]
 
 ```arc
 msg := "Hello"
-greeting := msg + " World"   // "Hello World"
-is_empty := msg == ""        // 0 (false)
+greeting := msg + " World" // "Hello World"
+is_empty := msg == "" // 0 (false)
 ```

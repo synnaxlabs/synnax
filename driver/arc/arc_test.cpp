@@ -581,7 +581,7 @@ TEST(ArcTests, testTwoStageSequenceWithTransition) {
         "    stage pressurize {\n"
         "        1 -> " +
         valve_cmd_name +
-        ",\n"
+        "\n"
         "        " +
         pressure_name + " -> " + pressure_name +
         " > 50 => next\n"
@@ -2183,7 +2183,7 @@ TEST(ArcTests, testDynamicSetAuthorityInSequence) {
         "    stage run {\n"
         "        1 -> " +
         valve_cmd_name +
-        ",\n"
+        "\n"
         "        set_authority{value=150}\n"
         "    }\n"
         "}\n"
@@ -2288,7 +2288,7 @@ TEST(ArcTests, testDynamicPerChannelSetAuthority) {
         "    stage run {\n"
         "        1 -> " +
         valve_cmd_name +
-        ",\n"
+        "\n"
         "        set_authority{value=200, channel=" +
         valve_cmd_name +
         "}\n"
@@ -2796,7 +2796,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         "            name = \"TStill Monitor\",\n"
         "            variant = \"error\",\n"
         "            message = \"TStill too warm\"\n"
-        "        },\n"
+        "        }\n"
         "        " +
         input_name +
         " < 305 => set_status{\n"
@@ -2804,7 +2804,7 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         "            name = \"TStill Monitor\",\n"
         "            variant = \"success\",\n"
         "            message = \"TStill nominal\"\n"
-        "        },\n"
+        "        }\n"
         "    }\n"
         "}\n"
     );

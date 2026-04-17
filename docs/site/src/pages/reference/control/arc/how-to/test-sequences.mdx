@@ -31,7 +31,7 @@ sequence main {
     }
 
     stage active {
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
@@ -62,18 +62,18 @@ Use `wait` to add delays between stages:
 ```arc
 sequence main {
     stage pressurize {
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
         // Keep valve open, wait 30 seconds
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         wait{duration=30s} => next
     }
 
     stage depressurize {
-        0 -> press_vlv_cmd,
+        0 -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
@@ -98,26 +98,23 @@ Real test sequences need abort capability. List abort conditions first in each s
 sequence main {
     stage pressurize {
         // ABORT CONDITIONS FIRST
-        ox_pt_1 > 700 => abort,           // over-pressure
-        abort_btn => abort,                // operator abort
-
+        ox_pt_1 > 700 => abort // over-pressure
+        abort_btn => abort // operator abort
         // Normal operations
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
     stage hold {
-        ox_pt_1 > 700 => abort,
-        abort_btn => abort,
-
-        1 -> press_vlv_cmd,
+        ox_pt_1 > 700 => abort
+        abort_btn => abort
+        1 -> press_vlv_cmd
         wait{duration=30s} => next
     }
 
     stage depressurize {
-        abort_btn => abort,
-
-        0 -> press_vlv_cmd,
+        abort_btn => abort
+        0 -> press_vlv_cmd
         ox_pt_1 < 50 => next
     }
 
@@ -128,8 +125,8 @@ sequence main {
 
 sequence abort {
     stage safing {
-        0 -> press_vlv_cmd,
-        0 -> fuel_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> fuel_vlv_cmd
         0 -> igniter_cmd
     }
 }
@@ -157,17 +154,15 @@ Advance based on multiple conditions being satisfied:
 sequence main {
     stage verify {
         // Check all systems ready
-        ox_pt_1 > 100 and ox_pt_1 < 200 and fuel_pt_1 > 100 => next,
-
+        ox_pt_1 > 100 and ox_pt_1 < 200 and fuel_pt_1 > 100 => next
         // Timeout if conditions not met
         wait{duration=10s} => timeout
     }
 
     stage pressurize {
-        ox_pt_1 > 700 => abort,
-        abort_btn => abort,
-
-        1 -> press_vlv_cmd,
+        ox_pt_1 > 700 => abort
+        abort_btn => abort
+        1 -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
 
@@ -203,7 +198,6 @@ func rate_monitor{dt_ms f64, max_rate f64} (value f64) u8 {
     }
 
     rate := d / dt_s
-
     // Check magnitude
     if rate < 0 {
         rate = 0.0 - rate
@@ -218,17 +212,14 @@ func rate_monitor{dt_ms f64, max_rate f64} (value f64) u8 {
 sequence main {
     stage pressurize {
         // Abort conditions
-        ox_pt_1 > 700 => abort,
-        ox_pt_1 -> rate_monitor{dt_ms=50.0, max_rate=100.0} -> ox_rate_high,
-        ox_rate_high => abort,
-        abort_btn => abort,
-
+        ox_pt_1 > 700 => abort
+        ox_pt_1 -> rate_monitor{dt_ms=50.0, max_rate=100.0} -> ox_rate_high
+        ox_rate_high => abort
+        abort_btn => abort
         // Pressurize slowly by pulsing the valve
-        interval{period=100ms} -> press_valve_pulse{},
-
+        interval{period=100ms} -> press_valve_pulse{}
         ox_pt_1 > 500 => next
     }
-
     // ... rest of sequence
 }
 ```
@@ -257,109 +248,90 @@ func pressure_rate{dt_ms f64} (value f64) f64 {
 sequence main {
     // Stage 1: System checkout
     stage checkout {
-        ox_pt_1 > 50 => abort,     // tank should be empty
-        fuel_pt_1 > 50 => abort,
-        abort_btn => abort,
-
+        ox_pt_1 > 50 => abort // tank should be empty
+        fuel_pt_1 > 50 => abort
+        abort_btn => abort
         // All systems nominal, proceed
         wait{duration=2s} => next
     }
-
     // Stage 2: Pressurize oxidizer
     stage press_ox {
-        ox_pt_1 > 650 => abort,
-        ox_pt_1 -> pressure_rate{dt_ms=50.0} -> ox_rate,
-        ox_rate > 100 => abort,
-        abort_btn => abort,
-
-        1 -> ox_press_vlv_cmd,
+        ox_pt_1 > 650 => abort
+        ox_pt_1 -> pressure_rate{dt_ms=50.0} -> ox_rate
+        ox_rate > 100 => abort
+        abort_btn => abort
+        1 -> ox_press_vlv_cmd
         ox_pt_1 > 500 => next
     }
-
     // Stage 3: Pressurize fuel
     stage press_fuel {
-        ox_pt_1 > 650 => abort,
-        fuel_pt_1 > 450 => abort,
-        abort_btn => abort,
-
-        1 -> ox_press_vlv_cmd,    // maintain ox pressure
-        1 -> fuel_press_vlv_cmd,
+        ox_pt_1 > 650 => abort
+        fuel_pt_1 > 450 => abort
+        abort_btn => abort
+        1 -> ox_press_vlv_cmd // maintain ox pressure
+        1 -> fuel_press_vlv_cmd
         fuel_pt_1 > 350 => next
     }
-
     // Stage 4: Pre-fire hold
     stage hold {
-        ox_pt_1 > 650 => abort,
-        fuel_pt_1 > 450 => abort,
-        ox_pt_1 < 400 => abort,   // pressure decay = leak
-        fuel_pt_1 < 250 => abort,
-        abort_btn => abort,
-
-        1 -> ox_press_vlv_cmd,
-        1 -> fuel_press_vlv_cmd,
+        ox_pt_1 > 650 => abort
+        fuel_pt_1 > 450 => abort
+        ox_pt_1 < 400 => abort // pressure decay = leak
+        fuel_pt_1 < 250 => abort
+        abort_btn => abort
+        1 -> ox_press_vlv_cmd
+        1 -> fuel_press_vlv_cmd
         wait{duration=5s} => next
     }
-
     // Stage 5: Ignition
     stage ignite {
-        ox_pt_1 > 650 => abort,
-        fuel_pt_1 > 450 => abort,
-        abort_btn => abort,
-
-        1 -> ox_press_vlv_cmd,
-        1 -> fuel_press_vlv_cmd,
-        1 -> igniter_cmd,
-
+        ox_pt_1 > 650 => abort
+        fuel_pt_1 > 450 => abort
+        abort_btn => abort
+        1 -> ox_press_vlv_cmd
+        1 -> fuel_press_vlv_cmd
+        1 -> igniter_cmd
         // Wait for combustion confirmation
-        chamber_tc_1 > 500 => next,
-
+        chamber_tc_1 > 500 => next
         // Ignition timeout
         wait{duration=3s} => ignition_fail
     }
-
     // Stage 6: Main run
     stage main_run {
-        ox_pt_1 > 700 => abort,
-        fuel_pt_1 > 500 => abort,
-        chamber_tc_1 > 2000 => abort,
-        abort_btn => abort,
-
-        1 -> ox_press_vlv_cmd,
-        1 -> fuel_press_vlv_cmd,
-        1 -> ox_main_vlv_cmd,
-        1 -> fuel_main_vlv_cmd,
-        0 -> igniter_cmd,
-
+        ox_pt_1 > 700 => abort
+        fuel_pt_1 > 500 => abort
+        chamber_tc_1 > 2000 => abort
+        abort_btn => abort
+        1 -> ox_press_vlv_cmd
+        1 -> fuel_press_vlv_cmd
+        1 -> ox_main_vlv_cmd
+        1 -> fuel_main_vlv_cmd
+        0 -> igniter_cmd
         wait{duration=10s} => next
     }
-
     // Stage 7: Shutdown
     stage shutdown {
         // Controlled shutdown sequence
-        0 -> ox_main_vlv_cmd,
-        0 -> fuel_main_vlv_cmd,
+        0 -> ox_main_vlv_cmd
+        0 -> fuel_main_vlv_cmd
         wait{duration=1s} => next
     }
-
     // Stage 8: Depressurize
     stage depress {
-        0 -> ox_press_vlv_cmd,
-        0 -> fuel_press_vlv_cmd,
-        1 -> ox_vent_vlv_cmd,
-        1 -> fuel_vent_vlv_cmd,
-
+        0 -> ox_press_vlv_cmd
+        0 -> fuel_press_vlv_cmd
+        1 -> ox_vent_vlv_cmd
+        1 -> fuel_vent_vlv_cmd
         ox_pt_1 < 20 and fuel_pt_1 < 20 => next
     }
-
     // Stage 9: Complete
     stage complete {
-        0 -> ox_vent_vlv_cmd,
+        0 -> ox_vent_vlv_cmd
         0 -> fuel_vent_vlv_cmd
     }
-
     // Stage: Ignition failure
     stage ignition_fail {
-        0 -> igniter_cmd,
+        0 -> igniter_cmd
         1 => abort
     }
 }
@@ -367,18 +339,16 @@ sequence main {
 sequence abort {
     stage safing {
         // Close all valves immediately
-        0 -> ox_press_vlv_cmd,
-        0 -> fuel_press_vlv_cmd,
-        0 -> ox_main_vlv_cmd,
-        0 -> fuel_main_vlv_cmd,
-        0 -> igniter_cmd,
-
+        0 -> ox_press_vlv_cmd
+        0 -> fuel_press_vlv_cmd
+        0 -> ox_main_vlv_cmd
+        0 -> fuel_main_vlv_cmd
+        0 -> igniter_cmd
         // Open vents
-        1 -> ox_vent_vlv_cmd,
+        1 -> ox_vent_vlv_cmd
         1 -> fuel_vent_vlv_cmd
     }
 }
-
 // Entry points
 start_cmd => main
 emergency_stop => abort

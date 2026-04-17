@@ -34,17 +34,17 @@ Here's a basic pressurization sequence:
 ```arc
 sequence main {
     stage idle {
-        0 -> valve_cmd,
+        0 -> valve_cmd
         start_btn => next
     }
 
     stage pressurize {
-        1 -> valve_cmd,
+        1 -> valve_cmd
         tank_pressure > 500 => next
     }
 
     stage hold {
-        1 -> valve_cmd,
+        1 -> valve_cmd
         wait{duration=30s} => next
     }
 
@@ -76,12 +76,12 @@ code execution.
 ```arc
 stage pressurize {
     // ALL of these run at the same time:
-    1 -> valve_cmd,                       // keep valve open
-    tank_pressure -> pressure_display,    // update display
-    tank_pressure > 600 => abort,         // safety limit
-    tank_temp > 300 => abort,             // temperature limit
-    abort_btn => abort,                   // operator abort
-    tank_pressure > 500 => next           // success condition
+    1 -> valve_cmd // keep valve open
+    tank_pressure -> pressure_display // update display
+    tank_pressure > 600 => abort // safety limit
+    tank_temp > 300 => abort // temperature limit
+    abort_btn => abort // operator abort
+    tank_pressure > 500 => next // success condition
 }
 ```
 
@@ -102,12 +102,12 @@ Use `=>` (one-shot edge) to transition between stages:
 
 ```arc
 stage idle {
-    start_btn => next           // advance to next stage in order
+    start_btn => next // advance to next stage in order
 }
 
 stage running {
-    stop_btn => idle            // jump to specific stage
-    emergency => abort          // jump to different sequence
+    stop_btn => idle // jump to specific stage
+    emergency => abort // jump to different sequence
 }
 ```
 
@@ -169,7 +169,7 @@ sequence controller {
         stop_cmd => stop
     }
     stage stop {
-        0 -> valve_cmd,
+        0 -> valve_cmd
         wait{duration=250ms} => yield
     }
     stage yield {
@@ -190,50 +190,45 @@ Here's a realistic test stand sequence with safety handling:
 ```arc
 sequence main {
     stage idle {
-        0 -> press_valve,
-        0 -> vent_valve,
+        0 -> press_valve
+        0 -> vent_valve
         start_btn => next
     }
 
     stage pressurize {
-        1 -> press_valve,
-        0 -> vent_valve,
-
+        1 -> press_valve
+        0 -> vent_valve
         // Safety conditions (listed first = highest priority)
-        tank_pressure > 600 => abort,
-        tank_temp > 300 => abort,
-        abort_btn => abort,
-
+        tank_pressure > 600 => abort
+        tank_temp > 300 => abort
+        abort_btn => abort
         // Success condition
         tank_pressure > 500 => next
     }
 
     stage hold {
-        1 -> press_valve,
-
-        tank_pressure > 600 => abort,
-        abort_btn => abort,
-
+        1 -> press_valve
+        tank_pressure > 600 => abort
+        abort_btn => abort
         wait{duration=30s} => next
     }
 
     stage depressurize {
-        0 -> press_valve,
-        1 -> vent_valve,
-
+        0 -> press_valve
+        1 -> vent_valve
         tank_pressure < 50 => complete
     }
 
     stage complete {
-        0 -> press_valve,
+        0 -> press_valve
         0 -> vent_valve
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> press_valve,
-        1 -> vent_valve,
+        0 -> press_valve
+        1 -> vent_valve
         0 -> igniter
     }
 }
@@ -255,8 +250,7 @@ Inside stages, you can use both flow syntax and direct assignment:
 ```arc
 stage pressurize {
     // Flow syntax: reactive pipeline
-    sensor -> filter{} -> display,
-
+    sensor -> filter{} -> display
     // Direct assignment: equivalent to "1 -> valve_cmd"
     valve_cmd = 1
 }

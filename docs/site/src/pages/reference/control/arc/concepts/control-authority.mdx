@@ -29,7 +29,7 @@ authority 200
 
 sequence main {
     stage pressurize {
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         ox_pt_1 > 500 => next
     }
     stage complete {
@@ -45,7 +45,11 @@ Authority values range from 0 to 255. Higher values take precedence over lower o
 For different channels, use the grouped form:
 
 ```arc
-authority (200 press_vlv_cmd 100 vent_vlv_cmd 150)
+authority (
+    200
+    press_vlv_cmd 100
+    vent_vlv_cmd 150
+)
 ```
 
 This sets a default of 200, then overrides `press_vlv_cmd` to 100 and `vent_vlv_cmd`
@@ -81,13 +85,13 @@ authority 100
 
 sequence main {
     stage monitor {
-        sensor -> filter{} -> output,
+        sensor -> filter{} -> output
         sensor > THRESHOLD => escalate
     }
 
     stage escalate {
-        set_authority{value=200},
-        1 -> press_vlv_cmd,
+        set_authority{value=200}
+        1 -> press_vlv_cmd
         wait{duration=5s} => done
     }
 
@@ -133,13 +137,13 @@ authority 100
 
 sequence main {
     stage normal {
-        sensor -> controller{} -> output,
+        sensor -> controller{} -> output
         emergency_condition => emergency
     }
 
     stage emergency {
-        set_authority{value=255},
-        0 -> press_vlv_cmd,
+        set_authority{value=255}
+        0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }
@@ -166,12 +170,12 @@ authority 200
 
 sequence main {
     stage active {
-        1 -> press_vlv_cmd,
+        1 -> press_vlv_cmd
         done_condition => yield
     }
 
     stage yield {
-        set_authority{value=0},
+        set_authority{value=0}
         0 -> press_vlv_cmd
     }
 }
