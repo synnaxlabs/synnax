@@ -17,6 +17,7 @@ topLevelItem
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | stageDeclaration
     | globalConstant
     ;
 
@@ -81,13 +82,23 @@ config
 // =============================================================================
 
 // sequence main { stage precheck { } stage pressurization { } }
+// sequence { 1 -> valve_cmd   wait{duration=2s}   0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
+    : SEQUENCE IDENTIFIER? LBRACE sequenceItem* RBRACE
+    ;
+
+// Items in a sequence body. No commas between items (order is positional).
+sequenceItem
+    : stageDeclaration
+    | sequenceDeclaration
+    | flowStatement
+    | singleInvocation
     ;
 
 // stage precheck { items... }
+// stage { items... }
 stageDeclaration
-    : STAGE IDENTIFIER stageBody
+    : STAGE IDENTIFIER? stageBody
     ;
 
 // { reactive flows and transitions, comma-separated }
@@ -98,6 +109,7 @@ stageBody
 stageItem
     : flowStatement
     | singleInvocation
+    | sequenceDeclaration
     ;
 
 singleInvocation

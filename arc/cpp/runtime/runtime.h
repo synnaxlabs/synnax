@@ -37,7 +37,6 @@
 #include "arc/cpp/stl/selector/selector.h"
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stable/stable.h"
-#include "arc/cpp/stl/stage/stage.h"
 #include "arc/cpp/stl/stat/stat.h"
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
@@ -252,6 +251,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto channel_st = std::make_shared<stl::channel::State>(digests);
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
+
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
     state::Config state_cfg{
@@ -276,7 +276,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::math::Module>(),
         time_module,
         std::make_shared<stl::error::Module>(error_handler),
-        std::make_shared<stl::stage::Module>(),
         std::make_shared<stl::constant::Module>(),
         std::make_shared<stl::authority::Module>(state),
         std::make_shared<stl::stable::Module>(),

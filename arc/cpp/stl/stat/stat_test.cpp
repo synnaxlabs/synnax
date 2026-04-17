@@ -25,9 +25,8 @@ runtime::node::Context make_context() {
         .elapsed = x::telem::TimeSpan(0),
         .tolerance = x::telem::TimeSpan(0),
         .reason = runtime::node::RunReason::TimerTick,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -202,7 +201,7 @@ TEST(StatAvgTest, ComputesRunningAverage) {
     write_source_f64(source, {10.0, 20.0, 30.0}, {sec, 2 * sec, 3 * sec});
     auto ctx = make_context();
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(changed);
 
@@ -357,7 +356,7 @@ TEST(StatMinTest, ComputesRunningMinimum) {
     write_source_i32(source, {50, 10, 70}, {sec, 2 * sec, 3 * sec});
     auto ctx = make_context();
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(changed);
 
@@ -513,7 +512,7 @@ TEST(StatMaxTest, ComputesRunningMaximum) {
     write_source_f64(source, {10.0, 50.0, 30.0}, {sec, 2 * sec, 3 * sec});
     auto ctx = make_context();
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(changed);
 
@@ -691,7 +690,7 @@ TEST(StatMaxTest, ExecutesBeforeResetSignalSendsData) {
     // Note: no data written to the reset signal source.
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(changed);
 
@@ -722,7 +721,7 @@ TEST(StatDerivativeTest, ComputesPointwiseDerivative) {
     );
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_TRUE(changed);
 
@@ -890,7 +889,7 @@ TEST(StatAvgTest, HandlesEmptyInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -904,7 +903,7 @@ TEST(StatMinTest, HandlesEmptyInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(changed);
 }
@@ -918,7 +917,7 @@ TEST(StatMaxTest, HandlesEmptyInput) {
 
     bool changed = false;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node->next(ctx));
     EXPECT_FALSE(changed);
 }

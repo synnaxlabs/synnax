@@ -53,17 +53,6 @@ func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	return ir.Edge{}
 }
 
-// findEdgeByTarget finds an edge by target node key
-func findEdgeByTarget(edges []ir.Edge, targetNode string) ir.Edge {
-	for _, e := range edges {
-		if e.Target.Node == targetNode {
-			return e
-		}
-	}
-	Fail("expected edge with target node '" + targetNode + "' to exist")
-	return ir.Edge{}
-}
-
 // countNodesByType counts nodes of a specific type
 func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	count := 0
@@ -73,6 +62,61 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 		}
 	}
 	return count
+}
+
+// findTopLevelScope returns the top-level Scope member whose key matches.
+// Fails the spec if no such member exists. Top-level scopes are always
+// members of the root scope's first stratum.
+func findTopLevelScope(prog ir.IR, key string) ir.Scope {
+	for _, stratum := range prog.Root.Strata {
+		for _, m := range stratum {
+			if m.Scope != nil && m.Scope.Key == key {
+				return *m.Scope
+			}
+		}
+	}
+	Fail("expected top-level scope '" + key + "' to exist")
+	return ir.Scope{}
+}
+
+// findMember returns the first direct member of a scope with the matching key.
+// Searches both Steps (sequential scopes) and Strata (parallel scopes).
+// Fails the spec if no such member exists.
+func findMember(scope ir.Scope, key string) ir.Member {
+	for _, m := range scope.Steps {
+		if m.Key() == key {
+			return m
+		}
+	}
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.Key() == key {
+				return m
+			}
+		}
+	}
+	Fail("expected member '" + key + "' in scope '" + scope.Key + "'")
+	return ir.Member{}
+}
+
+// scopeNodeRefs collects every leaf-node key reachable within a scope
+// (across all strata and steps). Used to assert that a set of synthesized
+// node keys belongs to a particular scope.
+func scopeNodeRefs(scope ir.Scope) []string {
+	var keys []string
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.NodeKey != nil {
+				keys = append(keys, *m.NodeKey)
+			}
+		}
+	}
+	for _, m := range scope.Steps {
+		if m.NodeKey != nil {
+			keys = append(keys, *m.NodeKey)
+		}
+	}
+	return keys
 }
 
 var _ = Describe("Text", func() {
@@ -1105,13 +1149,10 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(3))
-
-				// Stratum 0: sensor, Stratum 1: filter, Stratum 2: transform
-				Expect(inter.Strata[0]).To(ContainElement("on_sensor_0"))
-				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
-				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
+				Expect(inter.Root.Strata).To(HaveLen(3))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("on_sensor_0"))
+				Expect(inter.Root.Strata[1][0].Key()).To(Equal("filter_0"))
+				Expect(inter.Root.Strata[2][0].Key()).To(Equal("transform_0"))
 			})
 
 			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
@@ -1139,12 +1180,12 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(2))
-
-				// Stratum 0: demux, Stratum 1: alarm and logger (parallel)
-				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
-				Expect(inter.Strata[1]).To(ContainElements("alarm_0", "logger_0"))
+				Expect(inter.Root.Strata).To(HaveLen(2))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("demux_0"))
+				keys := lo.Map(inter.Root.Strata[1], func(m ir.Member, _ int) string {
+					return m.Key()
+				})
+				Expect(keys).To(ContainElements("alarm_0", "logger_0"))
 			})
 		})
 
@@ -1268,28 +1309,27 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(2))
-
+				// The channel read is the only node; the scope activation is
+				// stamped directly on main's Scope (no synthesized entry
+				// node, no edge).
+				Expect(inter.Nodes).To(HaveLen(1))
 				triggerNode := findNodeByKey(inter.Nodes, "on_trigger_0")
 				Expect(triggerNode.Type).To(Equal("on"))
 
-				entryNode := findNodeByKey(inter.Nodes, "entry_main_run")
-				Expect(entryNode.Type).To(Equal("stage_entry"))
-				Expect(entryNode.Inputs).To(HaveLen(1))
-				Expect(entryNode.Inputs[0].Name).To(Equal("activate"))
+				// Sequence activation: trigger.output fires main's gated
+				// scope.
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_trigger_0"))
+				Expect(main.Activation.Param).To(Equal(ir.DefaultOutputParam))
 
-				// Verify no write node was created for sequence
+				// No dataflow edges and no write node for the sequence name.
+				Expect(inter.Edges).To(BeEmpty())
 				for _, node := range inter.Nodes {
 					Expect(node.Key).ToNot(HavePrefix("write_main"))
 				}
-
-				Expect(inter.Edges).To(HaveLen(1))
-				edge := inter.Edges[0]
-				Expect(edge.Source.Node).To(Equal("on_trigger_0"))
-				Expect(edge.Source.Param).To(Equal("output"))
-				Expect(edge.Target.Node).To(Equal("entry_main_run"))
-				Expect(edge.Target.Param).To(Equal("activate"))
-				Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
 			It("Should handle continuous flow to sequence", func(ctx SpecContext) {
@@ -1308,14 +1348,16 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Edges).To(HaveLen(1))
-				edge := inter.Edges[0]
-				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
-				Expect(edge.Target.Node).To(Equal("entry_main_run"))
-				Expect(edge.Target.Param).To(Equal("activate"))
+				// Continuous flow into a sequence activates the sequence
+				// scope just like a conditional transition would; the
+				// difference in source syntax doesn't change the IR shape.
+				Expect(inter.Edges).To(BeEmpty())
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_sensor_0"))
 			})
 
-			It("Should handle sequence with multiple stages - connects to first stage", func(ctx SpecContext) {
+			It("Should handle sequence with multiple stages - activates first stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
@@ -1333,12 +1375,16 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
-				Expect(inter.Edges).To(HaveLen(1))
+				// Only the trigger read exists; stages are Scope members,
+				// not IR nodes.
+				Expect(inter.Nodes).To(HaveLen(1))
+				Expect(inter.Edges).To(BeEmpty())
 
-				edge := inter.Edges[0]
-				Expect(edge.Target.Node).To(Equal("entry_main_first"))
-				Expect(edge.Target.Param).To(Equal("activate"))
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Steps).To(HaveLen(2))
+				Expect(main.Steps[0].Key()).To(Equal("first"))
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_trigger_0"))
 			})
 
 			It("Should error when targeting empty sequence (no stages)", func(ctx SpecContext) {
@@ -1354,7 +1400,7 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("no stages"))
+				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
 			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
@@ -1384,24 +1430,27 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
+				// demux node + write node for the `low` branch. The `high`
+				// branch is a scope reference that becomes an activation.
+				Expect(inter.Nodes).To(HaveLen(2))
 
-				entryNode := findNodeByKey(inter.Nodes, "entry_alarm_active")
-				Expect(entryNode.Type).To(Equal("stage_entry"))
-
+				demuxNode := findNodeByType(inter.Nodes, "demux")
 				writeNode := findNodeByType(inter.Nodes, "write")
 				Expect(writeNode.Channels.Write).To(HaveKey(uint32(10071)))
 
-				Expect(inter.Edges).To(HaveLen(2))
-
-				alarmEdge := findEdgeByTarget(inter.Edges, "entry_alarm_active")
-				Expect(alarmEdge.Target.Param).To(Equal("activate"))
+				// Only the write edge exists; the `high` branch lands on
+				// alarm's scope activation.
+				Expect(inter.Edges).To(HaveLen(1))
+				alarm := findTopLevelScope(inter, "alarm")
+				Expect(alarm.Activation).ToNot(BeNil())
+				Expect(alarm.Activation.Node).To(Equal(demuxNode.Key))
+				Expect(alarm.Activation.Param).To(Equal("high"))
 			})
 
 		})
 
 		Context("Direct Stage Targeting", func() {
-			It("Should allow targeting a stage by name within a sequence", func(ctx SpecContext) {
+			It("Should emit a member-key transition when targeting a sibling stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
 				}
@@ -1417,15 +1466,71 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have edges connecting to the second stage's entry node
-				secondEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
-				Expect(secondEdge.Target.Param).To(Equal("activate"))
-				Expect(secondEdge.Kind).To(Equal(ir.EdgeKindConditional))
+				// The `=> second` edge becomes a Transition on main whose
+				// on-handle fires from the comparison node.
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Transitions).To(HaveLen(1))
+				t := main.Transitions[0]
+				Expect(t.TargetKey).ToNot(BeNil())
+				Expect(*t.TargetKey).To(Equal("second"))
+				Expect(t.On.Node).To(HavePrefix("expression_"))
+			})
+		})
+
+		Context("Top-level anonymous scopes", func() {
+			It("Should compile an anonymous top-level stage and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11001},
+				}
+				source := `
+				stage {
+					1 -> ch,
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("stage_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile an anonymous top-level sequence and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11002},
+				}
+				source := `
+				sequence {
+					1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("seq_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
 			})
 		})
 
 		Context("next keyword", func() {
-			It("Should wire next to the following stage's entry node", func(ctx SpecContext) {
+			It("Should emit a member-key transition targeting the following stage", func(ctx SpecContext) {
 				source := `
 				sequence main {
 					stage first {
@@ -1444,9 +1549,12 @@ var _ = Describe("Text", func() {
 				inter, diag := text.Analyze(ctx, parsedText, resolver)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
-				nextEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
-				Expect(nextEdge.Target.Param).To(Equal("activate"))
-				Expect(nextEdge.Kind).To(Equal(ir.EdgeKindConditional))
+				main := findTopLevelScope(inter, "main")
+				nextT, ok := lo.Find(main.Transitions, func(t ir.Transition) bool {
+					return t.TargetKey != nil && *t.TargetKey == "second"
+				})
+				Expect(ok).To(BeTrue(), "expected a transition targeting 'second'")
+				Expect(nextT.On.Node).To(HavePrefix("expression_"))
 			})
 
 			DescribeTable("next keyword error cases",
@@ -1733,8 +1841,10 @@ var _ = Describe("Text", func() {
 			setupNode := findNodeByType(inter.Nodes, "setup")
 			Expect(setupNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Nodes).To(ContainElement(setupNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(setupNode.Key))
 		})
 
 		It("Should compile standalone expression to IR node", func(ctx SpecContext) {
@@ -1757,8 +1867,10 @@ var _ = Describe("Text", func() {
 			Expect(exprNode.Outputs).To(HaveLen(1))
 			Expect(exprNode.Outputs[0].Type.Kind).To(Equal(types.KindI64))
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(exprNode.Key))
 		})
 
 		It("Should reject void functions mid-chain in flow statements", func(ctx SpecContext) {
@@ -1782,10 +1894,10 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("has no output to connect"))
+			Expect(diagnostics.String()).To(ContainSubstring("has no output"))
 		})
 
-		It("Should place single invocation nodes in stratum 0", func(ctx SpecContext) {
+		It("Should place a single-invocation step's node in its stage's first phase", func(ctx SpecContext) {
 			source := `
 			func initialize() u8 {
 				return 1
@@ -1804,9 +1916,12 @@ var _ = Describe("Text", func() {
 			initNode := findNodeByType(inter.Nodes, "initialize")
 			Expect(initNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Strata).To(HaveLen(1))
-			Expect(seq.Stages[0].Strata[0]).To(ContainElement(initNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(start.Scope.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(start.Scope.Strata).ToNot(BeEmpty())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(initNode.Key))
 		})
 	})
 

@@ -72,6 +72,10 @@ func (v *BaseArcParserVisitor) VisitSequenceDeclaration(ctx *SequenceDeclaration
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitSequenceItem(ctx *SequenceItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitStageDeclaration(ctx *StageDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
