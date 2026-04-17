@@ -28,11 +28,12 @@ export interface ChipProps
 interface ChipStyle {
   message: string;
   chipColor: string;
+  chipIcon: Icon.FC;
   buttonStyle?: CSSProperties;
   disabled?: boolean;
 }
 
-const tooltipMessage = (
+export const tooltipMessage = (
   status: status.Status<typeof control.chipStatusDetailsZ>,
 ): ChipStyle => {
   switch (status.variant) {
@@ -41,10 +42,12 @@ const tooltipMessage = (
         return {
           message: "Uncontrolled. Click to take control.",
           chipColor: "var(--pluto-gray-l12)",
+          chipIcon: Icon.Circle,
         };
       return {
         message: "No channel connected. This element cannot be controlled.",
         chipColor: "var(--pluto-gray-l7)",
+        chipIcon: Icon.Circle,
         disabled: true,
       };
 
@@ -52,12 +55,14 @@ const tooltipMessage = (
       return {
         message: "Not controlled by you. Click to take absolute control.",
         chipColor: "var(--pluto-error-z)",
+        chipIcon: Icon.Square,
       };
     case "success":
       if (status.details?.authority === clientControl.ABSOLUTE_AUTHORITY)
         return {
           message: "You have absolute control. Click to release.",
           chipColor: "var(--pluto-secondary-z)",
+          chipIcon: Icon.Circle,
           buttonStyle: {
             background: "var(--pluto-secondary-z-30)",
           },
@@ -65,11 +70,13 @@ const tooltipMessage = (
       return {
         message: "You're in control. Release schematic to release control.",
         chipColor: "var(--pluto-primary-z)",
+        chipIcon: Icon.Circle,
       };
     default:
       return {
         message: "Unexpected status.",
         chipColor: "var(--pluto-error-z)",
+        chipIcon: Icon.Square,
       };
   }
 };
@@ -101,7 +108,13 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
     [setState],
   );
 
-  const { message, chipColor, buttonStyle, disabled } = tooltipMessage(status);
+  const {
+    message,
+    chipColor,
+    chipIcon: ChipIcon,
+    buttonStyle,
+    disabled,
+  } = tooltipMessage(status);
 
   return (
     <Button.Button
@@ -113,7 +126,7 @@ export const Chip = ({ source, sink, className, ...rest }: ChipProps): ReactElem
       style={buttonStyle}
       {...rest}
     >
-      <Icon.Circle color={chipColor} />
+      <ChipIcon color={chipColor} />
     </Button.Button>
   );
 };

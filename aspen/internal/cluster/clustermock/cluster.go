@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 )
 
 type Builder struct {
@@ -63,4 +64,15 @@ func (b *Builder) memberAddresses() []address.Address {
 		memberAddresses = append(memberAddresses, api.Host().Address)
 	}
 	return memberAddresses
+}
+
+// Close shuts down every cluster the Builder has created. After Close, the
+// Builder may continue to be used to create new clusters.
+func (b *Builder) Close() error {
+	var err error
+	for _, api := range b.ClusterAPIs {
+		err = errors.Combine(err, api.Close())
+	}
+	b.ClusterAPIs = make(map[node.Key]*cluster.Cluster)
+	return err
 }

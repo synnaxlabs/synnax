@@ -2,6 +2,31 @@
   "$schema": "test_schema.json",
   "sequences": [
     {
+      "sequence_name": "authority",
+      "tests": [
+        {
+          "case": "arc/authority_python_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/authority_arc_vs_arc",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/authority_schematic_override",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/authority_emergency",
+          "parameters": { "rack_key": [65537, 65538] }
+        },
+        {
+          "case": "arc/bang_bang_authority",
+          "parameters": { "rack_key": [65537, 65538] }
+        }
+      ]
+    },
+    {
       "sequence_name": "simple",
       "tests": [
         { "case": "arc/lifecycle", "parameters": { "rack_key": [65537, 65538] } },
@@ -19,10 +44,6 @@
         },
         {
           "case": "arc/edge_cases",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/wait_timing",
           "parameters": { "rack_key": [65537, 65538] }
         },
         {
@@ -48,28 +69,11 @@
       ]
     },
     {
-      "sequence_name": "authority",
+      "sequence_name": "stl",
       "tests": [
-        {
-          "case": "arc/authority_python_override",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/authority_arc_vs_arc",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/authority_schematic_override",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/authority_emergency",
-          "parameters": { "rack_key": [65537, 65538] }
-        },
-        {
-          "case": "arc/bang_bang_authority",
-          "parameters": { "rack_key": [65537, 65538] }
-        }
+        { "case": "arc/stl_math", "parameters": { "rack_key": [65537, 65538] } },
+        { "case": "arc/stl_time", "parameters": { "rack_key": [65537, 65538] } },
+        { "case": "arc/stl_string", "parameters": { "rack_key": [65537, 65538] } }
       ]
     }
   ]

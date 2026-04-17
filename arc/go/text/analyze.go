@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -238,7 +239,7 @@ func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -301,6 +302,18 @@ func analyzeExpression(
 
 	key := kg.generate(sym.Name, "")
 	freshType := types.Freshen(sym.Type, key)
+	if len(freshType.Outputs) == 0 || !freshType.Outputs[0].Type.IsValid() {
+		exprText := strings.TrimSuffix(ctx.AST.GetText(), "()")
+		d := diagnostics.Errorf(
+			ctx.AST,
+			"functions in flow statements use {} not ()",
+		)
+		d.Notes = append(d.Notes, diagnostics.Note{
+			Message: fmt.Sprintf("did you mean: %s{}?", exprText),
+		})
+		ctx.Diagnostics.Add(d)
+		return nodeResult{}, false
+	}
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,

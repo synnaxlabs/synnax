@@ -14,9 +14,11 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	lsp "github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
+	"github.com/synnaxlabs/x/set"
 	"go.uber.org/zap"
 )
 
@@ -47,7 +49,7 @@ var completions = []completionInfo{
 	{
 		Label:    parser.LiteralI8,
 		Detail:   "Signed 8-bit integer",
-		Doc:      "Range: -128 to 172",
+		Doc:      "Range: -128 to 127",
 		Kind:     protocol.CompletionItemKindClass,
 		Category: categoryType,
 	},
@@ -372,7 +374,7 @@ func (s *Server) Completion(
 	prefix := ""
 	if int(params.Position.Character) <= len(line) {
 		start := int(params.Position.Character)
-		for start > 0 && lsp.IsWordChar(line[start-1]) {
+		for start > 0 && (lsp.IsWordChar(line[start-1]) || line[start-1] == '.') {
 			start--
 		}
 		prefix = line[start:params.Position.Character]
@@ -454,19 +456,51 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
-		scopeAtCursor := doc.findScopeAtPosition(pos)
-		if scopeAtCursor != nil {
-			scopes, err := scopeAtCursor.Search(ctx, prefix)
-			if err == nil {
-				for _, scope := range scopes {
-					items = append(items, symbolCompletionItem(scope.Name, scope.Type))
+		modulePrefix := ""
+		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
+			modulePrefix = prefix[:dotIdx+1]
+		}
+		startChar := pos.Character - uint32(len(prefix))
+		if modulePrefix != "" {
+			// Module-qualified prefix (e.g. "math." or "time.n"): search
+			// only the GlobalResolver and filter to function symbols so
+			// that channels and other unrelated symbols are excluded.
+			if s.cfg.GlobalResolver != nil {
+				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+				if err == nil {
+					for _, sym := range symbols {
+						if sym.Kind != symbol.KindFunction {
+							continue
+						}
+						qualifiedName := modulePrefix + sym.Name
+						item := symbolCompletionItem(sym.Name, sym.Type)
+						item.FilterText = qualifiedName
+						item.TextEdit = &protocol.TextEdit{
+							Range: protocol.Range{
+								Start: protocol.Position{Line: pos.Line, Character: startChar},
+								End:   pos,
+							},
+							NewText: qualifiedName,
+						}
+						items = append(items, item)
+					}
 				}
 			}
-		} else if s.cfg.GlobalResolver != nil {
-			symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
-			if err == nil {
-				for _, sym := range symbols {
-					items = append(items, symbolCompletionItem(sym.Name, sym.Type))
+		} else {
+			scopeAtCursor := doc.findScopeAtPosition(pos)
+			if scopeAtCursor != nil {
+				scopes, err := scopeAtCursor.Search(ctx, prefix)
+				if err == nil {
+					for _, scope := range scopes {
+						items = append(items, symbolCompletionItem(scope.Name, scope.Type))
+					}
+				}
+			} else if s.cfg.GlobalResolver != nil {
+				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
+				if err == nil {
+					for _, sym := range symbols {
+						items = append(items, symbolCompletionItem(sym.Name, sym.Type))
+					}
 				}
 			}
 		}
@@ -516,13 +550,10 @@ func (s *Server) getAuthorityEntryCompletions(
 	pos protocol.Position,
 ) []protocol.CompletionItem {
 	existing := extractAuthorityExistingChannels(doc.displayContent(), pos)
-	existingSet := make(map[string]bool, len(existing))
-	for _, name := range existing {
-		existingSet[name] = true
-	}
+	existingSet := set.New(existing...)
 	var items []protocol.CompletionItem
 	appendChanCompletions := func(name string, t types.Type) {
-		if t.Kind != types.KindChan || existingSet[name] {
+		if t.Kind != types.KindChan || existingSet.Contains(name) {
 			return
 		}
 		items = append(items, protocol.CompletionItem{
@@ -578,13 +609,13 @@ func (s *Server) collectSymbols(
 	prefix string,
 	filter func(types.Type) bool,
 ) []protocol.CompletionItem {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var items []protocol.CompletionItem
 	addItem := func(name string, t types.Type) {
-		if seen[name] || !filter(t) {
+		if seen.Contains(name) || !filter(t) {
 			return
 		}
-		seen[name] = true
+		seen.Add(name)
 		items = append(items, protocol.CompletionItem{
 			Label:  name,
 			Kind:   protocol.CompletionItemKindVariable,
@@ -620,13 +651,10 @@ func (s *Server) getConfigParamCompletions(
 	if !ok {
 		return []protocol.CompletionItem{}
 	}
-	existingSet := make(map[string]bool)
-	for _, param := range configInfo.existingParams {
-		existingSet[param] = true
-	}
+	existingSet := set.New(configInfo.existingParams...)
 	var items []protocol.CompletionItem
 	for _, param := range fnType.Config {
-		if existingSet[param.Name] || !strings.HasPrefix(param.Name, prefix) {
+		if existingSet.Contains(param.Name) || !strings.HasPrefix(param.Name, prefix) {
 			continue
 		}
 		items = append(items, protocol.CompletionItem{

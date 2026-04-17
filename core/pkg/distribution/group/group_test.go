@@ -35,23 +35,15 @@ var _ = Describe("Group", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		src := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(src.Close()).To(Succeed())
-		})
-		svc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		src := MustOpen(search.Open())
+		svc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   src,
 		}))
 		w = svc.NewWriter(nil)
-	})
-
-	AfterAll(func() {
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
 	})
 
 	Describe("Create", func() {
@@ -162,7 +154,7 @@ var _ = Describe("Group", Ordered, func() {
 			var groups []group.Group
 			Expect(svc.NewRetrieve().WhereKeys(child1.Key, child2.Key, parent.Key).
 				Entries(&groups).Exec(ctx, nil)).
-				To(HaveOccurredAs(query.ErrNotFound))
+				To(MatchError(query.ErrNotFound))
 			Expect(groups).To(BeEmpty())
 		})
 

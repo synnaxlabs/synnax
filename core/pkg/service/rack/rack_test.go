@@ -44,31 +44,28 @@ var _ = Describe("Rack", Ordered, func() {
 	)
 
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		label := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		label := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    label,
 			Search:   searchIdx,
 		}))
-		svc = MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		svc = MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -78,21 +75,10 @@ var _ = Describe("Rack", Ordered, func() {
 			HealthCheckInterval: 10 * telem.Millisecond,
 			Search:              searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(svc.Close()).To(Succeed())
-			Expect(stat.Close()).To(Succeed())
-			Expect(label.Close()).To(Succeed())
-			Expect(g.Close()).To(Succeed())
-			Expect(otg.Close()).To(Succeed())
-			Expect(db.Close()).To(Succeed())
-		})
 	})
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		writer = svc.NewWriter(tx)
-		DeferCleanup(func() {
-			Expect(tx.Close()).To(Succeed())
-		})
 	})
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func(ctx SpecContext) {
@@ -541,41 +527,31 @@ var _ = Describe("Migration", func() {
 		searchIdx *search.Index
 	)
 	BeforeEach(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx = MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx = MustOpen(search.Open())
+		g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		stat = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		stat = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			Ontology: otg,
 			DB:       db,
 			Group:    g,
 			Label:    labelSvc,
 			Search:   searchIdx,
 		}))
-		DeferCleanup(func() {
-			Expect(stat.Close()).To(Succeed())
-			Expect(labelSvc.Close()).To(Succeed())
-			Expect(g.Close()).To(Succeed())
-			Expect(otg.Close()).To(Succeed())
-			Expect(db.Close()).To(Succeed())
-		})
 	})
 
 	openService := func(ctx context.Context) *rack.Service {
-		svc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+		return MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 			DB:           db,
 			Ontology:     otg,
 			Group:        g,
@@ -583,8 +559,6 @@ var _ = Describe("Migration", func() {
 			Status:       stat,
 			Search:       searchIdx,
 		}))
-		DeferCleanup(func() { Expect(svc.Close()).To(Succeed()) })
-		return svc
 	}
 
 	It("Should create unknown statuses for racks missing them", func(ctx SpecContext) {

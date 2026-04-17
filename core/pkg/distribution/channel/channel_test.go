@@ -48,9 +48,10 @@ var _ = Describe("Channel Tests", func() {
 				Expect(k).To(Equal(channel.Key(123456)))
 			})
 			It("Should return an error when the key is not a valid integer", func() {
-				_, err := channel.ParseKey("123456a")
-				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
-				Expect(err.Error()).To(ContainSubstring("123456a is not a valid channel key"))
+				Expect(channel.ParseKey("123456a")).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("123456a is not a valid channel key")),
+				))
 			})
 		})
 		Describe("Lease", func() {
@@ -122,9 +123,10 @@ var _ = Describe("Channel Tests", func() {
 					{Type: "channel", Key: "1"},
 					{Type: "channel", Key: "a"},
 				}
-				_, err := channel.KeysFromOntologyIDs(ids)
-				Expect(err).To(HaveOccurredAs(validate.ErrValidation))
-				Expect(err.Error()).To(ContainSubstring("a is not a valid channel key"))
+				Expect(channel.KeysFromOntologyIDs(ids)).Error().To(SatisfyAll(
+					MatchError(validate.ErrValidation),
+					MatchError(ContainSubstring("a is not a valid channel key")),
+				))
 			})
 		})
 		Describe("UniqueLeaseholders", func() {

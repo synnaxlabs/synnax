@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Analyze validates authority blocks in a program and returns the Authorities.
@@ -34,7 +35,7 @@ func Analyze(
 		config          ir.Authorities
 		seenDeclaration bool
 		hasDefault      bool
-		seenChannels    = make(map[string]bool)
+		seenChannels    = make(set.Set[string])
 	)
 	for _, item := range ctx.AST.AllTopLevelItem() {
 		authBlock := item.AuthorityBlock()
@@ -80,11 +81,11 @@ func analyzeEntry(
 	entry parser.IAuthorityEntryContext,
 	config *ir.Authorities,
 	hasDefault *bool,
-	seenChannels map[string]bool,
+	seenChannels set.Set[string],
 ) {
 	if id := entry.IDENTIFIER(); id != nil {
 		name := id.GetText()
-		if seenChannels[name] {
+		if seenChannels.Contains(name) {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
 				"duplicate authority for '%s'",
@@ -105,7 +106,7 @@ func analyzeEntry(
 		if !ok {
 			return
 		}
-		seenChannels[name] = true
+		seenChannels.Add(name)
 		if config.Channels == nil {
 			config.Channels = make(map[uint32]uint8)
 		}

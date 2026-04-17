@@ -206,7 +206,7 @@
         },
         {
           "name": "support.function.builtin.arc",
-          "match": "\\b(len|now)\\b(?=\\s*\\()"
+          "match": "\\b(len|now|pow|panic|interval|wait|concat|equal)\\b(?=\\s*[({])"
         },
         {
           "name": "entity.name.function.arc",
