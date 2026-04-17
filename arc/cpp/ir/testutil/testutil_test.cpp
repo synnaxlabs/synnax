@@ -11,11 +11,10 @@
 
 #include "arc/cpp/ir/testutil/testutil.h"
 
-namespace aiut = arc::ir::testutil;
-
+namespace arc::ir::testutil {
 /// @brief strata() should layer node members across the Root scope's strata.
 TEST(BuilderTest, StrataLayerMembersAcrossRoot) {
-    const auto ir = aiut::Builder()
+    const auto ir = Builder()
                         .node("A")
                         .node("B")
                         .node("C")
@@ -34,15 +33,15 @@ TEST(BuilderTest, StrataLayerMembersAcrossRoot) {
 /// @brief sequence() with parallel stratum specs should produce a sequential
 /// gated scope whose steps are parallel gated child scopes.
 TEST(BuilderTest, SequenceAppendsSequentialWithParallelChildren) {
-    const auto ir = aiut::Builder()
+    const auto ir = Builder()
                         .sequence(
                             "main",
                             {
-                                aiut::ScopeSpec{
+                                ScopeSpec{
                                     .key = "stage_a",
                                     .strata = {{"A", "B"}, {"C"}},
                                 },
-                                aiut::ScopeSpec{
+                                ScopeSpec{
                                     .key = "stage_b",
                                     .strata = {{"D"}},
                                 },
@@ -75,11 +74,11 @@ TEST(BuilderTest, SequenceAppendsSequentialWithParallelChildren) {
 /// @brief sequence() with step specs should produce a sequential gated
 /// scope whose steps are sequential gated child scopes.
 TEST(BuilderTest, SequenceAppendsSequentialWithSequentialChildren) {
-    const auto ir = aiut::Builder()
+    const auto ir = Builder()
                         .sequence(
                             "main",
                             {
-                                aiut::ScopeSpec{
+                                ScopeSpec{
                                     .key = "flow_a",
                                     .steps = {"N1", "N2"},
                                 },
@@ -98,8 +97,7 @@ TEST(BuilderTest, SequenceAppendsSequentialWithSequentialChildren) {
 
 /// @brief edge() should create continuous edges.
 TEST(BuilderTest, EdgeCreatesContinuousEdges) {
-    const auto
-        ir = aiut::Builder().node("A").node("B").edge("A", "out", "B", "in").build();
+    const auto ir = Builder().node("A").node("B").edge("A", "out", "B", "in").build();
 
     ASSERT_EQ(ir.edges.size(), 1);
     EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Continuous);
@@ -111,7 +109,7 @@ TEST(BuilderTest, EdgeCreatesContinuousEdges) {
 
 /// @brief conditional() should create conditional edges.
 TEST(BuilderTest, ConditionalCreatesConditionalEdges) {
-    const auto ir = aiut::Builder()
+    const auto ir = Builder()
                         .node("A")
                         .node("B")
                         .conditional("A", "trigger", "B", "activate")
@@ -119,4 +117,5 @@ TEST(BuilderTest, ConditionalCreatesConditionalEdges) {
 
     ASSERT_EQ(ir.edges.size(), 1);
     EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Conditional);
+}
 }
