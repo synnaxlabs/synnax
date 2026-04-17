@@ -22,6 +22,7 @@ import {
   Select,
   Status,
   Text,
+  Theming,
 } from "@synnaxlabs/pluto";
 import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
@@ -133,6 +134,7 @@ const EdgeProperties = ({
   const edge = Base.useSelectEdge({ key: layoutKey, edgeKey });
   const edgeProps = Base.useSelectProps({ key: layoutKey, propKey: edgeKey });
   const { update: dispatch } = Base.useDispatch();
+  const theme = Theming.use();
   if (edge == null) return null;
   const onChange = (key: string, props: Record<string, unknown>): void => {
     dispatch({
@@ -140,11 +142,18 @@ const EdgeProperties = ({
       actions: [schematic.setProps({ key, props })],
     });
   };
+  // Older schematics don't carry an edge color — the Edge component falls back
+  // to gray at render time. Normalize to a valid Crude so the swatch can
+  // construct a Color without throwing on missing or empty values.
+  const parsedColor = color.crudeZ.safeParse(edgeProps?.color);
+  const swatchColor: color.Crude = parsedColor.success
+    ? parsedColor.data
+    : theme.colors.gray.l11;
   return (
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={edgeProps?.color as color.Crude}
+          value={swatchColor}
           onChange={(v: color.Color) => {
             onChange(edge.key, { ...edgeProps, color: color.hex(v) });
           }}

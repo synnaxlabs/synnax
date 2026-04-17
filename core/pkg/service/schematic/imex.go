@@ -11,6 +11,7 @@ package schematic
 
 import (
 	"context"
+	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -54,8 +55,11 @@ func (s *Service) Import(
 	if name == "" {
 		name = "Imported Schematic"
 	}
-	schematic := convertToSchematic(key, name, migrated)
-	return s.NewWriter(tx).Create(ctx, wsKey, &schematic)
+	sc, err := convertToSchematic(key, name, migrated)
+	if err != nil {
+		return err
+	}
+	return s.NewWriter(tx).Create(ctx, wsKey, &sc)
 }
 
 func (s *Service) Export(
@@ -71,40 +75,39 @@ func (s *Service) Export(
 	if err := s.NewRetrieve().WhereKeys(k).Entry(&sc).Exec(ctx, tx); err != nil {
 		return imex.Envelope{}, err
 	}
-	data := make(map[string]any)
-	data["key"] = sc.Key.String()
-	data["name"] = sc.Name
-	data["snapshot"] = sc.Snapshot
-	data["authority"] = float64(sc.Authority)
-	data["nodes"] = nodesToAny(sc.Nodes)
-	data["edges"] = edgesToAny(sc.Edges)
-	data["props"] = propsToAny(sc.Props)
-	data["legend"] = legendToAny(sc.Legend)
+	d, err := schematicToData(sc)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
+	raw, err := json.Marshal(d)
+	if err != nil {
+		return imex.Envelope{}, err
+	}
 	return imex.Envelope{
 		Type: string(ontology.ResourceTypeSchematic),
 		Key:  sc.Key.String(),
 		Name: sc.Name,
-		Data: data,
+		Data: raw,
 	}, nil
 }
 
-func (s *Service) migrateData(version int, data map[string]any) (v5.Data, error) {
+func (s *Service) migrateData(version int, raw json.RawMessage) (v5.Data, error) {
 	switch {
 	case version >= v5.Version:
 		var d v5.Data
-		if err := v5.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		return d, nil
 	case version >= v4.Version:
 		var d v4.Data
-		if err := v4.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		return v5.Migrate(d)
 	case version >= v3.Version:
 		var d v3.Data
-		if err := v3.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		m4, err := v4.Migrate(d)
@@ -114,7 +117,7 @@ func (s *Service) migrateData(version int, data map[string]any) (v5.Data, error)
 		return v5.Migrate(m4)
 	case version >= v2.Version:
 		var d v2.Data
-		if err := v2.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		m3, err := v3.Migrate(d)
@@ -128,7 +131,7 @@ func (s *Service) migrateData(version int, data map[string]any) (v5.Data, error)
 		return v5.Migrate(m4)
 	case version >= v1.Version:
 		var d v1.Data
-		if err := v1.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		m2, err := v2.Migrate(d)
@@ -146,7 +149,7 @@ func (s *Service) migrateData(version int, data map[string]any) (v5.Data, error)
 		return v5.Migrate(m4)
 	case version >= v0.Version:
 		var d v0.Data
-		if err := v0.Schema.Parse(data, &d); err != nil {
+		if err := imex.Decode(raw, &d); err != nil {
 			return v5.Data{}, err
 		}
 		m1, err := v1.Migrate(d)
@@ -171,7 +174,7 @@ func (s *Service) migrateData(version int, data map[string]any) (v5.Data, error)
 	}
 }
 
-func convertToSchematic(key uuid.UUID, name string, d v5.Data) Schematic {
+func convertToSchematic(key uuid.UUID, name string, d v5.Data) (Schematic, error) {
 	nodes := make([]Node, len(d.Nodes))
 	for i, n := range d.Nodes {
 		nodes[i] = Node{
@@ -184,29 +187,36 @@ func convertToSchematic(key uuid.UUID, name string, d v5.Data) Schematic {
 	for i, e := range d.Edges {
 		edges[i] = Edge{
 			Key:    e.Key,
-			Source: Handle{Node: e.Source.Node, Param: e.Source.Param},
-			Target: Handle{Node: e.Target.Node, Param: e.Target.Param},
+			Source: Handle{Node: e.Source, Param: e.SourceHandle},
+			Target: Handle{Node: e.Target, Param: e.TargetHandle},
 		}
 	}
+	// Props are opaque per-variant JSON objects. Bridge from byte-preserved
+	// RawMessage into msgpack.EncodedJSON (a map[string]any) at the storage
+	// boundary. Byte fidelity end to end will arrive with a future change to
+	// EncodedJSON.
 	props := make(map[string]msgpack.EncodedJSON, len(d.Props))
-	for k, v := range d.Props {
-		m, ok := v.(map[string]any)
-		if !ok {
+	for k, raw := range d.Props {
+		if len(raw) == 0 {
 			continue
 		}
-		props[k] = msgpack.EncodedJSON(m)
+		var m map[string]any
+		if err := json.Unmarshal(raw, &m); err != nil {
+			return Schematic{}, errors.Wrapf(err, "decode props[%q]", k)
+		}
+		m["variant"] = m["key"]
+		props[k] = m
 	}
-	legend := convertLegend(d.Legend)
 	return Schematic{
 		Key:       key,
 		Name:      name,
 		Snapshot:  d.Snapshot,
 		Authority: control.Authority(d.Authority),
-		Legend:    legend,
+		Legend:    convertLegend(d.Legend),
 		Nodes:     nodes,
 		Edges:     edges,
 		Props:     props,
-	}
+	}, nil
 }
 
 func convertLegend(ld v1.LegendData) Legend {
@@ -231,48 +241,65 @@ func convertLegend(ld v1.LegendData) Legend {
 	return leg
 }
 
-func nodesToAny(nodes []Node) []any {
-	result := make([]any, len(nodes))
-	for i, n := range nodes {
-		result[i] = map[string]any{
-			"key":      n.Key,
-			"position": map[string]any{"x": n.Position.X, "y": n.Position.Y},
+func schematicToData(sc Schematic) (v5.Data, error) {
+	nodes := make([]v0.NodeData, len(sc.Nodes))
+	for i, n := range sc.Nodes {
+		nodes[i] = v0.NodeData{
+			Key:      n.Key,
+			Position: v0.XY{X: n.Position.X, Y: n.Position.Y},
+			Measured: v0.Dimensions{Width: n.Measured.Width, Height: n.Measured.Height},
 		}
 	}
-	return result
-}
-
-func edgesToAny(edges []Edge) []any {
-	result := make([]any, len(edges))
-	for i, e := range edges {
-		result[i] = map[string]any{
-			"key":    e.Key,
-			"source": map[string]any{"node": e.Source.Node, "param": e.Source.Param},
-			"target": map[string]any{"node": e.Target.Node, "param": e.Target.Param},
+	edges := make([]v3.EdgeData, len(sc.Edges))
+	for i, e := range sc.Edges {
+		edges[i] = v3.EdgeData{
+			Key:          e.Key,
+			Source:       e.Source.Node,
+			Target:       e.Target.Node,
+			SourceHandle: e.Source.Param,
+			TargetHandle: e.Target.Param,
+			Segments:     []v3.SegmentData{},
 		}
 	}
-	return result
-}
-
-func propsToAny(props map[string]msgpack.EncodedJSON) map[string]any {
-	result := make(map[string]any, len(props))
-	for k, v := range props {
-		result[k] = map[string]any(v)
+	props := make(map[string]json.RawMessage, len(sc.Props))
+	for k, v := range sc.Props {
+		b, err := json.Marshal(map[string]any(v))
+		if err != nil {
+			return v5.Data{}, errors.Wrapf(err, "encode props[%q]", k)
+		}
+		props[k] = b
 	}
-	return result
+	return v5.Data{
+		Nodes:     nodes,
+		Edges:     edges,
+		Props:     props,
+		Legend:    legendToData(sc.Legend),
+		Snapshot:  sc.Snapshot,
+		Key:       sc.Key.String(),
+		Type:      string(ontology.ResourceTypeSchematic),
+		Authority: float64(sc.Authority),
+	}, nil
 }
 
-func legendToAny(leg Legend) map[string]any {
-	colors := make(map[string]any, len(leg.Colors))
+func legendToData(leg Legend) v1.LegendData {
+	colors := make(map[string]string, len(leg.Colors))
 	for k, v := range leg.Colors {
 		colors[k] = v.Hex()
 	}
-	return map[string]any{
-		"visible": leg.Visible,
-		"position": map[string]any{
-			"x": leg.Position.X,
-			"y": leg.Position.Y,
+	return v1.LegendData{
+		Visible: leg.Visible,
+		Position: v1.LegendPosition{
+			X: leg.Position.X,
+			Y: leg.Position.Y,
+			Units: map[string]string{
+				"x": leg.Position.Units.X,
+				"y": leg.Position.Units.Y,
+			},
+			Root: map[string]string{
+				"x": leg.Position.Root.X,
+				"y": leg.Position.Root.Y,
+			},
 		},
-		"colors": colors,
+		Colors: colors,
 	}
 }

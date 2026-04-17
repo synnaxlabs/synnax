@@ -24,8 +24,8 @@ func Migrate(old v0.Data) (Data, error) {
 		Legend: LegendData{
 			Visible: true,
 			Position: LegendPosition{
-				X: 50,
-				Y: 50,
+				X:     50,
+				Y:     50,
 				Units: map[string]string{"x": "px", "y": "px"},
 			},
 			Colors: map[string]string{},

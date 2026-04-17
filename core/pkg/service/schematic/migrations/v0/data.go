@@ -9,7 +9,7 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/zyn"
+import "encoding/json"
 
 // Version is the numeric version for console schematic state v0.0.0.
 // Computed via legacyToNumeric: 0*5 + 0*2 + 0 = 0.
@@ -31,57 +31,25 @@ type NodeData struct {
 	Measured Dimensions `json:"measured"`
 }
 
-type HandleData struct {
-	Node  string `json:"node"`
-	Param string `json:"param"`
-}
-
+// EdgeData is the wire shape of a schematic edge at version 0.0.0. Shipped
+// consoles persisted edges in ReactFlow's flat form: source and target are
+// node-key strings, with sourceHandle and targetHandle as optional sibling
+// fields. The nested Handle{Node, Param} representation used by the server's
+// Schematic struct is built from these flat fields by convertToSchematic.
 type EdgeData struct {
-	Key    string     `json:"key"`
-	Source HandleData `json:"source"`
-	Target HandleData `json:"target"`
+	Key          string `json:"key"`
+	Source       string `json:"source"`
+	Target       string `json:"target"`
+	SourceHandle string `json:"sourceHandle,omitempty"`
+	TargetHandle string `json:"targetHandle,omitempty"`
 }
 
-// Data holds schematic content at version 0.0.0.
+// Data holds schematic content at version 0.0.0. Props values are kept as
+// raw JSON bytes since their shape is per-variant and opaque to the server.
 type Data struct {
-	Nodes         []NodeData     `json:"nodes"`
-	Edges         []EdgeData     `json:"edges"`
-	Props         map[string]any `json:"props"`
-	Snapshot      bool           `json:"snapshot"`
-	RemoteCreated bool           `json:"remote_created"`
+	Nodes         []NodeData                 `json:"nodes"`
+	Edges         []EdgeData                 `json:"edges"`
+	Props         map[string]json.RawMessage `json:"props"`
+	Snapshot      bool                       `json:"snapshot"`
+	RemoteCreated bool                       `json:"remote_created"`
 }
-
-var xySchema = zyn.Object(map[string]zyn.Schema{
-	"x": zyn.Number(),
-	"y": zyn.Number(),
-})
-
-var dimensionsSchema = zyn.Object(map[string]zyn.Schema{
-	"width":  zyn.Number(),
-	"height": zyn.Number(),
-}).Optional()
-
-var NodeSchema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.String(),
-	"position": xySchema,
-	"measured": dimensionsSchema,
-})
-
-var HandleSchema = zyn.Object(map[string]zyn.Schema{
-	"node":  zyn.String(),
-	"param": zyn.String(),
-})
-
-var EdgeSchema = zyn.Object(map[string]zyn.Schema{
-	"key":    zyn.String(),
-	"source": HandleSchema,
-	"target": HandleSchema,
-})
-
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"nodes":          zyn.Array(NodeSchema).Optional(),
-	"edges":          zyn.Array(EdgeSchema).Optional(),
-	"props":          zyn.Map(zyn.String(), zyn.Object(map[string]zyn.Schema{})).Optional(),
-	"snapshot":       zyn.Bool().Optional(),
-	"remote_created": zyn.Bool().Optional(),
-})

@@ -10,10 +10,11 @@
 package v4
 
 import (
+	"encoding/json"
+
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v3"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // Version is the numeric version for console schematic state v4.0.0.
@@ -22,25 +23,13 @@ const Version = 20
 
 // Data holds schematic content at version 4.0.0. Adds authority.
 type Data struct {
-	Nodes         []v0.NodeData  `json:"nodes"`
-	Edges         []v3.EdgeData  `json:"edges"`
-	Props         map[string]any `json:"props"`
-	Legend        v1.LegendData  `json:"legend"`
-	Snapshot      bool           `json:"snapshot"`
-	RemoteCreated bool           `json:"remote_created"`
-	Key           string         `json:"key"`
-	Type          string         `json:"type"`
-	Authority     float64        `json:"authority"`
+	Nodes         []v0.NodeData              `json:"nodes"`
+	Edges         []v3.EdgeData              `json:"edges"`
+	Props         map[string]json.RawMessage `json:"props"`
+	Legend        v1.LegendData              `json:"legend"`
+	Snapshot      bool                       `json:"snapshot"`
+	RemoteCreated bool                       `json:"remote_created"`
+	Key           string                     `json:"key"`
+	Type          string                     `json:"type"`
+	Authority     float64                    `json:"authority"`
 }
-
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"nodes":          zyn.Array(v0.NodeSchema).Optional(),
-	"edges":          zyn.Array(v3.EdgeSchema).Optional(),
-	"props":          zyn.Map(zyn.String(), zyn.Object(map[string]zyn.Schema{})).Optional(),
-	"legend":         v1.LegendSchema.Optional(),
-	"snapshot":       zyn.Bool().Optional(),
-	"remote_created": zyn.Bool().Optional(),
-	"key":            zyn.String().Optional(),
-	"type":           zyn.String().Optional(),
-	"authority":      zyn.Number().Optional(),
-})

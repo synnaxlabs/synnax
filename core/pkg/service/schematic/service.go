@@ -131,7 +131,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 					return nil, false
 				}
 				return []xchange.Change[[]byte, struct{}]{
-					{Variant: xchange.VariantSet, Key: append(b, '\n')},
+					{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
 				}, true
 			},
 		}

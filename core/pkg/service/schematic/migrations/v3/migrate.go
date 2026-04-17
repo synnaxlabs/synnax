@@ -18,10 +18,12 @@ func Migrate(old v2.Data) (Data, error) {
 	edges := make([]EdgeData, len(old.Edges))
 	for i, e := range old.Edges {
 		edges[i] = EdgeData{
-			Key:      e.Key,
-			Source:   e.Source,
-			Target:   e.Target,
-			Segments: []SegmentData{},
+			Key:          e.Key,
+			Source:       e.Source,
+			Target:       e.Target,
+			SourceHandle: e.SourceHandle,
+			TargetHandle: e.TargetHandle,
+			Segments:     []SegmentData{},
 		}
 	}
 	return Data{

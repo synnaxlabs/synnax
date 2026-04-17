@@ -10,9 +10,10 @@
 package v3
 
 import (
+	"encoding/json"
+
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v1"
-	"github.com/synnaxlabs/x/zyn"
 )
 
 // Version is the numeric version for console schematic state v3.0.0.
@@ -24,45 +25,27 @@ type SegmentData struct {
 	Length    float64 `json:"length"`
 }
 
-// EdgeData extends the base edge with segments for orthogonal path routing.
+// EdgeData extends the base flat edge (see v0.EdgeData) with orthogonal path
+// segments. Source/target/handles remain flat strings — the diagram nested
+// handle shape is a server-internal representation, not part of the wire
+// format at any shipped state version.
 type EdgeData struct {
-	Key      string        `json:"key"`
-	Source   v0.HandleData `json:"source"`
-	Target   v0.HandleData `json:"target"`
-	Segments []SegmentData `json:"segments"`
+	Key          string        `json:"key"`
+	Source       string        `json:"source"`
+	Target       string        `json:"target"`
+	SourceHandle string        `json:"sourceHandle,omitempty"`
+	TargetHandle string        `json:"targetHandle,omitempty"`
+	Segments     []SegmentData `json:"segments"`
 }
 
 // Data holds schematic content at version 3.0.0. Edges now include segments.
 type Data struct {
-	Nodes         []v0.NodeData  `json:"nodes"`
-	Edges         []EdgeData     `json:"edges"`
-	Props         map[string]any `json:"props"`
-	Legend        v1.LegendData  `json:"legend"`
-	Snapshot      bool           `json:"snapshot"`
-	RemoteCreated bool           `json:"remote_created"`
-	Key           string         `json:"key"`
-	Type          string         `json:"type"`
+	Nodes         []v0.NodeData              `json:"nodes"`
+	Edges         []EdgeData                 `json:"edges"`
+	Props         map[string]json.RawMessage `json:"props"`
+	Legend        v1.LegendData              `json:"legend"`
+	Snapshot      bool                       `json:"snapshot"`
+	RemoteCreated bool                       `json:"remote_created"`
+	Key           string                     `json:"key"`
+	Type          string                     `json:"type"`
 }
-
-var segmentSchema = zyn.Object(map[string]zyn.Schema{
-	"direction": zyn.String(),
-	"length":    zyn.Number(),
-})
-
-var EdgeSchema = zyn.Object(map[string]zyn.Schema{
-	"key":      zyn.String(),
-	"source":   v0.HandleSchema,
-	"target":   v0.HandleSchema,
-	"segments": zyn.Array(segmentSchema).Optional(),
-})
-
-var Schema = zyn.Object(map[string]zyn.Schema{
-	"nodes":          zyn.Array(v0.NodeSchema).Optional(),
-	"edges":          zyn.Array(EdgeSchema).Optional(),
-	"props":          zyn.Map(zyn.String(), zyn.Object(map[string]zyn.Schema{})).Optional(),
-	"legend":         v1.LegendSchema.Optional(),
-	"snapshot":       zyn.Bool().Optional(),
-	"remote_created": zyn.Bool().Optional(),
-	"key":            zyn.String().Optional(),
-	"type":           zyn.String().Optional(),
-})
