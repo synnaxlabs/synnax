@@ -10,11 +10,12 @@
 import "@/log/Log.css";
 
 import { box, location, strings } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { type Flex } from "@/flex";
+import { useCombinedRefs } from "@/hooks/ref";
 import { Icon } from "@/icon";
 import { use, type UseProps } from "@/log/use";
 import { Menu } from "@/menu";
@@ -22,13 +23,14 @@ import { Status } from "@/status/base";
 import { Triggers } from "@/triggers";
 import { Canvas } from "@/vis/canvas";
 
-const COPY_FLASH_DURATION_MS = 150;
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];
 const SELECT_ALL_TRIGGER: Triggers.Trigger = ["Control", "A"];
 const ESCAPE_TRIGGER: Triggers.Trigger = ["Escape"];
+const PAUSE_TRIGGER: Triggers.Trigger = ["H"];
 
 export interface LogProps extends UseProps, Omit<Flex.BoxProps, "color"> {
   emptyContent?: ReactElement;
+  extraContextMenuItems?: ReactNode;
 }
 
 export const Log = ({
@@ -47,6 +49,7 @@ export const Log = ({
   ),
   color,
   telem,
+  extraContextMenuItems,
   ...rest
 }: LogProps): ReactElement | null => {
   const { state, setState } = use({
@@ -75,6 +78,8 @@ export const Log = ({
   const resizeRef = Canvas.useRegion(
     useCallback((b) => setState((s) => ({ ...s, region: b })), [setState]),
   );
+  const containerRef = useRef<HTMLDivElement>(null);
+  const combinedRef = useCombinedRefs(resizeRef, containerRef);
 
   const draggingRef = useRef(false);
 
@@ -127,13 +132,15 @@ export const Log = ({
     return `<pre style="font-family: monospace">${lines.join("\n")}</pre>`;
   }, [selectedLines]);
 
-  const flashCopy = useCallback(() => {
-    setState((s) => ({ ...s, copyFlash: true }));
-    setTimeout(
-      () => setState((s) => ({ ...s, copyFlash: false })),
-      COPY_FLASH_DURATION_MS,
-    );
-  }, [setState]);
+  const addStatus = Status.useAdder();
+  const notifyCopied = useCallback(
+    (count: number) =>
+      addStatus({
+        variant: "success",
+        message: `Copied ${count} ${count === 1 ? "line" : "lines"} to clipboard`,
+      }),
+    [addStatus],
+  );
 
   const copyToClipboard = useCallback(() => {
     if (selectedText.length === 0) return;
@@ -141,8 +148,9 @@ export const Log = ({
       "text/html": new Blob([buildCopyHTML()], { type: "text/html" }),
       "text/plain": new Blob([selectedText], { type: "text/plain" }),
     });
-    void navigator.clipboard.write([item]).then(flashCopy);
-  }, [selectedText, buildCopyHTML, flashCopy]);
+    const count = selectedLines.length;
+    void navigator.clipboard.write([item]).then(() => notifyCopied(count));
+  }, [selectedText, selectedLines.length, buildCopyHTML, notifyCopied]);
 
   Triggers.use({
     triggers: [ESCAPE_TRIGGER],
@@ -155,6 +163,18 @@ export const Log = ({
           selectionEnd: -1,
           selectedText: "",
         }));
+      },
+      [setState],
+    ),
+  });
+
+  Triggers.use({
+    triggers: [PAUSE_TRIGGER],
+    region: containerRef,
+    callback: useCallback(
+      ({ stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        setState((s) => ({ ...s, scrolling: !s.scrolling }));
       },
       [setState],
     ),
@@ -197,15 +217,21 @@ export const Log = ({
           <Icon.Copy />
           Copy
         </Menu.Item>
+        {extraContextMenuItems != null && (
+          <>
+            <Menu.Divider />
+            {extraContextMenuItems}
+          </>
+        )}
       </Menu.Menu>
     ),
-    [handleMenuSelect, hasSelection],
+    [handleMenuSelect, hasSelection, extraContextMenuItems],
   );
 
   return (
     <Menu.ContextMenu className={menuClassName} menu={menuContent} {...menuProps}>
       <div
-        ref={resizeRef}
+        ref={combinedRef}
         tabIndex={0}
         className={CSS(CSS.B("log"), className)}
         onWheel={(e) => {
@@ -223,7 +249,7 @@ export const Log = ({
           e.preventDefault();
           e.clipboardData.setData("text/plain", selectedText);
           e.clipboardData.setData("text/html", buildCopyHTML());
-          flashCopy();
+          notifyCopied(selectedLines.length);
         }}
         onContextMenu={menuProps.open}
         {...rest}

@@ -23,6 +23,9 @@ export const ZERO_CHANNEL_CONFIG = v1.ZERO_CHANNEL_CONFIG;
 export type ChannelEntry = v1.ChannelEntry;
 export const ZERO_CHANNEL_ENTRY = v1.ZERO_CHANNEL_ENTRY;
 export const channelEntryZ = v1.channelEntryZ;
+export type ToolbarTab = v1.ToolbarTab;
+export type ToolbarState = v1.ToolbarState;
+export const ZERO_TOOLBAR_STATE = v1.ZERO_TOOLBAR_STATE;
 
 export type AnyState = v0.State | v1.State;
 export type AnySliceState = v0.SliceState | v1.SliceState;

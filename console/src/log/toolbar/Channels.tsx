@@ -16,11 +16,12 @@ import {
   Flex,
   Icon,
   Input,
+  List,
   Notation,
   Theming,
 } from "@synnaxlabs/pluto";
-import { color, type notation, primitive } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { useSyncComponent } from "@/log/Log";
@@ -35,9 +36,13 @@ import {
 
 const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
+const showsNumericFields = (dt: DataType | undefined): boolean =>
+  dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
+
 interface ChannelRowProps {
   index: number;
   channelKey: channel.Key;
+  ch: channel.Channel | undefined;
   config: ChannelConfig;
   onChange: (index: number, channelKey: channel.Key) => void;
   onConfigChange: (channelKey: channel.Key, config: Partial<ChannelConfig>) => void;
@@ -48,71 +53,108 @@ interface ChannelRowProps {
 const ChannelRow = ({
   index,
   channelKey,
+  ch,
   config,
   onChange,
   onConfigChange,
   onRemove,
   disabled,
 }: ChannelRowProps): ReactElement => {
-  const { data } = Channel.useRetrieve({ key: channelKey });
-  const isNumeric = data?.dataType.isNumeric === true;
   const theme = Theming.use();
   const defaultColor = theme.colors.gray.l11;
   const hasCustomColor = config.color !== "";
+  const showNumeric = showsNumericFields(ch?.dataType);
 
   return (
-    <Flex.Box x align="center" gap="large" className={CSS.BE("log", "channel-row")}>
-      <Channel.SelectSingle
-        value={channelKey}
-        onChange={(v: channel.Key) => onChange(index, v)}
-        initialQuery={{ internal: IS_DEV ? undefined : false }}
-        disabled={disabled}
-        className={CSS.BE("log", "channel-select")}
-      />
-      <Input.Text
-        value={config.alias ?? ""}
-        onChange={(v) => onConfigChange(channelKey, { alias: v })}
-        disabled={disabled}
-        placeholder={data?.name ?? "Alias"}
-        variant="shadow"
-        shrink={false}
-        className={CSS.BE("log", "channel-alias")}
-      />
-      <Notation.Select
-        value={config.notation ?? "standard"}
-        onChange={(v: notation.Notation) => onConfigChange(channelKey, { notation: v })}
-      />
-      <Input.Numeric
-        value={config.precision}
-        onChange={(v) => onConfigChange(channelKey, { precision: v })}
-        resetValue={-1}
-        bounds={PRECISION_BOUNDS}
-        disabled={disabled || !isNumeric}
-        shrink={false}
-        variant="shadow"
-        tooltip="Precision (-1 = no rounding)"
-        className={CSS.BE("log", "channel-precision")}
-      />
-      <Color.Swatch
-        value={hasCustomColor ? config.color : defaultColor}
-        onChange={(c) => onConfigChange(channelKey, { color: color.hex(c) })}
-        onDelete={
-          hasCustomColor ? () => onConfigChange(channelKey, { color: "" }) : undefined
-        }
-        size="small"
-        disabled={disabled}
-      />
-      <Button.Button
-        onClick={() => onRemove(index)}
-        disabled={disabled}
-        size="small"
-        variant="text"
-        ghost
-        tooltip="Remove channel"
-      >
-        <Icon.Close />
-      </Button.Button>
-    </Flex.Box>
+    <List.Item
+      itemKey={channelKey}
+      key={channelKey}
+      index={index}
+      selected={false}
+      align="center"
+      justify="between"
+      gap="large"
+      className={CSS.BE("log", "channel-row")}
+    >
+      <Flex.Box x align="center" grow>
+        <Channel.SelectSingle
+          value={channelKey}
+          onChange={(v: channel.Key) => onChange(index, v)}
+          initialQuery={{ internal: IS_DEV ? undefined : false }}
+          disabled={disabled}
+          className={CSS.BE("log", "channel-select")}
+        />
+        <Input.Text
+          value={config.alias ?? ""}
+          onChange={(v) => onConfigChange(channelKey, { alias: v })}
+          disabled={disabled}
+          placeholder={ch?.name ?? "Alias"}
+          variant="shadow"
+          shrink={false}
+          startContent={<Icon.Rename />}
+          tooltip="Alias"
+          className={CSS.BE("log", "channel-alias")}
+        />
+      </Flex.Box>
+      <Flex.Box x align="center">
+        {showNumeric && (
+          <>
+            <Notation.Select
+              value={config.notation ?? "standard"}
+              onChange={(v: notation.Notation) =>
+                onConfigChange(channelKey, { notation: v })
+              }
+            />
+            <Input.Numeric
+              value={config.precision}
+              onChange={(v) => onConfigChange(channelKey, { precision: v })}
+              resetValue={-1}
+              emptyValue={-1}
+              placeholder="Auto"
+              bounds={PRECISION_BOUNDS}
+              disabled={disabled}
+              shrink={false}
+              variant="shadow"
+              startContent={<Icon.Decimal />}
+              tooltip="Precision"
+              className={CSS.BE("log", "channel-precision")}
+              showDragHandle={false}
+            >
+              <Button.Button
+                variant="outlined"
+                disabled={disabled || config.precision === -1}
+                onClick={() => onConfigChange(channelKey, { precision: -1 })}
+                tooltip={
+                  config.precision === -1
+                    ? "Type a number to disable auto precision"
+                    : "Enable auto precision"
+                }
+              >
+                <Icon.Auto />
+              </Button.Button>
+            </Input.Numeric>
+          </>
+        )}
+        <Color.Swatch
+          value={hasCustomColor ? config.color : defaultColor}
+          onChange={(c) => onConfigChange(channelKey, { color: color.hex(c) })}
+          onDelete={
+            hasCustomColor ? () => onConfigChange(channelKey, { color: "" }) : undefined
+          }
+          size="small"
+        />
+        <Button.Button
+          onClick={() => onRemove(index)}
+          size="small"
+          variant="text"
+          ghost
+          tooltip="Remove channel"
+          contrast={0}
+        >
+          <Icon.Close />
+        </Button.Button>
+      </Flex.Box>
+    </List.Item>
   );
 };
 
@@ -131,31 +173,6 @@ const AddChannelRow = ({ onAdd, disabled }: AddChannelRowProps): ReactElement =>
       triggerProps={{ placeholder: "Add a channel..." }}
       className={CSS.BE("log", "channel-select")}
     />
-    <Input.Text
-      value=""
-      onChange={() => {}}
-      disabled
-      placeholder="Alias"
-      variant="shadow"
-      shrink={false}
-      className={CSS.BE("log", "channel-alias")}
-    />
-    <Notation.Select value={undefined} onChange={() => {}} allowNone />
-    <Input.Numeric
-      value={-1}
-      onChange={() => {}}
-      resetValue={-1}
-      bounds={PRECISION_BOUNDS}
-      disabled
-      shrink={false}
-      variant="shadow"
-      tooltip="Precision (-1 = no rounding)"
-      className={CSS.BE("log", "channel-precision")}
-    />
-    <Color.Swatch value={color.ZERO} onChange={() => {}} size="small" disabled />
-    <Button.Button size="small" variant="text" ghost disabled>
-      <Icon.Close />
-    </Button.Button>
   </Flex.Box>
 );
 
@@ -167,6 +184,13 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   const dispatch = useSyncComponent(layoutKey);
   const state = useSelectOptional(layoutKey);
   const hasUpdatePermission = Access.useUpdateGranted(log.ontologyID(layoutKey));
+
+  const channelKeys = useMemo(
+    () =>
+      state?.channels.map((c) => c.channel).filter((k) => !primitive.isZero(k)) ?? [],
+    [state?.channels],
+  );
+  const { data: channels } = Channel.useRetrieveMultiple({ keys: channelKeys });
 
   const handleChannelChange = useCallback(
     (index: number, channelKey: channel.Key) =>
@@ -194,18 +218,14 @@ export const Channels = ({ layoutKey }: ChannelsProps): ReactElement | null => {
   if (state == null) return null;
 
   return (
-    <Flex.Box
-      y
-      full="y"
-      style={{ overflow: "auto" }}
-      className={CSS.BE("log", "toolbar", "channels")}
-    >
+    <Flex.Box y full="y" className={CSS.BE("log", "toolbar", "channels")}>
       {state.channels.map((entry, i) =>
         primitive.isZero(entry.channel) ? null : (
           <ChannelRow
             key={`${entry.channel}-${i}`}
             index={i}
             channelKey={entry.channel}
+            ch={channels?.find((c) => c.key === entry.channel)}
             config={entry}
             onChange={handleChannelChange}
             onConfigChange={handleConfigChange}

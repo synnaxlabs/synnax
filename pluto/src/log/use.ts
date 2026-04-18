@@ -33,7 +33,6 @@ export interface UseProps
         | "selectedText"
         | "selectedLines"
         | "computedLineHeight"
-        | "copyFlash"
         | "channelNames"
       >,
       "visible"

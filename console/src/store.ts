@@ -114,6 +114,7 @@ export const migrateState = (prev: RootState): RootState => {
   const layout = Layout.migrateSlice(prev.layout);
   const schematic = Schematic.migrateSlice(prev.schematic);
   const line = LinePlot.migrateSlice(prev.line);
+  const log = Log.migrateSlice(prev.log);
   const version = Version.migrateSlice(prev.version);
   const workspace = Workspace.migrateSlice(prev.workspace);
   const range = Range.migrateSlice(prev.range);
@@ -128,6 +129,7 @@ export const migrateState = (prev: RootState): RootState => {
     layout,
     schematic,
     line,
+    log,
     version,
     workspace,
     range,

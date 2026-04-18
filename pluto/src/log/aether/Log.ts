@@ -59,7 +59,6 @@ export const logState = z.object({
   selectedLines: z.array(z.object({ text: z.string(), color: z.string() })).default([]),
   computedLineHeight: z.number().default(0),
   entryCount: z.number().default(0),
-  copyFlash: z.boolean().default(false),
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
@@ -89,7 +88,6 @@ interface InternalState {
   lineHeight: number;
   tsLen: number;
   selectionColor: color.Color;
-  selectionFlashColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
 }
 
@@ -176,9 +174,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     }
     i.configs = configs;
 
-    // Cache selection highlight colors (theme-dependent).
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
-    i.selectionFlashColor = color.setAlpha(i.theme.colors.primary.z, 0.15);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
@@ -386,9 +382,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const reg = this.state.region;
     const highlightStart = Math.max(selMin, sliceStart) - sliceStart;
     const highlightEnd = Math.min(selMax, sliceEnd - 1) - sliceStart;
-    const bgColor = this.state.copyFlash
-      ? this.internal.selectionFlashColor
-      : this.internal.selectionColor;
     const rowCount = highlightEnd - highlightStart + 1;
     draw2d.container({
       region: box.construct(
@@ -400,7 +393,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       ),
       bordered: false,
       rounded: false,
-      backgroundColor: bgColor,
+      backgroundColor: this.internal.selectionColor,
     });
   }
 
@@ -487,11 +480,22 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         position: { x: posX, y: posY },
         code: true,
       });
+      const valueX = posX + prefix.length * charWidth;
+      const isNegative = value[0] === "-";
+      const displayValue = isNegative ? value.slice(1) : value;
+      if (isNegative)
+        draw2D.text({
+          text: "-",
+          level: font,
+          color: entryColor,
+          position: { x: valueX - charWidth, y: posY },
+          code: true,
+        });
       draw2D.text({
-        text: value,
+        text: displayValue,
         level: font,
         color: entryColor,
-        position: { x: posX + prefix.length * charWidth, y: posY },
+        position: { x: valueX, y: posY },
         code: true,
       });
     }
