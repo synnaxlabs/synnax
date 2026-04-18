@@ -210,14 +210,14 @@ wheels = [
 
 [[package]]
 name = "click"
-version = "8.3.1"
+version = "8.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "colorama", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/3d/fa/656b739db8587d7b5dfa22e22ed02566950fbfbcdc20311993483657a5c0/click-8.3.1.tar.gz", hash = "sha256:12ff4785d337a1bb490bb7e9c2b1ee5da3112e94a8622f26a6c77f5d2fc6842a", size = 295065, upload-time = "2025-11-15T20:45:42.706Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/57/75/31212c6bf2503fdf920d87fee5d7a86a2e3bcf444984126f13d8e4016804/click-8.3.2.tar.gz", hash = "sha256:14162b8b3b3550a7d479eafa77dfd3c38d9dc8951f6f69c78913a8f9a7540fd5", size = 302856, upload-time = "2026-04-03T19:14:45.118Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/98/78/01c019cdb5d6498122777c1a43056ebb3ebfeef2076d9d026bfe15583b2b/click-8.3.1-py3-none-any.whl", hash = "sha256:981153a64e25f12d547d3426c367a4857371575ee7ad18df2a6183ab0545b2a6", size = 108274, upload-time = "2025-11-15T20:45:41.139Z" },
+    { url = "https://files.pythonhosted.org/packages/e4/20/71885d8b97d4f3dde17b1fdb92dbd4908b00541c5a3379787137285f602e/click-8.3.2-py3-none-any.whl", hash = "sha256:1924d2c27c5653561cd2cae4548d1406039cb79b858b747cfea24924bbc1616d", size = 108379, upload-time = "2026-04-03T19:14:43.505Z" },
 ]
 
 [[package]]
@@ -1431,11 +1431,11 @@ wheels = [
 
 [[package]]
 name = "pymodbus"
-version = "3.12.1"
+version = "3.13.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/c8/cf/9ace571421e4ed8bc870e79caca7fe04b7e2529764494f1fb406053640ef/pymodbus-3.12.1.tar.gz", hash = "sha256:bcb483381747b3e3aec2c8e01d5df885e5ea43f85b7145dc1907af06aca93a2c", size = 167673, upload-time = "2026-02-19T21:02:57.035Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/3d/55/eee0782c2ca9fa8e7c3218caca22fe30e850cd6c0c0d475c10b8c19e5a36/pymodbus-3.13.0.tar.gz", hash = "sha256:da4c87afe772787620594c564cd8aa8a4c58ff9786382aba9550fe0ce8879f32", size = 165750, upload-time = "2026-04-12T07:43:23.067Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/a5/05/fd7f09ab026be0c5d8433661bbf2181e2802883baadce51955a936286e51/pymodbus-3.12.1-py3-none-any.whl", hash = "sha256:cb4785bdee8870ee593ea1f338f859f50581e3a615261ffbd464602e21d03b85", size = 169517, upload-time = "2026-02-19T21:02:55.009Z" },
+    { url = "https://files.pythonhosted.org/packages/ed/9e/6046aa966c04f72417e7f3ee25cec975f770c934ccf83aa6b0c77400ff12/pymodbus-3.13.0-py3-none-any.whl", hash = "sha256:6ce838690b59ef3da00893699d04dc56e60abfb5b569363b7d6526470a3a44f5", size = 166398, upload-time = "2026-04-12T07:43:21.522Z" },
 ]
 
 [[package]]
@@ -1559,15 +1559,15 @@ wheels = [
 
 [[package]]
 name = "rich"
-version = "14.3.3"
+version = "15.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "markdown-it-py" },
     { name = "pygments" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b3/c6/f3b320c27991c46f43ee9d856302c70dc2d0fb2dba4842ff739d5f46b393/rich-14.3.3.tar.gz", hash = "sha256:b8daa0b9e4eef54dd8cf7c86c03713f53241884e814f4e2f5fb342fe520f639b", size = 230582, upload-time = "2026-02-19T17:23:12.474Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c0/8f/0722ca900cc807c13a6a0c696dacf35430f72e0ec571c4275d2371fca3e9/rich-15.0.0.tar.gz", hash = "sha256:edd07a4824c6b40189fb7ac9bc4c52536e9780fbbfbddf6f1e2502c31b068c36", size = 230680, upload-time = "2026-04-12T08:24:00.75Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/14/25/b208c5683343959b670dc001595f2f3737e051da617f66c31f7c4fa93abc/rich-14.3.3-py3-none-any.whl", hash = "sha256:793431c1f8619afa7d3b52b2cdec859562b950ea0d4b6b505397612db8d5362d", size = 310458, upload-time = "2026-02-19T17:23:13.732Z" },
+    { url = "https://files.pythonhosted.org/packages/82/3b/64d4899d73f91ba49a8c18a8ff3f0ea8f1c1d75481760df8c68ef5235bf5/rich-15.0.0-py3-none-any.whl", hash = "sha256:33bd4ef74232fb73fe9279a257718407f169c09b78a87ad3d296f548e27de0bb", size = 310654, upload-time = "2026-04-12T08:24:02.83Z" },
 ]
 
 [[package]]
@@ -1703,14 +1703,14 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "alamos", editable = "alamos/py" },
-    { name = "click", specifier = ">=8.3.1,<9" },
+    { name = "click", specifier = ">=8.3.2,<9" },
     { name = "keyring", specifier = ">=25.7.0,<26" },
     { name = "matplotlib", specifier = ">=3.10.8,<4" },
     { name = "nptdms", specifier = ">=1.10.0,<2" },
-    { name = "numpy", specifier = ">=2.4.3,<3" },
-    { name = "pandas", specifier = ">=3.0.1,<4" },
-    { name = "pydantic", specifier = ">=2.12.5,<3" },
-    { name = "rich", specifier = ">=14.3.3,<15" },
+    { name = "numpy", specifier = ">=2.4.4,<3" },
+    { name = "pandas", specifier = ">=3.0.2,<4" },
+    { name = "pydantic", specifier = ">=2.13.2,<3" },
+    { name = "rich", specifier = ">=15.0.0,<16" },
     { name = "synnax-freighter", editable = "freighter/py" },
     { name = "synnax-x", editable = "x/py" },
     { name = "urllib3", specifier = ">=2.6.3,<3" },
@@ -1720,13 +1720,13 @@ requires-dist = [
 dev = [
     { name = "asyncua", marker = "python_full_version < '3.14'", specifier = ">=1.1.8,<2" },
     { name = "flask", specifier = ">=3.1.3,<4" },
-    { name = "mypy", specifier = ">=1.19.1,<2" },
+    { name = "mypy", specifier = ">=1.20.1,<2" },
     { name = "pandas-stubs", specifier = ">=3.0.0.260204,<4" },
-    { name = "pymodbus", specifier = ">=3.12.1,<4" },
-    { name = "pytest", specifier = ">=9.0.2,<10" },
+    { name = "pymodbus", specifier = ">=3.13.0,<4" },
+    { name = "pytest", specifier = ">=9.0.3,<10" },
     { name = "pytest-asyncio", specifier = ">=1.3.0,<2" },
-    { name = "pytest-cov", specifier = ">=7.0.0,<8" },
-    { name = "ruff", specifier = ">=0.15.9,<1" },
+    { name = "pytest-cov", specifier = ">=7.1.0,<8" },
+    { name = "ruff", specifier = ">=0.15.11,<1" },
     { name = "scipy", specifier = ">=1.17.1,<2" },
 ]
 
