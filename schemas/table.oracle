@@ -37,6 +37,7 @@ Table struct {
         customizable formatting options.
     """
     @ontology type "table"
+    @retrieve
     @go marshal
     @go migrate
 }

@@ -147,13 +147,13 @@ var _ = Describe("Rename", Ordered, func() {
 			Expect(mockCluster.Nodes[1].Channel.MapRename(ctx, nameMap, false)).To(Succeed())
 			var resChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereNames(lo.Keys(nameMap)...).
+				Where(channel.MatchNames(lo.Keys(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),
 			).To(Succeed())
 			Expect(resChannels).To(HaveLen(0))
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereNames(lo.Values(nameMap)...).
+				Where(channel.MatchNames(lo.Values(nameMap)...)).
 				Entries(&resChannels).
 				Exec(ctx, nil),
 			).To(Succeed())

@@ -119,7 +119,7 @@ func (s *Graph) Close() error {
 
 func (s *Graph) hydrate(ctx context.Context) error {
 	var channels []channel.Channel
-	if err := s.distribution.NewRetrieve().WhereCalculated().Entries(&channels).Exec(ctx, nil); err != nil {
+	if err := s.distribution.NewRetrieve().Where(channel.MatchCalculated()).Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
 	}
 	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))

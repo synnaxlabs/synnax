@@ -90,7 +90,7 @@ func (s *Service) Delete(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return types.Nil{}, err

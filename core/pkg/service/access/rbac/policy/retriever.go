@@ -10,84 +10,54 @@
 package policy
 
 import (
-	"context"
+	"slices"
+	"sync"
 
 	"github.com/google/uuid"
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-type Retriever struct {
-	baseTx        gorp.Tx
-	gorp          gorp.Retrieve[uuid.UUID, Policy]
-	ontology      *ontology.Ontology
-	whereSubjects []ontology.ID
+type Retrieve struct {
+	baseTX   gorp.Tx
+	gorp     gorp.Retrieve[uuid.UUID, Policy]
+	ontology *ontology.Ontology
 }
 
-func (r Retriever) WhereKeys(keys ...uuid.UUID) Retriever {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-func (r Retriever) WhereNames(names ...string) Retriever {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, e *Policy) (bool, error) {
-		return lo.Contains(names, e.Name), nil
-	})
-	return r
-}
-
-func (r Retriever) WhereSubjects(subjects ...ontology.ID) Retriever {
-	r.whereSubjects = append(r.whereSubjects, subjects...)
-	return r
-}
-
-func (r Retriever) WhereInternal(internal bool) Retriever {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, p *Policy) (bool, error) {
-		return p.Internal == internal, nil
-	})
-	return r
-}
-
-func (r Retriever) Limit(limit int) Retriever {
-	r.gorp = r.gorp.Limit(limit)
-	return r
-}
-
-func (r Retriever) Offset(offset int) Retriever {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
-func (r Retriever) Exec(ctx context.Context, tx gorp.Tx) error {
-	tx = gorp.OverrideTx(r.baseTx, tx)
-	if len(r.whereSubjects) > 0 {
-		var policyResources []ontology.Resource
-		if err := r.ontology.NewRetrieve().WhereIDs(r.whereSubjects...).
-			ExcludeFieldData(true).
-			TraverseTo(ontology.ParentsTraverser).
-			WhereTypes(ontology.ResourceTypeRole).
-			TraverseTo(ontology.ChildrenTraverser).
-			WhereTypes(ontology.ResourceTypePolicy).
-			Entries(&policyResources).
-			Exec(ctx, tx); err != nil {
-			return err
+// MatchSubjects returns a filter that matches policies attached to any of the
+// given subjects via the ontology. On first evaluation the filter resolves the
+// subjects to policy keys through a parent→role→child→policy traversal, caches
+// the result, and then tests key membership for each subsequent entry.
+func MatchSubjects(subjects ...ontology.ID) Filter {
+	var (
+		keys   []uuid.UUID
+		resErr error
+		once   sync.Once
+	)
+	return Match(func(ctx gorp.Context, r Retrieve, p *Policy) (bool, error) {
+		once.Do(func() {
+			var policyResources []ontology.Resource
+			if err := r.ontology.NewRetrieve().WhereIDs(subjects...).
+				ExcludeFieldData(true).
+				TraverseTo(ontology.ParentsTraverser).
+				WhereTypes(ontology.ResourceTypeRole).
+				TraverseTo(ontology.ChildrenTraverser).
+				WhereTypes(ontology.ResourceTypePolicy).
+				Entries(&policyResources).
+				Exec(ctx, ctx.Tx); err != nil {
+				resErr = err
+				return
+			}
+			k, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
+			if err != nil {
+				resErr = err
+				return
+			}
+			keys = k
+		})
+		if resErr != nil {
+			return false, resErr
 		}
-		keys, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
-		if err != nil {
-			return err
-		}
-		r = r.WhereKeys(keys...)
-	}
-	return r.gorp.Exec(ctx, tx)
-}
-
-func (r Retriever) Entry(p *Policy) Retriever {
-	r.gorp = r.gorp.Entry(p)
-	return r
-}
-
-func (r Retriever) Entries(ps *[]Policy) Retriever {
-	r.gorp = r.gorp.Entries(ps)
-	return r
+		return slices.Contains(keys, p.Key), nil
+	})
 }

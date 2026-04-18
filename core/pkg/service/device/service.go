@@ -177,7 +177,7 @@ func (s *Service) NewRetrieve() Retrieve {
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	var devices []Device
-	if err := s.NewRetrieve().WhereRacks(rackStat.Details.Rack).
+	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&devices).
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))

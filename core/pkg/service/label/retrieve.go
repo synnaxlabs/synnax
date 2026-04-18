@@ -46,12 +46,17 @@ func (r Retrieve) Entries(labels *[]label.Label) Retrieve { r.gorp = r.gorp.Entr
 // WhereKeys filters for labels whose Name attribute matches the provided key.
 func (r Retrieve) WhereKeys(keys ...label.Key) Retrieve { r.gorp = r.gorp.WhereKeys(keys...); return r }
 
-// WhereNames filters for labels whose Name attribute matches the provided name.
-func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, label *label.Label) (bool, error) {
-		return lo.Contains(names, label.Name), nil
-	})
+// Where applies the provided filters to the query.
+func (r Retrieve) Where(filters ...gorp.Filter[label.Key, label.Label]) Retrieve {
+	r.gorp = r.gorp.Where(filters...)
 	return r
+}
+
+// MatchNames returns a filter for labels whose Name matches any of the provided values.
+func MatchNames(names ...string) gorp.Filter[label.Key, label.Label] {
+	return gorp.Match(func(_ gorp.Context, l *label.Label) (bool, error) {
+		return lo.Contains(names, l.Name), nil
+	})
 }
 
 // Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute

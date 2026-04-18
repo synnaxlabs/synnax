@@ -30,8 +30,8 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 
 // Where adds the provided filter to the query. If filtering by the key of the Entry,
 // use the far more efficient WhereKeys method instead.
-func (d Delete[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Delete[K, E] {
-	d.retrieve = d.retrieve.Where(filter, opts...)
+func (d Delete[K, E]) Where(filters ...Filter[K, E]) Delete[K, E] {
+	d.retrieve = d.retrieve.Where(filters...)
 	return d
 }
 

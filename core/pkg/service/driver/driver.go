@@ -73,8 +73,8 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 	}
 
 	if err = cfg.Rack.NewRetrieve().
-		WhereEmbedded(true, gorp.Required()).
-		WhereName(fmt.Sprintf("Node %d", cfg.Host.HostKey()), gorp.Required()).
+		Where(rack.MatchEmbedded(true)).
+		Where(rack.MatchName(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
 			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),
@@ -222,8 +222,7 @@ func (d *Driver) handleTaskChange(
 func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
-		WhereRacks(d.rack.Key).
-		WhereSnapshot(false).
+		Where(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))

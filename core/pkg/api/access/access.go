@@ -96,7 +96,7 @@ func (s *Service) RetrievePolicy(
 ) (res RetrievePolicyResponse, err error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
-		q = q.WhereSubjects(req.Subjects...)
+		q = q.Where(policy.MatchSubjects(req.Subjects...))
 	}
 	if len(req.Keys) > 0 {
 		q = q.WhereKeys(req.Keys...)
@@ -108,7 +108,7 @@ func (s *Service) RetrievePolicy(
 		q = q.Offset(req.Offset)
 	}
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
+		q = q.Where(policy.MatchInternal(*req.Internal))
 	}
 	if err = q.Entries(&res.Policies).Exec(ctx, nil); err != nil {
 		return RetrievePolicyResponse{}, err
@@ -208,7 +208,7 @@ func (s *Service) RetrieveRole(
 		q = q.Offset(req.Offset)
 	}
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
+		q = q.Where(role.MatchInternal(*req.Internal))
 	}
 	if err := q.Entries(&res.Roles).Exec(ctx, nil); err != nil {
 		return RetrieveRoleResponse{}, err

@@ -563,7 +563,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
 			var res []device.Device
-			Expect(svc.NewRetrieve().WhereModels("B").Entries(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchModels("B")).Entries(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
@@ -595,7 +595,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			d2b.Status, d2b.Parent = nil, nil
 			var res []device.Device
-			Expect(svc.NewRetrieve().WhereMakes("B").Entries(&res).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(device.MatchMakes("B")).Entries(&res).Exec(ctx, tx)).
 				To(Succeed())
 			Expect(res).To(ConsistOf(d2a, d2b))
 		})
@@ -624,7 +624,7 @@ var _ = Describe("Device", func() {
 			d2a.Status, d2a.Parent = nil, nil
 			var res []device.Device
 			Expect(
-				svc.NewRetrieve().WhereLocations("dev12").Entries(&res).Exec(ctx, tx),
+				svc.NewRetrieve().Where(device.MatchLocations("dev12")).Entries(&res).Exec(ctx, tx),
 			).To(Succeed())
 			Expect(res).To(ConsistOf(d2a))
 		})

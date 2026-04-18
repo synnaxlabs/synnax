@@ -90,12 +90,14 @@ Task struct<
     }
     name     string               {
         @doc value "is a human-readable name for the task."
+        @filter
     }
     type     Type                 {
         @doc value """
             is the task type (e.g., 'modbus_read', 'labjack_write', 'opc_scan').
             Determines which hardware integration handles the task.
         """
+        @filter
     }
     config   Config               {
         @doc value """
@@ -105,9 +107,11 @@ Task struct<
     }
     internal bool?                {
         @doc value "is true if this is an internal system task."
+        @filter
     }
     snapshot bool?                {
         @doc value "indicates whether to persist this task's configuration."
+        @filter
     }
     status   Status<StatusData>?? {
         @doc value "is the current execution status of the task."
@@ -124,6 +128,8 @@ Task struct<
         coalesce_type_params
     }
     @ontology type "task"
+    @retrieve
+    @search
     @go marshal
     @go migrate
     @py name       "Payload"

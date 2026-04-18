@@ -88,6 +88,20 @@ func HasExprFromType(t resolution.Type, domainName, exprName string) bool {
 	return HasExpr(TypeHolder{t}, domainName, exprName)
 }
 
+func HasExprFromField(f resolution.Field, domainName, exprName string) bool {
+	return HasExpr(FieldHolder{f}, domainName, exprName)
+}
+
+func HasDomainFromType(t resolution.Type, domainName string) bool {
+	_, ok := t.Domains[domainName]
+	return ok
+}
+
+func HasDomainFromField(f resolution.Field, domainName string) bool {
+	_, ok := f.Domains[domainName]
+	return ok
+}
+
 func GetName(t resolution.Type, domainName string) string {
 	if override := GetStringFromType(t, domainName, "name"); override != "" {
 		return override

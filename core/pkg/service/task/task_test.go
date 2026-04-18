@@ -243,19 +243,19 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot)).To(Succeed())
 			var snapshots []task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(true).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(true)).Entries(&snapshots).Exec(ctx, tx)).To(Succeed())
 			Expect(snapshots).To(HaveLen(1))
 			Expect(snapshots[0].Name).To(Equal("Snapshot Task"))
 			Expect(snapshots[0].Snapshot).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
 			Expect(len(regulars)).To(BeNumerically(">", 0))
 			for _, t := range regulars {
 				Expect(t.Snapshot).To(BeFalse())
 			}
 		})
 
-		It("Should combine WhereSnapshot with other filters", func(ctx SpecContext) {
+		It("Should combine MatchSnapshot with other filters", func(ctx SpecContext) {
 			snapshot1 := &task.Task{
 				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Snapshot Task 1",
@@ -269,7 +269,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().WhereSnapshot(true).WhereNames("Snapshot Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Snapshot Task 1"))
 			Expect(res.Snapshot).To(BeTrue())
 		})
@@ -287,19 +287,19 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal)).To(Succeed())
 			var internals []task.Task
-			Expect(svc.NewRetrieve().WhereInternal(true).Entries(&internals).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchInternal(true)).Entries(&internals).Exec(ctx, tx)).To(Succeed())
 			Expect(internals).To(HaveLen(1))
 			Expect(internals[0].Name).To(Equal("Internal Task"))
 			Expect(internals[0].Internal).To(BeTrue())
 			var regulars []task.Task
-			Expect(svc.NewRetrieve().WhereInternal(false).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchInternal(false)).Entries(&regulars).Exec(ctx, tx)).To(Succeed())
 			Expect(len(regulars)).To(BeNumerically(">", 0))
 			for _, t := range regulars {
 				Expect(t.Internal).To(BeFalse())
 			}
 		})
 
-		It("Should combine WhereInternal with other filters", func(ctx SpecContext) {
+		It("Should combine MatchInternal with other filters", func(ctx SpecContext) {
 			internal1 := &task.Task{
 				Key:      task.NewKey(testRack.Key, 0),
 				Name:     "Internal Task 1",
@@ -313,7 +313,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().WhereInternal(true).WhereNames("Internal Task 1").Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchInternal(true), task.MatchNames("Internal Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Internal Task 1"))
 			Expect(res.Internal).To(BeTrue())
 		})

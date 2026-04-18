@@ -61,9 +61,9 @@ func (r Reader) GetMany(
 func (r Reader) List(ctx context.Context, rng uuid.UUID) ([]Pair, error) {
 	var res []Pair
 	err := r.table.NewRetrieve().
-		Where(func(_ gorp.Context, kv *Pair) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, kv *Pair) (bool, error) {
 			return kv.Range == rng, nil
-		}).
+		})).
 		Entries(&res).
 		Exec(ctx, r.tx)
 	return res, err

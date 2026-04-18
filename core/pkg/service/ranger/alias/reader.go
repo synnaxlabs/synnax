@@ -78,7 +78,7 @@ func (r Reader) Resolve(
 		}
 	}
 	err = r.table.NewRetrieve().
-		Where(matcher).
+		Where(gorp.Match(matcher)).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.ErrNotFound) {
@@ -121,9 +121,9 @@ func (r Reader) listAliases(
 ) error {
 	var aliases []Alias
 	if err := r.table.NewRetrieve().
-		Where(func(_ gorp.Context, a *Alias) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, a *Alias) (bool, error) {
 			return a.Range == rng, nil
-		}).
+		})).
 		Entries(&aliases).
 		Exec(ctx, r.tx); err != nil {
 		return err

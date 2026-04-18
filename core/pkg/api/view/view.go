@@ -105,7 +105,7 @@ func (s *Service) Retrieve(
 		q = q.WhereKeys(req.Keys...)
 	}
 	if len(req.Types) != 0 {
-		q = q.WhereTypes(req.Types...)
+		q = q.Where(view.MatchTypes(req.Types...))
 	}
 
 	var views []view.View
