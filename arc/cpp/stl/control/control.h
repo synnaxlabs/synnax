@@ -46,9 +46,7 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 class Module : public stl::Module {

@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -86,7 +85,6 @@ func newRuntimeHarness(
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
-		stage.NewModule(),
 		stable.NewModule(),
 		control.NewModule(controlState),
 		&stat.Module{},

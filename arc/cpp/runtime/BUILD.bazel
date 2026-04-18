@@ -21,7 +21,6 @@ cc_library(
         "//arc/cpp/stl/error",
         "//arc/cpp/stl/math",
         "//arc/cpp/stl/series",
-        "//arc/cpp/stl/stage",
         "//arc/cpp/stl/stateful",
         "//arc/cpp/stl/str",
         "//arc/cpp/stl/time",

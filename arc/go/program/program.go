@@ -82,13 +82,14 @@ func (m Program) IsZero() bool { return len(m.WASM) == 0 && m.IR.IsZero() }
 
 // String returns a human-readable string representation of the program.
 // The output includes a summary of the WASM bytecode (size and SHA256 hash)
-// and the full IR tree structure with functions, nodes, edges, strata, and sequences.
+// and the full IR tree structure with functions, nodes, edges, and the
+// Layer-2 execution shell rooted at IR.Root.
 func (m Program) String() string {
 	var b strings.Builder
 	b.WriteString("Arc Program\n")
 
 	hasContent := len(m.Functions) > 0 || len(m.Nodes) > 0 ||
-		len(m.Edges) > 0 || len(m.Strata) > 0 || len(m.Sequences) > 0
+		len(m.Edges) > 0 || !m.Root.IsZero()
 
 	// WASM summary
 	b.WriteString(ir.TreePrefix(!hasContent))

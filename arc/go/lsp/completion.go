@@ -243,7 +243,7 @@ var completions = []completionInfo{
 		Insert:       "sequence ${1:name} {\n\tstage ${2:first} {\n\t\t$0\n\t}\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categoryTopLevelKeyword,
+		Category:     categoryTopLevelKeyword | categorySequenceKeyword | categoryStageKeyword,
 	},
 	{
 		Label:        parser.LiteralSTAGE,
@@ -252,7 +252,7 @@ var completions = []completionInfo{
 		Insert:       "stage ${1:name} {\n\t$0\n}",
 		Kind:         protocol.CompletionItemKindKeyword,
 		InsertFormat: protocol.InsertTextFormatSnippet,
-		Category:     categorySequenceKeyword,
+		Category:     categorySequenceKeyword | categoryTopLevelKeyword,
 	},
 	{
 		Label:        parser.LiteralNEXT,
@@ -422,7 +422,7 @@ func (s *Server) getCompletionItems(
 		nesting = NestingFunction
 	}
 	if nesting == NestingSequenceBody {
-		allowed = categorySequenceKeyword
+		allowed = categorySequenceKeyword | categoryValue | categoryFunction
 	} else if completionCtx == ContextStatementStart || completionCtx == ContextUnknown {
 		switch nesting {
 		case NestingTopLevel:
@@ -455,7 +455,7 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
+	if completionCtx != ContextTypeAnnotation {
 		modulePrefix := ""
 		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
 			modulePrefix = prefix[:dotIdx+1]

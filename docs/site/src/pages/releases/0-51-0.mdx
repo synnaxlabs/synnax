@@ -28,6 +28,8 @@ Arc is now completely compatible with the Synnax control authority system.
 As always, this release comes with a number of performance, stability, and user
 experience improvements to Synnax.
 
+<Divider.Divider x />
+
 ### EtherCAT Driver
 
 Our new driver supports reading from and writing to slaves on an EtherCAT network. A
@@ -55,6 +57,8 @@ macOS and Windows. In these environments, Synnax will leverage the tools availab
 the host to achieve maximum performance, but deterministic cycle times are not
 guaranteed.
 
+<Divider.Divider x />
+
 ### Arc Control Authority
 
 Arc is now fully compatible with Synnax's
@@ -77,13 +81,13 @@ authority (
 
 sequence main {
     stage monitor {
-        sensor -> filter{} -> output,
+        sensor -> filter{} -> output
         sensor > THRESHOLD => abort
     }
     stage abort {
         // escalate at runtime to override all other writers
-        set_authority{value=255},
-        0 -> press_vlv_cmd,
+        set_authority{value=255}
+        0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }
@@ -98,6 +102,8 @@ to 255 to take precedence over all other writers.
 For the full details on declaring authority, runtime changes, and multi-writer
 coordination, see the
 [control authority documentation](/reference/control/arc/concepts/control-authority).
+
+<Divider.Divider x />
 
 ### Other Minor Improvements and Bug Fixes
 

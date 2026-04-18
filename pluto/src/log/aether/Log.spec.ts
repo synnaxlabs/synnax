@@ -281,7 +281,6 @@ describe("log/aether/Log", () => {
       expect(parsed.selectedLines).toEqual([]);
       expect(parsed.computedLineHeight).toBe(0);
       expect(parsed.entryCount).toBe(0);
-      expect(parsed.copyFlash).toBe(false);
     });
 
     it("should provide defaults for channel-related fields", () => {
@@ -806,17 +805,6 @@ describe("log/aether/Log", () => {
       const { log } = setupWithContext(entries, REGION_500, {
         selectionStart: 2,
         selectionEnd: 5,
-      });
-      const result = log.render();
-      expect(result).toBeTypeOf("function");
-    });
-
-    it("should render with copyFlash color when copyFlash is true", () => {
-      const entries = Array.from({ length: 10 }, (_, i) => makeEntry(i));
-      const { log } = setupWithContext(entries, REGION_500, {
-        selectionStart: 0,
-        selectionEnd: 2,
-        copyFlash: true,
       });
       const result = log.render();
       expect(result).toBeTypeOf("function");

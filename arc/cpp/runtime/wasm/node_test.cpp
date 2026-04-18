@@ -68,9 +68,8 @@ find_node_by_type(const arc::program::Program &mod, const std::string &type) {
 node::Context make_context() {
     return node::Context{
         .elapsed = x::telem::SECOND,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -281,8 +280,8 @@ func double(val f32) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -382,8 +381,8 @@ func double(val f32) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -506,7 +505,7 @@ func double(val f32) f32 {
     auto func = ASSERT_NIL_P(wasm_mod->func("double"));
 
     wasm::Node node(mod, *func_node, std::move(node_state), func, wasm_mod->strings());
-    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+    EXPECT_FALSE(node.is_output_truthy(7));
 }
 
 /// @brief Node::is_output_truthy correctly evaluates output values.
@@ -584,8 +583,7 @@ func passthrough(val f32) f32 {
     auto ctx = make_context();
     ASSERT_NIL(node.next(ctx));
 
-    const auto &output_param = func_node->outputs[0];
-    EXPECT_TRUE(node.is_output_truthy(output_param.name));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief entry nodes with no inputs execute only once per stage entry.
@@ -634,8 +632,8 @@ constant{} -> )" + output_name;
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -738,8 +736,8 @@ func double(val i64) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -1430,8 +1428,8 @@ func read_chan{ch chan f32}(trigger u8) f32 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -1547,8 +1545,8 @@ func str_len(s str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -1668,8 +1666,8 @@ func labeler(x i64) (label str, value i64) {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     // This must not crash — the key assertion is that string-typed named
@@ -1791,8 +1789,8 @@ func qstr_len(s str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));
@@ -1919,8 +1917,8 @@ func concat_len(a str, b str) i64 {
 
     auto ctx = make_context();
     std::vector<std::string> changed_outputs;
-    ctx.mark_changed = [&](const std::string &name) {
-        changed_outputs.push_back(name);
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
     };
 
     ASSERT_NIL(node.next(ctx));

@@ -6,6 +6,9 @@
       "include": "#comments"
     },
     {
+      "include": "#for-statement"
+    },
+    {
       "include": "#keywords"
     },
     {
@@ -50,6 +53,49 @@
         }
       ]
     },
+    "for-statement": {
+      "patterns": [
+        {
+          "name": "meta.for-statement.arc",
+          "begin": "\\bfor\\b",
+          "beginCaptures": {
+            "0": {
+              "name": "keyword.control.arc"
+            }
+          },
+          "end": "(?=\\{)",
+          "patterns": [
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#flow-operators"
+            },
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#functions"
+            },
+            {
+              "include": "#channels"
+            },
+            {
+              "include": "#identifiers"
+            }
+          ]
+        }
+      ]
+    },
     "keywords": {
       "patterns": [
         {
@@ -62,7 +108,7 @@
         },
         {
           "name": "keyword.other.arc",
-          "match": "\\b(func|sequence|stage|next)\\b"
+          "match": "\\b(func|sequence|stage|next|authority)\\b"
         },
         {
           "name": "constant.language.boolean.arc",
@@ -206,7 +252,7 @@
         },
         {
           "name": "support.function.builtin.arc",
-          "match": "\\b(len|now|pow|panic|interval|wait|concat|equal)\\b(?=\\s*[({])"
+          "match": "\\b(len|now|pow|panic|interval|wait|concat|equal|range)\\b(?=\\s*[({])"
         },
         {
           "name": "entity.name.function.arc",

@@ -12,7 +12,6 @@ package op
 import (
 	"context"
 
-	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/query"
@@ -76,7 +75,7 @@ func (n *binary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type unary struct {
@@ -97,5 +96,5 @@ func (n *unary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }

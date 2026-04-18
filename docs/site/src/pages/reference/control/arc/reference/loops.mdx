@@ -32,9 +32,7 @@ Use `for` to walk through each element of a series:
 func sum_all() f64 {
     data := [1.0, 2.5, 3.7, 4.2]
     sum f64 := 0.0
-    for x := data {
-        sum = sum + x
-    }
+    for x := data{sum=sum + x}
     return sum
 }
 ```
@@ -51,12 +49,11 @@ func find_peak() i32 {
     data := [3.1, 7.5, 2.0, 9.8, 1.4]
     peak f64 := 0.0
     peak_idx i32 := 0
-    for i, x := data {
-        if x > peak {
-            peak = x
-            peak_idx = i
-        }
-    }
+    for i,
+    x := data{if x > peak {
+        peak = x
+        peak_idx = i
+    }}
     return peak_idx
 }
 ```
@@ -76,7 +73,7 @@ The index starts at 0 and has type `i32`.
 ```arc
 // i takes values 0, 1, 2, 3, 4
 for i := range(5) {
-    // ...
+// ...
 }
 ```
 
@@ -87,7 +84,7 @@ for i := range(5) {
 ```arc
 // i takes values 5, 6, 7, 8, 9
 for i := range(5, 10) {
-    // ...
+// ...
 }
 ```
 
@@ -104,12 +101,11 @@ for i := range(5, 10) {
 ```arc
 // i takes values 0, 2, 4, 6, 8
 for i := range(0, 10, 2) {
-    // ...
+// ...
 }
-
 // Counting down: i takes values 5, 3, 1, -1, -3
 for i := range(5, -5, -2) {
-    // ...
+// ...
 }
 ```
 
@@ -120,9 +116,9 @@ A negative step counts downward. The loop stops before reaching `end`.
 If the range is empty, the loop body never executes:
 
 ```arc
-for i := range(0) { }         // no iterations
-for i := range(10, 5) { }     // no iterations (start > end, step is positive)
-for i := range(0, 10, -1) { } // no iterations (start < end, step is negative)
+for i := range(0) {} // no iterations
+for i := range(10, 5) {} // no iterations (start > end, step is positive)
+for i := range(0, 10, -1) {} // no iterations (start < end, step is negative)
 ```
 
 <Note.Note variant="info">
@@ -183,13 +179,10 @@ Stop processing a series once you hit a sentinel value:
 func sum_until_negative() i32 {
     data := [5, 3, 8, -1, 10]
     sum i32 := 0
-    for x := data {
-        if x < 0 {
-            break
-        }
-        sum = sum + x
-    }
-    return sum  // 16 (5 + 3 + 8, stops before -1)
+    for x := data{if x < 0 {
+        break
+    }sum=sum + x}
+    return sum // 16 (5 + 3 + 8, stops before -1)
 }
 ```
 
@@ -201,13 +194,10 @@ Skip elements that don't meet a criterion:
 func sum_positive() i32 {
     data := [5, -3, 8, -1, 10]
     sum i32 := 0
-    for x := data {
-        if x < 0 {
-            continue
-        }
-        sum = sum + x
-    }
-    return sum  // 23 (5 + 8 + 10, skips negatives)
+    for x := data{if x < 0 {
+        continue
+    }sum=sum + x}
+    return sum // 23 (5 + 8 + 10, skips negatives)
 }
 ```
 
@@ -221,13 +211,13 @@ func count_valid_pairs() i64 {
     for i := range(3) {
         for j := range(10) {
             if j >= 2 {
-                break       // exits inner loop only
+                break // exits inner loop only
             }
             count = count + 1
         }
         // outer loop continues normally
     }
-    return count            // 6 (3 outer * 2 inner)
+    return count // 6 (3 outer * 2 inner)
 }
 ```
 
@@ -239,7 +229,7 @@ Loop variables (`i`, `x`, etc.) are scoped to the loop body and cannot be reassi
 
 ```arc
 for i := range(5) {
-    i = 10     // Error: cannot assign to loop variable 'i'
+    i = 10 // Error: cannot assign to loop variable 'i'
 }
 ```
 
