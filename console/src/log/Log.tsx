@@ -51,6 +51,7 @@ export const useSyncComponent = Workspace.createSyncComponent(
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);
+const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
@@ -96,7 +97,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       showReceiptTimestamp={log.showReceiptTimestamp}
       timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
-      extraContextMenuItems={<ContextMenu.ReloadConsoleItem />}
+      extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <EmptyAction
           message={

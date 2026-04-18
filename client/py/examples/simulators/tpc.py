@@ -99,7 +99,7 @@ class TPCSimDAQ(SimDAQ):
 
     def _run_loop(self) -> None:
         self.log("Starting simulation loop...")
-        loop = sy.Loop(sy.Rate.HZ * 1, precise=True)
+        loop = sy.Loop(sy.Rate.HZ * 50, precise=True)
         loop_count = 0
 
         daq_state = {

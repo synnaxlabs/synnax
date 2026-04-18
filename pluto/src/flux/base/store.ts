@@ -25,9 +25,10 @@ interface ListenerScope<K extends record.Key> {
   key?: K;
 }
 
-/// Reorders the given items to match the order of keys, dropping any key
-/// that has no corresponding item. Used by multi-retrieve query implementations
-/// to preserve the caller's input key order across cached + freshly-fetched items.
+/// Reorders the given items to match the order of keys, dropping any key that
+/// has no corresponding item and deduplicating repeated keys. Used by
+/// multi-retrieve query implementations to preserve the caller's input key order
+/// across cached + freshly-fetched items.
 export const orderByKeys = <K extends record.Key, V>(
   keys: K[],
   items: V[],
@@ -36,7 +37,10 @@ export const orderByKeys = <K extends record.Key, V>(
   const byKey = new Map<K, V>();
   for (const item of items) byKey.set(getKey(item), item);
   const ordered: V[] = [];
+  const seen = new Set<K>();
   for (const key of keys) {
+    if (seen.has(key)) continue;
+    seen.add(key);
     const item = byKey.get(key);
     if (item != null) ordered.push(item);
   }
