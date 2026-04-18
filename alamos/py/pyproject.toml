@@ -4,18 +4,18 @@ version = "0.55.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.10,<4"
 dependencies = [
-    "opentelemetry-api>=1.39.1,<2",
-    "opentelemetry-sdk>=1.39.1,<2",
-    "pydantic>=2.12.5,<3",
-    "uptrace>=1.39.0,<2",
+    "opentelemetry-api>=1.41.0,<2",
+    "opentelemetry-sdk>=1.41.0,<2",
+    "pydantic>=2.13.2,<3",
+    "uptrace>=1.41.0,<2",
 ]
 
 [dependency-groups]
 dev = [
-    "mypy>=1.19.1,<2",
-    "ruff>=0.15.9,<1",
-    "pytest>=9.0.2,<10",
-    "pytest-cov>=7.0.0,<8",
+    "mypy>=1.20.1,<2",
+    "ruff>=0.15.11,<1",
+    "pytest>=9.0.3,<10",
+    "pytest-cov>=7.1.0,<8",
 ]
 
 [tool.ruff]

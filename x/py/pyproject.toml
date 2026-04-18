@@ -14,6 +14,7 @@ Repository = "https://github.com/synnaxlabs/synnax"
 [dependency-groups]
 dev = [
     "mypy>=1.20.1,<2",
+    "pytest-cov>=7.1.0,<8",
     "pandas-stubs>=3.0.0.260204,<4",
     "python-dateutil>=2.9.0.post0,<3",
     "pytest>=9.0.3,<10",
