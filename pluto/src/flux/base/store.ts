@@ -25,6 +25,24 @@ interface ListenerScope<K extends record.Key> {
   key?: K;
 }
 
+/// Reorders the given items to match the order of keys, dropping any key
+/// that has no corresponding item. Used by multi-retrieve query implementations
+/// to preserve the caller's input key order across cached + freshly-fetched items.
+export const orderByKeys = <K extends record.Key, V>(
+  keys: K[],
+  items: V[],
+  getKey: (v: V) => K,
+): V[] => {
+  const byKey = new Map<K, V>();
+  for (const item of items) byKey.set(getKey(item), item);
+  const ordered: V[] = [];
+  for (const key of keys) {
+    const item = byKey.get(key);
+    if (item != null) ordered.push(item);
+  }
+  return ordered;
+};
+
 export interface SetHandler<Value, SetExtra extends unknown | undefined = undefined> {
   (value: Value, variant: SetExtra): void | Promise<void>;
 }
