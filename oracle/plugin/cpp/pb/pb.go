@@ -1099,6 +1099,41 @@ func (p *Plugin) generateNestedArrayConversion(
 	typeRef resolution.TypeRef,
 	data *templateData,
 ) (forward, backward string) {
+	// Inner element type (e.g., Member for []Members where Members = []Member).
+	// When it's a struct, delegate to its to_proto/from_proto helpers so the
+	// nested conversion type-checks and propagates errors correctly. The
+	// primitive-inner path preserves the original `add_values(v)` form.
+	if elemType, ok := p.getArrayElementType(typeRef, data.table); ok {
+		if innerElem, ok := p.getArrayElementType(elemType, data.table); ok {
+			if innerResolved, ok := innerElem.Resolve(data.table); ok {
+				if _, isStruct := innerResolved.Form.(resolution.StructForm); isStruct {
+					if innerResolved.Namespace != data.rawNs {
+						targetOutputPath := output.GetPath(innerResolved, "cpp")
+						if targetOutputPath != "" {
+							data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
+							data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						}
+					}
+					innerCppType := p.typeRefToCppForTranslator(innerElem, data)
+					forward = fmt.Sprintf(`for (const auto& item : this->%s) {
+        auto* wrapper = pb.add_%s();
+        for (const auto& v : item) {
+            auto [v_pb, err] = v.to_proto();
+            if (err) return {{}, err};
+            *wrapper->add_values() = v_pb;
+        }
+    }`, cppFieldName, pbAccessorName)
+					backward = fmt.Sprintf(`for (const auto& wrapper : pb.%s()) {
+        std::vector<%s> inner;
+        if (auto err = x::pb::from_proto_repeated<%s>(inner, wrapper.values())) return {{}, err};
+        cpp.%s.push_back(std::move(inner));
+    }`, pbAccessorName, innerCppType, innerCppType, cppFieldName)
+					return forward, backward
+				}
+			}
+		}
+	}
+
 	forward = fmt.Sprintf(`for (const auto& item : this->%s) {
         auto* wrapper = pb.add_%s();
         for (const auto& v : item) wrapper->add_values(v);

@@ -6,8 +6,8 @@ description:
   and calling conventions"
 prev: "Operators"
 prevURL: "/reference/control/arc/reference/operators"
-next: "Sequences"
-nextURL: "/reference/control/arc/reference/sequences"
+next: "Loops"
+nextURL: "/reference/control/arc/reference/loops"
 ---
 
 import { Divider, Note } from "@synnaxlabs/pluto";
@@ -18,8 +18,8 @@ export const components = mdxOverrides;
 ## Function Declaration
 
 ```arc
-func name{config}(inputs) output {
-    // body
+func name{config} (inputs)output{
+// body
 }
 ```
 
@@ -85,9 +85,9 @@ Config parameters can be:
 
 ```arc
 func controller{
-    setpoint f64,           // can be literal or channel
-    sensor chan f64,        // channel reference
-    output chan f64         // channel reference
+    setpoint f64, // can be literal or channel
+    sensor chan f64, // channel reference
+    output chan f64, // channel reference
 } (enable u8) f64 {
     value := sensor
     if enable {
@@ -95,10 +95,8 @@ func controller{
     }
     return value
 }
-
 // Static setpoint
 sensor -> controller{setpoint=100.0, sensor=temp, output=cmd}
-
 // Dynamic setpoint from channel
 sensor -> controller{setpoint=setpoint_input, sensor=temp, output=cmd}
 ```
@@ -112,10 +110,8 @@ in declaration order:
 func scale{factor f64} (value f64) f64 {
     return value * factor
 }
-
 // Named (explicit)
 sensor -> scale{factor=2.0} -> output
-
 // Anonymous (positional)
 sensor -> scale{2.0} -> output
 ```
@@ -124,12 +120,10 @@ This also works for multi-parameter functions:
 
 ```arc
 func clamp{min f64, max f64} (value f64) f64 {
-    // ...
+// ...
 }
-
 // Named
 sensor -> clamp{min=0.0, max=100.0} -> output
-
 // Anonymous (positional: min=0.0, max=100.0)
 sensor -> clamp{0.0, 100.0} -> output
 ```
@@ -138,9 +132,8 @@ When trailing parameters have defaults, they can be omitted:
 
 ```arc
 func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
-    return (x - setpoint) * gain
+    return(x - setpoint) * gain
 }
-
 // Only provide setpoint, gain uses default
 sensor -> controller{100.0} -> output
 ```
@@ -164,8 +157,12 @@ Optional parameters have default values and must be trailing:
 
 ```arc
 func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
-    if value < min { return min }
-    if value > max { return max }
+    if value < min {
+        return min
+    }
+    if value > max {
+        return max
+    }
     return value
 }
 ```
@@ -174,8 +171,8 @@ Calling with defaults:
 
 ```arc
 // In imperative scope (function body)
-result := clamp(x)              // uses defaults
-result := clamp(x, -10.0)       // min=-10.0, max=1.0 (default)
+result := clamp(x) // uses defaults
+result := clamp(x, -10.0) // min=-10.0, max=1.0 (default)
 result := clamp(x, -10.0, 10.0) // explicit values
 ```
 
@@ -194,7 +191,7 @@ func double(value f64) f64 {
 ### Single Named Output
 
 ```arc
-func compute(x f64) result f64 {
+func compute(x f64)result f64 {
     result = x * 2
     return result
 }
@@ -233,7 +230,7 @@ Inside function bodies, call functions with parentheses:
 
 ```arc
 func outer(x f64) f64 {
-    y := inner(x)        // function call
+    y := inner(x) // function call
     z := clamp(y, 0.0, 100.0)
     return z
 }
@@ -257,7 +254,7 @@ Functions can declare stateful variables that persist across invocations:
 
 ```arc
 func counter() i64 {
-    count $= 0           // persists
+    count $= 0 // persists
     count = count + 1
     return count
 }
@@ -267,7 +264,9 @@ Each function instantiation has its own state:
 
 ```arc
 // Two separate counters with independent state
-interval{100ms} -> counter{} -> count1
+interval {
+    100ms
+} -> counter{} -> count1
 interval{200ms} -> counter{} -> count2
 ```
 
@@ -278,14 +277,10 @@ interval{200ms} -> counter{} -> count2
 Functions can read from and write to channels:
 
 ```arc
-func controller{
-    input chan f64,
-    output chan f64,
-    threshold f64
-} () {
-    value := input              // read (non-blocking)
+func controller{input chan f64, output chan f64, threshold f64} () {
+    value := input // read (non-blocking)
     if value > threshold {
-        output = value          // write (queued)
+        output = value // write (queued)
     }
 }
 ```
@@ -313,10 +308,13 @@ Use routing tables to map multiple sources to input parameters:
 
 ```arc
 func average(a f64, b f64) f64 {
-    return (a + b) / 2.0
+    return(a + b) / 2.0
 }
 
-{ sensor1: a, sensor2: b } -> average{} -> avg_output
+ {
+    sensor1: a,
+    sensor2: b
+} -> average{} -> avg_output
 ```
 
 The routing table maps channel names to parameter names.

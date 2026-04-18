@@ -22,18 +22,17 @@ building real control systems.
 
 ### Safety Conditions First
 
-Line order determines priority for one-shot transitions (`=>`). Always list abort
+Line order determines priority for conditional transitions (`=>`). Always list abort
 conditions before normal operations:
 
 ```arc
 stage pressurize {
     // SAFETY FIRST
-    ox_pt_1 > 700 => abort,
-    fuel_pt_1 > 500 => abort,
-    abort_btn => abort,
-
+    ox_pt_1 > 700 => abort
+    fuel_pt_1 > 500 => abort
+    abort_btn => abort
     // Then normal operations
-    1 -> press_vlv_cmd,
+    1 -> press_vlv_cmd
     ox_pt_1 > 500 => next
 }
 ```
@@ -42,18 +41,19 @@ If multiple transitions are true simultaneously, the first one wins.
 
 ### Use `->` for Streaming, `=>` for Transitions
 
-Continuous edges (`->`) run every cycle. One-shot edges (`=>`) fire once and stop until
-the stage is re-entered.
+Continuous edges (`->`) fire on every data arrival. Conditional edges (`=>`) fire while
+the source is truthy.
 
 ```arc
 // Streaming: continuously process sensor data
 sensor -> filter{} -> output
-
-// Transition: fire once when condition becomes true
+// Transition: fire while the condition is truthy
 pressure > 500 => next
 ```
 
-Common mistake: using `->` for a transition and wondering why it keeps firing.
+For stage and sequence transitions, `=>` is what you want. `->` into a stage name also
+transitions but fires on the first data arrival regardless of truthiness, which rarely
+matches operator intent.
 
 ### Keep Stages Focused
 
@@ -61,15 +61,58 @@ Each stage should do one thing. Split complex operations:
 
 ```arc
 // Good: clear purpose for each stage
-stage verify_sensors { /* check sensors */ }
-stage pressurize { /* bring to pressure */ }
-stage hold { /* maintain pressure */ }
-
+stage verify_sensors {}
+/* check sensors */
+stage pressurize {}
+/* bring to pressure */
+stage hold {}
+/* maintain pressure */
 // Avoid: one stage trying to do everything
 stage do_everything {
     // 50 lines of mixed logic
 }
 ```
+
+### Reach for a Stage Only When You Need Parallelism
+
+Stages are for steps that need to watch multiple conditions at once: a success check
+with safety monitoring, or a control loop that runs while a timeout counts down. If a
+step is just a write or a wait, make it a sequence item directly:
+
+```arc
+// Good: the linear part is linear, stages exist only where they earn their keep
+sequence prime {
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+    stage {
+        tank_pressure > 500 => next
+        wait{30s} => abort
+    }
+    0 -> press_vlv_cmd
+}
+
+// Avoid: single-flow stages that exist only to hold one write
+sequence prime {
+    stage close_vent {
+        0 -> vent_vlv_cmd
+        wait{1ms} => next
+    }
+    stage open_press {
+        1 -> press_vlv_cmd
+        wait{1ms} => next
+    }
+    stage wait_pressure {
+        tank_pressure > 500 => next
+        wait{30s} => abort
+    }
+    stage close_press {
+        0 -> press_vlv_cmd
+    }
+}
+```
+
+A stage earns its place when it holds two or more concurrent flows. A stage that holds a
+single write is noise.
 
 ### Initialize Stateful Variables Appropriately
 
@@ -78,7 +121,7 @@ value makes sense:
 
 ```arc
 func rate(value f64) f64 {
-    prev $= 0.0    // First call returns full value as "rate"
+    prev $= 0.0 // First call returns full value as "rate"
     d := value - prev
     prev = value
     return d
@@ -101,9 +144,6 @@ func rate(value f64) f64 {
     prev = value
     return d
 }
-
-// Option 2: Accept that first sample is special
-// Document this behavior and handle it downstream
 ```
 
 ### Set Authority Below Maximum
@@ -115,14 +155,14 @@ authority 200
 
 sequence main {
     stage normal {
-        sensor -> controller{} -> output,
+        sensor -> controller{} -> output
         emergency_condition => emergency
     }
 
     stage emergency {
         // Escalate to override all other writers
-        set_authority{value=255},
-        0 -> press_vlv_cmd,
+        set_authority{value=255}
+        0 -> press_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }
@@ -130,7 +170,7 @@ sequence main {
 
 If you leave authority at the default 255, you cannot escalate above other writers when
 an emergency occurs. Operators using schematics also need to be able to override
-automations — starting below 255 makes this possible without stopping the program.
+automations. Starting below 255 makes this possible without stopping the program.
 
 ### Name Channels Clearly
 
@@ -138,10 +178,9 @@ Use descriptive snake_case names that indicate what the channel represents:
 
 ```arc
 // Good: clear what each channel is
-ox_pt_1          // oxidizer pressure transducer 1
-fuel_tc_2        // fuel thermocouple 2
-press_vlv_cmd    // pressurization valve command
-
+ox_pt_1 // oxidizer pressure transducer 1
+fuel_tc_2 // fuel thermocouple 2
+press_vlv_cmd // pressurization valve command
 // Avoid: ambiguous names
 p1, t2, cmd
 ```
@@ -153,44 +192,15 @@ p1, t2, cmd
 ### Using `->` When `=>` Is Needed
 
 ```arc
-// Wrong: fires every cycle, not just once
-pressure > 500 -> next    // Syntax error anyway, but shows intent
-
-// Right: fires once when condition becomes true
+// Wrong: fires on every data arrival, regardless of truthiness
+pressure > 500 -> next
+// Right: fires while the condition is truthy
 pressure > 500 => next
 ```
 
-### Forgetting That `=>` Resets on Stage Re-Entry
-
-One-shot transitions reset when you re-enter a stage. If you loop back:
-
-```arc
-stage retry {
-    attempt_operation{},
-    operation_failed => retry,     // Goes back to this stage
-    operation_succeeded => next    // This resets when re-entering
-}
-```
-
-Each time the stage is entered, all `=>` transitions can fire again.
-
-### Expecting Loops
-
-Arc has no loops. Use stateful variables with reactive execution:
-
-```arc
-// Wrong: trying to loop
-// for i := 0; i < 10; i++ { ... }
-
-// Right: stateful counter triggered by interval
-func counter() i64 {
-    count $= 0
-    count = count + 1
-    return count
-}
-
-interval{period=100ms} -> counter{} -> count_output
-```
+`->` into a stage name is legal syntax but transitions on the first value from the
+source rather than on truthiness. Operators writing a condition like `pressure > 500`
+almost always mean "while this is true," which is `=>`.
 
 ### Multiple Writes to Same Channel
 
@@ -198,10 +208,9 @@ When multiple flows write to the same channel, last write wins:
 
 ```arc
 stage example {
-    0 -> valve_cmd,    // Writes 0
-    1 -> valve_cmd     // Writes 1 (overwrites 0)
+    0 -> valve_cmd // Writes 0
+    1 -> valve_cmd // Writes 1 (overwrites 0)
 }
-// Result: valve_cmd receives 1
 ```
 
 This is usually a mistake. Use conditional logic instead:
@@ -224,8 +233,7 @@ Arc requires explicit type casting. No implicit conversions:
 ```arc
 // Wrong
 x i32 := 42
-y f64 := x + 1.0    // Type error: i32 + f64
-
+y f64 := x + 1.0 // Type error: i32 + f64
 // Right
 x i32 := 42
 y f64 := f64(x) + 1.0
@@ -243,7 +251,7 @@ func rate{dt_ms f64} (value f64) f64 {
 
     dt_s := dt_ms / 1000.0
     if dt_s <= 0 {
-        return 0.0    // Avoid division by zero
+        return 0.0 // Avoid division by zero
     }
     return d / dt_s
 }
@@ -255,7 +263,7 @@ Sequences can get stuck if no transition fires:
 
 ```arc
 stage wait_forever {
-    some_condition => next    // What if this never becomes true?
+    some_condition => next // What if this never becomes true?
 }
 ```
 
@@ -263,7 +271,7 @@ Add timeouts:
 
 ```arc
 stage wait_with_timeout {
-    some_condition => next,
+    some_condition => next
     wait{duration=30s} => timeout_stage
 }
 ```
@@ -293,10 +301,9 @@ Each function executes on every trigger. Avoid unnecessary computation:
 ```arc
 // Less efficient: recalculates constants
 func process(value f64) f64 {
-    scale := 2.0 * 3.14159 * 0.5    // Computed every call
+    scale := 2.0 * 3.14159 * 0.5 // Computed every call
     return value * scale
 }
-
 // More efficient: use config parameter
 func process{scale f64} (value f64) f64 {
     return value * scale
@@ -312,7 +319,6 @@ Long chains add latency. If timing matters, consider combining operations:
 ```arc
 // Multiple nodes, multiple cycles of latency
 sensor -> filter1{} -> filter2{} -> filter3{} -> output
-
 // Single node, one cycle
 sensor -> combined_filter{} -> output
 ```
@@ -333,7 +339,7 @@ Write intermediate values to channels for debugging:
 ```arc
 func debug_controller(value f64) f64 {
     error := value - setpoint
-    debug_error = error    // Write to channel for visibility
+    debug_error = error // Write to channel for visibility
     return error * gain
 }
 ```

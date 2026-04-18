@@ -13,6 +13,7 @@ import (
 	"context"
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -21,34 +22,21 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stratifier"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
+// keyGenerator produces globally unique IR node keys. It maintains a running
+// per-role counter so that successive channel reads, writes, or function
+// invocations with the same logical name receive distinct keys.
 type keyGenerator struct {
-	occurrences   map[string]int
-	seqName       string
-	stageName     string
-	nextStageName string
+	occurrences map[string]int
 }
 
 func newKeyGenerator() *keyGenerator {
 	return &keyGenerator{occurrences: make(map[string]int)}
-}
-
-func (kg *keyGenerator) setStageContext(seqName, stageName, nextStageName string) {
-	kg.seqName = seqName
-	kg.stageName = stageName
-	kg.nextStageName = nextStageName
-}
-
-func (kg *keyGenerator) clearStageContext() {
-	kg.seqName = ""
-	kg.stageName = ""
-	kg.nextStageName = ""
 }
 
 func (kg *keyGenerator) generate(role, name string) string {
@@ -61,10 +49,103 @@ func (kg *keyGenerator) generate(role, name string) string {
 	return fmt.Sprintf("%s_%d", base, count)
 }
 
-func (kg *keyGenerator) entry(seqName, stageName string) string {
-	return fmt.Sprintf("entry_%s_%s", seqName, stageName)
+// seqFrame tracks state for a single sequential Scope that is currently being
+// analyzed. Transitions collected on the frame are copied onto the emitted
+// Scope when the frame is popped.
+type seqFrame struct {
+	// name is the scope key of the sequence being built.
+	name string
+	// memberKeys holds the ordered keys of each member declared by the source
+	// (stage name, nested sequence name, or synthesized step_N). Used to
+	// validate transition targets and resolve `=> next`.
+	memberKeys []string
+	// activeIdx is the index into memberKeys currently being analyzed.
+	activeIdx int
+	// transitions accumulates the scope's transitions in source order.
+	transitions []ir.Transition
 }
 
+// nextMember returns the key of the member that follows the currently active
+// one, or the empty string if the current member is the last.
+func (f *seqFrame) nextMember() string {
+	if f == nil || f.activeIdx+1 >= len(f.memberKeys) {
+		return ""
+	}
+	return f.memberKeys[f.activeIdx+1]
+}
+
+// shellBuilder tracks the Layer-2 execution-shell state while the analyzer
+// walks flow, stage, and sequence constructs. It records transitions against
+// the enclosing sequential scopes and registers pending activations that will
+// be stamped onto top-level Scope members once the main loop is done.
+type shellBuilder struct {
+	stack       []*seqFrame
+	activations map[string]ir.Handle
+}
+
+func newShellBuilder() *shellBuilder {
+	return &shellBuilder{activations: map[string]ir.Handle{}}
+}
+
+// pushSeq declares a new sequential frame with the given member keys.
+func (s *shellBuilder) pushSeq(name string, memberKeys []string) *seqFrame {
+	frame := &seqFrame{name: name, memberKeys: memberKeys}
+	s.stack = append(s.stack, frame)
+	return frame
+}
+
+// popSeq removes the innermost sequence frame.
+func (s *shellBuilder) popSeq() {
+	if len(s.stack) > 0 {
+		s.stack = s.stack[:len(s.stack)-1]
+	}
+}
+
+// top returns the innermost sequence frame, or nil when no sequence is being
+// analyzed (module-scope flow).
+func (s *shellBuilder) top() *seqFrame {
+	if len(s.stack) == 0 {
+		return nil
+	}
+	return s.stack[len(s.stack)-1]
+}
+
+// addTransition appends a transition to the innermost sequence frame. Panics
+// if no sequence is active; callers must check top() first.
+func (s *shellBuilder) addTransition(t ir.Transition) {
+	s.stack[len(s.stack)-1].transitions = append(
+		s.stack[len(s.stack)-1].transitions, t,
+	)
+}
+
+// registerActivation records that the scope named key should be activated by
+// the given handle. The activation is stamped onto the emitted Scope by the
+// main Analyze loop once all top-level items have been processed.
+func (s *shellBuilder) registerActivation(key string, on ir.Handle) {
+	s.activations[key] = on
+}
+
+// applyTransitionIntent records a transition and/or activation against the
+// shell for a firing handle. Exactly one of isNext, memberKey, activateKey is
+// honored, in that priority; a zero intent is a no-op. When the intent is a
+// cross-scope activation and the shell is inside a sequence, an additional
+// exit transition is appended so the current sequence relinquishes control.
+func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionIntent) {
+	switch {
+	case intent.isNext:
+		next := s.top().nextMember()
+		s.addTransition(ir.Transition{On: on, TargetKey: new(next)})
+	case intent.memberKey != "":
+		s.addTransition(ir.Transition{On: on, TargetKey: new(intent.memberKey)})
+	case intent.activateKey != "":
+		s.registerActivation(intent.activateKey, on)
+		if s.top() != nil {
+			s.addTransition(ir.Transition{On: on})
+		}
+	}
+}
+
+// nodeResult describes an IR node produced by a flow-node analysis.
 type nodeResult struct {
 	node   ir.Node
 	input  ir.Handle
@@ -79,8 +160,31 @@ func newNodeResult(node ir.Node, inputParam, outputParam string) nodeResult {
 	}
 }
 
-func emptyNodeResult(inputHandle ir.Handle) nodeResult {
-	return nodeResult{input: inputHandle}
+// transitionIntent is emitted by `=> next` and `=> scope_name` targets. The
+// flow-chain processor consumes the intent and, rather than emitting a
+// dataflow edge, records a Transition on the enclosing sequence (for
+// intra-sequence jumps and `next`) and/or registers an activation on the
+// target scope (for cross-scope jumps).
+type transitionIntent struct {
+	// isNext is true when the intent came from the `next` token. The target
+	// member is resolved against the innermost sequence frame at the time the
+	// intent is consumed.
+	isNext bool
+	// memberKey, when non-empty and isNext is false, names a sibling member
+	// in the enclosing sequence to transition to.
+	memberKey string
+	// activateKey, when non-empty, names a top-level scope whose activation
+	// should be set to the firing handle. Combined with an exit transition
+	// when the intent is consumed inside a sequence.
+	activateKey string
+}
+
+// flowNodeResult is what analyzeFlowNode returns: either an actual IR node
+// (the usual case) or a transition intent (for `=> next` / `=> scope_name`
+// targets). Exactly one of node.node.Key or transition is non-zero.
+type flowNodeResult struct {
+	node       nodeResult
+	transition *transitionIntent
 }
 
 func firstInputParam(inputs types.Params) string {
@@ -97,76 +201,127 @@ func firstOutputParam(outputs types.Params) string {
 	return ir.DefaultOutputParam
 }
 
+// identifierAST is the common shape of sequence and stage declarations: both
+// carry an optional IDENTIFIER token that is absent for anonymous inline
+// blocks.
+type identifierAST interface {
+	antlr.ParserRuleContext
+	IDENTIFIER() antlr.TerminalNode
+}
+
+// resolveDeclScope returns the symbol scope for a named or anonymous
+// declaration. Named declarations resolve by identifier; anonymous ones are
+// looked up via their parser rule (registered during the collect pass under a
+// synthesized AutoName key).
+func resolveDeclScope[T identifierAST](ctx acontext.Context[T]) (*symbol.Scope, bool) {
+	var (
+		scope *symbol.Scope
+		err   error
+	)
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		scope, err = ctx.Scope.Resolve(ctx, id.GetText())
+	} else {
+		scope, err = ctx.Scope.GetChildByParserRule(ctx.AST)
+	}
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return nil, false
+	}
+	return scope, true
+}
+
 func analyzeFlowNode(
 	ctx acontext.Context[parser.IFlowNodeContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 	isSink bool,
-) (nodeResult, bool) {
+) (flowNodeResult, bool) {
 	if id := ctx.AST.Identifier(); id != nil {
-		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, isSink)
+		return analyzeIdentifierByRole(acontext.Child(ctx, id), kg, shell, isSink)
 	}
 	if fn := ctx.AST.Function(); fn != nil {
-		return analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		r, ok := analyzeFunctionNode(acontext.Child(ctx, fn), kg)
+		return flowNodeResult{node: r}, ok
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		return analyzeExpression(acontext.Child(ctx, expr), kg)
+		r, ok := analyzeExpression(acontext.Child(ctx, expr), kg)
+		return flowNodeResult{node: r}, ok
 	}
 	if ctx.AST.NEXT() != nil {
-		return analyzeNextToken(ctx, kg)
+		return analyzeNextToken(ctx, shell)
 	}
-	return nodeResult{}, true
+	return flowNodeResult{}, true
 }
 
 func analyzeIdentifierByRole(
 	ctx acontext.Context[parser.IIdentifierContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 	isSink bool,
-) (nodeResult, bool) {
+) (flowNodeResult, bool) {
 	name := ctx.AST.IDENTIFIER().GetText()
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return nodeResult{}, false
+		return flowNodeResult{}, false
 	}
 
 	switch sym.Kind {
 	case symbol.KindSequence:
-		return analyzeSequenceRef(ctx, sym, kg)
+		intent, ok := analyzeSequenceRef(ctx, sym)
+		if !ok {
+			return flowNodeResult{}, false
+		}
+		return flowNodeResult{transition: &intent}, true
 	case symbol.KindStage:
-		return analyzeStageRef(sym, kg)
+		intent := analyzeStageRef(sym, shell)
+		return flowNodeResult{transition: &intent}, true
 	case symbol.KindGlobalConstant:
-		return buildGlobalConstantNode(name, sym, kg)
+		r, ok := buildGlobalConstantNode(name, sym, kg)
+		return flowNodeResult{node: r}, ok
 	default:
 		if isSink {
-			return buildChannelWriteNode(name, sym, kg)
+			r, ok := buildChannelWriteNode(name, sym, kg)
+			return flowNodeResult{node: r}, ok
 		}
-		return buildChannelReadNode(name, sym, kg)
+		r, ok := buildChannelReadNode(name, sym, kg)
+		return flowNodeResult{node: r}, ok
 	}
 }
 
-func newStageTransition(seqName, stageName string, kg *keyGenerator) nodeResult {
-	entryKey := kg.entry(seqName, stageName)
-	return emptyNodeResult(ir.Handle{
-		Node:  entryKey,
-		Param: stage.EntryActivationParam,
-	})
-}
-
+// analyzeSequenceRef builds a transition intent for an identifier that
+// resolves to a sequence (or a top-level stage whose symbol node happens to
+// be an IStageDeclarationContext). The intent says "when the firing handle
+// is truthy, activate `sym.Name`". If the reference appears inside another
+// sequence, the consumer will additionally emit an exit transition.
 func analyzeSequenceRef(
 	ctx acontext.Context[parser.IIdentifierContext],
 	seqSym *symbol.Scope,
-	kg *keyGenerator,
-) (nodeResult, bool) {
-	firstStage, err := seqSym.FirstChildOfKind(symbol.KindStage)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no stages", seqSym.Name))
-		return nodeResult{}, false
+) (transitionIntent, bool) {
+	if _, ok := seqSym.AST.(parser.IStageDeclarationContext); ok {
+		return transitionIntent{activateKey: seqSym.Name}, true
 	}
-	return newStageTransition(seqSym.Name, firstStage.Name, kg), true
+	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
+	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
+		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
+		return transitionIntent{}, false
+	}
+	return transitionIntent{activateKey: seqSym.Name}, true
 }
 
-func analyzeStageRef(stageSym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
-	return newStageTransition(stageSym.Parent.Name, stageSym.Name, kg), true
+// analyzeStageRef builds a transition intent for an identifier that resolves
+// to a stage. A reference to a sibling stage in the enclosing sequence jumps
+// to that sibling; a reference to a stage in a different top-level scope
+// activates that top-level scope and exits the current sequence.
+func analyzeStageRef(stageSym *symbol.Scope, shell *shellBuilder) transitionIntent {
+	if frame := shell.top(); frame != nil && stageSym.Parent != nil && stageSym.Parent.Name == frame.name {
+		return transitionIntent{memberKey: stageSym.Name}
+	}
+	topName := stageSym.Name
+	if stageSym.Parent != nil && stageSym.Parent.Name != "" {
+		topName = stageSym.Parent.Name
+	}
+	return transitionIntent{activateKey: topName}
 }
 
 func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -214,31 +369,35 @@ func buildGlobalConstantNode(
 	return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
 }
 
+// analyzeNextToken emits a transition intent that advances the enclosing
+// sequence to the next sibling member. The target member is resolved against
+// the innermost sequence frame at intent-consumption time.
 func analyzeNextToken(
 	ctx acontext.Context[parser.IFlowNodeContext],
-	kg *keyGenerator,
-) (nodeResult, bool) {
-	if kg.seqName == "" {
+	shell *shellBuilder,
+) (flowNodeResult, bool) {
+	frame := shell.top()
+	if frame == nil {
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "'next' used outside of a sequence"))
-		return nodeResult{}, false
+		return flowNodeResult{}, false
 	}
-	if kg.nextStageName == "" {
+	if frame.nextMember() == "" {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"'next' in last stage '%s' has no next stage",
-			kg.stageName,
+			frame.memberKeys[frame.activeIdx],
 		))
-		return nodeResult{}, false
+		return flowNodeResult{}, false
 	}
-	entryKey := kg.entry(kg.seqName, kg.nextStageName)
-	return emptyNodeResult(ir.Handle{Node: entryKey, Param: "activate"}), true
+	intent := transitionIntent{isNext: true}
+	return flowNodeResult{transition: &intent}, true
 }
 
 func analyzeFunctionNode(
 	ctx acontext.Context[parser.IFunctionContext],
 	kg *keyGenerator,
 ) (nodeResult, bool) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
 	sym, err := ctx.Scope.Resolve(ctx, name)
 	if err != nil {
@@ -301,6 +460,18 @@ func analyzeExpression(
 
 	key := kg.generate(sym.Name, "")
 	freshType := types.Freshen(sym.Type, key)
+	if len(freshType.Outputs) == 0 || !freshType.Outputs[0].Type.IsValid() {
+		exprText := strings.TrimSuffix(ctx.AST.GetText(), "()")
+		d := diagnostics.Errorf(
+			ctx.AST,
+			"functions in flow statements use {} not ()",
+		)
+		d.Notes = append(d.Notes, diagnostics.Note{
+			Message: fmt.Sprintf("did you mean: %s{}?", exprText),
+		})
+		ctx.Diagnostics.Add(d)
+		return nodeResult{}, false
+	}
 	outputType := ctx.Constraints.ApplySubstitutions(freshType.Outputs[0].Type)
 	n := ir.Node{
 		Key:      key,
@@ -352,40 +523,90 @@ func Analyze(
 		}
 	}
 	kg := newKeyGenerator()
+	shell := newShellBuilder()
+
+	// The root scope is always parallel and always-live.
+	i.Root = ir.Scope{
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+	}
+	// rootMembers accumulates every top-level item as a Member of the root
+	// scope. Module-scope flow nodes become leaf-node members; top-level
+	// sequence and stage declarations become nested Scope members.
+	var rootMembers ir.Members
+
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, ok := analyzeFlow(acontext.Child(aCtx, flow), kg)
+			nodes, edges, ok := analyzeFlow(acontext.Child(aCtx, flow), kg, shell)
 			if !ok {
 				return i, aCtx.Diagnostics
+			}
+			for _, n := range nodes {
+				rootMembers = append(rootMembers, ir.Member{NodeKey: new(n.Key)})
 			}
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seq, nodes, edges, ok := analyzeSequence(acontext.Child(aCtx, seqDecl), kg)
+			seqScope, nodes, edges, ok := analyzeSequence(
+				acontext.Child(aCtx, seqDecl),
+				kg,
+				shell,
+			)
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
-			i.Sequences = append(i.Sequences, seq)
+			rootMembers = append(rootMembers, ir.Member{Scope: &seqScope})
+			i.Nodes = append(i.Nodes, nodes...)
+			i.Edges = append(i.Edges, edges...)
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			stgScope, nodes, edges, ok := analyzeTopLevelStage(
+				acontext.Child(aCtx, stageDecl),
+				kg,
+				shell,
+			)
+			if !ok {
+				return i, aCtx.Diagnostics
+			}
+			rootMembers = append(rootMembers, ir.Member{Scope: &stgScope})
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		}
 	}
+
+	if len(rootMembers) > 0 {
+		i.Root.Strata = []ir.Members{rootMembers}
+	}
+
+	// Apply deferred activations collected by flow statements that target
+	// top-level scopes (for example `trigger => main`). The activation is
+	// stamped directly onto the corresponding nested Scope member.
+	if len(shell.activations) > 0 && len(i.Root.Strata) > 0 {
+		stratum := i.Root.Strata[0]
+		for idx := range stratum {
+			m := &stratum[idx]
+			if m.Scope == nil {
+				continue
+			}
+			if handle, ok := shell.activations[m.Scope.Key]; ok {
+				m.Scope.Activation = new(handle)
+			}
+		}
+	}
+
 	if len(i.Nodes) > 0 {
 		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
 			return i, aCtx.Diagnostics
 		}
-		strata, diag := stratifier.Stratify(ctx, i.Nodes, i.Edges, i.Sequences, aCtx.Diagnostics)
-		if diag != nil && !diag.Ok() {
-			aCtx.Diagnostics = diag
-			return i, aCtx.Diagnostics
+		if d := stratifier.Stratify(ctx, &i, aCtx.Diagnostics); d != nil && !d.Ok() {
+			return i, d
 		}
-		i.Strata = strata
 	}
 	return i, aCtx.Diagnostics
 }
 
 type flowChainProcessor struct {
 	kg                 *keyGenerator
+	shell              *shellBuilder
 	prevNode           *ir.Node
 	ctx                acontext.Context[parser.IFlowStatementContext]
 	prevOutput         ir.Handle
@@ -395,11 +616,16 @@ type flowChainProcessor struct {
 	totalFlowNodes     int
 	currentIndex       int
 	lastOpIndex        int
+	// transitionEmitted is set when the chain terminated in a transition
+	// target (e.g. `=> main`, `=> next`). Used to distinguish valid chains
+	// that emit zero edges (source -> scope activation) from orphan chains.
+	transitionEmitted bool
 }
 
 func newFlowChainProcessor(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) *flowChainProcessor {
 	var total int
 	for _, child := range ctx.AST.GetChildren() {
@@ -407,7 +633,7 @@ func newFlowChainProcessor(
 			total++
 		}
 	}
-	return &flowChainProcessor{ctx: ctx, kg: kg, totalFlowNodes: total}
+	return &flowChainProcessor{ctx: ctx, kg: kg, shell: shell, totalFlowNodes: total}
 }
 
 func (p *flowChainProcessor) edgeKind() ir.EdgeKind {
@@ -471,10 +697,16 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		}
 	}
 
-	result, ok := analyzeFlowNode(acontext.Child(p.ctx, flowNode), p.kg, isSink)
+	result, ok := analyzeFlowNode(acontext.Child(p.ctx, flowNode), p.kg, p.shell, isSink)
 	if !ok {
 		return false
 	}
+
+	if result.transition != nil {
+		return p.consumeTransition(*result.transition, flowNode)
+	}
+
+	node := result.node
 	if p.prevNode != nil {
 		if len(p.prevNode.Outputs) == 0 {
 			p.ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -486,7 +718,7 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		}
 		p.edges = append(p.edges, ir.Edge{
 			Source: p.prevOutput,
-			Target: result.input,
+			Target: node.input,
 			Kind:   p.edgeKind(),
 		})
 	}
@@ -496,20 +728,51 @@ func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) b
 		for _, trigger := range p.additionalTriggers {
 			p.edges = append(p.edges, ir.Edge{
 				Source: trigger.output,
-				Target: result.input,
+				Target: node.input,
 				Kind:   ir.EdgeKindContinuous,
 			})
 		}
 		p.additionalTriggers = nil
 	}
 
-	if len(result.node.Outputs) > 0 {
-		p.prevOutput = result.output
+	if len(node.node.Outputs) > 0 {
+		p.prevOutput = node.output
 	}
-	p.prevNode = &result.node
-	if result.node.Key != "" {
-		p.nodes = append(p.nodes, result.node)
+	p.prevNode = &node.node
+	if node.node.Key != "" {
+		p.nodes = append(p.nodes, node.node)
 	}
+	return true
+}
+
+// consumeTransition records a transition and/or activation for a flow chain
+// whose terminal token is `=> next`, `=> scope_name`, or a scope-valued
+// identifier. The firing handle is the previous node's output.
+func (p *flowChainProcessor) consumeTransition(
+	intent transitionIntent,
+	ast parser.IFlowNodeContext,
+) bool {
+	if p.prevNode == nil {
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			ast, "transition target requires a source",
+		))
+		return false
+	}
+	if len(p.prevNode.Outputs) == 0 {
+		p.ctx.Diagnostics.Add(diagnostics.Errorf(
+			ast,
+			"function '%s' has no output to drive a transition",
+			p.prevNode.Type,
+		))
+		return false
+	}
+	// When a multi-channel expression drives a transition there is no IR
+	// node to route the extra triggers into; the primary channel output
+	// already carries the firing signal, so the extras are dropped.
+	p.additionalTriggers = nil
+
+	p.shell.applyTransitionIntent(p.prevOutput, intent)
+	p.transitionEmitted = true
 	return true
 }
 
@@ -524,8 +787,8 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	newNodes, newEdges, ok := analyzeOutputRoutingTable(
 		acontext.Child(p.ctx, rt),
 		*p.prevNode,
-		p.prevOutput,
 		p.kg,
+		p.shell,
 	)
 	if !ok {
 		return false
@@ -539,8 +802,9 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
-	p := newFlowChainProcessor(ctx, kg)
+	p := newFlowChainProcessor(ctx, kg, shell)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {
 		case parser.IFlowNodeContext:
@@ -555,7 +819,7 @@ func analyzeFlow(
 			}
 		}
 	}
-	if len(p.edges) < 1 {
+	if len(p.edges) < 1 && !p.transitionEmitted {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
 			"flow statement requires at least two nodes",
@@ -655,8 +919,8 @@ func extractConfigValues(
 func analyzeOutputRoutingTable(
 	ctx acontext.Context[parser.IRoutingTableContext],
 	sourceNode ir.Node,
-	sourceHandle ir.Handle,
 	kg *keyGenerator,
+	shell *shellBuilder,
 ) ([]ir.Node, []ir.Edge, bool) {
 	var (
 		nodes []ir.Node
@@ -691,23 +955,29 @@ func analyzeOutputRoutingTable(
 			isLast := i == len(flowNodes)-1
 			isSink := isLast && flowNode.Identifier() != nil
 
-			result, ok := analyzeFlowNode(acontext.Child(ctx, flowNode), kg, isSink)
+			result, ok := analyzeFlowNode(acontext.Child(ctx, flowNode), kg, shell, isSink)
 			if !ok {
 				return nil, nil, false
 			}
 
+			if result.transition != nil {
+				shell.applyTransitionIntent(prevOutputHandle, *result.transition)
+				continue
+			}
+
+			node := result.node
 			edges = append(edges, ir.Edge{
 				Source: prevOutputHandle,
-				Target: result.input,
+				Target: node.input,
 				Kind:   ir.EdgeKindContinuous,
 			})
 
 			if isLast && targetParamName != "" {
-				if !result.node.Inputs.Has(targetParamName) {
+				if !node.node.Inputs.Has(targetParamName) {
 					ctx.Diagnostics.Add(diagnostics.Errorf(
 						entry,
 						"node '%s' does not have input '%s'",
-						result.node.Key,
+						node.node.Key,
 						targetParamName,
 					))
 					return nil, nil, false
@@ -715,11 +985,11 @@ func analyzeOutputRoutingTable(
 				edges[len(edges)-1].Target.Param = targetParamName
 			}
 
-			if len(result.node.Outputs) > 0 {
-				prevOutputHandle = result.output
+			if len(node.node.Outputs) > 0 {
+				prevOutputHandle = node.output
 			}
-			if result.node.Key != "" {
-				nodes = append(nodes, result.node)
+			if node.node.Key != "" {
+				nodes = append(nodes, node.node)
 			}
 		}
 	}
@@ -727,96 +997,286 @@ func analyzeOutputRoutingTable(
 	return nodes, edges, true
 }
 
+// stepInfo collects metadata about a step for computing member keys.
+type stepInfo struct {
+	key  string
+	item parser.ISequenceItemContext
+}
+
+// collectStepKeys pre-scans a sequence's items to compute their member keys.
+// Named stages and nested sequences keep their source-level name; anonymous
+// flow and single-invocation steps receive a synthesized "step_N" key.
+func collectStepKeys(items []parser.ISequenceItemContext) []stepInfo {
+	steps := make([]stepInfo, 0, len(items))
+	for i, item := range items {
+		key := fmt.Sprintf("step_%d", i)
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if id := stageDecl.IDENTIFIER(); id != nil {
+				key = id.GetText()
+			}
+		}
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			if id := nestedSeq.IDENTIFIER(); id != nil {
+				key = id.GetText()
+			}
+		}
+		steps = append(steps, stepInfo{key: key, item: item})
+	}
+	return steps
+}
+
+// flowScope wraps a set of flow-step nodes into a parallel+gated scope whose
+// single stratum contains them in source order. The stratifier will later
+// re-layer this stratum; for now all members sit in stratum 0.
+func flowScope(key string, nodes []ir.Node) ir.Scope {
+	scope := ir.Scope{
+		Key:      key,
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessGated,
+	}
+	if len(nodes) == 0 {
+		return scope
+	}
+	members := make(ir.Members, 0, len(nodes))
+	for _, n := range nodes {
+		members = append(members, ir.Member{NodeKey: new(n.Key)})
+	}
+	scope.Strata = []ir.Members{members}
+	return scope
+}
+
+// autoWireTransition appends an auto-wired transition for a flow-step in a
+// sequence: when the step's last node fires, advance to the next step or
+// exit the sequence if the step is terminal.
+func autoWireTransition(shell *shellBuilder, lastNode ir.Node, nextMemberKey string) {
+	if len(lastNode.Outputs) == 0 {
+		return
+	}
+	on := ir.Handle{
+		Node:  lastNode.Key,
+		Param: firstOutputParam(lastNode.Outputs),
+	}
+	var targetKey *string
+	if nextMemberKey != "" {
+		targetKey = new(nextMemberKey)
+	}
+	shell.addTransition(ir.Transition{On: on, TargetKey: targetKey})
+}
+
 func analyzeSequence(
 	ctx acontext.Context[parser.ISequenceDeclarationContext],
 	kg *keyGenerator,
-) (ir.Sequence, []ir.Node, []ir.Edge, bool) {
-	seqName := ctx.AST.IDENTIFIER().GetText()
-	seq := ir.Sequence{Key: seqName}
-
-	seqScope, err := ctx.Scope.Resolve(ctx, seqName)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-		return ir.Sequence{}, nil, nil, false
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
+	seqScope, ok := resolveDeclScope(ctx)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
+	}
+	seqName := seqScope.Name
+	scope := ir.Scope{
+		Key:      seqName,
+		Mode:     ir.ScopeModeSequential,
+		Liveness: ir.LivenessGated,
 	}
 
-	var allNodes []ir.Node
-	var allEdges []ir.Edge
-
-	stageDecls := ctx.AST.AllStageDeclaration()
-	for i, stageDecl := range stageDecls {
-		stageName := stageDecl.IDENTIFIER().GetText()
-		nextStageName := ""
-		if i+1 < len(stageDecls) {
-			nextStageName = stageDecls[i+1].IDENTIFIER().GetText()
-		}
-		kg.setStageContext(seqName, stageName, nextStageName)
-		stage, nodes, edges, ok := analyzeStage(
-			acontext.Child(ctx, stageDecl).WithScope(seqScope),
-			seqName,
-			kg,
-		)
-		kg.clearStageContext()
-		if !ok {
-			return ir.Sequence{}, nil, nil, false
-		}
-		seq.Stages = append(seq.Stages, stage)
-		allNodes = append(allNodes, nodes...)
-		allEdges = append(allEdges, edges...)
+	items := ctx.AST.AllSequenceItem()
+	steps := collectStepKeys(items)
+	memberKeys := make([]string, len(steps))
+	for i, s := range steps {
+		memberKeys[i] = s.key
 	}
 
-	return seq, allNodes, allEdges, true
+	frame := shell.pushSeq(seqName, memberKeys)
+	defer shell.popSeq()
+
+	var (
+		allNodes []ir.Node
+		allEdges []ir.Edge
+	)
+
+	for i, si := range steps {
+		frame.activeIdx = i
+		nextKey := ""
+		if i+1 < len(steps) {
+			nextKey = steps[i+1].key
+		}
+
+		item := si.item
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			stgScope, nodes, edges, ok := analyzeStage(
+				acontext.Child(ctx, stageDecl).WithScope(seqScope),
+				kg,
+				shell,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			// Anonymous inline stages inherit the synthesized step key as
+			// their own Key so Member.Key() is derivable from the scope.
+			if stgScope.Key == "" {
+				stgScope.Key = si.key
+			}
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &stgScope})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+			continue
+		}
+
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			nodes, edges, ok := analyzeFlow(
+				acontext.Child(ctx, flowStmt).WithScope(seqScope),
+				kg,
+				shell,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			child := flowScope(si.key, nodes)
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+			if len(nodes) > 0 {
+				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
+			}
+			continue
+		}
+
+		if single := item.SingleInvocation(); single != nil {
+			node, ok := analyzeSingleInvocation(
+				acontext.Child(ctx, single).WithScope(seqScope),
+				kg,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			child := flowScope(si.key, []ir.Node{node})
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
+			allNodes = append(allNodes, node)
+			autoWireTransition(shell, node, nextKey)
+			continue
+		}
+
+		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
+			nestedScope, nodes, edges, ok := analyzeSequence(
+				acontext.Child(ctx, nestedSeqDecl).WithScope(seqScope),
+				kg,
+				shell,
+			)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			// Anonymous inline nested sequences inherit the synthesized step
+			// key so Member.Key() is derivable from the scope.
+			if nestedScope.Key == "" {
+				nestedScope.Key = si.key
+			}
+			scope.Steps = append(scope.Steps, ir.Member{Scope: &nestedScope})
+			allNodes = append(allNodes, nodes...)
+			allEdges = append(allEdges, edges...)
+		}
+	}
+
+	scope.Transitions = frame.transitions
+	return scope, allNodes, allEdges, true
+}
+
+func analyzeTopLevelStage(
+	ctx acontext.Context[parser.IStageDeclarationContext],
+	kg *keyGenerator,
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
+	// Resolve the symbol scope registered by collectTopLevelStage so that
+	// anonymous top-level stages pick up the auto-generated name and the
+	// resulting ir.Scope has a non-empty, unique Key. Without this, anonymous
+	// stages would collide at the root member level.
+	stageSym, ok := resolveDeclScope(ctx)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
+	}
+	scope, nodes, edges, ok := analyzeStage(ctx, kg, shell)
+	if !ok {
+		return ir.Scope{}, nil, nil, false
+	}
+	scope.Key = stageSym.Name
+	return scope, nodes, edges, true
 }
 
 func analyzeStage(
 	ctx acontext.Context[parser.IStageDeclarationContext],
-	seqName string,
 	kg *keyGenerator,
-) (ir.Stage, []ir.Node, []ir.Edge, bool) {
-	var (
-		stageName = ctx.AST.IDENTIFIER().GetText()
-		stg       = ir.Stage{Key: stageName}
-		nodes     []ir.Node
-		edges     []ir.Edge
-	)
-
-	entryNode := ir.Node{
-		Key:      kg.entry(seqName, stageName),
-		Type:     stage.EntryNodeName,
-		Channels: types.NewChannels(),
-		Inputs:   stage.EntryNodeInputs,
+	shell *shellBuilder,
+) (ir.Scope, []ir.Node, []ir.Edge, bool) {
+	stageName := ""
+	if id := ctx.AST.IDENTIFIER(); id != nil {
+		stageName = id.GetText()
 	}
-	nodes = append(nodes, entryNode)
+	scope := ir.Scope{
+		Key:      stageName,
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessGated,
+	}
+	var (
+		nodes   []ir.Node
+		edges   []ir.Edge
+		members []ir.Member
+	)
 
 	stageBody := ctx.AST.StageBody()
 	if stageBody == nil {
-		return stg, nodes, edges, true
+		return scope, nodes, edges, true
 	}
 
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			itemNodes, itemEdges, ok := analyzeFlow(acontext.Child(ctx, flowStmt), kg)
+			itemNodes, itemEdges, ok := analyzeFlow(
+				acontext.Child(ctx, flowStmt),
+				kg,
+				shell,
+			)
 			if !ok {
-				return ir.Stage{}, nil, nil, false
+				return ir.Scope{}, nil, nil, false
 			}
 			nodes = append(nodes, itemNodes...)
 			edges = append(edges, itemEdges...)
-
 			for _, n := range itemNodes {
-				stg.Nodes = append(stg.Nodes, n.Key)
+				members = append(members, ir.Member{NodeKey: new(n.Key)})
 			}
+			continue
 		}
 		if single := item.SingleInvocation(); single != nil {
 			node, ok := analyzeSingleInvocation(acontext.Child(ctx, single), kg)
 			if !ok {
-				return ir.Stage{}, nil, nil, false
+				return ir.Scope{}, nil, nil, false
 			}
 			nodes = append(nodes, node)
-			stg.Nodes = append(stg.Nodes, node.Key)
+			members = append(members, ir.Member{NodeKey: new(node.Key)})
+			continue
+		}
+		if nestedSeqDecl := item.SequenceDeclaration(); nestedSeqDecl != nil {
+			// The inline sequence is registered as a child of this stage's
+			// scope, not the parent sequence's scope. Look up the stage's own
+			// scope so analyzeSequence can resolve the nested seq via parser
+			// rule. Top-level stages don't have their own scope entry; in
+			// that case keep ctx.Scope.
+			seqCtx := acontext.Child(ctx, nestedSeqDecl)
+			if stageScope, err := ctx.Scope.GetChildByParserRule(ctx.AST); err == nil {
+				seqCtx = seqCtx.WithScope(stageScope)
+			}
+			subScope, subNodes, subEdges, ok := analyzeSequence(seqCtx, kg, shell)
+			if !ok {
+				return ir.Scope{}, nil, nil, false
+			}
+			nodes = append(nodes, subNodes...)
+			edges = append(edges, subEdges...)
+			members = append(members, ir.Member{Scope: &subScope})
+			continue
 		}
 	}
 
-	return stg, nodes, edges, true
+	if len(members) > 0 {
+		scope.Strata = []ir.Members{members}
+	}
+	return scope, nodes, edges, true
 }
 
 func analyzeSingleInvocation(

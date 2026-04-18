@@ -1,0 +1,27 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
+cc_library(
+    name = "connection",
+    srcs = ["checker.cpp"],
+    hdrs = ["checker.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//core/pkg/api/grpc:api_grpc",
+        "//freighter/cpp:freighter",
+        "//x/cpp/telem",
+        "@glog",
+        "@protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "connection_test",
+    srcs = ["checker_test.cpp"],
+    deps = [
+        ":connection",
+        "//freighter/cpp/mock",
+        "//x/cpp/test",
+        "@googletest//:gtest_main",
+    ],
+)

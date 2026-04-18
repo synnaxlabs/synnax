@@ -134,6 +134,8 @@ var _ = Describe("Observable", func() {
 			pub.OutTo(outlet)
 
 			pubCtx, pubCancel := signal.Isolated()
+			// Mid-test baseline: assert pub.Flow's goroutines are cleaned up by
+			// pubCancel below, ignoring obs's goroutines under sCtx.
 			ShouldNotLeakGoroutines()
 			pub.Flow(pubCtx, CloseOutputInletsOnExit())
 

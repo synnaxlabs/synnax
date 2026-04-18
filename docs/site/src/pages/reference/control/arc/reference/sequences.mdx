@@ -4,8 +4,8 @@ title: "Sequences"
 description:
   "Arc sequence and stage reference for state machine declarations, transitions, and
   entry points"
-prev: "Functions"
-prevURL: "/reference/control/arc/reference/functions"
+prev: "Loops"
+prevURL: "/reference/control/arc/reference/loops"
 next: "Built-In Functions"
 nextURL: "/reference/control/arc/reference/built-ins"
 ---
@@ -19,17 +19,54 @@ export const components = mdxOverrides;
 
 ```arc
 sequence name {
-    stage stage1 {
-        // flow statements
-    }
-    stage stage2 {
-        // flow statements
-    }
+    // sequence items
 }
 ```
 
-A sequence is a state machine containing ordered stages. Only one stage is active at a
-time per sequence.
+A sequence runs its items in order. Only one item is active at a time.
+
+A sequence can be named or anonymous. A named sequence starts when an entry point
+triggers it. An anonymous top-level sequence starts automatically when the program
+loads.
+
+```arc
+sequence named {
+    // ... items ...
+}
+start_cmd => named
+
+sequence {
+    // ... items, auto-started ...
+}
+```
+
+<Divider.Divider x />
+
+## Sequence Items
+
+A sequence item is one of:
+
+| Item            | Syntax                | Description                                   |
+| --------------- | --------------------- | --------------------------------------------- |
+| Write           | `expr -> chan`        | Write once, advance                           |
+| Wait            | `wait{duration}`      | Pause for the duration, advance               |
+| Condition gate  | `expr`                | Pause until the expression is truthy, advance |
+| Stage           | `stage name? { ... }` | Enter stage; advance when a transition fires  |
+| Nested sequence | `sequence { ... }`    | Run nested items in order                     |
+
+```arc
+sequence prime {
+    0 -> vent_vlv_cmd              // write
+    1 -> press_vlv_cmd             // write
+    wait{5s}                        // wait
+    tank_pressure > 500             // condition gate
+    stage hold {                    // stage
+        wait{30s} => next
+        tank_pressure > 700 => abort
+    }
+    0 -> press_vlv_cmd             // write
+}
+```
 
 <Divider.Divider x />
 
@@ -37,25 +74,24 @@ time per sequence.
 
 ```arc
 stage name {
-    flow_statement,
-    flow_statement,
+    flow_statement
+    flow_statement
     flow_statement
 }
 ```
 
-Stage bodies contain flow statements separated by commas. All flow statements in a stage
-run concurrently while the stage is active.
+Stage bodies contain flow statements. All flow statements in a stage run concurrently
+while the stage is active.
 
 ### Stage Body Syntax
 
 ```arc
 stage pressurize {
     // Continuous flows (run every cycle)
-    1 -> press_vlv_cmd,
-    sensor -> controller{},
-
-    // One-shot transitions (fire once)
-    pressure > 500 => next,
+    1 -> press_vlv_cmd
+    sensor -> controller{}
+    // Conditional transitions (propagate while truthy)
+    pressure > 500 => next
     abort_btn => abort
 }
 ```
@@ -70,42 +106,44 @@ Runs every execution cycle while the stage is active:
 
 ```arc
 stage active {
-    1 -> valve_cmd,              // keeps valve open
+    1 -> valve_cmd // keeps valve open
     sensor -> filter{} -> output // processes every sample
 }
 ```
 
-### One-Shot Flow (`=>`)
+### Conditional Flow (`=>`)
 
-Fires once when condition becomes true, then stops:
+Fires while the source expression is truthy:
 
 ```arc
 stage wait {
-    pressure > 500 => next       // fires once
+    pressure > 500 => next
 }
 ```
 
-One-shot state resets when the stage is re-entered.
+A flow whose target is a stage or sequence name is a **transition** (see
+[Transition Targets](#transition-targets)). Transitioning to an already-active target is
+a no-op.
 
 <Divider.Divider x />
 
 ## Transition Targets
 
-| Target          | Description                                        |
-| --------------- | -------------------------------------------------- |
-| `next`          | Go to next stage in definition order               |
-| `stage_name`    | Jump to named stage in same sequence               |
-| `sequence_name` | Jump to different sequence (starts at first stage) |
+| Target          | Description                                             |
+| --------------- | ------------------------------------------------------- |
+| `next`          | Advance to the next item in the enclosing sequence      |
+| `stage_name`    | Jump to a named stage in the same sequence              |
+| `sequence_name` | Jump to a different sequence (starts at its first item) |
 
 ### Using `next`
 
 ```arc
 sequence test {
     stage step1 {
-        condition => next    // goes to step2
+        condition => next // goes to step2
     }
     stage step2 {
-        condition => next    // goes to step3
+        condition => next // goes to step3
     }
     stage step3 {
         // terminal stage
@@ -114,7 +152,8 @@ sequence test {
 ```
 
 <Note.Note variant="warning">
-  Using `next` on the last stage in a sequence is a compile-time error.
+  Using `next` when there is no next item in the enclosing sequence is a compile-time
+  error.
 </Note.Note>
 
 ### Named Stage Transitions
@@ -125,8 +164,8 @@ sequence test {
         start_btn => pressurize
     }
     stage pressurize {
-        pressure > 500 => hold,
-        abort_btn => idle        // can go backwards
+        pressure > 500 => hold
+        abort_btn => idle // can go backwards
     }
     stage hold {
         wait{duration=10s} => complete
@@ -142,7 +181,7 @@ sequence test {
 ```arc
 sequence main {
     stage pressurize {
-        emergency => abort       // jumps to abort sequence
+        emergency => abort // jumps to abort sequence
     }
 }
 
@@ -155,8 +194,8 @@ sequence abort {
 
 Cross-sequence transitions:
 
-1. Deactivate current stage in source sequence
-2. Activate first stage of target sequence
+1. Deactivate current item in source sequence
+2. Activate first item of target sequence
 3. No built-in "return" mechanism
 
 <Divider.Divider x />
@@ -166,11 +205,13 @@ Cross-sequence transitions:
 Entry points trigger sequences from external events:
 
 ```arc
-start_cmd => main           // channel triggers main sequence
-emergency_stop => abort     // channel triggers abort sequence
+start_cmd => main // channel triggers main sequence
+emergency_stop => abort // channel triggers abort sequence
 ```
 
-Entry points use `=>` because they fire once when the channel value becomes truthy.
+Entry points use `=>` because they fire while the channel value is truthy. The target
+sequence activates on the first truthy tick; subsequent truthy ticks are no-ops because
+the sequence is already active.
 
 ### Triggering Sequences
 
@@ -181,51 +222,100 @@ Entry point channels are typically `u8` virtual channels:
 3. When clicked, the button writes `1` to the channel
 4. Arc sees the truthy value and triggers the sequence
 
+### Anonymous Top-Level Sequences
+
+An anonymous top-level sequence has no entry point and starts automatically on program
+load:
+
+```arc
+sequence {
+    0 -> vent_vlv_cmd
+    1 -> press_vlv_cmd
+    wait{5s}
+    0 -> press_vlv_cmd
+}
+```
+
+<Divider.Divider x />
+
+## Inline Stages and Sequences
+
+Stages and sequences can nest inside each other.
+
+An anonymous `stage { ... }` used as a sequence item acts as a multi-exit gate.
+`=> next` advances the enclosing sequence; other targets jump as usual.
+
+```arc
+sequence press {
+    1 -> press_vlv_cmd
+    stage {
+        tank_pressure > 500 => next
+        wait{30s} => abort
+    }
+    0 -> press_vlv_cmd
+}
+```
+
+An anonymous `sequence { ... }` inside a stage runs its items in order while the stage's
+parallel flows continue. The inline sequence restarts from its first item every time the
+parent stage is entered.
+
+```arc
+stage fire {
+    chamber_temp > 2000 => abort
+    sequence {
+        1 -> igniter_cmd
+        wait{200ms}
+        1 -> ox_main_vlv_cmd
+    }
+}
+```
+
 <Divider.Divider x />
 
 ## Stage Entry Semantics
 
 When entering a stage:
 
-1. All one-shot (`=>`) transition states reset (can fire again)
-2. All stateful variables in stage nodes reset
-3. Continuous flows (`->`) start fresh
-4. Channel triggers only react to new writes — values written before stage activation
-   are ignored
+1. All stateful variables in stage nodes reset
+2. Continuous flows (`->`) start fresh
+3. Timing nodes (`wait`, `interval`) reset their countdowns
+4. Inline sub-sequences restart from their first item
+5. Channel triggers only react to new writes. Values written before stage activation are
+   ignored
 
 Stages are stateless between entries.
 
 <Divider.Divider x />
 
-## Concurrency Within Stages
+## Parallel Monitoring
 
 All flow statements in a stage run concurrently:
 
 ```arc
 stage pressurize {
     // ALL of these run simultaneously
-    sensor -> controller{target=500},    // control loop
-    ox_pt_1 > 600 => abort,              // monitoring
-    fuel_pt_1 > 400 => abort,            // monitoring
-    abort_btn => abort,                   // listening
-    pressure > 500 => next               // success check
+    sensor -> controller{target=500} // control loop
+    ox_pt_1 > 600 => abort // monitoring
+    fuel_pt_1 > 400 => abort // monitoring
+    abort_btn => abort // listening
+    pressure > 500 => next // success check
 }
 ```
 
 ### Line Order and Priority
 
-When multiple one-shot transitions (`=>`) are true simultaneously, the first one listed
-wins:
+When multiple conditional transitions (`=>`) are truthy in the same cycle, the first one
+listed wins:
 
 ```arc
 stage pressurize {
     // Safety conditions first (higher priority)
-    ox_pt_1 > 600 => abort,       // 1st priority
-    fuel_pt_1 > 400 => abort,     // 2nd priority
-    abort_btn => abort,           // 3rd priority
-
+    ox_pt_1 > 600 => abort // 1st priority
+    fuel_pt_1 > 400 => abort // 2nd priority
+    abort_btn => abort // 3rd priority
     // Success condition after safety
-    pressure > 500 => next        // only if no abort
+    pressure > 500 => next // only if no abort
 }
 ```
 
@@ -241,53 +331,49 @@ authority 200
 
 sequence main {
     stage idle {
-        0 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         start_btn => pressurize
     }
 
     stage pressurize {
         // Safety first
-        ox_pt_1 > 700 => abort,
-        fuel_pt_1 > 500 => abort,
-        abort_btn => abort,
-
+        ox_pt_1 > 700 => abort
+        fuel_pt_1 > 500 => abort
+        abort_btn => abort
         // Control
-        1 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
-
+        1 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         // Progress
         ox_pt_1 > 500 => hold
     }
 
     stage hold {
-        ox_pt_1 > 700 => abort,
-        abort_btn => abort,
-
-        1 -> press_vlv_cmd,
+        ox_pt_1 > 700 => abort
+        abort_btn => abort
+        1 -> press_vlv_cmd
         wait{duration=5s} => vent
     }
 
     stage vent {
-        0 -> press_vlv_cmd,
-        1 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
         ox_pt_1 < 50 => complete
     }
 
     stage complete {
-        0 -> press_vlv_cmd,
+        0 -> press_vlv_cmd
         0 -> vent_vlv_cmd
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         1 -> vent_vlv_cmd
     }
 }
-
 // Entry points
 start_cmd => main
 emergency_stop => abort
@@ -299,8 +385,8 @@ emergency_stop => abort
 
 | Restriction                 | Description                                            |
 | --------------------------- | ------------------------------------------------------ |
-| One active stage            | Only one stage per sequence is active at a time        |
-| No `next` on last stage     | Using `next` on the final stage is an error            |
+| One active item             | Only one item per sequence is active at a time         |
+| `next` needs a next item    | `next` in the last item of a sequence is an error      |
 | Entry points at top level   | Entry points must be outside sequences                 |
 | Acyclic continuous flows    | Continuous flows (`->`) within a stage must be acyclic |
-| Stage transitions can cycle | One-shot transitions (`=>`) can form cycles            |
+| Stage transitions can cycle | Conditional transitions (`=>`) can form cycles         |

@@ -58,6 +58,9 @@ type ArcParserListener interface {
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
 
+	// EnterSequenceItem is called when entering the sequenceItem production.
+	EnterSequenceItem(c *SequenceItemContext)
+
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
 
@@ -93,6 +96,9 @@ type ArcParserListener interface {
 
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
+
+	// EnterQualifiedIdentifier is called when entering the qualifiedIdentifier production.
+	EnterQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -141,6 +147,18 @@ type ArcParserListener interface {
 
 	// EnterElseClause is called when entering the elseClause production.
 	EnterElseClause(c *ElseClauseContext)
+
+	// EnterForStatement is called when entering the forStatement production.
+	EnterForStatement(c *ForStatementContext)
+
+	// EnterForClause is called when entering the forClause production.
+	EnterForClause(c *ForClauseContext)
+
+	// EnterBreakStatement is called when entering the breakStatement production.
+	EnterBreakStatement(c *BreakStatementContext)
+
+	// EnterContinueStatement is called when entering the continueStatement production.
+	EnterContinueStatement(c *ContinueStatementContext)
 
 	// EnterReturnStatement is called when entering the returnStatement production.
 	EnterReturnStatement(c *ReturnStatementContext)
@@ -265,6 +283,9 @@ type ArcParserListener interface {
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
 
+	// ExitSequenceItem is called when exiting the sequenceItem production.
+	ExitSequenceItem(c *SequenceItemContext)
+
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)
 
@@ -300,6 +321,9 @@ type ArcParserListener interface {
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)
+
+	// ExitQualifiedIdentifier is called when exiting the qualifiedIdentifier production.
+	ExitQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)
@@ -348,6 +372,18 @@ type ArcParserListener interface {
 
 	// ExitElseClause is called when exiting the elseClause production.
 	ExitElseClause(c *ElseClauseContext)
+
+	// ExitForStatement is called when exiting the forStatement production.
+	ExitForStatement(c *ForStatementContext)
+
+	// ExitForClause is called when exiting the forClause production.
+	ExitForClause(c *ForClauseContext)
+
+	// ExitBreakStatement is called when exiting the breakStatement production.
+	ExitBreakStatement(c *BreakStatementContext)
+
+	// ExitContinueStatement is called when exiting the continueStatement production.
+	ExitContinueStatement(c *ContinueStatementContext)
 
 	// ExitReturnStatement is called when exiting the returnStatement production.
 	ExitReturnStatement(c *ReturnStatementContext)

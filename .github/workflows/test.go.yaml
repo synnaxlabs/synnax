@@ -18,6 +18,13 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
+      prepare_driver_assets:
+        description:
+          Whether to create empty placeholders at core/pkg/driver/assets before lint and
+          test. Required for modules that compile with -tags driver.
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -52,6 +59,11 @@ jobs:
       - name: Check formatting
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
+
+      - name: Prepare driver asset placeholders
+        if: inputs.prepare_driver_assets
+        run: scripts/setup_driver_assets.sh
+        shell: bash
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9

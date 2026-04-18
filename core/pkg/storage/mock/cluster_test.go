@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("Storage", func() {
-	ShouldNotLeakGoroutinesBeforeEach()
+	ShouldNotLeakGoroutinesPerSpec()
 	DescribeTable("Name", func(ctx SpecContext, cfg ...storage.LayerConfig) {
 		b := mock.NewCluster(cfg...)
 		store := b.Provision(ctx)

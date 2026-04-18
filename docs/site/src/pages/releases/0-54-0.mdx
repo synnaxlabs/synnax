@@ -4,7 +4,10 @@ title: "Version 0.54 Release Notes"
 
 import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import Diagram from "@/components/diagram/Diagram.astro";
+
 export const components = mdxOverrides;
 
 <Release
@@ -13,12 +16,16 @@ export const components = mdxOverrides;
     title="PagerDuty Integration"
 >
 
-<Image client:only="react" id="releases/0-54-0/pagerduty-alert-task" themed={false} />
+<Diagram preview style="padding: 0rem 5rem">
+  <Image client:only="react" id="releases/0-54-0/pagerduty-alert-task" themed={false} />
+</Diagram>
 
 Synnax v0.54 introduces a PagerDuty integration for automated alerting, the ability to
 delete channel data directly from the Console, press-and-hold safety controls for
 schematic valves, and a number of stability and performance improvements across the
 platform.
+
+<Divider.Divider x />
 
 ### PagerDuty Integration
 
@@ -32,6 +39,8 @@ Events are deduplicated by status key, so repeated status changes update existin
 incidents rather than creating duplicates. The integration uses the PagerDuty Events API
 v2 and can be configured from both the Console and the Python client.
 
+<Divider.Divider x />
+
 ### Delete All Channel Data
 
 Users can now permanently delete time-series data from selected channels over a
@@ -40,6 +49,8 @@ first, select channels and a time range, then confirm the irreversible deletion 
 summary screen. Options are provided to delete from the beginning or to the end of time
 for convenience.
 
+<Divider.Divider x />
+
 ### Press and Hold for Schematic Valves
 
 Valve toggle buttons in schematics now support a configurable press-and-hold delay. When
@@ -47,11 +58,15 @@ enabled, users must hold the mouse button for a specified duration before the va
 toggles, preventing accidental activation of critical hardware. Visual feedback
 indicates the hold progress.
 
+<Divider.Divider x />
+
 ### Status Explorer Variant Filtering
 
-The Status Explorer now supports filtering by status variant — error, warning, info, and
-success. Filter chips display active selections and can be removed individually, making
+The Status Explorer now supports filtering by status variant (error, warning, info, and
+success). Filter chips display active selections and can be removed individually, making
 it easier to focus on specific status types across the system.
+
+<Divider.Divider x />
 
 ### Device-Chassis Hierarchy
 
@@ -61,15 +76,19 @@ NISysCfg link properties, and the ontology maintains these parent-child connecti
 across scan cycles. This reflects the physical hardware topology and makes it easier to
 navigate large NI installations.
 
+<Divider.Divider x />
+
 ### Arc Improvements
 
-- The Arc C++ runtime now supports `Select`, `StableFor`, and `SetStatus` node types,
+- The Arc C++ runtime now supports `select`, `stable_for`, and `set_status` node types,
   enabling conditional routing, timed output holds, and status reporting from within Arc
   programs that are executed on a Synnax Driver.
 - A telemetry bypass mode allows high-priority control operations to execute without
   telemetry collection overhead.
 - The "Open Arc" option is now available in the context menu for Arc programs, and the
   Arc Explorer can be launched from the Arc toolbar.
+
+<Divider.Divider x />
 
 ### Minor Improvements and Bug Fixes
 
@@ -99,16 +118,5 @@ navigate large NI installations.
 
 - The calculated channel engine is now more resilient to compilation errors, preventing
   cascading failures when an Arc program contains syntax issues.
-
-#### Infrastructure
-
-- Introduced Oracle, a code generation framework that produces high-performance binary
-  codecs (ORC encoding) for Go structs, with generated clients for Go, Python, and C++.
-- Added a new Gorp migration framework with typed table abstractions and pluggable
-  migration plugins.
-- Upgraded Fiber to v3, Bazel to 9, and updated dependencies across Go, Python,
-  TypeScript, and Rust.
-- Switched Python linting and formatting to Ruff.
-- Consolidated shared Python utilities from `client/py/x` into `x/py`.
 
 </Release>

@@ -15,6 +15,7 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/samber/lo"
@@ -255,8 +256,13 @@ func (p *Plugin) generateFile(
 		data.usedEnums[e.QualifiedName] = &e
 	}
 
-	for _, enumRef := range data.usedEnums {
-		enumTranslator := p.generateEnumTranslator(enumRef, data)
+	enumKeys := make([]string, 0, len(data.usedEnums))
+	for k := range data.usedEnums {
+		enumKeys = append(enumKeys, k)
+	}
+	sort.Strings(enumKeys)
+	for _, k := range enumKeys {
+		enumTranslator := p.generateEnumTranslator(data.usedEnums[k], data)
 		if enumTranslator != nil {
 			data.EnumTranslators = append(data.EnumTranslators, *enumTranslator)
 		}
@@ -1319,12 +1325,100 @@ func (p *Plugin) generateNestedArrayConversion(
 ) (forward, backward string, hasError bool) {
 	wrapperName := p.getNestedArrayWrapperName(typeRef, data.table)
 
-	data.imports.AddExternal("github.com/samber/lo")
+	// Delegate per-element conversion to the inner slice's existing
+	// XYZToPB / XYZFromPB helpers. This preserves type safety and error
+	// propagation for nested named-slice fields (e.g., Strata []Members).
+	// Falls back to the earlier broken lo.Map form only for [][]primitive,
+	// which has no struct helper to call — that path was not used by any
+	// schema at the time this fix landed.
+	if f, b, ok := p.generateStructNestedArrayConversion(typeRef, data, goField, pbField, wrapperName); ok {
+		return f, b, true
+	}
 
+	data.imports.AddExternal("github.com/samber/lo")
 	forward = fmt.Sprintf("lo.Map(%s, func(inner []string, _ int) *%s { return &%s{Values: inner} })", goField, wrapperName, wrapperName)
 	backward = fmt.Sprintf("lo.Map(%s, func(w *%s, _ int) []string { return w.Values })", pbField, wrapperName)
-
 	return forward, backward, false
+}
+
+// generateStructNestedArrayConversion emits the nested-array translation for
+// the common case of a slice-of-named-slice-of-struct (e.g., field type
+// []Members where Members = []Member). Returns ok=false if the schema does
+// not match this shape (e.g., [][]primitive), in which case the caller
+// should fall back to a simpler emission.
+//
+// The emitted forward expression has signature `([]*<Wrapper>, error)` and
+// the backward expression has signature `(<outer-go-type>, error)`. Both
+// delegate to the pre-existing XYZToPB / XYZFromPB helpers that the
+// generator emits for every named array type, so per-element error handling
+// and type conversions stay in one place.
+func (p *Plugin) generateStructNestedArrayConversion(
+	typeRef resolution.TypeRef,
+	data *templateData,
+	goField, pbField, wrapperName string,
+) (forward, backward string, ok bool) {
+	elemType, ok := p.getArrayElementType(typeRef, data.table)
+	if !ok {
+		return "", "", false
+	}
+	elemResolved, ok := elemType.Resolve(data.table)
+	if !ok {
+		return "", "", false
+	}
+	innerElem, ok := p.getArrayElementType(elemType, data.table)
+	if !ok {
+		return "", "", false
+	}
+	innerElemResolved, ok := innerElem.Resolve(data.table)
+	if !ok {
+		return "", "", false
+	}
+	if _, isStruct := innerElemResolved.Form.(resolution.StructForm); !isStruct {
+		return "", "", false
+	}
+
+	translatorPrefix, translatorStructName := p.resolvePBTranslatorInfo(innerElemResolved, data)
+	pluralName := pluralizeDistinct(translatorStructName)
+
+	// If the outer typeRef resolves to a distinct named type (e.g., Strata),
+	// use its qualified Go name so the IIFE's make() and return types match
+	// the field exactly. Otherwise, use []<elem-go-type>, which is assignable
+	// to an unnamed outer slice field.
+	outerGoType := ""
+	if outerResolved, ok := typeRef.Resolve(data.table); ok {
+		if _, isDistinct := outerResolved.Form.(resolution.DistinctForm); isDistinct {
+			outerGoType = data.parentAlias + "." + outerResolved.Name
+		}
+	}
+	if outerGoType == "" {
+		outerGoType = "[]" + data.parentAlias + "." + elemResolved.Name
+	}
+
+	forward = fmt.Sprintf(`func() ([]*%s, error) {
+		result := make([]*%s, len(%s))
+		for i, inner := range %s {
+			vals, err := %s%sToPB(inner)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = &%s{Values: vals}
+		}
+		return result, nil
+	}()`, wrapperName, wrapperName, goField, goField, translatorPrefix, pluralName, wrapperName)
+
+	backward = fmt.Sprintf(`func() (%s, error) {
+		result := make(%s, len(%s))
+		for i, w := range %s {
+			vals, err := %s%sFromPB(w.Values)
+			if err != nil {
+				return nil, err
+			}
+			result[i] = vals
+		}
+		return result, nil
+	}()`, outerGoType, outerGoType, pbField, pbField, translatorPrefix, pluralName)
+
+	return forward, backward, true
 }
 
 func (p *Plugin) generateEnumTranslator(

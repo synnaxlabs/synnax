@@ -73,6 +73,7 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
+import { LuSigma } from "react-icons/lu";
 import {
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
@@ -153,6 +154,7 @@ import {
   MdSaveAlt,
   MdSensors,
   MdShield,
+  MdSquare,
   MdSquareFoot,
   MdTextFields,
   MdTypeSpecimen,
@@ -214,6 +216,7 @@ import {
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
+  TbSuperscript,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -238,6 +241,7 @@ import { Valve } from "@/icon/Valve";
 export const Pause = wrapSVGIcon(MdPause, "pause");
 export const Play = wrapSVGIcon(MdPlayArrow, "play");
 export const Circle = wrapSVGIcon(MdFiberManualRecord, "circle");
+export const Square = wrapSVGIcon(MdSquare, "square");
 export const Edit = wrapSVGIcon(MdEdit, "edit");
 export const EditOff = wrapSVGIcon(MdEditOff, "edit-off");
 export const Add = wrapSVGIcon(HiOutlinePlus, "add");
@@ -423,6 +427,8 @@ export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
+export const Scientific = wrapSVGIcon(TbSuperscript, "scientific");
+export const Engineering = wrapSVGIcon(LuSigma, "engineering");
 export const String = wrapSVGIcon(VscSymbolString, "string");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
 export const Rack = wrapSVGIcon(MdHive, "rack");
@@ -601,6 +607,8 @@ const icons = {
   Calculation,
   Binary,
   Decimal,
+  Scientific,
+  Engineering,
   String,
   Control,
   Rack,

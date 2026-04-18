@@ -108,7 +108,17 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 			outputMemoryBases[i.Key] = outputMemoryBase
 			var size uint32 = 8
 			for _, oParam := range i.Outputs {
-				size += uint32(oParam.Type.Density())
+				if !oParam.Type.IsValid() {
+					return Output{}, errors.Newf(
+						"function %s has output %q with unresolved type",
+						i.Key, oParam.Name,
+					)
+				}
+				if oParam.Type.Kind == types.KindString {
+					size += 4
+				} else {
+					size += uint32(oParam.Type.Density())
+				}
 			}
 			outputMemoryCounter += size
 		}
@@ -197,9 +207,10 @@ func collectLocals(scope *symbol.Scope) []wasm.ValueType {
 	var locals []wasm.ValueType
 	for _, child := range scope.Children {
 		switch child.Kind {
-		case symbol.KindVariable, symbol.KindStatefulVariable, symbol.KindOutput:
+		case symbol.KindVariable, symbol.KindStatefulVariable,
+			symbol.KindOutput, symbol.KindLoopVariable:
 			locals = append(locals, wasm.ConvertType(child.Type))
-		case symbol.KindBlock:
+		case symbol.KindBlock, symbol.KindLoop:
 			locals = append(locals, collectLocals(child)...)
 		default:
 		}

@@ -8,6 +8,9 @@ FUNC        : 'func';
 IF          : 'if';
 ELSE        : 'else';
 RETURN      : 'return';
+FOR         : 'for';
+BREAK       : 'break';
+CONTINUE    : 'continue';
 
 // Sequencing keywords
 SEQUENCE    : 'sequence';
@@ -87,6 +90,7 @@ LBRACKET    : '[';
 RBRACKET    : ']';
 COMMA       : ',';
 COLON       : ':';
+DOT         : '.';
 
 // =============================================================================
 // Literals

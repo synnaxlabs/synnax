@@ -158,10 +158,24 @@ func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node 
 	}))
 }
 
+// Execute creates and runs the named node, returning the set of output
+// names marked changed.
 func (h *testHarness) Execute(ctx context.Context, nodeKey string) set.Set[string] {
-	n := h.CreateNode(ctx, nodeKey)
+	return h.NextChanged(ctx, h.CreateNode(ctx, nodeKey), nodeKey)
+}
+
+// NextChanged calls n.Next and returns the set of output names that were
+// marked changed during the call. nodeKey identifies which IR node owns
+// n so that the MarkChanged ordinal can be resolved back to a name —
+// production runtime nodes only deal in ordinals.
+func (h *testHarness) NextChanged(ctx context.Context, n node.Node, nodeKey string) set.Set[string] {
+	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+		if i >= 0 && i < len(outputs) {
+			changed.Add(outputs[i].Name)
+		}
+	}})
 	return changed
 }
 
@@ -395,16 +409,15 @@ var _ = Describe("WASM", func() {
 
 			n := h.CreateNode(ctx, "counter")
 
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
 
@@ -440,7 +453,7 @@ var _ = Describe("WASM", func() {
 
 			n1 := h.CreateNode(ctx, "c1")
 			n2 := h.CreateNode(ctx, "c2")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n1.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
@@ -482,7 +495,7 @@ var _ = Describe("WASM", func() {
 
 			n1 := h.CreateNode(ctx, "counter_a")
 			n2 := h.CreateNode(ctx, "counter_b")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			// First execution of counter_a should return 1
 			n1.Next(nCtx)
@@ -683,14 +696,13 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "series_state")
-			changed := make(set.Set[string])
 
 			// First call
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "series_state")
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 
 			// Second call - state persists
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "series_state")
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 		})
 	})
@@ -946,6 +958,414 @@ var _ = Describe("WASM", func() {
 				return len(a + b)
 			}`, stl.SymbolResolver, int32(11)),
 		)
+
+		DescribeTable("qualified string.len() calls",
+			expectOutput[int32],
+			Entry("simple string", "qlen_str", types.I64(), `{
+				return string.len("hello")
+			}`, stl.SymbolResolver, int32(5)),
+			Entry("empty string", "qlen_empty", types.I64(), `{
+				return string.len("")
+			}`, stl.SymbolResolver, int32(0)),
+			Entry("string variable", "qlen_var", types.I64(), `{
+				s str := "world"
+				return string.len(s)
+			}`, stl.SymbolResolver, int32(5)),
+		)
+
+		DescribeTable("qualified string.concat() calls",
+			expectOutput[int32],
+			Entry("two literals", "qconcat_lit", types.I64(), `{
+				return len(string.concat("ab", "cd"))
+			}`, stl.SymbolResolver, int32(4)),
+			Entry("variables", "qconcat_var", types.I64(), `{
+				a str := "hello"
+				b str := " world"
+				return string.len(string.concat(a, b))
+			}`, stl.SymbolResolver, int32(11)),
+		)
+
+		DescribeTable("qualified string.equal() calls",
+			expectOutput[int32],
+			Entry("equal strings", "qeq_true", types.I32(), `{
+				return string.equal("abc", "abc")
+			}`, stl.SymbolResolver, int32(1)),
+			Entry("unequal strings", "qeq_false", types.I32(), `{
+				return string.equal("abc", "def")
+			}`, stl.SymbolResolver, int32(0)),
+		)
+	})
+
+	Describe("Qualified math.pow()", func() {
+		DescribeTable("const, const (i64)",
+			expectOutput[int32],
+			Entry("i64 literals", "pow_ii", types.I64(), `{
+				return math.pow(2, 10)
+			}`, stl.SymbolResolver, int32(1024)),
+		)
+
+		DescribeTable("const, const (f64)",
+			expectOutput[float64],
+			Entry("f64 literals", "pow_ff64", types.F64(), `{
+				return math.pow(2.0, 3.0)
+			}`, stl.SymbolResolver, float64(8.0)),
+			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
+				return math.pow(9.0, 0.5)
+			}`, stl.SymbolResolver, float64(3.0)),
+		)
+
+		It("chan, const (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 5), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_ci")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ci", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 27, 125}))
+		})
+
+		It("chan, const (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](2.0, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](2.0), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_cf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cf", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{4.0, 9.0, 16.0}))
+		})
+
+		It("const, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](1, 2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3, 4))
+
+			changed := h.Execute(ctx, "pow_ic")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ic", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{2, 4, 8, 16}))
+		})
+
+		It("const, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](3.0), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](1.0, 2.0, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_fc")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_fc", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{3.0, 9.0, 27.0}))
+		})
+
+		It("chan, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 10), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3, 2, 4), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_cc_i")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_i", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 9, 10000}))
+		})
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](4.0, 27.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](0.5, 1.0/3.0), telem.NewSeriesSecondsTSV(1, 2))
+
+			changed := h.Execute(ctx, "pow_cc_f")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_f", 0)
+			values := telem.UnmarshalSeries[float64](result)
+			Expect(values[0]).To(BeNumerically("~", 2.0, 1e-9))
+			Expect(values[1]).To(BeNumerically("~", 3.0, 1e-9))
+		})
+	})
+
+	Describe("String Function Type Safety", func() {
+		DescribeTable("Should reject non-string arguments to string functions",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			},
+			Entry("string.len with integer", `
+				func bad() i64 { return string.len(123) }
+			`),
+			Entry("string.concat with integer", `
+				func bad() str { return string.concat(1, 2) }
+			`),
+			Entry("string.equal with integer", `
+				func bad() i32 { return string.equal(1, 2) }
+			`),
+		)
+	})
+
+	Describe("String Channel Input", func() {
+		It("Should convert string channel data to handles for function parameters", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "str_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "str_len", Type: "str_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "str_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "str_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("str_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.len()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "qstr_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "qstr_len", Type: "qstr_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "qstr_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.concat()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "qstr_concat",
+						Inputs: types.Params{
+							{Name: "a", Type: types.String()},
+							{Name: "b", Type: types.String()},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(string.concat(a, b)) }`},
+					},
+					{
+						Key:     "src_a",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+					{
+						Key:     "src_b",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "src_a", Type: "src_a"},
+					{Key: "src_b", Type: "src_b"},
+					{Key: "qstr_concat", Type: "qstr_concat"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "src_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "src_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "b"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("src_a", 0,
+				telem.NewSeriesV[string]("hello"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput("src_b", 0,
+				telem.NewSeriesV[string](" world"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			changed := h.Execute(ctx, "qstr_concat")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_concat", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{11}))
+		})
+	})
+
+	Describe("Named String Output Memory Layout", func() {
+		It("Should compute correct memory offsets for string outputs in graph nodes", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "value", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = "ok"
+							value = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			// The key assertion: this must not panic on Density() for
+			// string-typed named outputs in either the compiler or runtime.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("labeler", 0,
+				telem.NewSeriesV[int64](5),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "labeler") }).ToNot(Panic())
+		})
+
+		It("Should handle multiple string outputs without panicking", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "tagger",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "first", Type: types.String()},
+							{Name: "second", Type: types.String()},
+							{Name: "count", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							first = "a"
+							second = "b"
+							count = x
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "tagger", Type: "tagger"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "tagger", Param: "x"},
+					},
+				},
+			}
+			// Must not panic even with multiple string outputs
+			// contributing to the memory offset calculation.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("tagger", 0,
+				telem.NewSeriesV[int64](42),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
+		})
 	})
 
 	Describe("No-Input Node Initialization", func() {
@@ -962,14 +1382,12 @@ var _ = Describe("WASM", func() {
 			n := h.CreateNode(ctx, "init_counter")
 
 			// First call - should execute and return 1
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed := h.NextChanged(ctx, n, "init_counter")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
 
 			// Second call - should NOT execute again (initialized flag)
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "init_counter")
 			// No output should be marked as changed since we didn't execute
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
@@ -977,8 +1395,7 @@ var _ = Describe("WASM", func() {
 			n.Reset()
 
 			// Third call - should execute again after reset
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "init_counter")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			// Counter persists so it should be 2 now
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
@@ -994,8 +1411,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
 
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed := h.NextChanged(ctx, n, "add")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
 
@@ -1003,8 +1419,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
 
 			// Nodes with incoming edges should execute every time they have new input
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "add")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
 		})
@@ -1042,8 +1457,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("input_source", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "add_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			h.NextChanged(ctx, n, "add_config")
 
 			output := h.Output("add_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1080,8 +1494,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("input_source", 0, telem.NewSeriesV[int32](3), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "multi_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			h.NextChanged(ctx, n, "multi_config")
 
 			output := h.Output("multi_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1118,8 +1531,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "scale_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			h.NextChanged(ctx, n, "scale_config")
 
 			output := h.Output("scale_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1287,7 +1699,7 @@ var _ = Describe("WASM", func() {
 
 				for i := range 3 {
 					n.Reset()
-					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+					n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
@@ -1563,7 +1975,7 @@ var _ = Describe("WASM", func() {
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "void_with_state")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Reset()
 			n.Next(nCtx)
@@ -1590,7 +2002,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -1612,7 +2024,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -1636,7 +2048,7 @@ var _ = Describe("WASM", func() {
 			defer h.Close(ctx)
 
 			n := h.CreateNode(ctx, "expr_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
@@ -2775,6 +3187,473 @@ input_ch -> count_local{} -> sink_ch
 			h := newHarness(ctx, g, nil)
 			defer h.Close(ctx)
 			h.Execute(ctx, "log_fn")
+		})
+	})
+
+	Describe("For Loops", func() {
+		Describe("Range loops", func() {
+			DescribeTable("should compute correct sums",
+				expectOutput[int64],
+				Entry("1-arg range", "range1", types.I64(), `{
+					sum i64 := 0
+					for i := range(5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("2-arg range", "range2", types.I64(), `{
+					sum i64 := 0
+					for i := range(5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(35)),
+				Entry("3-arg range with step", "range3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(20)),
+				Entry("empty range", "range_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("reversed bounds", "range_rev", types.I64(), `{
+					sum i64 := 99
+					for i := range(10, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("step of 3", "range_step3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 3) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("explicit step of 1", "range_step1", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("step larger than range", "range_big_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("step equals range", "range_step_eq", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("negative step", "range_neg_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(30)),
+				Entry("negative step of -1", "range_neg1", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(55)),
+				Entry("negative step with large gap", "range_neg_big", types.I64(), `{
+					sum i64 := 0
+					for i := range(20, 0, -5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(50)),
+				Entry("negative step empty", "range_neg_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0, 10, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("negative start positive end", "range_neg_start", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("both bounds negative", "range_neg_both", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-14)),
+				Entry("positive to negative descending", "range_pos_to_neg", types.I64(), `{
+					sum i64 := 0
+					for i := range(3, -3, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(3)),
+				Entry("mixed i32 start with i64 end", "range_mixed", types.I64(), `{
+					lo i32 := 1
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("mixed i32 start with i64 end and i32 step", "range_3arg_mixed", types.I64(), `{
+					lo i32 := 0
+					hi i64 := 10
+					s i32 := 3
+					sum i64 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("mixed types with negative start", "range_mixed_neg", types.I64(), `{
+					lo i32 := -5
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("mixed types descending with negative step", "range_mixed_desc", types.I64(), `{
+					hi i64 := 5
+					lo i32 := -5
+					s i32 := -2
+					sum i64 := 0
+					for i := range(hi, lo, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(5)),
+			)
+
+			It("Should handle mixed i16 start with i32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_i32", types.I32(), `{
+					lo i16 := 0
+					hi i32 := 4
+					sum i32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should handle mixed u8 start with u32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u32", types.U32(), `{
+					lo u8 := 1
+					hi u32 := 4
+					sum u32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint32(6))
+			})
+
+			It("Should handle u8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_only", types.U8(), `{
+					sum u8 := 0
+					for i := range(u8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint8(10))
+			})
+
+			It("Should handle i8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_only", types.I8(), `{
+					sum i8 := 0
+					for i := range(i8(1), i8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int8(10))
+			})
+
+			It("Should handle u16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u16_only", types.U16(), `{
+					sum u16 := 0
+					for i := range(u16(10)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(45))
+			})
+
+			It("Should handle i16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_only", types.I16(), `{
+					sum i16 := 0
+					for i := range(i16(1), i16(6)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(15))
+			})
+
+			It("Should handle mixed i8 start with i16 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_i16", types.I16(), `{
+					lo i8 := 0
+					hi i16 := 5
+					sum i16 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(10))
+			})
+
+			It("Should handle mixed u8 start with u16 end and u8 step", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u16_step", types.U16(), `{
+					lo u8 := 0
+					hi u16 := 10
+					s u8 := 2
+					sum u16 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(20))
+			})
+		})
+
+		Describe("Series iteration", func() {
+			It("Should sum elements with single-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_sum", types.I32(), `{
+					data series i32 := [1, 2, 3, 4, 5]
+					sum i32 := 0
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should compute weighted sum with two-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_weighted", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for i, x := data {
+						sum = sum + x * (i + 1)
+					}
+					return sum
+				}`, nil, int32(140))
+			})
+
+			It("Should produce zero iterations for empty series", func(ctx SpecContext) {
+				expectOutput(ctx, "series_empty", types.I32(), `{
+					data series i32 := []
+					sum i32 := 99
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(99))
+			})
+		})
+
+		Describe("Break and continue", func() {
+			It("Should break on threshold in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "break_thresh", types.I32(), `{
+					data series i32 := [1, 2, 3, 100, 5]
+					sum i32 := 0
+					for x := data {
+						if x > 50 {
+							break
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip odd indices in range loop", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_skip", types.I32(), `{
+					sum i32 := 0
+					for i := range(i32(6)) {
+						if i % 2 != 0 {
+							continue
+						}
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip elements in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_series", types.I32(), `{
+					data series i32 := [10, -1, 20, -1, 30]
+					sum i32 := 0
+					for x := data {
+						if x < 0 {
+							continue
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(60))
+			})
+
+			It("Should continue only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_nested", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j == 2 {
+								continue
+							}
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int64(9))
+			})
+
+			It("Should break only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "break_inner_only", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(10) {
+							if j >= 2 {
+								break
+							}
+							sum = sum + 1
+						}
+						sum = sum + 100
+					}
+					return sum
+				}`, nil, int64(306))
+			})
+		})
+
+		Describe("Conditional and infinite", func() {
+			It("Should execute while-style countdown", func(ctx SpecContext) {
+				expectOutput(ctx, "while_count", types.I32(), `{
+					n i32 := 5
+					sum i32 := 0
+					for n > 0 {
+						sum = sum + n
+						n = n - 1
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should execute infinite loop with break", func(ctx SpecContext) {
+				expectOutput(ctx, "inf_break", types.I32(), `{
+					val i32 := 1
+					for {
+						val = val * 2
+						if val > 100 {
+							break
+						}
+					}
+					return val
+				}`, nil, int32(128))
+			})
+		})
+
+		Describe("Nested loops", func() {
+			It("Should compute matrix iteration count", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_count", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(12))
+			})
+
+			It("Should handle inner break with outer running fully", func(ctx SpecContext) {
+				expectOutput(ctx, "inner_break", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j > 1 {
+								break
+							}
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(6))
+			})
+
+			It("Should handle 3-deep nested range loops", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_3deep", types.I64(), `{
+					count i64 := 0
+					for i := range(2) {
+						for j := range(3) {
+							for k := range(4) {
+								count = count + 1
+							}
+						}
+					}
+					return count
+				}`, nil, int64(24))
+			})
+
+			It("Should nest range loop inside series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "series_range_nested", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for x := data {
+						for j := range(i32(x / 10)) {
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+		})
+
+		Describe("Stateful across calls", func() {
+			It("Should accumulate across reactive executions", func(ctx SpecContext) {
+				g := singleFunctionGraph("loop_state", types.I64(), `{
+					total i64 $= 0
+					for i := range(3) {
+						total = total + 1
+					}
+					return total
+				}`)
+				h := newHarness(ctx, g, nil)
+				defer h.Close(ctx)
+
+				n := h.CreateNode(ctx, "loop_state")
+				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(6)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(9)))
+			})
 		})
 	})
 })

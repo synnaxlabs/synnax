@@ -140,7 +140,7 @@ export const retrieveMultiple = async <
     });
   }
 
-  return devices;
+  return Flux.orderByKeys(keys, devices, (d) => d.key);
 };
 
 export const createRetrieve = <

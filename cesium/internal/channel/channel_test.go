@@ -15,7 +15,6 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/telem"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -38,7 +37,7 @@ var _ = Describe("Channel", func() {
 			Expect(c.ValidateSeries(s)).To(
 				And(
 					MatchError(ContainSubstring("invalid data type for channel [cat]<1>, expected int64, got float64")),
-					HaveOccurredAs(validate.ErrValidation),
+					MatchError(validate.ErrValidation),
 				))
 		})
 		It("Should allow int64 series to pass as timestamps", func() {

@@ -94,8 +94,13 @@ var SymbolResolver = symbol.CompoundResolver{
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
+	// The qualified prefix ("time.interval", "time.wait") is needed because the
+	// compiler emits the module-qualified name as the IR node type when users write
+	// time.interval{} or time.wait{}. Stripping the prefix in the compiler would be
+	// cleaner but risks breaking WASM host function resolution. this is safer and
+	// inexpensive since time is the only STL module with a node factory.
 	switch cfg.Node.Type {
-	case intervalSymbolName:
+	case intervalSymbolName, "time." + intervalSymbolName:
 		periodParam, ok := cfg.Node.Config.Get(periodConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound
@@ -111,7 +116,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 			lastFired: -period,
 		}, nil
 
-	case waitSymbolName:
+	case waitSymbolName, "time." + waitSymbolName:
 		durationParam, ok := cfg.Node.Config.Get(durationConfigParam)
 		if !ok {
 			return nil, query.ErrNotFound
@@ -196,7 +201,7 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + i.period)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
@@ -244,7 +249,7 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (w *Wait) Reset() {

@@ -28,7 +28,13 @@ public:
         auto [func, err] = this->mod->func(cfg.node.type, cfg.node.config);
         if (err) return {nullptr, err};
         return {
-            std::make_unique<Node>(cfg.prog, cfg.node, std::move(cfg.state), func),
+            std::make_unique<Node>(
+                cfg.prog,
+                cfg.node,
+                std::move(cfg.state),
+                func,
+                this->mod->strings()
+            ),
             x::errors::NIL
         };
     }

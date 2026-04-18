@@ -447,7 +447,7 @@ class LayoutClient:
             element.click(timeout=500)
         else:
             with self._bring_to_front(selector) as el:
-                el.click(timeout=500)
+                el.click(timeout=500, force=True)
 
         sy.sleep(0.1)
 

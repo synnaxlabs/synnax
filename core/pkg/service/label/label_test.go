@@ -34,34 +34,26 @@ var _ = Describe("Label", Ordered, func() {
 		tx  gorp.Tx
 	)
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-		searchIdx := MustSucceed(search.Open())
-		DeferCleanup(func() {
-			Expect(searchIdx.Close()).To(Succeed())
-		})
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
 		}))
-		svc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		svc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
 	})
-	AfterAll(func(ctx SpecContext) {
-		Expect(svc.Close()).To(Succeed())
-		Expect(otg.Close()).To(Succeed())
-		Expect(db.Close()).To(Succeed())
-	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
 		w = svc.NewWriter(tx)
 	})
-	AfterEach(func(ctx SpecContext) {
+	AfterEach(func() {
 		Expect(tx.Close()).To(Succeed())
 	})
 	Describe("Create", func() {

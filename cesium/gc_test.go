@@ -25,7 +25,7 @@ import (
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
-			ShouldNotLeakRoutinesJustBeforeEach()
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				basic   = testutil.GenerateChannelKey()

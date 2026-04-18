@@ -407,7 +407,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	// Create arc task factory for the driver
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
 		Instrumentation: cfg.Child("arc.runtime"),
 		Channel:         l.Channel,

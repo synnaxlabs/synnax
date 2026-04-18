@@ -27,7 +27,7 @@ type Writer struct {
 	cfg       WriterConfig
 }
 
-var errWriterClosed = resource.NewClosedError("cesium.writer")
+var ErrWriterClosed = resource.NewClosedError("cesium.writer")
 
 func wrapStreamWriter(cfg WriterConfig, internal StreamWriter) *Writer {
 	sCtx, cancel := signal.Isolated()
@@ -95,7 +95,7 @@ func (w *Writer) Close() error { return w.close(nil) }
 
 func (w *Writer) close(err error) error {
 	if w.closeErr != nil {
-		return errors.Skip(w.closeErr, errWriterClosed)
+		return errors.Skip(w.closeErr, ErrWriterClosed)
 	}
 	w.closeErr = err
 	w.requests.Close()
@@ -104,6 +104,6 @@ func (w *Writer) close(err error) error {
 	if w.closeErr != nil {
 		return w.closeErr
 	}
-	w.closeErr = errWriterClosed
+	w.closeErr = ErrWriterClosed
 	return nil
 }

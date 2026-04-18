@@ -17,6 +17,7 @@ topLevelItem
     | functionDeclaration
     | flowStatement
     | sequenceDeclaration
+    | stageDeclaration
     | globalConstant
     ;
 
@@ -81,23 +82,39 @@ config
 // =============================================================================
 
 // sequence main { stage precheck { } stage pressurization { } }
+// sequence { 1 -> valve_cmd   wait{duration=2s}   0 -> valve_cmd }
+// sequence { 1 -> valve_cmd, wait{duration=2s}, 0 -> valve_cmd }
 sequenceDeclaration
-    : SEQUENCE IDENTIFIER LBRACE stageDeclaration* RBRACE
+    : SEQUENCE IDENTIFIER? LBRACE (sequenceItem (COMMA? sequenceItem)* COMMA?)? RBRACE
+    ;
+
+// Items in a sequence body. Commas between items are optional; newlines and
+// whitespace work as separators too, matching stage body syntax.
+sequenceItem
+    : stageDeclaration
+    | sequenceDeclaration
+    | flowStatement
+    | singleInvocation
     ;
 
 // stage precheck { items... }
+// stage { items... }
 stageDeclaration
-    : STAGE IDENTIFIER stageBody
+    : STAGE IDENTIFIER? stageBody
     ;
 
-// { reactive flows and transitions, comma-separated }
+// { reactive flows and transitions }
+// Items may be separated by newlines, commas, or both. This mirrors stageless
+// sequence bodies, which never required commas, and lets users inline flows
+// on one line with comma separators or lay them out vertically without.
 stageBody
-    : LBRACE (stageItem (COMMA stageItem)* COMMA?)? RBRACE
+    : LBRACE (stageItem (COMMA? stageItem)* COMMA?)? RBRACE
     ;
 
 stageItem
     : flowStatement
     | singleInvocation
+    | sequenceDeclaration
     ;
 
 singleInvocation
@@ -149,7 +166,12 @@ identifier
     ;
 
 function
-    : IDENTIFIER configValues
+    : qualifiedIdentifier configValues
+    | IDENTIFIER configValues
+    ;
+
+qualifiedIdentifier
+    : IDENTIFIER DOT IDENTIFIER
     ;
 
 configValues
@@ -190,6 +212,9 @@ statement
     : variableDeclaration
     | assignment
     | ifStatement
+    | forStatement
+    | breakStatement
+    | continueStatement
     | returnStatement
     | expression
     ;
@@ -234,6 +259,25 @@ elseIfClause
 
 elseClause
     : ELSE block
+    ;
+
+forStatement
+    : FOR forClause block
+    ;
+
+forClause
+    : IDENTIFIER COMMA IDENTIFIER DECLARE expression
+    | IDENTIFIER DECLARE expression
+    | expression
+    |
+    ;
+
+breakStatement
+    : BREAK
+    ;
+
+continueStatement
+    : CONTINUE
     ;
 
 returnStatement
@@ -340,6 +384,7 @@ functionCallSuffix
 
 primaryExpression
     : literal
+    | qualifiedIdentifier
     | IDENTIFIER
     | LPAREN expression RPAREN
     | typeCast

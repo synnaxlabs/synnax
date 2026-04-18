@@ -104,9 +104,8 @@ var _ = Describe("Writer", func() {
 				Description: "A builtin role",
 				Internal:    true,
 			}
-			err := restrictedWriter.Create(ctx, r)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot create internal role"))
+			Expect(restrictedWriter.Create(ctx, r)).
+				Error().To(MatchError(ContainSubstring("cannot create internal role")))
 		})
 	})
 
@@ -153,9 +152,8 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, r)).To(Succeed())
 
 			restrictedWriter := svc.NewWriter(tx, false)
-			err := restrictedWriter.Delete(ctx, r.Key)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot delete builtin role"))
+			Expect(restrictedWriter.Delete(ctx, r.Key)).
+				Error().To(MatchError(ContainSubstring("cannot delete builtin role")))
 		})
 	})
 

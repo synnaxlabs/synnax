@@ -48,6 +48,7 @@ var userSymbols = symbol.MapResolver{
 var hostSymbols = symbol.MapResolver{
 	"read": {
 		Name:     "read",
+		Kind:     symbol.KindFunction,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
@@ -56,6 +57,7 @@ var hostSymbols = symbol.MapResolver{
 	},
 	"write": {
 		Name:     "write",
+		Kind:     symbol.KindFunction,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},
@@ -181,7 +183,7 @@ func (s *source) Next(ctx node.Context) {
 			*s.Output(0) = ser
 			*s.OutputTime(0) = timeSeries
 			s.highWaterMark = ab.Upper
-			ctx.MarkChanged(ir.DefaultOutputParam)
+			ctx.MarkChanged(0)
 			return
 		}
 	}
@@ -214,7 +216,7 @@ func (s *sink) Next(ctx node.Context) {
 	telem.SetValueAt[telem.TimeStamp](*outTime, 0, lastTS)
 	outTime.Alignment = data.Alignment
 	outTime.TimeRange = data.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type i32Compatible interface {

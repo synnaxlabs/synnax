@@ -27,44 +27,44 @@ start_stage_routing_cmd => main
 
 sequence main {
     stage select_hold {
-        "select_hold" -> routing_stage_log,
+        "select_hold" -> routing_stage_log
         routing_flag -> select{} -> {
             true: select_on,
             false: select_off
-        },
+        }
     }
     stage select_on {
-        "select_on" -> routing_stage_log,
+        "select_on" -> routing_stage_log
         next_cmd => select_hold
     }
     stage select_off {
-        "select_off" -> routing_stage_log,
+        "select_off" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
 
     stage decide_stage_hold {
-        "decide_stage_hold" -> routing_stage_log,
+        "decide_stage_hold" -> routing_stage_log
         routing_sensor -> decide_stage{low=30.0, high=80.0} -> {
             vent: decide_stage_vent,
             press: decide_stage_press,
             abort: decide_stage_abort
-        },
+        }
     }
     stage decide_stage_vent {
-        "decide_stage_vent" -> routing_stage_log,
+        "decide_stage_vent" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
     stage decide_stage_press {
-        "decide_stage_press" -> routing_stage_log,
+        "decide_stage_press" -> routing_stage_log
         next_cmd => decide_stage_hold
     }
     stage decide_stage_abort {
-        "decide_stage_abort" -> routing_stage_log,
+        "decide_stage_abort" -> routing_stage_log
         next_cmd => done
     }
 
     stage done {
-        "done" -> routing_stage_log,
+        "done" -> routing_stage_log
     }
 }
 """
