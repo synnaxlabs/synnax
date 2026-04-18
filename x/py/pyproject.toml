@@ -4,8 +4,8 @@ version = "0.55.0"
 description = "Shared Python utilities for Synnax"
 keywords = ["Synnax"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.12,<4"
-dependencies = ["numpy>=2.4.3,<3", "pandas>=3.0.1,<4", "pydantic>=2.12.5,<3"]
+requires-python = ">=3.11,<4"
+dependencies = ["numpy>=2.4.4,<3", "pandas>=3.0.2,<4", "pydantic>=2.13.2,<3"]
 
 [project.urls]
 Homepage = "https://synnaxlabs.com"
@@ -13,12 +13,12 @@ Repository = "https://github.com/synnaxlabs/synnax"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.19.1,<2",
-    "pandas-stubs>=3.0.0,<4",
-    "python-dateutil>=2.9.0,<3",
-    "pytest>=9.0.2,<10",
-    "ruff>=0.15.9,<1",
-    "types-python-dateutil>=2.9.0,<3",
+    "mypy>=1.20.1,<2",
+    "pandas-stubs>=3.0.0.260204,<4",
+    "python-dateutil>=2.9.0.post0,<3",
+    "pytest>=9.0.3,<10",
+    "ruff>=0.15.11,<1",
+    "types-python-dateutil>=2.9.0.20260408,<3",
 ]
 
 [tool.hatch.build.targets.wheel]
