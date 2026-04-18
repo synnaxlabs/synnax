@@ -28,25 +28,31 @@
     .console-log__toolbar-channels {
         padding-top: 2rem;
         padding-bottom: 2rem;
+        overflow: auto;
 
         .console-log__channel-row {
             padding: 0.2rem 3rem 0.2rem 1rem;
+            min-height: unset;
+            cursor: default;
+            --pluto-hover-bg: transparent;
 
             .console-log__channel-select {
                 flex: 4;
-                min-width: 0;
+                min-width: 150px;
+                max-width: 500px;
                 overflow: hidden;
             }
 
             .console-log__channel-alias {
                 flex: 1;
-                min-width: 75px;
+                min-width: 0;
+                max-width: 200px;
                 overflow: hidden;
             }
 
             .console-log__channel-precision {
-                min-width: 60px;
-                max-width: 65px;
+                min-width: 70px;
+                max-width: 90px;
             }
         }
     }

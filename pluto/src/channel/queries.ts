@@ -168,7 +168,7 @@ const retrieveMultiple = async ({
   query: { keys, rangeKey },
   store,
 }: Flux.RetrieveParams<RetrieveMultipleQuery, FluxSubStore>) => {
-  const channels = store.channels.get(keys);
+  let channels = store.channels.get(keys);
   const existingKeys = new Set(channels?.map((ch) => ch.key));
   const missingKeys = keys.filter((key) => !existingKeys.has(key));
   if (missingKeys.length > 0) {
@@ -176,6 +176,7 @@ const retrieveMultiple = async ({
     channels.push(...missingChannels);
     store.channels.set(missingChannels);
   }
+  channels = Flux.orderByKeys(keys, channels, (ch) => ch.key);
   if (rangeKey != null) {
     const aliasKeys = keys.map((key) =>
       ranger.alias.createKey({ range: rangeKey, channel: key }),
