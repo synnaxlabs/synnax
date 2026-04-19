@@ -276,6 +276,10 @@ func diffStructFields(
 			selfChanged = true
 			continue
 		}
+		if domain.GetStringFromField(of, "go", "marshal") !=
+			domain.GetStringFromField(nf, "go", "marshal") {
+			selfChanged = true
+		}
 		diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindUnchanged, OldField: &of, NewField: &nf})
 	}
 	for _, nf := range new.Fields {
