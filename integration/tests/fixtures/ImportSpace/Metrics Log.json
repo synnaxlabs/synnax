@@ -14,5 +14,8 @@
   "timestampPrecision": 0,
   "showChannelNames": true,
   "showReceiptTimestamp": true,
+  "toolbar": {
+    "activeTab": "channels"
+  },
   "type": "log"
 }
