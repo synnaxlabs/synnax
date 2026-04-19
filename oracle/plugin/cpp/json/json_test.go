@@ -10,18 +10,11 @@
 package json_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
-
-func TestCppJson(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ JSON Plugin Suite")
-}
 
 var _ = Describe("C++ JSON Plugin", func() {
 	var (
