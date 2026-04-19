@@ -97,15 +97,15 @@ func (s Series) validateVariable() error {
 		if s.DataType == JSONT && !json.Valid(sample) {
 			return errors.Wrapf(
 				validate.ErrValidation,
-				"sample at byte offset %d is not valid JSON",
-				offset,
+				"sample %q is not valid JSON",
+				sample,
 			)
 		}
 		if s.DataType == StringT && !utf8.Valid(sample) {
 			return errors.Wrapf(
 				validate.ErrValidation,
-				"sample at byte offset %d is not valid UTF-8",
-				offset,
+				"sample %q is not valid UTF-8",
+				sample,
 			)
 		}
 		offset += length
