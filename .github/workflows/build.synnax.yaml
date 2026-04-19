@@ -233,7 +233,7 @@ jobs:
         run: brew install autoconf automake libtool
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           # Use S3 cache instead of github cache.
           bazelisk-cache: false
@@ -486,7 +486,7 @@ jobs:
 
       - name: Upload Driver to Release
         if: inputs.driver && inputs.upload_to_release
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -508,7 +508,7 @@ jobs:
 
       - name: Set up pnpm
         if: inputs.console
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Set up Node.js
         if: inputs.console
@@ -662,7 +662,7 @@ jobs:
 
       - name: Upload Core to Release
         if: inputs.core && inputs.upload_to_release
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
@@ -826,7 +826,7 @@ jobs:
           fi
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -900,7 +900,7 @@ jobs:
 
       - name: Upload macOS Release Assets
         if: inputs.upload_to_release && startsWith(matrix.os, 'macos')
-        uses: nick-fields/retry@v3
+        uses: nick-fields/retry@v4
         with:
           timeout_minutes: 5
           max_attempts: 3
