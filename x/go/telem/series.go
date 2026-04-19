@@ -57,7 +57,7 @@ func (s Series) Len() int64 {
 // length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
 // that each sample is valid JSON. For StringT, it verifies that each sample is valid
 // UTF-8.
-func (s Series) Validate() error {
+func (s *Series) Validate() error {
 	if len(s.Data) == 0 {
 		return nil
 	}
@@ -78,7 +78,7 @@ func (s Series) Validate() error {
 	return nil
 }
 
-func (s Series) validateVariable() error {
+func (s *Series) validateVariable() error {
 	var (
 		offset int
 		count  int64
