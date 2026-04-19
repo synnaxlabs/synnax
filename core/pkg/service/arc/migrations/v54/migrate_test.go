@@ -1,0 +1,96 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+package v54_test
+
+import (
+	"github.com/google/uuid"
+	. "github.com/onsi/ginkgo/v2"
+	. "github.com/onsi/gomega"
+	graphv54 "github.com/synnaxlabs/arc/graph/migrations/v54"
+	irv54 "github.com/synnaxlabs/arc/ir/migrations/v54"
+	textv54 "github.com/synnaxlabs/arc/text/migrations/v54"
+	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/migrate"
+	spatialv54 "github.com/synnaxlabs/x/spatial/migrations/v54"
+	. "github.com/synnaxlabs/x/testutil"
+)
+
+var _ = Describe("v54 -> current Arc migration", func() {
+	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+
+		seed := v54.Arc{
+			Key:  uuid.New(),
+			Name: "Seed",
+			Mode: v54.ModeText,
+			Text: textv54.Text{Raw: "channel x; 1 -> x"},
+			Graph: graphv54.Graph{
+				Viewport: graphv54.Viewport{
+					Position: spatialv54.XY{X: 12, Y: -34},
+					Zoom:     1.5,
+				},
+				Functions: irv54.Functions{
+					{Key: "scale", Body: irv54.Body{Raw: "x * 2"}},
+				},
+				Edges: irv54.Edges{
+					{
+						Source: irv54.Handle{Node: "n1", Param: "out"},
+						Target: irv54.Handle{Node: "n2", Param: "in"},
+						Kind:   irv54.EdgeKindContinuous,
+					},
+				},
+				Nodes: graphv54.Nodes{
+					{Key: "n1", Type: "scale", Position: spatialv54.XY{X: 0, Y: 0}},
+					{Key: "n2", Type: "scale", Position: spatialv54.XY{X: 100, Y: 50}},
+				},
+			},
+		}
+		MustSucceed(gorp.OpenTable[uuid.UUID, v54.Arc](
+			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+		))
+		Expect(gorp.NewCreate[uuid.UUID, v54.Arc]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Arc",
+			Migrations: []migrate.Migration{
+				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
+					"v54_drop_program_status",
+					arc.MigrateArc,
+				),
+			},
+		})).To(Succeed())
+
+		var got arc.Arc
+		Expect(gorp.NewRetrieve[uuid.UUID, arc.Arc]().
+			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Key).To(Equal(seed.Key))
+		Expect(got.Name).To(Equal(seed.Name))
+		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
+		Expect(got.Text.Raw).To(Equal(seed.Text.Raw))
+		Expect(got.Graph.Viewport.Zoom).To(Equal(seed.Graph.Viewport.Zoom))
+		Expect(got.Graph.Viewport.Position.X).To(Equal(seed.Graph.Viewport.Position.X))
+		Expect(got.Graph.Viewport.Position.Y).To(Equal(seed.Graph.Viewport.Position.Y))
+		Expect(got.Graph.Functions).To(HaveLen(1))
+		Expect(got.Graph.Functions[0].Key).To(Equal("scale"))
+		Expect(got.Graph.Functions[0].Body.Raw).To(Equal("x * 2"))
+		Expect(got.Graph.Edges).To(HaveLen(1))
+		Expect(got.Graph.Edges[0].Source.Node).To(Equal("n1"))
+		Expect(got.Graph.Edges[0].Target.Param).To(Equal("in"))
+		Expect(got.Graph.Nodes).To(HaveLen(2))
+		Expect(got.Graph.Nodes[1].Position.X).To(Equal(100.0))
+		Expect(got.Program).To(BeNil())
+		Expect(got.Status).To(BeNil())
+	})
+})

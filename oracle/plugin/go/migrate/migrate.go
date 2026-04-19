@@ -786,6 +786,9 @@ func renderTypeMigrateTemplate(
 		if !ok || td.Kind != TypeChanged {
 			continue
 		}
+		if _, isStruct := typ.Form.(resolution.StructForm); !isStruct {
+			continue
+		}
 		goName := naming.GetGoName(typ)
 		newType, _ := newTable.Get(typ.QualifiedName)
 		newGoPath := output.GetPath(newType, "go")

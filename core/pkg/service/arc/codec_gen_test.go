@@ -20,18 +20,12 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/spatial"
-	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Codec", func() {
@@ -100,140 +94,6 @@ var _ = Describe("Codec", func() {
 					},
 				},
 				Text: text.Text{Raw: "test_45"},
-				Program: func() *program.Program {
-					v := program.Program{
-						IR: ir.IR{
-							Functions: []ir.Function{
-								{
-									Key:  "test_48",
-									Body: ir.Body{Raw: "test_50"},
-									Config: []types.Param{
-										{
-											Name:  "test_52",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_54": "value_54"},
-										},
-									},
-									Inputs: []types.Param{
-										{
-											Name:  "test_56",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_58": "value_58"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_60",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_62": "value_62"},
-										},
-									},
-									Channels: types.Channels{
-										Read:  map[uint32]string{65: "test_64"},
-										Write: map[uint32]string{66: "test_65"},
-									},
-								},
-							},
-							Nodes: []ir.Node{
-								{
-									Key:  "test_67",
-									Type: "test_68",
-									Config: []types.Param{
-										{
-											Name:  "test_70",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_72": "value_72"},
-										},
-									},
-									Inputs: []types.Param{
-										{
-											Name:  "test_74",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_76": "value_76"},
-										},
-									},
-									Outputs: []types.Param{
-										{
-											Name:  "test_78",
-											Type:  types.Type{},
-											Value: map[string]interface{}{"key_80": "value_80"},
-										},
-									},
-									Channels: types.Channels{
-										Read:  map[uint32]string{83: "test_82"},
-										Write: map[uint32]string{84: "test_83"},
-									},
-								},
-							},
-							Edges: []ir.Edge{
-								{
-									Source: ir.Handle{Node: "test_86", Param: "test_87"},
-									Target: ir.Handle{Node: "test_89", Param: "test_90"},
-									Kind:   ir.EdgeKind(0),
-								},
-							},
-							Authorities: ir.Authorities{
-								Default:  func() *uint8 { v := uint8(94); return &v }(),
-								Channels: map[uint32]uint8{95: 95},
-							},
-							Root: ir.Scope{
-								Key:        "test_96",
-								Mode:       ir.ScopeMode(0),
-								Liveness:   ir.Liveness(0),
-								Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-								Strata: [][]ir.Member{
-									{
-										{
-											NodeKey: func() *string { v := string("test_103"); return &v }(),
-											Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-										},
-									},
-								},
-								Steps: []ir.Member{
-									{
-										NodeKey: func() *string { v := string("test_106"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-								Transitions: []ir.Transition{
-									{
-										On:        ir.Handle{},
-										TargetKey: func() *string { v := string("test_110"); return &v }(),
-									},
-								},
-							},
-						},
-						Output: compiler.Output{
-							WASM:              []byte{111, 112, 113},
-							OutputMemoryBases: map[string]uint32{"test_112": 113},
-						},
-					}
-					return &v
-				}(),
-				Status: func() *status.Status[arc.StatusDetails] {
-					v := status.Status[arc.StatusDetails]{
-						Key:         "test_114",
-						Name:        "test_115",
-						Variant:     status.Variant("success"),
-						Message:     "test_117",
-						Description: "test_118",
-						Time:        telem.TimeStamp(120),
-						Details:     arc.StatusDetails{Running: true},
-						Labels: []label.Label{
-							{
-								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
-								Name: "test_124",
-								Color: color.Color{
-									R: 127,
-									G: 128,
-									B: 129,
-									A: 129.5,
-								},
-							},
-						},
-					}
-					return &v
-				}(),
 			}),
 			Entry("zero values", arc.Arc{
 				Key:  uuid.Nil,
@@ -245,9 +105,7 @@ var _ = Describe("Codec", func() {
 					Edges:     nil,
 					Nodes:     nil,
 				},
-				Text:    text.Text{Raw: ""},
-				Program: nil,
-				Status:  nil,
+				Text: text.Text{Raw: ""},
 			}),
 		)
 	})
@@ -323,140 +181,6 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 			},
 		},
 		Text: text.Text{Raw: "test_45"},
-		Program: func() *program.Program {
-			v := program.Program{
-				IR: ir.IR{
-					Functions: []ir.Function{
-						{
-							Key:  "test_48",
-							Body: ir.Body{Raw: "test_50"},
-							Config: []types.Param{
-								{
-									Name:  "test_52",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_54": "value_54"},
-								},
-							},
-							Inputs: []types.Param{
-								{
-									Name:  "test_56",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_58": "value_58"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_60",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_62": "value_62"},
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{65: "test_64"},
-								Write: map[uint32]string{66: "test_65"},
-							},
-						},
-					},
-					Nodes: []ir.Node{
-						{
-							Key:  "test_67",
-							Type: "test_68",
-							Config: []types.Param{
-								{
-									Name:  "test_70",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_72": "value_72"},
-								},
-							},
-							Inputs: []types.Param{
-								{
-									Name:  "test_74",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_76": "value_76"},
-								},
-							},
-							Outputs: []types.Param{
-								{
-									Name:  "test_78",
-									Type:  types.Type{},
-									Value: map[string]interface{}{"key_80": "value_80"},
-								},
-							},
-							Channels: types.Channels{
-								Read:  map[uint32]string{83: "test_82"},
-								Write: map[uint32]string{84: "test_83"},
-							},
-						},
-					},
-					Edges: []ir.Edge{
-						{
-							Source: ir.Handle{Node: "test_86", Param: "test_87"},
-							Target: ir.Handle{Node: "test_89", Param: "test_90"},
-							Kind:   ir.EdgeKind(0),
-						},
-					},
-					Authorities: ir.Authorities{
-						Default:  func() *uint8 { v := uint8(94); return &v }(),
-						Channels: map[uint32]uint8{95: 95},
-					},
-					Root: ir.Scope{
-						Key:        "test_96",
-						Mode:       ir.ScopeMode(0),
-						Liveness:   ir.Liveness(0),
-						Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-						Strata: [][]ir.Member{
-							{
-								{
-									NodeKey: func() *string { v := string("test_103"); return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-						},
-						Steps: []ir.Member{
-							{
-								NodeKey: func() *string { v := string("test_106"); return &v }(),
-								Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-							},
-						},
-						Transitions: []ir.Transition{
-							{
-								On:        ir.Handle{},
-								TargetKey: func() *string { v := string("test_110"); return &v }(),
-							},
-						},
-					},
-				},
-				Output: compiler.Output{
-					WASM:              []byte{111, 112, 113},
-					OutputMemoryBases: map[string]uint32{"test_112": 113},
-				},
-			}
-			return &v
-		}(),
-		Status: func() *status.Status[arc.StatusDetails] {
-			v := status.Status[arc.StatusDetails]{
-				Key:         "test_114",
-				Name:        "test_115",
-				Variant:     status.Variant("success"),
-				Message:     "test_117",
-				Description: "test_118",
-				Time:        telem.TimeStamp(120),
-				Details:     arc.StatusDetails{Running: true},
-				Labels: []label.Label{
-					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
-						Name: "test_124",
-						Color: color.Color{
-							R: 127,
-							G: 128,
-							B: 129,
-							A: 129.5,
-						},
-					},
-				},
-			}
-			return &v
-		}(),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -546,140 +270,6 @@ func FuzzDecodeArc(f *testing.F) {
 				},
 			},
 			Text: text.Text{Raw: "test_45"},
-			Program: func() *program.Program {
-				v := program.Program{
-					IR: ir.IR{
-						Functions: []ir.Function{
-							{
-								Key:  "test_48",
-								Body: ir.Body{Raw: "test_50"},
-								Config: []types.Param{
-									{
-										Name:  "test_52",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_54": "value_54"},
-									},
-								},
-								Inputs: []types.Param{
-									{
-										Name:  "test_56",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_58": "value_58"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_60",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_62": "value_62"},
-									},
-								},
-								Channels: types.Channels{
-									Read:  map[uint32]string{65: "test_64"},
-									Write: map[uint32]string{66: "test_65"},
-								},
-							},
-						},
-						Nodes: []ir.Node{
-							{
-								Key:  "test_67",
-								Type: "test_68",
-								Config: []types.Param{
-									{
-										Name:  "test_70",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_72": "value_72"},
-									},
-								},
-								Inputs: []types.Param{
-									{
-										Name:  "test_74",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_76": "value_76"},
-									},
-								},
-								Outputs: []types.Param{
-									{
-										Name:  "test_78",
-										Type:  types.Type{},
-										Value: map[string]interface{}{"key_80": "value_80"},
-									},
-								},
-								Channels: types.Channels{
-									Read:  map[uint32]string{83: "test_82"},
-									Write: map[uint32]string{84: "test_83"},
-								},
-							},
-						},
-						Edges: []ir.Edge{
-							{
-								Source: ir.Handle{Node: "test_86", Param: "test_87"},
-								Target: ir.Handle{Node: "test_89", Param: "test_90"},
-								Kind:   ir.EdgeKind(0),
-							},
-						},
-						Authorities: ir.Authorities{
-							Default:  func() *uint8 { v := uint8(94); return &v }(),
-							Channels: map[uint32]uint8{95: 95},
-						},
-						Root: ir.Scope{
-							Key:        "test_96",
-							Mode:       ir.ScopeMode(0),
-							Liveness:   ir.Liveness(0),
-							Activation: func() *ir.Handle { v := ir.Handle{Node: "test_100", Param: "test_101"}; return &v }(),
-							Strata: [][]ir.Member{
-								{
-									{
-										NodeKey: func() *string { v := string("test_103"); return &v }(),
-										Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-									},
-								},
-							},
-							Steps: []ir.Member{
-								{
-									NodeKey: func() *string { v := string("test_106"); return &v }(),
-									Scope:   func() *ir.Scope { v := ir.Scope{}; return &v }(),
-								},
-							},
-							Transitions: []ir.Transition{
-								{
-									On:        ir.Handle{},
-									TargetKey: func() *string { v := string("test_110"); return &v }(),
-								},
-							},
-						},
-					},
-					Output: compiler.Output{
-						WASM:              []byte{111, 112, 113},
-						OutputMemoryBases: map[string]uint32{"test_112": 113},
-					},
-				}
-				return &v
-			}(),
-			Status: func() *status.Status[arc.StatusDetails] {
-				v := status.Status[arc.StatusDetails]{
-					Key:         "test_114",
-					Name:        "test_115",
-					Variant:     status.Variant("success"),
-					Message:     "test_117",
-					Description: "test_118",
-					Time:        telem.TimeStamp(120),
-					Details:     arc.StatusDetails{Running: true},
-					Labels: []label.Label{
-						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456787b"),
-							Name: "test_124",
-							Color: color.Color{
-								R: 127,
-								G: 128,
-								B: 129,
-								A: 129.5,
-							},
-						},
-					},
-				}
-				return &v
-			}(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -698,9 +288,7 @@ func FuzzDecodeArc(f *testing.F) {
 				Edges:     nil,
 				Nodes:     nil,
 			},
-			Text:    text.Text{Raw: ""},
-			Program: nil,
-			Status:  nil,
+			Text: text.Text{Raw: ""},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

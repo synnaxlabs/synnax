@@ -230,6 +230,68 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("marshal directive change", func() {
+			It("Should generate a migration when @go marshal omit is added to a field", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string {
+							@go marshal omit
+						}
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/codec.gen.go")
+				Expect(frozen).To(ContainSubstring("w.String(e.Transient)"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
+
+			It("Should generate a migration when @go marshal omit is removed", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string {
+							@go marshal omit
+						}
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/codec.gen.go")
+				Expect(frozen).NotTo(ContainSubstring("e.Transient"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
+		})
+
 		Context("optional fields", func() {
 			It("Should generate nil-check preamble for hard optional", func() {
 				oldSchema := `

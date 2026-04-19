@@ -273,7 +273,7 @@ func (b *encoderBuilder) processFields(
 			continue
 		}
 		marshalDirective := domain.GetStringFromField(f, "go", "marshal")
-		if marshalDirective == "skip" {
+		if marshalDirective == "omit" {
 			continue
 		}
 		goName := naming.GetFieldName(f)
