@@ -204,6 +204,204 @@ var _ = Describe("IR", func() {
 		})
 	})
 
+	Describe("String Formatting", func() {
+		Describe("IR String", func() {
+			It("Should render an empty IR as an empty string", func() {
+				program := &ir.IR{}
+				Expect(program.String()).To(BeEmpty())
+			})
+
+			It("Should render Functions, Nodes, Edges, and Root sections", func() {
+				program := &ir.IR{
+					Functions: ir.Functions{{
+						Key:     "add",
+						Inputs:  types.Params{{Name: "a", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					}},
+					Nodes: ir.Nodes{{
+						Key:     "node1",
+						Type:    "add",
+						Config:  types.Params{{Name: "k", Type: types.I64(), Value: int64(1)}},
+						Inputs:  types.Params{{Name: "a", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					}},
+					Edges: ir.Edges{{
+						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "node1", Param: "a"},
+						Kind:   ir.EdgeKindContinuous,
+					}},
+					Root: ir.Scope{
+						Mode:     ir.ScopeModeParallel,
+						Liveness: ir.LivenessAlways,
+						Strata:   []ir.Members{{ir.NodeMember("node1")}},
+					},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Functions (1)"))
+				Expect(out).To(ContainSubstring("Nodes (1)"))
+				Expect(out).To(ContainSubstring("Edges (1)"))
+				Expect(out).To(ContainSubstring("Root"))
+				Expect(out).To(ContainSubstring("add"))
+				Expect(out).To(ContainSubstring("node1"))
+				Expect(out).To(ContainSubstring("src.output -> node1.a"))
+			})
+
+			It("Should render only populated sections", func() {
+				program := &ir.IR{
+					Nodes: ir.Nodes{{Key: "only", Type: "input"}},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Nodes (1)"))
+				Expect(out).ToNot(ContainSubstring("Functions"))
+				Expect(out).ToNot(ContainSubstring("Edges"))
+				Expect(out).ToNot(ContainSubstring("Root"))
+			})
+
+			It("Should render multiple functions, nodes, and edges with tree indentation", func() {
+				program := &ir.IR{
+					Functions: ir.Functions{
+						{Key: "f1"},
+						{Key: "f2"},
+					},
+					Nodes: ir.Nodes{
+						{Key: "n1", Type: "f1"},
+						{Key: "n2", Type: "f2"},
+					},
+					Edges: ir.Edges{
+						{
+							Source: ir.Handle{Node: "n1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n2", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindContinuous,
+						},
+						{
+							Source: ir.Handle{Node: "n2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n1", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindConditional,
+						},
+					},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Functions (2)"))
+				Expect(out).To(ContainSubstring("Nodes (2)"))
+				Expect(out).To(ContainSubstring("Edges (2)"))
+				Expect(out).To(ContainSubstring("├── "))
+				Expect(out).To(ContainSubstring("└── "))
+				Expect(out).To(ContainSubstring("n1.output -> n2.input"))
+				Expect(out).To(ContainSubstring("n2.output => n1.input"))
+			})
+		})
+
+		Describe("Scope String", func() {
+			It("Should render parallel scope with named stratum entries", func() {
+				s := ir.Scope{
+					Key:      "root",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("a"), ir.NodeMember("b")},
+						{ir.NodeMember("c")},
+					},
+				}
+				out := s.String()
+				Expect(out).To(ContainSubstring("root"))
+				Expect(out).To(ContainSubstring("stratum 0"))
+				Expect(out).To(ContainSubstring("stratum 1"))
+				Expect(out).To(ContainSubstring("a"))
+				Expect(out).To(ContainSubstring("b"))
+				Expect(out).To(ContainSubstring("c"))
+			})
+
+			It("Should render an unnamed scope with the (scope) placeholder", func() {
+				s := ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.NodeMember("x")}},
+				}
+				Expect(s.String()).To(ContainSubstring("(scope)"))
+			})
+
+			It("Should render sequential scope steps and transitions", func() {
+				run := "run"
+				s := ir.Scope{
+					Key:      "main",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
+					Transitions: []ir.Transition{
+						{On: ir.Handle{Node: "init", Param: "done"}, TargetKey: &run},
+						{On: ir.Handle{Node: "run", Param: "done"}},
+					},
+				}
+				out := s.String()
+				Expect(out).To(ContainSubstring("main"))
+				Expect(out).To(ContainSubstring("init"))
+				Expect(out).To(ContainSubstring("run"))
+				Expect(out).To(ContainSubstring("on init/done => run"))
+				Expect(out).To(ContainSubstring("on run/done => exit"))
+			})
+
+			It("Should render nested scope members", func() {
+				inner := ir.Scope{
+					Key:      "inner",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.NodeMember("step1")},
+				}
+				outer := ir.Scope{
+					Key:      "outer",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.ScopeMember(inner)}},
+				}
+				out := outer.String()
+				Expect(out).To(ContainSubstring("outer"))
+				Expect(out).To(ContainSubstring("inner"))
+				Expect(out).To(ContainSubstring("step1"))
+			})
+		})
+
+		Describe("Member", func() {
+			It("Should build a node-backed Member via NodeMember", func() {
+				m := ir.NodeMember("n1")
+				Expect(m.Key()).To(Equal("n1"))
+				Expect(m.String()).To(ContainSubstring("n1"))
+			})
+
+			It("Should build a scope-backed Member via ScopeMember", func() {
+				s := ir.Scope{
+					Key:      "sub",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+				}
+				m := ir.ScopeMember(s)
+				Expect(m.Key()).To(Equal("sub"))
+				Expect(m.String()).To(ContainSubstring("sub"))
+			})
+
+			It("Should return an empty key and placeholder string for a zero Member", func() {
+				var m ir.Member
+				Expect(m.Key()).To(BeEmpty())
+				Expect(m.String()).To(Equal("(empty member)\n"))
+			})
+		})
+
+		Describe("Transition String", func() {
+			It("Should render a transition targeting a sibling step", func() {
+				target := "next"
+				t := ir.Transition{
+					On:        ir.Handle{Node: "n", Param: "done"},
+					TargetKey: &target,
+				}
+				Expect(t.String()).To(Equal("on n/done => next"))
+			})
+
+			It("Should render an exiting transition when TargetKey is nil", func() {
+				t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+				Expect(t.String()).To(Equal("on n/done => exit"))
+			})
+		})
+	})
+
 	Describe("Edge Helpers Against Root Scope", func() {
 		It("Should expose dataflow edges independent of the Scope tree", func() {
 			program := &ir.IR{

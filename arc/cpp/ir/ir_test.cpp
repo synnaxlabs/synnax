@@ -252,6 +252,32 @@ TEST(IRTest, testMemberToStringLeafNode) {
     ASSERT_EQ(m.to_string(), "A");
 }
 
+/// @brief it should format a Member wrapping a nested Scope
+TEST(IRTest, testMemberToStringScopeBacked) {
+    Scope s;
+    s.key = "sub";
+    s.mode = ScopeMode::Parallel;
+    s.liveness = Liveness::Always;
+    const auto m = scope_member(std::move(s));
+    ASSERT_NE(m.to_string().find("sub"), std::string::npos);
+}
+
+/// @brief it should format an unset Member as the empty-member placeholder
+TEST(IRTest, testMemberToStringEmpty) {
+    const Member m{};
+    ASSERT_EQ(m.to_string(), "(empty member)");
+}
+
+/// @brief it should derive Member::key from the set variant
+TEST(IRTest, testMemberKey) {
+    ASSERT_EQ(node_member("n1").key(), "n1");
+    Scope s;
+    s.key = "sub";
+    ASSERT_EQ(scope_member(std::move(s)).key(), "sub");
+    const Member empty{};
+    ASSERT_TRUE(empty.key().empty());
+}
+
 /// @brief it should format a parallel Scope with strata
 TEST(IRTest, testScopeToStringParallel) {
     Scope s;
@@ -287,6 +313,37 @@ TEST(IRTest, testScopeToStringSequentialWithTransitions) {
     ASSERT_NE(str.find("first"), std::string::npos);
     ASSERT_NE(str.find("second"), std::string::npos);
     ASSERT_NE(str.find("=> second"), std::string::npos);
+}
+
+/// @brief it should use the (scope) placeholder when a Scope has no key
+TEST(IRTest, testScopeToStringEmptyKeyPlaceholder) {
+    Scope s;
+    s.mode = ScopeMode::Parallel;
+    s.liveness = Liveness::Always;
+    Members stratum;
+    stratum.push_back(node_member("x"));
+    s.strata.push_back(std::move(stratum));
+    ASSERT_NE(s.to_string().find("(scope)"), std::string::npos);
+}
+
+/// @brief it should recurse into nested Scopes via scope_member
+TEST(IRTest, testScopeToStringNestedScopeMember) {
+    Scope inner;
+    inner.key = "inner";
+    inner.mode = ScopeMode::Sequential;
+    inner.liveness = Liveness::Gated;
+    inner.steps.push_back(node_member("step1"));
+    Scope outer;
+    outer.key = "outer";
+    outer.mode = ScopeMode::Parallel;
+    outer.liveness = Liveness::Always;
+    Members stratum;
+    stratum.push_back(scope_member(std::move(inner)));
+    outer.strata.push_back(std::move(stratum));
+    const auto str = outer.to_string();
+    ASSERT_NE(str.find("outer"), std::string::npos);
+    ASSERT_NE(str.find("inner"), std::string::npos);
+    ASSERT_NE(str.find("step1"), std::string::npos);
 }
 
 /// @brief it should access params by name using operator[]
@@ -446,6 +503,61 @@ TEST(IRTest, testIRToString) {
     ASSERT_NE(str.find("Root"), std::string::npos);
     ASSERT_NE(str.find("parallel"), std::string::npos);
     ASSERT_NE(str.find("always"), std::string::npos);
+}
+
+/// @brief it should render an empty IR as the bare "IR" root label
+TEST(IRTest, testIRToStringEmpty) {
+    const IR ir{};
+    ASSERT_EQ(ir.to_string(), "IR");
+}
+
+/// @brief it should omit sections that carry no entries
+TEST(IRTest, testIRToStringOnlyNodes) {
+    IR ir{};
+    Node n;
+    n.key = "only";
+    n.type = "input";
+    ir.nodes.push_back(n);
+    const auto str = ir.to_string();
+    ASSERT_NE(str.find("Nodes"), std::string::npos);
+    ASSERT_EQ(str.find("Functions"), std::string::npos);
+    ASSERT_EQ(str.find("Edges"), std::string::npos);
+    ASSERT_EQ(str.find("Root"), std::string::npos);
+}
+
+/// @brief it should render multi-entry sections with both branching
+/// ("├── ") and terminal ("└── ") tree prefixes
+TEST(IRTest, testIRToStringMultipleEntriesTreeIndentation) {
+    IR ir{};
+    Function f1;
+    f1.key = "f1";
+    ir.functions.push_back(f1);
+    Function f2;
+    f2.key = "f2";
+    ir.functions.push_back(f2);
+    Node n1;
+    n1.key = "n1";
+    n1.type = "f1";
+    ir.nodes.push_back(n1);
+    Node n2;
+    n2.key = "n2";
+    n2.type = "f2";
+    ir.nodes.push_back(n2);
+    ir.edges.emplace_back(
+        Handle("n1", "output"),
+        Handle("n2", "input"),
+        EdgeKind::Continuous
+    );
+    ir.edges.emplace_back(
+        Handle("n2", "output"),
+        Handle("n1", "input"),
+        EdgeKind::Conditional
+    );
+    const auto str = ir.to_string();
+    ASSERT_NE(str.find("├── "), std::string::npos);
+    ASSERT_NE(str.find("└── "), std::string::npos);
+    ASSERT_NE(str.find("n1.output -> n2.input"), std::string::npos);
+    ASSERT_NE(str.find("n2.output => n1.input"), std::string::npos);
 }
 
 /// @brief it should stream Handle via operator<<
