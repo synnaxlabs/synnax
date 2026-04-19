@@ -631,7 +631,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "derived", loader, jsonPlugin)
 
-				ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "derived/json.gen.h").
 					ToContain(
 						// resolveExtendsType emits the cross-namespace qualified
 						// name and registers the base's json.gen.h include.
