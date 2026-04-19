@@ -4,7 +4,7 @@ version = "0.55.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.12,<4"
 dependencies = [
     "alamos",
     "synnax-freighter",
@@ -46,6 +46,7 @@ packages = ["synnax", "examples"]
 
 [tool.ruff]
 line-length = 88
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "I"]

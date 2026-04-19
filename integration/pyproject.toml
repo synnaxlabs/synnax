@@ -1,7 +1,7 @@
 [project]
 name = "synnax-test-framework"
 version = "0.0.0"
-requires-python = ">=3.11,<3.14"
+requires-python = ">=3.12,<3.14"
 dependencies = [
     "synnax",
     "synnax-x",
@@ -32,6 +32,7 @@ packages = ["driver", "framework", "tests"]
 
 [tool.ruff]
 line-length = 88
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "I"]

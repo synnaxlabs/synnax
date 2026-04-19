@@ -4,7 +4,7 @@ version = "0.55.0"
 description = "Shared Python utilities for Synnax"
 keywords = ["Synnax"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.11,<4"
+requires-python = ">=3.12,<4"
 dependencies = ["numpy>=2.4.4,<3", "pandas>=3.0.2,<4", "pydantic>=2.13.2,<3"]
 
 [project.urls]
@@ -27,6 +27,7 @@ packages = ["x"]
 
 [tool.ruff]
 line-length = 88
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "I"]
