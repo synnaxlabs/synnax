@@ -99,7 +99,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Status).To(BeNil())
 	})
 
-	It("preserves wire fields when v54 entries carry a populated Status with Labels", func(ctx SpecContext) {
+	It("drops Status and Program and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		statusKey := uuid.New().String()

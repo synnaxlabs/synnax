@@ -68,7 +68,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		Expect(got.Status).To(BeNil())
 	})
 
-	It("preserves wire fields when v54 entries carry a populated Status with Labels", func(ctx SpecContext) {
+	It("drops Status and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		key := v54.Key(0x0000_0001_0000_00ab)

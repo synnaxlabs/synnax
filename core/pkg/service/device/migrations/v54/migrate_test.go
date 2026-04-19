@@ -74,7 +74,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		Expect(got.Parent).To(BeNil())
 	})
 
-	It("preserves wire fields when v54 entries carry populated Status and Parent", func(ctx SpecContext) {
+	It("drops Status and Parent and preserves core wire fields when v54 entries carry populated Status and Parent", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		key := "DEV-SERIAL-002"
