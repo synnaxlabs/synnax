@@ -10,18 +10,11 @@
 package json_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/plugin/cpp/json"
 	. "github.com/synnaxlabs/oracle/testutil"
 )
-
-func TestCppJson(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "C++ JSON Plugin Suite")
-}
 
 var _ = Describe("C++ JSON Plugin", func() {
 	var (
@@ -638,7 +631,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "derived", loader, jsonPlugin)
 
-				ExpectContent(resp, "json.gen.h").
+				ExpectContent(resp, "derived/json.gen.h").
 					ToContain(
 						// resolveExtendsType emits the cross-namespace qualified
 						// name and registers the base's json.gen.h include.
