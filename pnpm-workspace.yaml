@@ -17,7 +17,7 @@ catalog:
   '@reduxjs/toolkit': ^2.11.2
   '@tauri-apps/api': ^2.10.1
   '@testing-library/react': ^16.3.2
-  '@types/node': ^25.5.0
+  '@types/node': ^25.6.0
   '@types/offscreencanvas': ^2019.7.3
   '@types/pluralize': ^0.0.33
   '@types/react': ^19.2.14
@@ -28,7 +28,7 @@ catalog:
   clsx: ^2.1.1
   compromise: ^14.15.0
   compromise-dates: ^3.7.1
-  eslint: ^10.1.0
+  eslint: ^10.2.1
   jsdom: ^27.4.0
   madge: ^8.0.0
   pluralize: ^8.0.0
@@ -39,6 +39,6 @@ catalog:
   stylelint: ^17.8.0
   stylelint-config-standard: ^40.0.0
   typescript: ^6.0.3
-  vite: ^8.0.3
+  vite: ^8.0.8
   vitest: ^4.1.4
   zod: ^4.3.6

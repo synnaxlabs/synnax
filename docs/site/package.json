@@ -47,7 +47,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "algoliasearch": "^5.50.2",
-    "dotenv": "^17.3.1",
+    "dotenv": "^17.4.2",
     "eslint": "catalog:",
     "gray-matter": "^4.0.3",
     "html-escaper": "^3.0.3",
