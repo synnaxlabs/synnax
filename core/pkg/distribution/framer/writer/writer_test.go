@@ -209,6 +209,177 @@ var _ = Describe("Writer", func() {
 		})
 	})
 
+	Describe("Series Validation", func() {
+		Describe("Misaligned Fixed Density", func() {
+			It("Should return an error when series data is not aligned to density", func(ctx SpecContext) {
+				s := gatewayOnlyScenario(ctx)
+				defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						{DataType: telem.Int64T, Data: make([]byte, 7)},
+						telem.NewSeriesV[int64](1),
+						telem.NewSeriesV[int64](1),
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Describe("Wrong Data Type", func() {
+			It("Should return an error when series data type does not match channel", func(ctx SpecContext) {
+				s := gatewayOnlyScenario(ctx)
+				defer func() { Expect(s.closer.Close()).To(Succeed()) }()
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesV(1.0),
+						telem.NewSeriesV[int64](1),
+						telem.NewSeriesV[int64](1),
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Describe("Invalid JSON", Ordered, func() {
+			var s scenario
+			BeforeAll(func(ctx SpecContext) {
+				builder := mock.ProvisionCluster(ctx, 1)
+				dist := builder.Nodes[1]
+				idxCh := channel.Channel{
+					Name:     channel.NewRandomName(),
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				jsonCh := channel.Channel{
+					Name:       channel.NewRandomName(),
+					DataType:   telem.JSONT,
+					LocalIndex: idxCh.LocalKey,
+				}
+				Expect(dist.Channel.Create(ctx, &jsonCh)).To(Succeed())
+				s = scenario{
+					dist:   dist,
+					closer: builder,
+					keys:   []channel.Key{idxCh.Key(), jsonCh.Key()},
+				}
+			})
+			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+			It("Should return an error when JSON series contains invalid JSON", func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				invalidJSON := telem.MarshalVariableSample([]byte(`{not json}`))
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10),
+						{DataType: telem.JSONT, Data: invalidJSON},
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Describe("Invalid UTF-8", Ordered, func() {
+			var s scenario
+			BeforeAll(func(ctx SpecContext) {
+				builder := mock.ProvisionCluster(ctx, 1)
+				dist := builder.Nodes[1]
+				idxCh := channel.Channel{
+					Name:     channel.NewRandomName(),
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				strCh := channel.Channel{
+					Name:       channel.NewRandomName(),
+					DataType:   telem.StringT,
+					LocalIndex: idxCh.LocalKey,
+				}
+				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				s = scenario{
+					dist:   dist,
+					closer: builder,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
+				}
+			})
+			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+			It("Should return an error when string series contains invalid UTF-8", func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				invalidUTF8 := telem.MarshalVariableSample([]byte{0xFF, 0xFE})
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10),
+						{DataType: telem.StringT, Data: invalidUTF8},
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Describe("Malformed Variable Prefix", Ordered, func() {
+			var s scenario
+			BeforeAll(func(ctx SpecContext) {
+				builder := mock.ProvisionCluster(ctx, 1)
+				dist := builder.Nodes[1]
+				idxCh := channel.Channel{
+					Name:     channel.NewRandomName(),
+					IsIndex:  true,
+					DataType: telem.TimeStampT,
+				}
+				Expect(dist.Channel.Create(ctx, &idxCh)).To(Succeed())
+				strCh := channel.Channel{
+					Name:       channel.NewRandomName(),
+					DataType:   telem.StringT,
+					LocalIndex: idxCh.LocalKey,
+				}
+				Expect(dist.Channel.Create(ctx, &strCh)).To(Succeed())
+				s = scenario{
+					dist:   dist,
+					closer: builder,
+					keys:   []channel.Key{idxCh.Key(), strCh.Key()},
+				}
+			})
+			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
+			It("Should return an error when variable-density prefix is malformed", func(ctx SpecContext) {
+				w := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{
+					Keys:  s.keys,
+					Start: 10 * telem.SecondTS,
+					Sync:  new(true),
+				}))
+				valid := telem.NewSeriesV("ok")
+				valid.Data = append(valid.Data, 0xFF, 0xFF)
+				Expect(w.Write(frame.NewMulti(
+					s.keys,
+					[]telem.Series{
+						telem.NewSeriesSecondsTSV(10),
+						valid,
+					},
+				))).Error().To(MatchError(validate.ErrValidation))
+				Expect(w.Close()).To(MatchError(validate.ErrValidation))
+			})
+		})
+	})
+
 	Describe("Free Write Group Propagation", func() {
 		It("Should propagate the writer's group to the streamer response", func(ctx SpecContext) {
 			s := freeWriterScenario(ctx)
@@ -365,7 +536,7 @@ var _ = Describe("Writer", func() {
 				Start: 10 * telem.SecondTS,
 				Sync:  new(true),
 			}))
-			data := telem.NewSeriesV[int64](1, 2)
+			data := telem.NewSeriesV[float32](1, 2)
 			idx := telem.NewSeriesSecondsTSV(10*telem.SecondTS, 11*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
 				keys,
@@ -381,7 +552,7 @@ var _ = Describe("Writer", func() {
 			Expect(writtenData.Alignment.SampleIndex()).To(BeEquivalentTo(0))
 			Expect(writtenIdx.Alignment.DomainIndex()).To(BeEquivalentTo(cesium.ZeroLeadingAlignment + 1))
 			Expect(writtenIdx.Alignment.SampleIndex()).To(BeEquivalentTo(0))
-			data = telem.NewSeriesV[int64](3, 4)
+			data = telem.NewSeriesV[float32](3, 4)
 			idx = telem.NewSeriesSecondsTSV(12*telem.SecondTS, 13*telem.SecondTS)
 			MustSucceed(writer.Write(frame.NewMulti(
 				keys,
