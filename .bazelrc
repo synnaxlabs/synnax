@@ -1,7 +1,7 @@
 # Disable Bzlmod (Bazel Modules)
 # We need the last flag to avoid issues with rules_proto_grpc
 # See https://github.com/rules-proto-grpc/rules_proto_grpc/issues/390 for info
-common  --define=protobuf_allow_msvc=true
+common --define=protobuf_allow_msvc=true
 
 # Bazel 9 enables --incompatible_strict_action_env by default, which restricts PATH
 # to /bin:/usr/bin:/usr/local/bin. Pass through the host PATH so tools like cmake
