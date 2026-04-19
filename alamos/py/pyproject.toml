@@ -2,7 +2,7 @@
 name = "alamos"
 version = "0.55.0"
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
-requires-python = ">=3.10,<4"
+requires-python = ">=3.12,<4"
 dependencies = [
     "opentelemetry-api>=1.41.0,<2",
     "opentelemetry-sdk>=1.41.0,<2",
@@ -20,7 +20,7 @@ dev = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py310"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["F", "I"]
