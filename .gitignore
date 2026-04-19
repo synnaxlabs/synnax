@@ -253,6 +253,9 @@ synnax-data/**
 # |||| EMBEDDED DRIVER ||||
 assets
 
+# |||| GENERATED CERTIFICATES ||||
+client/py/examples/opcua/certificates/
+
 # |||| OTHER ||||
 .obsidian
 src/**.js
