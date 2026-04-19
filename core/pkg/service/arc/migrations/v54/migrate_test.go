@@ -18,10 +18,15 @@ import (
 	textv54 "github.com/synnaxlabs/arc/text/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
+	colorv54 "github.com/synnaxlabs/x/color/migrations/v54"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	labelv54 "github.com/synnaxlabs/x/label/migrations/v54"
 	"github.com/synnaxlabs/x/migrate"
 	spatialv54 "github.com/synnaxlabs/x/spatial/migrations/v54"
+	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
+	"github.com/synnaxlabs/x/telem"
+	telemv54 "github.com/synnaxlabs/x/telem/migrations/v54"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -92,5 +97,55 @@ var _ = Describe("v54 -> current Arc migration", func() {
 		Expect(got.Graph.Nodes[1].Position.X).To(Equal(100.0))
 		Expect(got.Program).To(BeNil())
 		Expect(got.Status).To(BeNil())
+	})
+
+	It("preserves wire fields when v54 entries carry a populated Status with Labels", func(ctx SpecContext) {
+		db := DeferClose(gorp.Wrap(memkv.New()))
+
+		statusKey := uuid.New().String()
+		labelKey := uuid.New()
+		seed := v54.Arc{
+			Key:  uuid.New(),
+			Name: "Loaded Seed",
+			Mode: v54.ModeGraph,
+			Text: textv54.Text{Raw: ""},
+			Status: &v54.Status{
+				Key:         statusKey,
+				Name:        "running",
+				Variant:     statusv54.VariantSuccess,
+				Message:     "task is running",
+				Description: "started 5s ago",
+				Time:        telemv54.TimeStamp(telem.Now()),
+				Details:     v54.StatusDetails{Running: true},
+				Labels: []labelv54.Label{
+					{Key: labelKey, Name: "critical", Color: colorv54.Color{R: 255, A: 1}},
+				},
+			},
+		}
+		MustSucceed(gorp.OpenTable[uuid.UUID, v54.Arc](
+			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+		))
+		Expect(gorp.NewCreate[uuid.UUID, v54.Arc]().
+			Entry(&seed).Exec(ctx, db)).To(Succeed())
+
+		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
+			DB:        db,
+			Namespace: "Arc",
+			Migrations: []migrate.Migration{
+				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
+					"v54_drop_program_status",
+					arc.MigrateArc,
+				),
+			},
+		})).To(Succeed())
+
+		var got arc.Arc
+		Expect(gorp.NewRetrieve[uuid.UUID, arc.Arc]().
+			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+		Expect(got.Key).To(Equal(seed.Key))
+		Expect(got.Name).To(Equal(seed.Name))
+		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
+		Expect(got.Status).To(BeNil())
+		Expect(got.Program).To(BeNil())
 	})
 })

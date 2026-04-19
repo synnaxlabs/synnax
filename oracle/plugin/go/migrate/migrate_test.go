@@ -290,6 +290,34 @@ var _ = Describe("Go Migrate Plugin", func() {
 				Expect(fileContent(resp, "migrate_auto.gen.go")).
 					To(ContainSubstring("AutoMigrateEntry"))
 			})
+
+			It("Should generate a migration when @go marshal json_only is added to a type-param field", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct<Details? = record> {
+						key Key {@key}
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct<Details? = record> {
+						key Key {@key}
+						details Details? {
+							@go marshal json_only
+						}
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(fileContent(resp, "migrations/v1/codec.gen.go")).
+					To(ContainSubstring("package v1"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
 		})
 
 		Context("optional fields", func() {
