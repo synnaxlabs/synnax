@@ -85,11 +85,11 @@ Device struct<
         """
     }
     status     Status??      {
-        @doc value "is the current operational status of the device."
+        @doc value  "is the current operational status of the device."
         @go marshal omit
     }
     parent     ontology.ID?? {
-        @doc value """
+        @doc value  """
             is an optional parent resource ID for hierarchical device
             organization (e.g., NI chassis containing modules).
         """

@@ -156,12 +156,15 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
-		DB:              cfg.DB,
+		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[uuid.UUID, Arc]("msgpack_to_orc"),
-			gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
-				"v54_drop_program_status",
-				MigrateArc,
+			gorp.CodecMigration[uuid.UUID, arcv54.Arc]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
+					"v54_drop_program_status",
+					MigrateArc,
+				),
+				"msgpack_to_orc",
 			),
 		},
 		Instrumentation: cfg.Instrumentation,

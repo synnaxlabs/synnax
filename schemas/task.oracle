@@ -110,7 +110,7 @@ Task struct<
         @doc value "indicates whether to persist this task's configuration."
     }
     status   Status<StatusData>?? {
-        @doc value "is the current execution status of the task."
+        @doc value  "is the current execution status of the task."
         @go marshal omit
     }
 
