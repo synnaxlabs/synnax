@@ -25,7 +25,6 @@ $totalFreed = 0
 $batchSize = 100
 
 function Get-DiskUsedMB {
-function Get-DiskUsedMB {
     $d = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
     return [math]::Round(($d.Size - $d.FreeSpace) / 1MB, 0)
 }
