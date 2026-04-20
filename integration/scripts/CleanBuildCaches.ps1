@@ -56,7 +56,15 @@ Write-Output ""
 # --- Bazel clean (unconditional) ---
 Write-Output "Bazel clean:"
 $repoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$bazelBase = "C:\_bazel"
+$bazelBase = $null
+if (Test-Path $repoRoot) {
+    try {
+        Push-Location $repoRoot
+        $bazelBase = (bazel info output_user_root 2>$null)
+        Pop-Location
+    } catch { Pop-Location }
+}
+if (-not $bazelBase) { $bazelBase = "C:\_bazel" }
 if ((Test-Path $bazelBase) -and (Test-Path $repoRoot)) {
     $beforeBazel = [math]::Round(
         ((Get-ChildItem -Recurse -File $bazelBase -ErrorAction SilentlyContinue |
