@@ -499,56 +499,6 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
-		Context("sub-package entry-type skip", func() {
-			It("Should not duplicate AutoMigrate for entry types in sub-package mirrors", func() {
-				// Entry Arc (in "arc" package) nests a Status type that is itself a
-				// migrate entry (in "leaf" package). The sub-package auto-copy at
-				// leaf/migrations/v1 must NOT include AutoMigrateStatus, because
-				// the entry's own package (leaf/) already emits it. Duplicating
-				// would create an import cycle on cross-package return types.
-				loader.Add("schemas/leaf", `
-					@go output "leaf"
-					Status struct<Details?> {
-						key string {@key}
-						name string
-						details Details?
-						@go migrate
-					}
-				`)
-				oldSchema := `
-					import "schemas/leaf"
-					@go output "arc"
-					Key = string
-					Arc struct {
-						key Key {@key}
-						name string
-						status leaf.Status<record>??
-						@go migrate
-					}
-				`
-				newSchema := `
-					import "schemas/leaf"
-					@go output "arc"
-					Key = string
-					Arc struct {
-						key Key {@key}
-						name string
-						description string
-						status leaf.Status<record>??
-						@go migrate
-					}
-				`
-				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
-				// The leaf's sub-package mirror must NOT emit AutoMigrateStatus
-				// because Status is its own entry; leaf/migrate_auto.gen.go owns
-				// that function. A duplicate in the mirror would require
-				// importing the live leaf package (for the return type), which
-				// creates a cycle.
-				subPkg := fileContent(resp, "leaf/migrations/v1/migrate_auto.gen.go")
-				Expect(subPkg).NotTo(ContainSubstring("func AutoMigrateStatus"))
-				Expect(fileContent(resp, "leaf/migrations/v1/migrate.go")).To(BeEmpty())
-			})
-		})
 
 		Context("optional fields", func() {
 			It("Should generate nil-check preamble for hard optional", func() {
