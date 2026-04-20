@@ -20,8 +20,8 @@ on:
         type: string
       prepare_assets:
         description:
-          Whether to create placeholder assets (driver binaries, console dist) before
-          lint and test. Required for modules compiled with -tags driver,console.
+          Whether to create placeholder assets (driver binaries) before lint and test.
+          Required for modules compiled with -tags driver.
         required: false
         type: boolean
         default: false
