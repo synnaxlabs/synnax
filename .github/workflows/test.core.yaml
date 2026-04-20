@@ -14,7 +14,6 @@ on:
       - core/**
       - freighter/go/**
       - scripts/check_gofmt.sh
-      - scripts/setup_driver_assets.sh
       - x/go/**
   push:
     branches:
@@ -32,7 +31,6 @@ on:
       - core/**
       - freighter/go/**
       - scripts/check_gofmt.sh
-      - scripts/setup_driver_assets.sh
       - x/go/**
   workflow_dispatch:
 
@@ -44,4 +42,4 @@ jobs:
       directory: core
       coverage_flag: core
       ginkgo_flags: "--tags driver"
-      prepare_driver_assets: true
+      prepare_assets: true
