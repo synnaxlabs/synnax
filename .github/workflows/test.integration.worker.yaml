@@ -38,12 +38,12 @@ jobs:
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
 
       - name: Force Quit Existing Synnax Processes (Unix)
         if: runner.os == 'Linux'
         continue-on-error: true
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Download and Setup Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -51,14 +51,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
+        run: integration/scripts/DownloadArtifacts.cmd
 
       - name: Download and Setup Artifacts (Unix)
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/download_artifacts_unix.sh
+        run: integration/scripts/download_artifacts.sh
 
       - name: Update Submodules
         run: git submodule update --init --recursive
@@ -81,14 +81,14 @@ jobs:
         shell: powershell
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/StartCoreWindows.ps1
+        run: integration/scripts/StartCore.ps1
 
       - name: Start Core (Unix)
         if: runner.os == 'Linux'
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/start_core_unix.sh
+        run: integration/scripts/start_core.sh
 
       - name: Test Conductor (Windows)
         if: runner.os == 'Windows'
