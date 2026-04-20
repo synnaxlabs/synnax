@@ -34,6 +34,9 @@ var _ = Describe("v54 -> current Arc migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
+			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+		))
 		seed := v54.Arc{
 			Key:  uuid.New(),
 			Name: "Seed",
@@ -60,25 +63,22 @@ var _ = Describe("v54 -> current Arc migration", func() {
 				},
 			},
 		}
-		MustSucceed(gorp.OpenTable[uuid.UUID, v54.Arc](
-			ctx, gorp.TableConfig[v54.Arc]{DB: db},
-		))
-		Expect(gorp.NewCreate[uuid.UUID, v54.Arc]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Arc",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
-					"v54_drop_program_status",
-					arc.MigrateArc,
-				),
+		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
+			ctx, gorp.TableConfig[arc.Arc]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
+						"v54_drop_program_status",
+						arc.MigrateArc,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got arc.Arc
-		Expect(gorp.NewRetrieve[uuid.UUID, arc.Arc]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
@@ -102,6 +102,9 @@ var _ = Describe("v54 -> current Arc migration", func() {
 	It("drops Status and Program and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[uuid.UUID, v54.Arc](
+			ctx, gorp.TableConfig[v54.Arc]{DB: db},
+		))
 		statusKey := uuid.New().String()
 		labelKey := uuid.New()
 		seed := v54.Arc{
@@ -122,25 +125,22 @@ var _ = Describe("v54 -> current Arc migration", func() {
 				},
 			},
 		}
-		MustSucceed(gorp.OpenTable[uuid.UUID, v54.Arc](
-			ctx, gorp.TableConfig[v54.Arc]{DB: db},
-		))
-		Expect(gorp.NewCreate[uuid.UUID, v54.Arc]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Arc",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
-					"v54_drop_program_status",
-					arc.MigrateArc,
-				),
+		currentTable := MustOpen(gorp.OpenTable[uuid.UUID, arc.Arc](
+			ctx, gorp.TableConfig[arc.Arc]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v54.Arc, arc.Arc](
+						"v54_drop_program_status",
+						arc.MigrateArc,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got arc.Arc
-		Expect(gorp.NewRetrieve[uuid.UUID, arc.Arc]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))

@@ -31,6 +31,9 @@ var _ = Describe("v54 -> current Task migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Task](
+			ctx, gorp.TableConfig[v54.Task]{DB: db},
+		))
 		seed := v54.Task{
 			Key:      v54.Key(0x0000_0001_0000_0042),
 			Name:     "Seed Task",
@@ -39,25 +42,22 @@ var _ = Describe("v54 -> current Task migration", func() {
 			Internal: true,
 			Snapshot: false,
 		}
-		MustSucceed(gorp.OpenTable[v54.Key, v54.Task](
-			ctx, gorp.TableConfig[v54.Task]{DB: db},
-		))
-		Expect(gorp.NewCreate[v54.Key, v54.Task]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
-					"v54_drop_status",
-					task.MigrateTask,
-				),
+		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
+			ctx, gorp.TableConfig[task.Task]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
+						"v54_drop_status",
+						task.MigrateTask,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got task.Task
-		Expect(gorp.NewRetrieve[task.Key, task.Task]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(task.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
@@ -71,6 +71,9 @@ var _ = Describe("v54 -> current Task migration", func() {
 	It("drops Status and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Task](
+			ctx, gorp.TableConfig[v54.Task]{DB: db},
+		))
 		key := v54.Key(0x0000_0001_0000_00ab)
 		seed := v54.Task{
 			Key:    key,
@@ -94,25 +97,22 @@ var _ = Describe("v54 -> current Task migration", func() {
 				},
 			},
 		}
-		MustSucceed(gorp.OpenTable[v54.Key, v54.Task](
-			ctx, gorp.TableConfig[v54.Task]{DB: db},
-		))
-		Expect(gorp.NewCreate[v54.Key, v54.Task]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Task",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
-					"v54_drop_status",
-					task.MigrateTask,
-				),
+		currentTable := MustOpen(gorp.OpenTable[task.Key, task.Task](
+			ctx, gorp.TableConfig[task.Task]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[v54.Key, task.Key, v54.Task, task.Task](
+						"v54_drop_status",
+						task.MigrateTask,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got task.Task
-		Expect(gorp.NewRetrieve[task.Key, task.Task]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(task.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))

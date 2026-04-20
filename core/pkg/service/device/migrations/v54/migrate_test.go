@@ -32,6 +32,9 @@ var _ = Describe("v54 -> current Device migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
+			ctx, gorp.TableConfig[v54.Device]{DB: db},
+		))
 		seed := v54.Device{
 			Key:        "DEV-SERIAL-001",
 			Rack:       42,
@@ -42,25 +45,22 @@ var _ = Describe("v54 -> current Device migration", func() {
 			Configured: true,
 			Properties: msgpack.EncodedJSON{"sample_rate": float64(1000)},
 		}
-		MustSucceed(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
-		))
-		Expect(gorp.NewCreate[v54.Key, v54.Device]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Device",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
-					"v54_drop_status_parent",
-					device.MigrateDevice,
-				),
+		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+			ctx, gorp.TableConfig[device.Device]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
+						"v54_drop_status_parent",
+						device.MigrateDevice,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got device.Device
-		Expect(gorp.NewRetrieve[device.Key, device.Device]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Rack).To(BeEquivalentTo(seed.Rack))
@@ -77,6 +77,9 @@ var _ = Describe("v54 -> current Device migration", func() {
 	It("drops Status and Parent and preserves core wire fields when v54 entries carry populated Status and Parent", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
+		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
+			ctx, gorp.TableConfig[v54.Device]{DB: db},
+		))
 		key := "DEV-SERIAL-002"
 		seed := v54.Device{
 			Key:        key,
@@ -101,25 +104,22 @@ var _ = Describe("v54 -> current Device migration", func() {
 			},
 			Parent: &ontologyv54.ID{Type: "device", Key: "DEV-SERIAL-PARENT"},
 		}
-		MustSucceed(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
-		))
-		Expect(gorp.NewCreate[v54.Key, v54.Device]().
-			Entry(&seed).Exec(ctx, db)).To(Succeed())
+		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		Expect(gorp.Migrate(ctx, gorp.MigrateConfig{
-			DB:        db,
-			Namespace: "Device",
-			Migrations: []migrate.Migration{
-				gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
-					"v54_drop_status_parent",
-					device.MigrateDevice,
-				),
+		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+			ctx, gorp.TableConfig[device.Device]{
+				DB: db,
+				Migrations: []migrate.Migration{
+					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
+						"v54_drop_status_parent",
+						device.MigrateDevice,
+					),
+				},
 			},
-		})).To(Succeed())
+		))
 
 		var got device.Device
-		Expect(gorp.NewRetrieve[device.Key, device.Device]().
+		Expect(currentTable.NewRetrieve().
 			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
