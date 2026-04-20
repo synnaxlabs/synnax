@@ -12,7 +12,6 @@
 package status_test
 
 import (
-	"github.com/google/uuid"
 	"reflect"
 	"testing"
 
@@ -20,8 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/encoding/orc"
 
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -46,18 +43,6 @@ var _ = Describe("Codec", func() {
 				Description: "test_5",
 				Time:        telem.TimeStamp(7),
 				Details:     "test_7",
-				Labels: []label.Label{
-					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-						Name: "test_10",
-						Color: color.Color{
-							R: 13,
-							G: 14,
-							B: 15,
-							A: 15.5,
-						},
-					},
-				},
 			}),
 			Entry("zero values", status.Status[string]{
 				Key:         "",
@@ -67,7 +52,6 @@ var _ = Describe("Codec", func() {
 				Description: "",
 				Time:        telem.TimeStamp(0),
 				Details:     "",
-				Labels:      nil,
 			}),
 			Entry("empty collections", status.Status[string]{
 				Key:         "test_1",
@@ -77,7 +61,6 @@ var _ = Describe("Codec", func() {
 				Description: "test_5",
 				Time:        telem.TimeStamp(7),
 				Details:     "test_7",
-				Labels:      []label.Label{},
 			}),
 		)
 	})
@@ -92,18 +75,6 @@ func BenchmarkEncodeDecodeStatus(b *testing.B) {
 		Description: "test_5",
 		Time:        telem.TimeStamp(7),
 		Details:     "test_7",
-		Labels: []label.Label{
-			{
-				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-				Name: "test_10",
-				Color: color.Color{
-					R: 13,
-					G: 14,
-					B: 15,
-					A: 15.5,
-				},
-			},
-		},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -130,18 +101,6 @@ func FuzzDecodeStatus(f *testing.F) {
 			Description: "test_5",
 			Time:        telem.TimeStamp(7),
 			Details:     "test_7",
-			Labels: []label.Label{
-				{
-					Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567809"),
-					Name: "test_10",
-					Color: color.Color{
-						R: 13,
-						G: 14,
-						B: 15,
-						A: 15.5,
-					},
-				},
-			},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -158,7 +117,6 @@ func FuzzDecodeStatus(f *testing.F) {
 			Description: "",
 			Time:        telem.TimeStamp(0),
 			Details:     "",
-			Labels:      nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -175,7 +133,6 @@ func FuzzDecodeStatus(f *testing.F) {
 			Description: "test_5",
 			Time:        telem.TimeStamp(7),
 			Details:     "test_7",
-			Labels:      []label.Label{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

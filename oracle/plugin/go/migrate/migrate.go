@@ -222,6 +222,7 @@ func (p *Plugin) generateForEntry(
 		autoCopyContent, err := generateAutoCopy(
 			pkg, goPath, req.RepoRoot,
 			entryTypes, schemaDiff, rewrittenOldTable, req.Resolutions,
+			false,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate top-level auto-copy for %s", goPath)
@@ -247,7 +248,13 @@ func (p *Plugin) generateForEntry(
 	}
 	if needsTemplate {
 		entryMirrorImport := gomod.ResolveImportPath(entryMirrorPath, req.RepoRoot, gomod.DefaultModulePrefix)
-		tc, err := renderTransformTemplate(pkg, entry.GoName, change.Version, versionDir, entryMirrorImport)
+		var tparams []resolution.TypeParam
+		if newEntryType, ok := req.Resolutions.Get(change.OldType.QualifiedName); ok {
+			if sf, ok := newEntryType.Form.(resolution.StructForm); ok {
+				tparams = sf.TypeParams
+			}
+		}
+		tc, err := renderTransformTemplate(pkg, entry.GoName, change.Version, versionDir, entryMirrorImport, tparams)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate transform template")
 		}
@@ -307,6 +314,7 @@ func (p *Plugin) generateSubPackageMigration(
 	autoCopyContent, err := generateAutoCopy(
 		versionDir, mirroredPath, req.RepoRoot,
 		types, schemaDiff, rewrittenOldTable, req.Resolutions,
+		true,
 	)
 	if err != nil {
 		return errors.Wrapf(err, "failed to generate auto-copy for %s", mirroredPath)
@@ -411,6 +419,7 @@ func (p *Plugin) generateRetargetAutoCopy(
 		autoCopyContent, err := generateAutoCopy(
 			currentDir, mirroredPath, req.RepoRoot,
 			types, retargetDiff, rewrittenPrevTable, rewrittenCurrentTable,
+			false,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "failed to generate retarget auto-copy for %s", mirroredPath)
@@ -683,25 +692,36 @@ func generateGorpEntryMethods(types []resolution.Type, migrateEntryNames set.Set
 			continue
 		}
 		goName := naming.GetGoName(typ)
-		keyFieldGoName := findKeyFieldGoName(form)
+		keyFieldGoName, keyFieldType := findKeyField(form)
 		if keyFieldGoName == "" {
 			continue
 		}
-		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) GorpKey() Key { return e.%s }\n",
-			goName, keyFieldGoName)
+		recv := goName + formatTypeParamsRef(form.TypeParams)
+		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) GorpKey() %s { return e.%s }\n",
+			recv, keyFieldType, keyFieldGoName)
 		_, _ = fmt.Fprintf(&buf, "\nfunc (e %s) SetOptions() []any { return nil }\n",
-			goName)
+			recv)
 	}
 	return buf.Bytes()
 }
 
-func findKeyFieldGoName(form resolution.StructForm) string {
+// findKeyField returns the Go field name and Go type name of the @key field on
+// the struct, or ("", "") if no key field is present. The type name is the
+// short (unqualified) form, since the frozen package always defines (or imports
+// without qualification) the key type locally — primitives appear as-is
+// ("string"), and named types appear under their declared name ("Key").
+func findKeyField(form resolution.StructForm) (name, typ string) {
 	for _, f := range form.Fields {
-		if _, ok := f.Domains["key"]; ok {
-			return naming.GetFieldName(f)
+		if _, ok := f.Domains["key"]; !ok {
+			continue
 		}
+		typeName := f.Type.Name
+		if idx := strings.LastIndex(typeName, "."); idx >= 0 {
+			typeName = typeName[idx+1:]
+		}
+		return naming.GetFieldName(f), typeName
 	}
-	return ""
+	return "", ""
 }
 
 // --- Templates ---
@@ -721,17 +741,31 @@ import (
 	{{.VersionDir}} "{{.MigrationsImport}}"
 )
 
-func Migrate{{.GoName}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}) ({{.GoName}}, error) {
-	return AutoMigrate{{.GoName}}(ctx, old)
+func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.VersionDir}}.{{.GoName}}{{.TypeParamsRef}}) ({{.GoName}}{{.TypeParamsRef}}, error) {
+	return AutoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 }
 `))
 
-func renderTransformTemplate(pkg, goName string, version int, vDir, migrationsImport string) ([]byte, error) {
+func renderTransformTemplate(
+	pkg, goName string,
+	version int,
+	vDir, migrationsImport string,
+	tparams []resolution.TypeParam,
+) ([]byte, error) {
 	var buf bytes.Buffer
 	err := transformTmpl.Execute(&buf, struct {
 		Package, GoName, VersionDir, MigrationsImport string
+		TypeParamsDecl, TypeParamsRef                 string
 		Version                                       int
-	}{pkg, goName, vDir, migrationsImport, version})
+	}{
+		Package:          pkg,
+		GoName:           goName,
+		VersionDir:       vDir,
+		MigrationsImport: migrationsImport,
+		TypeParamsDecl:   formatTypeParamsDecl(tparams),
+		TypeParamsRef:    formatTypeParamsRef(tparams),
+		Version:          version,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -750,8 +784,8 @@ import (
 {{- end}}
 )
 {{range .Functions}}
-func Migrate{{.GoName}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
-	migrated, err := AutoMigrate{{.GoName}}(ctx, old)
+func Migrate{{.GoName}}{{.TypeParamsDecl}}(ctx context.Context, old {{.OldTypeName}}) ({{.NewTypeName}}, error) {
+	migrated, err := AutoMigrate{{.GoName}}{{.TypeParamsRef}}(ctx, old)
 	if err != nil {
 		return {{.NewTypeName}}{}, err
 	}
@@ -772,6 +806,7 @@ func renderTypeMigrateTemplate(
 ) ([]byte, error) {
 	type tmplFunc struct {
 		GoName, OldTypeName, NewTypeName string
+		TypeParamsDecl, TypeParamsRef    string
 		NewFields                        []string
 	}
 	type tmplData struct {
@@ -786,7 +821,15 @@ func renderTypeMigrateTemplate(
 		if !ok || td.Kind != TypeChanged {
 			continue
 		}
-		if _, isStruct := typ.Form.(resolution.StructForm); !isStruct {
+		sf, isStruct := typ.Form.(resolution.StructForm)
+		if !isStruct {
+			continue
+		}
+		// Skip types that are their own migrate entries: their developer-edited
+		// transform lives at the entry's own package (goPath/migrate.go), not in
+		// the sub-package mirror. Generating both would duplicate the template.
+		if newType, ok := newTable.Get(typ.QualifiedName); ok &&
+			domain.HasExprFromType(newType, "go", "migrate") {
 			continue
 		}
 		goName := naming.GetGoName(typ)
@@ -805,8 +848,14 @@ func renderTypeMigrateTemplate(
 				newFields = append(newFields, naming.GetFieldName(*fd.NewField))
 			}
 		}
+		tref := formatTypeParamsRef(sf.TypeParams)
 		data.Functions = append(data.Functions, tmplFunc{
-			GoName: goName, OldTypeName: goName, NewTypeName: newTypeName, NewFields: newFields,
+			GoName:         goName,
+			OldTypeName:    goName + tref,
+			NewTypeName:    newTypeName + tref,
+			TypeParamsDecl: formatTypeParamsDecl(sf.TypeParams),
+			TypeParamsRef:  tref,
+			NewFields:      newFields,
 		})
 	}
 	if len(data.Functions) == 0 {

@@ -50,3 +50,7 @@ type Status[Details any] struct {
 	// Labels contains optional labels for categorization and filtering.
 	Labels []labelv54.Label `json:"labels" msgpack:"labels"`
 }
+
+func (e Status[Details]) GorpKey() string { return e.Key }
+
+func (e Status[Details]) SetOptions() []any { return nil }

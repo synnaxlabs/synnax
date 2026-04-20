@@ -320,6 +320,101 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("generic types", func() {
+			It("Should emit type-param decoration on AutoMigrate for a generic struct entry", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).To(ContainSubstring("old outv1.Entry[Details]"))
+				Expect(autoCopy).To(ContainSubstring(") (Entry[Details], error)"))
+				Expect(autoCopy).To(ContainSubstring("return Entry[Details]{"))
+			})
+
+			It("Should emit type-param decoration on the Migrate developer template", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				transform := fileContent(resp, "out/migrate.go")
+				Expect(transform).To(ContainSubstring("func MigrateEntry[Details any]"))
+				Expect(transform).To(ContainSubstring("old v1.Entry[Details]"))
+				Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
+				Expect(transform).To(ContainSubstring("AutoMigrateEntry[Details](ctx, old)"))
+			})
+
+			It("Should omit defaulted type params from the function signature", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						description string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).NotTo(ContainSubstring("[Details any, M"))
+				Expect(autoCopy).NotTo(ContainSubstring("[Details, M]"))
+			})
+		})
+
 		Context("optional fields", func() {
 			It("Should generate nil-check preamble for hard optional", func() {
 				oldSchema := `
