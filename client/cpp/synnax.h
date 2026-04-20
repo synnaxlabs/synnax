@@ -23,10 +23,11 @@
 #include "client/cpp/status/status.h"
 #include "client/cpp/transport.h"
 #include "client/cpp/view/view.h"
-#include "core/pkg/version/version.h"
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
+
+#include "core/pkg/version/version.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
