@@ -11,9 +11,16 @@
 
 package console
 
-import "embed"
+import (
+	"embed"
+	"io/fs"
+
+	"github.com/samber/lo"
+)
 
 //go:embed all:dist
 var embeddedAssets embed.FS
 
-const defaultEnabled = true
+var defaultFS fs.FS
+
+func init() { defaultFS = lo.Must(fs.Sub(embeddedAssets, "dist")) }

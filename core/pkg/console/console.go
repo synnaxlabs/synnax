@@ -21,7 +21,6 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/validate"
 )
 
 //go:embed fallback.html
@@ -31,55 +30,44 @@ const rootHTMLFile = "index.html"
 
 // Config is the configuration for creating a Console.
 type Config struct {
-	// Enabled controls whether the service serves the embedded console UI or a
-	// fallback page. Defaults to defaultEnabled, which is set by the build tag.
-	Enabled *bool
+	// FS is the filesystem containing the console assets. When nil, the console
+	// serves a fallback page indicating that it is not available.
+	FS fs.FS
 }
 
 var _ config.Config[Config] = Config{}
 
 // Override implements config.Config.
 func (c Config) Override(other Config) Config {
-	c.Enabled = override.Nil(c.Enabled, other.Enabled)
+	c.FS = override.Nil(c.FS, other.FS)
 	return c
 }
 
 // Validate implements config.Config.
-func (c Config) Validate() error {
-	v := validate.New("console")
-	validate.NotNil(v, "enabled", c.Enabled)
-	return v.Error()
-}
+func (c Config) Validate() error { return nil }
 
-// Console serves the web-based console UI. When enabled, it serves the embedded console
-// assets built from the console package. When disabled, it serves a fallback page
-// indicating that the console is not available.
-type Console struct {
-	fs      fs.FS
-	enabled bool
-}
+// Console serves the web-based console UI. When an FS is provided, it serves the
+// embedded Console assets. Otherwise, it serves a fallback page indicating that the
+// Console is not available.
+type Console struct{ fs fs.FS }
 
 var _ fhttp.BindableTransport = (*Console)(nil)
 
-// New creates a new Console with the given configurations.
+// New creates a new Console. If no FS is provided in the config, it uses the
+// default FS from the build. When built with -tags=console, the default FS
+// contains the embedded Console assets. Otherwise, it is nil and the Console
+// serves a fallback page.
 func New(cfgs ...Config) (*Console, error) {
-	cfg, err := config.New(Config{Enabled: new(defaultEnabled)}, cfgs...)
+	cfg, err := config.New(Config{FS: defaultFS}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	c := &Console{enabled: *cfg.Enabled}
-	if !c.enabled {
-		return c, nil
-	}
-	if c.fs, err = fs.Sub(embeddedAssets, "dist"); err != nil {
-		return nil, err
-	}
-	return c, nil
+	return &Console{fs: cfg.FS}, nil
 }
 
 // BindTo binds the console UI service to the provided Fiber app.
 func (c *Console) BindTo(app *fiber.App) {
-	if !c.enabled {
+	if !c.enabled() {
 		app.Get("/", func(ctx fiber.Ctx) error {
 			return ctx.SendFile("fallback.html", fiber.SendFile{FS: fallbackFS})
 		})
@@ -101,8 +89,10 @@ func (*Console) Use(...freighter.Middleware) {}
 // Report implements alamos.ReportProvider.
 func (c *Console) Report() alamos.Report {
 	value := "disabled"
-	if c.enabled {
+	if c.enabled() {
 		value = "enabled"
 	}
 	return alamos.Report{"console": value}
 }
+
+func (c *Console) enabled() bool { return c.fs != nil }

@@ -41,5 +41,5 @@ jobs:
     with:
       directory: core
       coverage_flag: core
-      ginkgo_flags: "--tags console,driver"
+      ginkgo_flags: "--tags driver"
       prepare_assets: true

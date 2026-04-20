@@ -13,6 +13,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"testing/fstest"
 
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
@@ -21,43 +22,47 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+var testFS = fstest.MapFS{
+	"index.html": &fstest.MapFile{
+		Data: []byte(`<!doctype html><html><head><title>Synnax Console</title></head><body><div id="root"></div></body></html>`),
+	},
+	"favicon.svg": &fstest.MapFile{
+		Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`),
+	},
+}
+
 var _ = Describe("Config", func() {
 	Describe("Override", func() {
-		It("Should override nil Enabled with a non-nil value", func() {
+		It("Should override nil FS with a non-nil value", func() {
 			base := console.Config{}
-			overridden := base.Override(console.Config{Enabled: new(true)})
-			Expect(*overridden.Enabled).To(BeTrue())
+			overridden := base.Override(console.Config{FS: testFS})
+			Expect(overridden.FS).To(Equal(testFS))
 		})
-		It("Should override non-nil Enabled with another non-nil value", func() {
-			base := console.Config{Enabled: new(true)}
-			overridden := base.Override(console.Config{Enabled: new(false)})
-			Expect(*overridden.Enabled).To(BeFalse())
+		It("Should override non-nil FS with another non-nil value", func() {
+			other := fstest.MapFS{}
+			base := console.Config{FS: testFS}
+			overridden := base.Override(console.Config{FS: other})
+			Expect(overridden.FS).To(Equal(other))
 		})
-		It("Should not override non-nil Enabled with nil", func() {
-			base := console.Config{Enabled: new(true)}
+		It("Should not override non-nil FS with nil", func() {
+			base := console.Config{FS: testFS}
 			overridden := base.Override(console.Config{})
-			Expect(*overridden.Enabled).To(BeTrue())
+			Expect(overridden.FS).To(Equal(testFS))
 		})
 		It("Should do nothing when both are nil", func() {
 			base := console.Config{}
 			overridden := base.Override(console.Config{})
-			Expect(overridden.Enabled).To(BeNil())
+			Expect(overridden.FS).To(BeNil())
 		})
 	})
 
 	Describe("Validate", func() {
-		It("Should fail when Enabled is nil", func() {
+		It("Should succeed when FS is nil", func() {
 			cfg := console.Config{}
-			err := cfg.Validate()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("enabled"))
-		})
-		It("Should succeed when Enabled is true", func() {
-			cfg := console.Config{Enabled: new(true)}
 			Expect(cfg.Validate()).To(Succeed())
 		})
-		It("Should succeed when Enabled is false", func() {
-			cfg := console.Config{Enabled: new(false)}
+		It("Should succeed when FS is set", func() {
+			cfg := console.Config{FS: testFS}
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})
@@ -78,7 +83,7 @@ var _ = Describe("Console", func() {
 			app  *fiber.App
 		)
 		BeforeEach(func() {
-			cons = MustSucceed(console.New(console.Config{Enabled: new(true)}))
+			cons = MustSucceed(console.New(console.Config{FS: testFS}))
 			app = fiber.New()
 			cons.BindTo(app)
 		})
@@ -86,7 +91,7 @@ var _ = Describe("Console", func() {
 			Expect(app.Shutdown()).To(Succeed())
 		})
 
-		Describe("BindTo", Pending, func() {
+		Describe("BindTo", func() {
 			It("Should serve index.html at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				res := MustSucceed(app.Test(req))
@@ -129,7 +134,7 @@ var _ = Describe("Console", func() {
 			app  *fiber.App
 		)
 		BeforeEach(func() {
-			cons = MustSucceed(console.New(console.Config{Enabled: new(false)}))
+			cons = MustSucceed(console.New())
 			app = fiber.New()
 			cons.BindTo(app)
 		})

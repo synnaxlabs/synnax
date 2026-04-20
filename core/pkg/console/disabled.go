@@ -11,8 +11,6 @@
 
 package console
 
-import "embed"
+import "io/fs"
 
-var embeddedAssets embed.FS
-
-const defaultEnabled = false
+var defaultFS fs.FS
