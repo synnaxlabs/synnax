@@ -72,7 +72,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	var outputOrder []string
 
 	for _, entry := range req.Resolutions.StructTypes() {
-		if !domain.HasExprFromType(entry, "go", "migrate") {
+		if !isMigrateEntry(entry) {
 			continue
 		}
 		form, ok := entry.Form.(resolution.StructForm)
@@ -828,8 +828,7 @@ func renderTypeMigrateTemplate(
 		// Skip types that are their own migrate entries: their developer-edited
 		// transform lives at the entry's own package (goPath/migrate.go), not in
 		// the sub-package mirror. Generating both would duplicate the template.
-		if newType, ok := newTable.Get(typ.QualifiedName); ok &&
-			domain.HasExprFromType(newType, "go", "migrate") {
+		if newType, ok := newTable.Get(typ.QualifiedName); ok && isMigrateEntry(newType) {
 			continue
 		}
 		goName := naming.GetGoName(typ)

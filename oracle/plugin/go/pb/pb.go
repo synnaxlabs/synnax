@@ -425,10 +425,7 @@ func (p *Plugin) processGenericStructForTranslation(
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
-	for _, tp := range form.TypeParams {
-		if tp.HasDefault() {
-			continue
-		}
+	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -553,10 +550,7 @@ func (p *Plugin) processDelegationTranslator(
 
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
-	for _, tp := range form.TypeParams {
-		if tp.HasDefault() {
-			continue
-		}
+	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
 		typeParamNames = append(typeParamNames, tp.Name)
 	}
@@ -968,12 +962,7 @@ func (p *Plugin) generateStructConversion(
 	}
 
 	if actualForm.IsGeneric() {
-		var nonDefaultedParams []resolution.TypeParam
-		for _, tp := range actualForm.TypeParams {
-			if !tp.HasDefault() {
-				nonDefaultedParams = append(nonDefaultedParams, tp)
-			}
-		}
+		nonDefaultedParams := resolution.NonDefaultedTypeParams(actualForm.TypeParams)
 		providedArgs := len(typeArgs)
 		if providedArgs < len(nonDefaultedParams) {
 			newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))

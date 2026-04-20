@@ -112,10 +112,7 @@ func generateEncoderCodecFile(
 		// record) are substituted by the types plugin and the Go type is concrete.
 		var typeParams []typeParamData
 		if form.IsGeneric() {
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					continue
-				}
+			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
 					Constraint: typeParamConstraint(tp),
