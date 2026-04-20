@@ -50,10 +50,9 @@ type Console struct{ fs fs.FS }
 
 var _ fhttp.BindableTransport = (*Console)(nil)
 
-// New creates a new Console. If no FS is provided in the config, it uses the
-// default FS from the build. When built with -tags=console, the default FS
-// contains the embedded Console assets. Otherwise, it is nil and the Console
-// serves a fallback page.
+// New creates a new Console. If no FS is provided in the config, it uses the default FS
+// from the build. When built with -tags=console, the default FS contains the embedded
+// Console assets. Otherwise, it is nil and the Console serves a fallback page.
 func New(cfgs ...Config) (*Console, error) {
 	cfg, err := config.New(Config{FS: defaultFS}, cfgs...)
 	if err != nil {
@@ -64,13 +63,10 @@ func New(cfgs ...Config) (*Console, error) {
 
 // BindTo binds the console UI service to the provided Fiber app.
 func (c *Console) BindTo(app *fiber.App) {
+	sendFile := fiber.SendFile{FS: c.fs, Compress: true, CacheDuration: -1}
 	if !c.enabled() {
 		app.Get("/", func(ctx fiber.Ctx) error {
-			return ctx.SendFile("fallback.html", fiber.SendFile{
-				FS:            fallbackFS,
-				Compress:      true,
-				CacheDuration: -1,
-			})
+			return ctx.SendFile("fallback.html", sendFile)
 		})
 		return
 	}
@@ -80,11 +76,7 @@ func (c *Console) BindTo(app *fiber.App) {
 		CacheDuration: -1,
 	}))
 	app.Get("/*", func(ctx fiber.Ctx) error {
-		return ctx.SendFile("index.html", fiber.SendFile{
-			FS:            c.fs,
-			Compress:      true,
-			CacheDuration: -1,
-		})
+		return ctx.SendFile("index.html", sendFile)
 	})
 }
 
@@ -100,4 +92,4 @@ func (c *Console) Report() alamos.Report {
 	return alamos.Report{"console": value}
 }
 
-func (c *Console) enabled() bool { return c.fs != nil }
+func (c *Console) enabled() bool { return c.fs != fallbackFS }

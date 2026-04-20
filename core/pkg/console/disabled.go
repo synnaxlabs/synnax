@@ -11,6 +11,4 @@
 
 package console
 
-import "io/fs"
-
-var defaultFS fs.FS
+var defaultFS = fallbackFS
