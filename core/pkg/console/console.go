@@ -10,11 +10,9 @@
 package console
 
 import (
-	_ "embed"
+	"embed"
 	"io/fs"
 	"time"
-
-	"github.com/synnaxlabs/x/validate"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
@@ -23,10 +21,11 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 //go:embed fallback.html
-var fallbackHTML []byte
+var fallbackFS embed.FS
 
 const rootHTMLFile = "index.html"
 
@@ -82,8 +81,7 @@ func New(cfgs ...Config) (*Console, error) {
 func (c *Console) BindTo(app *fiber.App) {
 	if !c.enabled {
 		app.Get("/", func(ctx fiber.Ctx) error {
-			ctx.Set("Content-Type", "text/html")
-			return ctx.Send(fallbackHTML)
+			return ctx.SendFile("fallback.html", fiber.SendFile{FS: fallbackFS})
 		})
 		return
 	}

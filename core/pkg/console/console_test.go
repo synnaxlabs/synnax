@@ -91,7 +91,8 @@ var _ = Describe("Console", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				res := MustSucceed(app.Test(req))
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
-				Expect(res.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
+				Expect(res.Header.Get(fiber.HeaderContentType)).
+					To(ContainSubstring(fiber.MIMETextHTML))
 			})
 
 			It("Should serve static assets", func() {
@@ -104,7 +105,8 @@ var _ = Describe("Console", func() {
 				req := httptest.NewRequest(http.MethodGet, "/some/spa/route", nil)
 				res := MustSucceed(app.Test(req))
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
-				Expect(res.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
+				Expect(res.Header.Get(fiber.HeaderContentType)).
+					To(ContainSubstring(fiber.MIMETextHTML))
 			})
 		})
 
@@ -140,7 +142,8 @@ var _ = Describe("Console", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				res := MustSucceed(app.Test(req))
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
-				Expect(res.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
+				Expect(res.Header.Get(fiber.HeaderContentType)).
+					To(ContainSubstring(fiber.MIMETextHTML))
 				body := MustSucceed(io.ReadAll(res.Body))
 				html := string(body)
 				Expect(html).To(ContainSubstring("<title>Synnax Core</title>"))
