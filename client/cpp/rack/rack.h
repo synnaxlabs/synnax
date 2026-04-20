@@ -68,6 +68,14 @@ inline std::uint16_t rack_key_node(const Key key) {
     return key >> 16;
 }
 
+/// @brief Options for retrieving racks.
+struct RetrieveOptions {
+    /// @brief When true, the server joins each rack's current operational
+    /// status from the Status service and returns it on the retrieved rack.
+    /// Leave false for lighter-weight reads that don't need live status.
+    bool include_status = false;
+};
+
 /// @brief Client for managing racks in a Synnax cluster.
 class Client {
 public:
@@ -101,11 +109,29 @@ public:
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> retrieve(std::uint32_t key) const;
 
+    /// @brief Retrieves a rack by its key with options.
+    /// @param key The key of the rack to retrieve.
+    /// @param options Options controlling which optional fields the server
+    /// joins onto the returned rack (e.g. its current operational status).
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error>
+    retrieve(std::uint32_t key, const RetrieveOptions &options) const;
+
     /// @brief Retrieves a rack by its name.
     /// @param name The name of the rack to retrieve.
     /// @returns A pair containing the retrieved rack and an error if one occurred.
     [[nodiscard]]
     std::pair<Rack, x::errors::Error> retrieve(const std::string &name) const;
+
+    /// @brief Retrieves a rack by its name with options.
+    /// @param name The name of the rack to retrieve.
+    /// @param options Options controlling which optional fields the server
+    /// joins onto the returned rack (e.g. its current operational status).
+    /// @returns A pair containing the retrieved rack and an error if one occurred.
+    [[nodiscard]]
+    std::pair<Rack, x::errors::Error>
+    retrieve(const std::string &name, const RetrieveOptions &options) const;
 
     /// @brief Deletes a rack by its key.
     /// @param key The key of the rack to delete.

@@ -15,8 +15,10 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strings"
 	"text/template"
 
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/go/internal/naming"
 	"github.com/synnaxlabs/oracle/plugin/gomod"
 	"github.com/synnaxlabs/oracle/plugin/output"
@@ -25,16 +27,22 @@ import (
 )
 
 // generateAutoCopy generates a migrate_auto.gen.go file for the given types.
+// When skipEntries is true, types with @go migrate are excluded — used by the
+// sub-package mirror, where the entry's AutoMigrate is generated at the entry's
+// own package and re-emitting it in the mirror would duplicate the function and
+// (for cross-package returns) create an import cycle.
 func generateAutoCopy(
 	pkg, outputPath, repoRoot string,
 	types []resolution.Type,
 	diff map[string]TypeDiff,
 	oldTable, newTable *resolution.Table,
+	skipEntries bool,
 ) ([]byte, error) {
 	c := &collector{
 		pkg: pkg, outputPath: outputPath, repoRoot: repoRoot,
 		diff: diff, oldTable: oldTable, newTable: newTable,
 		imports: make(map[string]importEntry), generated: make(set.Set[string]),
+		skipEntries: skipEntries,
 	}
 	data := c.collect(types)
 	if len(data.Funcs) == 0 {
@@ -61,16 +69,17 @@ type importEntry struct {
 }
 
 type funcData struct {
-	GoName        string
-	OldTypeName   string
-	NewTypeName   string
-	UsesCtx       bool
-	ZeroValue     string
-	Kind          string // "struct", "slice", "cast"
-	Preamble      []step
-	Fields        []field
-	SliceElemExpr string
-	SliceHasErr   bool
+	GoName         string
+	TypeParamsDecl string // "" for non-generic, "[Details any]" for generic
+	OldTypeName    string
+	NewTypeName    string
+	UsesCtx        bool
+	ZeroValue      string
+	Kind           string // "struct", "slice", "cast"
+	Preamble       []step
+	Fields         []field
+	SliceElemExpr  string
+	SliceHasErr    bool
 }
 
 type step struct {
@@ -107,11 +116,11 @@ import (
 )
 {{range $fn := .Funcs}}
 {{- if eq $fn.Kind "cast"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	return {{$fn.NewTypeName}}(old), nil
 }
 {{else if eq $fn.Kind "slice"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 	result := make({{$fn.NewTypeName}}, len(old))
 	for i, v := range old {
 {{- if $fn.SliceHasErr}}
@@ -126,7 +135,7 @@ func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.C
 	return result, nil
 }
 {{else if eq $fn.Kind "struct"}}
-func AutoMigrate{{$fn.GoName}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
+func AutoMigrate{{$fn.GoName}}{{$fn.TypeParamsDecl}}({{- if $fn.UsesCtx}}ctx{{else}}_{{end}} context.Context, old {{$fn.OldTypeName}}) ({{$fn.NewTypeName}}, error) {
 {{- range $fn.Preamble}}
 {{- if eq .Kind "migrate"}}
 	{{.VarName}}, err := {{.Call}}
@@ -182,12 +191,16 @@ type collector struct {
 	generated                 set.Set[string]
 	pending                   []resolution.Type
 	funcs                     []funcData
+	skipEntries               bool
 }
 
 func (c *collector) collect(types []resolution.Type) fileData {
 	for _, typ := range types {
 		td, hasDiff := c.diff[typ.QualifiedName]
 		if !hasDiff || td.Kind == TypeUnchanged {
+			continue
+		}
+		if false && c.skipEntries && c.isEntryType(typ) { // TEMP
 			continue
 		}
 		c.ensureFunc(typ)
@@ -227,12 +240,18 @@ func (c *collector) ensureFunc(typ resolution.Type) {
 func (c *collector) structFunc(typ resolution.Type, sf resolution.StructForm) funcData {
 	newType, _ := c.newTable.Get(typ.QualifiedName)
 	newSF, _ := newType.Form.(resolution.StructForm)
-	return c.structFuncFromForms(
+	// Substitute defaulted type params (e.g., V extends Variant = Variant) so
+	// fields referencing them resolve to concrete types. The types plugin
+	// performs the same substitution for the struct definition; matching it
+	// here keeps the migration's per-field classification aligned with the
+	// generated struct shape.
+	return decorateWithTypeParams(c.structFuncFromForms(
 		naming.GetGoName(typ),
 		c.resolveTypeName(typ, c.oldTable),
 		c.resolveNewTypeName(typ),
-		sf, newSF,
-	)
+		substituteTypeParams(sf, nil),
+		substituteTypeParams(newSF, nil),
+	), sf.TypeParams)
 }
 
 func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) funcData {
@@ -240,7 +259,8 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
 	if isArr, elemRef := isArrayAlias(form, c.oldTable); isArr {
-		return c.sliceFunc(typ, goName, oldName, newName, elemRef)
+		return decorateWithTypeParams(
+			c.sliceFunc(typ, goName, oldName, newName, elemRef), form.TypeParams)
 	}
 	targetResolved, ok := form.Target.Resolve(c.oldTable)
 	if !ok {
@@ -256,10 +276,12 @@ func (c *collector) aliasFunc(typ resolution.Type, form resolution.AliasForm) fu
 					newSF = substituteTypeParams(newSF, af.Target.TypeArgs)
 				}
 			}
-			return c.structFuncFromForms(goName, oldName, newName, oldSF, newSF)
+			return decorateWithTypeParams(
+				c.structFuncFromForms(goName, oldName, newName, oldSF, newSF),
+				form.TypeParams)
 		}
 	}
-	return c.castFunc(typ)
+	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
 }
 
 func (c *collector) distinctFunc(typ resolution.Type, form resolution.DistinctForm) funcData {
@@ -267,9 +289,11 @@ func (c *collector) distinctFunc(typ resolution.Type, form resolution.DistinctFo
 	oldName := c.resolveTypeName(typ, c.oldTable)
 	newName := c.resolveNewTypeName(typ)
 	if form.Base.Name == "Array" && len(form.Base.TypeArgs) > 0 {
-		return c.sliceFunc(typ, goName, oldName, newName, form.Base.TypeArgs[0])
+		return decorateWithTypeParams(
+			c.sliceFunc(typ, goName, oldName, newName, form.Base.TypeArgs[0]),
+			form.TypeParams)
 	}
-	return c.castFunc(typ)
+	return decorateWithTypeParams(c.castFunc(typ), form.TypeParams)
 }
 
 func (c *collector) castFunc(typ resolution.Type) funcData {
@@ -572,6 +596,90 @@ func needsAutoMigrate(types []resolution.Type, diff map[string]TypeDiff) bool {
 		}
 	}
 	return false
+}
+
+// isEntryType reports whether the type identified by typ.QualifiedName is a
+// top-level migrate entry in the current (new) resolution table. Entry types'
+// AutoMigrate functions are emitted in the entry's own package, so sub-package
+// mirrors must skip them to avoid duplicating the function and (when the
+// function returns a cross-package type) creating an import cycle. The lookup
+// goes through the new table so removing @go migrate from a type between
+// versions is respected — the type is no longer treated as an entry.
+func (c *collector) isEntryType(typ resolution.Type) bool {
+	t, ok := c.newTable.Get(typ.QualifiedName)
+	return ok && isMigrateEntry(t)
+}
+
+// isMigrateEntry reports whether t carries the @go migrate directive, marking
+// it as a top-level migration entry whose Migrate/AutoMigrate functions are
+// generated in its own package rather than a sub-package mirror.
+func isMigrateEntry(t resolution.Type) bool {
+	return domain.HasExprFromType(t, "go", "migrate")
+}
+
+// decorateWithTypeParams applies generic type-param decoration to a funcData:
+// appends the type-param reference (e.g., "[Details]") to OldTypeName and
+// NewTypeName, sets TypeParamsDecl (e.g., "[Details any]"), and (for struct
+// kinds) rebuilds ZeroValue against the now-decorated NewTypeName. A no-op
+// when tparams is empty, so non-generic callers can use the helper unchanged.
+func decorateWithTypeParams(fn funcData, tparams []resolution.TypeParam) funcData {
+	if len(resolution.NonDefaultedTypeParams(tparams)) == 0 {
+		return fn
+	}
+	tref := formatTypeParamsRef(tparams)
+	fn.OldTypeName += tref
+	fn.NewTypeName += tref
+	fn.TypeParamsDecl = formatTypeParamsDecl(tparams)
+	if fn.Kind == "struct" {
+		fn.ZeroValue = fn.NewTypeName + "{}"
+	}
+	return fn
+}
+
+// formatTypeParamsDecl renders the type-param list as it appears in a function
+// signature: "" when the slice is empty, "[Details any, V comparable]" when
+// non-empty. Constraints fall back to "any" when none is set on the param.
+func formatTypeParamsDecl(tps []resolution.TypeParam) string {
+	tps = resolution.NonDefaultedTypeParams(tps)
+	if len(tps) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("[")
+	for i, tp := range tps {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(tp.Name)
+		b.WriteString(" ")
+		if tp.Constraint != nil {
+			b.WriteString(tp.Constraint.Name)
+		} else {
+			b.WriteString("any")
+		}
+	}
+	b.WriteString("]")
+	return b.String()
+}
+
+// formatTypeParamsRef renders the type-param list as it appears at a use site
+// (parameter type, return type, type-param pass-through): "" when empty,
+// "[Details, V]" otherwise.
+func formatTypeParamsRef(tps []resolution.TypeParam) string {
+	tps = resolution.NonDefaultedTypeParams(tps)
+	if len(tps) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("[")
+	for i, tp := range tps {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		b.WriteString(tp.Name)
+	}
+	b.WriteString("]")
+	return b.String()
 }
 
 func findField(fields []resolution.Field, name string) *resolution.Field {

@@ -87,14 +87,6 @@ func (t Task) EncodeOrc(w *orc.Writer) error {
 	}
 	w.Bool(t.Internal)
 	w.Bool(t.Snapshot)
-	if t.Status != nil {
-		w.Bool(true)
-		if err := (*t.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	return nil
 }
 
@@ -127,19 +119,6 @@ func (t *Task) DecodeOrc(r *orc.Reader) error {
 	}
 	if t.Snapshot, err = r.Bool(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			t.Status = &v
-		}
 	}
 	return nil
 }

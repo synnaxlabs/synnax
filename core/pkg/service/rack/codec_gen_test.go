@@ -12,7 +12,6 @@
 package rack_test
 
 import (
-	"github.com/google/uuid"
 	"reflect"
 	"testing"
 
@@ -21,10 +20,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
-	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Codec", func() {
@@ -40,62 +35,24 @@ var _ = Describe("Codec", func() {
 				Expect(decoded).To(Equal(original))
 			},
 			Entry("fully populated", rack.Rack{
-				Key:         rack.Key(2),
-				Name:        "test_2",
-				TaskCounter: 4,
-				Embedded:    false,
-				Status: func() *status.Status[rack.StatusDetails] {
-					v := status.Status[rack.StatusDetails]{
-						Key:         "test_6",
-						Name:        "test_7",
-						Variant:     status.Variant("success"),
-						Message:     "test_9",
-						Description: "test_10",
-						Time:        telem.TimeStamp(12),
-						Details:     rack.StatusDetails{Rack: rack.Key(14)},
-						Labels: []label.Label{
-							{
-								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
-								Name: "test_16",
-								Color: color.Color{
-									R: 19,
-									G: 20,
-									B: 21,
-									A: 21.5,
-								},
-							},
-						},
-					}
-					return &v
-				}(),
-				Integrations: []string{"test_22"},
+				Key:          rack.Key(2),
+				Name:         "test_2",
+				TaskCounter:  4,
+				Embedded:     false,
+				Integrations: []string{"test_5"},
 			}),
 			Entry("zero values", rack.Rack{
 				Key:          rack.Key(0),
 				Name:         "",
 				TaskCounter:  0,
 				Embedded:     false,
-				Status:       nil,
 				Integrations: nil,
 			}),
 			Entry("empty collections", rack.Rack{
-				Key:         rack.Key(2),
-				Name:        "test_2",
-				TaskCounter: 4,
-				Embedded:    false,
-				Status: func() *status.Status[rack.StatusDetails] {
-					v := status.Status[rack.StatusDetails]{
-						Key:         "test_6",
-						Name:        "test_7",
-						Variant:     status.Variant("success"),
-						Message:     "test_9",
-						Description: "test_10",
-						Time:        telem.TimeStamp(12),
-						Details:     rack.StatusDetails{Rack: rack.Key(14)},
-						Labels:      []label.Label{},
-					}
-					return &v
-				}(),
+				Key:          rack.Key(2),
+				Name:         "test_2",
+				TaskCounter:  4,
+				Embedded:     false,
 				Integrations: []string{},
 			}),
 		)
@@ -119,35 +76,11 @@ var _ = Describe("Codec", func() {
 
 func BenchmarkEncodeDecodeRack(b *testing.B) {
 	rv := rack.Rack{
-		Key:         rack.Key(2),
-		Name:        "test_2",
-		TaskCounter: 4,
-		Embedded:    false,
-		Status: func() *status.Status[rack.StatusDetails] {
-			v := status.Status[rack.StatusDetails]{
-				Key:         "test_6",
-				Name:        "test_7",
-				Variant:     status.Variant("success"),
-				Message:     "test_9",
-				Description: "test_10",
-				Time:        telem.TimeStamp(12),
-				Details:     rack.StatusDetails{Rack: rack.Key(14)},
-				Labels: []label.Label{
-					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
-						Name: "test_16",
-						Color: color.Color{
-							R: 19,
-							G: 20,
-							B: 21,
-							A: 21.5,
-						},
-					},
-				},
-			}
-			return &v
-		}(),
-		Integrations: []string{"test_22"},
+		Key:          rack.Key(2),
+		Name:         "test_2",
+		TaskCounter:  4,
+		Embedded:     false,
+		Integrations: []string{"test_5"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -184,35 +117,11 @@ func BenchmarkEncodeDecodeStatusDetails(b *testing.B) {
 func FuzzDecodeRack(f *testing.F) {
 	{
 		seed := rack.Rack{
-			Key:         rack.Key(2),
-			Name:        "test_2",
-			TaskCounter: 4,
-			Embedded:    false,
-			Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{
-					Key:         "test_6",
-					Name:        "test_7",
-					Variant:     status.Variant("success"),
-					Message:     "test_9",
-					Description: "test_10",
-					Time:        telem.TimeStamp(12),
-					Details:     rack.StatusDetails{Rack: rack.Key(14)},
-					Labels: []label.Label{
-						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef123456780f"),
-							Name: "test_16",
-							Color: color.Color{
-								R: 19,
-								G: 20,
-								B: 21,
-								A: 21.5,
-							},
-						},
-					},
-				}
-				return &v
-			}(),
-			Integrations: []string{"test_22"},
+			Key:          rack.Key(2),
+			Name:         "test_2",
+			TaskCounter:  4,
+			Embedded:     false,
+			Integrations: []string{"test_5"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -226,7 +135,6 @@ func FuzzDecodeRack(f *testing.F) {
 			Name:         "",
 			TaskCounter:  0,
 			Embedded:     false,
-			Status:       nil,
 			Integrations: nil,
 		}
 		w := orc.NewWriter(0)
@@ -237,23 +145,10 @@ func FuzzDecodeRack(f *testing.F) {
 	}
 	{
 		seed := rack.Rack{
-			Key:         rack.Key(2),
-			Name:        "test_2",
-			TaskCounter: 4,
-			Embedded:    false,
-			Status: func() *status.Status[rack.StatusDetails] {
-				v := status.Status[rack.StatusDetails]{
-					Key:         "test_6",
-					Name:        "test_7",
-					Variant:     status.Variant("success"),
-					Message:     "test_9",
-					Description: "test_10",
-					Time:        telem.TimeStamp(12),
-					Details:     rack.StatusDetails{Rack: rack.Key(14)},
-					Labels:      []label.Label{},
-				}
-				return &v
-			}(),
+			Key:          rack.Key(2),
+			Name:         "test_2",
+			TaskCounter:  4,
+			Embedded:     false,
 			Integrations: []string{},
 		}
 		w := orc.NewWriter(0)

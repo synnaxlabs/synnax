@@ -158,7 +158,7 @@ func generateTestCodecFile(
 					if f.Type.Name == "nil" {
 						continue
 					}
-					if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+					if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 						continue
 					}
 					r, ok := f.Type.Resolve(table)
@@ -327,7 +327,7 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 		if f.Type.Name == "nil" {
 			continue
 		}
-		if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 			continue
 		}
 		resolved, ok := f.Type.Resolve(b.table)
@@ -470,7 +470,7 @@ func (b *testValueBuilder) valueExpr(
 				if f.Type.Name == "nil" {
 					continue
 				}
-				if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+				if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 					continue
 				}
 				r, ok := f.Type.Resolve(b.table)
