@@ -45,7 +45,7 @@ echo ""
 
 # --- Bazel clean (unconditional) ---
 echo "Bazel clean:"
-BAZEL_BASE="/root/.bazel"
+    BAZEL_BASE=$(bazel info output_user_root 2>/dev/null || echo "/root/.bazel")
 if [ -d "$BAZEL_BASE" ] && [ -d "$REPO_ROOT" ]; then
     before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
     before_bazel=${before_bazel:-0}
