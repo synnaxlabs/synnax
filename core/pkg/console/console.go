@@ -12,7 +12,6 @@ package console
 import (
 	"embed"
 	"io/fs"
-	"time"
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/static"
@@ -26,12 +25,10 @@ import (
 //go:embed fallback.html
 var fallbackFS embed.FS
 
-const rootHTMLFile = "index.html"
-
 // Config is the configuration for creating a Console.
 type Config struct {
-	// FS is the filesystem containing the console assets. When nil, the console
-	// serves a fallback page indicating that it is not available.
+	// FS is the filesystem containing the Console assets. When nil, the Console serves
+	// a fallback page indicating that it is not available.
 	FS fs.FS
 }
 
@@ -69,17 +66,25 @@ func New(cfgs ...Config) (*Console, error) {
 func (c *Console) BindTo(app *fiber.App) {
 	if !c.enabled() {
 		app.Get("/", func(ctx fiber.Ctx) error {
-			return ctx.SendFile("fallback.html", fiber.SendFile{FS: fallbackFS})
+			return ctx.SendFile("fallback.html", fiber.SendFile{
+				FS:            fallbackFS,
+				Compress:      true,
+				CacheDuration: -1,
+			})
 		})
 		return
 	}
 	app.Use("/", static.New("", static.Config{
-		FS:     c.fs,
-		Browse: false,
-		MaxAge: int((24 * time.Hour).Seconds()),
+		FS:            c.fs,
+		Compress:      true,
+		CacheDuration: -1,
 	}))
 	app.Get("/*", func(ctx fiber.Ctx) error {
-		return ctx.SendFile(rootHTMLFile, fiber.SendFile{FS: c.fs})
+		return ctx.SendFile("index.html", fiber.SendFile{
+			FS:            c.fs,
+			Compress:      true,
+			CacheDuration: -1,
+		})
 	})
 }
 

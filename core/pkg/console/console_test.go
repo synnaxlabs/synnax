@@ -24,10 +24,14 @@ import (
 
 var testFS = fstest.MapFS{
 	"index.html": &fstest.MapFile{
-		Data: []byte(`<!doctype html><html><head><title>Synnax Console</title></head><body><div id="root"></div></body></html>`),
+		Data: []byte(
+			`<!doctype html><html><head><title>Synnax Console</title></head><body><div id="root"></div></body></html>`,
+		),
 	},
 	"favicon.svg": &fstest.MapFile{
-		Data: []byte(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`),
+		Data: []byte(
+			`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1 1"><rect width="1" height="1"/></svg>`,
+		),
 	},
 }
 
