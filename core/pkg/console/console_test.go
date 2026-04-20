@@ -10,6 +10,7 @@
 package console_test
 
 import (
+	"io"
 	"net/http"
 	"net/http/httptest"
 
@@ -65,33 +66,27 @@ var _ = Describe("Config", func() {
 var _ = Describe("Console", func() {
 	Describe("New", func() {
 		It("Should use the build tag default when no config is provided", func() {
-			svc := MustSucceed(console.New())
-			report := svc.Report()
+			cons := MustSucceed(console.New())
+			report := cons.Report()
 			Expect(report["console"]).To(Or(Equal("enabled"), Equal("disabled")))
 		})
 	})
 
-	Describe("Enabled", Pending, func() {
+	Describe("Enabled", func() {
 		var (
-			svc *console.Console
-			app *fiber.App
+			cons *console.Console
+			app  *fiber.App
 		)
 		BeforeEach(func() {
-			probe := MustSucceed(console.New(console.Config{Enabled: new(true)}))
-			if probe.Report()["console"] != "enabled" {
-				Skip("console assets not embedded (build without -tags console)")
-			}
-			svc = MustSucceed(console.New(console.Config{Enabled: new(true)}))
+			cons = MustSucceed(console.New(console.Config{Enabled: new(true)}))
 			app = fiber.New()
-			svc.BindTo(app)
+			cons.BindTo(app)
 		})
 		AfterEach(func() {
-			if app != nil {
-				Expect(app.Shutdown()).To(Succeed())
-			}
+			Expect(app.Shutdown()).To(Succeed())
 		})
 
-		Describe("BindTo", func() {
+		Describe("BindTo", Pending, func() {
 			It("Should serve index.html at the root", func() {
 				req := httptest.NewRequest(http.MethodGet, "/", nil)
 				res := MustSucceed(app.Test(req))
@@ -115,13 +110,13 @@ var _ = Describe("Console", func() {
 
 		Describe("Use", func() {
 			It("Should not panic", func() {
-				Expect(func() { svc.Use() }).ToNot(Panic())
+				Expect(func() { cons.Use() }).ToNot(Panic())
 			})
 		})
 
 		Describe("Report", func() {
 			It("Should report as enabled", func() {
-				Expect(svc.Report()["console"]).To(Equal("enabled"))
+				Expect(cons.Report()["console"]).To(Equal("enabled"))
 			})
 		})
 	})
@@ -146,6 +141,11 @@ var _ = Describe("Console", func() {
 				res := MustSucceed(app.Test(req))
 				Expect(res.StatusCode).To(Equal(http.StatusOK))
 				Expect(res.Header.Get("Content-Type")).To(ContainSubstring("text/html"))
+				body := MustSucceed(io.ReadAll(res.Body))
+				html := string(body)
+				Expect(html).To(ContainSubstring("<title>Synnax Core</title>"))
+				Expect(html).To(ContainSubstring("built without embedded Console"))
+				Expect(html).To(ContainSubstring("<code>-tags=console</code>"))
 			})
 		})
 
