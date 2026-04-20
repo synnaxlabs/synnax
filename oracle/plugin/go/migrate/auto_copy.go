@@ -200,7 +200,7 @@ func (c *collector) collect(types []resolution.Type) fileData {
 		if !hasDiff || td.Kind == TypeUnchanged {
 			continue
 		}
-		if c.skipEntries && c.isEntryType(typ) {
+		if false && c.skipEntries && c.isEntryType(typ) { // TEMP
 			continue
 		}
 		c.ensureFunc(typ)

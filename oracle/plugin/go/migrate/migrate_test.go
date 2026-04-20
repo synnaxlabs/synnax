@@ -413,6 +413,141 @@ var _ = Describe("Go Migrate Plugin", func() {
 				Expect(autoCopy).NotTo(ContainSubstring("[Details any, M"))
 				Expect(autoCopy).NotTo(ContainSubstring("[Details, M]"))
 			})
+
+			It("Should substitute defaulted type params in field conversions", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("Mode: Mode(old.Mode)"))
+				Expect(autoCopy).NotTo(ContainSubstring("Mode: old.Mode"))
+			})
+
+			It("Should emit generic-decorated GorpKey on the frozen entry struct", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/types.gen.go")
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) GorpKey() Key { return e.Key }"))
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) SetOptions() []any { return nil }"))
+			})
+
+			It("Should emit primitive return type in GorpKey when key field is a raw primitive", func() {
+				oldSchema := `
+					@go output "out"
+					Entry struct<Details?> {
+						key string {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Entry struct<Details?> {
+						key string {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/types.gen.go")
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) GorpKey() string { return e.Key }"))
+				Expect(frozen).NotTo(ContainSubstring("GorpKey() Key"))
+			})
+		})
+
+		Context("sub-package entry-type skip", func() {
+			It("Should not duplicate AutoMigrate for entry types in sub-package mirrors", func() {
+				// Entry Arc (in "arc" package) nests a Status type that is itself a
+				// migrate entry (in "leaf" package). The sub-package auto-copy at
+				// leaf/migrations/v1 must NOT include AutoMigrateStatus, because
+				// the entry's own package (leaf/) already emits it. Duplicating
+				// would create an import cycle on cross-package return types.
+				loader.Add("schemas/leaf", `
+					@go output "leaf"
+					Status struct<Details?> {
+						key string {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`)
+				oldSchema := `
+					import "schemas/leaf"
+					@go output "arc"
+					Key = string
+					Arc struct {
+						key Key {@key}
+						name string
+						status leaf.Status<record>??
+						@go migrate
+					}
+				`
+				newSchema := `
+					import "schemas/leaf"
+					@go output "arc"
+					Key = string
+					Arc struct {
+						key Key {@key}
+						name string
+						description string
+						status leaf.Status<record>??
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				// The leaf's sub-package mirror must NOT emit AutoMigrateStatus
+				// because Status is its own entry; leaf/migrate_auto.gen.go owns
+				// that function. A duplicate in the mirror would require
+				// importing the live leaf package (for the return type), which
+				// creates a cycle.
+				subPkg := fileContent(resp, "leaf/migrations/v1/migrate_auto.gen.go")
+				Expect(subPkg).NotTo(ContainSubstring("func AutoMigrateStatus"))
+				Expect(fileContent(resp, "leaf/migrations/v1/migrate.go")).To(BeEmpty())
+			})
 		})
 
 		Context("optional fields", func() {
