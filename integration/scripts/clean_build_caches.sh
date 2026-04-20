@@ -13,7 +13,7 @@
 # - Bazel: always runs `bazel clean` (unconditional — remote cache serves next build)
 # - Go/binaries: deletes oldest files first until MIN_FREE_GB of disk space is available
 #
-# Usage: clean_build_caches_unix.sh [MIN_FREE_GB]
+# Usage: clean_build_caches.sh [MIN_FREE_GB]
 #
 # This script must never fail the build, so we use set +e (best-effort cleanup).
 
@@ -22,8 +22,6 @@ set +e
 MIN_FREE_GB="${1:-25}"
 MIN_FREE_MB=$((MIN_FREE_GB * 1024))
 TOTAL_FREED=0
-BATCH_SIZE=100
-
 REPO_ROOT="$(cd "$(dirname "$0")/../.." 2> /dev/null && pwd)"
 
 get_free_mb() {
@@ -45,7 +43,7 @@ echo ""
 
 # --- Bazel clean (unconditional) ---
 echo "Bazel clean:"
-    BAZEL_BASE=$(bazel info output_user_root 2>/dev/null || echo "/root/.bazel")
+BAZEL_BASE=$(bazel info output_user_root 2> /dev/null || echo "/root/.bazel")
 if [ -d "$BAZEL_BASE" ] && [ -d "$REPO_ROOT" ]; then
     before_bazel=$(du -sm "$BAZEL_BASE" 2> /dev/null | cut -f1 || echo 0)
     before_bazel=${before_bazel:-0}
@@ -97,10 +95,8 @@ while IFS=' ' read -r _mtime filepath; do
     rm -f "$filepath" 2> /dev/null
     DELETED=$((DELETED + 1))
     TOTAL_FREED=$((TOTAL_FREED + size / 1048576))
-    if [ $((DELETED % BATCH_SIZE)) -eq 0 ]; then
-        if has_enough_space; then
-            break
-        fi
+    if has_enough_space; then
+        break
     fi
 done < <(
     {

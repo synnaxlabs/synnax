@@ -11,7 +11,7 @@
 # - Bazel: always runs `bazel clean` (unconditional - remote cache serves next build)
 # - Go/binaries: deletes oldest files first until MinFreeGB of disk space is available
 #
-# Usage: CleanBuildCachesWindows.ps1 [-MinFreeGB 25]
+# Usage: CleanBuildCaches.ps1 [-MinFreeGB 25]
 
 param(
     [int]$MinFreeGB = 25
@@ -20,26 +20,30 @@ param(
 # Best-effort cleanup — must never fail the build
 $ErrorActionPreference = "Continue"
 
+$drive = [System.IO.DriveInfo]::new("C")
 $minFreeBytes = [int64]$MinFreeGB * 1GB
 $totalFreed = 0
-$batchSize = 100
-
-function Get-DiskUsedMB {
-    $d = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
-    return [math]::Round(($d.Size - $d.FreeSpace) / 1MB, 0)
-}
-
-function Get-DiskFreeBytes {
-    $d = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
-    return $d.FreeSpace
-}
 
 function Get-DiskFreeMB {
-    return [math]::Round((Get-DiskFreeBytes) / 1MB, 0)
+    return [math]::Round($drive.AvailableFreeSpace / 1MB, 0)
+}
+
+function Get-DiskUsedMB {
+    return [math]::Round(($drive.TotalSize - $drive.AvailableFreeSpace) / 1MB, 0)
 }
 
 function Test-EnoughSpace {
-    return (Get-DiskFreeBytes) -ge $minFreeBytes
+    return $drive.AvailableFreeSpace -ge $minFreeBytes
+}
+
+function Write-DiskSummary {
+    $total = [math]::Round($drive.TotalSize / 1GB, 1)
+    $free = [math]::Round($drive.AvailableFreeSpace / 1GB, 1)
+    $used = [math]::Round(($drive.TotalSize - $drive.AvailableFreeSpace) / 1GB, 1)
+    $pct = [math]::Round(
+        ($drive.TotalSize - $drive.AvailableFreeSpace) / $drive.TotalSize * 100, 1)
+    Write-Output ("  Disk total:   {0}GB / Used: {1}GB / Free: {2}GB ({3}%)" -f `
+        $total, $used, $free, $pct)
 }
 
 $diskBefore = Get-DiskUsedMB
@@ -82,17 +86,12 @@ if (Test-EnoughSpace) {
     Write-Output ""
     $diskAfter = Get-DiskUsedMB
     $diskFreed = $diskBefore - $diskAfter
-    $disk = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
     Write-Output "=== Summary ==="
     Write-Output "  Cache freed:  ${totalFreed}MB"
     Write-Output "  Disk before:  ${diskBefore}MB"
     Write-Output "  Disk after:   ${diskAfter}MB"
     Write-Output "  Disk freed:   ${diskFreed}MB"
-    Write-Output ("  Disk total:   {0}GB / Used: {1}GB / Free: {2}GB ({3}%)" -f `
-        [math]::Round($disk.Size/1GB, 1),
-        [math]::Round(($disk.Size - $disk.FreeSpace)/1GB, 1),
-        [math]::Round($disk.FreeSpace/1GB, 1),
-        [math]::Round(($disk.Size - $disk.FreeSpace)/$disk.Size * 100, 1))
+    Write-DiskSummary
     return
 }
 
@@ -126,9 +125,7 @@ foreach ($file in $allFiles) {
     Remove-Item $file.FullName -Force -ErrorAction SilentlyContinue
     $deleted++
     $script:totalFreed += [math]::Round($fileSize / 1MB, 0)
-    if ($deleted % $batchSize -eq 0) {
-        if (Test-EnoughSpace) { break }
-    }
+    if (Test-EnoughSpace) { break }
 }
 
 Write-Output "  Deleted $deleted files"
@@ -154,15 +151,10 @@ if (-not (Test-EnoughSpace)) {
 
 $diskAfter = Get-DiskUsedMB
 $diskFreed = $diskBefore - $diskAfter
-$disk = Get-WmiObject Win32_LogicalDisk -Filter "DriveType=3 AND DeviceID='C:'"
 
 Write-Output "=== Summary ==="
 Write-Output "  Cache freed:  ~${totalFreed}MB"
 Write-Output "  Disk before:  ${diskBefore}MB"
 Write-Output "  Disk after:   ${diskAfter}MB"
 Write-Output "  Disk freed:   ${diskFreed}MB"
-Write-Output ("  Disk total:   {0}GB / Used: {1}GB / Free: {2}GB ({3}%)" -f `
-    [math]::Round($disk.Size/1GB, 1),
-    [math]::Round(($disk.Size - $disk.FreeSpace)/1GB, 1),
-    [math]::Round($disk.FreeSpace/1GB, 1),
-    [math]::Round(($disk.Size - $disk.FreeSpace)/$disk.Size * 100, 1))
+Write-DiskSummary
