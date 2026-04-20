@@ -62,7 +62,7 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Login to GitHub Container Registry
         run:

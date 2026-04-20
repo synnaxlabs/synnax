@@ -90,11 +90,11 @@ jobs:
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
 
       - name: Force Quit Existing Synnax Processes (Unix)
         if: runner.os == 'Linux'
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Download and Setup Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -102,14 +102,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
+        run: integration/scripts/DownloadArtifacts.cmd
 
       - name: Download and Setup Artifacts (Unix)
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/download_artifacts_unix.sh
+        run: integration/scripts/download_artifacts.sh
 
       - name: Download Client Wheels
         uses: actions/download-artifact@v8
