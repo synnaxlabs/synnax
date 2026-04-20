@@ -11,37 +11,8 @@
 
 package console
 
-import (
-	_ "embed"
+import "embed"
 
-	"github.com/gofiber/fiber/v3"
-	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/freighter/http"
-)
+var embeddedAssets embed.FS
 
-//go:embed fallback.html
-var fallbackHTML []byte
-
-// Service serves the web-based console UI.
-type Service struct{}
-
-var _ http.BindableTransport = (*Service)(nil)
-
-// NewService creates a new console UI service.
-func NewService() *Service { return &Service{} }
-
-// BindTo binds the console UI service to the provided Fiber app. In the non-ui build,
-// it serves a fallback page indicating the Console is not available.
-func (*Service) BindTo(app *fiber.App) {
-	app.Get("/", func(c fiber.Ctx) error {
-		c.Set("Content-Type", "text/html")
-		return c.Send(fallbackHTML)
-	})
-}
-
-// Use implements freighter.Transport.
-func (*Service) Use(...freighter.Middleware) {}
-
-// Report implements alamos.ReportProvider.
-func (*Service) Report() alamos.Report { return alamos.Report{"console": "disabled"} }
+const defaultEnabled = false
