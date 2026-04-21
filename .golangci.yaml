@@ -4,6 +4,7 @@ linters:
     - exptostd
     - modernize
     - revive
+    - usestdlibvars
     - mustsucceedlint
     - setlint
   settings:
@@ -23,6 +24,14 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+    usestdlibvars:
+      time-date-month: true
+      time-month: true
+      time-layout: true
+      crypto-hash: true
+      default-rpc-path: true
+      sql-isolation-level: true
+      tls-signature-scheme: true
     custom:
       mustsucceedlint:
         type: "module"

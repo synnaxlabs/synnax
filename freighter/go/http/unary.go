@@ -100,7 +100,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			}
 			httpReq, err := http.NewRequestWithContext(
 				ctx,
-				"POST",
+				http.MethodPost,
 				"http://"+target.String(),
 				bytes.NewReader(b),
 			)

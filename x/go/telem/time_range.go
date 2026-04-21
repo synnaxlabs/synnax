@@ -11,6 +11,7 @@ package telem
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/synnaxlabs/x/zyn"
 )
@@ -129,7 +130,7 @@ func (tr TimeRange) String() string {
 	} else if startMonth != endMonth || startDay != endDay {
 		endStr = end.Format("01-02T15:04:05") + formatNanos(endNano)
 	} else if startHour != endHour {
-		endStr = end.Format("15:04:05") + formatNanos(endNano)
+		endStr = end.Format(time.TimeOnly) + formatNanos(endNano)
 	} else if startMin != endMin {
 		endStr = end.Format("04:05") + formatNanos(endNano)
 	} else if startSec != endSec {
@@ -137,7 +138,7 @@ func (tr TimeRange) String() string {
 	} else if startNano != endNano {
 		endStr = "." + formatSubsecond(endNano)
 	} else {
-		endStr = end.Format("15:04:05")
+		endStr = end.Format(time.TimeOnly)
 	}
 
 	startStr := start.Format("2006-01-02T15:04:05")

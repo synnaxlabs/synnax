@@ -154,8 +154,8 @@ var _ = Describe("Check Utilities", func() {
 					{
 						Generated:  "core/ranger/types.gen.go",
 						Schema:     "schemas/ranger.oracle",
-						GenTime:    time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-						SchemaTime: time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC),
+						GenTime:    time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC),
+						SchemaTime: time.Date(2025, time.January, 2, 0, 0, 0, 0, time.UTC),
 					},
 				},
 			}
