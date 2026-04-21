@@ -20,7 +20,8 @@ PR #2236 exposed the structural flaw: the migration tests fail because `pymodbus
 upgraded from 3.12 to 3.13 on `rc`, but the old client wheel (0.54.x) bundles code
 written for the 3.12 API. The current migration conductor installs the old wheel into a
 `venv` but always uses current-repo test code (via `PYTHONPATH`), so any API drift — in
-the client itself or in its dependencies — causes failures unrelated to actual migration.
+the client itself or in its dependencies — causes failures unrelated to actual
+migration.
 
 More broadly, if `client.channels.create()` gains a new required parameter, every old
 version's `setup` phase breaks because the current test code calls methods that don't
