@@ -14,7 +14,6 @@ import { type Context } from "@/vis/render/context";
 const errorCompile = (msg: string): Error =>
   new Error(`failed to compile webgl program: ${msg}`);
 
-const ERROR_BAD_SHADER = new Error("null shader encountered");
 
 /**
  * A general purpose compiler and utility container for workign with WebGL programs.
@@ -93,7 +92,7 @@ export class GLProgram {
   private compileShader(shader: string, type: number): void {
     const gl = this.renderCtx.gl;
     const vs = gl.createShader(type);
-    if (vs == null) throw ERROR_BAD_SHADER;
+    if (vs == null) throw new Error("null shader encountered");
     gl.shaderSource(vs, shader);
     gl.compileShader(vs);
     const compiled = gl.getShaderParameter(vs, gl.COMPILE_STATUS) as GLboolean;

@@ -12,8 +12,6 @@ import { type direction, type location, type spatial } from "@synnaxlabs/x";
 import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
 
-const TabNotFound = new Error("Tab not found");
-const InvalidMosaic = new Error("Invalid Mosaic");
 
 /**
  * Inserts a tab into a node in the mosaic. If the given key is not found,
@@ -68,7 +66,7 @@ export const insertTab = (
   node[insertOrder] = { key: 0, tabs: [tab], selected: tab.tabKey };
   node[siblingOrder] = { key: 0, tabs: node.tabs, selected: node.selected };
 
-  if (node.first == null || node.last == null) throw InvalidMosaic;
+  if (node.first == null || node.last == null) throw new Error("Invalid Mosaic");
 
   // Assigning these keeps the mosaic sorted so we can do ancestor searches.
   node.first.key = firstChildKey;
@@ -90,7 +88,7 @@ export const updateTab = (
 ): Node => {
   root = shallowCopyNode(root);
   const [tab, node] = findTab(root, tabKey);
-  if (tab == null || node == null) throw TabNotFound;
+  if (tab == null || node == null) throw new Error("Tab not found");
   node.tabs = node.tabs?.map((t) => (t.tabKey === tabKey ? updater(t) : t));
   return root;
 };
@@ -168,7 +166,7 @@ export const findSelected = (root: Node): string | null => {
 export const selectTab = (root: Node, tabKey: string): Node => {
   root = shallowCopyNode(root);
   const [tab, entry] = findTab(root, tabKey);
-  if (tab == null || entry == null) throw TabNotFound;
+  if (tab == null || entry == null) throw new Error("Tab not found");
   entry.selected = tabKey;
   return root;
 };
@@ -192,7 +190,7 @@ export const moveTab = (
 ): [Node, string | null] => {
   root = shallowCopyNode(root);
   const [tab, entry] = findTab(root, tabKey);
-  if (tab == null || entry == null) throw TabNotFound;
+  if (tab == null || entry == null) throw new Error("Tab not found");
   const [r2, selected] = removeTab(root, tabKey);
   const r3 = insertTab(r2, tab, loc, to, index);
   return [r3, selected];
@@ -309,7 +307,7 @@ export const canSplit = (root: Node, tabKey: string): boolean => {
 export const renameTab = (root: Node, tabKey: string, name: string): Node => {
   root = shallowCopyNode(root);
   const [, leaf] = findTab(root, tabKey);
-  if (leaf?.tabs == null) throw TabNotFound;
+  if (leaf?.tabs == null) throw new Error("Tab not found");
   leaf.tabs = Tabs.rename(tabKey, name, leaf?.tabs ?? []);
   return root;
 };

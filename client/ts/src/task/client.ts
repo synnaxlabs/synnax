@@ -44,7 +44,6 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-const NOT_CREATED_ERROR = new Error("Task not created");
 
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
@@ -99,17 +98,17 @@ export class Task<S extends Schemas = Schemas> {
   private readonly rangeClient_?: ranger.Client;
 
   get frameClient(): framer.Client {
-    if (this.frameClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.frameClient_ == null) throw new Error("Task not created");
     return this.frameClient_;
   }
 
   get ontologyClient(): ontology.Client {
-    if (this.ontologyClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.ontologyClient_ == null) throw new Error("Task not created");
     return this.ontologyClient_;
   }
 
   get rangeClient(): ranger.Client {
-    if (this.rangeClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.rangeClient_ == null) throw new Error("Task not created");
     return this.rangeClient_;
   }
 
@@ -193,7 +192,7 @@ export class Task<S extends Schemas = Schemas> {
 
   async snapshottedTo(): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null || this.rangeClient == null)
-      throw NOT_CREATED_ERROR;
+      throw new Error("Task not created");
     if (!this.snapshot) return null;
     return await retrieveSnapshottedTo(this.key, this.ontologyClient);
   }
@@ -347,7 +346,7 @@ export class Client {
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null) throw NOT_CREATED_ERROR;
+    if (this.ontologyClient == null) throw new Error("Task not created");
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }
 
@@ -463,7 +462,7 @@ const executeCommands = async ({
   frameClient,
   commands,
 }: ExecuteCommandsInternalParams): Promise<string[]> => {
-  if (frameClient == null) throw NOT_CREATED_ERROR;
+  if (frameClient == null) throw new Error("Task not created");
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
   const cmds = commands.map((c) => ({ ...c, key: id.create() }));
   await w.write(COMMAND_CHANNEL_NAME, cmds);
@@ -512,7 +511,7 @@ const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
-  if (frameClient == null) throw NOT_CREATED_ERROR;
+  if (frameClient == null) throw new Error("Task not created");
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
