@@ -11,6 +11,7 @@ package analyzer
 
 import (
 	"context"
+	"maps"
 	"strconv"
 	"strings"
 
@@ -224,9 +225,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
@@ -288,9 +287,7 @@ func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 	if body := def.AliasBody(); body != nil {
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
@@ -555,9 +552,7 @@ func collectEnum(c *analysisCtx, def parser.IEnumDefContext) {
 
 	form := resolution.EnumForm{}
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.EnumBody(); body != nil {
 		vals := body.AllEnumValue()
@@ -639,9 +634,7 @@ func collectTypeDef(c *analysisCtx, def parser.ITypeDefDefContext) {
 	}
 
 	domains := make(map[string]resolution.Domain)
-	for k, v := range c.fileDomains {
-		domains[k] = v
-	}
+	maps.Copy(domains, c.fileDomains)
 
 	if body := def.TypeDefBody(); body != nil {
 		for _, d := range body.AllDomain() {

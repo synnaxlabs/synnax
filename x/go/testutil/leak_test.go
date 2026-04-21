@@ -71,8 +71,7 @@ var _ = Describe("Leak", func() {
 		It("passes when a forked goroutine has joined before the check runs", func() {
 			snapshot := gleak.Goroutines()
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() { defer wg.Done() }()
+			wg.Go(func() {})
 			wg.Wait()
 			assertNoLeakedGoroutines(snapshot, leakConfig{})
 		})
@@ -130,8 +129,7 @@ var _ = Describe("Leak", func() {
 		It("does not fail a clean spec", func() {
 			ShouldNotLeakGoroutines()
 			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() { defer wg.Done() }()
+			wg.Go(func() {})
 			wg.Wait()
 		})
 
@@ -153,8 +151,7 @@ var _ = Describe("Leak", func() {
 
 			It("passes for a spec that forks and joins a goroutine", func() {
 				var wg sync.WaitGroup
-				wg.Add(1)
-				go func() { defer wg.Done() }()
+				wg.Go(func() {})
 				wg.Wait()
 			})
 		})

@@ -12,6 +12,7 @@ package pb
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/samber/lo"
@@ -139,13 +140,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 	for path := range standaloneEnums {
-		found := false
-		for _, p := range outputOrder {
-			if p == path {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(outputOrder, path)
 		if !found {
 			outputOrder = append(outputOrder, path)
 		}

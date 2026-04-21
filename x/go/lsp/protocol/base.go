@@ -18,7 +18,7 @@ import (
 // CancelParams params of cancelRequest.
 type CancelParams struct {
 	// ID is the request id to cancel.
-	ID interface{} `json:"id"` // int32 | string
+	ID any `json:"id"` // int32 | string
 }
 
 // ProgressParams params of Progress netification.
@@ -29,7 +29,7 @@ type ProgressParams struct {
 	Token ProgressToken `json:"token"`
 
 	// Value is the progress data.
-	Value interface{} `json:"value"`
+	Value any `json:"value"`
 }
 
 // ProgressToken is the progress token provided by the client or server.

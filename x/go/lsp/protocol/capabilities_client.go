@@ -38,7 +38,7 @@ type ClientCapabilities struct {
 	General *GeneralClientCapabilities `json:"general,omitempty"`
 
 	// Experimental client capabilities.
-	Experimental interface{} `json:"experimental,omitempty"`
+	Experimental any `json:"experimental,omitempty"`
 }
 
 // WorkspaceClientCapabilities Workspace specific client capabilities.
@@ -935,7 +935,7 @@ type SemanticTokensWorkspaceClientCapabilitiesRequests struct {
 	// if the server provides a corresponding handler. The client will send the
 	// `textDocument/semanticTokens/full/delta` request if the server provides a
 	// corresponding handler.
-	Full interface{} `json:"full,omitempty"`
+	Full any `json:"full,omitempty"`
 }
 
 // LinkedEditingRangeClientCapabilities capabilities specific to "textDocument/linkedEditingRange" requests.

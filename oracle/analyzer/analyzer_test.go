@@ -10,6 +10,8 @@
 package analyzer_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -17,19 +19,8 @@ import (
 	. "github.com/synnaxlabs/oracle/testutil"
 )
 
-func contains(slice []string, item string) bool {
-	for _, s := range slice {
-		if s == item {
-			return true
-		}
-	}
-	return false
-}
-
 var _ = Describe("Analyzer", func() {
-	var (
-		loader *MockFileLoader
-	)
+	var loader *MockFileLoader
 
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
@@ -347,7 +338,7 @@ var _ = Describe("Analyzer", func() {
 			form := testType.Form.(resolution.StructForm)
 			primitiveFields := []string{"a", "b", "c", "d", "e", "i", "j"}
 			for _, field := range form.Fields {
-				if contains(primitiveFields, field.Name) {
+				if slices.Contains(primitiveFields, field.Name) {
 					Expect(resolution.IsPrimitive(field.Type.Name)).To(BeTrue())
 				}
 			}

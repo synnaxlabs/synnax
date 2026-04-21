@@ -12,6 +12,7 @@ package types
 import (
 	"bytes"
 	"fmt"
+	"slices"
 	"strings"
 	"text/template"
 
@@ -104,13 +105,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 	}
 	for path := range enumOutputPaths {
-		found := false
-		for _, p := range combinedOrder {
-			if p == path {
-				found = true
-				break
-			}
-		}
+		found := slices.Contains(combinedOrder, path)
 		if !found {
 			combinedOrder = append(combinedOrder, path)
 		}

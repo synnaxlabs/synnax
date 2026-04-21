@@ -413,8 +413,8 @@ func (b *testValueBuilder) hardOptionalExpr(
 	// For primitives, cast the value to the correct type so that Go's
 	// type inference assigns the right type to v (e.g., uint8(5) not just 5).
 	var goType string
-	if idx := strings.Index(inner, "{"); idx >= 0 {
-		goType = inner[:idx]
+	if before, _, ok := strings.Cut(inner, "{"); ok {
+		goType = before
 		return fmt.Sprintf("func() *%s { v := %s; return &v }()", goType, inner), nil
 	}
 	goType, err = b.goTypeName(resolved)

@@ -10,6 +10,8 @@
 package statement_test
 
 import (
+	"slices"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -2001,12 +2003,7 @@ var _ = Describe("Statement Compiler", func() {
 
 			bytecode := ctx.Writer.Bytes()
 			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bc, opcode)
 			}
 			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
 			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
@@ -2033,12 +2030,7 @@ var _ = Describe("Statement Compiler", func() {
 
 			bytecode := ctx.Writer.Bytes()
 			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bc, opcode)
 			}
 			Expect(containsOpcode(bytecode, byte(OpI64GeS))).To(BeTrue(), "missing exit condition")
 			Expect(containsOpcode(bytecode, byte(OpI64Add))).To(BeTrue(), "missing increment")
@@ -2110,12 +2102,7 @@ var _ = Describe("Statement Compiler", func() {
 
 			bytecode := ctx.Writer.Bytes()
 			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bc, opcode)
 			}
 			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
 			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
@@ -2145,12 +2132,7 @@ var _ = Describe("Statement Compiler", func() {
 
 			bytecode := ctx.Writer.Bytes()
 			containsOpcode := func(bc []byte, opcode byte) bool {
-				for _, b := range bc {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bc, opcode)
 			}
 			Expect(containsOpcode(bytecode, byte(OpBlock))).To(BeTrue(), "missing block")
 			Expect(containsOpcode(bytecode, byte(OpLoop))).To(BeTrue(), "missing loop")
@@ -2180,12 +2162,7 @@ var _ = Describe("Statement Compiler", func() {
 				return FinalizeContext(ctx)
 			}
 			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bytecode, opcode)
 			}
 			bytecode := compileForLoop(`
 				data series i32 := [1, 2, 3]
@@ -2222,12 +2199,7 @@ var _ = Describe("Statement Compiler", func() {
 				return FinalizeContext(ctx)
 			}
 			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bytecode, opcode)
 			}
 			bytecode := compileForLoop(`
 				data series i32 := [10, 20, 30]
@@ -2261,12 +2233,7 @@ var _ = Describe("Statement Compiler", func() {
 				return FinalizeContext(ctx)
 			}
 			containsOpcode := func(bytecode []byte, opcode byte) bool {
-				for _, b := range bytecode {
-					if b == opcode {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(bytecode, opcode)
 			}
 			bytecode := compileForLoop(`
 				data series f64 := [1.0, 2.0, 3.0]

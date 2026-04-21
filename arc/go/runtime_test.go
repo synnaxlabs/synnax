@@ -11,6 +11,7 @@ package arc_test
 
 import (
 	"context"
+	"slices"
 
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc"
@@ -132,8 +133,8 @@ func newRuntimeHarness(
 }
 
 func (h *runtimeHarness) Close(ctx context.Context) {
-	for i := len(h.closers) - 1; i >= 0; i-- {
-		Expect(h.closers[i](ctx)).To(Succeed())
+	for _, v := range slices.Backward(h.closers) {
+		Expect(v(ctx)).To(Succeed())
 	}
 }
 

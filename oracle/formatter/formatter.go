@@ -65,7 +65,7 @@ type errorListener struct {
 
 func (e *errorListener) SyntaxError(
 	_ antlr.Recognizer,
-	_ interface{},
+	_ any,
 	_, _ int,
 	_ string,
 	_ antlr.RecognitionException,
@@ -244,10 +244,7 @@ func (f *formatter) formatExpressionAligned(ctx parser.IExpressionContext, maxPr
 	if len(values) > 0 {
 		// Calculate padding needed to align values
 		fullPrefixLen := currentPrefixLen + 1 + len(command) // +1 for space after @domain
-		padding := maxPrefixLen - fullPrefixLen
-		if padding < 0 {
-			padding = 0
-		}
+		padding := max(maxPrefixLen-fullPrefixLen, 0)
 		f.writePadding(padding)
 		f.write(" ")
 		for i, val := range values {
@@ -526,7 +523,7 @@ func (f *formatter) formatFieldDefAligned(ctx parser.IFieldDefContext, nameWidth
 }
 
 func (f *formatter) writePadding(n int) {
-	for i := 0; i < n; i++ {
+	for range n {
 		f.write(" ")
 	}
 }
@@ -905,7 +902,7 @@ func (f *formatter) formatEnumValue(ctx parser.IEnumValueContext, alignTo int) {
 
 	// Pad for alignment
 	padding := alignTo - len(name)
-	for i := 0; i < padding; i++ {
+	for range padding {
 		f.write(" ")
 	}
 

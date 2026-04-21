@@ -147,10 +147,7 @@ func getWordAtPosition(content string, pos protocol.Position) string {
 		return ""
 	}
 	line := lines[pos.Line]
-	col := int(pos.Character)
-	if col > len(line) {
-		col = len(line)
-	}
+	col := min(int(pos.Character), len(line))
 
 	start := col
 	for start > 0 && isWordChar(line[start-1]) {

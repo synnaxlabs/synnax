@@ -9,6 +9,8 @@
 
 package kv
 
+import "slices"
+
 import "bytes"
 
 type IteratorOptions struct {
@@ -67,9 +69,9 @@ func IterPrefix(prefix []byte) IteratorOptions {
 
 func prefixUpperBound(lower []byte) []byte {
 	upper := bytes.Clone(lower)
-	for i := len(upper) - 1; i >= 0; i-- {
-		upper[i] = upper[i] + 1
-		if upper[i] != 0 {
+	for i, v := range slices.Backward(upper) {
+		v = v + 1
+		if v != 0 {
 			return upper[:i+1]
 		}
 	}

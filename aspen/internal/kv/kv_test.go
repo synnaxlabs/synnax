@@ -259,8 +259,8 @@ var _ = Describe("txn", func() {
 			var completed atomic.Int64
 			go func() {
 				defer GinkgoRecover()
-				for i := 0; i < totalWrites; i++ {
-					key := []byte(fmt.Sprintf("key-%d", i))
+				for i := range totalWrites {
+					key := fmt.Appendf(nil, "key-%d", i)
 					err := db.Set(ctx, key, []byte("v"))
 					if err != nil {
 						return

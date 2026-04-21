@@ -157,7 +157,7 @@ var _ = Describe("AsyncObserver", func() {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				for i := 0; i < 200; i++ {
+				for i := range 200 {
 					obs.Notify(context.Background(), i)
 				}
 			}()
@@ -172,7 +172,7 @@ var _ = Describe("AsyncObserver", func() {
 				received.Add(1)
 			})
 
-			for i := 0; i < 200; i++ {
+			for i := range 200 {
 				obs.Notify(context.Background(), i)
 			}
 			close(gate)
@@ -191,7 +191,7 @@ var _ = Describe("AsyncObserver", func() {
 			var fastCount atomic.Int64
 			obs.OnChange(func(_ context.Context, _ int) { fastCount.Add(1) })
 
-			for i := 0; i < 10; i++ {
+			for i := range 10 {
 				obs.Notify(context.Background(), i)
 			}
 			Eventually(fastCount.Load).Should(Equal(int64(10)))
@@ -248,7 +248,7 @@ var _ = Describe("AsyncObserver", func() {
 			done := make(chan struct{})
 			go func() {
 				defer close(done)
-				for i := 0; i < 200; i++ {
+				for i := range 200 {
 					obs.NotifyGenerator(context.Background(), func() int { return i })
 				}
 			}()
@@ -333,14 +333,14 @@ var _ = Describe("AsyncObserver", func() {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < 100; i++ {
+				for range 100 {
 					obs.Notify(context.Background(), 1)
 				}
 			}()
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < 50; i++ {
+				for range 50 {
 					d := obs.OnChange(func(_ context.Context, v int) {
 						total.Add(int64(v))
 					})
@@ -358,7 +358,7 @@ var _ = Describe("AsyncObserver", func() {
 
 			go func() {
 				defer wg.Done()
-				for i := 0; i < 1000; i++ {
+				for i := range 1000 {
 					obs.Notify(context.Background(), i)
 				}
 			}()

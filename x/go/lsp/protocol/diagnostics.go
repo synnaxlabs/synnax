@@ -25,7 +25,7 @@ type Diagnostic struct {
 	Severity DiagnosticSeverity `json:"severity,omitempty"`
 
 	// Code is the diagnostic's code, which might appear in the user interface.
-	Code interface{} `json:"code,omitempty"` // int32 | string;
+	Code any `json:"code,omitempty"` // int32 | string;
 
 	// CodeDescription an optional property to describe the error code.
 	//
@@ -53,7 +53,7 @@ type Diagnostic struct {
 	// "textDocument/codeAction" request.
 	//
 	// @since 3.16.0.
-	Data interface{} `json:"data,omitempty"`
+	Data any `json:"data,omitempty"`
 }
 
 // DiagnosticSeverity indicates the severity of a Diagnostic message.

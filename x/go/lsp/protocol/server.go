@@ -48,7 +48,7 @@ func ServerHandler(server Server, handler jsonrpc2.Handler) jsonrpc2.Handler {
 		// TODO: This code is wrong, it ignores handler and assumes non standard
 		// request handles everything
 		// non standard request should just be a layered handler.
-		var params interface{}
+		var params any
 		if err := json.Unmarshal(req.Params(), &params); err != nil {
 			return replyParseError(ctx, reply, err)
 		}
@@ -810,8 +810,8 @@ type Server interface {
 	DocumentHighlight(ctx context.Context, params *DocumentHighlightParams) (result []DocumentHighlight, err error)
 	DocumentLink(ctx context.Context, params *DocumentLinkParams) (result []DocumentLink, err error)
 	DocumentLinkResolve(ctx context.Context, params *DocumentLink) (result *DocumentLink, err error)
-	DocumentSymbol(ctx context.Context, params *DocumentSymbolParams) (result []interface{} /* []SymbolInformation | []DocumentSymbol */, err error)
-	ExecuteCommand(ctx context.Context, params *ExecuteCommandParams) (result interface{}, err error)
+	DocumentSymbol(ctx context.Context, params *DocumentSymbolParams) (result []any /* []SymbolInformation | []DocumentSymbol */, err error)
+	ExecuteCommand(ctx context.Context, params *ExecuteCommandParams) (result any, err error)
 	FoldingRanges(ctx context.Context, params *FoldingRangeParams) (result []FoldingRange, err error)
 	Formatting(ctx context.Context, params *DocumentFormattingParams) (result []TextEdit, err error)
 	Hover(ctx context.Context, params *HoverParams) (result *Hover, err error)
@@ -838,12 +838,12 @@ type Server interface {
 	IncomingCalls(ctx context.Context, params *CallHierarchyIncomingCallsParams) (result []CallHierarchyIncomingCall, err error)
 	OutgoingCalls(ctx context.Context, params *CallHierarchyOutgoingCallsParams) (result []CallHierarchyOutgoingCall, err error)
 	SemanticTokensFull(ctx context.Context, params *SemanticTokensParams) (result *SemanticTokens, err error)
-	SemanticTokensFullDelta(ctx context.Context, params *SemanticTokensDeltaParams) (result interface{} /* SemanticTokens | SemanticTokensDelta */, err error)
+	SemanticTokensFullDelta(ctx context.Context, params *SemanticTokensDeltaParams) (result any /* SemanticTokens | SemanticTokensDelta */, err error)
 	SemanticTokensRange(ctx context.Context, params *SemanticTokensRangeParams) (result *SemanticTokens, err error)
 	SemanticTokensRefresh(ctx context.Context) (err error)
 	LinkedEditingRange(ctx context.Context, params *LinkedEditingRangeParams) (result *LinkedEditingRanges, err error)
 	Moniker(ctx context.Context, params *MonikerParams) (result []Moniker, err error)
-	Request(ctx context.Context, method string, params interface{}) (result interface{}, err error)
+	Request(ctx context.Context, method string, params any) (result any, err error)
 }
 
 // list of server methods.
@@ -1410,7 +1410,7 @@ func (s *server) DocumentLinkResolve(ctx context.Context, params *DocumentLink) 
 // DocumentSymbol sends the request from the client to the server to return a flat list of all symbols found in a given text document.
 //
 // Neither the symbol’s location range nor the symbol’s container name should be used to infer a hierarchy.
-func (s *server) DocumentSymbol(ctx context.Context, params *DocumentSymbolParams) (result []interface{}, err error) {
+func (s *server) DocumentSymbol(ctx context.Context, params *DocumentSymbolParams) (result []any, err error) {
 	s.logger.Debug("call " + MethodTextDocumentDocumentSymbol)
 	defer s.logger.Debug("end "+MethodTextDocumentDocumentSymbol, zap.Error(err))
 
@@ -1425,7 +1425,7 @@ func (s *server) DocumentSymbol(ctx context.Context, params *DocumentSymbolParam
 //
 // In most cases the server creates a `WorkspaceEdit` structure and applies the changes to the workspace using the
 // request `workspace/applyEdit` which is sent from the server to the client.
-func (s *server) ExecuteCommand(ctx context.Context, params *ExecuteCommandParams) (result interface{}, err error) {
+func (s *server) ExecuteCommand(ctx context.Context, params *ExecuteCommandParams) (result any, err error) {
 	s.logger.Debug("call " + MethodWorkspaceExecuteCommand)
 	defer s.logger.Debug("end "+MethodWorkspaceExecuteCommand, zap.Error(err))
 
@@ -1805,7 +1805,7 @@ func (s *server) SemanticTokensFull(ctx context.Context, params *SemanticTokensP
 // A semantic token request usually produces a large result. The protocol therefore supports encoding tokens with numbers.
 //
 // @since 3.16.0.
-func (s *server) SemanticTokensFullDelta(ctx context.Context, params *SemanticTokensDeltaParams) (result interface{}, err error) {
+func (s *server) SemanticTokensFullDelta(ctx context.Context, params *SemanticTokensDeltaParams) (result any, err error) {
 	s.logger.Debug("call " + MethodSemanticTokensFullDelta)
 	defer s.logger.Debug("end "+MethodSemanticTokensFullDelta, zap.Error(err))
 
@@ -1887,11 +1887,11 @@ func (s *server) Moniker(ctx context.Context, params *MonikerParams) (result []M
 }
 
 // Request sends a request from the client to the server that non-compliant with the Language Server Protocol specifications.
-func (s *server) Request(ctx context.Context, method string, params interface{}) (interface{}, error) {
+func (s *server) Request(ctx context.Context, method string, params any) (any, error) {
 	s.logger.Debug("call " + method)
 	defer s.logger.Debug("end " + method)
 
-	var result interface{}
+	var result any
 	if err := Call(ctx, s.Conn, method, params, &result); err != nil {
 		return nil, err
 	}

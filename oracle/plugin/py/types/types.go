@@ -1097,8 +1097,8 @@ func toPythonModulePath(repoPath string) string {
 
 	path := repoPath
 	for _, prefix := range prefixes {
-		if strings.HasPrefix(path, prefix) {
-			path = strings.TrimPrefix(path, prefix)
+		if after, ok := strings.CutPrefix(path, prefix); ok {
+			path = after
 			break
 		}
 	}

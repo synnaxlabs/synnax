@@ -12,19 +12,19 @@ package atomic
 import "sync/atomic"
 
 // Int32Counter is an int32 counter that is safe for concurrent use.
-type Int32Counter struct{ value int32 }
+type Int32Counter struct{ value atomic.Int32 }
 
 func (c *Int32Counter) Add(delta int32) int32 {
-	return atomic.AddInt32(&c.value, delta)
+	return c.value.Add(delta)
 }
 
-func (c *Int32Counter) Value() int32 { return atomic.LoadInt32(&c.value) }
+func (c *Int32Counter) Value() int32 { return c.value.Load() }
 
 // Int64Counter is an int64 counter that is safe for concurrent use.
-type Int64Counter struct{ value int64 }
+type Int64Counter struct{ value atomic.Int64 }
 
-func (c *Int64Counter) Add(delta int64) int64 { return atomic.AddInt64(&c.value, delta) }
+func (c *Int64Counter) Add(delta int64) int64 { return c.value.Add(delta) }
 
-func (c *Int64Counter) Set(value int64) { atomic.StoreInt64(&c.value, value) }
+func (c *Int64Counter) Set(value int64) { c.value.Store(value) }
 
-func (c *Int64Counter) Value() int64 { return atomic.LoadInt64(&c.value) }
+func (c *Int64Counter) Value() int64 { return c.value.Load() }

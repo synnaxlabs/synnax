@@ -25,6 +25,8 @@
 package function
 
 import (
+	"slices"
+
 	"github.com/antlr4-go/antlr/v4"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/statement"
@@ -363,11 +365,11 @@ func BlockAlwaysReturns(block parser.IBlockContext) bool {
 		return false
 	}
 	statements := block.AllStatement()
-	for i := len(statements) - 1; i >= 0; i-- {
-		if statements[i].ReturnStatement() != nil {
+	for _, v := range slices.Backward(statements) {
+		if v.ReturnStatement() != nil {
 			return true
 		}
-		if ifStmt := statements[i].IfStatement(); ifStmt != nil && IfStmtAlwaysReturns(ifStmt) {
+		if ifStmt := v.IfStatement(); ifStmt != nil && IfStmtAlwaysReturns(ifStmt) {
 			return true
 		}
 	}

@@ -559,13 +559,14 @@ var _ = Describe("Formatter", func() {
 		})
 
 		It("should handle very long identifier", func() {
-			longName := "x"
+			var longName strings.Builder
+			longName.WriteString("x")
 			for range 100 {
-				longName += "a"
+				longName.WriteString("a")
 			}
-			input := longName + " := 1"
+			input := longName.String() + " := 1"
 			result := formatter.Format(input)
-			Expect(result).To(ContainSubstring(longName))
+			Expect(result).To(ContainSubstring(longName.String()))
 			Expect(result).To(ContainSubstring(":= 1"))
 		})
 

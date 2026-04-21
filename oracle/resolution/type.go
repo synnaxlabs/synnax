@@ -10,6 +10,8 @@
 package resolution
 
 import (
+	"maps"
+
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/set"
 )
@@ -289,9 +291,7 @@ func UnifiedFields(typ Type, table *Table) []Field {
 	for _, cf := range form.Fields {
 		if pf, isOverride := parentFieldMap[cf.Name]; isOverride {
 			mergedDomains := make(map[string]Domain, len(pf.Domains)+len(cf.Domains))
-			for k, v := range pf.Domains {
-				mergedDomains[k] = v
-			}
+			maps.Copy(mergedDomains, pf.Domains)
 			for k, v := range cf.Domains {
 				if existing, ok := mergedDomains[k]; ok {
 					mergedDomains[k] = v.Merge(existing)
