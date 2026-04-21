@@ -12,6 +12,8 @@ linters:
       disable:
         - shadow
         - fieldalignment
+    ineffassign:
+      check-escaping-errors: true
     revive:
       rules:
         - name: error-naming
