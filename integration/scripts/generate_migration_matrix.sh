@@ -42,20 +42,6 @@ output_matrix() {
     echo "$json"
 }
 
-collect_versions() {
-    local seen=""
-    for entry in "$@"; do
-        local chain="${entry#*=}"
-        IFS=',' read -ra parts <<< "$chain"
-        for v in "${parts[@]}"; do
-            if ! echo "$seen" | grep -qw "$v"; then
-                seen="$seen $v"
-            fi
-        done
-    done
-    echo "${seen## }" | tr ' ' ','
-}
-
 # Custom chain: normalize and output directly
 if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
     CHAIN=$(echo "$CUSTOM_CHAIN" | tr -d ' ')
@@ -70,14 +56,11 @@ if [[ -n "${CUSTOM_CHAIN:-}" ]]; then
     echo "Custom chain: $CHAIN"
 
     MATRIX=$(output_matrix "custom=$CHAIN")
-    VERSIONS=$(collect_versions "custom=$CHAIN")
 
     echo "Matrix: $MATRIX"
-    echo "Versions: $VERSIONS"
 
     if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
         echo "MATRIX=$MATRIX" >> "$GITHUB_OUTPUT"
-        echo "VERSIONS=$VERSIONS" >> "$GITHUB_OUTPUT"
     fi
     exit 0
 fi
@@ -135,12 +118,9 @@ echo "Major chain: ${MAJOR},latest"
 echo "Patch chain: ${PATCH},latest"
 
 MATRIX=$(output_matrix "${ENTRIES[@]}")
-WHEEL_VERSIONS=$(collect_versions "${ENTRIES[@]}")
 
 echo "Matrix: $MATRIX"
-echo "Versions: $WHEEL_VERSIONS"
 
 if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
     echo "MATRIX=$MATRIX" >> "$GITHUB_OUTPUT"
-    echo "VERSIONS=$WHEEL_VERSIONS" >> "$GITHUB_OUTPUT"
 fi

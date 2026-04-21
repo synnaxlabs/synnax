@@ -7,9 +7,8 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration test: create channels and write known data on the old version."""
+"""Migration verify: confirm channels and data survived migration."""
 
-from abc import abstractmethod
 from typing import Any
 
 import numpy as np
@@ -30,23 +29,9 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         sy.DataType.FLOAT32,
         np.array(
             [
-                0.0,
-                -0.0,
-                1.0,
-                -1.0,
-                F32.max,
-                F32.min,
-                F32.tiny,
-                -F32.tiny,
-                F32.eps,
-                3.1415927,
-                -2.7182818,
-                0.000031416,
-                -9.80665,
-                1.23456e20,
-                -7.891011e-12,
-                4.56789e37,
-                -1.17549e-38,
+                0.0, -0.0, 1.0, -1.0, F32.max, F32.min, F32.tiny, -F32.tiny,
+                F32.eps, 3.1415927, -2.7182818, 0.000031416, -9.80665,
+                1.23456e20, -7.891011e-12, 4.56789e37, -1.17549e-38,
             ],
             dtype=np.float32,
         ),
@@ -56,23 +41,11 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         sy.DataType.FLOAT64,
         np.array(
             [
-                0.0,
-                -0.0,
-                1.0,
-                -1.0,
-                F64.max,
-                F64.min,
-                F64.tiny,
-                -F64.tiny,
-                F64.eps,
-                3.141592653589793,
-                -2.718281828459045,
-                0.00003141592653589793,
-                1.2345678901234567e150,
-                -9.876543210987654e-150,
-                1.7976931348623155e308,
-                -2.2250738585072014e-308,
-                -9.80665,
+                0.0, -0.0, 1.0, -1.0, F64.max, F64.min, F64.tiny, -F64.tiny,
+                F64.eps, 3.141592653589793, -2.718281828459045,
+                0.00003141592653589793, 1.2345678901234567e150,
+                -9.876543210987654e-150, 1.7976931348623155e308,
+                -2.2250738585072014e-308, -9.80665,
             ],
             dtype=np.float64,
         ),
@@ -81,25 +54,8 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_int8",
         sy.DataType.INT8,
         np.array(
-            [
-                -128,
-                -73,
-                -50,
-                -25,
-                -1,
-                0,
-                1,
-                25,
-                42,
-                50,
-                73,
-                99,
-                100,
-                110,
-                120,
-                126,
-                127,
-            ],
+            [-128, -73, -50, -25, -1, 0, 1, 25, 42, 50, 73, 99, 100, 110,
+             120, 126, 127],
             dtype=np.int8,
         ),
     ),
@@ -107,25 +63,8 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_int16",
         sy.DataType.INT16,
         np.array(
-            [
-                -32768,
-                -12345,
-                -5000,
-                -500,
-                -1,
-                0,
-                1,
-                500,
-                5000,
-                9999,
-                12345,
-                20000,
-                25000,
-                30000,
-                31000,
-                32000,
-                32767,
-            ],
+            [-32768, -12345, -5000, -500, -1, 0, 1, 500, 5000, 9999, 12345,
+             20000, 25000, 30000, 31000, 32000, 32767],
             dtype=np.int16,
         ),
     ),
@@ -133,25 +72,9 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_int32",
         sy.DataType.INT32,
         np.array(
-            [
-                -2147483648,
-                -123456789,
-                -1000000,
-                -1000,
-                -1,
-                0,
-                1,
-                1000,
-                1000000,
-                123456789,
-                500000000,
-                987654321,
-                1000000000,
-                1500000000,
-                1900000000,
-                2000000000,
-                2147483647,
-            ],
+            [-2147483648, -123456789, -1000000, -1000, -1, 0, 1, 1000,
+             1000000, 123456789, 500000000, 987654321, 1000000000,
+             1500000000, 1900000000, 2000000000, 2147483647],
             dtype=np.int32,
         ),
     ),
@@ -160,23 +83,12 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         sy.DataType.INT64,
         np.array(
             [
-                np.iinfo(np.int64).min,
-                -1234567890123456789,
-                -999999999999,
-                -1000000,
-                -1,
-                0,
-                1,
-                1000000,
-                999999999999,
-                1234567890123456789,
-                2000000000000000000,
-                3000000000000000000,
-                4000000000000000000,
-                5000000000000000000,
-                6000000000000000000,
-                7223372036854775807,
-                np.iinfo(np.int64).max,
+                np.iinfo(np.int64).min, -1234567890123456789,
+                -999999999999, -1000000, -1, 0, 1, 1000000, 999999999999,
+                1234567890123456789, 2000000000000000000,
+                3000000000000000000, 4000000000000000000,
+                5000000000000000000, 6000000000000000000,
+                7223372036854775807, np.iinfo(np.int64).max,
             ],
             dtype=np.int64,
         ),
@@ -185,25 +97,8 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_uint8",
         sy.DataType.UINT8,
         np.array(
-            [
-                0,
-                1,
-                10,
-                25,
-                50,
-                73,
-                100,
-                128,
-                150,
-                175,
-                199,
-                200,
-                220,
-                240,
-                250,
-                254,
-                255,
-            ],
+            [0, 1, 10, 25, 50, 73, 100, 128, 150, 175, 199, 200, 220, 240,
+             250, 254, 255],
             dtype=np.uint8,
         ),
     ),
@@ -211,25 +106,8 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_uint16",
         sy.DataType.UINT16,
         np.array(
-            [
-                0,
-                1,
-                100,
-                500,
-                1000,
-                5000,
-                12345,
-                20000,
-                32768,
-                40000,
-                50000,
-                54321,
-                60000,
-                63000,
-                64000,
-                65534,
-                65535,
-            ],
+            [0, 1, 100, 500, 1000, 5000, 12345, 20000, 32768, 40000, 50000,
+             54321, 60000, 63000, 64000, 65534, 65535],
             dtype=np.uint16,
         ),
     ),
@@ -237,25 +115,9 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         "mig_ch_uint32",
         sy.DataType.UINT32,
         np.array(
-            [
-                0,
-                1,
-                1000,
-                100000,
-                1000000,
-                123456789,
-                500000000,
-                1000000000,
-                2000000000,
-                2147483648,
-                3000000000,
-                3141592653,
-                3500000000,
-                4000000000,
-                4200000000,
-                4294967294,
-                4294967295,
-            ],
+            [0, 1, 1000, 100000, 1000000, 123456789, 500000000,
+             1000000000, 2000000000, 2147483648, 3000000000, 3141592653,
+             3500000000, 4000000000, 4200000000, 4294967294, 4294967295],
             dtype=np.uint32,
         ),
     ),
@@ -264,23 +126,11 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
         sy.DataType.UINT64,
         np.array(
             [
-                0,
-                1,
-                1000000,
-                1000000000,
-                1234567890123456789,
-                2**32,
-                2**40,
-                2**48,
-                2**56,
-                2**63,
-                10000000000000000000,
-                12000000000000000000,
-                14000000000000000000,
-                16000000000000000000,
-                9876543210987654321,
-                18000000000000000000,
-                np.iinfo(np.uint64).max,
+                0, 1, 1000000, 1000000000, 1234567890123456789, 2**32,
+                2**40, 2**48, 2**56, 2**63, 10000000000000000000,
+                12000000000000000000, 14000000000000000000,
+                16000000000000000000, 9876543210987654321,
+                18000000000000000000, np.iinfo(np.uint64).max,
             ],
             dtype=np.uint64,
         ),
@@ -288,71 +138,10 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
 ]
 
 
-class ChannelsMigration(TestCase):
-    """Base class defining the migration test contract for channels.
-
-    Subclasses must implement each test method — setup creates the state,
-    verify checks it after migration.
-    """
-
-    def run(self) -> None:
-        self.test_channel_types()
-        self.test_data_integrity()
-
-    @abstractmethod
-    def test_channel_types(self) -> None: ...
-
-    @abstractmethod
-    def test_data_integrity(self) -> None: ...
-
-
-class ChannelsSetup(ChannelsMigration):
-    """Create channels and write known sample data for migration verification."""
-
-    def test_channel_types(self) -> None:
-        self.log("Testing: Create channels")
-        client = self.client
-
-        self.idx = client.channels.create(
-            name=IDX_NAME,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        self.data_channels = []
-        for name, data_type, _ in DATA_CHANNELS:
-            ch = client.channels.create(
-                name=name,
-                data_type=data_type,
-                index=self.idx.key,
-                retrieve_if_name_exists=True,
-            )
-            self.data_channels.append(ch)
-
-    def test_data_integrity(self) -> None:
-        self.log("Testing: Write sample data")
-        sample_count = len(DATA_CHANNELS[0][2])
-        start = sy.TimeStamp.now()
-        timestamps = np.array(
-            [start + i * sy.TimeSpan.SECOND for i in range(sample_count)],
-            dtype=np.int64,
-        )
-        channel_keys = [self.idx.key] + [ch.key for ch in self.data_channels]
-        with self.client.open_writer(
-            start=start,
-            channels=channel_keys,
-            name="mig_channels_writer",
-        ) as writer:
-            payload: dict[int, NpArray] = {self.idx.key: timestamps}
-            for ch, (_, _, expected) in zip(self.data_channels, DATA_CHANNELS):
-                payload[ch.key] = expected
-            writer.write(payload)
-
-
-class ChannelsVerify(ChannelsMigration):
+class ChannelsVerify(TestCase):
     """Verify channels exist with correct types and data after migration."""
 
-    def test_channel_types(self) -> None:
+    def run(self) -> None:
         self.log("Testing: Channel types")
         idx = self.client.channels.retrieve(IDX_NAME)
         assert idx.data_type == sy.DataType.TIMESTAMP, (
@@ -369,10 +158,11 @@ class ChannelsVerify(ChannelsMigration):
                 f"{name}: expected index={idx.key}, got {ch.index}"
             )
 
-    def test_data_integrity(self) -> None:
         self.log("Testing: Data integrity")
         time_range = sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now())
-        keys = [self.client.channels.retrieve(name).key for name, _, _ in DATA_CHANNELS]
+        keys = [
+            self.client.channels.retrieve(name).key for name, _, _ in DATA_CHANNELS
+        ]
         frame = self.client.read(time_range, keys)
 
         for key, (name, _, expected) in zip(keys, DATA_CHANNELS):

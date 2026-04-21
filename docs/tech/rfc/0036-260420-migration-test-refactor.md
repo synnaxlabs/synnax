@@ -50,24 +50,29 @@ to test infrastructure — assertions, result reporting, etc.
 ```
 integration/
 ├── migration/
-│   ├── setup/
-│   │   ├── v0_54/
-│   │   │   └── setup.py          # Standalone script for 0.54.x
-│   │   ├── v0_55/
-│   │   │   └── setup.py          # Standalone script for 0.55.x
-│   │   └── ...
-│   └── tests/
-│       ├── channels.py            # Verify test cases
-│       ├── labels.py
-│       ├── ranges.py
-│       ├── rbac.py
-│       ├── tasks.py
-│       └── workspace.py
+│   └── setup/
+│       ├── v0_54/
+│       │   └── setup.py          # Standalone script for 0.54.x
+│       ├── v0_55/
+│       │   └── setup.py          # Standalone script for 0.55.x
+│       └── ...
 ├── scripts/
 │   └── run_migration_chain.sh
 └── tests/
+    ├── migration/
+    │   ├── channels.py            # Verify test cases
+    │   ├── channels_calc.py
+    │   ├── ranges.py
+    │   ├── rbac.py
+    │   ├── task.py
+    │   ├── task_opc.py
+    │   ├── task_modbus.py
+    │   └── task_ni.py
     └── migration_tests.json
 ```
+
+Verify tests remain under `tests/migration/` because the test conductor's discovery
+mechanism prepends `tests/` to all case paths.
 
 ## 2.1 - Setup Scripts
 
@@ -100,13 +105,13 @@ the uv workspace configuration.
 
 ## 2.3 - Verification Tests
 
-Files in `migration/tests/` are standard test conductor test cases. They inherit from
+Files in `tests/migration/` are standard test conductor test cases. They inherit from
 existing integration base classes (e.g. `TestCase` from
 `integration/framework/test_case.py`) and use the full test infrastructure. They always
 run with the latest client and current-repo code.
 
 Test discovery uses `tests/migration_tests.json` with cases like
-`{"case": "migration/tests/channels"}`.
+`{"case": "migration/channels"}`.
 
 ## 2.4 - Shell Script
 

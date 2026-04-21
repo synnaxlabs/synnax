@@ -10,24 +10,23 @@
 import synnax as sy
 from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
-from tests.migration.task import (
-    ReadTaskConsoleVerify,
-    ReadTaskMigration,
-    ReadTaskMigrationSetup,
-    ReadTaskMigrationVerify,
-)
+from tests.migration.task import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 TASK_NAME = "mig_ni_analog_read"
 IDX_NAME = "mig_ni_idx"
 CHANNEL_PREFIX = "mig_ni_voltage"
 NUM_CHANNELS = 2
-DEVICE_LOCATION = "E101Mod4"  # NI 9205
+DEVICE_LOCATION = "E101Mod4"
 
 
-class NIAnalogReadMigration(ReadTaskMigration, NIAnalogReadTaskCase):
-    """NI analog read task migration base."""
+class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):
+    """Verify NI analog read task config survived and task can still run."""
 
     task_name = TASK_NAME
+    task_type = "ni_analog_read"
+    task_class = sy.ni.AnalogReadTask
+    channel_prefix = CHANNEL_PREFIX
+    num_channels = NUM_CHANNELS
     device_locations = [DEVICE_LOCATION]
 
     @staticmethod
@@ -52,21 +51,8 @@ class NIAnalogReadMigration(ReadTaskMigration, NIAnalogReadTaskCase):
         ]
 
 
-class NIAnalogReadSetup(ReadTaskMigrationSetup, NIAnalogReadMigration):
-    """Create an NI analog read task, run it, and verify sample collection."""
-
-
-class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadMigration):
-    """Verify NI analog read task data survived, settings intact, and task still runs."""
-
-    task_type = "ni_analog_read"
-    task_class = sy.ni.AnalogReadTask
-    channel_prefix = CHANNEL_PREFIX
-    num_channels = NUM_CHANNELS
-
-
 class NIAnalogReadConsoleVerify(ReadTaskConsoleVerify):
-    """Verify the NI analog read task configuration renders correctly in the console UI."""
+    """Verify the NI analog read task configuration renders correctly in the console."""
 
     task_name = TASK_NAME
     expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
