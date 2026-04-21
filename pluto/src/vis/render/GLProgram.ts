@@ -14,7 +14,6 @@ import { type Context } from "@/vis/render/context";
 const errorCompile = (msg: string): Error =>
   new Error(`failed to compile webgl program: ${msg}`);
 
-
 /**
  * A general purpose compiler and utility container for workign with WebGL programs.
  */

@@ -12,7 +12,6 @@ import { type direction, type location, type spatial } from "@synnaxlabs/x";
 import { type Node } from "@/mosaic/types";
 import { Tabs } from "@/tabs";
 
-
 /**
  * Inserts a tab into a node in the mosaic. If the given key is not found,
  * the tab is inserted into the closest ancestor. This is to deal

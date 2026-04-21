@@ -44,7 +44,6 @@ export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-
 export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
 
 export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
