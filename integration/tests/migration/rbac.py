@@ -74,13 +74,13 @@ class RBACVerify(ConsoleCase):
         self.log("Testing: Custom role survived migration")
         roles = self.client.access.roles.retrieve(internal=False)
         match = [r for r in roles if r.name == CUSTOM_ROLE_NAME]
-        assert (
-            len(match) >= 1
-        ), f"Custom role '{CUSTOM_ROLE_NAME}' not found in {[r.name for r in roles]}"
+        assert len(match) >= 1, (
+            f"Custom role '{CUSTOM_ROLE_NAME}' not found in {[r.name for r in roles]}"
+        )
         role = match[0]
-        assert (
-            role.description == CUSTOM_ROLE_DESCRIPTION
-        ), f"Description mismatch: '{role.description}' != '{CUSTOM_ROLE_DESCRIPTION}'"
+        assert role.description == CUSTOM_ROLE_DESCRIPTION, (
+            f"Description mismatch: '{role.description}' != '{CUSTOM_ROLE_DESCRIPTION}'"
+        )
         assert role.key is not None
         self.custom_role_key = role.key
 
@@ -101,31 +101,31 @@ class RBACVerify(ConsoleCase):
         self.log("Testing: Role assignments survived migration")
         for spec in USERS:
             role_names = _get_user_role_names(self.client, spec.username)
-            assert (
-                spec.role in role_names
-            ), f"User '{spec.username}': expected role '{spec.role}', got {role_names}"
+            assert spec.role in role_names, (
+                f"User '{spec.username}': expected role '{spec.role}', got {role_names}"
+            )
 
     def test_builtin_roles(self) -> None:
         self.log("Testing: Built-in roles survived migration")
         internal = self.client.access.roles.retrieve(internal=True)
         names = {r.name for r in internal}
         for expected in BUILTIN_ROLES:
-            assert (
-                expected in names
-            ), f"Built-in role '{expected}' not found. Got: {names}"
+            assert expected in names, (
+                f"Built-in role '{expected}' not found. Got: {names}"
+            )
 
     def test_users_in_console(self) -> None:
         self.log("Testing: Users visible under correct roles in console")
         visible_roles = self.console.access.list_visible_roles()
-        assert (
-            CUSTOM_ROLE_NAME in visible_roles
-        ), f"Role '{CUSTOM_ROLE_NAME}' not in console: {visible_roles}"
+        assert CUSTOM_ROLE_NAME in visible_roles, (
+            f"Role '{CUSTOM_ROLE_NAME}' not in console: {visible_roles}"
+        )
         for spec in USERS:
             self.console.access.expand_role(spec.role)
             users = self.console.access.list_users_under_role(spec.role)
-            assert (
-                spec.username in users
-            ), f"User '{spec.username}' not under role '{spec.role}': {users}"
+            assert spec.username in users, (
+                f"User '{spec.username}' not under role '{spec.role}': {users}"
+            )
 
     def test_user_logins(self) -> None:
         self.log("Testing: Each user can log in after migration")

@@ -53,9 +53,23 @@ def setup_channels(client: sy.Synnax) -> None:
             sy.DataType.FLOAT32,
             np.array(
                 [
-                    0.0, -0.0, 1.0, -1.0, F32.max, F32.min, F32.tiny, -F32.tiny,
-                    F32.eps, 3.1415927, -2.7182818, 0.000031416, -9.80665,
-                    1.23456e20, -7.891011e-12, 4.56789e37, -1.17549e-38,
+                    0.0,
+                    -0.0,
+                    1.0,
+                    -1.0,
+                    F32.max,
+                    F32.min,
+                    F32.tiny,
+                    -F32.tiny,
+                    F32.eps,
+                    3.1415927,
+                    -2.7182818,
+                    0.000031416,
+                    -9.80665,
+                    1.23456e20,
+                    -7.891011e-12,
+                    4.56789e37,
+                    -1.17549e-38,
                 ],
                 dtype=np.float32,
             ),
@@ -65,11 +79,23 @@ def setup_channels(client: sy.Synnax) -> None:
             sy.DataType.FLOAT64,
             np.array(
                 [
-                    0.0, -0.0, 1.0, -1.0, F64.max, F64.min, F64.tiny, -F64.tiny,
-                    F64.eps, 3.141592653589793, -2.718281828459045,
-                    0.00003141592653589793, 1.2345678901234567e150,
-                    -9.876543210987654e-150, 1.7976931348623155e308,
-                    -2.2250738585072014e-308, -9.80665,
+                    0.0,
+                    -0.0,
+                    1.0,
+                    -1.0,
+                    F64.max,
+                    F64.min,
+                    F64.tiny,
+                    -F64.tiny,
+                    F64.eps,
+                    3.141592653589793,
+                    -2.718281828459045,
+                    0.00003141592653589793,
+                    1.2345678901234567e150,
+                    -9.876543210987654e-150,
+                    1.7976931348623155e308,
+                    -2.2250738585072014e-308,
+                    -9.80665,
                 ],
                 dtype=np.float64,
             ),
@@ -78,8 +104,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_int8",
             sy.DataType.INT8,
             np.array(
-                [-128, -73, -50, -25, -1, 0, 1, 25, 42, 50, 73, 99, 100, 110,
-                 120, 126, 127],
+                [
+                    -128,
+                    -73,
+                    -50,
+                    -25,
+                    -1,
+                    0,
+                    1,
+                    25,
+                    42,
+                    50,
+                    73,
+                    99,
+                    100,
+                    110,
+                    120,
+                    126,
+                    127,
+                ],
                 dtype=np.int8,
             ),
         ),
@@ -87,8 +130,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_int16",
             sy.DataType.INT16,
             np.array(
-                [-32768, -12345, -5000, -500, -1, 0, 1, 500, 5000, 9999, 12345,
-                 20000, 25000, 30000, 31000, 32000, 32767],
+                [
+                    -32768,
+                    -12345,
+                    -5000,
+                    -500,
+                    -1,
+                    0,
+                    1,
+                    500,
+                    5000,
+                    9999,
+                    12345,
+                    20000,
+                    25000,
+                    30000,
+                    31000,
+                    32000,
+                    32767,
+                ],
                 dtype=np.int16,
             ),
         ),
@@ -96,9 +156,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_int32",
             sy.DataType.INT32,
             np.array(
-                [-2147483648, -123456789, -1000000, -1000, -1, 0, 1, 1000,
-                 1000000, 123456789, 500000000, 987654321, 1000000000,
-                 1500000000, 1900000000, 2000000000, 2147483647],
+                [
+                    -2147483648,
+                    -123456789,
+                    -1000000,
+                    -1000,
+                    -1,
+                    0,
+                    1,
+                    1000,
+                    1000000,
+                    123456789,
+                    500000000,
+                    987654321,
+                    1000000000,
+                    1500000000,
+                    1900000000,
+                    2000000000,
+                    2147483647,
+                ],
                 dtype=np.int32,
             ),
         ),
@@ -107,12 +183,23 @@ def setup_channels(client: sy.Synnax) -> None:
             sy.DataType.INT64,
             np.array(
                 [
-                    np.iinfo(np.int64).min, -1234567890123456789,
-                    -999999999999, -1000000, -1, 0, 1, 1000000, 999999999999,
-                    1234567890123456789, 2000000000000000000,
-                    3000000000000000000, 4000000000000000000,
-                    5000000000000000000, 6000000000000000000,
-                    7223372036854775807, np.iinfo(np.int64).max,
+                    np.iinfo(np.int64).min,
+                    -1234567890123456789,
+                    -999999999999,
+                    -1000000,
+                    -1,
+                    0,
+                    1,
+                    1000000,
+                    999999999999,
+                    1234567890123456789,
+                    2000000000000000000,
+                    3000000000000000000,
+                    4000000000000000000,
+                    5000000000000000000,
+                    6000000000000000000,
+                    7223372036854775807,
+                    np.iinfo(np.int64).max,
                 ],
                 dtype=np.int64,
             ),
@@ -121,8 +208,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_uint8",
             sy.DataType.UINT8,
             np.array(
-                [0, 1, 10, 25, 50, 73, 100, 128, 150, 175, 199, 200, 220, 240,
-                 250, 254, 255],
+                [
+                    0,
+                    1,
+                    10,
+                    25,
+                    50,
+                    73,
+                    100,
+                    128,
+                    150,
+                    175,
+                    199,
+                    200,
+                    220,
+                    240,
+                    250,
+                    254,
+                    255,
+                ],
                 dtype=np.uint8,
             ),
         ),
@@ -130,8 +234,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_uint16",
             sy.DataType.UINT16,
             np.array(
-                [0, 1, 100, 500, 1000, 5000, 12345, 20000, 32768, 40000, 50000,
-                 54321, 60000, 63000, 64000, 65534, 65535],
+                [
+                    0,
+                    1,
+                    100,
+                    500,
+                    1000,
+                    5000,
+                    12345,
+                    20000,
+                    32768,
+                    40000,
+                    50000,
+                    54321,
+                    60000,
+                    63000,
+                    64000,
+                    65534,
+                    65535,
+                ],
                 dtype=np.uint16,
             ),
         ),
@@ -139,9 +260,25 @@ def setup_channels(client: sy.Synnax) -> None:
             "mig_ch_uint32",
             sy.DataType.UINT32,
             np.array(
-                [0, 1, 1000, 100000, 1000000, 123456789, 500000000,
-                 1000000000, 2000000000, 2147483648, 3000000000, 3141592653,
-                 3500000000, 4000000000, 4200000000, 4294967294, 4294967295],
+                [
+                    0,
+                    1,
+                    1000,
+                    100000,
+                    1000000,
+                    123456789,
+                    500000000,
+                    1000000000,
+                    2000000000,
+                    2147483648,
+                    3000000000,
+                    3141592653,
+                    3500000000,
+                    4000000000,
+                    4200000000,
+                    4294967294,
+                    4294967295,
+                ],
                 dtype=np.uint32,
             ),
         ),
@@ -150,11 +287,23 @@ def setup_channels(client: sy.Synnax) -> None:
             sy.DataType.UINT64,
             np.array(
                 [
-                    0, 1, 1000000, 1000000000, 1234567890123456789, 2**32,
-                    2**40, 2**48, 2**56, 2**63, 10000000000000000000,
-                    12000000000000000000, 14000000000000000000,
-                    16000000000000000000, 9876543210987654321,
-                    18000000000000000000, np.iinfo(np.uint64).max,
+                    0,
+                    1,
+                    1000000,
+                    1000000000,
+                    1234567890123456789,
+                    2**32,
+                    2**40,
+                    2**48,
+                    2**56,
+                    2**63,
+                    10000000000000000000,
+                    12000000000000000000,
+                    14000000000000000000,
+                    16000000000000000000,
+                    9876543210987654321,
+                    18000000000000000000,
+                    np.iinfo(np.uint64).max,
                 ],
                 dtype=np.uint64,
             ),
@@ -305,9 +454,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
 
     CALC_F32_DATA = np.array([10.0, 20.0, 30.0, 50.0, 100.0], dtype=np.float32)
     CALC_F32_B_DATA = np.array([5.0, 15.0, 25.0, 35.0, 45.0], dtype=np.float32)
-    CALC_F64_DATA = np.array(
-        [100.0, 200.0, 300.0, 500.0, 1000.0], dtype=np.float64
-    )
+    CALC_F64_DATA = np.array([100.0, 200.0, 300.0, 500.0, 1000.0], dtype=np.float64)
     CALC_I64_DATA = np.array([1000, 2000, 3000, 5000, 10000], dtype=np.int64)
 
     start = sy.TimeStamp(100 * S)
@@ -320,13 +467,15 @@ def setup_calc_channels(client: sy.Synnax) -> None:
         channels=[calc_idx.key, src_f32.key, src_f32_b.key, src_f64.key, src_i64.key],
         enable_auto_commit=True,
     ) as writer:
-        writer.write({
-            calc_idx.key: timestamps,
-            src_f32.key: CALC_F32_DATA,
-            src_f32_b.key: CALC_F32_B_DATA,
-            src_f64.key: CALC_F64_DATA,
-            src_i64.key: CALC_I64_DATA,
-        })
+        writer.write(
+            {
+                calc_idx.key: timestamps,
+                src_f32.key: CALC_F32_DATA,
+                src_f32_b.key: CALC_F32_B_DATA,
+                src_f64.key: CALC_F64_DATA,
+                src_i64.key: CALC_I64_DATA,
+            }
+        )
 
     print("  [calc] Creating nested calc chain...")
     CALC_NESTED_CHANNELS: list[tuple[str, str]] = [
@@ -379,9 +528,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
             name=calc_name,
             data_type=sy.DataType.FLOAT32,
             expression=f"return {src_name}",
-            operations=[
-                sy.channel.Operation(type="avg", duration=WIN_WINDOW_S * S)
-            ],
+            operations=[sy.channel.Operation(type="avg", duration=WIN_WINDOW_S * S)],
             retrieve_if_name_exists=True,
         )
 
@@ -394,9 +541,9 @@ def setup_calc_channels(client: sy.Synnax) -> None:
     def _win_noisy_data(seed: str, d: int) -> np.ndarray:
         rng = np.random.default_rng(seed=hash((seed, d)) & 0xFFFFFFFF)
         center = _win_value(seed, d)
-        return (
-            center + rng.normal(0, WIN_NOISE_STD, WIN_SAMPLES_PER_DOMAIN)
-        ).astype(np.float32)
+        return (center + rng.normal(0, WIN_NOISE_STD, WIN_SAMPLES_PER_DOMAIN)).astype(
+            np.float32
+        )
 
     base = sy.TimeStamp(100 * S) + 10 * S
     write_keys = [win_idx.key, src_cos.key, src_quad.key]
@@ -412,11 +559,13 @@ def setup_calc_channels(client: sy.Synnax) -> None:
             write_keys,
             enable_auto_commit=True,
         ) as writer:
-            writer.write({
-                win_idx.key: timestamps,
-                src_cos.key: _win_noisy_data("cosine", d),
-                src_quad.key: _win_noisy_data("quadratic", d),
-            })
+            writer.write(
+                {
+                    win_idx.key: timestamps,
+                    src_cos.key: _win_noisy_data("cosine", d),
+                    src_quad.key: _win_noisy_data("quadratic", d),
+                }
+            )
 
     print("  [calc] Done.")
 
