@@ -100,7 +100,7 @@ jobs:
           fi
 
       - name: Install Rust
-        run: rustup update
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Update Submodules
         run: git submodule update --init --recursive
