@@ -34,6 +34,7 @@ export interface UseProps
         | "selectedLines"
         | "computedLineHeight"
         | "channelNames"
+        | "channelDataTypes"
       >,
       "visible"
     >,
@@ -73,6 +74,12 @@ export const use = ({
       for (const ch of retrievedChannels) names[String(ch.key)] = ch.name;
     return names;
   }, [retrievedChannels]);
+  const channelDataTypes = useMemo(() => {
+    const types: Record<string, string> = {};
+    if (retrievedChannels != null)
+      for (const ch of retrievedChannels) types[String(ch.key)] = String(ch.dataType);
+    return types;
+  }, [retrievedChannels]);
 
   const memoProps = useMemoDeepEqual({
     font,
@@ -83,6 +90,7 @@ export const use = ({
     showReceiptTimestamp,
     timestampPrecision,
     channelNames,
+    channelDataTypes,
     channels,
   });
 

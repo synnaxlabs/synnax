@@ -76,8 +76,22 @@ describe("log/toolbar/Channels", () => {
       preloadedState: preloadState({
         ...ZERO_STATE,
         channels: [
-          { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
-          { channel: 20, color: "", notation: "standard", precision: -1, alias: "" },
+          {
+            channel: 10,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
+          {
+            channel: 20,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
         ],
       }),
     });
@@ -91,8 +105,22 @@ describe("log/toolbar/Channels", () => {
       preloadedState: preloadState({
         ...ZERO_STATE,
         channels: [
-          { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
-          { channel: 20, color: "", notation: "standard", precision: -1, alias: "" },
+          {
+            channel: 10,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
+          {
+            channel: 20,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
         ],
       }),
     });
@@ -104,7 +132,14 @@ describe("log/toolbar/Channels", () => {
       preloadedState: preloadState({
         ...ZERO_STATE,
         channels: [
-          { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+          {
+            channel: 10,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
         ],
       }),
     });
@@ -121,7 +156,14 @@ describe("log/toolbar/Channels", () => {
       preloadedState: preloadState({
         ...ZERO_STATE,
         channels: [
-          { channel: 10, color: "", notation: "standard", precision: -1, alias: "" },
+          {
+            channel: 10,
+            color: "",
+            notation: "standard",
+            precision: -1,
+            alias: "",
+            timestamp: { format: "preciseDate", tz: "local" },
+          },
         ],
       }),
     });
