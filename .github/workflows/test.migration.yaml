@@ -7,6 +7,13 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
+      base_version:
+        description:
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest major
+          release."
+        type: string
+        required: false
+        default: ""
 
   workflow_dispatch:
     inputs:
@@ -14,46 +21,59 @@ on:
         description: "Reference run ID for downloading build artifacts"
         type: string
         required: true
-      append_latest:
-        description: "Auto-append 'latest' (current build) to the chain"
-        type: boolean
-        default: true
-      chain:
-        description: "Custom version chain (e.g. '0.52.0, 0.53.1')"
+      base_version:
+        description:
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest major
+          release."
         type: string
+        required: false
         default: ""
 
 jobs:
-  setup:
-    name: Generate Migration Chains
+  resolve:
+    name: Resolve Base Version
     runs-on: ubuntu-latest
     outputs:
-      MATRIX: ${{ steps.chain.outputs.MATRIX }}
+      base_version: ${{ steps.resolve.outputs.base_version }}
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v6
-
-      - name: Reference Run ID
-        run: echo "Reference run ID:${{ inputs.ref_run_id }}"
-
-      - name: Generate Migration Chains
-        id: chain
+      - name: Resolve Base Version
+        id: resolve
         env:
           GH_TOKEN: ${{ github.token }}
-          CUSTOM_CHAIN: ${{ inputs.chain }}
-          APPEND_LATEST: ${{ inputs.append_latest }}
-        run: integration/scripts/generate_migration_matrix.sh
+          INPUT_VERSION: ${{ inputs.base_version }}
+        run: |
+          if [[ -n "$INPUT_VERSION" ]]; then
+            echo "base_version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
+            echo "Using provided base version: $INPUT_VERSION"
+            exit 0
+          fi
+          echo "Discovering latest major release..."
+          VERSION=$(
+            gh release list --repo synnaxlabs/synnax --json tagName --limit 200 \
+              --jq '.[].tagName' \
+            | grep -E '^synnax-v[0-9]+\.[0-9]+\.0$' \
+            | sed 's/^synnax-v//' \
+            | sort -V \
+            | tail -n1
+          )
+          if [[ -z "$VERSION" ]]; then
+            echo "ERROR: Could not find any major release" >&2
+            exit 1
+          fi
+          echo "base_version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved latest major release: $VERSION"
 
   test:
-    name: "From ${{ matrix.version }} (${{ matrix.os }})"
-    needs: [setup]
+    name: "From v${{ needs.resolve.outputs.base_version }} (${{ matrix.os }})"
+    needs: [resolve]
     timeout-minutes: 60
     runs-on:
       - self-hosted
       - ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix: ${{ fromJSON(needs.setup.outputs.MATRIX) }}
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
@@ -90,46 +110,26 @@ jobs:
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Run Setup Chain
-        env:
-          GH_TOKEN: ${{ github.token }}
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/run_migration_chain.sh --chain "${{ matrix.chain }}"
-
-      - name: Start Latest Core
-        shell: bash
-        env:
-          SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: |
-          mkdir -p ~/synnax-data
-          ~/synnax-binaries/synnax start -i > ~/synnax-data/synnax-core.log 2>&1 &
-          for i in $(seq 1 30); do
-            nc -z localhost 9090 2>/dev/null && break
-            sleep 1
-          done
-
       - name: Install Playwright
         working-directory: integration
         run: uv run playwright install --with-deps
 
-      - name: Run Migration Verify
+      - name: Run Migration Tests
         working-directory: integration
         env:
+          GH_TOKEN: ${{ github.token }}
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
-        run: uv run tc migration
-
-      - name: Stop Core
-        if: always()
-        shell: bash
-        run: kill $(lsof -ti:9090) 2>/dev/null || true
+        run: uv run mc --from ${{ needs.resolve.outputs.base_version }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name: migration-results-${{ matrix.chain_name }}-${{ matrix.os }}
+          name:
+            migration-results-v${{ needs.resolve.outputs.base_version }}-${{ matrix.os
+            }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -138,7 +138,7 @@ jobs:
         if: ${{ failure() || cancelled() }}
         with:
           name:
-            migration-core-logs-${{ matrix.chain_name }}-${{ matrix.os }}-attempt-${{
-            github.run_attempt }}
-          path: ~/synnax-data/synnax-core.log
+            migration-core-logs-v${{ needs.resolve.outputs.base_version }}-${{ matrix.os
+            }}-attempt-${{ github.run_attempt }}
+          path: ~/synnax-migration-data/synnax-core.log
           retention-days: 7
