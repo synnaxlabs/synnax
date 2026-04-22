@@ -9,38 +9,21 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""v0.53 migration setup script.
+"""Migration setup: ranges with children, channels, aliases, and sample data.
 
-Standalone script that creates test resources against a running Synnax Core.
-Uses only synnax + stdlib. Once committed, this file is never modified.
-
-Usage:
-    python setup.py
+Standalone script — uses only synnax + stdlib.
+Once committed, this file is never modified.
 """
 
-import sys
-from datetime import datetime
-
 import numpy as np
+from setup import S, log, run
 
 import synnax as sy
 
-HOST = "localhost"
-PORT = 9090
-USERNAME = "synnax"
-PASSWORD = "seldon"
-
-S = sy.TimeSpan.SECOND
-MS = sy.TimeSpan.MILLISECOND
+SETUP_VERSION = "0.49"
 
 
-def log(msg: str) -> None:
-    ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
-    print(f"{ts} | {msg}")
-
-
-def setup_ranges(client: sy.Synnax) -> None:
-    """Create ranges with metadata, children, channels, aliases, and sample data."""
+def setup(client: sy.Synnax) -> None:
     log("  [ranges] Creating parent range...")
 
     EPOCH = sy.TimeStamp(1_000_000_000 * S)
@@ -97,27 +80,4 @@ def setup_ranges(client: sy.Synnax) -> None:
     parent.set_alias("mig_range_data", "mig_range_sensor")
 
 
-def main() -> None:
-    log(f"Connecting to Synnax at {HOST}:{PORT}...")
-    client = sy.Synnax(
-        host=HOST,
-        port=PORT,
-        username=USERNAME,
-        password=PASSWORD,
-    )
-
-    steps = [
-        ("Ranges", setup_ranges),
-    ]
-
-    for name, func in steps:
-        log(f"--- {name} ---")
-        try:
-            func(client)
-        except Exception as e:
-            log(f"FAILED: {name}: {e}")
-            sys.exit(1)
-
-
-if __name__ == "__main__":
-    main()
+run(setup)

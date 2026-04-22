@@ -56,7 +56,7 @@ STOP_TIMEOUT = 10
 KILL_TIMEOUT = 5
 CLEANUP_TIMEOUT = 10
 INTEGRATION_DIR = Path(__file__).parent
-SETUP_DIR = INTEGRATION_DIR / "migration" / "setup"
+SETUP_DIR = INTEGRATION_DIR / "tests" / "migration"
 CLIENT_VENV_DIR = Path.home() / "migration-client-env"
 CORE_DIR = INTEGRATION_DIR.parent / "core"
 
@@ -76,8 +76,11 @@ def _kill_port(port: int) -> None:
     log(f"Killing process on port {port}...")
     if platform.system() == "Windows":
         subprocess.run(
-            ["powershell", "-Command",
-             f"Stop-Process -Id (Get-NetTCPConnection -LocalPort {port}).OwningProcess -Force"],
+            [
+                "powershell",
+                "-Command",
+                f"Stop-Process -Id (Get-NetTCPConnection -LocalPort {port}).OwningProcess -Force",
+            ],
             capture_output=True,
         )
     else:
@@ -92,8 +95,6 @@ def _ensure_clean_state() -> None:
     """Kill stale processes and clean up directories."""
     log("Ensuring clean state...")
     _kill_port(PORT)
-    _kill_port(4841)  # OPC UA simulator
-    _kill_port(5020)  # Modbus simulator
     for d in [DATA_DIR, CLIENT_VENV_DIR]:
         if not d.exists():
             continue
@@ -125,6 +126,18 @@ def _venv_python(venv_dir: Path) -> Path:
     return venv_dir / "bin" / "python"
 
 
+def _prune_binaries(needed_versions: set[str]) -> None:
+    """Remove cached binaries that aren't in the needed set."""
+    if not MIGRATION_BINARY_DIR.exists():
+        return
+    plat = _get_platform()
+    suffix = "-windows.exe" if plat == "windows" else f"-{plat}"
+    needed_names = {f"synnax-v{v}{suffix}" for v in needed_versions}
+    for entry in MIGRATION_BINARY_DIR.iterdir():
+        if entry.name not in needed_names:
+            entry.unlink()
+
+
 def install_version(version: str) -> Path:
     """Download and cache a specific Core version binary.
 
@@ -139,10 +152,10 @@ def install_version(version: str) -> Path:
     cached = MIGRATION_BINARY_DIR / asset
 
     if cached.exists():
-        log(f"Using cached binary for v{version}")
+        log(f"  Using cached binary for v{version}")
     else:
         tag = f"synnax-v{version}"
-        log(f"Downloading {asset} from release {tag}...")
+        log(f"  Downloading v{version} binary...")
         subprocess.run(
             [
                 "gh",
@@ -161,71 +174,57 @@ def install_version(version: str) -> Path:
 
     if platform.system() != "Windows":
         cached.chmod(0o755)
-    log(f"Ready: v{version} at {cached}")
     return cached
 
 
-def start_core(binary: Path) -> subprocess.Popen[bytes]:
-    """Start a Core binary against the shared migration data directory."""
+def start_core(
+    binary: Path | None = None, *, dev: bool = False
+) -> subprocess.Popen[bytes]:
+    """Start a Core process against the shared migration data directory.
+
+    Pass a binary path for release binaries, or ``dev=True`` to run from
+    source via ``go run``.
+    """
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     log_file = DATA_DIR / "synnax-core.log"
 
     env = os.environ.copy()
     env.setdefault("SYNNAX_LICENSE_KEY", "")
 
-    log(f"Starting Core from {binary}...")
-    log_fh = open(log_file, "w")
-    proc = subprocess.Popen(
-        [str(binary), "start", "-i", "-d", str(DATA_DIR)],
-        stdout=log_fh,
-        stderr=log_fh,
-        env=env,
-    )
-    log_fh.close()
+    if dev:
+        cmd = [
+            "go",
+            "run",
+            "-tags",
+            "driver",
+            "main.go",
+            "start",
+            "-i",
+            "-d",
+            str(DATA_DIR),
+        ]
+        cwd: str | None = str(CORE_DIR)
+        log("  Starting Core (go run)...")
+    else:
+        assert binary is not None
+        cmd = [str(binary), "start", "-i", "-d", str(DATA_DIR)]
+        cwd = None
+        log("  Starting Core...")
+
+    with open(log_file, "w") as log_fh:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=log_fh,
+            stderr=log_fh,
+            env=env,
+            cwd=cwd,
+        )
 
     start = time.monotonic()
     while time.monotonic() - start < STARTUP_TIMEOUT:
         try:
             with socket.create_connection(("localhost", PORT), timeout=1):
-                log(f"Core is ready on port {PORT}")
-                return proc
-        except (ConnectionRefusedError, OSError):
-            time.sleep(STARTUP_POLL_INTERVAL)
-
-    proc.kill()
-    if log_file.exists():
-        log("--- Core log ---")
-        log(log_file.read_text()[-2000:])
-        log("--- end log ---")
-    raise TimeoutError(
-        f"Core did not become ready on port {PORT} within {STARTUP_TIMEOUT}s"
-    )
-
-
-def start_core_dev() -> subprocess.Popen[bytes]:
-    """Start Core from source using ``go run`` for local development."""
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = DATA_DIR / "synnax-core.log"
-
-    env = os.environ.copy()
-    env.setdefault("SYNNAX_LICENSE_KEY", "")
-
-    log(f"Starting Core from source (go run) in {CORE_DIR}...")
-    log_fh = open(log_file, "w")
-    proc = subprocess.Popen(
-        ["go", "run", "-tags", "driver", "main.go", "start", "-i", "-d", str(DATA_DIR)],
-        cwd=str(CORE_DIR),
-        stdout=log_fh,
-        stderr=log_fh,
-        env=env,
-    )
-    log_fh.close()
-
-    start = time.monotonic()
-    while time.monotonic() - start < STARTUP_TIMEOUT:
-        try:
-            with socket.create_connection(("localhost", PORT), timeout=1):
-                log(f"Core is ready on port {PORT}")
+                log("  Core ready")
                 return proc
         except (ConnectionRefusedError, OSError):
             time.sleep(STARTUP_POLL_INTERVAL)
@@ -242,12 +241,11 @@ def start_core_dev() -> subprocess.Popen[bytes]:
 
 def stop_core(proc: subprocess.Popen[bytes]) -> None:
     """Stop Core process and wait for port to be released."""
-    log("Stopping Core...")
     proc.terminate()
     try:
         proc.wait(timeout=STOP_TIMEOUT)
     except subprocess.TimeoutExpired:
-        log("Core did not stop gracefully, killing...")
+        log("  Core did not stop gracefully, killing...")
         proc.kill()
         proc.wait(timeout=KILL_TIMEOUT)
 
@@ -257,18 +255,10 @@ def stop_core(proc: subprocess.Popen[bytes]) -> None:
             with socket.create_connection(("localhost", PORT), timeout=1):
                 time.sleep(STARTUP_POLL_INTERVAL)
         except (ConnectionRefusedError, OSError):
-            log("Core stopped")
+            log("  Core stopped")
             return
 
     log(f"WARNING: Port {PORT} still in use after Core process exited")
-
-
-def _parse_folder_version(folder_name: str) -> tuple[int, int] | None:
-    """Parse a setup folder name like 'v0_54' into (0, 54)."""
-    m = re.match(r"^v(\d+)_(\d+)$", folder_name)
-    if m is None:
-        return None
-    return int(m.group(1)), int(m.group(2))
 
 
 def _parse_version(version_str: str) -> tuple[int, int]:
@@ -277,42 +267,56 @@ def _parse_version(version_str: str) -> tuple[int, int]:
     return int(parts[0]), int(parts[1])
 
 
-def discover_setup_folders(from_version: str) -> list[tuple[str, tuple[int, int]]]:
-    """Scan the setup directory for version folders <= from_version.
+def _read_setup_version(script: Path) -> str | None:
+    """Read the SETUP_VERSION constant from a setup script."""
+    m = re.search(
+        r'^SETUP_VERSION\s*=\s*["\']([^"\']+)["\']',
+        script.read_text(),
+        re.MULTILINE,
+    )
+    return m.group(1) if m else None
 
-    Returns a sorted list of (folder_name, (major, minor)) tuples.
+
+def discover_setup_scripts(
+    from_version: str,
+) -> list[tuple[str, list[Path]]]:
+    """Scan the setup directory for scripts with SETUP_VERSION <= from_version.
+
+    Returns a sorted list of (version, [scripts]) tuples, grouped by version.
     """
     from_mm = _parse_version(from_version)
-    folders: list[tuple[str, tuple[int, int]]] = []
+    by_version: dict[str, list[Path]] = {}
     if not SETUP_DIR.exists():
-        return folders
-    for entry in SETUP_DIR.iterdir():
-        if not entry.is_dir():
+        return []
+    for entry in sorted(SETUP_DIR.iterdir()):
+        if not entry.is_file() or not entry.name.endswith("_setup.py"):
             continue
-        parsed = _parse_folder_version(entry.name)
-        if parsed is None:
+        version = _read_setup_version(entry)
+        if version is None:
             continue
-        if parsed <= from_mm:
-            folders.append((entry.name, parsed))
-    folders.sort(key=lambda x: x[1])
-    return folders
+        if _parse_version(version) <= from_mm:
+            by_version.setdefault(version, []).append(entry)
+
+    return sorted(by_version.items(), key=lambda x: _parse_version(x[0]))
 
 
-def _folder_to_pip_spec(major: int, minor: int) -> str:
-    """Convert a (major, minor) tuple to a pip version specifier.
+def _version_to_pip_spec(version: str) -> str:
+    """Convert a version string to a pip version specifier.
 
-    E.g., (0, 54) -> 'synnax>=0.54,<0.55'
+    E.g., '0.54' -> 'synnax>=0.54,<0.55'
     """
+    major, minor = _parse_version(version)
     return f"synnax>={major}.{minor},<{major}.{minor + 1}"
 
 
-def _folder_to_release_version(major: int, minor: int) -> str:
-    """Convert a (major, minor) tuple to a release version for downloading
-    Core binaries. E.g., (0, 54) -> '0.54.0'"""
+def _version_to_release(version: str) -> str:
+    """Convert a version string to a release version for downloading
+    Core binaries. E.g., '0.54' -> '0.54.0'"""
+    major, minor = _parse_version(version)
     return f"{major}.{minor}.0"
 
 
-def create_setup_venv(major: int, minor: int) -> Path:
+def create_setup_venv(version: str) -> Path:
     """Create an isolated venv and install the matching synnax client from PyPI.
 
     Returns the path to the venv's Python executable.
@@ -320,8 +324,8 @@ def create_setup_venv(major: int, minor: int) -> Path:
     if CLIENT_VENV_DIR.exists():
         shutil.rmtree(CLIENT_VENV_DIR)
 
-    pip_spec = _folder_to_pip_spec(major, minor)
-    log(f"Creating venv and installing {pip_spec}...")
+    pip_spec = _version_to_pip_spec(version)
+    log(f"  Installing client {pip_spec}...")
     subprocess.run(
         ["uv", "venv", str(CLIENT_VENV_DIR)],
         check=True,
@@ -331,37 +335,39 @@ def create_setup_venv(major: int, minor: int) -> Path:
     python = _venv_python(CLIENT_VENV_DIR)
     subprocess.run(
         [
-            "uv", "pip", "install", "--quiet", "--python", str(python),
-            pip_spec, "pymodbus", "asyncua",
+            "uv",
+            "pip",
+            "install",
+            "--quiet",
+            "--python",
+            str(python),
+            pip_spec,
+            "pymodbus",
+            "asyncua",
         ],
         check=True,
     )
 
-    log(f"Venv ready with {pip_spec}")
     return python
 
 
-def run_setup_script(folder_name: str, python: Path) -> None:
-    """Run the setup.py script in the given version folder."""
-    script = SETUP_DIR / folder_name / "setup.py"
+def run_setup_script(script: Path, python: Path) -> None:
+    """Run a setup script using the given venv python."""
     if not script.exists():
         raise FileNotFoundError(f"Setup script not found: {script}")
 
-    log(f"Running setup: {script}")
     result = subprocess.run(
         [str(python), str(script)],
         cwd=str(INTEGRATION_DIR),
     )
     if result.returncode != 0:
         raise RuntimeError(
-            f"Setup script {folder_name}/setup.py failed "
-            f"(exit code {result.returncode})"
+            f"Setup script {script.name} failed (exit code {result.returncode})"
         )
 
 
 def run_verify() -> bool:
     """Run migration verify tests via the test conductor."""
-    log("Running: uv run tc migration")
     result = subprocess.run(
         ["uv", "run", "tc", "migration"],
         cwd=str(INTEGRATION_DIR),
@@ -369,41 +375,51 @@ def run_verify() -> bool:
     if result.returncode != 0:
         log(f"Verify FAILED (exit code {result.returncode})")
         return False
-    log("Verify passed")
     return True
 
 
 def run(from_version: str, dev: bool) -> bool:
     """Run the full migration test chain.
 
-    1. For each setup folder <= from_version: download versioned Core,
-       start it, install matching client, run setup.py, stop Core.
-    2. Download + start Core at from_version (no-op migration trigger).
-    3. Start latest Core, run verify, stop Core.
+    1. Discover setup scripts, group by SETUP_VERSION.
+    2. For each version group: download Core, start it, install matching
+       client in a venv, run all scripts for that version, stop Core.
+    3. If from_version had no setup scripts, do a no-op Core start to
+       trigger migrations.
+    4. Start latest Core, run verify, stop Core.
     """
-    setup_folders = discover_setup_folders(from_version)
-    if not setup_folders:
-        log(f"WARNING: No setup folders found for versions <= {from_version}")
+    setup_groups = discover_setup_scripts(from_version)
+    if not setup_groups:
+        log(f"WARNING: No setup scripts found for versions <= {from_version}")
 
-    log(f"Setup folders: {[f[0] for f in setup_folders]}")
-    log(f"From version: {from_version}")
-    log(f"Mode: {'dev' if dev else 'CI'}\n")
+    total_scripts = sum(len(scripts) for _, scripts in setup_groups)
+    log(
+        f"From: v{from_version} | Mode: {'dev' if dev else 'CI'} | {total_scripts} setup scripts"
+    )
+    for version, scripts in setup_groups:
+        for s in scripts:
+            log(f"  v{version} — {s.stem}")
 
-    for folder_name, (major, minor) in setup_folders:
-        release_version = _folder_to_release_version(major, minor)
+    needed_versions = {_version_to_release(v) for v, _ in setup_groups}
+    needed_versions.add(from_version)
+    _prune_binaries(needed_versions)
+
+    for version, scripts in setup_groups:
+        release_version = _version_to_release(version)
         log(f"{'=' * 60}")
-        log(f"Setup: {folder_name} (Core v{release_version})")
+        log(f"Setup: v{version} ({len(scripts)} scripts)")
         log(f"{'=' * 60}")
         binary = install_version(release_version)
         proc = start_core(binary)
         try:
-            python = create_setup_venv(major, minor)
-            run_setup_script(folder_name, python)
+            python = create_setup_venv(version)
+            for script in scripts:
+                run_setup_script(script, python)
         finally:
             stop_core(proc)
 
     from_mm = _parse_version(from_version)
-    already_ran = any(v == from_mm for _, v in setup_folders)
+    already_ran = any(_parse_version(v) == from_mm for v, _ in setup_groups)
     if not already_ran:
         log(f"{'=' * 60}")
         log(f"No-op migration: Core v{from_version}")
@@ -416,7 +432,7 @@ def run(from_version: str, dev: bool) -> bool:
     log("Verify: latest Core")
     log(f"{'=' * 60}")
     if dev:
-        proc = start_core_dev()
+        proc = start_core(dev=True)
     else:
         latest_binary = CI_BINARY_DIR / BINARY_NAME
         if not latest_binary.exists():
@@ -426,7 +442,10 @@ def run(from_version: str, dev: bool) -> bool:
             )
         proc = start_core(latest_binary)
 
-    return run_verify()
+    try:
+        return run_verify()
+    finally:
+        stop_core(proc)
 
 
 def main() -> None:
@@ -448,10 +467,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    log("Migration conductor")
-    log(f"  From: {args.from_version}")
-    log(f"  Dev:  {args.dev}")
-    log(f"{'#' * 60}\n")
+    log("Migration conductor\n")
 
     _ensure_clean_state()
 

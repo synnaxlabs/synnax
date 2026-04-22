@@ -8,48 +8,52 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from tests.driver.modbus_task import ModbusReadTaskCase
+from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
-from tests.migration.task import ReadTaskConsoleVerify, ReadTaskMigrationVerify
+from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
-TASK_NAME = "mig_modbus_read"
-IDX_NAME = "mig_modbus_idx"
-CHANNEL_PREFIX = "mig_modbus_reg"
+TASK_NAME = "mig_ni_analog_read"
+IDX_NAME = "mig_ni_idx"
+CHANNEL_PREFIX = "mig_ni_voltage"
 NUM_CHANNELS = 2
+DEVICE_LOCATION = "E101Mod4"
 
 
-class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
-    """Verify Modbus task config survived and task can still run."""
+class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):
+    """Verify NI analog read task config survived and task can still run."""
 
     task_name = TASK_NAME
-    task_type = "modbus_read"
-    task_class = sy.modbus.ReadTask
+    task_type = "ni_analog_read"
+    task_class = sy.ni.AnalogReadTask
     channel_prefix = CHANNEL_PREFIX
     num_channels = NUM_CHANNELS
-    pre_start_sleep = 2
+    device_locations = [DEVICE_LOCATION]
 
     @staticmethod
-    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
+    def create_channels(
+        client: sy.Synnax, devices: dict[str, sy.Device]
+    ) -> list[sy.ni.AIVoltageChan]:
         idx = create_index(client, IDX_NAME)
         return [
-            sy.modbus.HoldingRegisterInputChan(
+            sy.ni.AIVoltageChan(
+                port=i,
                 channel=create_channel(
                     client,
                     name=f"{CHANNEL_PREFIX}_{i}",
                     data_type=sy.DataType.FLOAT32,
                     index=idx.key,
                 ),
-                address=i,
-                data_type="float32",
+                terminal_config="Cfg_Default",
+                min_val=-10.0,
+                max_val=10.0,
             )
             for i in range(NUM_CHANNELS)
         ]
 
 
-class ModbusReadConsoleVerify(ReadTaskConsoleVerify):
-    """Verify the Modbus read task configuration renders correctly in the console UI."""
+class NIAnalogReadConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the NI analog read task configuration renders correctly in the console."""
 
     task_name = TASK_NAME
     expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
-    expected_sample_rate = "50"
-    expected_stream_rate = "10"
+    requires_platform = "windows"
