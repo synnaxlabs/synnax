@@ -444,7 +444,10 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     );
   };
 
+  const [hasAnnotations, setHasAnnotations] = useState(false);
   const rangeProviderProps: Channel.LinePlotProps["rangeProviderProps"] = {
+    visible: vis.annotations.visible,
+    onHasAnnotationsChange: setHasAnnotations,
     menu: (props) => <RangeAnnotationContextMenu lines={propsLines} range={props} />,
   };
 
@@ -495,10 +498,12 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
             hasUpdatePermission ? handleMeasureModeChange : undefined
           }
         >
-          {!focused && <Controls layoutKey={layoutKey} />}
+          {!focused && (
+            <Controls layoutKey={layoutKey} hasAnnotations={hasAnnotations} />
+          )}
         </Channel.LinePlot>
       </Menu.ContextMenu>
-      {focused && <Controls layoutKey={layoutKey} />}
+      {focused && <Controls layoutKey={layoutKey} hasAnnotations={hasAnnotations} />}
     </div>
   );
 };
