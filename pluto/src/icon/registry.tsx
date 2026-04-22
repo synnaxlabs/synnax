@@ -73,7 +73,6 @@ import {
   IoTime,
   IoTvOutline,
 } from "react-icons/io5";
-import { LuSigma } from "react-icons/lu";
 import {
   MdAccessTime,
   MdAlignHorizontalCenter,
@@ -132,6 +131,7 @@ import {
   MdOutlineExplore,
   MdOutlineFilterList,
   MdOutlineLinearScale,
+  MdOutlineScience,
   MdOutlineMap,
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
@@ -212,12 +212,12 @@ import {
   TbCircleLetterVFilled,
   TbCircuitResistor,
   TbDecimal,
+  TbLetterE,
   TbLivePhoto,
   TbMathFunction,
   TbPlugConnected,
   TbPlugConnectedX,
   TbRadarFilled,
-  TbSuperscript,
   TbVariable,
 } from "react-icons/tb";
 import {
@@ -429,8 +429,8 @@ export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
-export const Scientific = wrapSVGIcon(TbSuperscript, "scientific");
-export const Engineering = wrapSVGIcon(LuSigma, "engineering");
+export const Scientific = wrapSVGIcon(MdOutlineScience, "scientific");
+export const Engineering = wrapSVGIcon(TbLetterE, "engineering");
 export const String = wrapSVGIcon(VscSymbolString, "string");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
 export const Rack = wrapSVGIcon(MdHive, "rack");
