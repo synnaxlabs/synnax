@@ -116,20 +116,22 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
   }
 
   render(props: ProviderProps): void {
-    if (this.state.visible === false) return;
     const { dataToDecimalScale, region, viewport, timeRange } = props;
     this.fetchInitial(timeRange);
     const { draw, ranges } = this.internal;
+    const visible = this.state.visible !== false;
     const regionScale = dataToDecimalScale.scale(box.xBounds(region));
     const cursor = this.state.cursor == null ? null : this.state.cursor.x;
     let hoveredState: SelectedState | null = null;
     let visibleCount = 0;
-    const clearScissor = draw.canvas.scissor(
-      box.construct(
-        { x: box.left(region), y: box.top(region) - 35 },
-        { x: box.right(region), y: box.bottom(region) },
-      ),
-    );
+    const clearScissor = visible
+      ? draw.canvas.scissor(
+          box.construct(
+            { x: box.left(region), y: box.top(region) - 35 },
+            { x: box.right(region), y: box.bottom(region) },
+          ),
+        )
+      : null;
     ranges.forEach((r) => {
       const cRes = color.colorZ.safeParse(r.color);
       if (!cRes.success) return;
@@ -138,6 +140,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
       const endPos = regionScale.pos(Number(r.timeRange.end.valueOf()));
       if (endPos < box.left(region) || startPos > box.right(region)) return;
       visibleCount++;
+      if (!visible) return;
       startPos = clamp(startPos, box.left(region) - 2, box.right(region) - 1);
       let hovered = false;
       if (cursor != null)
@@ -191,7 +194,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         maxWidth: endPos - startPos - 16,
       });
     });
-    clearScissor();
+    clearScissor?.();
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
     else if (this.state.hovered) this.setState((s) => ({ ...s, hovered: null }));
     if (this.state.count !== visibleCount)
