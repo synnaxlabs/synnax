@@ -77,7 +77,9 @@ export const Controls = ({
   return (
     <Base
       className={CSS(
-        plot.annotations.visible && CSS.BM("controls", "annotations-visible"),
+        plot.annotations.visible &&
+          hasAnnotations &&
+          CSS.BM("controls", "annotations-visible"),
       )}
     >
       <Flex.Box x gap="small">
