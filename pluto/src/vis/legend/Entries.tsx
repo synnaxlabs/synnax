@@ -25,6 +25,7 @@ export interface EntryData {
   key: string;
   label: string;
   visible: boolean;
+  subGroupIndex?: number;
 }
 
 export interface EntriesProps {
@@ -35,6 +36,7 @@ export interface EntriesProps {
   colorPickerVisible?: boolean;
   onColorPickerVisibleChange?: state.Setter<boolean>;
   entryProps?: Omit<Flex.BoxProps, "background">;
+  highlightedSubGroupIndex?: number;
 }
 
 export const Entries = memo(
@@ -76,9 +78,14 @@ const Entry = ({
   onColorPickerVisibleChange,
   className,
   background,
+  highlightedSubGroupIndex,
   ...rest
 }: EntryProps): ReactElement => {
-  const { color, key, label, visible } = entry;
+  const { color, key, label, visible, subGroupIndex } = entry;
+  const dimmed =
+    highlightedSubGroupIndex != null &&
+    subGroupIndex != null &&
+    highlightedSubGroupIndex !== subGroupIndex;
   return (
     <Flex.Box
       align="center"
@@ -86,6 +93,7 @@ const Entry = ({
       gap="small"
       key={key}
       x
+      style={dimmed ? { opacity: 0.3 } : undefined}
       {...rest}
     >
       <Flex.Box align="center" gap="small" x>
@@ -97,6 +105,11 @@ const Entry = ({
           value={color}
           onVisibleChange={onColorPickerVisibleChange}
         />
+        {subGroupIndex != null && (
+          <Text.Text level="small" weight={600} color={7}>
+            {subGroupIndex}
+          </Text.Text>
+        )}
         <Text.MaybeEditable
           color={entry.visible ? 10 : 7}
           level="small"

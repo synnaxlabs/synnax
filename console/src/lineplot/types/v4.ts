@@ -36,6 +36,7 @@ export const stateZ = v3.stateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
   measure: measureStateZ,
   annotations: annotationsStateZ.default(ZERO_ANNOTATIONS_STATE),
+  align: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
@@ -43,6 +44,7 @@ export const ZERO_STATE: State = {
   version: VERSION,
   measure: ZERO_MEASURE_STATE,
   annotations: ZERO_ANNOTATIONS_STATE,
+  align: false,
 };
 
 export const sliceStateZ = v3.sliceStateZ
@@ -61,6 +63,7 @@ export const stateMigration = migrate.createMigration<v3.State, State>({
     version: VERSION,
     measure: ZERO_MEASURE_STATE,
     annotations: ZERO_ANNOTATIONS_STATE,
+    align: false,
   }),
 });
 

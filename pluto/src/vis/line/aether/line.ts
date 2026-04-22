@@ -45,6 +45,8 @@ export const stateZ = z.object({
   downsample: z.number().min(1).max(50).default(1),
   downsampleMode: telem.downsampleModeZ.default("decimate"),
   visible: z.boolean().default(true),
+  timeOffset: z.number().default(0),
+  subGroupIndex: z.number().optional(),
 });
 
 const safelyGetDataValue = (
@@ -76,6 +78,8 @@ export interface FindResult {
   units?: string;
   // The minimum and maximum values of the line.
   bounds: bounds.Bounds;
+  // The sub-group index (1-based) for range identification.
+  subGroupIndex?: number;
 }
 
 export const ZERO_FIND_RESULT: FindResult = {
@@ -319,7 +323,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
   }
 
   xBounds(): bounds.Bounds {
-    return this.internal.xTelem.value()[0];
+    const raw = this.internal.xTelem.value()[0];
+    const offset = this.state.timeOffset;
+    if (offset === 0) return raw;
+    return { lower: raw.lower - offset, upper: raw.upper - offset };
   }
 
   yBounds(): bounds.Bounds {
@@ -328,11 +335,13 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
 
   findByXValue(props: LineProps, target: number): FindResult {
     const { xTelem, yTelem } = this.internal;
+    const offset = this.state.timeOffset;
+    const rawTarget = target + offset;
     let [, xData] = xTelem.value();
     xData = this.internal.xDownsampler.transform(xData);
     let [index, series] = [-1, -1];
     xData.series.find((x, i) => {
-      const v = x.binarySearch(target);
+      const v = x.binarySearch(rawTarget);
       // The returned value gives us the insert position, so anything that is not
       // a valid index is not a valid value.
       const valid = v >= 0 && v < x.length;
@@ -341,11 +350,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
       return valid;
     });
     const { key } = this;
-    const { color, label } = this.state;
-    const result = {
+    const { color, label, subGroupIndex } = this.state;
+    const result: FindResult = {
       key,
       color,
       label,
+      subGroupIndex,
       position: { x: 0, y: 0 },
       value: { x: NaN, y: NaN },
       bounds: { lower: 0, upper: 0 },
@@ -354,7 +364,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (index === -1 || series === -1 || !this.state.visible) return result;
 
     const xSeries = xData.series[series];
-    result.value.x = safelyGetDataValue(series, index, xData);
+    result.value.x = safelyGetDataValue(series, index, xData) - offset;
     let [, yData] = yTelem.value();
     yData = this.internal.yDownsampler.transform(yData);
     const ySeries = yData.series.find((ys) =>
@@ -405,9 +415,12 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     const clearProg = prog.setAsActive();
     const instances = prog.bindState(this.state);
     const regionTransform = prog.renderCtx.scaleRegion(props.region).transform;
+    const { timeOffset } = this.state;
     ops.forEach((op) => {
-      const scaleTransform = offsetScale(dataToDecimalScale, op).transform;
-      prog.bindScale(scaleTransform, regionTransform);
+      let adjusted = offsetScale(dataToDecimalScale, op);
+      if (timeOffset !== 0)
+        adjusted = adjusted.translateX(-dataToDecimalScale.x.dim(timeOffset));
+      prog.bindScale(adjusted.transform, regionTransform);
       prog.draw(op, instances, xData.dataType, yData.dataType);
     });
     clearProg();

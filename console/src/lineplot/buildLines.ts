@@ -22,8 +22,9 @@ export const buildLines = (
   vis: State,
   sug: MultiXAxisRecord<Range.Range>,
 ): Array<Channel.LineProps & { key: string }> =>
-  Object.entries(sug).flatMap(([xAxis, ranges]) =>
-    ranges.flatMap((range) =>
+  Object.entries(sug).flatMap(([xAxis, ranges]) => {
+    const multiRange = ranges.length > 1;
+    return ranges.flatMap((range, rangeIdx) =>
       Object.entries(vis.channels)
         .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
         .flatMap(([yAxis, yChannels]) => {
@@ -32,6 +33,12 @@ export const buildLines = (
             range.variant === "dynamic"
               ? { variant: "dynamic", timeSpan: range.span }
               : { variant: "static", timeRange: range.timeRange };
+          const timeOffset =
+            vis.align && range.variant === "static" ? range.timeRange.start : 0;
+          const subGroup = multiRange
+            ? { key: range.key, name: range.name }
+            : undefined;
+          const subGroupIndex = multiRange ? rangeIdx + 1 : undefined;
           return (yChannels as number[]).map((channel) => {
             const key = typedLineKeyToString({
               xAxis: xAxis as XAxisKey,
@@ -46,10 +53,13 @@ export const buildLines = (
               key,
               axes: { x: xAxis, y: yAxis },
               channels: { x: xChannel, y: channel },
+              timeOffset,
+              subGroup,
+              subGroupIndex,
               ...variantArg,
             } as unknown as Channel.LineProps;
             return v;
           });
         }),
-    ),
-  );
+    );
+  });

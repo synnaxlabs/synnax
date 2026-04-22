@@ -7,15 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useEffect } from "react";
+import { color as colorUtil } from "@synnaxlabs/x";
+import { type ReactElement, useEffect, useMemo } from "react";
 
 import { type Aether } from "@/aether";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useContext } from "@/lineplot/LinePlot";
+import { type SubGroup, useContext } from "@/lineplot/LinePlot";
 import { Line as Base } from "@/vis/line";
+
+const DIMMED_OPACITY = 0.15;
 
 export interface LineProps extends Base.LineProps, Aether.ComponentProps {
   legendGroup: string;
+  subGroup?: SubGroup;
 }
 
 export const Line = ({
@@ -23,19 +27,27 @@ export const Line = ({
   color,
   label = "",
   legendGroup,
+  subGroup,
   visible = true,
   ...rest
 }: LineProps): ReactElement => {
   const cKey = useUniqueKey(aetherKey);
-  const { setLine, removeLine } = useContext("Line");
+  const { setLine, removeLine, highlightedSubGroup } = useContext("Line");
   useEffect(() => {
-    setLine({ key: cKey, color, label, visible, legendGroup });
+    setLine({ key: cKey, color, label, visible, legendGroup, subGroup });
     return () => removeLine(cKey);
-  }, [label, color, visible, legendGroup]);
+  }, [label, color, visible, legendGroup, subGroup]);
+
+  const effectiveColor = useMemo(() => {
+    if (highlightedSubGroup == null || subGroup == null) return color;
+    if (subGroup.key === highlightedSubGroup) return color;
+    return colorUtil.setAlpha(color, DIMMED_OPACITY);
+  }, [color, highlightedSubGroup, subGroup]);
+
   return (
     <Base.Line
       aetherKey={cKey}
-      color={color}
+      color={effectiveColor}
       label={label}
       visible={visible}
       {...rest}
