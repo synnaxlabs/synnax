@@ -15,82 +15,53 @@ import numpy as np
 
 import synnax as sy
 from framework.test_case import TestCase
+from tests.migration.channels_calc_setup import (
+    CALC_EXPR,
+    CALC_EXPR_OP_CHANNELS,
+    CALC_F32_B_DATA,
+    CALC_F32_DATA,
+    CALC_F64_DATA,
+    CALC_I64_DATA,
+    CALC_IDX,
+    CALC_NESTED_CHANNELS,
+    CALC_OP_CHANNELS,
+    CALC_RESET,
+    CALC_SRC_F32,
+    CALC_TYPE_CHANNELS,
+    MS,
+    PASSTHROUGH_EXPR,
+    WIN_DOMAIN_GAP_S,
+    WIN_NUM_DOMAINS,
+    S,
+    _win_value,
+)
 
 NpArray = np.ndarray[Any, Any]
 
-S = sy.TimeSpan.SECOND
-MS = sy.TimeSpan.MILLISECOND
-
-CALC_IDX = "mig_calc_idx"
-CALC_SRC_F32 = "mig_calc_src_f32"
-CALC_SRC_F32_B = "mig_calc_src_f32_b"
-CALC_SRC_F64 = "mig_calc_src_f64"
-CALC_SRC_I64 = "mig_calc_src_i64"
-CALC_RESET = "mig_calc_reset"
-
-CALC_F32_DATA = np.array([10.0, 20.0, 30.0, 50.0, 100.0], dtype=np.float32)
-CALC_F32_B_DATA = np.array([5.0, 15.0, 25.0, 35.0, 45.0], dtype=np.float32)
-CALC_F64_DATA = np.array([100.0, 200.0, 300.0, 500.0, 1000.0], dtype=np.float64)
-CALC_I64_DATA = np.array([1000, 2000, 3000, 5000, 10000], dtype=np.int64)
-
 VERIFY_SRC_DATA = np.array([10.0, 20.0, 30.0], dtype=np.float32)
 
-PASSTHROUGH_EXPR = f"return {CALC_SRC_F32}"
-
-CALC_OP_CHANNELS: list[tuple[str, str, sy.TimeSpan, bool]] = [
-    ("mig_calc_op_avg", "avg", sy.TimeSpan(0), False),
-    ("mig_calc_op_min", "min", sy.TimeSpan(0), False),
-    ("mig_calc_op_max", "max", sy.TimeSpan(0), False),
-    ("mig_calc_op_avg_win", "avg", 5 * S, False),
-    ("mig_calc_op_min_win", "min", 10 * S, False),
-    ("mig_calc_op_max_win", "max", 15 * S, False),
-    ("mig_calc_op_avg_rst", "avg", sy.TimeSpan(0), True),
-    ("mig_calc_op_min_rst", "min", sy.TimeSpan(0), True),
-    ("mig_calc_op_max_rst", "max", sy.TimeSpan(0), True),
-    ("mig_calc_op_avg_win_rst", "avg", 5 * S, True),
-    ("mig_calc_op_min_win_rst", "min", 10 * S, True),
-    ("mig_calc_op_max_win_rst", "max", 15 * S, True),
-]
-
-CALC_EXPR = f"return {CALC_SRC_F32} * 2 + 5"
-CALC_EXPR_OP_CHANNELS: list[tuple[str, str]] = [
-    ("mig_calc_expr_avg", "avg"),
-    ("mig_calc_expr_min", "min"),
-    ("mig_calc_expr_max", "max"),
-]
-
-CALC_TYPE_CHANNELS: list[tuple[str, str, sy.DataType]] = [
-    ("mig_calc_complex", f"return ({CALC_SRC_F32} - 32) * 5 / 9", sy.DataType.FLOAT32),
-    (
-        "mig_calc_two_f32",
-        f"return {CALC_SRC_F32} + {CALC_SRC_F32_B}",
-        sy.DataType.FLOAT32,
-    ),
-    ("mig_calc_f64_mul", f"return {CALC_SRC_F64} * 3.14159", sy.DataType.FLOAT64),
-    ("mig_calc_i64_add", f"return {CALC_SRC_I64} + 100", sy.DataType.INT64),
-]
-
-CALC_NESTED_L1 = "mig_calc_nested_l1"
-CALC_NESTED_L2 = "mig_calc_nested_l2"
-CALC_NESTED_L3 = "mig_calc_nested_l3"
-CALC_NESTED_CHANNELS: list[tuple[str, str]] = [
-    (CALC_NESTED_L1, f"return {CALC_SRC_F32} * 3"),
-    (CALC_NESTED_L2, f"return {CALC_NESTED_L1} + 100"),
-    (CALC_NESTED_L3, f"return {CALC_NESTED_L2} / 2"),
+CALC_TYPE_CHANNELS_TYPED: list[tuple[str, str, sy.DataType]] = [
+    (name, expr, dt)
+    for (name, expr), dt in zip(
+        CALC_TYPE_CHANNELS,
+        [
+            sy.DataType.FLOAT32,
+            sy.DataType.FLOAT32,
+            sy.DataType.FLOAT64,
+            sy.DataType.INT64,
+        ],
+    )
 ]
 
 WIN_EPOCH_BASE = 100
-WIN_NUM_DOMAINS = 300
-WIN_DOMAIN_GAP_S = 0.05
-WIN_SAMPLES_PER_DOMAIN = 40
-WIN_DT_MS = 1
-WIN_WINDOW_S = 0.02
-WIN_NOISE_STD = 0.1
-
 WIN_SRC_COS = "mig_win_src_cos"
 WIN_SRC_QUAD = "mig_win_src_quad"
 WIN_CALC_COS = "mig_win_calc_cos"
 WIN_CALC_QUAD = "mig_win_calc_quad"
+
+CALC_NESTED_L1 = CALC_NESTED_CHANNELS[0][0]
+CALC_NESTED_L2 = CALC_NESTED_CHANNELS[1][0]
+CALC_NESTED_L3 = CALC_NESTED_CHANNELS[2][0]
 
 
 def _timestamps(start: sy.TimeStamp, count: int, offset: int = 1) -> NpArray:
@@ -98,13 +69,6 @@ def _timestamps(start: sy.TimeStamp, count: int, offset: int = 1) -> NpArray:
         [start + i * MS for i in range(offset, offset + count)],
         dtype=np.int64,
     )
-
-
-def _win_value(seed: str, d: int) -> float:
-    t = d * WIN_DOMAIN_GAP_S
-    if seed == "cosine":
-        return float(np.cos(2 * np.pi * t / 2.5))
-    return float(t**2)
 
 
 class CalcChannelsVerify(TestCase):
@@ -225,7 +189,7 @@ class CalcChannelsVerify(TestCase):
 
     def test_calc_type_handling(self) -> None:
         self.log("Testing: Calc type handling metadata")
-        for name, expression, expected_type in CALC_TYPE_CHANNELS:
+        for name, expression, expected_type in CALC_TYPE_CHANNELS_TYPED:
             ch = self.client.channels.retrieve(name)
             assert ch.expression == expression, (
                 f"{name}: expression mismatch: {ch.expression!r}"
@@ -237,7 +201,7 @@ class CalcChannelsVerify(TestCase):
         self.log("Testing: Calc type handling computed values")
         calc_channels = {
             name: self.client.channels.retrieve(name)
-            for name, _, _ in CALC_TYPE_CHANNELS
+            for name, _, _ in CALC_TYPE_CHANNELS_TYPED
         }
 
         f32, f32_b = CALC_F32_DATA, CALC_F32_B_DATA

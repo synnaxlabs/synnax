@@ -9,48 +9,18 @@
 
 """Migration verify: confirm ranges survived migration via API and console UI."""
 
-from typing import Any
-
 import numpy as np
 
 import synnax as sy
 from console.case import ConsoleCase
-
-NpArray = np.ndarray[Any, Any]
-
-EPOCH = sy.TimeStamp(1_000_000_000 * sy.TimeSpan.SECOND)
-
-PARENT_NAME = "mig_range_parent"
-PARENT_COLOR = "#E63946"
-PARENT_TR = sy.TimeRange(EPOCH, EPOCH + 100 * sy.TimeSpan.SECOND)
-
-CHILD_1_NAME = "mig_range_child_1"
-CHILD_2_NAME = "mig_range_child_2"
-
-CHILDREN = [
-    (CHILD_1_NAME, "#457B9D", sy.TimeRange(EPOCH, EPOCH + 40 * sy.TimeSpan.SECOND)),
-    (
-        CHILD_2_NAME,
-        "#2A9D8F",
-        sy.TimeRange(
-            EPOCH + 50 * sy.TimeSpan.SECOND,
-            EPOCH + 90 * sy.TimeSpan.SECOND,
-        ),
-    ),
-]
-
-DATA_NAME = "mig_range_data"
-ALIAS_NAME = "mig_range_sensor"
-
-METADATA: dict[str, str] = {
-    "operator": "migration_test",
-    "location": "pad_39a",
-    "status": "nominal",
-}
-
-DATA_VALUES: NpArray = np.array(
-    [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.10],
-    dtype=np.float64,
+from tests.migration.ranges_setup import (
+    ALIAS_NAME,
+    CHILDREN,
+    DATA_NAME,
+    DATA_VALUES,
+    PARENT_COLOR,
+    PARENT_NAME,
+    PARENT_TR,
 )
 
 
@@ -125,8 +95,8 @@ class RangesVerify(ConsoleCase):
     def test_range_overview(self) -> None:
         self.log("Testing: Range overview shows metadata and children")
         self.console.ranges.open_explorer()
-        self.console.ranges.open_overview_from_explorer(CHILD_1_NAME)
-        self.console.ranges.wait_for_overview(CHILD_1_NAME)
+        self.console.ranges.open_overview_from_explorer(CHILDREN[0][0])
+        self.console.ranges.wait_for_overview(CHILDREN[0][0])
         self.console.ranges.navigate_to_parent(PARENT_NAME)
         self.console.ranges.wait_for_overview(PARENT_NAME)
 

@@ -10,13 +10,14 @@
 import synnax as sy
 from tests.driver.ni_task import NIAnalogReadTaskCase
 from tests.driver.task import create_channel, create_index
+from tests.migration.task_ni_setup import (
+    CHANNEL_PREFIX,
+    DEVICE_LOCATION,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
+)
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
-
-TASK_NAME = "mig_ni_analog_read"
-IDX_NAME = "mig_ni_idx"
-CHANNEL_PREFIX = "mig_ni_voltage"
-NUM_CHANNELS = 2
-DEVICE_LOCATION = "E101Mod4"
 
 
 class NIAnalogReadVerify(ReadTaskMigrationVerify, NIAnalogReadTaskCase):

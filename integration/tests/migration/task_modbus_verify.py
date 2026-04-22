@@ -10,12 +10,13 @@
 import synnax as sy
 from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
+from tests.migration.task_modbus_setup import (
+    CHANNEL_PREFIX,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
+)
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
-
-TASK_NAME = "mig_modbus_read"
-IDX_NAME = "mig_modbus_idx"
-CHANNEL_PREFIX = "mig_modbus_reg"
-NUM_CHANNELS = 2
 
 
 class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):

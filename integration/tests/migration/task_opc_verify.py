@@ -10,12 +10,13 @@
 import synnax as sy
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
+from tests.migration.task_opc_setup import (
+    CHANNEL_PREFIX,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
+)
 from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
-
-TASK_NAME = "mig_opc_read"
-IDX_NAME = "mig_opc_idx"
-CHANNEL_PREFIX = "mig_opc_float"
-NUM_CHANNELS = 2
 
 
 class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadTaskCase):
