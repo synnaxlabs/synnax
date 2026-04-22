@@ -38,9 +38,12 @@ INTEGRATION_DIR="$(dirname "$SCRIPT_DIR")"
 get_platform() {
     case "$(uname -s)" in
         Darwin) echo "macos" ;;
-        Linux)  echo "linux" ;;
-        MINGW*|MSYS*|CYGWIN*) echo "windows" ;;
-        *) echo "Unsupported platform: $(uname -s)" >&2; exit 1 ;;
+        Linux) echo "linux" ;;
+        MINGW* | MSYS* | CYGWIN*) echo "windows" ;;
+        *)
+            echo "Unsupported platform: $(uname -s)" >&2
+            exit 1
+            ;;
     esac
 }
 
@@ -117,8 +120,8 @@ start_core() {
     CORE_PID=$!
 
     local elapsed=0
-    while (( elapsed < STARTUP_TIMEOUT )); do
-        if nc -z localhost "$PORT" 2>/dev/null; then
+    while ((elapsed < STARTUP_TIMEOUT)); do
+        if nc -z localhost "$PORT" 2> /dev/null; then
             echo "Core is ready on port ${PORT} (pid ${CORE_PID})"
             return 0
         fi
@@ -126,9 +129,9 @@ start_core() {
         elapsed=$((elapsed + 1))
     done
 
-    kill "$CORE_PID" 2>/dev/null || true
+    kill "$CORE_PID" 2> /dev/null || true
     echo "--- Core log (last 2000 chars) ---"
-    tail -c 2000 "$log_file" 2>/dev/null || true
+    tail -c 2000 "$log_file" 2> /dev/null || true
     echo "--- end log ---"
     echo "ERROR: Core did not start within ${STARTUP_TIMEOUT}s" >&2
     exit 1
@@ -136,26 +139,26 @@ start_core() {
 
 stop_core() {
     echo "Stopping Core (pid ${CORE_PID})..."
-    kill "$CORE_PID" 2>/dev/null || true
+    kill "$CORE_PID" 2> /dev/null || true
 
     local elapsed=0
-    while (( elapsed < STOP_TIMEOUT )); do
-        if ! kill -0 "$CORE_PID" 2>/dev/null; then
+    while ((elapsed < STOP_TIMEOUT)); do
+        if ! kill -0 "$CORE_PID" 2> /dev/null; then
             break
         fi
         sleep 1
         elapsed=$((elapsed + 1))
     done
 
-    if kill -0 "$CORE_PID" 2>/dev/null; then
+    if kill -0 "$CORE_PID" 2> /dev/null; then
         echo "Core did not stop gracefully, killing..."
-        kill -9 "$CORE_PID" 2>/dev/null || true
-        wait "$CORE_PID" 2>/dev/null || true
+        kill -9 "$CORE_PID" 2> /dev/null || true
+        wait "$CORE_PID" 2> /dev/null || true
     fi
 
     elapsed=0
-    while (( elapsed < STOP_TIMEOUT )); do
-        if ! nc -z localhost "$PORT" 2>/dev/null; then
+    while ((elapsed < STOP_TIMEOUT)); do
+        if ! nc -z localhost "$PORT" 2> /dev/null; then
             echo "Core stopped"
             return 0
         fi
@@ -168,11 +171,18 @@ stop_core() {
 
 create_venv_and_install() {
     local pip_spec="$1"
+    local python_path
+
+    if [[ "$(get_platform)" == "windows" ]]; then
+        python_path="${VENV_DIR}/Scripts/python.exe"
+    else
+        python_path="${VENV_DIR}/bin/python"
+    fi
 
     rm -rf "$VENV_DIR"
     echo "Creating venv and installing ${pip_spec}..."
     uv venv "$VENV_DIR" --quiet
-    uv pip install --quiet --python "${VENV_DIR}/bin/python" "$pip_spec"
+    uv pip install --quiet --python "$python_path" "$pip_spec"
 }
 
 run_setup_script() {
@@ -202,8 +212,14 @@ cleanup() {
 CHAIN=""
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --chain) CHAIN="$2"; shift 2 ;;
-        *) echo "Unknown argument: $1" >&2; exit 1 ;;
+        --chain)
+            CHAIN="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown argument: $1" >&2
+            exit 1
+            ;;
     esac
 done
 

@@ -607,7 +607,7 @@ def setup_tasks(client: sy.Synnax) -> None:
         data_saving=True,
         channels=opc_channels,
     )
-    client.tasks.create(opc_task)
+    client.tasks.create(opc_task, rack=65537)
 
     print("  [tasks] Creating Modbus task channels and config...")
     modbus_idx = client.channels.create(
@@ -641,7 +641,7 @@ def setup_tasks(client: sy.Synnax) -> None:
         data_saving=True,
         channels=modbus_channels,
     )
-    client.tasks.create(modbus_task)
+    client.tasks.create(modbus_task, rack=65537)
 
     print("  [tasks] Creating NI task channels and config...")
     ni_idx = client.channels.create(
@@ -677,7 +677,7 @@ def setup_tasks(client: sy.Synnax) -> None:
         data_saving=True,
         channels=ni_channels,
     )
-    client.tasks.create(ni_task)
+    client.tasks.create(ni_task, rack=65537)
 
     print("  [tasks] Done.")
 

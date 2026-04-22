@@ -97,6 +97,7 @@ jobs:
         run: integration/scripts/run_migration_chain.sh --chain "${{ matrix.chain }}"
 
       - name: Start Latest Core
+        shell: bash
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
         run: |
@@ -121,6 +122,7 @@ jobs:
 
       - name: Stop Core
         if: always()
+        shell: bash
         run: kill $(lsof -ti:9090) 2>/dev/null || true
 
       - name: Upload Test Results
