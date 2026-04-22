@@ -126,7 +126,8 @@ check_if_rebuild_needed() {
         return 0
     fi
 
-    local changed_files=$(git diff --name-only "${sha}" HEAD 2> /dev/null)
+    local compare_ref="${GITHUB_HEAD_SHA:-HEAD}"
+    local changed_files=$(git diff --name-only "${sha}" "${compare_ref}" 2> /dev/null)
     if [ $? -ne 0 ] || [ -z "${changed_files}" ]; then
         log "No changes detected since ${sha:0:8}"
         return 1
