@@ -24,7 +24,6 @@ REBUILD_PATHS=(
     ".bazeliskrc"
     ".bazelrc"
     ".github/workflows/build.synnax.yaml"
-    ".github/workflows/test.integration.yaml"
     ".gitmodules"
     "alamos/go/**"
     "alamos/ts/**"
