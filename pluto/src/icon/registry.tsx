@@ -75,6 +75,7 @@ import {
 } from "react-icons/io5";
 import { LuSigma } from "react-icons/lu";
 import {
+  MdAccessTime,
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
   MdAlignHorizontalRight,
@@ -257,6 +258,7 @@ export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
 export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
+export const TimeOutline = wrapSVGIcon(MdAccessTime, "time-outline");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
@@ -512,6 +514,7 @@ const icons = {
   Refresh,
   Delete,
   Time,
+  TimeOutline,
   Acquire,
   Analyze,
   Concepts,

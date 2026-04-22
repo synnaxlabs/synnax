@@ -52,18 +52,22 @@ interface TimestampFormatSelectProps extends Omit<
   "keys"
 > {}
 
+const ICON_CLASS = "pluto-notation-select__icon";
+const LABEL_CLASS = "pluto-notation-select__label";
+
 const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement => (
   <Select.Buttons {...props} keys={TIMESTAMP_FORMATS}>
     <Select.Button itemKey="preciseTime" tooltip="Time">
-      <Icon.Time />
+      <Icon.Time className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>Timestamp</span>
     </Select.Button>
     <Select.Button itemKey="preciseDate" tooltip="Date and time">
-      <Icon.Calendar />
-      +
-      <Icon.Time />
+      <Icon.Calendar className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>Date+Time</span>
     </Select.Button>
     <Select.Button itemKey="ISO" tooltip="ISO 8601">
-      ISO
+      <Icon.TimeOutline className={ICON_CLASS} />
+      <span className={LABEL_CLASS}>ISO 8601</span>
     </Select.Button>
   </Select.Buttons>
 );
@@ -192,6 +196,7 @@ const ChannelRow = ({
               }
             />
             <TimestampTZSelect
+              className={CSS.BE("log", "channel-tz")}
               value={config.timestamp.tz}
               onChange={(v: PLog.TimestampTZ) =>
                 onConfigChange(channelKey, {

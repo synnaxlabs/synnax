@@ -54,6 +54,11 @@
                 min-width: 70px;
                 max-width: 90px;
             }
+
+            .console-log__channel-tz .pluto-btn {
+                /* Force alignment with Float channel "Precision" selector */
+                padding-inline: 2.2rem;
+            }
         }
     }
 }
