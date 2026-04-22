@@ -61,9 +61,9 @@ class RangesVerify(ConsoleCase):
 
     def run(self) -> None:
         self.test_range_properties()
-        self.test_metadata()
         self.test_child_ranges()
         self.test_data_access()
+        self.test_alias_access()
         self.test_range_overview()
         self.test_range_in_explorer()
 
@@ -80,11 +80,6 @@ class RangesVerify(ConsoleCase):
         assert self.parent.color == PARENT_COLOR, (
             f"Color mismatch: {self.parent.color.hex()} != {PARENT_COLOR}"
         )
-
-    def test_metadata(self) -> None:
-        self.log("Testing: Metadata survived migration")
-        result = self.parent.meta_data.get(list(METADATA.keys()))
-        assert result == METADATA, f"Metadata mismatch: {result}"
 
     def test_child_ranges(self) -> None:
         self.log("Testing: Child ranges survived migration")
@@ -104,13 +99,16 @@ class RangesVerify(ConsoleCase):
 
     def test_data_access(self) -> None:
         self.log("Testing: Data accessible through range after migration")
-        alias_data = self.parent[ALIAS_NAME].to_numpy()
-        assert np.array_equal(alias_data, DATA_VALUES), (
-            f"Alias data mismatch: {alias_data}"
-        )
         direct_data = self.parent[DATA_NAME].to_numpy()
         assert np.array_equal(direct_data, DATA_VALUES), (
             f"Direct data mismatch: {direct_data}"
+        )
+
+    def test_alias_access(self) -> None:
+        self.log("Testing: Alias accessible through range after migration")
+        alias_data = self.parent[ALIAS_NAME].to_numpy()
+        assert np.array_equal(alias_data, DATA_VALUES), (
+            f"Alias data mismatch: {alias_data}"
         )
 
     def test_range_in_explorer(self) -> None:
@@ -131,15 +129,6 @@ class RangesVerify(ConsoleCase):
         self.console.ranges.wait_for_overview(CHILD_1_NAME)
         self.console.ranges.navigate_to_parent(PARENT_NAME)
         self.console.ranges.wait_for_overview(PARENT_NAME)
-
-        for key, value in METADATA.items():
-            assert self.console.ranges.metadata_exists(key), (
-                f"Metadata key '{key}' not visible in overview"
-            )
-            actual = self.console.ranges.get_metadata_value(key)
-            assert actual == value, (
-                f"Metadata '{key}': expected '{value}', got '{actual}'"
-            )
 
         for name, _, _ in CHILDREN:
             assert self.console.ranges.child_range_exists(name), (

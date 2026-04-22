@@ -19,10 +19,13 @@ Usage:
 """
 
 import sys
+from datetime import datetime
 
 import numpy as np
 
 import synnax as sy
+from examples.modbus.server import ModbusSim
+from examples.opcua.server import OPCUASim
 
 HOST = "localhost"
 PORT = 9090
@@ -33,9 +36,14 @@ S = sy.TimeSpan.SECOND
 MS = sy.TimeSpan.MILLISECOND
 
 
+def log(msg: str) -> None:
+    ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
+    print(f"{ts} | {msg}")
+
+
 def setup_channels(client: sy.Synnax) -> None:
     """Create typed data channels and write known sample data."""
-    print("  [channels] Creating index and data channels...")
+    log("  [channels] Creating index and data channels...")
 
     idx = client.channels.create(
         name="mig_channels_idx",
@@ -320,9 +328,9 @@ def setup_channels(client: sy.Synnax) -> None:
         )
         data_channels.append(ch)
 
-    print("  [channels] Writing sample data...")
+    log("  [channels] Writing sample data...")
     sample_count = len(channels_spec[0][2])
-    start = sy.TimeStamp.now()
+    start = sy.TimeStamp(200 * S)
     timestamps = np.array(
         [start + i * S for i in range(sample_count)],
         dtype=np.int64,
@@ -332,18 +340,17 @@ def setup_channels(client: sy.Synnax) -> None:
         start=start,
         channels=channel_keys,
         name="mig_channels_writer",
+        enable_auto_commit=True,
     ) as writer:
         payload: dict[int, np.ndarray] = {idx.key: timestamps}
         for ch, (_, _, expected) in zip(data_channels, channels_spec):
             payload[ch.key] = expected
         writer.write(payload)
 
-    print("  [channels] Done.")
-
 
 def setup_calc_channels(client: sy.Synnax) -> None:
     """Create calculated channels with operations, expressions, and windowed data."""
-    print("  [calc] Creating source channels...")
+    log("  [calc] Creating source channels...")
 
     CALC_IDX = "mig_calc_idx"
     CALC_SRC_F32 = "mig_calc_src_f32"
@@ -387,7 +394,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
         ("mig_calc_op_max_win_rst", "max", 15 * S, True),
     ]
 
-    print("  [calc] Creating operation calc channels...")
+    log("  [calc] Creating operation calc channels...")
     for name, op_type, duration, uses_reset in CALC_OP_CHANNELS:
         client.channels.create(
             name=name,
@@ -418,7 +425,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
             retrieve_if_name_exists=True,
         )
 
-    print("  [calc] Creating typed expression channels and writing data...")
+    log("  [calc] Creating typed expression channels and writing data...")
     src_f32 = client.channels.retrieve(CALC_SRC_F32)
     src_f32_b = client.channels.create(
         name=CALC_SRC_F32_B,
@@ -477,7 +484,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
             }
         )
 
-    print("  [calc] Creating nested calc chain...")
+    log("  [calc] Creating nested calc chain...")
     CALC_NESTED_CHANNELS: list[tuple[str, str]] = [
         ("mig_calc_nested_l1", f"return {CALC_SRC_F32} * 3"),
         ("mig_calc_nested_l2", "return mig_calc_nested_l1 + 100"),
@@ -490,7 +497,7 @@ def setup_calc_channels(client: sy.Synnax) -> None:
             retrieve_if_name_exists=True,
         )
 
-    print("  [calc] Creating windowed calc channels and writing data...")
+    log("  [calc] Creating windowed calc channels and writing data...")
     WIN_IDX = "mig_win_idx"
     WIN_SRC_COS = "mig_win_src_cos"
     WIN_SRC_QUAD = "mig_win_src_quad"
@@ -567,82 +574,10 @@ def setup_calc_channels(client: sy.Synnax) -> None:
                 }
             )
 
-    print("  [calc] Done.")
-
-
-def setup_ranges(client: sy.Synnax) -> None:
-    """Create ranges with metadata, children, channels, aliases, and sample data."""
-    print("  [ranges] Creating parent range...")
-
-    EPOCH = sy.TimeStamp(1_000_000_000 * S)
-    PARENT_TR = sy.TimeRange(EPOCH, EPOCH + 100 * S)
-
-    parent = client.ranges.create(
-        name="mig_range_parent",
-        time_range=PARENT_TR,
-        color="#E63946",
-        retrieve_if_name_exists=True,
-    )
-
-    print("  [ranges] Setting metadata...")
-    metadata = {
-        "operator": "migration_test",
-        "location": "pad_39a",
-        "status": "nominal",
-    }
-    parent.meta_data.set(metadata)
-
-    print("  [ranges] Creating child ranges...")
-    children = [
-        ("mig_range_child_1", "#457B9D", sy.TimeRange(EPOCH, EPOCH + 40 * S)),
-        (
-            "mig_range_child_2",
-            "#2A9D8F",
-            sy.TimeRange(EPOCH + 50 * S, EPOCH + 90 * S),
-        ),
-    ]
-    for name, color, tr in children:
-        parent.create_child_range(name=name, time_range=tr, color=color)
-
-    print("  [ranges] Creating channels and writing data...")
-    idx = client.channels.create(
-        name="mig_range_idx",
-        data_type=sy.DataType.TIMESTAMP,
-        is_index=True,
-        retrieve_if_name_exists=True,
-    )
-    data_ch = client.channels.create(
-        name="mig_range_data",
-        data_type=sy.DataType.FLOAT64,
-        index=idx.key,
-        retrieve_if_name_exists=True,
-    )
-
-    sample_count = 10
-    timestamps = np.array(
-        [EPOCH + i * S for i in range(sample_count)],
-        dtype=np.int64,
-    )
-    data_values = np.array(
-        [1.1, 2.2, 3.3, 4.4, 5.5, 6.6, 7.7, 8.8, 9.9, 10.10],
-        dtype=np.float64,
-    )
-    with client.open_writer(
-        start=PARENT_TR.start,
-        channels=[idx.key, data_ch.key],
-        name="mig_ranges_writer",
-    ) as writer:
-        writer.write({idx.key: timestamps, data_ch.key: data_values})
-
-    print("  [ranges] Setting alias...")
-    parent.set_alias("mig_range_data", "mig_range_sensor")
-
-    print("  [ranges] Done.")
-
 
 def setup_rbac(client: sy.Synnax) -> None:
     """Create custom role, users, and assign roles."""
-    print("  [rbac] Creating custom role...")
+    log("  [rbac] Creating custom role...")
 
     CUSTOM_ROLE_NAME = "mig_rbac_role"
     PASSWORD = "mig_rbac_pass123"
@@ -660,7 +595,7 @@ def setup_rbac(client: sy.Synnax) -> None:
         ("mig_rbac_viewer", "MigViewer", "RbacUser", "Viewer"),
     ]
 
-    print("  [rbac] Creating users...")
+    log("  [rbac] Creating users...")
     for username, first_name, last_name, _ in users_spec:
         client.users.create(
             username=username,
@@ -669,7 +604,7 @@ def setup_rbac(client: sy.Synnax) -> None:
             last_name=last_name,
         )
 
-    print("  [rbac] Assigning roles...")
+    log("  [rbac] Assigning roles...")
     internal = client.access.roles.retrieve(internal=True)
     builtin_by_name = {r.name: r for r in internal}
 
@@ -681,50 +616,37 @@ def setup_rbac(client: sy.Synnax) -> None:
             role_key = builtin_by_name[role_name].key
         client.access.roles.assign(user=user.key, role=role_key)
 
-    print("  [rbac] Done.")
-
 
 def setup_tasks(client: sy.Synnax) -> None:
-    """Create OPC UA, Modbus, and NI task configurations."""
-    print("  [tasks] Creating devices...")
+    """Create OPC UA, Modbus, and NI task configurations.
 
-    opc_device = client.devices.create(
-        key="mig-opc-device",
-        name="OPC UA Server",
-        make="opcua",
-        model="simulator",
-        location="opc.tcp://127.0.0.1:4840/freeopcua/server/",
-        properties={
-            "endpoint": "opc.tcp://127.0.0.1:4840/freeopcua/server/",
-            "securityMode": "None",
-            "securityPolicy": "None",
-        },
-    )
+    Starts simulators for OPC UA and Modbus so that tasks.configure can
+    validate the connection, matching the integration test pattern.
+    NI tasks use tasks.create since there is no NI simulator on macOS/Linux.
+    """
+    log("  [tasks] Retrieving embedded rack...")
+    rack = client.racks.retrieve(name="Node 1 Embedded Driver")
+    rack_key = rack.key
 
-    modbus_device = client.devices.create(
-        key="mig-modbus-device",
-        name="Modbus TCP Test Server",
-        make="modbus",
-        model="simulator",
-        location="127.0.0.1:5020",
-        properties={
-            "host": "127.0.0.1",
-            "port": 5020,
-            "swapBytes": False,
-            "swapWords": False,
-        },
-    )
+    log("  [tasks] Creating devices...")
 
-    ni_device = client.devices.create(
-        key="mig-ni-device",
-        name="NI Migration Device",
-        make="ni",
-        model="9205",
-        location="E101Mod4",
-        properties={"isAnalog": True, "isChassis": False},
-    )
+    opc_device = OPCUASim.create_device(rack_key)
+    client.devices.create(opc_device)
 
-    print("  [tasks] Creating OPC UA task channels and config...")
+    modbus_device = ModbusSim.create_device(rack_key)
+    client.devices.create(modbus_device)
+
+    # ni_device = client.devices.create(
+    #     key="mig-ni-device",
+    #     name="NI Migration Device",
+    #     make="ni",
+    #     model="9205",
+    #     location="E101Mod4",
+    #     rack=rack_key,
+    #     properties={"isAnalog": True, "isChassis": False},
+    # )
+
+    log("  [tasks] Creating OPC UA task channels and config...")
     opc_idx = client.channels.create(
         name="mig_opc_idx",
         data_type=sy.DataType.TIMESTAMP,
@@ -756,9 +678,15 @@ def setup_tasks(client: sy.Synnax) -> None:
         data_saving=True,
         channels=opc_channels,
     )
-    client.tasks.create(opc_task, rack=65537)
+    opc_pld = opc_task.to_payload()
+    client.tasks.create(
+        name=opc_pld.name,
+        type=opc_pld.type,
+        config=opc_pld.config,
+        rack=rack_key,
+    )
 
-    print("  [tasks] Creating Modbus task channels and config...")
+    log("  [tasks] Creating Modbus task channels and config...")
     modbus_idx = client.channels.create(
         name="mig_modbus_idx",
         data_type=sy.DataType.TIMESTAMP,
@@ -790,49 +718,54 @@ def setup_tasks(client: sy.Synnax) -> None:
         data_saving=True,
         channels=modbus_channels,
     )
-    client.tasks.create(modbus_task, rack=65537)
-
-    print("  [tasks] Creating NI task channels and config...")
-    ni_idx = client.channels.create(
-        name="mig_ni_idx",
-        data_type=sy.DataType.TIMESTAMP,
-        is_index=True,
-        retrieve_if_name_exists=True,
+    modbus_pld = modbus_task.to_payload()
+    client.tasks.create(
+        name=modbus_pld.name,
+        type=modbus_pld.type,
+        config=modbus_pld.config,
+        rack=rack_key,
     )
-    ni_channels = []
-    for i in range(2):
-        ch_key = int(
-            client.channels.create(
-                name=f"mig_ni_voltage_{i}",
-                data_type=sy.DataType.FLOAT32,
-                index=ni_idx.key,
-                retrieve_if_name_exists=True,
-            ).key
-        )
-        ni_channels.append(
-            sy.ni.AIVoltageChan(
-                port=i,
-                channel=ch_key,
-                terminal_config="Cfg_Default",
-                min_val=-10.0,
-                max_val=10.0,
-            )
-        )
-    ni_task = sy.ni.AnalogReadTask(
-        name="mig_ni_analog_read",
-        device=ni_device.key,
-        sample_rate=50 * sy.Rate.HZ,
-        stream_rate=10 * sy.Rate.HZ,
-        data_saving=True,
-        channels=ni_channels,
-    )
-    client.tasks.create(ni_task, rack=65537)
 
-    print("  [tasks] Done.")
+    # log("  [tasks] Creating NI task channels and config...")
+    # ni_idx = client.channels.create(
+    #     name="mig_ni_idx",
+    #     data_type=sy.DataType.TIMESTAMP,
+    #     is_index=True,
+    #     retrieve_if_name_exists=True,
+    # )
+    # ni_channels = []
+    # for i in range(2):
+    #     ch_key = int(
+    #         client.channels.create(
+    #             name=f"mig_ni_voltage_{i}",
+    #             data_type=sy.DataType.FLOAT32,
+    #             index=ni_idx.key,
+    #             retrieve_if_name_exists=True,
+    #         ).key
+    #     )
+    #     ni_channels.append(
+    #         sy.ni.AIVoltageChan(
+    #             port=i,
+    #             channel=ch_key,
+    #             terminal_config="Cfg_Default",
+    #             min_val=-10.0,
+    #             max_val=10.0,
+    #         )
+    #     )
+    # ni_task = sy.ni.AnalogReadTask(
+    #     name="mig_ni_analog_read",
+    #     device=ni_device.key,
+    #     sample_rate=50 * sy.Rate.HZ,
+    #     stream_rate=10 * sy.Rate.HZ,
+    #     data_saving=True,
+    #     channels=ni_channels,
+    # )
+    # client.tasks.create(ni_task, rack=rack_key)
+
 
 
 def main() -> None:
-    print(f"Connecting to Synnax at {HOST}:{PORT}...")
+    log(f"Connecting to Synnax at {HOST}:{PORT}...")
     client = sy.Synnax(
         host=HOST,
         port=PORT,
@@ -843,20 +776,17 @@ def main() -> None:
     steps = [
         ("Channels", setup_channels),
         ("Calculated Channels", setup_calc_channels),
-        ("Ranges", setup_ranges),
         ("RBAC", setup_rbac),
         ("Tasks", setup_tasks),
     ]
 
     for name, func in steps:
-        print(f"\n--- {name} ---")
+        log(f"--- {name} ---")
         try:
             func(client)
         except Exception as e:
-            print(f"FAILED: {name}: {e}", file=sys.stderr)
+            log(f"FAILED: {name}: {e}", file=sys.stderr)
             sys.exit(1)
-
-    print("\nSetup complete.")
 
 
 if __name__ == "__main__":
