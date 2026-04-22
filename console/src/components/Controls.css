@@ -15,6 +15,7 @@
     right: 2rem;
     z-index: 20;
     opacity: 0;
+    transition: opacity 0.1s ease-in-out;
 }
 
 .console-controls--annotations-visible {
