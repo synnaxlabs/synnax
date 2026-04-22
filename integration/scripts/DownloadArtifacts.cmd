@@ -170,32 +170,30 @@ if %errorlevel% neq 0 (
 )
 
 
-rem Setup Binaries (Windows) - Easy access for RDP Session
+rem Setup Binaries (Windows)
 echo 📦 Setting up binaries...
-if not exist "%USERPROFILE%\Desktop" mkdir "%USERPROFILE%\Desktop"
+if not exist "%USERPROFILE%\synnax-binaries" mkdir "%USERPROFILE%\synnax-binaries"
 
-rem Copy the Synnax binary to desktop (binary is named synnax-v{VERSION}.exe)
-echo Copying Synnax binary to desktop...
+rem Copy the Synnax binary (named synnax-v{VERSION}.exe) to canonical location
+echo Copying Synnax binary to synnax-binaries...
 for %%f in (.\binaries\synnax-v*.exe) do (
     echo Found binary: %%f
-    copy /Y "%%f" "%USERPROFILE%\Desktop\synnax.exe"
+    copy /Y "%%f" "%USERPROFILE%\synnax-binaries\synnax.exe"
     if %errorlevel% neq 0 (
-        echo ❌ Error: Failed to copy %%f to desktop
+        echo ❌ Error: Failed to copy %%f to synnax-binaries
         exit /b 1
     )
 )
 
 rem Verify the binary was copied successfully
-if not exist "%USERPROFILE%\Desktop\synnax.exe" (
-    echo ❌ Error: synnax.exe not found on desktop after copy
+if not exist "%USERPROFILE%\synnax-binaries\synnax.exe" (
+    echo ❌ Error: synnax.exe not found in synnax-binaries after copy
     echo Available files in binaries directory:
     dir .\binaries
-    echo Available files on desktop:
-    dir "%USERPROFILE%\Desktop\synnax*"
     exit /b 1
 )
 
-echo ✅ Synnax binary copied to desktop successfully
-dir "%USERPROFILE%\Desktop\synnax*"
+echo ✅ Synnax binary ready at %USERPROFILE%\synnax-binaries\synnax.exe
+dir "%USERPROFILE%\synnax-binaries\synnax*"
 
 echo ✅ Windows artifacts setup completed successfully
