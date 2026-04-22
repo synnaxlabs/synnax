@@ -17,7 +17,9 @@ import {
   Icon,
   Input,
   List,
+  type Log as PLog,
   Notation,
+  Select,
   Theming,
 } from "@synnaxlabs/pluto";
 import { color, DataType, type notation, primitive } from "@synnaxlabs/x";
@@ -38,6 +40,49 @@ const PRECISION_BOUNDS = { lower: -1, upper: 18 };
 
 const showsNumericFields = (dt: DataType | undefined): boolean =>
   dt != null && dt.isNumeric && !dt.equals(DataType.TIMESTAMP);
+
+const isTimestamp = (dt: DataType | undefined): boolean =>
+  dt != null && dt.equals(DataType.TIMESTAMP);
+
+const TIMESTAMP_FORMATS = ["preciseTime", "preciseDate", "ISO"] as const;
+const TIMESTAMP_TZS = ["UTC", "local"] as const;
+
+interface TimestampFormatSelectProps extends Omit<
+  Select.ButtonsProps<PLog.TimestampFormat>,
+  "keys"
+> {}
+
+const TimestampFormatSelect = (props: TimestampFormatSelectProps): ReactElement => (
+  <Select.Buttons {...props} keys={TIMESTAMP_FORMATS}>
+    <Select.Button itemKey="preciseTime" tooltip="Time">
+      <Icon.Time />
+    </Select.Button>
+    <Select.Button itemKey="preciseDate" tooltip="Date and time">
+      <Icon.Calendar />
+      +
+      <Icon.Time />
+    </Select.Button>
+    <Select.Button itemKey="ISO" tooltip="ISO 8601">
+      ISO
+    </Select.Button>
+  </Select.Buttons>
+);
+
+interface TimestampTZSelectProps extends Omit<
+  Select.ButtonsProps<PLog.TimestampTZ>,
+  "keys"
+> {}
+
+const TimestampTZSelect = (props: TimestampTZSelectProps): ReactElement => (
+  <Select.Buttons {...props} keys={TIMESTAMP_TZS}>
+    <Select.Button itemKey="UTC" tooltip="UTC">
+      UTC
+    </Select.Button>
+    <Select.Button itemKey="local" tooltip="Local timezone">
+      Local
+    </Select.Button>
+  </Select.Buttons>
+);
 
 interface ChannelRowProps {
   index: number;
@@ -64,6 +109,7 @@ const ChannelRow = ({
   const defaultColor = theme.colors.gray.l11;
   const hasCustomColor = config.color !== "";
   const showNumeric = showsNumericFields(ch?.dataType);
+  const showTimestamp = isTimestamp(ch?.dataType);
 
   return (
     <List.Item
@@ -133,6 +179,26 @@ const ChannelRow = ({
                 <Icon.Auto />
               </Button.Button>
             </Input.Numeric>
+          </>
+        )}
+        {showTimestamp && (
+          <>
+            <TimestampFormatSelect
+              value={config.timestamp.format}
+              onChange={(v: PLog.TimestampFormat) =>
+                onConfigChange(channelKey, {
+                  timestamp: { ...config.timestamp, format: v },
+                })
+              }
+            />
+            <TimestampTZSelect
+              value={config.timestamp.tz}
+              onChange={(v: PLog.TimestampTZ) =>
+                onConfigChange(channelKey, {
+                  timestamp: { ...config.timestamp, tz: v },
+                })
+              }
+            />
           </>
         )}
         <Color.Swatch

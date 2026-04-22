@@ -92,6 +92,7 @@ describe("Log Slice", () => {
         notation: "standard",
         precision: 4,
         alias: "",
+        timestamp: { format: "preciseDate", tz: "local" },
       });
     });
   });
