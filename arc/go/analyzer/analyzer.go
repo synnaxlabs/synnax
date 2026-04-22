@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/analyzer/constant"
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
@@ -87,7 +88,7 @@ func propagateCallChannels(edges *[]acontext.CallEdge) {
 					resolvedID = mapping.ChannelID
 					resolvedName = mapping.ChannelName
 				}
-				if !edge.Caller.Channels.Read.Contains(resolvedID) {
+				if !lo.HasKey(edge.Caller.Channels.Read, resolvedID) {
 					edge.Caller.Channels.Read[resolvedID] = resolvedName
 					changed = true
 				}
@@ -98,7 +99,7 @@ func propagateCallChannels(edges *[]acontext.CallEdge) {
 					resolvedID = mapping.ChannelID
 					resolvedName = mapping.ChannelName
 				}
-				if !edge.Caller.Channels.Write.Contains(resolvedID) {
+				if !lo.HasKey(edge.Caller.Channels.Write, resolvedID) {
 					edge.Caller.Channels.Write[resolvedID] = resolvedName
 					changed = true
 				}
@@ -142,7 +143,7 @@ func detectCallCycles(edges *[]acontext.CallEdge, diag *diagnostics.Diagnostics)
 	sccs := graph.TarjanSCC(adj)
 
 	for _, scc := range sccs {
-		sccSet := set.FromSlice(scc)
+		sccSet := set.New(scc...)
 		if len(scc) == 1 {
 			hasSelfLoop := false
 			for _, e := range callGraph[scc[0]] {
@@ -338,6 +339,8 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			flow.Analyze(acontext.Child(ctx, flowStmt))
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			sequence.Analyze(acontext.Child(ctx, seqDecl))
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
 		}
 	}
 }

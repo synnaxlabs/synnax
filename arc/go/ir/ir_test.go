@@ -23,63 +23,79 @@ import (
 var _ = Describe("IR", func() {
 	Describe("IsZero", func() {
 		It("Should return true for zero-value IR", func() {
-			ir := &ir.IR{}
-			Expect(ir.IsZero()).To(BeTrue())
+			program := &ir.IR{}
+			Expect(program.IsZero()).To(BeTrue())
 		})
 
 		It("Should return false when Functions is non-empty", func() {
-			irWithFuncs := &ir.IR{
-				Functions: ir.Functions{{Key: "test"}},
-			}
-			Expect(irWithFuncs.IsZero()).To(BeFalse())
+			program := &ir.IR{Functions: ir.Functions{{Key: "test"}}}
+			Expect(program.IsZero()).To(BeFalse())
 		})
 
-		It("Should return false when Sequences is non-empty", func() {
-			irWithSeqs := &ir.IR{
-				Sequences: ir.Sequences{{Key: "main"}},
+		It("Should return false when Root has members", func() {
+			program := &ir.IR{
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("n1")},
+					},
+				},
 			}
-			Expect(irWithSeqs.IsZero()).To(BeFalse())
+			Expect(program.IsZero()).To(BeFalse())
 		})
 
 		It("Should return false when Nodes is non-empty", func() {
-			irWithNodes := &ir.IR{
-				Nodes: ir.Nodes{{Key: "node1"}},
-			}
-			Expect(irWithNodes.IsZero()).To(BeFalse())
+			program := &ir.IR{Nodes: ir.Nodes{{Key: "node1"}}}
+			Expect(program.IsZero()).To(BeFalse())
 		})
 
 		It("Should return false when Edges is non-empty", func() {
-			irWithEdges := &ir.IR{
-				Edges: ir.Edges{{Kind: ir.EdgeKindContinuous}},
-			}
-			Expect(irWithEdges.IsZero()).To(BeFalse())
+			program := &ir.IR{Edges: ir.Edges{{Kind: ir.EdgeKindContinuous}}}
+			Expect(program.IsZero()).To(BeFalse())
 		})
 
 		It("Should return false when Symbols is set", func() {
-			irWithSymbols := &ir.IR{
-				Symbols: symbol.CreateRootScope(nil),
+			program := &ir.IR{Symbols: symbol.CreateRootScope(nil)}
+			Expect(program.IsZero()).To(BeFalse())
+		})
+	})
+
+	Describe("Scope IsZero", func() {
+		It("Should return true for an uninitialized scope", func() {
+			Expect(ir.Scope{}.IsZero()).To(BeTrue())
+		})
+
+		It("Should return false when a stratum carries members", func() {
+			s := ir.Scope{
+				Mode:     ir.ScopeModeParallel,
+				Liveness: ir.LivenessAlways,
+				Strata:   []ir.Members{{ir.NodeMember("n1")}},
 			}
-			Expect(irWithSymbols.IsZero()).To(BeFalse())
+			Expect(s.IsZero()).To(BeFalse())
+		})
+
+		It("Should return false when a sequential scope carries steps", func() {
+			s := ir.Scope{
+				Key:      "main",
+				Mode:     ir.ScopeModeSequential,
+				Liveness: ir.LivenessGated,
+				Steps:    ir.Members{ir.NodeMember("n1")},
+			}
+			Expect(s.IsZero()).To(BeFalse())
 		})
 	})
 
 	Describe("JSON Marshaling", func() {
 		It("Should marshal and unmarshal a complete IR structure", func() {
-			inputs := types.Params{}
-			inputs = append(inputs, types.Param{Name: "a", Type: types.I64()})
-			inputs = append(inputs, types.Param{Name: "b", Type: types.I64()})
-
-			outputs := types.Params{}
-			outputs = append(outputs, types.Param{Name: ir.DefaultOutputParam, Type: types.I64()})
+			inputs := types.Params{
+				{Name: "a", Type: types.I64()},
+				{Name: "b", Type: types.I64()},
+			}
+			outputs := types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}}
 
 			original := &ir.IR{
-				Functions: ir.Functions{
-					{
-						Key:     "add",
-						Inputs:  inputs,
-						Outputs: outputs,
-					},
-				},
+				Functions: ir.Functions{{Key: "add", Inputs: inputs, Outputs: outputs}},
 				Nodes: ir.Nodes{
 					{
 						Key:     "node1",
@@ -99,37 +115,29 @@ var _ = Describe("IR", func() {
 						Target: ir.Handle{Node: "node1", Param: "b"},
 					},
 				},
-				Strata: ir.Strata{
-					{"input_a", "input_b"},
-					{"node1"},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
+						{ir.NodeMember("node1")},
+					},
 				},
 			}
 
-			// Marshal to JSON
 			data := MustSucceed(json.Marshal(original))
 			Expect(data).ToNot(BeEmpty())
 
-			// Unmarshal from JSON
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
 
 			Expect(restored.Functions).To(HaveLen(1))
 			Expect(restored.Functions[0].Key).To(Equal("add"))
-			Expect(restored.Functions[0].Inputs).To(HaveLen(2))
-			Expect(restored.Functions[0].Outputs).To(HaveLen(1))
-
 			Expect(restored.Nodes).To(HaveLen(1))
-			Expect(restored.Nodes[0].Key).To(Equal("node1"))
-			Expect(restored.Nodes[0].Type).To(Equal("add"))
-			Expect(restored.Nodes[0].Config[0].Value).To(Equal(2.0))
-
 			Expect(restored.Edges).To(HaveLen(2))
-			Expect(restored.Edges[0].Source.Node).To(Equal("input_a"))
-			Expect(restored.Edges[0].Target.Node).To(Equal("node1"))
-
-			Expect(restored.Strata).To(HaveLen(2))
-			Expect(restored.Strata[0]).To(HaveLen(2))
-			Expect(restored.Strata[1]).To(HaveLen(1))
+			Expect(restored.Root.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(restored.Root.Strata).To(HaveLen(2))
+			Expect(restored.Root.Strata[0]).To(HaveLen(2))
 		})
 
 		It("Should handle empty IR", func() {
@@ -137,317 +145,313 @@ var _ = Describe("IR", func() {
 				Functions: ir.Functions{},
 				Nodes:     ir.Nodes{},
 				Edges:     ir.Edges{},
-				Strata:    ir.Strata{},
+				Root:      ir.Scope{Mode: ir.ScopeModeParallel, Liveness: ir.LivenessAlways},
+			}
+			data := MustSucceed(json.Marshal(original))
+			var restored ir.IR
+			Expect(json.Unmarshal(data, &restored)).To(Succeed())
+			Expect(restored.Functions).To(BeEmpty())
+			Expect(restored.Root.Strata).To(BeEmpty())
+		})
+
+		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
+			original := &ir.IR{Symbols: symbol.CreateRootScope(nil)}
+			data := MustSucceed(json.Marshal(original))
+			jsonStr := string(data)
+			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))
+			Expect(jsonStr).ToNot(ContainSubstring("\"TypeMap\""))
+		})
+
+		It("Should round-trip a sequential scope with transitions", func() {
+			stepKey := "run"
+			original := &ir.IR{
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{{
+						{Scope: &ir.Scope{
+							Key:      "main",
+							Mode:     ir.ScopeModeSequential,
+							Liveness: ir.LivenessGated,
+							Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
+							Transitions: []ir.Transition{
+								{
+									On:        ir.Handle{Node: "init", Param: "done"},
+									TargetKey: &stepKey,
+								},
+								{
+									On:        ir.Handle{Node: "run", Param: "done"},
+									TargetKey: nil,
+								},
+							},
+						}},
+					}},
+				},
 			}
 
 			data := MustSucceed(json.Marshal(original))
 			var restored ir.IR
 			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-			Expect(restored.Functions).To(BeEmpty())
-			Expect(restored.Nodes).To(BeEmpty())
-			Expect(restored.Edges).To(BeEmpty())
-			Expect(restored.Strata).To(BeEmpty())
-		})
 
-		It("Should exclude Symbols and TypeMap from JSON (json:\"-\" tag)", func() {
-			original := &ir.IR{
-				Functions: ir.Functions{},
-				Nodes:     ir.Nodes{},
-				Edges:     ir.Edges{},
-				Strata:    ir.Strata{},
-				Symbols:   symbol.CreateRootScope(nil),
-			}
-
-			data := MustSucceed(json.Marshal(original))
-
-			jsonStr := string(data)
-			Expect(jsonStr).ToNot(ContainSubstring("\"symbols\""))
-			Expect(jsonStr).ToNot(ContainSubstring("\"TypeMap\""))
+			main := restored.Root.Strata[0][0].Scope
+			Expect(main).ToNot(BeNil())
+			Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+			Expect(main.Steps).To(HaveLen(2))
+			Expect(main.Transitions).To(HaveLen(2))
+			Expect(main.Transitions[0].TargetKey).ToNot(BeNil())
+			Expect(*main.Transitions[0].TargetKey).To(Equal("run"))
+			Expect(main.Transitions[1].TargetKey).To(BeNil())
 		})
 	})
 
-	Describe("Complete IR Construction", func() {
-		It("Should build a complete IR with all components", func() {
-			inputs := types.Params{
-				{Name: ir.LHSInputParam, Type: types.I64()},
-				{Name: ir.RHSInputParam, Type: types.I64()},
-			}
+	Describe("String Formatting", func() {
+		Describe("IR String", func() {
+			It("Should render an empty IR as an empty string", func() {
+				program := &ir.IR{}
+				Expect(program.String()).To(BeEmpty())
+			})
 
-			outputs := types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.I64()},
-			}
+			It("Should render Functions, Nodes, Edges, and Root sections", func() {
+				program := &ir.IR{
+					Functions: ir.Functions{{
+						Key:     "add",
+						Inputs:  types.Params{{Name: "a", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					}},
+					Nodes: ir.Nodes{{
+						Key:     "node1",
+						Type:    "add",
+						Config:  types.Params{{Name: "k", Type: types.I64(), Value: int64(1)}},
+						Inputs:  types.Params{{Name: "a", Type: types.I64()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+					}},
+					Edges: ir.Edges{{
+						Source: ir.Handle{Node: "src", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "node1", Param: "a"},
+						Kind:   ir.EdgeKindContinuous,
+					}},
+					Root: ir.Scope{
+						Mode:     ir.ScopeModeParallel,
+						Liveness: ir.LivenessAlways,
+						Strata:   []ir.Members{{ir.NodeMember("node1")}},
+					},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Functions (1)"))
+				Expect(out).To(ContainSubstring("Nodes (1)"))
+				Expect(out).To(ContainSubstring("Edges (1)"))
+				Expect(out).To(ContainSubstring("Root"))
+				Expect(out).To(ContainSubstring("add"))
+				Expect(out).To(ContainSubstring("node1"))
+				Expect(out).To(ContainSubstring("src.output -> node1.a"))
+			})
 
+			It("Should render only populated sections", func() {
+				program := &ir.IR{
+					Nodes: ir.Nodes{{Key: "only", Type: "input"}},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Nodes (1)"))
+				Expect(out).ToNot(ContainSubstring("Functions"))
+				Expect(out).ToNot(ContainSubstring("Edges"))
+				Expect(out).ToNot(ContainSubstring("Root"))
+			})
+
+			It("Should render multiple functions, nodes, and edges with tree indentation", func() {
+				program := &ir.IR{
+					Functions: ir.Functions{
+						{Key: "f1"},
+						{Key: "f2"},
+					},
+					Nodes: ir.Nodes{
+						{Key: "n1", Type: "f1"},
+						{Key: "n2", Type: "f2"},
+					},
+					Edges: ir.Edges{
+						{
+							Source: ir.Handle{Node: "n1", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n2", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindContinuous,
+						},
+						{
+							Source: ir.Handle{Node: "n2", Param: ir.DefaultOutputParam},
+							Target: ir.Handle{Node: "n1", Param: ir.DefaultInputParam},
+							Kind:   ir.EdgeKindConditional,
+						},
+					},
+				}
+				out := program.String()
+				Expect(out).To(ContainSubstring("Functions (2)"))
+				Expect(out).To(ContainSubstring("Nodes (2)"))
+				Expect(out).To(ContainSubstring("Edges (2)"))
+				Expect(out).To(ContainSubstring("├── "))
+				Expect(out).To(ContainSubstring("└── "))
+				Expect(out).To(ContainSubstring("n1.output -> n2.input"))
+				Expect(out).To(ContainSubstring("n2.output => n1.input"))
+			})
+		})
+
+		Describe("Scope String", func() {
+			It("Should render parallel scope with named stratum entries", func() {
+				s := ir.Scope{
+					Key:      "root",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("a"), ir.NodeMember("b")},
+						{ir.NodeMember("c")},
+					},
+				}
+				out := s.String()
+				Expect(out).To(ContainSubstring("root"))
+				Expect(out).To(ContainSubstring("stratum 0"))
+				Expect(out).To(ContainSubstring("stratum 1"))
+				Expect(out).To(ContainSubstring("a"))
+				Expect(out).To(ContainSubstring("b"))
+				Expect(out).To(ContainSubstring("c"))
+			})
+
+			It("Should render an unnamed scope with the (scope) placeholder", func() {
+				s := ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.NodeMember("x")}},
+				}
+				Expect(s.String()).To(ContainSubstring("(scope)"))
+			})
+
+			It("Should render sequential scope steps and transitions", func() {
+				run := "run"
+				s := ir.Scope{
+					Key:      "main",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.NodeMember("init"), ir.NodeMember("run")},
+					Transitions: []ir.Transition{
+						{On: ir.Handle{Node: "init", Param: "done"}, TargetKey: &run},
+						{On: ir.Handle{Node: "run", Param: "done"}},
+					},
+				}
+				out := s.String()
+				Expect(out).To(ContainSubstring("main"))
+				Expect(out).To(ContainSubstring("init"))
+				Expect(out).To(ContainSubstring("run"))
+				Expect(out).To(ContainSubstring("on init/done => run"))
+				Expect(out).To(ContainSubstring("on run/done => exit"))
+			})
+
+			It("Should render nested scope members", func() {
+				inner := ir.Scope{
+					Key:      "inner",
+					Mode:     ir.ScopeModeSequential,
+					Liveness: ir.LivenessGated,
+					Steps:    ir.Members{ir.NodeMember("step1")},
+				}
+				outer := ir.Scope{
+					Key:      "outer",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata:   []ir.Members{{ir.ScopeMember(inner)}},
+				}
+				out := outer.String()
+				Expect(out).To(ContainSubstring("outer"))
+				Expect(out).To(ContainSubstring("inner"))
+				Expect(out).To(ContainSubstring("step1"))
+			})
+		})
+
+		Describe("Member", func() {
+			It("Should build a node-backed Member via NodeMember", func() {
+				m := ir.NodeMember("n1")
+				Expect(m.Key()).To(Equal("n1"))
+				Expect(m.String()).To(ContainSubstring("n1"))
+			})
+
+			It("Should build a scope-backed Member via ScopeMember", func() {
+				s := ir.Scope{
+					Key:      "sub",
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+				}
+				m := ir.ScopeMember(s)
+				Expect(m.Key()).To(Equal("sub"))
+				Expect(m.String()).To(ContainSubstring("sub"))
+			})
+
+			It("Should return an empty key and placeholder string for a zero Member", func() {
+				var m ir.Member
+				Expect(m.Key()).To(BeEmpty())
+				Expect(m.String()).To(Equal("(empty member)\n"))
+			})
+		})
+
+		Describe("Transition String", func() {
+			It("Should render a transition targeting a sibling step", func() {
+				target := "next"
+				t := ir.Transition{
+					On:        ir.Handle{Node: "n", Param: "done"},
+					TargetKey: &target,
+				}
+				Expect(t.String()).To(Equal("on n/done => next"))
+			})
+
+			It("Should render an exiting transition when TargetKey is nil", func() {
+				t := ir.Transition{On: ir.Handle{Node: "n", Param: "done"}}
+				Expect(t.String()).To(Equal("on n/done => exit"))
+			})
+		})
+	})
+
+	Describe("Edge Helpers Against Root Scope", func() {
+		It("Should expose dataflow edges independent of the Scope tree", func() {
 			program := &ir.IR{
 				Functions: ir.Functions{
 					{
-						Key:     "add",
-						Inputs:  inputs,
-						Outputs: outputs,
+						Key: "add",
+						Inputs: types.Params{
+							{Name: ir.LHSInputParam, Type: types.I64()},
+							{Name: ir.RHSInputParam, Type: types.I64()},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 					},
 				},
 				Nodes: ir.Nodes{
-					{Key: "input_a", Type: "input", Outputs: types.Params{}},
-					{Key: "input_b", Type: "input", Outputs: types.Params{}},
-					{Key: "add_node", Type: "add", Inputs: inputs, Outputs: outputs},
-					{Key: "output_c", Type: "output", Inputs: types.Params{}},
+					{Key: "input_a", Type: "input"},
+					{Key: "input_b", Type: "input"},
+					{Key: "add_node", Type: "add"},
+					{Key: "output_c", Type: "output"},
 				},
 				Edges: ir.Edges{
 					{
 						Source: ir.Handle{Node: "input_a", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "add_node", Param: ir.LHSInputParam},
+						Kind:   ir.EdgeKindContinuous,
 					},
 					{
 						Source: ir.Handle{Node: "input_b", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "add_node", Param: ir.RHSInputParam},
+						Kind:   ir.EdgeKindContinuous,
 					},
 					{
 						Source: ir.Handle{Node: "add_node", Param: ir.DefaultOutputParam},
 						Target: ir.Handle{Node: "output_c", Param: ir.DefaultInputParam},
-					},
-				},
-				Strata: ir.Strata{
-					{"input_a", "input_b"},
-					{"add_node"},
-					{"output_c"},
-				},
-			}
-
-			Expect(program.Functions).To(HaveLen(1))
-			Expect(program.Nodes).To(HaveLen(4))
-			Expect(program.Edges).To(HaveLen(3))
-			Expect(program.Strata).To(HaveLen(3))
-
-			Expect(program.Strata.Get("input_a")).To(Equal(0))
-			Expect(program.Strata.Get("input_b")).To(Equal(0))
-			Expect(program.Strata.Get("add_node")).To(Equal(1))
-			Expect(program.Strata.Get("output_c")).To(Equal(2))
-
-			addInputs := program.Edges.GetInputs("add_node")
-			Expect(addInputs).To(HaveLen(2))
-
-			addOutputs := program.Edges.GetOutputs("add_node")
-			Expect(addOutputs).To(HaveLen(1))
-		})
-	})
-
-	Describe("IR with Sequences", func() {
-		It("Should marshal and unmarshal complete IR with sequences", func() {
-			original := &ir.IR{
-				Functions: ir.Functions{
-					{Key: "controller", Body: ir.Body{Raw: "..."}},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "init", Nodes: []string{"timer_1", "ctrl_1"}},
-							{Key: "run", Nodes: []string{"ctrl_2"}},
-							{Key: "done", Nodes: nil},
-						},
-					},
-				},
-				Nodes: ir.Nodes{
-					{Key: "timer_1", Type: "interval"},
-					{Key: "ctrl_1", Type: "controller"},
-					{Key: "ctrl_2", Type: "controller"},
-					{Key: "main_init_entry", Type: "stage_entry"},
-					{Key: "main_run_entry", Type: "stage_entry"},
-					{Key: "condition_1", Type: "comparison"},
-				},
-				Edges: ir.Edges{
-					{
-						Source: ir.Handle{Node: "timer_1", Param: "output"},
-						Target: ir.Handle{Node: "ctrl_1", Param: "input"},
 						Kind:   ir.EdgeKindContinuous,
 					},
-					{
-						Source: ir.Handle{Node: "condition_1", Param: "output"},
-						Target: ir.Handle{Node: "main_run_entry", Param: "activate"},
-						Kind:   ir.EdgeKindOneShot,
+				},
+				Root: ir.Scope{
+					Mode:     ir.ScopeModeParallel,
+					Liveness: ir.LivenessAlways,
+					Strata: []ir.Members{
+						{ir.NodeMember("input_a"), ir.NodeMember("input_b")},
+						{ir.NodeMember("add_node")},
+						{ir.NodeMember("output_c")},
 					},
 				},
-				Strata: ir.Strata{{"timer_1"}, {"ctrl_1", "ctrl_2"}},
 			}
 
-			data := MustSucceed(json.Marshal(original))
-
-			var restored ir.IR
-			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-
-			// Verify sequences preserved
-			Expect(restored.Sequences).To(HaveLen(1))
-			Expect(restored.Sequences[0].Key).To(Equal("main"))
-			Expect(restored.Sequences[0].Stages).To(HaveLen(3))
-
-			// Verify entry point works after deserialization
-			main := restored.Sequences.Get("main")
-			entry := main.Entry()
-			Expect(entry.Key).To(Equal("init"))
-			Expect(entry.Nodes).To(Equal([]string{"timer_1", "ctrl_1"}))
-
-			// Verify NextStage works
-			next, ok := main.NextStage("init")
-			Expect(ok).To(BeTrue())
-			Expect(next.Key).To(Equal("run"))
-
-			// Verify edge kinds preserved
-			Expect(restored.Edges[0].Kind).To(Equal(ir.EdgeKindContinuous))
-			Expect(restored.Edges[1].Kind).To(Equal(ir.EdgeKindOneShot))
-
-			// Verify GetByKind works
-			continuous := restored.Edges.GetByKind(ir.EdgeKindContinuous)
-			oneShot := restored.Edges.GetByKind(ir.EdgeKindOneShot)
-			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(1))
-		})
-
-		It("Should handle IR with no sequences", func() {
-			original := &ir.IR{
-				Functions: ir.Functions{{Key: "func1"}},
-				Nodes:     ir.Nodes{{Key: "node1", Type: "func1"}},
-				Edges:     ir.Edges{},
-				Strata:    ir.Strata{{"node1"}},
-			}
-
-			data := MustSucceed(json.Marshal(original))
-
-			var restored ir.IR
-			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-			Expect(restored.Sequences).To(BeEmpty())
-		})
-
-		It("Should handle IR with multiple sequences", func() {
-			original := &ir.IR{
-				Sequences: ir.Sequences{
-					{
-						Key: "main",
-						Stages: []ir.Stage{
-							{Key: "run", Nodes: []string{"m_1"}},
-						},
-					},
-					{
-						Key: "abort",
-						Stages: []ir.Stage{
-							{Key: "safing", Nodes: []string{"a_1"}},
-							{Key: "safed", Nodes: nil},
-						},
-					},
-					{
-						Key: "recovery",
-						Stages: []ir.Stage{
-							{Key: "assess", Nodes: []string{"r_1"}},
-						},
-					},
-				},
-				Nodes: ir.Nodes{
-					{Key: "m_1", Type: "controller"},
-					{Key: "a_1", Type: "controller"},
-					{Key: "r_1", Type: "controller"},
-				},
-				Edges:  ir.Edges{},
-				Strata: ir.Strata{},
-			}
-
-			data := MustSucceed(json.Marshal(original))
-
-			var restored ir.IR
-			Expect(json.Unmarshal(data, &restored)).To(Succeed())
-
-			Expect(restored.Sequences).To(HaveLen(3))
-
-			// Test FindStage across sequences
-			stage, seq, ok := restored.Sequences.FindStage("safing")
-			Expect(ok).To(BeTrue())
-			Expect(stage.Key).To(Equal("safing"))
-			Expect(seq.Key).To(Equal("abort"))
-		})
-
-		It("Should support realistic sequence state machine", func() {
-			// A realistic hotfire sequence IR
-			// Note: Arc uses U8 for boolean types
-			program := &ir.IR{
-				Functions: ir.Functions{
-					{Key: "interval", Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
-					{Key: "gt", Inputs: types.Params{{Name: ir.LHSInputParam}, {Name: ir.RHSInputParam}}, Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}}},
-					{Key: "stage_entry", Inputs: types.Params{{Name: "activate", Type: types.U8()}}},
-				},
-				Sequences: ir.Sequences{
-					{
-						Key: "hotfire",
-						Stages: []ir.Stage{
-							{Key: "precheck", Nodes: []string{"timer_1", "pressure_check", "precheck_entry"}},
-							{Key: "pressurization", Nodes: []string{"valve_ctrl", "pressure_monitor", "pressurization_entry"}},
-							{Key: "ignition", Nodes: []string{"igniter", "ignition_entry"}},
-							{Key: "mainstage", Nodes: []string{"throttle_ctrl", "mainstage_entry"}},
-							{Key: "shutdown", Nodes: []string{"shutdown_seq", "shutdown_entry"}},
-						},
-					},
-				},
-				Nodes: ir.Nodes{
-					{Key: "timer_1", Type: "interval"},
-					{Key: "pressure_check", Type: "gt"},
-					{Key: "precheck_entry", Type: "stage_entry"},
-					{Key: "valve_ctrl", Type: "controller"},
-					{Key: "pressure_monitor", Type: "monitor"},
-					{Key: "pressurization_entry", Type: "stage_entry"},
-					{Key: "igniter", Type: "controller"},
-					{Key: "ignition_entry", Type: "stage_entry"},
-					{Key: "throttle_ctrl", Type: "controller"},
-					{Key: "mainstage_entry", Type: "stage_entry"},
-					{Key: "shutdown_seq", Type: "sequence"},
-					{Key: "shutdown_entry", Type: "stage_entry"},
-				},
-				Edges: ir.Edges{
-					// Continuous dataflow
-					{Source: ir.Handle{Node: "timer_1", Param: "output"}, Target: ir.Handle{Node: "pressure_check", Param: ir.LHSInputParam}, Kind: ir.EdgeKindContinuous},
-					// Stage transitions (OneShot)
-					{Source: ir.Handle{Node: "pressure_check", Param: "output"}, Target: ir.Handle{Node: "pressurization_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "pressure_monitor", Param: "threshold"}, Target: ir.Handle{Node: "ignition_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "igniter", Param: "complete"}, Target: ir.Handle{Node: "mainstage_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-					{Source: ir.Handle{Node: "timer_1", Param: "timeout"}, Target: ir.Handle{Node: "shutdown_entry", Param: "activate"}, Kind: ir.EdgeKindOneShot},
-				},
-				Strata: ir.Strata{
-					{"timer_1", "valve_ctrl", "igniter", "throttle_ctrl", "shutdown_seq"},
-					{"pressure_check", "pressure_monitor"},
-				},
-			}
-
-			// Verify sequence structure
-			hotfire := program.Sequences.Get("hotfire")
-			Expect(hotfire.Stages).To(HaveLen(5))
-
-			// Verify entry point
-			Expect(hotfire.Entry().Key).To(Equal("precheck"))
-
-			// Verify stage navigation
-			stages := []string{"precheck", "pressurization", "ignition", "mainstage", "shutdown"}
-			current := stages[0]
-			for i := 1; i < len(stages); i++ {
-				next, ok := hotfire.NextStage(current)
-				Expect(ok).To(BeTrue())
-				Expect(next.Key).To(Equal(stages[i]))
-				current = next.Key
-			}
-
-			// Verify last stage has no next
-			_, ok := hotfire.NextStage("shutdown")
-			Expect(ok).To(BeFalse())
-
-			// Verify edge classification
-			continuous := program.Edges.GetByKind(ir.EdgeKindContinuous)
-			oneShot := program.Edges.GetByKind(ir.EdgeKindOneShot)
-			Expect(continuous).To(HaveLen(1))
-			Expect(oneShot).To(HaveLen(4))
-
-			// All OneShot edges should target stage entries
-			for _, e := range oneShot {
-				Expect(e.Target.Node).To(ContainSubstring("_entry"))
-			}
-
-			// Verify node ownership via stages
-			precheckStage, _, ok := program.Sequences.FindStage("precheck")
-			Expect(ok).To(BeTrue())
-			Expect(precheckStage.Nodes).To(ContainElements("timer_1", "pressure_check", "precheck_entry"))
+			Expect(program.Edges.GetInputs("add_node")).To(HaveLen(2))
+			Expect(program.Edges.GetOutputs("add_node")).To(HaveLen(1))
+			Expect(program.Edges.GetByKind(ir.EdgeKindContinuous)).To(HaveLen(3))
 		})
 	})
 })

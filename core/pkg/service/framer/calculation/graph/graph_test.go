@@ -10,8 +10,6 @@
 package graph_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -28,65 +26,52 @@ import (
 )
 
 var (
-	ctx    context.Context
 	arcSvc *arc.Service
 	dist   mock.Node
 )
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
-	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+var _ = BeforeSuite(func(ctx SpecContext) {
+	distB := DeferClose(mock.NewCluster())
+	dist = DeferClose(distB.Provision(ctx))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-	})
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(statusSvc.Close()).To(Succeed())
-	})
-	rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(rackService.Close()).To(Succeed())
-	})
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(taskSvc.Close()).To(Succeed())
-	})
-	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
 })
 
 var _ = Describe("Graph", func() {
@@ -98,7 +83,7 @@ var _ = Describe("Graph", func() {
 		}))
 	})
 	Describe("Add", func() {
-		It("Should compile and add a simple channel", func() {
+		It("Should compile and add a simple channel", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base1", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "calc1", DataType: telem.Int64T, Virtual: true, Expression: "return base1 * 2"}
@@ -108,7 +93,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(HaveLen(1))
 		})
 
-		It("Should handle nested calculated dependencies", func() {
+		It("Should handle nested calculated dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base2", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc1 := channel.Channel{Name: "calc2", DataType: telem.Int64T, Virtual: true, Expression: "return base2 + 1"}
@@ -121,7 +106,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped[0]).To(HaveLen(2))
 		})
 
-		It("Should detect circular dependencies", func() {
+		It("Should detect circular dependencies", func(ctx SpecContext) {
 			calc1 := channel.Channel{Name: "circ1", DataType: telem.Int64T, Virtual: true, Expression: "return circ2"}
 			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
 			calc2 := channel.Channel{Name: "circ2", DataType: telem.Int64T, Virtual: true, Expression: "return circ1"}
@@ -129,7 +114,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calc1)).To(MatchError(ContainSubstring("circular dependency")))
 		})
 
-		It("Should not re-add existing channel", func() {
+		It("Should not re-add existing channel", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base3", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "calc4", DataType: telem.Int64T, Virtual: true, Expression: "return base3"}
@@ -145,7 +130,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("CalculateGrouped", func() {
-		It("Should group channels by base dependencies", func() {
+		It("Should group channels by base dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "base4", DataType: telem.Int64T, Virtual: true},
 				{Name: "base5", DataType: telem.Int64T, Virtual: true},
@@ -164,7 +149,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(HaveLen(2))
 		})
 
-		It("Should reuse groups with superset dependencies", func() {
+		It("Should reuse groups with superset dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "base6", DataType: telem.Int64T, Virtual: true},
 				{Name: "base7", DataType: telem.Int64T, Virtual: true},
@@ -183,7 +168,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("CalculateFlat", func() {
-		It("Should return all modules in topological order", func() {
+		It("Should return all modules in topological order", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "flatbase1", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -200,14 +185,14 @@ var _ = Describe("Graph", func() {
 			Expect(flat[2].Channel.Name).To(Equal("flat3"))
 		})
 
-		It("Should return empty list when no channels", func() {
+		It("Should return empty list when no channels", func(ctx SpecContext) {
 			flat := g.CalculateFlat()
 			Expect(flat).To(BeEmpty())
 		})
 	})
 
 	Describe("Remove", func() {
-		It("Should remove a channel from allocator", func() {
+		It("Should remove a channel from allocator", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base8", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "calc10", DataType: telem.Int64T, Virtual: true, Expression: "return base8"}
@@ -218,7 +203,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should clean up empty groups", func() {
+		It("Should clean up empty groups", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base9", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -236,13 +221,13 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should return false for non-existent channel", func() {
+		It("Should return false for non-existent channel", func(ctx SpecContext) {
 			Expect(MustSucceed(g.Remove(channel.Key(99999)))).To(BeFalse())
 		})
 	})
 
 	Describe("Reference Counting", func() {
-		It("Should increment explicit count on multiple adds", func() {
+		It("Should increment explicit count on multiple adds", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base12", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "calc16", DataType: telem.Int64T, Virtual: true, Expression: "return base12"}
@@ -256,7 +241,7 @@ var _ = Describe("Graph", func() {
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
-		It("Should cascade remove dependencies when parent removed", func() {
+		It("Should cascade remove dependencies when parent removed", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base13", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -271,7 +256,7 @@ var _ = Describe("Graph", func() {
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
-		It("Should not remove dep if still referenced by another channel", func() {
+		It("Should not remove dep if still referenced by another channel", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base14", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -291,7 +276,7 @@ var _ = Describe("Graph", func() {
 			grouped = g.CalculateGrouped()
 			Expect(grouped).To(BeEmpty())
 		})
-		It("Should handle explicit request on dependency", func() {
+		It("Should handle explicit request on dependency", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base15", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -311,7 +296,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("CalculatedKeys", func() {
-		It("Should return all calculated channel keys", func() {
+		It("Should return all calculated channel keys", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base16", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -328,12 +313,12 @@ var _ = Describe("Graph", func() {
 			Expect(keys.Contains(bases[0].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func() {
+		It("Should return empty set when no channels", func(ctx SpecContext) {
 			keys := g.CalculatedKeys()
 			Expect(keys).To(BeEmpty())
 		})
 
-		It("Should update after channel removal", func() {
+		It("Should update after channel removal", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base17", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "calc26", DataType: telem.Int64T, Virtual: true, Expression: "return base17"}
@@ -351,7 +336,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("ConcreteBaseKeys", func() {
-		It("Should return all concrete base channel keys", func() {
+		It("Should return all concrete base channel keys", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "base18", DataType: telem.Int64T, Virtual: true},
 				{Name: "base19", DataType: telem.Int64T, Virtual: true},
@@ -373,7 +358,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
 		})
 
-		It("Should handle nested calculated channels", func() {
+		It("Should handle nested calculated channels", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "base20", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -389,12 +374,12 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(calcs[1].Key())).To(BeFalse())
 		})
 
-		It("Should return empty set when no channels", func() {
+		It("Should return empty set when no channels", func(ctx SpecContext) {
 			baseKeys := g.ConcreteBaseKeys()
 			Expect(baseKeys).To(BeEmpty())
 		})
 
-		It("Should update after channel removal", func() {
+		It("Should update after channel removal", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "base21", DataType: telem.Int64T, Virtual: true},
 				{Name: "base22", DataType: telem.Int64T, Virtual: true},
@@ -420,7 +405,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Update", func() {
-		It("Should update channel expression without changing dependencies", func() {
+		It("Should update channel expression without changing dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase1", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "upcalc1", DataType: telem.Int64T, Virtual: true, Expression: "return upbase1 * 2"}
@@ -437,7 +422,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(bases[0].Key())).To(BeTrue())
 		})
 
-		It("Should add new dependencies when updating", func() {
+		It("Should add new dependencies when updating", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "upbase2", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase3", DataType: telem.Int64T, Virtual: true},
@@ -456,7 +441,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(bases[1].Key())).To(BeTrue())
 		})
 
-		It("Should remove old dependencies when updating", func() {
+		It("Should remove old dependencies when updating", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "upbase4", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase5", DataType: telem.Int64T, Virtual: true},
@@ -475,7 +460,7 @@ var _ = Describe("Graph", func() {
 			Expect(baseKeys.Contains(bases[1].Key())).To(BeFalse())
 		})
 
-		It("Should change group when base dependencies change", func() {
+		It("Should change group when base dependencies change", func(ctx SpecContext) {
 			bases := []channel.Channel{
 				{Name: "upbase6", DataType: telem.Int64T, Virtual: true},
 				{Name: "upbase7", DataType: telem.Int64T, Virtual: true},
@@ -499,7 +484,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(HaveLen(1))
 		})
 
-		It("Should preserve reference counts after update", func() {
+		It("Should preserve reference counts after update", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase8", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{Name: "upcalc6", DataType: telem.Int64T, Virtual: true, Expression: "return upbase8"}
@@ -518,7 +503,7 @@ var _ = Describe("Graph", func() {
 			Expect(grouped).To(BeEmpty())
 		})
 
-		It("Should handle updating with calculated dependencies", func() {
+		It("Should handle updating with calculated dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase9", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -537,7 +522,7 @@ var _ = Describe("Graph", func() {
 			Expect(flat[1].Channel.Name).To(Equal("upcalc8"))
 		})
 
-		It("Should clean up orphaned calculated dependencies", func() {
+		It("Should clean up orphaned calculated dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase10", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -559,13 +544,13 @@ var _ = Describe("Graph", func() {
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeFalse())
 		})
 
-		It("Should fail to update non-existent channel", func() {
+		It("Should fail to update non-existent channel", func(ctx SpecContext) {
 			calc := channel.Channel{Name: "nonexistent", DataType: telem.Int64T, Virtual: true, Expression: "return 1 + 1"}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
 			Expect(g.Update(ctx, calc)).To(HaveOccurred())
 		})
 
-		It("Should detect circular dependency during update", func() {
+		It("Should detect circular dependency during update", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase12", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -581,7 +566,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Update(ctx, calcs[0])).To(MatchError(ContainSubstring("circular dependency")))
 		})
 
-		It("Should not remove shared calculated dependencies", func() {
+		It("Should not remove shared calculated dependencies", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "upbase13", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calcs := []channel.Channel{
@@ -603,7 +588,7 @@ var _ = Describe("Graph", func() {
 			Expect(calcKeys).To(HaveLen(3))
 			Expect(calcKeys.Contains(calcs[0].Key())).To(BeTrue())
 		})
-		It("Should recompile downstream calcs when upstream DataType changes", func() {
+		It("Should recompile downstream calcs when upstream DataType changes", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "cascade_raw", DataType: telem.Float32T, Virtual: true}
 			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
 
@@ -631,16 +616,14 @@ var _ = Describe("Graph", func() {
 			calc1.Expression = "return f64(cascade_raw * 1.0)"
 			calc1.DataType = telem.Float64T
 			Expect(dist.Channel.Create(ctx, &calc1)).To(Succeed())
-			err := g.Update(ctx, calc1)
-
 			// The update should trigger recompilation of calc2. Since calc2's
 			// stored DataType is f32 but calc1 now provides f64, the expression
 			// `cascade_calc1 * 2` resolves to f64 which doesn't match calc2's
 			// f32 return type. The graph should surface this as an error.
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot return"))
+			Expect(g.Update(ctx, calc1)).
+				Error().To(MatchError(ContainSubstring("cannot return")))
 		})
-		It("Should cascade recompilation through a three-level chain", func() {
+		It("Should cascade recompilation through a three-level chain", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "chain3_raw", DataType: telem.Float64T, Virtual: true}
 			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
 
@@ -680,7 +663,7 @@ var _ = Describe("Graph", func() {
 			err := g.Update(ctx, calc1)
 			Expect(err).To(HaveOccurred())
 		})
-		It("Should cascade recompilation through a diamond dependency", func() {
+		It("Should cascade recompilation through a diamond dependency", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "diamond_raw", DataType: telem.Float64T, Virtual: true}
 			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
 
@@ -723,7 +706,7 @@ var _ = Describe("Graph", func() {
 			// right should still be in the graph unchanged
 			Expect(g.CalculatedKeys().Contains(right.Key())).To(BeTrue())
 		})
-		It("Should not cascade when DataType stays the same", func() {
+		It("Should not cascade when DataType stays the same", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "nocascade_raw", DataType: telem.Float64T, Virtual: true}
 			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
 
@@ -753,7 +736,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Update(ctx, calc1)).To(Succeed())
 			Expect(g.CalculateFlat()).To(HaveLen(2))
 		})
-		It("Should rollback dependent modules on mid-chain compile failure", func() {
+		It("Should rollback dependent modules on mid-chain compile failure", func(ctx SpecContext) {
 			raw := channel.Channel{Name: "rb_raw", DataType: telem.Float64T, Virtual: true}
 			Expect(dist.Channel.Create(ctx, &raw)).To(Succeed())
 
@@ -821,7 +804,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Error Messages", func() {
-		It("Should include channel name in Add compilation errors", func() {
+		It("Should include channel name in Add compilation errors", func(ctx SpecContext) {
 			calc := channel.Channel{
 				Name:       "bad_calc_add",
 				DataType:   telem.Int64T,
@@ -829,12 +812,10 @@ var _ = Describe("Graph", func() {
 				Expression: "return invalid_syntax {{",
 			}
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			err := g.Add(ctx, calc)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("bad_calc_add"))
+			Expect(g.Add(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_add")))
 		})
 
-		It("Should include channel name in Update compilation errors", func() {
+		It("Should include channel name in Update compilation errors", func(ctx SpecContext) {
 			bases := []channel.Channel{{Name: "err_base", DataType: telem.Int64T, Virtual: true}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
 			calc := channel.Channel{
@@ -847,9 +828,7 @@ var _ = Describe("Graph", func() {
 			Expect(g.Add(ctx, calc)).To(Succeed())
 			calc.Expression = "return invalid_syntax {{"
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
-			err := g.Update(ctx, calc)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("bad_calc_update"))
+			Expect(g.Update(ctx, calc)).Error().To(MatchError(ContainSubstring("bad_calc_update")))
 		})
 	})
 })

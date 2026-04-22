@@ -10,37 +10,22 @@
 package telem
 
 import (
-	"bytes"
+	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"iter"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
+	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 )
-
-const newLineChar = '\n'
-
-// Series is a strongly typed array of telemetry samples backed by an underlying binary
-// buffer.
-type Series struct {
-	// cachedLength tracks the length of a series with a variable data type.
-	cachedLength *int64
-	// DataType is the data type of the series.
-	DataType DataType `json:"data_type" msgpack:"data_type"`
-	// Data is the underlying binary buffer.
-	Data []byte `json:"data" msgpack:"data"`
-	// TimeRange represents the time range occupied by the series' data.
-	TimeRange TimeRange `json:"time_range" msgpack:"time_range"`
-	// Alignment defines the location of the series relative to other series in a
-	// logical group. This is typically used for defining the position of the series
-	// within a channel's data, but can be used for arbitrary purposes.
-	Alignment Alignment `json:"alignment" msgpack:"alignment"`
-}
 
 // Len returns the number of samples currently in the Series.
 func (s Series) Len() int64 {
@@ -49,12 +34,92 @@ func (s Series) Len() int64 {
 	}
 	if s.DataType.IsVariable() {
 		if s.cachedLength == nil {
-			cl := int64(bytes.Count(s.Data, []byte{newLineChar}))
+			var cl int64
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				if offset+variableLengthPrefixSize+length > len(s.Data) {
+					break
+				}
+				offset += variableLengthPrefixSize + length
+				cl++
+			}
 			s.cachedLength = &cl
 		}
 		return *s.cachedLength
 	}
 	return s.DataType.Density().SampleCount(s.Size())
+}
+
+// Validate checks that the series data buffer is structurally valid for its declared
+// DataType. For fixed-density types, it verifies that the buffer length is an exact
+// multiple of the sample size. For variable-density types, it verifies that the
+// length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
+// that each sample is valid JSON. For StringT, it verifies that each sample is valid
+// UTF-8.
+func (s *Series) Validate() error {
+	if len(s.Data) == 0 {
+		return nil
+	}
+	if s.DataType.IsVariable() {
+		return s.validateVariable()
+	}
+	d := s.DataType.Density()
+	if d == UnknownDensity {
+		return nil
+	}
+	if len(s.Data)%int(d) != 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"expected data length to be a multiple of %d for data type %s, but got %d",
+			d, s.DataType, len(s.Data),
+		)
+	}
+	return nil
+}
+
+func (s *Series) validateVariable() error {
+	var (
+		offset int
+		count  int64
+	)
+	for offset+variableLengthPrefixSize <= len(s.Data) {
+		length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+		offset += variableLengthPrefixSize
+		if offset+length > len(s.Data) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
+				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+			)
+		}
+		sample := s.Data[offset : offset+length]
+		if s.DataType == JSONT && !json.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid JSON",
+				sample,
+			)
+		}
+		if s.DataType == StringT && !utf8.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid UTF-8",
+				sample,
+			)
+		}
+		offset += length
+		count++
+	}
+	if offset != len(s.Data) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"variable-density buffer has %d trailing bytes after last complete sample",
+			len(s.Data)-offset,
+		)
+	}
+	s.cachedLength = &count
+	return nil
 }
 
 // Size returns the number of bytes in the Series.
@@ -64,18 +129,17 @@ func (s Series) Size() Size { return Size(len(s.Data)) }
 func (s Series) Samples() iter.Seq[[]byte] {
 	return func(yield func([]byte) bool) {
 		if s.DataType.IsVariable() {
-			var (
-				buf    []byte
-				offset int
-			)
-			for i := range s.Data {
-				if s.Data[i] == newLineChar {
-					buf = s.Data[offset:i]
-					offset = i + 1
-					if !yield(buf) {
-						return
-					}
+			offset := 0
+			for offset+variableLengthPrefixSize <= len(s.Data) {
+				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				offset += variableLengthPrefixSize
+				if offset+length > len(s.Data) {
+					return
 				}
+				if !yield(s.Data[offset : offset+length]) {
+					return
+				}
+				offset += length
 			}
 			return
 		}
@@ -93,15 +157,18 @@ func (s Series) Samples() iter.Seq[[]byte] {
 func (s Series) At(i int) []byte {
 	i = xslices.ConvertNegativeIndex(i, int(s.Len()))
 	if s.DataType.IsVariable() {
-		var offset int
-		for j := range s.Data {
-			if s.Data[j] == newLineChar {
-				if i == 0 {
-					return s.Data[offset:j]
-				}
-				i--
-				offset = j + 1
+		offset := 0
+		for offset+variableLengthPrefixSize <= len(s.Data) {
+			length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+			offset += variableLengthPrefixSize
+			if offset+length > len(s.Data) {
+				break
 			}
+			if i == 0 {
+				return s.Data[offset : offset+length]
+			}
+			i--
+			offset += length
 		}
 		panic(fmt.Sprintf(
 			"index %v out of bounds for series with length %v",
@@ -206,14 +273,12 @@ func (s Series) Downsample(factor int) Series {
 	}
 	var oData []byte
 	if s.DataType.IsVariable() {
-		iLines := bytes.Split(s.Data, []byte{newLineChar})
-		oLines := make([][]byte, 0, len(iLines)/factor+1)
-		for i := 0; i < len(iLines); i += factor {
-			if i < len(iLines) {
-				oLines = append(oLines, iLines[i])
-			}
+		samples := unmarshalVariable[[]byte](s.Data)
+		downsampled := make([][]byte, 0, len(samples)/factor+1)
+		for i := 0; i < len(samples); i += factor {
+			downsampled = append(downsampled, samples[i])
 		}
-		oData = bytes.Join(oLines, []byte{newLineChar})
+		oData = marshalVariable(downsampled)
 	} else {
 		seriesLength := len(s.Data) / factor
 		oData = make([]byte, 0, seriesLength)

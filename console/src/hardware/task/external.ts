@@ -14,6 +14,7 @@ import { LabJack } from "@/hardware/labjack";
 import { Modbus } from "@/hardware/modbus";
 import { NI } from "@/hardware/ni";
 import { OPC } from "@/hardware/opc";
+import { PagerDuty } from "@/hardware/pagerduty";
 import { Selector, SELECTOR_LAYOUT_TYPE } from "@/hardware/task/Selector";
 import { TOOLBAR_NAV_DRAWER_ITEM } from "@/hardware/task/Toolbar";
 import { type Import } from "@/import";
@@ -33,6 +34,7 @@ export const COMMANDS: Palette.Command[] = [
   ...Modbus.Task.COMMANDS,
   ...NI.Task.COMMANDS,
   ...OPC.Task.COMMANDS,
+  ...PagerDuty.Task.COMMANDS,
 ];
 
 export const EXTRACTORS: Export.Extractors = {
@@ -42,6 +44,7 @@ export const EXTRACTORS: Export.Extractors = {
   ...Modbus.Task.EXTRACTORS,
   ...NI.Task.EXTRACTORS,
   ...OPC.Task.EXTRACTORS,
+  ...PagerDuty.Task.EXTRACTORS,
 };
 
 export const FILE_INGESTERS: Import.FileIngesters = {
@@ -51,6 +54,7 @@ export const FILE_INGESTERS: Import.FileIngesters = {
   ...Modbus.Task.FILE_INGESTERS,
   ...NI.Task.FILE_INGESTERS,
   ...OPC.Task.FILE_INGESTERS,
+  ...PagerDuty.Task.FILE_INGESTERS,
 };
 
 export const LAYOUTS: Record<string, Layout.Renderer> = {
@@ -60,6 +64,7 @@ export const LAYOUTS: Record<string, Layout.Renderer> = {
   ...Modbus.Task.LAYOUTS,
   ...NI.Task.LAYOUTS,
   ...OPC.Task.LAYOUTS,
+  ...PagerDuty.Task.LAYOUTS,
   [SELECTOR_LAYOUT_TYPE]: Selector,
 };
 

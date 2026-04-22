@@ -1,0 +1,58 @@
+name: Test - X (Python)
+
+on:
+  pull_request:
+    paths:
+      - .github/actions/test-python/**
+      - .github/workflows/test.x.py.yaml
+      - codecov.yaml
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
+      - x/py/**
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/actions/test-python/**
+      - .github/workflows/test.x.py.yaml
+      - codecov.yaml
+      - pyproject.toml
+      - uv.lock
+      - uv.toml
+      - x/py/**
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Test (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            format: true
+        exclude:
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'macos-latest' }}
+          - os:
+              ${{ (github.ref != 'refs/heads/main' && github.base_ref != 'main') &&
+              'windows-latest' }}
+    runs-on: ${{ matrix.os }}
+    env:
+      CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Test Python
+        uses: ./.github/actions/test-python
+        with:
+          directory: x/py
+          coverage: true
+          coverage_module: x
+          coverage_flag: x-py
+          format_check: ${{ matrix.format }}

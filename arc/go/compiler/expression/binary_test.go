@@ -566,7 +566,7 @@ var _ = Describe("Binary Operations", func() {
 	)
 
 	Describe("Literal Coercion", func() {
-		It("Should coerce a literal type", func() {
+		It("Should coerce a literal type", func(bCtx SpecContext) {
 			ctx := NewContext(bCtx)
 			Expect(ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: "x",
@@ -583,8 +583,8 @@ var _ = Describe("Binary Operations", func() {
 			))
 		})
 
-		It("Should coerce a literal type", func() {
-			bytecode, exprType := compileWithAnalyzer("2 + x", symbol.MapResolver{
+		It("Should coerce a literal type", func(bCtx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(bCtx, "2 + x", symbol.MapResolver{
 				"x": symbol.Symbol{
 					Name: "x",
 					Kind: symbol.KindVariable,
@@ -603,8 +603,8 @@ var _ = Describe("Binary Operations", func() {
 
 	Describe("Channel Literal Operations", func() {
 		DescribeTable("should correctly infer literal types from channel operations",
-			func(expr string, resolver symbol.MapResolver, expectedType types.Type, expectedOpcodes ...any) {
-				bytecode, exprType := compileWithAnalyzer(expr, resolver)
+			func(bCtx SpecContext, expr string, resolver symbol.MapResolver, expectedType types.Type, expectedOpcodes ...any) {
+				bytecode, exprType := compileWithAnalyzer(bCtx, expr, resolver)
 				Expect(exprType).To(Equal(expectedType))
 				Expect(bytecode).To(MatchOpcodes(expectedOpcodes...))
 			},

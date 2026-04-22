@@ -10,47 +10,38 @@
 package view_test
 
 import (
-	"context"
-	"io"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("View", func() {
 	var (
-		ctx    context.Context
-		otg    *ontology.Ontology
-		svc    *view.Service
-		w      view.Writer
-		tx     gorp.Tx
-		closer io.Closer
+		otg *ontology.Ontology
+		svc *view.Service
+		w   view.Writer
+		tx  gorp.Tx
 	)
-	BeforeEach(func() {
-		ctx = context.Background()
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-			DB:           db,
-			EnableSearch: new(true),
+	BeforeEach(func(ctx SpecContext) {
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{
+			DB: db,
 		}))
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-		svc = MustSucceed(view.OpenService(ctx, view.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
+		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
+			Search:   searchIdx,
 		}))
-		Expect(otg.InitializeSearchIndex(ctx)).To(Succeed())
-		closer = xio.MultiCloser{otg, g, svc}
-	})
-	AfterEach(func() {
-		Expect(closer.Close()).To(Succeed())
+		Expect(searchIdx.Initialize(ctx)).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
@@ -62,7 +53,7 @@ var _ = Describe("View", func() {
 
 	Describe("Writer", func() {
 		Describe("Create", func() {
-			It("Should create a new view with an auto-generated key", func() {
+			It("Should create a new view with an auto-generated key", func(ctx SpecContext) {
 				s := &view.View{
 					Name: "Test View",
 					Type: "test",
@@ -70,7 +61,7 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(s.Key).ToNot(Equal(uuid.Nil))
 			})
-			It("Should update an existing view", func() {
+			It("Should update an existing view", func(ctx SpecContext) {
 				s := &view.View{
 					Name: "Test View",
 					Key:  uuid.New(),
@@ -86,7 +77,7 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("CreateMany", func() {
-			It("Should create multiple views", func() {
+			It("Should create multiple views", func(ctx SpecContext) {
 				views := []view.View{
 					{
 						Name: "View 1",
@@ -102,13 +93,16 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 
 				var retrieved []view.View
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().WhereKeys(
+					views[0].Key,
+					views[1].Key,
+				).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
 		})
 
 		Describe("Delete", func() {
-			It("Should delete a view", func() {
+			It("Should delete a view", func(ctx SpecContext) {
 				s := &view.View{
 					Name: "To Delete",
 					Key:  uuid.New(),
@@ -117,16 +111,16 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 
-			It("Should be idempotent", func() {
+			It("Should be idempotent", func(ctx SpecContext) {
 				Expect(w.Delete(ctx, uuid.New())).To(Succeed())
 			})
 		})
 
 		Describe("DeleteMany", func() {
-			It("Should delete multiple views", func() {
+			It("Should delete multiple views", func(ctx SpecContext) {
 				views := []view.View{
 					{
 						Name: "Del 1",
@@ -142,14 +136,14 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 		})
 	})
 
 	Describe("Retrieve", func() {
 		var views []view.View
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			views = []view.View{
 				{
 					Name: "View A",
@@ -173,14 +167,14 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("WhereKeys", func() {
-			It("Should retrieve view by key", func() {
+			It("Should retrieve view by key", func(ctx SpecContext) {
 				var s view.View
 				Expect(svc.NewRetrieve().WhereKeys(views[0].Key).Entry(&s).Exec(ctx, tx)).To(Succeed())
 				Expect(s.Key).To(Equal(views[0].Key))
 				Expect(s.Name).To(Equal("View A"))
 			})
 
-			It("Should retrieve multiple views by keys", func() {
+			It("Should retrieve multiple views by keys", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(2))
@@ -188,12 +182,12 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("WhereTypes", func() {
-			It("Should retrieve views by type", func() {
+			It("Should retrieve views by type", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(svc.NewRetrieve().WhereTypes("testa").Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(2))
 			})
-			It("Should also retrieve views by type and key", func() {
+			It("Should also retrieve views by type and key", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(svc.NewRetrieve().WhereTypes("testa").WhereKeys(views[0].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
@@ -202,13 +196,13 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("Limit and Offset", func() {
-			It("Should limit results", func() {
+			It("Should limit results", func(ctx SpecContext) {
 				var views []view.View
 				Expect(svc.NewRetrieve().Limit(2).Entries(&views).Exec(ctx, tx)).To(Succeed())
 				Expect(views).To(HaveLen(2))
 			})
 
-			It("Should offset results", func() {
+			It("Should offset results", func(ctx SpecContext) {
 				var views []view.View
 				Expect(svc.NewRetrieve().Offset(1).Limit(2).Entries(&views).Exec(ctx, tx)).To(Succeed())
 				Expect(views).To(HaveLen(2))
@@ -216,7 +210,7 @@ var _ = Describe("View", func() {
 		})
 
 		Describe("Search", func() {
-			It("Should search for views", func() {
+			It("Should search for views", func(ctx SpecContext) {
 				var resViews []view.View
 				Expect(tx.Commit(ctx)).To(Succeed())
 				Expect(svc.NewRetrieve().Search("View A").Entries(&resViews).Exec(ctx, db)).To(Succeed())

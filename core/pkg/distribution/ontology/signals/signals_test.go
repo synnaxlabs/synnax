@@ -23,9 +23,9 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologycdc "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/confluence"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/observe"
@@ -38,7 +38,7 @@ type changeService struct {
 	observe.Observer[iter.Seq[ontology.Change]]
 }
 
-const changeOntologyType ontology.Type = "change"
+const changeOntologyType ontology.ResourceType = "change"
 
 func newChangeID(key string) ontology.ID {
 	return ontology.ID{Key: key, Type: changeOntologyType}
@@ -46,7 +46,7 @@ func newChangeID(key string) ontology.ID {
 
 var _ ontology.Service = (*changeService)(nil)
 
-func (s *changeService) Type() ontology.Type { return changeOntologyType }
+func (s *changeService) Type() ontology.ResourceType { return changeOntologyType }
 
 func (s *changeService) Schema() zyn.Schema {
 	return zyn.Object(map[string]zyn.Schema{"key": zyn.String()})
@@ -72,13 +72,12 @@ func (s *changeService) RetrieveResource(
 var _ = Describe("Signals", Ordered, func() {
 	var (
 		builder *mock.Cluster
-		ctx     = context.Background()
 		dist    mock.Node
 		svc     *changeService
 	)
-	BeforeAll(func() {
+	BeforeAll(func(ctx SpecContext) {
 		builder = mock.NewCluster()
-		dist = builder.Provision(ctx)
+		dist = builder.Provision(context.Background())
 		svc = &changeService{Observer: observe.New[iter.Seq[ontology.Change]]()}
 		dist.Ontology.RegisterService(svc)
 	})
@@ -93,7 +92,7 @@ var _ = Describe("Signals", Ordered, func() {
 		})
 	})
 	Describe("Resource Changes", func() {
-		It("Should correctly propagate resource changes to the ontology", func() {
+		It("Should correctly propagate resource changes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -109,7 +108,7 @@ var _ = Describe("Signals", Ordered, func() {
 				return slices.Values([]ontology.Change{
 					{
 						Variant: change.VariantSet,
-						Key:     newChangeID(key),
+						Key:     newChangeID(key).String(),
 						Value: ontology.NewResource(
 							svc.Schema(),
 							newChangeID(key),
@@ -125,14 +124,14 @@ var _ = Describe("Signals", Ordered, func() {
 			Expect(s.Len()).To(Equal(int64(1)))
 			for s := range s.Samples() {
 				r := ontology.Resource{}
-				Expect((&binary.JSONCodec{}).Decode(ctx, s, &r)).To(Succeed())
+				Expect((json.Codec).Decode(ctx, s, &r)).To(Succeed())
 				Expect(r.ID).To(Equal(newChangeID(key)))
 			}
 			requests.Close()
 			Eventually(responses.Outlet()).Should(BeClosed())
 			Expect(closeStreamer.Close()).To(Succeed())
 		})
-		It("Should correctly propagate resource deletes to the ontology", func() {
+		It("Should correctly propagate resource deletes to the ontology", func(ctx SpecContext) {
 			var resCh channel.Channel
 			Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_resource_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 			streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -148,7 +147,7 @@ var _ = Describe("Signals", Ordered, func() {
 				return slices.Values([]ontology.Change{
 					{
 						Variant: change.VariantDelete,
-						Key:     newChangeID(key),
+						Key:     newChangeID(key).String(),
 					},
 				})
 			})
@@ -165,7 +164,7 @@ var _ = Describe("Signals", Ordered, func() {
 			Expect(closeStreamer.Close()).To(Succeed())
 		})
 	})
-	It("Should correctly propagate relationship set to the ontology", func() {
+	It("Should correctly propagate relationship set to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_set").Entry(&resCh).Exec(ctx, nil)).To(Succeed())
 		streamer := MustSucceed(dist.Framer.NewStreamer(ctx, framer.StreamerConfig{
@@ -199,7 +198,7 @@ var _ = Describe("Signals", Ordered, func() {
 		requests.Close()
 		Eventually(responses.Outlet()).Should(BeClosed())
 	})
-	It("Should correctly propagate a relationship delete to the ontology", func() {
+	It("Should correctly propagate a relationship delete to the ontology", func(ctx SpecContext) {
 		var resCh channel.Channel
 		By("Correctly creating the deletion channel.")
 		Expect(dist.Channel.NewRetrieve().WhereNames("sy_ontology_relationship_delete").Entry(&resCh).Exec(ctx, nil)).To(Succeed())

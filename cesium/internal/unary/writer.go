@@ -11,6 +11,7 @@ package unary
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -75,7 +76,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
 	}
-	errWriterClosed = resource.NewClosedError("unary.writer")
+	ErrWriterClosed = resource.NewClosedError("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -122,24 +123,41 @@ func (c WriterConfig) controlTimeRange() telem.TimeRange {
 
 // controlledWriter is used for exchanging control between multiple unary writers. When
 // control is transferred, ownership of the domain writer is moved to the new unary
-// writer. Additional state is included to ensure that write positions and channel.
+// writer. Additional state is included to ensure that write positions and channel
 // information are consistent.
 type controlledWriter struct {
 	*domain.Writer
 	channelKey channel.Key
-	alignment  telem.Alignment
+	// alignment tracks the current write position as a packed domain index (upper 32
+	// bits) and sample index (lower 32 bits). This field is accessed atomically because
+	// Gate.Authorize and Gate.PeekResource return a shared pointer to this struct, and
+	// the region's RWMutex is released before the caller accesses the field. This means
+	// one goroutine may write alignment through Authorize while another reads it through
+	// PeekResource concurrently.
+	alignment atomic.Uint64
 }
 
-var _ control.Resource = controlledWriter{}
+var _ control.Resource = &controlledWriter{}
 
 // ChannelKey implements controller.Resource.
-func (w controlledWriter) ChannelKey() channel.Key { return w.channelKey }
+func (w *controlledWriter) ChannelKey() channel.Key { return w.channelKey }
+
+func (w *controlledWriter) loadAlignment() telem.Alignment {
+	return telem.Alignment(w.alignment.Load())
+}
+
+func (w *controlledWriter) storeAlignment(a telem.Alignment) {
+	w.alignment.Store(uint64(a))
+}
 
 type Writer struct {
 	// control stores the gate held by the writer in the controller of the unaryDB.
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
+	// tracker holds per-writer offset state (sample count and, for variable-length
+	// channels, the incremental offset table built as bytes are appended).
+	tracker *offsetTracker
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -172,6 +190,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		cfg:       cfg,
 		Channel:   db.cfg.Channel,
 		idx:       db.index(),
+		tracker:   db.resolver.newTracker(),
 		wrapError: db.wrapError,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
@@ -185,11 +204,12 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 			cw := &controlledWriter{
 				Writer:     dw,
 				channelKey: db.cfg.Channel.Key,
-				alignment:  telem.NewAlignment(cfg.AlignmentDomainIndex, 0),
 			}
+			a := telem.NewAlignment(cfg.AlignmentDomainIndex, 0)
 			if cfg.AlignmentDomainIndex == 0 {
-				cw.alignment = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
+				a = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
 			}
+			cw.storeAlignment(a)
 			return cw, err
 		},
 	}); err != nil {
@@ -223,14 +243,10 @@ func Write(
 	return err
 }
 
-func (w *Writer) len(dw *domain.Writer) int64 {
-	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
-}
-
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
@@ -243,16 +259,19 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		dw.alignment = telem.NewAlignment(dw.alignment.DomainIndex(), uint32(w.len(dw.Writer)))
+		baseOffset := uint32(dw.Len())
+		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.tracker.count(dw.Writer)))
+		dw.storeAlignment(a)
+		w.tracker.record(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
 	} else {
-		dw.alignment = dw.alignment.AddSamples(uint32(series.Len()))
+		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
 	}
-	return dw.alignment, w.wrapError(err)
+	return dw.loadAlignment(), w.wrapError(err)
 }
 
 func (w *Writer) DomainIndex() uint32 {
-	return w.control.PeekResource().alignment.DomainIndex()
+	return w.control.PeekResource().loadAlignment().DomainIndex()
 }
 
 func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
@@ -268,20 +287,26 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 
 	if w.Channel.IsIndex {
 		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
-		return ts, w.wrapError(err)
+		if err != nil {
+			return 0, w.wrapError(err)
+		}
+		return ts, nil
 	}
 	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
-	return ts, w.wrapError(err)
+	if err != nil {
+		return 0, w.wrapError(err)
+	}
+	return ts, nil
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return w.wrapError(errWriterClosed)
+		return w.wrapError(ErrWriterClosed)
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return w.wrapError(err)
@@ -294,12 +319,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		// We're using w.len - 1 here because we want the timestamp of the last written
-		// frame.
+		// Subtract 1 because we want the timestamp of the last written sample.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,
-			w.len(dw.Writer)-1,
+			w.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
 		if err != nil {

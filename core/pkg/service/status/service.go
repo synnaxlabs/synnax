@@ -16,11 +16,18 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
+	xstatus "github.com/synnaxlabs/x/status"
+	statusv54 "github.com/synnaxlabs/x/status/migrations/v54"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -37,6 +44,9 @@ type ServiceConfig struct {
 	// deleted.
 	Signals *signals.Provider
 	Label   *label.Service
+	// Search is the search index for fuzzy searching statuses.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -52,6 +62,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Label = override.Nil(c.Label, other.Label)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -62,6 +73,7 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "label", c.Label)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
@@ -69,36 +81,55 @@ func (c ServiceConfig) Validate() error {
 // mechanisms for creating, retrieving, updating, and deleting statuses. It also
 // provides mechanisms for listening to changes in statuses.
 type Service struct {
-	cfg             ServiceConfig
-	shutdownSignals io.Closer
-	group           group.Group
+	cfg    ServiceConfig
+	closer xio.MultiCloser
+	table  *gorp.Table[string, Status[any]]
+	group  group.Group
 }
 
 // OpenService opens a new status.Service with the provided configuration. If error is
 // nil, the service is ready for use and must be closed by calling Close to prevent
 // resource leaks.
-func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Statuses", ontology.RootID)
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(
+		ctx,
+		gorp.TableConfig[Status[any]]{
+			DB:              cfg.DB,
+			Instrumentation: cfg.Instrumentation,
+			Migrations: []migrate.Migration{
+				gorp.NewEntryMigration[string, string, statusv54.Status[any], Status[any]](
+					"v54_drop_labels",
+					xstatus.MigrateStatus[any],
+				),
+			},
+		},
+	); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Statuses", ontology.RootID); !ok(err, nil) {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	signalsCfg := signals.GorpPublisherConfigString[Status[any]](cfg.DB)
+	signalsCfg := signals.GorpPublisherConfigString[Status[any]](s.table.Observe())
 	signalsCfg.SetName = "sy_status_set"
 	signalsCfg.DeleteName = "sy_status_delete"
-	if s.shutdownSignals, err = signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
 		signalsCfg,
-	); err != nil {
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
@@ -107,11 +138,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // Close closes the service and releases any resources that it may have acquired. Close
 // is not safe to call concurrently with any other Service methods (including Writer(s)
 // and Retrieve(s)).
-func (s *Service) Close() error {
-	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
-	}
-	return nil
+func (s *Service) Close() error { return s.closer.Close() }
+
+// Observe returns an observable that notifies callers of changes to status entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[string, Status[any]]] {
+	return s.table.Observe()
 }
 
 // NewWriter opens a new Writer to create, update, and delete statuses. If tx is not
@@ -135,7 +166,7 @@ func NewRetrieve[D any](s *Service) Retrieve[D] {
 	return Retrieve[D]{
 		gorp:   gorp.NewRetrieve[string, Status[D]](),
 		baseTX: s.cfg.DB,
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		label:  s.cfg.Label,
 	}
 }

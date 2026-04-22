@@ -81,6 +81,12 @@ var _ = Describe("Bool", func() {
 		It("Should return nil if the value is not a valid boolean", func() {
 			Expect(zyn.Bool().Validate(struct{}{})).To(HaveOccurred())
 		})
+		It("Should succeed when an optional boolean receives nil", func() {
+			Expect(zyn.Bool().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required boolean receives nil", func() {
+			Expect(zyn.Bool().Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
 	})
 
 	Describe("Invalid Inputs", func() {
@@ -91,17 +97,17 @@ var _ = Describe("Bool", func() {
 
 		Specify("nil pointer", func() {
 			var dest *bool
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("non-pointer destination", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("nil interface", func() {
 			var dest any
-			Expect(zyn.Bool().Parse(true, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("invalid type", func() {
@@ -111,37 +117,37 @@ var _ = Describe("Bool", func() {
 
 		Specify("string destination", func() {
 			var dest string
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("numeric destination", func() {
 			var dest int
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("float destination", func() {
 			var dest float64
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("channel destination", func() {
 			var dest chan bool
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("slice destination", func() {
 			var dest []bool
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("map destination", func() {
-			var dest map[string]bool
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			var dest map[string]string
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 
 		Specify("struct destination", func() {
 			var dest struct{ Flag bool }
-			Expect(zyn.Bool().Parse(true, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+			Expect(zyn.Bool().Parse(true, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 		})
 	})
 
@@ -154,7 +160,7 @@ var _ = Describe("Bool", func() {
 
 		Specify("required field with nil value", func() {
 			var dest bool
-			Expect(zyn.Bool().Parse(nil, &dest)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Bool().Parse(nil, &dest)).To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("optional field with value", func() {
@@ -173,56 +179,46 @@ var _ = Describe("Bool", func() {
 
 	Describe("Dump", func() {
 		Specify("boolean value", func() {
-			result, err := zyn.Bool().Dump(true)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(true))
+			Expect(zyn.Bool().Dump(true)).To(Equal(true))
 		})
 
 		Specify("string 'true'", func() {
-			result, err := zyn.Bool().Dump("true")
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump("true"))
 			Expect(result).To(Equal(true))
 		})
 
 		Specify("string '1'", func() {
-			result, err := zyn.Bool().Dump("1")
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump("1"))
 			Expect(result).To(Equal(true))
 		})
 
 		Specify("string 'false'", func() {
-			result, err := zyn.Bool().Dump("false")
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump("false"))
 			Expect(result).To(Equal(false))
 		})
 
 		Specify("string '0'", func() {
-			result, err := zyn.Bool().Dump("0")
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump("0"))
 			Expect(result).To(Equal(false))
 		})
 
 		Specify("integer 1", func() {
-			result, err := zyn.Bool().Dump(1)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump(1))
 			Expect(result).To(Equal(true))
 		})
 
 		Specify("integer 0", func() {
-			result, err := zyn.Bool().Dump(0)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump(0))
 			Expect(result).To(Equal(false))
 		})
 
 		Specify("float 1.0", func() {
-			result, err := zyn.Bool().Dump(1.0)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump(1.0))
 			Expect(result).To(Equal(true))
 		})
 
 		Specify("float 0.0", func() {
-			result, err := zyn.Bool().Dump(0.0)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump(0.0))
 			Expect(result).To(Equal(false))
 		})
 
@@ -233,13 +229,13 @@ var _ = Describe("Bool", func() {
 
 		Specify("nil value", func() {
 			_, err := zyn.Bool().Dump(nil)
-			Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(err).To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("nil pointer", func() {
 			var b *bool
 			_, err := zyn.Bool().Dump(b)
-			Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(err).To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("invalid type", func() {
@@ -248,22 +244,19 @@ var _ = Describe("Bool", func() {
 		})
 
 		Specify("optional nil value", func() {
-			result, err := zyn.Bool().Optional().Dump(nil)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Optional().Dump(nil))
 			Expect(result).To(BeNil())
 		})
 
 		Specify("optional nil pointer", func() {
 			var b *bool
-			result, err := zyn.Bool().Optional().Dump(b)
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Optional().Dump(b))
 			Expect(result).To(BeNil())
 		})
 
 		Specify("custom type", func() {
 			type MyBool bool
-			result, err := zyn.Bool().Dump(MyBool(true))
-			Expect(err).ToNot(HaveOccurred())
+			result := MustSucceed(zyn.Bool().Dump(MyBool(true)))
 			Expect(result).To(Equal(true))
 		})
 	})

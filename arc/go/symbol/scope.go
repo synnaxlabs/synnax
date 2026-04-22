@@ -36,43 +36,13 @@ func CreateRootScope(globalResolver Resolver) *Scope {
 	}
 }
 
-// Channels tracks which Synnax channels a node reads from and writes to.
-//
-// This is used for data flow analysis to understand which channels are accessed by
-// different parts of an Arc program. The maps use channel IDs as keys and channel
-// names as values.
-type Channels struct {
-	// Read contains Synnax channels that the node reads from.
-	Read set.Mapped[uint32, string] `json:"read"`
-	// Write contains Synnax channels that the node writes to.
-	Write set.Mapped[uint32, string] `json:"write"`
-}
-
-// Copy returns a deep copy of the Channels.
-func (c Channels) Copy() Channels {
-	if c.Read == nil {
-		c.Read = make(set.Mapped[uint32, string])
-	}
-	if c.Write == nil {
-		c.Write = make(set.Mapped[uint32, string])
-	}
-	return Channels{Read: c.Read.Copy(), Write: c.Write.Copy()}
-}
-
-// NewChannels creates a new Channels with empty read and write sets.
-func NewChannels() Channels {
-	return Channels{
-		Read:  make(set.Mapped[uint32, string]),
-		Write: make(set.Mapped[uint32, string]),
-	}
-}
-
 // ResolveConfigChannel replaces an internal config param ID with the actual channel ID.
 // For user-defined functions, the analyzer populates fnSym.Channels with internal param
 // IDs when processing the function body, so we replace those with actual channel IDs.
 // For built-in functions (resolved from MapResolver), fnSym has no children or channels,
 // so we fall back to adding the channel to Read.
-func (c *Channels) ResolveConfigChannel(
+func ResolveConfigChannel(
+	c *types.Channels,
 	fnSym *Scope,
 	paramName string,
 	channelKey uint32,
@@ -81,13 +51,13 @@ func (c *Channels) ResolveConfigChannel(
 	replaced := false
 	if configParamSym := fnSym.FindChildByName(paramName); configParamSym != nil {
 		configParamID := uint32(configParamSym.ID)
-		if fnSym.Channels.Write.Contains(configParamID) {
-			c.Write.Remove(configParamID)
+		if _, ok := fnSym.Channels.Write[configParamID]; ok {
+			delete(c.Write, configParamID)
 			c.Write[channelKey] = channelName
 			replaced = true
 		}
-		if fnSym.Channels.Read.Contains(configParamID) {
-			c.Read.Remove(configParamID)
+		if _, ok := fnSym.Channels.Read[configParamID]; ok {
+			delete(c.Read, configParamID)
 			c.Read[channelKey] = channelName
 			replaced = true
 		}
@@ -125,7 +95,7 @@ type Scope struct {
 	// GlobalResolver provides global built-in symbols available from any scope.
 	GlobalResolver Resolver
 	// Channels tracks which Synnax channels this scope's AST node reads from and writes to.
-	Channels Channels
+	Channels types.Channels
 	// Parent is the lexically enclosing scope. Nil for the root scope.
 	Parent *Scope
 	// Counter is the ID counter for variable kinds. Functions create new counters.
@@ -208,13 +178,14 @@ func (s *Scope) Add(ctx context.Context, sym Symbol) (*Scope, error) {
 		child.Counter = new(int)
 	}
 	if sym.Kind == KindFunction {
-		child.Channels = NewChannels()
+		child.Channels = types.NewChannels()
 	}
 	if sym.Kind == KindVariable ||
 		sym.Kind == KindStatefulVariable ||
 		sym.Kind == KindInput ||
 		sym.Kind == KindConfig ||
-		sym.Kind == KindOutput {
+		sym.Kind == KindOutput ||
+		sym.Kind == KindLoopVariable {
 		child.ID = s.addIndex()
 	}
 	s.Children = append(s.Children, child)
@@ -260,21 +231,21 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 }
 
 func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var scopes []*Scope
 	for _, child := range s.Children {
-		if matchesSearch(child.Name, term) && !seen[child.Name] {
+		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
 			scopes = append(scopes, child)
-			seen[child.Name] = true
+			seen.Add(child.Name)
 		}
 	}
 	if s.GlobalResolver != nil {
 		symbols, err := s.GlobalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range symbols {
-				if !seen[sym.Name] && !sym.Internal {
+				if !seen.Contains(sym.Name) && !sym.Internal {
 					scopes = append(scopes, &Scope{Symbol: sym})
-					seen[sym.Name] = true
+					seen.Add(sym.Name)
 				}
 			}
 		}
@@ -283,9 +254,9 @@ func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
 		parentScopes, err := s.Parent.Search(ctx, term)
 		if err == nil {
 			for _, scope := range parentScopes {
-				if !seen[scope.Name] {
+				if !seen.Contains(scope.Name) {
 					scopes = append(scopes, scope)
-					seen[scope.Name] = true
+					seen.Add(scope.Name)
 				}
 			}
 		}

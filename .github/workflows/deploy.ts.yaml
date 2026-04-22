@@ -5,20 +5,13 @@ on:
     branches:
       - main
     paths:
-      - .github/workflows/deploy.ts.yaml
-      - alamos/ts/**
-      - client/ts/**
-      - configs/ts/**
-      - configs/vite/**
-      - drift/**
-      - freighter/ts/**
-      - package.json
-      - pluto/**
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
-      - turbo.json
-      - x/media/**
-      - x/ts/**
+      - alamos/ts/package.json
+      - client/ts/package.json
+      - drift/package.json
+      - freighter/ts/package.json
+      - pluto/package.json
+      - x/media/package.json
+      - x/ts/package.json
   workflow_dispatch:
 
 permissions:
@@ -33,11 +26,11 @@ jobs:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
       TURBO_TEAM: ${{ vars.TURBO_TEAM }}
     steps:
-      - name: Checkout Repository
+      - name: Checkout repository
         uses: actions/checkout@v6
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -46,11 +39,11 @@ jobs:
           cache: pnpm
           registry-url: https://registry.npmjs.org
 
-      - name: Install Dependencies
+      - name: Install dependencies
         run: pnpm install
 
       - name: Build
-        run: pnpm build:console-vite
+        run: pnpm build:publish-ts
 
       - name: Publish
         run: pnpm publish -r

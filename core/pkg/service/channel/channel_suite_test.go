@@ -10,7 +10,6 @@
 package channel_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,7 +25,6 @@ import (
 )
 
 var (
-	ctx    context.Context
 	dist   mock.Node
 	svc    *svcChannel.Service
 	arcSvc *arc.Service
@@ -37,70 +35,53 @@ func TestChannel(t *testing.T) {
 	RunSpecs(t, "Service Channel Suite")
 }
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
-	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-	})
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(statusSvc.Close()).To(Succeed())
-	})
-	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(rackSvc.Close()).To(Succeed())
-	})
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Rack:     rackSvc,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(taskSvc.Close()).To(Succeed())
-	})
-	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(arcSvc.Close()).To(Succeed())
-	})
-	svc = MustSucceed(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
+	svc = MustOpen(svcChannel.OpenService(ctx, svcChannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
 	}))
-	DeferCleanup(func() {
-		Expect(svc.Close()).To(Succeed())
-	})
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
 })

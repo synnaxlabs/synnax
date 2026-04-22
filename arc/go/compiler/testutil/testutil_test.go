@@ -10,8 +10,6 @@
 package testutil_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/arc/compiler/testutil"
@@ -82,6 +80,28 @@ var _ = Describe("WASM Helper", func() {
 		})
 	})
 
+	Describe("Block and loop instructions", func() {
+		It("Should encode block with empty block type", func() {
+			bytes := WASM(wasm.OpBlock, wasm.BlockTypeEmpty)
+			Expect(bytes).ToNot(BeEmpty())
+		})
+
+		It("Should encode loop with empty block type", func() {
+			bytes := WASM(wasm.OpLoop, wasm.BlockTypeEmpty)
+			Expect(bytes).ToNot(BeEmpty())
+		})
+
+		It("Should encode br", func() {
+			bytes := WASM(wasm.OpBr, uint32(1))
+			Expect(bytes).To(MatchOpcodes(wasm.OpBr, uint32(1)))
+		})
+
+		It("Should encode br_if", func() {
+			bytes := WASM(wasm.OpBrIf, uint32(0))
+			Expect(bytes).To(MatchOpcodes(wasm.OpBrIf, uint32(0)))
+		})
+	})
+
 	Describe("Simple opcodes", func() {
 		It("Should encode opcodes without operands", func() {
 			bytes := WASM(wasm.OpI32Add)
@@ -111,19 +131,19 @@ var _ = Describe("WASM Helper", func() {
 })
 
 var _ = Describe("FunctionScope", func() {
-	It("Should create a scope containing a function and block", func() {
-		scope := FunctionScope(context.Background())
+	It("Should create a scope containing a function and block", func(ctx SpecContext) {
+		scope := FunctionScope(ctx)
 		Expect(scope).ToNot(BeNil())
 		Expect(scope.Kind).To(Equal(symbol.KindBlock))
 	})
 })
 
 var _ = Describe("NewContext", func() {
-	It("Should create a root compilation context with initialized fields", func() {
-		ctx := NewContext(context.Background())
-		Expect(ctx.Scope).ToNot(BeNil())
-		Expect(ctx.Module).ToNot(BeNil())
-		Expect(ctx.Writer).ToNot(BeNil())
-		Expect(ctx.TypeMap).ToNot(BeNil())
+	It("Should create a root compilation context with initialized fields", func(ctx SpecContext) {
+		cCtx := NewContext(ctx)
+		Expect(cCtx.Scope).ToNot(BeNil())
+		Expect(cCtx.Module).ToNot(BeNil())
+		Expect(cCtx.Writer).ToNot(BeNil())
+		Expect(cCtx.TypeMap).ToNot(BeNil())
 	})
 })

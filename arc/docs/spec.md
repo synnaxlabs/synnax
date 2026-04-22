@@ -36,9 +36,9 @@ Type `u8` serves as boolean: `0` is false, non-zero is true. Logical operators n
 to `0` or `1` with short-circuit evaluation.
 
 ```arc
-result := 2 and 3       // 1 (both truthy)
-result := 5 or 0        // 1 (short-circuits)
-negated := not 5        // 0
+result := 2 and 3 // 1 (both truthy)
+result := 5 or 0 // 1 (short-circuits)
+negated := not 5 // 0
 ```
 
 ### Channel Types
@@ -59,13 +59,13 @@ SeriesLiteral ::= '[' ExpressionList? ']'
 
 ```arc
 data := [1.0, 2.0, 3.0]
-data[0] = 5.0                    // element assignment
-length := len(data)              // i64
-first := data[0]                 // indexing
-subset := data[1:3]              // slicing [2.0, 3.0]
-scaled := data * 2.0             // [2.0, 4.0, 6.0]
-sum := data + [4.0, 5.0, 6.0]    // [5.0, 7.0, 9.0]
-mask := data > 2.0               // [0, 0, 1] (series u8)
+data[0] = 5.0 // element assignment
+length := len(data) // i64
+first := data[0] // indexing
+subset := data[1: 3] // slicing [2.0, 3.0]
+scaled := data * 2.0 // [2.0, 4.0, 6.0]
+sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
+mask := data > 2.0 // [0, 0, 1] (series u8)
 ```
 
 **Rules**:
@@ -81,11 +81,11 @@ Strings are immutable UTF-8 sequences supporting:
 
 ```arc
 msg := "Hello"
-greeting := msg + " World"   // concatenation
-first := msg[0]              // indexing
-sub := msg[1:4]              // slicing
-length := len(msg)           // length
-equal := msg == "Hello"      // equality (returns u8: 1 or 0)
+greeting := msg + " World" // concatenation
+first := msg[0] // indexing
+sub := msg[1: 4] // slicing
+length := len(msg) // length
+equal := msg == "Hello" // equality (returns u8: 1 or 0)
 ```
 
 **Supported operations**: `+` (concatenation), `==`, `!=`, indexing, slicing, `len()`.
@@ -130,7 +130,7 @@ Arc supports dimensional analysis with unit annotations on types and literals.
 Types can have unit suffixes for dimensional tracking:
 
 ```arc
-velocity f64 m/s := 10.0
+velocity f64 m / s := 10.0
 distance f64 m := 50.0
 duration i64 ns := 1000000000
 ```
@@ -154,9 +154,9 @@ inverting the period.
 Timestamps and timespans are represented as `i64` with time units (nanoseconds):
 
 ```arc
-duration := 100ms            // i64 with time units
-interval := 5s               // i64 with time units
-timestamp := now()           // i64 ns from now() builtin
+duration := 100ms // i64 with time units
+interval := 5s // i64 with time units
+timestamp := now() // i64 ns from now() builtin
 ```
 
 ### Dimensional Compatibility
@@ -168,8 +168,8 @@ timestamp := now()           // i64 ns from now() builtin
 ```arc
 distance f64 m := 10.0
 time f64 s := 2.0
-speed := distance / time     // f64 m/s (dimensions combine)
-area := distance ^ 2         // f64 m^2 (literal exponent required)
+speed := distance / time // f64 m/s (dimensions combine)
+area := distance ^ 2 // f64 m^2 (literal exponent required)
 ```
 
 ## Variables
@@ -188,10 +188,10 @@ Only literal values are allowed (no expressions). Constants can be used in expre
 and function config parameters.
 
 ```arc
-MAX_PRESSURE := 500.0       // f64 constant
-SAMPLE_COUNT := 100         // i64 constant
-TIMEOUT := 30s              // with unit suffix
-SCALE f32 := 2.5            // explicit type
+MAX_PRESSURE := 500.0 // f64 constant
+SAMPLE_COUNT := 100 // i64 constant
+TIMEOUT := 30s // with unit suffix
+SCALE f32 := 2.5 // explicit type
 
 pressure > MAX_PRESSURE -> alarm{}
 sensor -> scale{gain=SCALE} -> output
@@ -213,19 +213,19 @@ Assignment ::= Identifier '=' Expression
 variables** (`$=`) persist across function invocations.
 
 ```arc
-count := 0           // local
-total $= 0           // stateful (persists across invocations)
-count = count + 1    // reassignment
+count := 0 // local
+total $= 0 // stateful (persists across invocations)
+count = count + 1 // reassignment
 ```
 
 ### Compound Assignment
 
 ```arc
-count += 1           // count = count + 1
-value -= 10          // value = value - 10
-total *= 2           // total = total * 2
-ratio /= 4           // ratio = ratio / 4
-remainder %= 3       // remainder = remainder % 3
+count += 1 // count = count + 1
+value -= 10 // value = value - 10
+total *= 2 // total = total * 2
+ratio /= 4 // ratio = ratio / 4
+remainder %= 3 // remainder = remainder % 3
 ```
 
 **Rules**: Variables are function-scoped. No shadowing of global names. Declaration once
@@ -259,9 +259,9 @@ LogicalOp ::= 'and' | 'or'
 Examples:
 
 ```arc
-power := 2 ^ 8           // 256
-neg := -2 ^ 2            // -4 (^ binds tighter than unary -)
-remainder := 10 % 3      // 1
+power := 2 ^ 8 // 256
+neg := -2 ^ 2 // -4 (^ binds tighter than unary -)
+remainder := 10 % 3 // 1
 in_range := temp >= 20 and temp <= 30
 ```
 
@@ -275,10 +275,10 @@ Arc provides the following built-in functions:
 
 ```arc
 data := [1.0, 2.0, 3.0]
-length := len(data)      // 3 (i64)
+length := len(data) // 3 (i64)
 msg := "hello"
-chars := len(msg)        // 5 (i64)
-current := now()         // current timestamp (i64 ns)
+chars := len(msg) // 5 (i64)
+current := now() // current timestamp (i64 ns)
 ```
 
 ## Functions
@@ -316,11 +316,11 @@ name, separated by commas:
 
 ```arc
 func controller{
-    setpoint f64,             // config: static at instantiation
-    sensor chan f64,          // config: channel reference
-    actuator chan f64         // config: channel reference
+    setpoint f64, // config: static at instantiation
+    sensor chan f64, // config: channel reference
+    actuator chan f64, // config: channel reference
 } (enable u8) f64 {
-    // function body
+// function body
 }
 ```
 
@@ -329,8 +329,9 @@ func controller{
 - Config parameters must be literals or channel identifiers (compile-time constants)
 - Config values are provided at instantiation using `=` syntax:
   `controller{setpoint=100.0}`
-- **Anonymous config values** are only allowed for single-parameter functions:
-  `filter{50.0}` is valid, but multi-param functions require named values
+- **Anonymous config values** map to parameters by declaration order: `filter{50.0}`
+  sets the first parameter; `average{10ms, 100}` sets the first and second. Trailing
+  parameters with defaults may be omitted.
 
 ### Input Parameters
 
@@ -346,8 +347,12 @@ func add(x f64, y f64) f64 {
 
 ```arc
 func clamp(value f64, min f64 = 0.0, max f64 = 1.0) f64 {
-    if value < min { return min }
-    if value > max { return max }
+    if value < min {
+        return min
+    }
+    if value > max {
+        return max
+    }
     return value
 }
 ```
@@ -358,7 +363,7 @@ Inside function bodies, call other functions using parentheses:
 
 ```arc
 func process(x f64) f64 {
-    clamped := clamp(x, 0.0, 100.0)    // function call
+    clamped := clamp(x, 0.0, 100.0) // function call
     return clamped * 2.0
 }
 ```
@@ -394,7 +399,7 @@ Functions can declare **stateful variables** using `$=` that persist across invo
 
 ```arc
 func counter() i64 {
-    count $= 0           // persists across calls
+    count $= 0 // persists across calls
     count = count + 1
     return count
 }
@@ -405,14 +410,10 @@ func counter() i64 {
 Functions can read from and write to channels:
 
 ```arc
-func controller{
-    input chan f64,
-    output chan f64,
-    threshold f64
-} () {
-    value := input              // read from channel (non-blocking)
+func controller{input chan f64, output chan f64, threshold f64} () {
+    value := input // read from channel (non-blocking)
     if value > threshold {
-        output = value          // write to channel
+        output = value // write to channel
     }
 }
 ```
@@ -447,14 +448,14 @@ if pressure > 100 {
 ```arc
 func example() f64 {
     if done {
-        return 0.0       // early return with value
+        return 0.0 // early return with value
     }
-    return compute()     // explicit return required
+    return compute() // explicit return required
 }
 
 func sideEffect() {
     if skip {
-        return           // early exit (no value for void functions)
+        return // early exit (no value for void functions)
     }
     // more work
 }
@@ -473,7 +474,7 @@ The flow layer connects functions via channels in the reactive scope.
 FlowStatement ::= (RoutingTable | FlowNode) (FlowOperator (RoutingTable | FlowNode))+
 
 FlowOperator ::= '->'       // continuous flow
-               | '=>'       // one-shot flow
+               | '=>'       // conditional flow
 
 RoutingTable ::= '{' RoutingEntry (',' RoutingEntry)* '}'
 
@@ -507,13 +508,19 @@ sensor -> demux{} -> {
 Map multiple sources to named input parameters:
 
 ```arc
-{ sensor1: a, sensor2: b } -> combiner{}
+ {
+    sensor1: a,
+    sensor2: b
+} -> combiner{}
 ```
 
 ### Combined Routing
 
 ```arc
-{ temp1: a, temp2: b } -> averager{} -> threshold{} -> {
+ {
+    temp1: a,
+    temp2: b
+} -> averager{} -> threshold{} -> {
     above: alarm{},
     below: logger{}
 }
@@ -525,8 +532,8 @@ Inline expressions act as implicit functions. Expressions can reference global-s
 identifiers (channels), literals, and function calls—but not function-local variables.
 
 ```arc
-temperature > 100 -> alarm{}              // comparison
-(sensor1 + sensor2) / 2.0 -> display      // arithmetic
+temperature > 100 -> alarm{} // comparison
+ (sensor1 + sensor2) / 2.0 -> display // arithmetic
 pressure > 100 or emergency -> shutdown{} // logical
 ```
 
@@ -554,8 +561,7 @@ inactive, they don't.
 **Two edge types**:
 
 - `->` (Continuous): Reactive flow that runs while the stage is active
-- `=>` (OneShot): Fires once when condition becomes true, then doesn't fire again until
-  stage is re-entered
+- `=>` (Conditional): Propagates only when the source output is truthy
 
 ### Sequence Syntax
 
@@ -573,15 +579,14 @@ StageItem ::= FlowStatement
 sequence main {
     stage pressurize {
         // Reactive flows: run continuously while stage is active
-        sensor -> pressure_control{target=500.0},
-
+        sensor -> pressure_control{target=500.0}
         // One-shot transitions: fire once when condition is true
-        pressure > 500.0 => next,
+        pressure > 500.0 => next
         abort_btn => abort
     }
 
     stage ignite {
-        igniter_cmd = 1,
+        igniter_cmd = 1
         flame_detected => next
     }
 
@@ -602,9 +607,13 @@ sequence abort {
 The `next` keyword resolves to the next stage in definition order:
 
 ```arc
-stage step1 { 1 => next }  // next = step2
-stage step2 { 1 => next }  // next = step3
-stage step3 { }            // terminal (no outgoing transitions)
+stage step1 {
+    1 => next
+} // next = step2
+stage step2 {
+    1 => next
+} // next = step3
+stage step3 {} // terminal (no outgoing transitions)
 ```
 
 **Rules**:
@@ -623,16 +632,15 @@ stage step3 { }            // terminal (no outgoing transitions)
 **Reactive flows (`->`)**: Execute every time the source produces a value while the
 stage is active.
 
-**One-shot transitions (`=>`)**: Execute once when the condition becomes true, then
-stop. The "one-shot" state resets when the stage is re-entered.
+**Conditional transitions (`=>`)**: Propagate only when the condition is truthy
+(non-zero). A transition to an already-active stage is a no-op, preventing re-entry.
 
 ### Stage Entry Semantics
 
 When entering a stage:
 
-1. All one-shot transition states reset (can fire again)
-2. All stateful nodes in the stage are reset
-3. Reactive flows start fresh
+1. All stateful nodes in the stage are reset
+2. Reactive flows start fresh
 
 Stages are stateless between entries—no implicit memory of previous time in the stage.
 
@@ -649,8 +657,8 @@ When transitioning to another sequence (e.g., `=> abort`):
 Entry points connect external events to sequences:
 
 ```arc
-start_cmd => main           // channel triggers sequence
-emergency_stop => abort     // multiple entries allowed
+start_cmd => main // channel triggers sequence
+emergency_stop => abort // multiple entries allowed
 ```
 
 The sequence starts when the source produces a truthy value.

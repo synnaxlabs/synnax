@@ -190,7 +190,7 @@ class StatusesClient:
         edit_button.click()
         search_input.wait_for(state="visible", timeout=5000)
 
-    def open_explorer_label_filter(self) -> Locator:
+    def open_explorer_filter(self) -> Locator:
         """Open the label filter dropdown in the explorer.
 
         Returns:
@@ -207,13 +207,53 @@ class StatusesClient:
         dialog.wait_for(state="visible", timeout=5000)
         return dialog
 
+    def select_explorer_variant_filter(self, variant_name: str) -> None:
+        """Select a variant in the explorer's variant filter dropdown.
+
+        Args:
+            variant_name: The display name of the variant (e.g. "Error", "Success").
+        """
+        filter_dialog = self.open_explorer_filter()
+        select_variants_trigger = filter_dialog.get_by_text("Select variants")
+        select_variants_trigger.click()
+        variant_dialog = self.layout.page.locator(
+            ".pluto-select__dialog.pluto--visible"
+        )
+        variant_dialog.wait_for(state="visible", timeout=5000)
+        item = (
+            variant_dialog.locator(".pluto-list__item")
+            .filter(has_text=variant_name)
+            .first
+        )
+        item.wait_for(state="visible", timeout=5000)
+        item.click()
+        self.layout.press_escape()
+        self.layout.press_escape()
+
+    def clear_explorer_variant_filter(self, variant_name: str) -> None:
+        """Remove a variant from the active filter by clicking its chip close button.
+
+        Args:
+            variant_name: The display name of the variant to remove.
+        """
+        tag = (
+            self.layout.page.locator(".pluto-tag:has(button)")
+            .filter(has_text=variant_name)
+            .first
+        )
+        tag.wait_for(state="visible", timeout=5000)
+        tag.hover()
+        close_btn = tag.locator("button")
+        close_btn.click()
+        tag.wait_for(state="hidden", timeout=5000)
+
     def select_explorer_label_filter(self, label_name: str) -> None:
         """Select a label in the explorer's label filter dropdown.
 
         Args:
             label_name: The name of the label to filter by.
         """
-        filter_dialog = self.open_explorer_label_filter()
+        filter_dialog = self.open_explorer_filter()
         select_labels_trigger = filter_dialog.get_by_text("Select labels")
         select_labels_trigger.click()
         label_dialog = self.layout.page.locator(".pluto-select__dialog.pluto--visible")

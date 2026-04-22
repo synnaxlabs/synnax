@@ -27,16 +27,16 @@ const errors::Error BASE_ERROR = errors::SY.sub("shared");
 const errors::Error LOAD_ERROR = BASE_ERROR.sub("load");
 
 #ifdef _WIN32
-/// SharedLib is a shared library loader and lifecycle manager implemented for
+/// Shared is a shared library loader and lifecycle manager implemented for
 /// Windows.
-class SharedLib {
+class Shared {
     const std::string name;
     LibraryHandle handle = nullptr;
 
 public:
-    explicit SharedLib(const std::string &name): name(name) {}
+    explicit Shared(const std::string &name): name(name) {}
 
-    ~SharedLib() { this->unload(); }
+    ~Shared() { this->unload(); }
 
     bool load() {
         if (this->handle != nullptr || name.empty()) return false;
@@ -58,14 +58,14 @@ public:
 
 /// Lib is a shared library loader and lifecycle manager implemented for POSIX
 /// compliant systems.
-class SharedLib {
+class Shared {
     const std::string name;
     LibraryHandle handle = nullptr;
 
 public:
-    explicit SharedLib(std::string name): name(std::move(name)) {}
+    explicit Shared(std::string name): name(std::move(name)) {}
 
-    ~SharedLib() { this->unload(); }
+    ~Shared() { this->unload(); }
 
     bool load() {
         if (this->handle != nullptr || name.empty()) return false;
@@ -81,9 +81,9 @@ public:
         this->handle = nullptr;
     }
 
-    [[nodiscard]] const void *get_func_ptr(const std::string &name) const {
+    [[nodiscard]] const void *get_func_ptr(const std::string &lib_name) const {
         if (this->handle == nullptr) return nullptr;
-        return ::dlsym(this->handle, name.c_str());
+        return ::dlsym(this->handle, lib_name.c_str());
     }
 };
 #endif

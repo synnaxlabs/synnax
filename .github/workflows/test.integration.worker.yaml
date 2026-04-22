@@ -34,18 +34,16 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v6
-        with:
-          clean: false
 
       - name: Force Quit Existing Synnax Processes (Windows)
         if: runner.os == 'Windows'
         shell: cmd
-        run: integration/scripts/KillSynnaxProcessesWindows.cmd
+        run: integration/scripts/KillSynnaxProcesses.cmd
 
       - name: Force Quit Existing Synnax Processes (Unix)
         if: runner.os == 'Linux'
         continue-on-error: true
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Download and Setup Artifacts (Windows)
         if: runner.os == 'Windows'
@@ -53,34 +51,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/DownloadArtifactsWindows.cmd
+        run: integration/scripts/DownloadArtifacts.cmd
 
       - name: Download and Setup Artifacts (Unix)
         if: runner.os == 'Linux'
         env:
           GH_TOKEN: ${{ github.token }}
           REF_RUN_ID: ${{ inputs.ref_run_id }}
-        run: integration/scripts/download_artifacts_unix.sh
+        run: integration/scripts/download_artifacts.sh
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
           python-version-file: integration/pyproject.toml
 
-      - name: Install Playwright (Windows)
-        if: runner.os == 'Windows'
-        shell: cmd
-        working-directory: integration
-        run: uv run playwright install --with-deps
-
-      - name: Install Playwright (Unix)
-        if: runner.os == 'Linux'
+      - name: Install Playwright
         working-directory: integration
         run: uv run playwright install --with-deps
 
@@ -90,14 +81,14 @@ jobs:
         shell: powershell
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/StartCoreWindows.ps1
+        run: integration/scripts/StartCore.ps1
 
       - name: Start Core (Unix)
         if: runner.os == 'Linux'
         timeout-minutes: 1
         env:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
-        run: integration/scripts/start_core_unix.sh
+        run: integration/scripts/start_core.sh
 
       - name: Test Conductor (Windows)
         if: runner.os == 'Windows'
@@ -107,6 +98,8 @@ jobs:
         working-directory: integration
         env:
           PYTHONIOENCODING: utf-8
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_win ${{ matrix.target || inputs.flags }}
 
@@ -115,11 +108,14 @@ jobs:
         id: test-conductor-unix
         timeout-minutes: 30
         working-directory: integration
+        env:
+          PAGERDUTY_ROUTING_KEY: ${{ secrets.PAGERDUTY_ROUTING_KEY }}
+          PAGERDUTY_API_KEY: ${{ secrets.PAGERDUTY_API_KEY }}
         run: >-
           uv run test-conductor --name tc_unix ${{ matrix.target || inputs.flags }}
 
       - name: Upload Test Results
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: always()
         with:
           name: test-results-${{ inputs.os }}-${{ matrix.name }}
@@ -127,7 +123,7 @@ jobs:
           retention-days: 7
 
       - name: Upload Core Logs
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
           name:

@@ -40,26 +40,26 @@ var _ = Describe("DB", func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				It("Should return true if the domain DB has data for particular time range", func() {
+				It("Should return true if the domain DB has data for particular time range", func(ctx SpecContext) {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(db.HasDataFor(ctx, tr)).To(BeTrue())
 				})
 
-				It("Should return false if the domain DB does not have data for particular time range", func() {
+				It("Should return false if the domain DB does not have data for particular time range", func(ctx SpecContext) {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(domain.Write(ctx, db, tr, []byte{1, 2, 3, 4, 5, 6})).To(Succeed())
 					Expect(db.HasDataFor(ctx, (20 * telem.SecondTS).SpanRange(10*telem.Second))).To(BeFalse())
 				})
 
-				It("Should return false if the DB is empty", func() {
+				It("Should return false if the DB is empty", func(ctx SpecContext) {
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(db.HasDataFor(ctx, tr)).To(BeFalse())
 				})
 			})
 
 			Describe("Close", func() {
-				It("Should return an error if there are open writers on the DB", func() {
+				It("Should return an error if there are open writers on the DB", func(ctx SpecContext) {
 					fs, cleanUp := makeFS()
 					db := MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
@@ -96,14 +96,14 @@ var _ = Describe("DB", func() {
 					Expect(db.Size()).To(Equal(telem.Size(0)))
 				})
 
-				It("Should return the correct size after writing data", func() {
+				It("Should return the correct size after writing data", func(ctx SpecContext) {
 					data := []byte{1, 2, 3, 4, 5, 6, 7, 8, 9, 10}
 					tr := (10 * telem.SecondTS).SpanRange(10 * telem.Second)
 					Expect(domain.Write(ctx, db, tr, data)).To(Succeed())
 					Expect(db.Size()).To(Equal(telem.Size(len(data))))
 				})
 
-				It("Should accumulate size across multiple writes", func() {
+				It("Should accumulate size across multiple writes", func(ctx SpecContext) {
 					data1 := []byte{1, 2, 3, 4, 5}
 					tr1 := (10 * telem.SecondTS).SpanRange(5 * telem.Second)
 					Expect(domain.Write(ctx, db, tr1, data1)).To(Succeed())
@@ -121,14 +121,14 @@ var _ = Describe("DB", func() {
 
 	Describe("Attempting Operations on a Closed DB", func() {
 		Describe("HasDataFor", func() {
-			It("Should return ErrDBClosed", func() {
+			It("Should return ErrDBClosed", func(ctx SpecContext) {
 				db := MustSucceed(domain.Open(domain.Config{
 					FS:              fs.NewMem(),
 					Instrumentation: PanicLogger(),
 				}))
 				Expect(db.Close()).To(Succeed())
 				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(HaveOccurredAs(domain.ErrDBClosed))
+				Expect(err).To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})

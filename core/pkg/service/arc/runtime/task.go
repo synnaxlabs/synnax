@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -41,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
+	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/confluence"
@@ -64,7 +64,6 @@ const (
 
 // taskImpl implements the driver.Task interface and manages Arc program execution.
 type taskImpl struct {
-	ctx        driver.Context
 	factoryCfg FactoryConfig
 	task       task.Task
 	cfg        TaskConfig
@@ -73,29 +72,29 @@ type taskImpl struct {
 	closer io.Closer
 }
 
+var _ driver.Task = (*taskImpl)(nil)
+
 func (t *taskImpl) Exec(ctx context.Context, cmd task.Command) error {
 	switch cmd.Type {
 	case "start":
 		return t.start(ctx)
 	case "stop":
-		return t.stop()
+		return t.Stop()
 	default:
-		return errors.Newf("invalid command %s received for arc task", cmd)
+		return driver.ErrUnsupportedCommand
 	}
 }
 
-func (t *taskImpl) isRunning() bool {
-	return t.closer != nil
-}
+func (t *taskImpl) isRunning() bool { return t.closer != nil }
 
 func (t *taskImpl) start(ctx context.Context) (err error) {
 	if t.isRunning() {
 		return nil
 	}
 	drt := dataRuntime{}
-	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, t.prog.Program)
+	stateCfg, err := NewStateConfig(ctx, t.factoryCfg.Channel.Service, *t.prog.Program)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -122,35 +121,35 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 
 	timeMod, err := time.NewModule(ctx, wasmRT)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	channelMod, err := channel.NewModule(ctx, drt.state.channel, drt.state.strings, wasmRT)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	statefulMod, err := stateful.NewModule(ctx, drt.state.series, drt.state.strings, wasmRT)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	if _, err = series.NewModule(ctx, drt.state.series, wasmRT); err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	stringsMod, err := stlstrings.NewModule(ctx, drt.state.strings, wasmRT, nil)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	if _, err = stlmath.NewModule(ctx, wasmRT); err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 	errorsMod, err := stlerrors.NewModule(ctx, nil, wasmRT)
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
 
@@ -161,7 +160,6 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
-		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlcontrol.NewModule(drt.state.control),
@@ -171,7 +169,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	if len(t.prog.Program.WASM) > 0 {
 		guest, guestErr := wasmRT.Instantiate(ctx, t.prog.Program.WASM)
 		if guestErr != nil {
-			t.setStatus(status.VariantError, false, guestErr.Error())
+			t.setStatus(ctx, status.VariantError, false, guestErr.Error())
 			return guestErr
 		}
 		stringsMod.SetMemory(guest.Memory())
@@ -191,11 +189,11 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	for _, irNode := range t.prog.Program.Nodes {
 		n, nodeErr := f.Create(ctx, node.Config{
 			Node:    irNode,
-			Program: t.prog.Program,
+			Program: *t.prog.Program,
 			State:   drt.state.nodes.Node(irNode.Key),
 		})
 		if nodeErr != nil {
-			t.setStatus(status.VariantError, false, nodeErr.Error())
+			t.setStatus(ctx, status.VariantError, false, nodeErr.Error())
 			return nodeErr
 		}
 		nodes[irNode.Key] = n
@@ -204,17 +202,17 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	tolerance := time.CalculateTolerance(timeMod.BaseInterval)
 	drt.scheduler = scheduler.New(t.prog.Program.IR, nodes, tolerance)
 
-	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(nodeKey string, err error) {
+	drt.scheduler.SetErrorHandler(scheduler.ErrorHandlerFunc(func(ctx context.Context, nodeKey string, err error) {
 		t.factoryCfg.L.Warn("runtime error in arc node",
 			zap.String("node", nodeKey),
 			zap.Uint64("task", uint64(t.task.Key)),
 			zap.Error(err),
 		)
-		t.setRuntimeError(nodeKey, err)
+		t.setRuntimeError(ctx, nodeKey, err)
 	}))
 
 	drt.startTime = telem.Now()
-	drt.writeKeys = stateCfg.Writes.Keys()
+	drt.writeKeys = stateCfg.Writes.Slice()
 
 	pipeline := plumber.New()
 
@@ -232,10 +230,10 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: stateCfg.Reads.Keys()},
+			framer.StreamerConfig{Keys: stateCfg.Reads.Slice()},
 		)
 		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
+			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, streamerAddr, streamer)
@@ -249,9 +247,9 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}
 
 	if len(stateCfg.Writes) > 0 {
-		// Critical: Keys is extracted from a map, so we need to convert it to a
+		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
-		writeKeys := stateCfg.Writes.Keys()
+		writeKeys := stateCfg.Writes.Slice()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,
@@ -269,7 +267,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var wrt framer.StreamWriter
 		wrt, err = t.factoryCfg.Framer.NewStreamWriter(ctx, writerCfg)
 		if err != nil {
-			t.setStatus(status.VariantError, false, err.Error())
+			t.setStatus(ctx, status.VariantError, false, err.Error())
 			return err
 		}
 		plumber.SetSegment(pipeline, writerAddr, wrt)
@@ -282,7 +280,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 						zap.Int("seqNum", res.SeqNum),
 						zap.Error(res.Err),
 					)
-					t.setStatus(status.VariantError, false, res.Err.Error())
+					t.setStatus(ctx, status.VariantError, false, res.Err.Error())
 					return res.Err
 				} else if !res.Authorized {
 					t.factoryCfg.L.Warn("unauthorized writer response",
@@ -311,31 +309,28 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		confluence.RecoverWithErrOnPanic(),
 		confluence.CancelOnFail(),
 	)
-	t.setStatus(status.VariantSuccess, true, "Task started successfully")
+	t.setStatus(ctx, status.VariantSuccess, true, "Task started successfully")
 	return nil
 }
 
-func (t *taskImpl) stop() error {
+func (t *taskImpl) Stop() error {
 	if !t.isRunning() {
 		return nil
 	}
 	err := t.closer.Close()
 	t.closer = nil
+	/// TODO until we fix our usage of contexts in general:
+	// https://linear.app/synnax/issue/SY-4002/refactor-usages-of-contextcontext
+	ctx := context.TODO()
 	if err != nil {
-		t.setStatus(status.VariantError, false, err.Error())
+		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	t.setStatus(status.VariantSuccess, false, "Task stopped successfully")
+	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
 	return nil
 }
 
-func (t *taskImpl) Stop(bool) error {
-	return t.stop()
-}
-
-func (t *taskImpl) Key() task.Key { return t.task.Key }
-
-func (t *taskImpl) setStatus(variant status.Variant, running bool, message string) {
+func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {
 	stat := task.Status{
 		Key:     task.OntologyID(t.task.Key).String(),
 		Variant: variant,
@@ -343,7 +338,7 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 		Time:    telem.Now(),
 		Details: task.StatusDetails{Task: t.task.Key, Running: running},
 	}
-	if err := t.ctx.SetStatus(stat); err != nil {
+	if err := svcstatus.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); err != nil {
 		t.factoryCfg.L.Error(
 			"failed to set status for taskImpl",
 			zap.Uint64("key", uint64(t.task.Key)),
@@ -353,7 +348,7 @@ func (t *taskImpl) setStatus(variant status.Variant, running bool, message strin
 	}
 }
 
-func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
+func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err error) {
 	nodeType := nodeKey
 	if n, ok := t.prog.Program.Nodes.Find(nodeKey); ok {
 		nodeType = n.Type
@@ -366,7 +361,7 @@ func (t *taskImpl) setRuntimeError(nodeKey string, err error) {
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},
 	}
-	if setErr := t.ctx.SetStatus(stat); setErr != nil {
+	if setErr := svcstatus.NewWriter[task.StatusDetails](t.factoryCfg.Status, nil).Set(ctx, &stat); setErr != nil {
 		t.factoryCfg.L.Error("failed to set error status", zap.Error(setErr))
 	}
 }

@@ -38,6 +38,8 @@ type StreamerConfig struct {
 type StreamerResponse struct {
 	// Frame is the frame containing the channel data.
 	Frame Frame
+	// Group is the group identifier of the writer that produced this frame.
+	Group uint32
 }
 
 // Streamer allows the caller to tap into the DB's write pipeline using a confluence
@@ -84,7 +86,7 @@ func NewTranslatedStreamer[I any, O any](
 	translateResponse func(StreamerResponse) O,
 ) (Streamer[I, O], error) {
 	if db.closed.Load() {
-		return nil, errDBClosed
+		return nil, ErrDBClosed
 	}
 	return &streamer[I, O]{
 		StreamerConfig:    cfg,
@@ -129,12 +131,12 @@ func (s *streamer[I, O]) Flow(sCtx signal.Context, opts ...confluence.Option) {
 					return nil
 				}
 				s.Channels = s.translateRequest(req).Channels
-			case f := <-frames.Outlet():
-				if filtered := f.KeepKeys(s.Channels); !filtered.Empty() {
+			case rf := <-frames.Outlet():
+				if filtered := rf.frame.KeepKeys(s.Channels); !filtered.Empty() {
 					if err := signal.SendUnderContext(
 						ctx,
 						s.Out.Inlet(),
-						s.translateResponse(StreamerResponse{Frame: filtered}),
+						s.translateResponse(StreamerResponse{Frame: filtered, Group: rf.group}),
 					); err != nil {
 						return err
 					}

@@ -17,38 +17,54 @@ export type Make = typeof MAKE;
 export const makeZ = z.literal(MAKE);
 
 export const propertiesZ = z.object({
-  identifier: Common.Device.identifierZ,
-  analogInput: z.object({
-    portCount: z.number(),
-    index: channel.keyZ,
-    channels: z.record(z.string(), channel.keyZ),
-  }),
-  analogOutput: z.object({
-    portCount: z.number(),
-    stateIndex: channel.keyZ,
-    channels: z.record(z.string(), Common.Device.commandStatePairZ),
-  }),
-  counterInput: z.object({
-    portCount: z.number(),
-    index: channel.keyZ,
-    channels: z.record(z.string(), channel.keyZ),
-  }),
-  digitalInputOutput: z.object({
-    portCount: z.number(),
-    lineCounts: z.array(z.number()),
-  }),
-  digitalInput: z.object({
-    portCount: z.number(),
-    lineCounts: z.array(z.number()),
-    index: channel.keyZ,
-    channels: z.record(z.string(), channel.keyZ),
-  }),
-  digitalOutput: z.object({
-    portCount: z.number(),
-    lineCounts: z.array(z.number()),
-    stateIndex: channel.keyZ,
-    channels: z.record(z.string(), Common.Device.commandStatePairZ),
-  }),
+  identifier: Common.Device.identifierZ.catch(""),
+  analogInput: z
+    .object({
+      portCount: z.number().default(0),
+      index: channel.keyZ.catch(0),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
+    })
+    .default(() => ({ portCount: 0, index: 0, channels: {} })),
+  analogOutput: z
+    .object({
+      portCount: z.number().default(0),
+      stateIndex: channel.keyZ.catch(0),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
+    })
+    .default(() => ({ portCount: 0, stateIndex: 0, channels: {} })),
+  counterInput: z
+    .object({
+      portCount: z.number().default(0),
+      index: channel.keyZ.catch(0),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
+    })
+    .default(() => ({ portCount: 0, index: 0, channels: {} })),
+  digitalInputOutput: z
+    .object({
+      portCount: z.number().default(0),
+      lineCounts: z.array(z.number()).default(() => []),
+    })
+    .default(() => ({ portCount: 0, lineCounts: [] })),
+  digitalInput: z
+    .object({
+      portCount: z.number().default(0),
+      lineCounts: z.array(z.number()).default(() => []),
+      index: channel.keyZ.catch(0),
+      channels: z.record(z.string(), channel.keyZ).default(() => ({})),
+    })
+    .default(() => ({ portCount: 0, lineCounts: [], index: 0, channels: {} })),
+  digitalOutput: z
+    .object({
+      portCount: z.number().default(0),
+      lineCounts: z.array(z.number()).default(() => []),
+      stateIndex: channel.keyZ.catch(0),
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
+    })
+    .default(() => ({ portCount: 0, lineCounts: [], stateIndex: 0, channels: {} })),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 
@@ -68,4 +84,5 @@ export interface New extends device.New<typeof propertiesZ, typeof makeZ> {}
 export const SCHEMAS = {
   properties: propertiesZ,
   make: makeZ,
+  model: z.string(),
 } as const satisfies device.DeviceSchemas<typeof propertiesZ, typeof makeZ>;

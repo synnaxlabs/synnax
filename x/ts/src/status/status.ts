@@ -9,60 +9,15 @@
 
 import { z } from "zod";
 
-import { array } from "@/array";
 import { id } from "@/id";
-import { label } from "@/label";
 import { narrow } from "@/narrow";
 import { type optional } from "@/optional";
+import { primitive } from "@/primitive";
+import { record } from "@/record";
+import { type Status, type Variant } from "@/status/types.gen";
 import { TimeStamp } from "@/telem";
 
-export const variantZ = z.enum([
-  "success",
-  "info",
-  "warning",
-  "error",
-  "loading",
-  "disabled",
-]);
-
-// Represents one of the possible variants of a status message.
-export type Variant = z.infer<typeof variantZ>;
-
-export type StatusZodObject<DetailsSchema extends z.ZodType = z.ZodNever> = z.ZodObject<
-  {
-    key: z.ZodString;
-    name: z.ZodDefault<z.ZodString>;
-    variant: typeof variantZ;
-    message: z.ZodString;
-    description: z.ZodOptional<z.ZodString>;
-    labels: z.ZodOptional<ReturnType<typeof array.nullableZ<typeof label.labelZ>>>;
-    time: typeof TimeStamp.z;
-  } & ([DetailsSchema] extends [z.ZodNever] ? {} : { details: DetailsSchema })
->;
-
-export interface StatusZFunction {
-  <DetailsSchema extends z.ZodType>(
-    details: DetailsSchema,
-  ): StatusZodObject<DetailsSchema>;
-  <DetailsSchema extends z.ZodType = z.ZodNever>(
-    details?: DetailsSchema,
-  ): StatusZodObject<DetailsSchema>;
-}
-
-export const statusZ: StatusZFunction = <DetailsSchema extends z.ZodType>(
-  details?: DetailsSchema,
-) =>
-  z.object({
-    key: z.string(),
-    name: z.string().default(""),
-    variant: variantZ,
-    message: z.string(),
-    description: z.string().optional(),
-    time: TimeStamp.z,
-    labels: array.nullableZ(label.labelZ).optional(),
-    details: details ?? z.unknown().optional(),
-  });
-
+// Input type for creating statuses - uses conditional typing for optional details
 type Base<V extends Variant> = {
   key: string;
   name: string;
@@ -70,45 +25,90 @@ type Base<V extends Variant> = {
   message: string;
   description?: string;
   time: TimeStamp;
-  labels?: label.Label[];
 };
 
-export type Status<DetailsSchema = z.ZodNever, V extends Variant = Variant> = Base<V> &
-  ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
-
 export type Crude<
-  DetailsSchema = z.ZodNever,
+  DetailsSchema extends z.ZodType = z.ZodNever,
   V extends Variant = Variant,
 > = optional.Optional<Base<V>, "key" | "time" | "name"> &
   ([DetailsSchema] extends [z.ZodNever] ? {} : { details: z.output<DetailsSchema> });
 
-export const exceptionDetailsSchema = z.object({
-  stack: z.string(),
-  error: z.instanceof(Error),
+/**
+ * Interface that errors may optionally implement to provide richer rendering when
+ * passed to {@link fromException}. Implementers return a partial {@link Crude} spec
+ * whose fields override the defaults derived from the underlying `Error`.
+ *
+ * This is a duck-typed contract: `fromException` checks for the presence of a
+ * `toStatus` method via the `in` operator, so there is no need to import this
+ * interface to use it.
+ */
+export interface Custom {
+  toStatus(): Partial<Crude<z.ZodRecord, "error">>;
+}
+
+const customReturnZ = z.object({
+  message: z.string().optional(),
+  description: z.string().optional(),
+  details: record.unknownZ().optional(),
 });
+
+const hasToStatusMethod = (exc: Error): exc is Error & { toStatus: () => unknown } =>
+  "toStatus" in exc && typeof (exc as { toStatus: unknown }).toStatus === "function";
+
+const safeToStatus = (exc: Error): z.infer<typeof customReturnZ> | undefined => {
+  if (!hasToStatusMethod(exc)) return undefined;
+  let raw: unknown;
+  try {
+    raw = exc.toStatus();
+  } catch {
+    return undefined;
+  }
+  const parsed = customReturnZ.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+};
+
+export const exceptionDetailsSchema = z
+  .object({
+    stack: z.string(),
+    error: z.instanceof(Error),
+  })
+  .and(record.unknownZ());
 
 export const fromException = (
   exc: unknown,
   message?: string,
-): Status<typeof exceptionDetailsSchema, "error"> => {
+): Status<typeof exceptionDetailsSchema, z.ZodLiteral<"error">> => {
   if (!(exc instanceof Error)) throw exc;
-  return create<typeof exceptionDetailsSchema, "error">({
+  const crude: Crude<typeof exceptionDetailsSchema, "error"> = {
     variant: "error",
     message: message ?? exc.message,
     description: message != null ? exc.message : undefined,
     details: { stack: exc.stack ?? "", error: exc },
-  });
+  };
+  const custom = safeToStatus(exc);
+  if (custom != null) {
+    if (message != null && custom.message != null)
+      crude.message = `${message}: ${custom.message}`;
+    else if (custom.message != null) crude.message = custom.message;
+    if (custom.description != null) crude.description = custom.description;
+    if (custom.details != null && crude.details != null)
+      crude.details = { ...crude.details, ...custom.details };
+  }
+  return create<typeof exceptionDetailsSchema, "error">(crude);
 };
 
-export const create = <DetailsSchema = z.ZodNever, V extends Variant = Variant>(
+export const create = <
+  DetailsSchema extends z.ZodType = z.ZodNever,
+  V extends Variant = Variant,
+>(
   spec: Crude<DetailsSchema, V>,
-): Status<DetailsSchema, V> =>
+): Status<DetailsSchema, z.ZodType<V>> =>
   ({
     key: id.create(),
     time: TimeStamp.now(),
     name: "",
     ...spec,
-  }) as Status<DetailsSchema, V>;
+  }) as Status<DetailsSchema, z.ZodType<V>>;
 
 export const keepVariants = (
   variant?: Variant,
@@ -144,32 +144,32 @@ const DEFAULT_TO_STRING_OPTIONS: ToStringOptions = {
   includeName: true,
 };
 
-export const toString = <Details = never>(
+const renderDescription = (description: string): string => {
+  if (description.includes("\n")) return `Description:\n${description}`;
+  try {
+    const parsed = JSON.parse(description);
+    return `Description:\n${JSON.stringify(parsed, null, 2)}`;
+  } catch {
+    return `Description: ${description}`;
+  }
+};
+
+export const toString = <Details extends z.ZodType = z.ZodNever>(
   stat: Status<Details>,
   options: ToStringOptions = {},
 ): string => {
   const opts = { ...DEFAULT_TO_STRING_OPTIONS, ...options };
   const parts: string[] = [];
   let header = stat.variant.toUpperCase();
-  if (opts.includeName && stat.name.length > 0) header += ` [${stat.name}]`;
+  if (opts.includeName && primitive.isNonZero(stat.name)) header += ` [${stat.name}]`;
   header += `: ${stat.message}`;
   if (opts.includeTimestamp) header += ` (${stat.time.toString("dateTime", "local")})`;
   parts.push(header);
-  if (stat.description != null) {
-    let descriptionText: string;
-    try {
-      const parsed = JSON.parse(stat.description);
-      descriptionText = `Description:\n${JSON.stringify(parsed, null, 2)}`;
-    } catch {
-      descriptionText = `Description: ${stat.description}`;
-    }
-    parts.push(descriptionText);
-  }
+  if (stat.description != null) parts.push(renderDescription(stat.description));
   if ("details" in stat && narrow.isObject(stat.details)) {
     const details = stat.details as Record<string, unknown>;
-    // Extract stack trace separately for special formatting
-    if ("stack" in details) parts.push(`Stack Trace:\n${String(details.stack)}`);
-    // Include other details (excluding stack and error which don't serialize well)
+    if ("stack" in details && typeof details.stack === "string" && details.stack !== "")
+      parts.push(`Stack Trace:\n${details.stack}`);
     const extraDetails = Object.fromEntries(
       Object.entries(details).filter(([k]) => k !== "stack" && k !== "error"),
     );

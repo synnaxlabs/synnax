@@ -207,7 +207,7 @@ const createTypedLineKeys = (state: State): TypedLineKey[] =>
           .filter(([axis]) => !X_AXIS_KEYS.includes(axis as XAxisKey))
           .flatMap(([yAxis, yChannels]) => {
             const xChannel = state.channels[xAxis as XAxisKey];
-            return (yChannels as channel.Keys).map((yChannel) => ({
+            return (yChannels as channel.Key[]).map((yChannel) => ({
               range,
               xAxis: xAxis as XAxisKey,
               yAxis: yAxis as YAxisKey,

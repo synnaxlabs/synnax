@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pydantic import BaseModel
 
-from freighter import ExceptionPayload, register_exception
+from x.exceptions import ExceptionPayload, register_exception
 
 
 class Message(BaseModel):

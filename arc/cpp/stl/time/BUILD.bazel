@@ -1,3 +1,6 @@
+load("@rules_cc//cc:cc_library.bzl", "cc_library")
+load("@rules_cc//cc:cc_test.bzl", "cc_test")
+
 cc_library(
     name = "time",
     hdrs = ["time.h"],
@@ -12,8 +15,8 @@ cc_library(
         "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//arc/cpp/stl",
-        "//x/cpp/telem",
         "//x/cpp/errors",
+        "//x/cpp/telem",
     ],
 )
 

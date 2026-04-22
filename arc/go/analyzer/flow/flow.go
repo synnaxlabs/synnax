@@ -21,10 +21,11 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 func AnalyzeSingleFunction(ctx context.Context[parser.IFunctionContext]) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	funcType := resolveFunc(ctx, name)
 	if funcType == nil {
 		return
@@ -74,7 +75,7 @@ func analyzeNode(ctx context.Context[parser.IFlowNodeContext], prevNode parser.I
 }
 
 func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser.IFlowNodeContext) {
-	name := ctx.AST.IDENTIFIER().GetText()
+	name := parser.FunctionName(ctx.AST)
 	funcType := resolveFunc(ctx, name)
 	if funcType == nil {
 		return
@@ -151,7 +152,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 			}
 		}
 	} else if prevFuncNode := prevNode.Function(); prevFuncNode != nil {
-		prevFuncName := prevFuncNode.IDENTIFIER().GetText()
+		prevFuncName := parser.FunctionName(prevFuncNode)
 		prevFuncType := resolveFunc(ctx, prevFuncName)
 		if prevFuncType == nil {
 			return
@@ -278,11 +279,11 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 		return
 	}
 
-	configParams := make(map[string]bool)
+	configParams := make(set.Set[string])
 	if namedVals := configBlock.NamedConfigValues(); namedVals != nil {
 		for _, configVal := range namedVals.AllNamedConfigValue() {
 			key := configVal.IDENTIFIER().GetText()
-			configParams[key] = true
+			configParams.Add(key)
 			expectedType, exists := fnType.Config.Get(key)
 			if !exists {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
@@ -310,15 +311,34 @@ func validateFuncConfig[T antlr.ParserRuleContext](
 			}
 		}
 	} else if anonVals := configBlock.AnonymousConfigValues(); anonVals != nil {
-		ctx.Diagnostics.Add(diagnostics.Errorf(
-			anonVals,
-			"anonymous configuration values are not supported",
-		))
-		return
+		exprs := anonVals.AllExpression()
+		if len(exprs) > len(fnType.Config) {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				anonVals,
+				"too many config values for func '%s': got %d, expected at most %d",
+				fnName, len(exprs), len(fnType.Config),
+			))
+			return
+		}
+		for i, expr := range exprs {
+			param := fnType.Config[i]
+			configParams.Add(param.Name)
+			childCtx := context.Child(ctx, expr)
+			expression.Analyze(childCtx)
+			exprType := atypes.InferFromExpression(childCtx)
+			if err := atypes.Check(ctx.Constraints, param.Type, exprType, expr,
+				"config parameter '"+param.Name+"' for func '"+fnName+"'"); err != nil {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					expr,
+					"type mismatch: config parameter '%s' expects %s but got %s",
+					param.Name, param.Type, exprType,
+				))
+			}
+		}
 	}
 
 	for _, param := range fnType.Config {
-		if !configParams[param.Name] && param.Value == nil {
+		if !configParams.Contains(param.Name) && param.Value == nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				configNode,
 				"missing required config parameter '%s' for func '%s'",
@@ -399,7 +419,7 @@ func analyzeOutputRoutingTable(
 		return
 	}
 
-	fnName := PrevFunc.IDENTIFIER().GetText()
+	fnName := parser.FunctionName(PrevFunc)
 	fnType := resolveFunc(ctx, fnName)
 	if fnType == nil {
 		return
@@ -423,7 +443,7 @@ func analyzeOutputRoutingTable(
 	for _, node := range nodesAfter {
 		if fn := node.Function(); fn != nil {
 			nextFunc = fn
-			nextFuncName := nextFunc.IDENTIFIER().GetText()
+			nextFuncName := parser.FunctionName(nextFunc)
 			nextFuncScope, err := ctx.Scope.Resolve(ctx, nextFuncName)
 			if err == nil && nextFuncScope.Kind == symbol.KindFunction {
 				nextFuncType = nextFuncScope.Type
@@ -463,7 +483,7 @@ func analyzeOutputRoutingTable(
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					entry,
 					"func '%s' does not have parameter '%s'",
-					nextFunc.IDENTIFIER().GetText(),
+					parser.FunctionName(nextFunc),
 					targetParamName,
 				))
 				continue
@@ -505,7 +525,7 @@ func analyzeInputRoutingTable(
 		return
 	}
 
-	fnName := nextFunc.IDENTIFIER().GetText()
+	fnName := parser.FunctionName(nextFunc)
 	fnType := resolveFunc(ctx, fnName)
 	if fnType == nil {
 		return
@@ -559,7 +579,7 @@ func analyzeRoutingTargetWithParam(
 	targetParam *string,
 ) {
 	if fn := ctx.AST.Function(); fn != nil {
-		fnName := fn.IDENTIFIER().GetText()
+		fnName := parser.FunctionName(fn)
 		fnType := resolveFunc(ctx, fnName)
 		if fnType == nil {
 			return
@@ -621,13 +641,13 @@ func analyzeRoutingTargetWithParam(
 			return
 		}
 
-		// Allow both channels and sequences as routing targets
-		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence {
-			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel or sequence", idName))
+		// Allow channels, sequences, and stages as routing targets
+		if idSym.Kind != symbol.KindChannel && idSym.Kind != symbol.KindSequence && idSym.Kind != symbol.KindStage {
+			ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a channel, sequence, or stage", idName))
 			return
 		}
 
-		// Only do type checking for channels (sequences accept any input for activation)
+		// Only do type checking for channels (sequences/stages accept any input for activation)
 		if idSym.Kind == symbol.KindChannel {
 			valueType := idSym.Type.Unwrap()
 			if err = atypes.Check(

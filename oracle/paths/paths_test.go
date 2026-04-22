@@ -16,29 +16,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/paths"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Paths", func() {
 	var repoRoot string
 
 	BeforeEach(func() {
-		var err error
-		repoRoot, err = paths.RepoRoot()
-		Expect(err).ToNot(HaveOccurred())
+		repoRoot = MustSucceed(paths.RepoRoot())
 	})
 
 	Describe("RepoRoot", func() {
 		It("Should find repo root from current directory", func() {
-			root, err := paths.RepoRoot()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(root).To(HaveSuffix("synnax"))
-			Expect(filepath.Join(root, ".git")).To(BeADirectory())
+			root := MustSucceed(paths.RepoRoot())
+			Expect(filepath.Join(root, "pnpm-workspace.yaml")).To(BeAnExistingFile())
+			Expect(filepath.Join(root, "MODULE.bazel")).To(BeAnExistingFile())
 		})
 
 		It("Should find repo root from a subdirectory", func() {
 			// We're already in a subdirectory (oracle/paths)
-			root, err := paths.RepoRoot()
-			Expect(err).ToNot(HaveOccurred())
+			root := MustSucceed(paths.RepoRoot())
 			Expect(root).ToNot(BeEmpty())
 		})
 	})
@@ -46,26 +43,23 @@ var _ = Describe("Paths", func() {
 	Describe("Normalize", func() {
 		It("Should normalize absolute paths to repo-relative", func() {
 			absPath := filepath.Join(repoRoot, "oracle", "paths")
-			rel, err := paths.Normalize(absPath, repoRoot)
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.Normalize(absPath, repoRoot))
 			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
 		})
 
 		It("Should handle already repo-relative paths", func() {
-			rel, err := paths.Normalize("oracle/paths", repoRoot)
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.Normalize("oracle/paths", repoRoot))
 			Expect(rel).To(Equal(filepath.Join("oracle", "paths")))
 		})
 
 		It("Should reject paths that escape the repository", func() {
-			_, err := paths.Normalize("../../../etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("escapes"))
+			Expect(paths.Normalize("../../../etc/passwd", repoRoot)).
+				Error().To(MatchError(ContainSubstring("escapes")))
 		})
 
 		It("Should reject empty paths", func() {
-			_, err := paths.Normalize("", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.Normalize("", repoRoot)).
+				Error().To(MatchError(ContainSubstring("path cannot be empty")))
 		})
 	})
 
@@ -84,61 +78,53 @@ var _ = Describe("Paths", func() {
 
 	Describe("ValidateOutput", func() {
 		It("Should accept valid repo-relative paths", func() {
-			err := paths.ValidateOutput("client/ts/src/user", repoRoot)
-			Expect(err).ToNot(HaveOccurred())
+			Expect(paths.ValidateOutput("client/ts/src/user", repoRoot)).To(Succeed())
 		})
 
 		It("Should reject path traversal attempts", func() {
-			err := paths.ValidateOutput("../../../etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("path traversal"))
+			Expect(paths.ValidateOutput("../../../etc/passwd", repoRoot)).Error().
+				To(MatchError(ContainSubstring("path traversal")))
 		})
 
 		It("Should reject paths containing ..", func() {
-			err := paths.ValidateOutput("client/../../../etc", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.ValidateOutput("client/../../../etc", repoRoot)).Error().
+				To(MatchError(ContainSubstring("output path \"client/../../../etc\" contains path traversal")))
 		})
 
 		It("Should reject absolute paths", func() {
-			err := paths.ValidateOutput("/etc/passwd", repoRoot)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("repo-relative"))
+			Expect(paths.ValidateOutput("/etc/passwd", repoRoot)).Error().
+				To(MatchError(ContainSubstring("repo-relative")))
 		})
 
 		It("Should reject empty paths", func() {
-			err := paths.ValidateOutput("", repoRoot)
-			Expect(err).To(HaveOccurred())
+			Expect(paths.ValidateOutput("", repoRoot)).
+				Error().To(MatchError(ContainSubstring("output path cannot be empty")))
 		})
 	})
 
 	Describe("RelativeImport", func() {
 		It("Should compute relative path between sibling directories", func() {
-			rel, err := paths.RelativeImport("client/ts/src/user", "client/ts/src/group")
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src/group"))
 			Expect(rel).To(Equal("../group"))
 		})
 
 		It("Should compute relative path to nested directory", func() {
-			rel, err := paths.RelativeImport("client/ts/src", "client/ts/src/user")
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src/user"))
 			Expect(rel).To(Equal("./user"))
 		})
 
 		It("Should compute relative path to parent directory", func() {
-			rel, err := paths.RelativeImport("client/ts/src/user", "client/ts/src")
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "client/ts/src"))
 			Expect(rel).To(Equal(".."))
 		})
 
 		It("Should return . for same directory", func() {
-			rel, err := paths.RelativeImport("client/ts/src", "client/ts/src")
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.RelativeImport("client/ts/src", "client/ts/src"))
 			Expect(rel).To(Equal("."))
 		})
 
 		It("Should compute relative path across different branches", func() {
-			rel, err := paths.RelativeImport("client/ts/src/user", "core/pkg/service/group")
-			Expect(err).ToNot(HaveOccurred())
+			rel := MustSucceed(paths.RelativeImport("client/ts/src/user", "core/pkg/service/group"))
 			Expect(rel).To(Equal("../../../../core/pkg/service/group"))
 		})
 	})
@@ -175,21 +161,17 @@ var _ = Describe("Paths", func() {
 	Describe("Integration", func() {
 		It("Should work correctly from different working directories", func() {
 			// Save original working directory
-			originalWd, err := os.Getwd()
-			Expect(err).ToNot(HaveOccurred())
+			originalWd := MustSucceed(os.Getwd())
 			defer func() { Expect(os.Chdir(originalWd)).To(Succeed()) }()
 
 			// Get repo root from current location
-			root1, err := paths.RepoRoot()
-			Expect(err).ToNot(HaveOccurred())
+			root1 := MustSucceed(paths.RepoRoot())
 
 			// Change to a subdirectory
-			err = os.Chdir(filepath.Join(repoRoot, "oracle"))
-			Expect(err).ToNot(HaveOccurred())
+			Expect(os.Chdir(filepath.Join(repoRoot, "oracle"))).To(Succeed())
 
 			// Get repo root from subdirectory
-			root2, err := paths.RepoRoot()
-			Expect(err).ToNot(HaveOccurred())
+			root2 := MustSucceed(paths.RepoRoot())
 
 			// Both should return the same root
 			Expect(root1).To(Equal(root2))

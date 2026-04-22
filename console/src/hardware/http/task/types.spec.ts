@@ -13,6 +13,7 @@ import { describe, expect, it } from "vitest";
 import {
   READ_SCHEMAS,
   READ_TYPE,
+  SCAN_SCHEMAS,
   WRITE_SCHEMAS,
   WRITE_TYPE,
 } from "@/hardware/http/task/types";
@@ -119,6 +120,10 @@ describe("HTTP Task Types", () => {
 
     it("should validate statusData as null", () => {
       READ_SCHEMAS.statusData.parse(null);
+    });
+
+    it("should validate statusData as undefined", () => {
+      expect(READ_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
     });
   });
 
@@ -938,5 +943,14 @@ describe("HTTP Task Types", () => {
         { parameter: "key", value: "abc" },
       ]);
     });
+  });
+});
+
+describe("HTTP Scan Task statusData", () => {
+  it("should accept null", () => {
+    expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  });
+  it("should accept undefined", () => {
+    expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
   });
 });

@@ -10,16 +10,20 @@
 package runtime_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
-
-var ctx = context.Background()
 
 func TestRuntime(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Runtime Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

@@ -13,25 +13,25 @@ import { type ReactElement } from "react";
 
 import { CALCULATED_LAYOUT } from "@/channel/calculatedLayout";
 import { CREATE_LAYOUT } from "@/channel/Create";
-import { Toolbar } from "@/components";
+import { EmptyAction, Toolbar } from "@/components";
 import { Layout } from "@/layout";
 import { Ontology } from "@/ontology";
 
-const CreateChannelButtons = (): ReactElement | null => {
+const Actions = (): ReactElement | null => {
   const placeLayout = Layout.usePlacer();
-  const canCreate = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
-  if (!canCreate) return null;
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  if (!hasCreatePermission) return null;
   return (
     <Toolbar.Actions>
       <Toolbar.Action
         onClick={() => placeLayout(CALCULATED_LAYOUT)}
-        tooltip="Create Calculated Channel"
+        tooltip="Create calculated channel"
       >
         <Channel.CreateCalculatedIcon />
       </Toolbar.Action>
       <Toolbar.Action
         onClick={() => placeLayout(CREATE_LAYOUT)}
-        tooltip="Create Channel"
+        tooltip="Create channel"
       >
         <Icon.Add />
       </Toolbar.Action>
@@ -45,12 +45,25 @@ const Content = (): ReactElement => {
     <Toolbar.Content>
       <Toolbar.Header padded>
         <Toolbar.Title icon={<Icon.Channel />}>Channels</Toolbar.Title>
-        <Toolbar.Actions>
-          <CreateChannelButtons />
-        </Toolbar.Actions>
+        <Actions />
       </Toolbar.Header>
-      <Ontology.Tree root={g == null ? undefined : group.ontologyID(g.key)} />
+      <Ontology.Tree
+        root={g == null ? undefined : group.ontologyID(g.key)}
+        emptyContent={<EmptyContent />}
+      />
     </Toolbar.Content>
+  );
+};
+
+const EmptyContent = (): ReactElement => {
+  const placeLayout = Layout.usePlacer();
+  const hasCreatePermission = Access.useCreateGranted(channel.TYPE_ONTOLOGY_ID);
+  return (
+    <EmptyAction
+      message="No channels."
+      action={hasCreatePermission ? "Create a channel" : undefined}
+      onClick={() => placeLayout(CREATE_LAYOUT)}
+    />
   );
 };
 

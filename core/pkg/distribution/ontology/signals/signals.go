@@ -10,7 +10,6 @@
 package signals
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"iter"
@@ -49,7 +48,7 @@ func Publish(
 						continue
 					}
 				} else {
-					key = EncodeID(ch.Key)
+					key = telem.MarshalVariableSample([]byte(ch.Key))
 				}
 				out = append(out, change.Change[[]byte, struct{}]{Key: key, Variant: ch.Variant})
 			}
@@ -71,7 +70,7 @@ func Publish(
 			var out []change.Change[[]byte, struct{}]
 			for ch := range nexter {
 				out = append(out, change.Change[[]byte, struct{}]{
-					Key:     append(ch.Key, '\n'),
+					Key:     telem.MarshalVariableSample(ch.Key),
 					Variant: ch.Variant,
 				})
 			}
@@ -90,7 +89,7 @@ func Publish(
 	return xio.MultiCloser{resourceObserverCloser, relationshipObserverCloser}, nil
 }
 
-func EncodeID(id ontology.ID) []byte { return []byte(id.String() + "\n") }
+func EncodeID(id ontology.ID) []byte { return telem.MarshalVariableSample([]byte(id.String())) }
 
 func EncodeIDs(ids []ontology.ID) []byte {
 	var buf []byte
@@ -101,45 +100,27 @@ func EncodeIDs(ids []ontology.ID) []byte {
 }
 
 func DecodeRelationships(ser []byte) ([]ontology.Relationship, error) {
-	// ser.Data is a byte slice containing the encoded relationships, we need to decode them
-	// by looking for the newline separator.
-	var (
-		relationships []ontology.Relationship
-		buf           bytes.Buffer
-	)
-	for _, b := range ser {
-		if b == '\n' {
-			relationship, err := ontology.ParseRelationship(buf.Bytes())
-			if err != nil {
-				return nil, err
-			}
-			relationships = append(relationships, relationship)
-			buf.Reset()
-			continue
+	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	relationships := make([]ontology.Relationship, 0, len(samples))
+	for _, s := range samples {
+		relationship, err := ontology.ParseRelationship([]byte(s))
+		if err != nil {
+			return nil, err
 		}
-		buf.WriteByte(b)
+		relationships = append(relationships, relationship)
 	}
 	return relationships, nil
 }
 
 func DecodeIDs(ser []byte) ([]ontology.ID, error) {
-	// ser.Data is a byte slice containing the encoded IDs, we need to decode them
-	// by looking for the newline separator.
-	var (
-		ids []ontology.ID
-		buf bytes.Buffer
-	)
-	for _, b := range ser {
-		if b == '\n' {
-			id, err := ontology.ParseID(buf.String())
-			if err != nil {
-				return nil, err
-			}
-			ids = append(ids, id)
-			buf.Reset()
-			continue
+	samples := telem.UnmarshalSeries[string](telem.Series{DataType: telem.StringT, Data: ser})
+	ids := make([]ontology.ID, 0, len(samples))
+	for _, s := range samples {
+		id, err := ontology.ParseID(s)
+		if err != nil {
+			return nil, err
 		}
-		buf.WriteByte(b)
+		ids = append(ids, id)
 	}
 	return ids, nil
 }

@@ -12,7 +12,6 @@ package ontology
 import (
 	"context"
 	"fmt"
-	"io"
 	"iter"
 
 	"github.com/synnaxlabs/x/gorp"
@@ -21,33 +20,24 @@ import (
 	"go.uber.org/zap"
 )
 
-// SearchableFieldsProvider is an optional interface that ontology services can
-// implement to declare which fields beyond "name" should be indexed for search.
-type SearchableFieldsProvider interface {
-	SearchableFields() []string
-}
-
 // Service represents a service that exposes a set of entities to the ontology (such as
 // a channel, node, user, etc.). Because the ontology only stores the relationships
 // between entities, it is a service's responsibility to provide the entities themselves
 // when the ontology requests them.
 type Service interface {
-	Type() Type
+	Type() ResourceType
 	// Schema returns the schema of the entities returned by this service.
 	Schema() zyn.Schema
 	// RetrieveResource returns the resource with the give key (Name.Name). If the resource
-	// does not exist, returns a query.NotFound error.
+	// does not exist, returns a query.ErrNotFound error.
 	RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (Resource, error)
 	// Observable is used by the ontology to subscribe to changes in the entities.
-	// This functionality is primarily used for search indexing. If the service's entities
-	// are static, use observe.Noop.
+	// This is used to propagate changes via the ResourceObserver for CDC signals.
+	// If the service's entities are static, use observe.Noop.
 	observe.Observable[iter.Seq[Change]]
-	// OpenNexter opens a Nexter type iterator that allows the caller to iterate over
-	// all resources held by the Service.
-	OpenNexter(context.Context) (iter.Seq[Resource], io.Closer, error)
 }
 
-type serviceRegistrar map[Type]Service
+type serviceRegistrar map[ResourceType]Service
 
 func (s serviceRegistrar) register(svc Service) {
 	t := svc.Type()

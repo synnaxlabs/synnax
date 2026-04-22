@@ -32,9 +32,10 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 	)
 	if hasElse {
 		ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
+		innerCtx := ctx.EnterBlock()
 
 		// Compile the main if block
-		ifDiverged, err := CompileBlock(context.Child(ctx, ctx.AST.Block()))
+		ifDiverged, err := CompileBlock(context.Child(innerCtx, ctx.AST.Block()))
 		if err != nil {
 			return false, errors.Wrap(err, "failed to compile if block")
 		}
@@ -43,14 +44,16 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 		allBranchesDiverge := ifDiverged
 
 		// Compile else-if clauses
+		elseIfCtx := innerCtx
 		for i, elseIfClause := range ctx.AST.AllElseIfClause() {
 			ctx.Writer.WriteElse()
-			_, err := expression.Compile(context.Child(ctx, elseIfClause.Expression()))
+			_, err := expression.Compile(context.Child(elseIfCtx, elseIfClause.Expression()))
 			if err != nil {
 				return false, errors.Wrapf(err, "failed to compile else-if[%d] condition", i)
 			}
 			ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-			elseIfDiverged, err := CompileBlock(context.Child(ctx, elseIfClause.Block()))
+			elseIfCtx = elseIfCtx.EnterBlock()
+			elseIfDiverged, err := CompileBlock(context.Child(elseIfCtx, elseIfClause.Block()))
 			if err != nil {
 				return false, errors.Wrapf(err, "failed to compile else-if[%d] block", i)
 			}
@@ -60,7 +63,7 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 		// Compile the final else clause
 		if hasElseClause {
 			ctx.Writer.WriteElse()
-			elseDiverged, err := CompileBlock(context.Child(ctx, ctx.AST.ElseClause().Block()))
+			elseDiverged, err := CompileBlock(context.Child(elseIfCtx, ctx.AST.ElseClause().Block()))
 			if err != nil {
 				return false, errors.Wrap(err, "failed to compile else block")
 			}
@@ -88,7 +91,8 @@ func compileIfStatement(ctx context.Context[parser.IIfStatementContext]) (diverg
 
 	// Simple if without else
 	ctx.Writer.WriteIf(wasm.BlockTypeEmpty)
-	if _, err = CompileBlock(context.Child(ctx, ctx.AST.Block())); err != nil {
+	innerCtx := ctx.EnterBlock()
+	if _, err = CompileBlock(context.Child(innerCtx, ctx.AST.Block())); err != nil {
 		return false, errors.Wrap(err, "failed to compile if block")
 	}
 	ctx.Writer.WriteEnd()

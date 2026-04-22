@@ -7,9 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
-import { ZodError } from "zod";
 
 import { type rack } from "@/rack";
 import { createTestClient } from "@/testutil/client";
@@ -24,7 +23,7 @@ describe("Rack", () => {
     });
     it("should return an error if the rack doesn't have a name", async () => {
       // @ts-expect-error - Testing for error
-      await expect(client.racks.create({})).rejects.toThrow(ZodError);
+      await expect(client.racks.create({})).rejects.toThrow(zod.ParseError);
     });
     it("should create a rack with a custom status", async () => {
       const customStatus: rack.Status = {
@@ -77,6 +76,43 @@ describe("Rack", () => {
       const retrieved = await client.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
+    });
+  });
+  describe("integrations", () => {
+    it("should create a rack with integrations and retrieve them", async () => {
+      const r = await client.racks.create({
+        name: "rack-with-integrations",
+        integrations: ["ni", "opc", "modbus"],
+      });
+      const retrieved = await client.racks.retrieve({ key: r.key });
+      expect(retrieved.integrations).toEqual(["ni", "opc", "modbus"]);
+    });
+    it("should filter racks by integration", async () => {
+      const r1 = await client.racks.create({
+        name: "rack-ni-opc",
+        integrations: ["ni", "opc"],
+      });
+      const r2 = await client.racks.create({
+        name: "rack-modbus-only",
+        integrations: ["modbus"],
+      });
+      const results = await client.racks.retrieve({ integration: "ni" });
+      const keys = results.map((r) => r.key);
+      expect(keys).toContain(r1.key);
+      expect(keys).not.toContain(r2.key);
+    });
+    it("should update integrations on upsert", async () => {
+      const r = await client.racks.create({
+        name: "rack-update-integrations",
+        integrations: ["ni"],
+      });
+      await client.racks.create({
+        key: r.key,
+        name: "rack-update-integrations",
+        integrations: ["ni", "opc", "arc"],
+      });
+      const retrieved = await client.racks.retrieve({ key: r.key });
+      expect(retrieved.integrations).toEqual(["ni", "opc", "arc"]);
     });
   });
   describe("tasks", () => {

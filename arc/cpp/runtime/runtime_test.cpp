@@ -345,7 +345,7 @@ TEST(BuildAuthoritiesTest, ReturnsEmptyWhenNoConfig) {
 
 TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
     arc::ir::Authorities auth;
-    auth.default_authority = 100;
+    auth.default_ = 100;
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
     auto result = build_authorities(auth, write_keys);
     ASSERT_EQ(result.size(), 3);
@@ -355,7 +355,7 @@ TEST(BuildAuthoritiesTest, DefaultAuthorityAppliesToAllKeys) {
 
 TEST(BuildAuthoritiesTest, PerChannelOverridesDefault) {
     arc::ir::Authorities auth;
-    auth.default_authority = 100;
+    auth.default_ = 100;
     auth.channels[2] = 200;
 
     std::vector<arc::types::ChannelKey> write_keys = {1, 2, 3};
@@ -392,9 +392,7 @@ struct DeadlineNode final : public node::Node {
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
 /// @brief Creates a runtime with a DeadlineNode for testing timeout conversion.

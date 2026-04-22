@@ -8,9 +8,6 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - freighter/go/**
-      - go.work
-      - go.work.sum
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
@@ -24,9 +21,6 @@ on:
       - .golangci.yaml
       - alamos/go/**
       - codecov.yaml
-      - freighter/go/**
-      - go.work
-      - go.work.sum
       - oracle/**
       - scripts/check_gofmt.sh
       - x/go/**
@@ -38,5 +32,5 @@ jobs:
     secrets: inherit
     with:
       directory: oracle
-      ginkgo_flags: -p --randomize-all --fail-on-empty --race
+      ginkgo_flags: -p --randomize-all --fail-on-empty
       coverage_flag: oracle

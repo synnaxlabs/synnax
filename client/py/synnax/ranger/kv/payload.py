@@ -12,7 +12,7 @@ import uuid
 from pydantic import BaseModel
 
 from synnax.exceptions import ValidationError
-from synnax.util.primitive import is_primitive
+from x.primitive import is_primitive
 
 
 class Pair(BaseModel):

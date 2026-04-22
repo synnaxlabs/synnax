@@ -12,11 +12,12 @@ package iterator
 import (
 	"context"
 
+	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/freighter/freightfluence"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -37,8 +38,8 @@ func newPeerSender(generateSeqNums bool) *peerSender {
 
 func (s *peerSender) transform(ctx context.Context, in Request) (out Request, ok bool, err error) {
 	if s.generateSeqNums {
-		s.seqNum++
 		in.SeqNum = s.seqNum
+		s.seqNum++
 	}
 	out = in
 	return out, true, nil
@@ -58,16 +59,26 @@ func (s *Service) openManyPeers(
 	for nodeKey, keys := range targets {
 		target, err := s.cfg.HostResolver.Resolve(nodeKey)
 		if err != nil {
-			return sender, receivers, err
+			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
 		client, err := s.openPeerClient(ctx, target, Config{Keys: keys, Bounds: bounds, ChunkSize: chunkSize})
 		if err != nil {
-			return sender, receivers, err
+			return sender, receivers, s.closePeerClients(sender.Senders, err)
 		}
 		sender.Senders = append(sender.Senders, client)
 		receivers = append(receivers, &freightfluence.Receiver[Response]{Receiver: client})
 	}
 	return sender, receivers, nil
+}
+
+func (s *Service) closePeerClients(
+	senders []freighter.StreamSenderCloser[Request],
+	originalErr error,
+) error {
+	for _, sender := range senders {
+		originalErr = errors.Combine(originalErr, sender.CloseSend())
+	}
+	return originalErr
 }
 
 func (s *Service) openPeerClient(ctx context.Context, target address.Address, cfg Config) (ClientStream, error) {

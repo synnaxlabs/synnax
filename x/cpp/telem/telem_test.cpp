@@ -427,8 +427,8 @@ TEST(TimeSpanTests, testScalarAssignments) {
 /// @brief it should convert a timespan to a human-readable string.
 TEST(TimeSpanTests, testToString) {
     const auto ts = TimeSpan(
-        _priv::DAY + _priv::HOUR + _priv::MINUTE + _priv::SECOND + _priv::MILLISECOND +
-        _priv::MICROSECOND + 1
+        details::DAY + details::HOUR + details::MINUTE + details::SECOND +
+        details::MILLISECOND + details::MICROSECOND + 1
     ); // 1 day, 1 hour, 1 minute, 1 second, 1ms, 1us, 1ns
     const auto str = ts.to_string();
     ASSERT_EQ(str, "1d 1h 1m 1s 1ms 1us 1ns");
@@ -440,9 +440,9 @@ TEST(TimeSpanTests, testToString) {
 
 /// @brief it should convert a timespan to a std::chrono duration.
 TEST(TimeSpanTests, testChronoConversion) {
-    const auto ts = TimeSpan(_priv::SECOND);
+    const auto ts = TimeSpan(details::SECOND);
     const auto chrono_duration = ts.chrono();
-    ASSERT_EQ(chrono_duration.count(), _priv::SECOND);
+    ASSERT_EQ(chrono_duration.count(), details::SECOND);
 }
 
 /// @brief it should return a zero timespan from the static method.
@@ -813,6 +813,32 @@ TEST(AlignmentTests, testUint64Equality) {
     ASSERT_FALSE(a != 4294967298);
     ASSERT_FALSE(a == 4294967292);
     ASSERT_TRUE(a != 4294967294);
+}
+
+TEST(AlignmentTests, testAddition) {
+    const auto a = Alignment(100);
+    const auto b = Alignment(75);
+    const auto c = a + b;
+    ASSERT_EQ(c, Alignment(175));
+}
+
+TEST(AlignmentTests, testAddAssign) {
+    auto a = Alignment(100);
+    a += Alignment(75);
+    ASSERT_EQ(a, Alignment(175));
+}
+
+TEST(AlignmentTests, testSubtraction) {
+    const auto a = Alignment(175);
+    const auto b = Alignment(75);
+    const auto c = a - b;
+    ASSERT_EQ(c, Alignment(100));
+}
+
+TEST(AlignmentTests, testSubAssign) {
+    auto a = Alignment(175);
+    a -= Alignment(75);
+    ASSERT_EQ(a, Alignment(100));
 }
 
 /// @brief it should convert a double to a string.

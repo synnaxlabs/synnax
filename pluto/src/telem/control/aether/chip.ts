@@ -22,7 +22,7 @@ export const chipStatusDetailsZ = z
 
 export const chipStateZ = z.object({
   triggered: z.boolean(),
-  status: status.statusZ(chipStatusDetailsZ),
+  status: status.statusZ({ details: chipStatusDetailsZ }),
   sink: telem.booleanSinkSpecZ.default(telem.noopBooleanSinkSpec),
   source: telem.statusSourceSpecZ.default(telem.noopStatusSourceSpec),
 });
@@ -41,11 +41,7 @@ export class Chip extends aether.Leaf<typeof chipStateZ, InternalState> {
   afterUpdate(ctx: aether.Context): void {
     const { internal: i } = this;
     const { sink, source } = this.state;
-    i.source = telem.useSource<status.Status<typeof chipStatusDetailsZ>>(
-      ctx,
-      source,
-      i.source,
-    );
+    i.source = telem.useSource(ctx, source, i.source);
     i.sink = telem.useSink(ctx, sink, i.sink);
     if (this.state.triggered && !this.prevState.triggered)
       i.sink.set(this.state.status.details?.authority !== control.ABSOLUTE_AUTHORITY);

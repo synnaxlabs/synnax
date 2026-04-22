@@ -140,7 +140,7 @@ export const useMultiple = <K extends record.Key>({
     (key: K): void => {
       const shiftValue = shiftValueRef.current;
       const data = dataRef.current;
-      let nextSelected: K[] = [];
+      let nextSelected: K[];
       const value = array.toArray(valueRef.current).filter((v) => v != null);
       // If the control key is held, we can still allow multiple selection.
       if (ctrl.current.held && replaceOnSingle)

@@ -13,7 +13,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -32,7 +31,7 @@ var _ = Describe("Errors", func() {
 		})
 
 		Describe("Encoding + Decoding", func() {
-			It("Should correctly encode and decode", func() {
+			It("Should correctly encode and decode", func(ctx SpecContext) {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
@@ -40,7 +39,7 @@ var _ = Describe("Errors", func() {
 				Expect(decoded).To(MatchError(ContainSubstring("field: cat")))
 			})
 
-			It("Should have the correct encoded representation", func() {
+			It("Should have the correct encoded representation", func(ctx SpecContext) {
 				base := errors.New("cat")
 				pathed := validate.PathedError(base, "field")
 				encoded := errors.Encode(ctx, pathed, false)
@@ -48,7 +47,7 @@ var _ = Describe("Errors", func() {
 				Expect(encoded.Data).To(Equal("{\"error\":{\"type\":\"unknown\",\"data\":\"cat\"},\"path\":[\"field\"]}"))
 			})
 
-			It("Should correctly encode and decode nested paths", func() {
+			It("Should correctly encode and decode nested paths", func(ctx SpecContext) {
 				base := errors.New("cat")
 				first := validate.PathedError(base, "first")
 				parent := validate.PathedError(first, "parent")
@@ -62,7 +61,7 @@ var _ = Describe("Errors", func() {
 	Describe("InvalidTypeError", func() {
 		It("Should format the error message correctly", func() {
 			err := validate.NewInvalidTypeError("cat", "dog")
-			Expect(err).To(HaveOccurredAs(validate.ErrInvalidType))
+			Expect(err).To(MatchError(validate.ErrInvalidType))
 			Expect(err).To(MatchError(ContainSubstring("expected cat but received dog")))
 		})
 	})

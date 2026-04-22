@@ -96,7 +96,7 @@ export const sliceStateZ = z.object({
   copyBuffer: z.object({
     epicenter: z.string(),
     cells: z.record(z.string(), cellStateZ),
-    positions: z.record(z.string(), xy.xy),
+    positions: z.record(z.string(), xy.xyZ),
   }),
 });
 

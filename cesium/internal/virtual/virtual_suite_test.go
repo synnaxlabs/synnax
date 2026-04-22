@@ -10,18 +10,17 @@
 package virtual_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
-	ctx         = context.Background()
-	codec       = &binary.JSONCodec{}
+	codec       = json.Codec
 	fileSystems = testutil.FileSystems
 )
 
@@ -29,3 +28,5 @@ func TestVirtual(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Virtual Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

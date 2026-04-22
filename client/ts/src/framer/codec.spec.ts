@@ -21,14 +21,14 @@ import {
   WSWriterCodec,
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
-import { WriterCommand } from "@/framer/payload";
+import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
   describe("base codec", () => {
     interface Spec {
       name: string;
-      channels: channel.Keys;
+      channels: channel.Key[];
       dataTypes: DataType[];
       frame: framer.Frame;
     }
@@ -117,7 +117,7 @@ describe("encoder", () => {
         ),
       },
       {
-        name: "Different Time Ranges",
+        name: "All Same Non-Zero Time Range",
         channels: [1, 2],
         dataTypes: [DataType.UINT8, DataType.FLOAT32],
         frame: new framer.Frame(
@@ -126,12 +126,32 @@ describe("encoder", () => {
             new Series({
               dataType: DataType.UINT8,
               data: new Uint8Array([1]),
-              timeRange: new TimeStamp(0).spanRange(5),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
             }),
             new Series({
               dataType: DataType.FLOAT32,
               data: new Float32Array([1, 2, 3, 4]),
-              timeRange: new TimeStamp(0).spanRange(5),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+          ],
+        ),
+      },
+      {
+        name: "Different Non-Zero Time Ranges",
+        channels: [1, 2],
+        dataTypes: [DataType.UINT8, DataType.FLOAT32],
+        frame: new framer.Frame(
+          [1, 2],
+          [
+            new Series({
+              dataType: DataType.UINT8,
+              data: new Uint8Array([1]),
+              timeRange: new TimeStamp(1000000000).spanRange(5000000000),
+            }),
+            new Series({
+              dataType: DataType.FLOAT32,
+              data: new Float32Array([1, 2, 3, 4]),
+              timeRange: new TimeStamp(2000000000).spanRange(3000000000),
             }),
           ],
         ),

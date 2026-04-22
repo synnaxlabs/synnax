@@ -10,7 +10,6 @@
 package telem_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -18,8 +17,6 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 	"go.uber.org/zap"
 )
-
-var ctx = context.Background()
 
 var _ = BeforeSuite(func() {
 	zap.ReplaceGlobals(MustSucceed(zap.NewDevelopment()))

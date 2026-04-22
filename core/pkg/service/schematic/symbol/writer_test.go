@@ -16,14 +16,12 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create a Symbol", func() {
+		It("Should create a Symbol", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "test-symbol",
 				Data: map[string]any{
@@ -36,7 +34,7 @@ var _ = Describe("Writer", func() {
 			Expect(sym.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create a Symbol with a predefined key", func() {
+		It("Should create a Symbol with a predefined key", func(ctx SpecContext) {
 			key := uuid.New()
 			sym := symbol.Symbol{
 				Key:  key,
@@ -49,7 +47,7 @@ var _ = Describe("Writer", func() {
 			Expect(sym.Key).To(Equal(key))
 		})
 
-		It("Should update an existing Symbol if key already exists", func() {
+		It("Should update an existing Symbol if key already exists", func(ctx SpecContext) {
 			key := uuid.New()
 			sym1 := symbol.Symbol{
 				Key:  key,
@@ -75,7 +73,7 @@ var _ = Describe("Writer", func() {
 			Expect(retrieved.Data["svg"]).To(Equal("<svg>updated</svg>"))
 		})
 
-		It("Should properly set ontology relationships", func() {
+		It("Should properly set ontology relationships", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "ontology-test",
 				Data: map[string]any{
@@ -95,10 +93,7 @@ var _ = Describe("Writer", func() {
 			Expect(keys).To(ContainElement(sym.Key.String()))
 		})
 
-		It("Should create a Symbol under the permanent symbols group if provided", func() {
-			if svc.Group().Key == uuid.Nil {
-				Skip("Group service not configured")
-			}
+		It("Should create a Symbol under the permanent symbols group if provided", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "group-test",
 				Data: map[string]any{
@@ -121,7 +116,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Rename", func() {
-		It("Should rename a Symbol", func() {
+		It("Should rename a Symbol", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "original-name",
 				Data: map[string]any{
@@ -132,14 +127,14 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Rename(ctx, sym.Key, "new-name")).To(Succeed())
 
 			var res symbol.Symbol
-			Expect(gorp.NewRetrieve[uuid.UUID, symbol.Symbol]().
+			Expect(svc.NewRetrieve().
 				WhereKeys(sym.Key).
 				Entry(&res).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("new-name"))
 		})
 
-		It("Should not affect data when renaming", func() {
+		It("Should not affect data when renaming", func(ctx SpecContext) {
 			originalData := map[string]any{
 				"svg":     "<svg>complex</svg>",
 				"states":  []string{"default", "active", "error"},
@@ -159,7 +154,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete a single Symbol", func() {
+		It("Should delete a single Symbol", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "to-delete",
 				Data: map[string]any{
@@ -174,7 +169,7 @@ var _ = Describe("Writer", func() {
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete multiple Symbols", func() {
+		It("Should delete multiple Symbols", func(ctx SpecContext) {
 			sym1 := symbol.Symbol{
 				Name: "to-delete-1",
 				Data: map[string]any{"svg": "<svg>1</svg>"},
@@ -198,12 +193,12 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().
 				WhereKeys(sym1.Key, sym2.Key, sym3.Key).
 				Entries(&res).
-				Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(res).To(HaveLen(1))
 			Expect(res[0].Key).To(Equal(sym3.Key))
 		})
 
-		It("Should remove ontology relationships when deleting", func() {
+		It("Should remove ontology relationships when deleting", func(ctx SpecContext) {
 			sym := symbol.Symbol{
 				Name: "ontology-delete-test",
 				Data: map[string]any{"svg": "<svg>...</svg>"},

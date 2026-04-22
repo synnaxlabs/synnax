@@ -19,6 +19,7 @@
 #include "arc/cpp/runtime/loop/loop.h"
 #include "arc/cpp/runtime/node/node.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::time {
 
@@ -46,9 +47,22 @@ inline x::telem::TimeSpan calculate_tolerance(
 struct IntervalConfig {
     x::telem::TimeSpan interval;
 
-    explicit IntervalConfig(const ir::Params &params) {
-        const auto interval_ns = params["period"].get<std::int64_t>();
-        this->interval = x::telem::TimeSpan(interval_ns);
+    static std::pair<IntervalConfig, x::errors::Error>
+    create(const types::Params &params) {
+        const auto &param = params["period"];
+        auto sv = types::to_sample_value(param.value, param.type);
+        if (!sv.has_value())
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "interval node missing required period parameter"
+                )
+            };
+        return {
+            {.interval = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
+            x::errors::NIL
+        };
     }
 };
 
@@ -81,23 +95,35 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override { last_fired = -1 * cfg.interval; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 
 struct WaitConfig {
     x::telem::TimeSpan duration;
 
-    explicit WaitConfig(const ir::Params &params) {
-        const auto duration_ns = params["duration"].get<std::int64_t>();
-        this->duration = x::telem::TimeSpan(duration_ns);
+    static std::pair<WaitConfig, x::errors::Error> create(const types::Params &params) {
+        const auto &param = params["duration"];
+        auto sv = types::to_sample_value(param.value, param.type);
+        if (!sv.has_value())
+            return {
+                {},
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    "wait node missing required duration parameter"
+                )
+            };
+        return {
+            {.duration = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv))},
+            x::errors::NIL
+        };
     }
 };
 
@@ -131,7 +157,7 @@ public:
         o_time->resize(1);
         o->set(0, static_cast<std::uint8_t>(1));
         o_time->set(0, ctx.elapsed.nanoseconds());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
@@ -140,8 +166,8 @@ public:
         fired = false;
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 
@@ -154,21 +180,29 @@ public:
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
-        return node_type == "interval" || node_type == "wait";
+        return node_type == "interval" || node_type == "time.interval" ||
+               node_type == "wait" || node_type == "time.wait";
     }
 
+    /// The qualified prefix ("time.interval", "time.wait") is needed because the
+    /// compiler emits the module-qualified name as the IR node type when users write
+    /// time.interval{} or time.wait{}. Stripping the prefix in the compiler would be
+    /// cleaner but risks breaking WASM host function resolution — this is safer and
+    /// inexpensive since time is the only STL module with a node factory.
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
-        if (cfg.node.type == "interval") {
-            IntervalConfig node_cfg(cfg.node.config);
+        if (cfg.node.type == "interval" || cfg.node.type == "time.interval") {
+            auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.interval);
             return {
                 std::make_unique<Interval>(node_cfg, std::move(cfg.state)),
                 x::errors::NIL
             };
         }
-        if (cfg.node.type == "wait") {
-            WaitConfig node_cfg(cfg.node.config);
+        if (cfg.node.type == "wait" || cfg.node.type == "time.wait") {
+            auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),

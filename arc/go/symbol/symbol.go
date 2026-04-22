@@ -87,6 +87,10 @@ const (
 	// KindGlobalConstant represents a compile-time constant declared at global scope.
 	// Values are inlined at each reference site with no runtime overhead.
 	KindGlobalConstant
+	// KindLoop represents a loop scope (for break/continue validation).
+	KindLoop
+	// KindLoopVariable represents an immutable loop iteration variable.
+	KindLoopVariable
 )
 
 // Symbol represents a named entity in an Arc program.
@@ -96,6 +100,8 @@ const (
 // reporting. Symbols that receive unique IDs (variables, inputs, outputs, config, and
 // stateful variables) are assigned sequential IDs within their containing function scope.
 type Symbol struct {
+	// Type is the symbol's type from Arc's type system.
+	Type types.Type
 	// AST is the parser node for source location information. Global symbols from
 	// resolvers have AST == nil, while locally-defined symbols have non-nil AST.
 	AST antlr.ParserRuleContext
@@ -104,8 +110,6 @@ type Symbol struct {
 	DefaultValue any
 	// Name is the symbol's identifier.
 	Name string
-	// Type is the symbol's type from Arc's type system.
-	Type types.Type
 	// Kind categorizes the symbol (variable, function, channel, etc.).
 	Kind Kind
 	// ID is a unique identifier within the containing function scope. Only assigned

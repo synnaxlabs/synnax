@@ -25,7 +25,7 @@ import (
 var _ = Describe("Garbage collection", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
 		Context("FS: "+fsName, func() {
-			ShouldNotLeakRoutinesJustBeforeEach()
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				basic   = testutil.GenerateChannelKey()
@@ -35,7 +35,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			)
 
 			Context("Threshold = 0", Ordered, func() {
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -52,7 +52,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(cleanUp()).To(Succeed())
 				})
 
-				It("Should recycle properly for deletion on an indexed channel", func() {
+				It("Should recycle properly for deletion on an indexed channel", func(ctx SpecContext) {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -99,12 +99,12 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(42 * telem.Int64T.Density())))
+					}).Should(Equal(42 * uint32(telem.Int64T.Density())))
 				})
 			})
 
 			Context("Threshold != 0", Ordered, func() {
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -120,7 +120,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
+				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating a channel")
 					Expect(db.CreateChannel(
 						ctx,
@@ -153,7 +153,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(90 * telem.Int64T.Density())))
+					}).Should(Equal(90 * uint32(telem.Int64T.Density())))
 
 					By("Deleting more data, which should trigger GC")
 					Expect(db.DeleteTimeRange(ctx, []cesium.ChannelKey{basic}, (60 * telem.SecondTS).Range(66*telem.SecondTS))).To(Succeed())
@@ -163,7 +163,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/1.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(54 * telem.Int64T.Density())))
+					}).Should(Equal(54 * uint32(telem.Int64T.Density())))
 
 					By("Asserting that the data is still correct", func() {
 						f := MustSucceed(db.Read(ctx, telem.TimeRangeMax, basic))
@@ -180,7 +180,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 			})
 			Context("Multiple files", func() {
-				BeforeAll(func() {
+				BeforeAll(func(ctx SpecContext) {
 					fs, cleanUp = makeFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
@@ -197,7 +197,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					Expect(db.Close()).To(Succeed())
 					Expect(cleanUp()).To(Succeed())
 				})
-				It("Should only garbage collect after a certain amount garbage has accumulated", func() {
+				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating channels")
 					Expect(db.CreateChannel(
 						ctx,
@@ -233,12 +233,18 @@ var _ = Describe("Garbage collection", Ordered, func() {
 						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/2.domain"))
 						g.Expect(err).ToNot(HaveOccurred())
 						return uint32(i.Size())
-					}).Should(Equal(uint32(10 * telem.Int64T.Density())))
+					}).Should(Equal(10 * uint32(telem.Int64T.Density())))
 
 					Eventually(func(g Gomega) {
-						g.Expect(MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))).Size()).To(Equal(int64(0)))
-						g.Expect(MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/4.domain"))).Size()).To(Equal(int64(0)))
-						g.Expect(MustSucceed(fs.Stat(path.Join(channelKeyToPath(basic) + "/5.domain"))).Size()).To(Equal(int64(40)))
+						i, err := fs.Stat(path.Join(channelKeyToPath(basic) + "/3.domain"))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(i.Size()).To(Equal(int64(0)))
+						i, err = fs.Stat(path.Join(channelKeyToPath(basic) + "/4.domain"))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(i.Size()).To(Equal(int64(0)))
+						i, err = fs.Stat(path.Join(channelKeyToPath(basic) + "/5.domain"))
+						g.Expect(err).ToNot(HaveOccurred())
+						g.Expect(i.Size()).To(Equal(int64(40)))
 					}).Should(Succeed())
 
 					By("Writing more data – they should go to the newly freed files, i.e. file 3 or file 4")

@@ -10,9 +10,9 @@
 from abc import abstractmethod
 from typing import Any, TypeVar, cast
 
-import synnax as sy
 from playwright.sync_api import Locator
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.task.channels.analog import Analog
 from console.task.channels.counter import Counter

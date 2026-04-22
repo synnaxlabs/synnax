@@ -12,9 +12,9 @@ from __future__ import annotations
 from typing import overload
 from uuid import UUID
 
-from freighter import Empty, UnaryClient, send_required
 from pydantic import BaseModel, PrivateAttr
 
+from freighter import Empty, UnaryClient, send_required
 from synnax.arc.payload import (
     Graph,
     Key,
@@ -25,7 +25,7 @@ from synnax.arc.payload import (
 )
 from synnax.exceptions import MultipleFoundError, NotFoundError
 from synnax.ontology.payload import ID
-from synnax.util.normalize import normalize
+from x.normalize import normalize
 
 
 class _CreateRequest(BaseModel):

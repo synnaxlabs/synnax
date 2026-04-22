@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-var errWriterClosed = resource.NewClosedError("virtual.writer")
+var ErrWriterClosed = resource.NewClosedError("virtual.writer")
 
 type WriterConfig struct {
 	ErrOnUnauthorizedOpen *bool
@@ -98,10 +98,9 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
 		OpenResource: func() (*controlResource, error) {
-			return &controlResource{
-				ck:        db.cfg.Channel.Key,
-				alignment: telem.NewAlignment(db.leadingAlignment.Add(1), 0),
-			}, nil
+			cr := &controlResource{ck: db.cfg.Channel.Key}
+			cr.storeAlignment(telem.NewAlignment(db.leadingAlignment.Add(1), 0))
+			return cr, nil
 		},
 	}); err != nil {
 		return nil, transfer, db.wrapError(err)
@@ -115,7 +114,7 @@ func (db *DB) OpenWriter(_ context.Context, cfgs ...WriterConfig) (w *Writer, tr
 
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
@@ -126,8 +125,8 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	}
 	// copy the alignment here because we want to return the alignment of the FIRST
 	// sample, not the last.
-	a := e.alignment
-	e.alignment = e.alignment.AddSamples(uint32(series.Len()))
+	a := e.loadAlignment()
+	e.storeAlignment(a.AddSamples(uint32(series.Len())))
 	return a, nil
 }
 

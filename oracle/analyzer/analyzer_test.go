@@ -10,8 +10,6 @@
 package analyzer_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/analyzer"
@@ -30,17 +28,15 @@ func contains(slice []string, item string) bool {
 
 var _ = Describe("Analyzer", func() {
 	var (
-		ctx    context.Context
 		loader *MockFileLoader
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		loader = NewMockFileLoader()
 	})
 
 	Describe("AnalyzeSource", func() {
-		It("Should analyze a simple struct", func() {
+		It("Should analyze a simple struct", func(ctx SpecContext) {
 			source := `
 				Range struct {
 					key uuid @key
@@ -73,7 +69,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(resolution.IsPrimitive(nameField.Type.Name)).To(BeTrue())
 		})
 
-		It("Should analyze an enum", func() {
+		It("Should analyze an enum", func(ctx SpecContext) {
 			source := `
 				TaskState enum {
 					pending = 0
@@ -97,7 +93,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Values[0].IntValue()).To(Equal(int64(0)))
 		})
 
-		It("Should analyze a string enum", func() {
+		It("Should analyze a string enum", func(ctx SpecContext) {
 			source := `
 				DataType enum {
 					float32 = "float32"
@@ -115,7 +111,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Values[0].StringValue()).To(Equal("float32"))
 		})
 
-		It("Should collect enum value domains", func() {
+		It("Should collect enum value domains", func(ctx SpecContext) {
 			source := `
 				TaskState enum {
 					pending = 0 {
@@ -156,7 +152,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Values[2].Domains).To(BeEmpty())
 		})
 
-		It("Should collect field domains", func() {
+		It("Should collect field domains", func(ctx SpecContext) {
 			source := `
 				User struct {
 					name string {
@@ -194,7 +190,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(validateDomain.Expressions[1].Values[0].IntValue).To(Equal(int64(255)))
 		})
 
-		It("Should collect struct-level domains", func() {
+		It("Should collect struct-level domains", func(ctx SpecContext) {
 			source := `
 				Range struct {
 					key uuid
@@ -217,7 +213,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(indexDomain.Expressions[0].Name).To(Equal("composite"))
 		})
 
-		It("Should handle array types", func() {
+		It("Should handle array types", func(ctx SpecContext) {
 			source := `
 				Range struct {
 					labels uuid[]
@@ -241,7 +237,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(tagsField.IsOptional).To(BeTrue())
 		})
 
-		It("Should handle optional types", func() {
+		It("Should handle optional types", func(ctx SpecContext) {
 			source := `
 				Range struct {
 					parent uuid?
@@ -259,7 +255,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Import Resolution", func() {
-		It("Should resolve imports", func() {
+		It("Should resolve imports", func(ctx SpecContext) {
 			loader.Files["schema/core/label"] = `
 				Label struct {
 					key uuid @id
@@ -286,7 +282,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(ok).To(BeTrue())
 		})
 
-		It("Should detect circular imports", func() {
+		It("Should detect circular imports", func(ctx SpecContext) {
 			loader.Files["schema/core/a"] = `
 				import "schema/core/b"
 				A struct {}
@@ -306,7 +302,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table.StructTypes()).To(HaveLen(3))
 		})
 
-		It("Should report missing imports", func() {
+		It("Should report missing imports", func(ctx SpecContext) {
 			source := `
 				import "schema/core/nonexistent"
 				Range struct {}
@@ -319,7 +315,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Type Resolution", func() {
-		It("Should resolve primitive types", func() {
+		It("Should resolve primitive types", func(ctx SpecContext) {
 			source := `
 				import "schemas/telem"
 
@@ -332,7 +328,7 @@ var _ = Describe("Analyzer", func() {
 					f telem.timestamp
 					g telem.timespan
 					h telem.time_range
-					i json
+					i record
 					j bytes
 				}
 			`
@@ -357,7 +353,7 @@ var _ = Describe("Analyzer", func() {
 			}
 		})
 
-		It("Should resolve struct references in same namespace", func() {
+		It("Should resolve struct references in same namespace", func(ctx SpecContext) {
 			source := `
 				Position struct {
 					x float64
@@ -384,7 +380,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(isStruct).To(BeTrue())
 		})
 
-		It("Should resolve qualified struct references", func() {
+		It("Should resolve qualified struct references", func(ctx SpecContext) {
 			loader.Files["schema/core/label"] = `
 				Label struct {
 					key uuid
@@ -416,7 +412,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(resolvedForm.Fields).To(HaveLen(2))
 		})
 
-		It("Should resolve enum references", func() {
+		It("Should resolve enum references", func(ctx SpecContext) {
 			source := `
 				TaskState enum {
 					pending = 0
@@ -444,7 +440,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Error Handling", func() {
-		It("Should report duplicate struct definitions", func() {
+		It("Should report duplicate struct definitions", func(ctx SpecContext) {
 			source := `
 				Range struct {}
 				Range struct {}
@@ -455,7 +451,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should report duplicate enum definitions", func() {
+		It("Should report duplicate enum definitions", func(ctx SpecContext) {
 			source := `
 				State enum {
 					a = 0
@@ -481,7 +477,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("File-level Domain Merging", func() {
-		It("Should merge multiple file-level domains with the same name", func() {
+		It("Should merge multiple file-level domains with the same name", func(ctx SpecContext) {
 			source := `
 				@pb output "core/pkg/api/grpc/v1"
 				@pb package "api.v1"
@@ -510,7 +506,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(packageExpr.Values[0].StringValue).To(Equal("api.v1"))
 		})
 
-		It("Should merge file-level domains with struct-level domains", func() {
+		It("Should merge file-level domains with struct-level domains", func(ctx SpecContext) {
 			source := `
 				@go output "core/pkg/service/user"
 
@@ -539,7 +535,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(found).To(BeTrue())
 		})
 
-		It("Should let struct-level domain override file-level domain expression", func() {
+		It("Should let struct-level domain override file-level domain expression", func(ctx SpecContext) {
 			source := `
 				@ts output "client/ts/src/default"
 
@@ -570,7 +566,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Struct Extension", func() {
-		It("Should parse basic struct extension", func() {
+		It("Should parse basic struct extension", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string
@@ -601,7 +597,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).To(ContainElements("name", "age", "email"))
 		})
 
-		It("Should parse field omission with -fieldName syntax", func() {
+		It("Should parse field omission with -fieldName syntax", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string
@@ -633,7 +629,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).NotTo(ContainElement("age"))
 		})
 
-		It("Should handle field override in child struct", func() {
+		It("Should handle field override in child struct", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string
@@ -669,9 +665,9 @@ var _ = Describe("Analyzer", func() {
 			Expect(nameField.IsOptional).To(BeTrue())
 		})
 
-		It("Should extend generic struct with type arguments", func() {
+		It("Should extend generic struct with type arguments", func(ctx SpecContext) {
 			source := `
-				Status struct<D extends json> {
+				Status struct<D extends record> {
 					variant int32
 					data D
 				}
@@ -708,7 +704,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(dataField.Type.Name).To(Equal("test.Details"))
 		})
 
-		It("Should handle multi-level inheritance", func() {
+		It("Should handle multi-level inheritance", func(ctx SpecContext) {
 			source := `
 				GrandParent struct {
 					a string
@@ -733,7 +729,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
 		})
 
-		It("Should extend struct from imported file", func() {
+		It("Should extend struct from imported file", func(ctx SpecContext) {
 			loader.Files["schema/core/base"] = `
 				Base struct {
 					key uuid @id
@@ -760,7 +756,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(allFields).To(HaveLen(3))
 		})
 
-		It("Should detect circular inheritance", func() {
+		It("Should detect circular inheritance", func(ctx SpecContext) {
 			source := `
 				A struct extends B {
 					a string
@@ -775,7 +771,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should detect self-extension", func() {
+		It("Should detect self-extension", func(ctx SpecContext) {
 			source := `
 				Self struct extends Self {
 					a string
@@ -786,7 +782,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should error on non-existent parent struct", func() {
+		It("Should error on non-existent parent struct", func(ctx SpecContext) {
 			source := `
 				Child struct extends NonExistent {
 					a string
@@ -797,7 +793,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should error on omitting non-existent field", func() {
+		It("Should error on omitting non-existent field", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string
@@ -812,7 +808,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(table).To(BeNil())
 		})
 
-		It("Should inherit parent field domains on override", func() {
+		It("Should inherit parent field domains on override", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					key uuid @id
@@ -841,7 +837,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(keyField.Domains).To(HaveKey("id")) // Parent's domain inherited
 		})
 
-		It("Should allow child to override parent domain", func() {
+		It("Should allow child to override parent domain", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string {
@@ -882,7 +878,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(minLengthExpr.Values[0].IntValue).To(Equal(int64(5)))
 		})
 
-		It("Should merge domains from parent when child adds new domain", func() {
+		It("Should merge domains from parent when child adds new domain", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					key uuid @id
@@ -911,7 +907,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(keyField.Domains).To(HaveKey("validate")) // Added by child
 		})
 
-		It("Should merge expressions within same domain from parent and child", func() {
+		It("Should merge expressions within same domain from parent and child", func(ctx SpecContext) {
 			source := `
 				Parent struct {
 					name string @validate min_length 1
@@ -949,7 +945,7 @@ var _ = Describe("Analyzer", func() {
 		})
 
 		// Multiple inheritance tests
-		It("Should parse multiple extends with comma-separated parents", func() {
+		It("Should parse multiple extends with comma-separated parents", func(ctx SpecContext) {
 			source := `
 				A struct { a string }
 				B struct { b string }
@@ -970,7 +966,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
 		})
 
-		It("Should use first parent's field when names conflict", func() {
+		It("Should use first parent's field when names conflict", func(ctx SpecContext) {
 			source := `
 				A struct { shared int32 }
 				B struct { shared string }
@@ -985,7 +981,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(allFields[0].Type.Name).To(Equal("int32")) // From A (first parent)
 		})
 
-		It("Should handle diamond inheritance", func() {
+		It("Should handle diamond inheritance", func(ctx SpecContext) {
 			source := `
 				Base struct { base string }
 				Left struct extends Base { left string }
@@ -1006,7 +1002,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).To(ContainElements("base", "left", "right"))
 		})
 
-		It("Should detect circular inheritance with multiple parents", func() {
+		It("Should detect circular inheritance with multiple parents", func(ctx SpecContext) {
 			source := `
 				A struct extends C { a string }
 				B struct { b string }
@@ -1016,7 +1012,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
-		It("Should handle type parameters with multiple extends", func() {
+		It("Should handle type parameters with multiple extends", func(ctx SpecContext) {
 			source := `
 				Generic1 struct<T> { value1 T }
 				Generic2 struct<U> { value2 U }
@@ -1032,7 +1028,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(allFields).To(HaveLen(3))
 		})
 
-		It("Should allow omitting fields from any parent", func() {
+		It("Should allow omitting fields from any parent", func(ctx SpecContext) {
 			source := `
 				A struct {
 					a string
@@ -1057,7 +1053,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(fieldNames).To(ContainElements("a", "b", "c"))
 		})
 
-		It("Should error when omitting field not in any parent", func() {
+		It("Should error when omitting field not in any parent", func(ctx SpecContext) {
 			source := `
 				A struct { a string }
 				B struct { b string }
@@ -1071,7 +1067,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("TypeDef", func() {
-		It("Should analyze a distinct type (primitive alias)", func() {
+		It("Should analyze a distinct type (primitive alias)", func(ctx SpecContext) {
 			// Grammar: IDENT qualifiedIdent (no 'type' keyword or '=')
 			source := `
 				ChannelKey uint32
@@ -1085,7 +1081,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Base.Name).To(Equal("uint32"))
 		})
 
-		It("Should analyze a struct alias", func() {
+		It("Should analyze a struct alias", func(ctx SpecContext) {
 			source := `
 				Position struct {
 					x float64
@@ -1103,11 +1099,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Target.Name).To(Equal("geo.Position"))
 		})
 
-		It("Should analyze an array type definition", func() {
+		It("Should analyze an array type definition", func(ctx SpecContext) {
 			source := `
 				Param struct {
 					name string
-					value json?
+					value record?
 				}
 
 				Params Param[]
@@ -1123,7 +1119,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.Base.TypeArgs[0].Name).To(Equal("ir.Param"))
 		})
 
-		It("Should analyze an alias to an array type", func() {
+		It("Should analyze an alias to an array type", func(ctx SpecContext) {
 			source := `
 				Stratum = string[]
 			`
@@ -1141,7 +1137,7 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Generics", func() {
-		It("Should parse generic struct with type parameter", func() {
+		It("Should parse generic struct with type parameter", func(ctx SpecContext) {
 			source := `
 				Container struct<T> {
 					value T
@@ -1161,7 +1157,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(valueField.Type.TypeParam.Name).To(Equal("T"))
 		})
 
-		It("Should parse generic struct with constrained type parameter", func() {
+		It("Should parse generic struct with constrained type parameter", func(ctx SpecContext) {
 			source := `
 				NumberContainer struct<T extends int32> {
 					value T
@@ -1176,7 +1172,23 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.TypeParams[0].Constraint.Name).To(Equal("int32"))
 		})
 
-		It("Should parse generic struct with default type parameter", func() {
+		It("Should resolve comparable constraint without warnings", func(ctx SpecContext) {
+			source := `
+				State struct<R extends comparable> {
+					resource R
+					name string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			stateType := table.MustGet("test.State")
+			form := stateType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("comparable"))
+		})
+
+		It("Should parse generic struct with default type parameter", func(ctx SpecContext) {
 			source := `
 				Container struct<T = string> {
 					value T
@@ -1191,7 +1203,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.TypeParams[0].Default.Name).To(Equal("string"))
 		})
 
-		It("Should parse struct with generic field type", func() {
+		It("Should parse struct with generic field type", func(ctx SpecContext) {
 			source := `
 				Container struct<T> {
 					value T
@@ -1212,11 +1224,11 @@ var _ = Describe("Analyzer", func() {
 			Expect(containerField.Type.TypeArgs[0].Name).To(Equal("string"))
 		})
 
-		It("Should preserve type params on fields with constraints and defaults", func() {
+		It("Should preserve type params on fields with constraints and defaults", func(ctx SpecContext) {
 			source := `
 				Task struct<
 					Type extends string = string,
-					Config extends json = json
+					Config extends record = record
 				> {
 					name   string
 					type   Type
@@ -1260,14 +1272,14 @@ var _ = Describe("Analyzer", func() {
 			Expect(configField.Type.TypeParam).NotTo(BeNil(), "config field TypeParam should not be nil")
 			Expect(configField.Type.TypeParam.Name).To(Equal("Config"))
 			Expect(configField.Type.TypeParam.Constraint).NotTo(BeNil())
-			Expect(configField.Type.TypeParam.Constraint.Name).To(Equal("json"))
+			Expect(configField.Type.TypeParam.Constraint.Name).To(Equal("record"))
 		})
 
-		It("Should preserve type params in UnifiedFields for generic structs", func() {
+		It("Should preserve type params in UnifiedFields for generic structs", func(ctx SpecContext) {
 			source := `
 				Task struct<
 					Type extends string = string,
-					Config extends json = json
+					Config extends record = record
 				> {
 					name   string
 					type   Type
@@ -1307,10 +1319,10 @@ var _ = Describe("Analyzer", func() {
 	})
 
 	Describe("Map Types", func() {
-		It("Should parse map type", func() {
+		It("Should parse map type", func(ctx SpecContext) {
 			source := `
 				Config struct {
-					settings Map<string, json>
+					settings Map<string, record>
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
@@ -1322,12 +1334,12 @@ var _ = Describe("Analyzer", func() {
 			Expect(settingsField.Type.Name).To(Equal("Map"))
 			Expect(settingsField.Type.TypeArgs).To(HaveLen(2))
 			Expect(settingsField.Type.TypeArgs[0].Name).To(Equal("string"))
-			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("json"))
+			Expect(settingsField.Type.TypeArgs[1].Name).To(Equal("record"))
 		})
 	})
 
 	Describe("Recursive Types", func() {
-		It("Should detect recursive struct", func() {
+		It("Should detect recursive struct", func(ctx SpecContext) {
 			source := `
 				Node struct {
 					value string
@@ -1342,7 +1354,7 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.IsRecursive).To(BeTrue())
 		})
 
-		It("Should detect non-recursive struct", func() {
+		It("Should detect non-recursive struct", func(ctx SpecContext) {
 			source := `
 				Simple struct {
 					value string
@@ -1355,6 +1367,81 @@ var _ = Describe("Analyzer", func() {
 			simpleType := table.MustGet("test.Simple")
 			form := simpleType.Form.(resolution.StructForm)
 			Expect(form.IsRecursive).To(BeFalse())
+		})
+
+		It("Should detect mutual recursion through struct fields", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b B?
+				}
+				B struct {
+					a A?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct array wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through an alias wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs = B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct struct wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b BWrap?
+				}
+				B struct {
+					a A?
+				}
+				BWrap B
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
 		})
 	})
 })

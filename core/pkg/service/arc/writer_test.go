@@ -23,20 +23,20 @@ import (
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
-		It("Should create an Arc with generated key", func() {
+		It("Should create an Arc with generated key", func(ctx SpecContext) {
 			a := arc.Arc{Name: "test-arc"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).ToNot(Equal(uuid.Nil))
 		})
 
-		It("Should create an Arc with explicit key", func() {
+		It("Should create an Arc with explicit key", func(ctx SpecContext) {
 			key := uuid.New()
 			a := arc.Arc{Key: key, Name: "test-arc-with-key"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(a.Key).To(Equal(key))
 		})
 
-		It("Should handle multiple arc creations", func() {
+		It("Should handle multiple arc creations", func(ctx SpecContext) {
 			a1 := arc.Arc{Name: "arc-1"}
 			a2 := arc.Arc{Name: "arc-2"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a1)).To(Succeed())
@@ -48,7 +48,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Update", func() {
-		It("Should update an existing Arc", func() {
+		It("Should update an existing Arc", func(ctx SpecContext) {
 			key := uuid.New()
 			a := arc.Arc{
 				Key:   key,
@@ -66,7 +66,7 @@ var _ = Describe("Writer", func() {
 	})
 
 	Describe("Delete", func() {
-		It("Should delete an Arc", func() {
+		It("Should delete an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "arc-to-delete",
 				Graph: graph.Graph{},
@@ -78,7 +78,7 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete multiple Arcs", func() {
+		It("Should delete multiple Arcs", func(ctx SpecContext) {
 			a1 := arc.Arc{Name: "arc-to-delete-1"}
 			a2 := arc.Arc{Name: "arc-to-delete-2"}
 			w := svc.NewWriter(tx)
@@ -91,12 +91,12 @@ var _ = Describe("Writer", func() {
 			).To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should handle delete of non-existent arc gracefully", func() {
+		It("Should handle delete of non-existent arc gracefully", func(ctx SpecContext) {
 			nonExistentKey := uuid.New()
 			Expect(svc.NewWriter(tx).Delete(ctx, nonExistentKey)).To(Succeed())
 		})
 
-		It("Should delete child tasks when deleting an arc", func() {
+		It("Should delete child tasks when deleting an arc", func(ctx SpecContext) {
 			a := arc.Arc{Name: "arc-with-task"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 
@@ -122,7 +122,7 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should handle arc deletion when arc has no child tasks", func() {
+		It("Should handle arc deletion when arc has no child tasks", func(ctx SpecContext) {
 			a := arc.Arc{Name: "arc-without-tasks"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
@@ -130,7 +130,7 @@ var _ = Describe("Writer", func() {
 				To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should delete multiple child tasks when deleting an arc", func() {
+		It("Should delete multiple child tasks when deleting an arc", func(ctx SpecContext) {
 			a := arc.Arc{Name: "arc-with-multiple-tasks"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 

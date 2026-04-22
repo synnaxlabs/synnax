@@ -187,8 +187,9 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 
 	// Use allocator to resolve dependencies and get topological order
 	calcGraph, err := graph.New(graph.Config{
-		Channel:        s.cfg.Channel,
-		SymbolResolver: s.cfg.Arc.NewSymbolResolver(nil),
+		Instrumentation: s.cfg.Child("calculation.graph"),
+		Channel:         s.cfg.Channel,
+		SymbolResolver:  s.cfg.Arc.NewSymbolResolver(nil),
 	})
 	if err != nil {
 		return nil, err
@@ -229,14 +230,14 @@ func (s *Service) newCalculationTransform(ctx context.Context, cfg *Config) (*ca
 	if len(concreteBaseKeys) > 0 {
 		if err := s.cfg.Channel.NewRetrieve().
 			Entries(&concreteBaseChannels).
-			WhereKeys(concreteBaseKeys.Keys()...).
+			WhereKeys(concreteBaseKeys.Slice()...).
 			Exec(ctx, nil); err != nil {
 			return nil, err
 		}
 	}
 
 	// Update cfg.Keys to include concrete base keys and their indices
-	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Keys()...))
+	cfg.Keys = lo.Uniq(append(cfg.Keys, concreteBaseKeys.Slice()...))
 	cfg.Keys = lo.Uniq(append(cfg.Keys, lo.FilterMap(
 		concreteBaseChannels,
 		func(item channel.Channel, index int) (channel.Key, bool) {

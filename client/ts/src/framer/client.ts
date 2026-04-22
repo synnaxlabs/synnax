@@ -90,19 +90,19 @@ export class Client {
 
   async write(
     start: CrudeTimeStamp,
-    channel: channel.KeyOrName,
+    channel: channel.Key | channel.Name,
     data: CrudeSeries,
   ): Promise<void>;
 
   async write(
     start: CrudeTimeStamp,
-    channels: channel.KeysOrNames,
+    channels: channel.Key[] | channel.Name[],
     data: CrudeSeries[],
   ): Promise<void>;
 
   async write(
     start: CrudeTimeStamp,
-    data: Record<channel.KeyOrName, CrudeSeries>,
+    data: Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void>;
 
   /**
@@ -116,11 +116,11 @@ export class Client {
    */
   async write(
     start: CrudeTimeStamp,
-    channels: channel.Params | Record<channel.KeyOrName, CrudeSeries>,
+    channels: channel.Params | Record<channel.Key | channel.Name, CrudeSeries>,
     data?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (data == null) {
-      const data_ = channels as Record<channel.KeyOrName, CrudeSeries>;
+      const data_ = channels as Record<channel.Key | channel.Name, CrudeSeries>;
       const w = await this.openWriter({
         start,
         channels: Object.keys(data_),
@@ -142,7 +142,10 @@ export class Client {
     await w.close();
   }
 
-  async read(tr: CrudeTimeRange, channel: channel.KeyOrName): Promise<MultiSeries>;
+  async read(
+    tr: CrudeTimeRange,
+    channel: channel.Key | channel.Name,
+  ): Promise<MultiSeries>;
   async read(tr: CrudeTimeRange, channels: channel.Params): Promise<Frame>;
   async read(request: ReadRequest): Promise<ReadableStream<Uint8Array>>;
   async read(
@@ -152,7 +155,7 @@ export class Client {
     if (!("start" in tr)) return this.reader.read(tr);
     const { single } = channel.analyzeParams(channels!);
     const fr = await this.readFrame(tr, channels!);
-    if (single) return fr.get(channels as channel.KeyOrName);
+    if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 
@@ -170,17 +173,32 @@ export class Client {
     return frame;
   }
 
-  async readLatest(channel: channel.KeyOrName, n: number): Promise<MultiSeries>;
+  async readLatest(
+    channel: channel.Key | channel.Name,
+    n: number,
+  ): Promise<MultiSeries>;
 
   async readLatest(channels: channel.Params, n: number): Promise<Frame>;
 
+  /**
+   * Reads the latest n samples from the given channel(s).
+   *
+   * If fewer than n samples are available, returns only the samples that
+   * exist.
+   *
+   * @param channels - A single channel key/name or an array of channel
+   * keys/names.
+   * @param n - The maximum number of samples to read. Defaults to 1.
+   * @returns A MultiSeries when a single channel is provided, or a Frame when
+   * multiple channels are provided.
+   */
   async readLatest(
     channels: channel.Params,
     n: number = 1,
   ): Promise<MultiSeries | Frame> {
     const { single } = channel.analyzeParams(channels);
     const fr = await this.readLatestNFrame(channels, n);
-    if (single) return fr.get(channels as channel.KeyOrName);
+    if (single) return fr.get(channels as channel.Key | channel.Name);
     return fr;
   }
 

@@ -10,12 +10,12 @@
 package metrics_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	servicechannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer"
@@ -38,61 +38,62 @@ func TestMetrics(t *testing.T) {
 	RunSpecs(t, "Metrics Suite")
 }
 
-var _ = BeforeSuite(func() {
-	builder = mock.NewCluster()
-	ctx := context.Background()
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	builder = DeferClose(mock.NewCluster())
 	dist = builder.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	searchIdx := MustOpen(search.Open())
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   searchIdx,
 	}))
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Label:    labelSvc,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   searchIdx,
 	}))
-	rackSvc := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackSvc := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       searchIdx,
 	}))
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Rack:     rackSvc,
 		Status:   statusSvc,
+		Search:   searchIdx,
 	}))
-	arcSvc := MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc := MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   searchIdx,
 	}))
-	channelSvc = MustSucceed(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
+	channelSvc = MustOpen(servicechannel.OpenService(ctx, servicechannel.ServiceConfig{
 		DB:           dist.DB,
 		Distribution: dist.Channel,
 		Status:       statusSvc,
 		Arc:          arcSvc,
 	}))
-	framerSvc = MustSucceed(framer.OpenService(ctx, framer.ServiceConfig{
+	framerSvc = MustOpen(framer.OpenService(ctx, framer.ServiceConfig{
 		Framer:  dist.Framer,
 		Channel: channelSvc,
 		Arc:     arcSvc,
 		Status:  statusSvc,
 		DB:      dist.DB,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(channelSvc.Close()).To(Succeed())
-	Expect(framerSvc.Close()).To(Succeed())
-	Expect(builder.Close()).To(Succeed())
 })

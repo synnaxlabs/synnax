@@ -45,7 +45,7 @@ var _ = Describe("Table", func() {
 			Entry("bool", "bool"),
 			Entry("string", "string"),
 			Entry("uuid", "uuid"),
-			Entry("json", "json"),
+			Entry("record", "record"),
 			Entry("bytes", "bytes"),
 			Entry("any", "any"),
 		)
@@ -94,9 +94,8 @@ var _ = Describe("Table", func() {
 				Form:          resolution.StructForm{},
 			}
 			Expect(table.Add(typ)).To(Succeed())
-			err := table.Add(typ)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("duplicate type"))
+			Expect(table.Add(typ)).
+				Error().To(MatchError(ContainSubstring("duplicate type")))
 		})
 	})
 
@@ -493,6 +492,72 @@ var _ = Describe("Type Forms", func() {
 		})
 	})
 
+	Describe("NonDefaultedTypeParams", func() {
+		It("returns empty slice for empty input", func() {
+			Expect(resolution.NonDefaultedTypeParams(nil)).To(BeEmpty())
+			Expect(resolution.NonDefaultedTypeParams([]resolution.TypeParam{})).To(BeEmpty())
+		})
+
+		It("returns all params when none have a default", func() {
+			tps := []resolution.TypeParam{
+				{Name: "T"},
+				{Name: "U", Constraint: &resolution.TypeRef{Name: "Comparable"}},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(2))
+			Expect(result[0].Name).To(Equal("T"))
+			Expect(result[1].Name).To(Equal("U"))
+		})
+
+		It("filters out defaulted params", func() {
+			variantRef := resolution.TypeRef{Name: "Variant"}
+			tps := []resolution.TypeParam{
+				{Name: "Details"},
+				{Name: "V", Default: &variantRef},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("Details"))
+		})
+
+		It("preserves order of non-defaulted params", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B"},
+				{Name: "C", Default: &def},
+				{Name: "D"},
+				{Name: "E"},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(3))
+			Expect(result[0].Name).To(Equal("B"))
+			Expect(result[1].Name).To(Equal("D"))
+			Expect(result[2].Name).To(Equal("E"))
+		})
+
+		It("returns empty slice when every param has a default", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B", Default: &def},
+			}
+			Expect(resolution.NonDefaultedTypeParams(tps)).To(BeEmpty())
+		})
+
+		It("does not mutate its input", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B"},
+			}
+			_ = resolution.NonDefaultedTypeParams(tps)
+			Expect(tps).To(HaveLen(2))
+			Expect(tps[0].Name).To(Equal("A"))
+			Expect(tps[0].HasDefault()).To(BeTrue())
+		})
+	})
+
 	Describe("TypeRef", func() {
 		It("detects type parameters", func() {
 			ref := resolution.TypeRef{
@@ -644,10 +709,21 @@ var _ = Describe("Primitive Helpers", func() {
 		Entry("int32", "int32", true),
 		Entry("float64", "float64", true),
 		Entry("bool", "bool", true),
-		Entry("json", "json", true),
+		Entry("record", "record", true),
 		Entry("bytes", "bytes", true),
+		Entry("nil", "nil", true),
 		Entry("User", "User", false),
 		Entry("Array", "Array", false),
+	)
+
+	DescribeTable("IsConstraint",
+		func(name string, expected bool) {
+			Expect(resolution.IsConstraint(name)).To(Equal(expected))
+		},
+		Entry("comparable", "comparable", true),
+		Entry("string is not a constraint", "string", false),
+		Entry("unknown is not a constraint", "Unknown", false),
+		Entry("empty string", "", false),
 	)
 
 	DescribeTable("IsStringPrimitive",
@@ -873,5 +949,137 @@ var _ = Describe("SubstituteTypeRef", func() {
 		Expect(result.TypeArgs[0].Name).To(Equal("string"))
 		Expect(result.TypeArgs[1].Name).To(Equal("Array"))
 		Expect(result.TypeArgs[1].TypeArgs[0].Name).To(Equal("uuid"))
+	})
+})
+
+var _ = Describe("RefersTo", func() {
+	const target = "ns.Target"
+
+	var table *resolution.Table
+
+	BeforeEach(func() {
+		table = resolution.NewTable()
+		Expect(table.Add(resolution.Type{
+			Name:          "Target",
+			QualifiedName: target,
+			Namespace:     "ns",
+			Form:          resolution.StructForm{},
+		})).To(Succeed())
+	})
+
+	It("returns true on a direct name match", func() {
+		ref := resolution.TypeRef{Name: target}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is nested in a type argument", func() {
+		ref := resolution.TypeRef{
+			Name:     "Array",
+			TypeArgs: []resolution.TypeRef{{Name: target}},
+		}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is deep in nested type arguments", func() {
+		ref := resolution.TypeRef{
+			Name: "Map",
+			TypeArgs: []resolution.TypeRef{
+				{Name: "string"},
+				{Name: "Array", TypeArgs: []resolution.TypeRef{{Name: target}}},
+			},
+		}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a struct field", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "HasTarget", QualifiedName: "ns.HasTarget", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.HasTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through an alias target", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "AliasToTarget", QualifiedName: "ns.AliasToTarget", Namespace: "ns",
+			Form: resolution.AliasForm{Target: resolution.TypeRef{Name: target}},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.AliasToTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns true when the match is reachable through a distinct base", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "DistinctFromTarget", QualifiedName: "ns.DistinctFromTarget", Namespace: "ns",
+			Form: resolution.DistinctForm{Base: resolution.TypeRef{Name: target}},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.DistinctFromTarget"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
+	})
+
+	It("returns false when the ref name is absent from the table", func() {
+		ref := resolution.TypeRef{Name: "ns.Ghost"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("returns false when the struct references only unrelated types", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "Unrelated", QualifiedName: "ns.Unrelated", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "x", Type: resolution.TypeRef{Name: "int32"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.Unrelated"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("terminates on a cycle that does not involve the target", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "CycleA", QualifiedName: "ns.CycleA", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "b", Type: resolution.TypeRef{Name: "ns.CycleB"}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "CycleB", QualifiedName: "ns.CycleB", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "a", Type: resolution.TypeRef{Name: "ns.CycleA"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.CycleA"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeFalse())
+	})
+
+	It("detects the target even when reached via a cycle", func() {
+		Expect(table.Add(resolution.Type{
+			Name: "A", QualifiedName: "ns.A", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "b", Type: resolution.TypeRef{Name: "ns.B"}},
+					{Name: "t", Type: resolution.TypeRef{Name: target}},
+				},
+			},
+		})).To(Succeed())
+		Expect(table.Add(resolution.Type{
+			Name: "B", QualifiedName: "ns.B", Namespace: "ns",
+			Form: resolution.StructForm{
+				Fields: []resolution.Field{
+					{Name: "a", Type: resolution.TypeRef{Name: "ns.A"}},
+				},
+			},
+		})).To(Succeed())
+		ref := resolution.TypeRef{Name: "ns.B"}
+		Expect(resolution.RefersTo(ref, target, table)).To(BeTrue())
 	})
 })

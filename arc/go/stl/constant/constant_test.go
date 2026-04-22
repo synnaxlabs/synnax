@@ -10,8 +10,6 @@
 package constant_test
 
 import (
-	"context"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/graph"
@@ -24,11 +22,9 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var ctx = context.Background()
-
 var _ = Describe("Constant", func() {
 	Describe("NewModule", func() {
-		It("Should create module", func() {
+		It("Should create module", func(ctx SpecContext) {
 			factory := constant.NewModule()
 			Expect(factory).ToNot(BeNil())
 		})
@@ -39,7 +35,7 @@ var _ = Describe("Constant", func() {
 			factory node.Factory
 			s       *node.ProgramState
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
@@ -54,21 +50,21 @@ var _ = Describe("Constant", func() {
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(analyzed)
 		})
-		It("Should create constant for constant type", func() {
+		It("Should create constant for constant type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should return NotFound for unknown type", func() {
+		It("Should return NotFound for unknown type", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("const"),
 			}
 			Expect(factory.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
-		It("Should handle float64 value", func() {
+		It("Should handle float64 value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -82,7 +78,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should handle int value", func() {
+		It("Should handle int value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -95,7 +91,7 @@ var _ = Describe("Constant", func() {
 			}
 			Expect(MustSucceed(factory.Create(ctx, cfg))).ToNot(BeNil())
 		})
-		It("Should handle uint8 value", func() {
+		It("Should handle uint8 value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "constant",
@@ -114,9 +110,9 @@ var _ = Describe("Constant", func() {
 		var (
 			s       *node.ProgramState
 			factory node.Factory
-			outputs []string
+			marked  []int
 		)
-		BeforeEach(func() {
+		BeforeEach(func(ctx SpecContext) {
 			factory = constant.NewModule()
 			g := graph.Graph{
 				Nodes: []graph.Node{{Key: "const", Type: "constant"}},
@@ -130,34 +126,33 @@ var _ = Describe("Constant", func() {
 			inter, diagnostics := graph.Analyze(ctx, g, constant.SymbolResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s = node.New(inter)
-			outputs = []string{}
+			marked = nil
 		})
 
-		It("Should emit output on Next with int value", func() {
+		It("Should emit output on Next with int value", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 42}}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
-			Expect(outputs[0]).To(Equal(ir.DefaultOutputParam))
+			Expect(marked).To(ConsistOf(0))
 		})
 
-		It("Should set output data on Next", func() {
+		It("Should set output data on Next", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(100)}}},
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := s.Node("const").Output(0)
 			Expect(out.Len()).To(Equal(int64(1)))
 		})
 
-		It("Should set output time on Next", func() {
+		It("Should set output time on Next", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type:   "constant",
@@ -166,14 +161,14 @@ var _ = Describe("Constant", func() {
 				State: s.Node("const"),
 			}
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			outTime := s.Node("const").OutputTime(0)
 			Expect(outTime.Len()).To(Equal(int64(1)))
 			times := telem.UnmarshalSeries[telem.TimeStamp](*outTime)
 			Expect(times[0]).To(BeNumerically(">", int64(0)))
 		})
 
-		It("Should handle float64 constant", func() {
+		It("Should handle float64 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.F64(), Value: 2.718}}},
 				State: s.Node("const"),
@@ -181,13 +176,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[float64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[float64](*out)
 			Expect(vals[0]).To(Equal(2.718))
 		})
 
-		It("Should handle int32 constant", func() {
+		It("Should handle int32 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I32(), Value: int32(42)}}},
 				State: s.Node("const"),
@@ -195,13 +190,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int32](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int32](*out)
 			Expect(vals[0]).To(Equal(int32(42)))
 		})
 
-		It("Should handle uint8 constant", func() {
+		It("Should handle uint8 constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.U8(), Value: uint8(255)}}},
 				State: s.Node("const"),
@@ -209,13 +204,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[uint8](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[uint8](*out)
 			Expect(vals[0]).To(Equal(uint8(255)))
 		})
 
-		It("Should allow downstream nodes to read constant", func() {
+		It("Should allow downstream nodes to read constant", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "const", Type: "constant"},
@@ -252,7 +247,7 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			sink := s.Node("sink")
 			recalc := sink.RefreshInputs()
 			Expect(recalc).To(BeTrue())
@@ -261,7 +256,7 @@ var _ = Describe("Constant", func() {
 			Expect(vals[0]).To(Equal(int64(999)))
 		})
 
-		It("Should handle zero value constant", func() {
+		It("Should handle zero value constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: 0}}},
 				State: s.Node("const"),
@@ -269,13 +264,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
 			Expect(vals[0]).To(Equal(int64(0)))
 		})
 
-		It("Should handle negative value constant", func() {
+		It("Should handle negative value constant", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: -42}}},
 				State: s.Node("const"),
@@ -283,13 +278,13 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			out := constNode.Output(0)
 			vals := telem.UnmarshalSeries[int64](*out)
 			Expect(vals[0]).To(Equal(int64(-42)))
 		})
 
-		It("Should only emit once across multiple Next calls", func() {
+		It("Should only emit once across multiple Next calls", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -297,17 +292,17 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			Expect(marked).To(HaveLen(1))
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
+			Expect(marked).To(HaveLen(1))
 		})
 
-		It("Should emit again after Reset is called", func() {
+		It("Should emit again after Reset is called", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node:  ir.Node{Type: "constant", Config: types.Params{{Name: "value", Type: types.I64(), Value: int64(42)}}},
 				State: s.Node("const"),
@@ -315,20 +310,20 @@ var _ = Describe("Constant", func() {
 			constNode := s.Node("const")
 			*constNode.Output(0) = telem.NewSeriesV[int64](0)
 			n, _ := factory.Create(ctx, cfg)
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(1))
+			Expect(marked).To(HaveLen(1))
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+				marked = append(marked, i)
 			}})
-			Expect(outputs).To(HaveLen(2))
+			Expect(marked).To(HaveLen(2))
 		})
 	})
 
 	Describe("SymbolResolver", func() {
-		It("Should resolve constant symbol", func() {
+		It("Should resolve constant symbol", func(ctx SpecContext) {
 			sym, ok := constant.SymbolResolver["constant"]
 			Expect(ok).To(BeTrue())
 			Expect(sym.Name).To(Equal("constant"))

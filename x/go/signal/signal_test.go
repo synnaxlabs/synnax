@@ -24,29 +24,25 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func immediatelyReturnError(ctx context.Context) error {
-	return errors.New("routine failed")
+var errRoutineFailed = errors.New("routine failed")
+
+func immediatelyReturnError(context.Context) error {
+	return errRoutineFailed
 }
 
-func immediatelyPanic(ctx context.Context) error { panic("routine panicked") }
+func immediatelyPanic(context.Context) error { panic("routine panicked") }
 
-func immediatelyReturnNil(ctx context.Context) error { return nil }
+func immediatelyReturnNil(context.Context) error { return nil }
 
 var _ = Describe("Signal", func() {
-	var ctx context.Context
-	BeforeEach(func() {
-		ctx = context.Background()
-	})
-
 	Describe("Coordination", func() {
 		Describe("CancelOnFail", func() {
 			It("Should cancel the context when the first routine exits with an error", func() {
 				ctx, cancel := signal.Isolated()
 				ctx.Go(immediatelyReturnNil, signal.CancelOnFail())
-				Expect(ctx.Stopped()).ToNot(BeClosed())
 				ctx.Go(immediatelyReturnError, signal.CancelOnFail())
 				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
+				Expect(ctx.Wait()).To(MatchError(errRoutineFailed))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
@@ -75,17 +71,17 @@ var _ = Describe("Signal", func() {
 			It("Should range over a channel until the context is cancelled", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
+					c.Add(1)
 					return nil
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(2))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(2)))
 				cancel()
 				v <- 3
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 
@@ -93,14 +89,14 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
+					c.Add(1)
 					return nil
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(2))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(2)))
 				close(v)
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
@@ -110,15 +106,18 @@ var _ = Describe("Signal", func() {
 				v := make(chan int, 3)
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var (
+					c   atomic.Int32Counter
+					err = errors.New("routine failed")
+				)
 				signal.GoRange(ctx, v, func(ctx context.Context, v int) error {
-					c++
-					return errors.New("routine failed")
+					c.Add(1)
+					return err
 				})
 				v <- 1
 				v <- 2
-				Eventually(func() int { return c }).Should(Equal(1))
-				Expect(ctx.Wait()).To(HaveOccurredAs(errors.New("routine failed")))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(1)))
+				Expect(ctx.Wait()).To(MatchError(err))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 
@@ -128,14 +127,14 @@ var _ = Describe("Signal", func() {
 			It("Should tick until the context is cancelled", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				signal.GoTick(ctx, 500*time.Microsecond, func(ctx context.Context, t time.Time) error {
-					c++
+					c.Add(1)
 					return nil
 				})
-				Eventually(func() int { return c }).Should(BeNumerically(">", 3))
+				Eventually(func() int32 { return c.Value() }).Should(BeNumerically(">", int32(3)))
 				cancel()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
 		})
@@ -148,11 +147,11 @@ var _ = Describe("Signal", func() {
 			It("Should defer a function until the routine exit", func() {
 				ctx, cancel := signal.Isolated()
 				defer cancel()
-				c := 0
+				var c atomic.Int32Counter
 				ctx.Go(immediatelyReturnNil, signal.Defer(func() {
-					c++
+					c.Add(1)
 				}))
-				Eventually(func() int { return c }).Should(Equal(1))
+				Eventually(func() int32 { return c.Value() }).Should(Equal(int32(1)))
 				Expect(ctx.Wait()).ToNot(HaveOccurred())
 				Eventually(ctx.Stopped()).Should(BeClosed())
 			})
@@ -197,8 +196,8 @@ var _ = Describe("Signal", func() {
 			Expect(<-v).To(Equal(1))
 		})
 
-		It("Should not send a value to the channel if the context is cancelled", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should not send a value to the channel if the context is cancelled", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int)
 			_ = signal.SendUnderContext(ctx, v, 1)
 			cancel()
@@ -212,27 +211,25 @@ var _ = Describe("Signal", func() {
 		It("Should receive a value from the channel", func() {
 			v := make(chan int, 1)
 			v <- 1
-			val, err := signal.RecvUnderContext(context.Background(), v)
-			Expect(err).ToNot(HaveOccurred())
+			val := MustSucceed(signal.RecvUnderContext(context.Background(), v))
 			Expect(val).To(Equal(1))
 		})
 
-		It("Should return context error if context is cancelled before receive", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should return context error if context is cancelled before receive", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int)
 			cancel()
 			val, err := signal.RecvUnderContext(ctx, v)
-			Expect(err).To(HaveOccurredAs(context.Canceled))
+			Expect(err).To(MatchError(context.Canceled))
 			Expect(val).To(Equal(0))
 		})
 
-		It("Should receive value even if context is cancelled after value is available", func() {
-			ctx, cancel := signal.WithTimeout(ctx, 500*time.Microsecond)
+		It("Should receive value even if context is cancelled after value is available", func(specCtx SpecContext) {
+			ctx, cancel := signal.WithTimeout(specCtx, 500*time.Microsecond)
 			v := make(chan int, 1)
 			v <- 1
-			val, err := signal.RecvUnderContext(ctx, v)
+			val := MustSucceed(signal.RecvUnderContext(ctx, v))
 			cancel()
-			Expect(err).ToNot(HaveOccurred())
 			Expect(val).To(Equal(1))
 		})
 
@@ -276,16 +273,14 @@ var _ = Describe("Signal", func() {
 		It("Should wrap an error panic with routine key", func() {
 			ctx, _ := signal.Isolated()
 			originalErr := errors.New("original panic error")
-
 			ctx.Go(func(ctx context.Context) error {
 				panic(originalErr)
 			}, signal.RecoverWithErrOnPanic(), signal.WithKey("test-routine"))
-
-			err := ctx.Wait()
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("routine test-routine recovered"))
-			Expect(err.Error()).To(ContainSubstring("original panic error"))
-			Expect(errors.Is(err, originalErr)).To(BeTrue())
+			Expect(ctx.Wait()).To(SatisfyAll(
+				MatchError(originalErr),
+				MatchError(ContainSubstring("routine test-routine recovered")),
+				MatchError(ContainSubstring("original panic error")),
+			))
 		})
 
 		It("Should try to restart when instructed to", func() {
@@ -339,7 +334,7 @@ var _ = Describe("Signal", func() {
 
 			wg.Go(func() {
 				defer GinkgoRecover()
-				Expect(ctx.Wait()).To(HaveOccurredAs(context.Canceled))
+				Expect(ctx.Wait()).To(MatchError(context.Canceled))
 				close(done)
 			})
 

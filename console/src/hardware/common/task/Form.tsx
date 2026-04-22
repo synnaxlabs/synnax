@@ -138,7 +138,12 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       beforeSave: async ({ client, ...form }) => {
         const { name, config } = form.value();
         const [newConfig, rackKey] = await onConfigure(client, config, name);
-        if (primitive.isNonZero(taskKey) && rackKey != task.rackKey(taskKey)) {
+        const nonZeroRackKey = primitive.isNonZero(rackKey);
+        if (
+          nonZeroRackKey &&
+          primitive.isNonZero(taskKey) &&
+          rackKey != task.rackKey(taskKey)
+        ) {
           const confirmed = await confirm({
             message: "Device has been moved to different driver.",
             description:
@@ -149,7 +154,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
           if (!confirmed) return false;
           await client.tasks.delete(taskKey);
         }
-        form.set("rackKey", rackKey);
+        if (nonZeroRackKey) form.set("rackKey", rackKey);
         form.set("config", newConfig);
         const status: task.NewStatus = {
           name,

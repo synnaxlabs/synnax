@@ -14,8 +14,9 @@
 #include "x/cpp/loop/loop.h"
 #include "x/cpp/telem/series.h"
 #include "x/cpp/telem/telem.h"
+#include "x/cpp/test/test.h"
 
-#include "x/go/telem/telem.pb.h"
+#include "x/go/telem/pb/telem.pb.h"
 
 namespace x::telem {
 template<typename T>
@@ -95,7 +96,7 @@ TEST(TestSeries, testStringVectorConstruction) {
     const Series s{vals};
     ASSERT_EQ(s.data_type(), STRING_T);
     ASSERT_EQ(s.size(), 2);
-    ASSERT_EQ(s.byte_size(), 12);
+    ASSERT_EQ(s.byte_size(), 18);
     const auto v = s.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -123,18 +124,18 @@ TEST(TestSeries, testStringConstruction) {
     const Series s{val};
     ASSERT_EQ(s.data_type(), STRING_T);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.byte_size(), 6);
+    ASSERT_EQ(s.byte_size(), 9);
     const auto v = s.strings();
     ASSERT_EQ(v[0], val);
 }
 
-/// @brief it should correctly construct a series from a single JSON string.
+/// @brief it should correctly construct a series from a single json::json string.
 TEST(TestSeries, testJSONStringConstruction) {
     const std::string raw = R"({ "key": "abc" })";
     const Series s(raw, JSON_T);
     ASSERT_EQ(s.data_type(), JSON_T);
     ASSERT_EQ(s.size(), 1);
-    ASSERT_EQ(s.byte_size(), 17);
+    ASSERT_EQ(s.byte_size(), 20);
     const auto v = s.strings();
     ASSERT_EQ(v[0], raw);
 }
@@ -194,9 +195,8 @@ TEST(TestSeries, testInlineVectorConstruction) {
 TEST(TestSeries, testProto) {
     const std::vector<uint16_t> vals = {1, 2, 3, 4, 5};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.values<std::uint16_t>();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -219,9 +219,8 @@ TEST(TestSeries, testConstructionSingleValue) {
 TEST(TestSeries, testConstrucitonFromVariableProtoSeries) {
     const std::vector<std::string> vals = {"hello", "world22"};
     const Series s{vals};
-    ::telem::PBSeries s2;
-    s.to_proto(&s2);
-    const Series s3{s2};
+    const auto s2 = s.to_proto();
+    const auto s3 = ASSERT_NIL_P(Series::from_proto(s2));
     const auto v = s3.strings();
     for (size_t i = 0; i < vals.size(); i++)
         ASSERT_EQ(v[i], vals[i]);
@@ -832,7 +831,7 @@ TEST(TestSeriesInplace, testMultipleTypes) {
     ASSERT_EQ(double_result, expected_double);
 }
 
-/// @brief it should construct a series from a vector of JSON values.
+/// @brief it should construct a series from a vector of json::json values.
 TEST(TestSeries, testJSONVectorConstruction) {
     std::vector<json::json> simple_values = {
         json::json{{"key1", "value1"}},
@@ -873,7 +872,7 @@ TEST(TestSeries, testJSONVectorConstruction) {
     ASSERT_EQ(s3.byte_size(), 0);
 }
 
-/// @brief it should retrieve JSON values from a series.
+/// @brief it should retrieve json::json values from a series.
 TEST(TestSeries, testJSONValuesBasic) {
     std::vector<json::json> input_values = {
         json::json{{"key1", "value1"}},
@@ -893,14 +892,15 @@ TEST(TestSeries, testJSONValuesBasic) {
         ASSERT_EQ(output_values[i], input_values[i]);
 }
 
-/// @brief it should return empty vector for empty JSON series.
+/// @brief it should return empty vector for empty json::json series.
 TEST(TestSeries, testJSONValuesEmpty) {
     const Series empty_series(std::vector<json::json>{});
     auto empty_values = empty_series.json_values();
     ASSERT_TRUE(empty_values.empty());
 }
 
-/// @brief it should throw error when getting JSON values from non-JSON series.
+/// @brief it should throw error when getting json::json values from non-json::json
+/// series.
 TEST(TestSeries, testJSONValuesErrorOnNonJSON) {
     const Series non_json_series(std::vector<int>{1, 2, 3});
     ASSERT_THROW((void) non_json_series.json_values(), std::runtime_error);
@@ -930,12 +930,13 @@ TEST(TestSeries, testFillFromString) {
     std::vector<uint8_t> binary_data;
     size_t total_size = 0;
     for (const auto &str: source_strings)
-        total_size += str.size() + 1; // +1 for newline terminator
+        total_size += str.size() + 4;
 
     binary::Writer writer(binary_data, total_size);
     for (const auto &str: source_strings) {
+        uint32_t len = static_cast<uint32_t>(str.size());
+        writer.write(&len, sizeof(len));
         writer.write(str.data(), str.size());
-        writer.uint8('\n');
     }
 
     Series series(STRING_T, total_size);
@@ -1761,5 +1762,489 @@ TEST(SeriesClear, ClearedStringSeriesCanBeRebuilt) {
     merged.insert(merged.end(), incoming.begin(), incoming.end());
     ASSERT_EQ(merged.size(), 1);
     ASSERT_EQ(merged[0], "new");
+}
+
+/// @brief shallow_copy should produce a series with identical data.
+TEST(SeriesShallowCopy, ReadsMatchOriginal) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.size(), 3);
+    ASSERT_EQ(copy.data_type(), FLOAT32_T);
+    ASSERT_EQ(copy.at<float>(0), 1.0f);
+    ASSERT_EQ(copy.at<float>(1), 2.0f);
+    ASSERT_EQ(copy.at<float>(2), 3.0f);
+}
+
+/// @brief shallow_copy should share the underlying data buffer.
+TEST(SeriesShallowCopy, SharesBuffer) {
+    auto original = Series(std::vector<double>{10.0, 20.0});
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(original.data(), copy.data());
+}
+
+/// @brief shallow_copy should preserve metadata.
+TEST(SeriesShallowCopy, PreservesMetadata) {
+    auto original = Series(std::vector<int32_t>{1, 2, 3, 4, 5});
+    original.time_range = TimeRange(TimeStamp(100), TimeStamp(500));
+    original.alignment = Alignment(3, 7);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data_type(), INT32_T);
+    ASSERT_EQ(copy.size(), 5);
+    ASSERT_EQ(copy.cap(), 5);
+    ASSERT_EQ(copy.byte_size(), original.byte_size());
+    ASSERT_EQ(copy.time_range.start, TimeStamp(100));
+    ASSERT_EQ(copy.time_range.end, TimeStamp(500));
+    ASSERT_EQ(copy.alignment, Alignment(3, 7));
+}
+
+/// @brief mutating a shallow copy via write should not affect the original.
+TEST(SeriesShallowCopy, WriteOnCopyDoesNotAffectOriginal) {
+    auto original = Series(FLOAT32_T, 4);
+    original.write(std::vector<float>{1.0f, 2.0f});
+    auto copy = original.shallow_copy();
+    copy.write(3.0f);
+    ASSERT_EQ(original.size(), 2);
+    ASSERT_EQ(original.at<float>(0), 1.0f);
+    ASSERT_EQ(original.at<float>(1), 2.0f);
+    ASSERT_EQ(copy.size(), 3);
+    ASSERT_EQ(copy.at<float>(2), 3.0f);
+}
+
+/// @brief mutating a shallow copy via set should not affect the original.
+TEST(SeriesShallowCopy, SetOnCopyDoesNotAffectOriginal) {
+    auto original = Series(std::vector<int32_t>{10, 20, 30});
+    auto copy = original.shallow_copy();
+    copy.set<int32_t>(0, 999);
+    ASSERT_EQ(original.at<int32_t>(0), 10);
+    ASSERT_EQ(copy.at<int32_t>(0), 999);
+}
+
+/// @brief mutating the original after shallow_copy should not affect the copy.
+TEST(SeriesShallowCopy, MutateOriginalDoesNotAffectCopy) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto copy = original.shallow_copy();
+    original.set<float>(0, 99.0f);
+    ASSERT_EQ(copy.at<float>(0), 1.0f);
+    ASSERT_NE(original.data(), copy.data());
+}
+
+/// @brief in-place arithmetic on a shallow copy should not affect the original.
+TEST(SeriesShallowCopy, InPlaceArithmeticOnCopy) {
+    auto original = Series(std::vector<double>{2.0, 4.0, 6.0});
+    auto copy = original.shallow_copy();
+    copy.add_inplace(10.0);
+    ASSERT_DOUBLE_EQ(original.at<double>(0), 2.0);
+    ASSERT_DOUBLE_EQ(original.at<double>(1), 4.0);
+    ASSERT_DOUBLE_EQ(original.at<double>(2), 6.0);
+    ASSERT_DOUBLE_EQ(copy.at<double>(0), 12.0);
+    ASSERT_DOUBLE_EQ(copy.at<double>(1), 14.0);
+    ASSERT_DOUBLE_EQ(copy.at<double>(2), 16.0);
+}
+
+/// @brief resize on a shallow copy should not affect the original.
+TEST(SeriesShallowCopy, ResizeOnCopy) {
+    auto original = Series(std::vector<int32_t>{1, 2, 3});
+    auto copy = original.shallow_copy();
+    copy.resize(10);
+    ASSERT_EQ(original.size(), 3);
+    ASSERT_EQ(original.cap(), 3);
+    ASSERT_EQ(copy.size(), 10);
+    ASSERT_EQ(copy.cap(), 10);
+    ASSERT_EQ(original.at<int32_t>(0), 1);
+    ASSERT_EQ(original.at<int32_t>(1), 2);
+    ASSERT_EQ(original.at<int32_t>(2), 3);
+}
+
+/// @brief write_casted on a shallow copy should not affect the original.
+TEST(SeriesShallowCopy, WriteCastedOnCopy) {
+    auto original = Series(FLOAT64_T, 4);
+    original.write(std::vector<double>{1.0, 2.0});
+    auto copy = original.shallow_copy();
+    std::vector<float> new_data = {3.0f, 4.0f};
+    copy.write_casted(new_data.data(), new_data.size());
+    ASSERT_EQ(original.size(), 2);
+    ASSERT_EQ(copy.size(), 4);
+    ASSERT_DOUBLE_EQ(original.at<double>(0), 1.0);
+    ASSERT_DOUBLE_EQ(original.at<double>(1), 2.0);
+}
+
+/// @brief writing a Series into a shallow copy should not affect the original.
+TEST(SeriesShallowCopy, WriteSeriesIntoCopy) {
+    auto original = Series(FLOAT32_T, 6);
+    original.write(std::vector<float>{1.0f, 2.0f});
+    auto copy = original.shallow_copy();
+    auto extra = Series(std::vector<float>{3.0f, 4.0f});
+    copy.write(extra);
+    ASSERT_EQ(original.size(), 2);
+    ASSERT_EQ(copy.size(), 4);
+    ASSERT_EQ(copy.at<float>(2), 3.0f);
+    ASSERT_EQ(copy.at<float>(3), 4.0f);
+}
+
+/// @brief the original should survive after the shallow copy is destroyed.
+TEST(SeriesShallowCopy, OriginalSurvivesCopyDestruction) {
+    auto original = Series(std::vector<int64_t>{100, 200, 300});
+    {
+        auto copy = original.shallow_copy();
+        ASSERT_EQ(copy.at<int64_t>(0), 100);
+    }
+    ASSERT_EQ(original.size(), 3);
+    ASSERT_EQ(original.at<int64_t>(0), 100);
+    ASSERT_EQ(original.at<int64_t>(1), 200);
+    ASSERT_EQ(original.at<int64_t>(2), 300);
+}
+
+/// @brief a shallow copy should survive after the original is destroyed.
+TEST(SeriesShallowCopy, CopySurvivesOriginalDestruction) {
+    Series copy(FLOAT32_T, 0);
+    {
+        auto original = Series(std::vector<float>{7.0f, 8.0f, 9.0f});
+        copy = original.shallow_copy();
+    }
+    ASSERT_EQ(copy.size(), 3);
+    ASSERT_EQ(copy.at<float>(0), 7.0f);
+    ASSERT_EQ(copy.at<float>(1), 8.0f);
+    ASSERT_EQ(copy.at<float>(2), 9.0f);
+}
+
+/// @brief multiple shallow copies should all share the same buffer.
+TEST(SeriesShallowCopy, MultipleShallowCopiesShareBuffer) {
+    auto original = Series(std::vector<uint32_t>{1, 2, 3});
+    auto copy1 = original.shallow_copy();
+    auto copy2 = original.shallow_copy();
+    auto copy3 = copy1.shallow_copy();
+    ASSERT_EQ(original.data(), copy1.data());
+    ASSERT_EQ(original.data(), copy2.data());
+    ASSERT_EQ(original.data(), copy3.data());
+}
+
+/// @brief mutating one of many shallow copies should only detach that one.
+TEST(SeriesShallowCopy, MutatingOneCopyDetachesOnlyThatCopy) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f});
+    auto copy1 = original.shallow_copy();
+    auto copy2 = original.shallow_copy();
+    copy1.set<float>(0, 99.0f);
+    ASSERT_NE(copy1.data(), original.data());
+    ASSERT_EQ(original.data(), copy2.data());
+    ASSERT_EQ(original.at<float>(0), 1.0f);
+    ASSERT_EQ(copy2.at<float>(0), 1.0f);
+    ASSERT_EQ(copy1.at<float>(0), 99.0f);
+}
+
+/// @brief shallow copy of an empty series should produce an empty series.
+TEST(SeriesShallowCopy, EmptySeries) {
+    auto original = Series(FLOAT64_T, 0);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.size(), 0);
+    ASSERT_TRUE(copy.empty());
+    ASSERT_EQ(copy.data_type(), FLOAT64_T);
+}
+
+/// @brief shallow copy of a single-element series.
+TEST(SeriesShallowCopy, SingleElement) {
+    auto original = Series(static_cast<float>(42.0f));
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.size(), 1);
+    ASSERT_EQ(copy.at<float>(0), 42.0f);
+    ASSERT_EQ(copy.data(), original.data());
+}
+
+/// @brief shallow copy of a string series should share the buffer.
+TEST(SeriesShallowCopy, StringSeries) {
+    auto original = Series(std::vector<std::string>{"hello", "world"});
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), STRING_T);
+    auto strings = copy.strings();
+    ASSERT_EQ(strings[0], "hello");
+    ASSERT_EQ(strings[1], "world");
+}
+
+/// @brief shallow copy of a variable-size series should preserve byte_cap.
+TEST(SeriesShallowCopy, StringSeriesPreservesByteCap) {
+    auto original = Series(STRING_T, 128);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.byte_cap(), original.byte_cap());
+    ASSERT_EQ(copy.byte_cap(), 128);
+}
+
+/// @brief shallow copy of a JSON series with explicit capacity should preserve
+/// byte_cap.
+TEST(SeriesShallowCopy, JSONSeriesPreservesByteCap) {
+    auto original = Series(JSON_T, 256);
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.byte_cap(), original.byte_cap());
+    ASSERT_EQ(copy.byte_cap(), 256);
+}
+
+/// @brief shallow copy of a JSON series should share the buffer.
+TEST(SeriesShallowCopy, JSONSeries) {
+    auto original = Series(
+        std::vector<std::string>{R"({"a":1})", R"({"b":2})"},
+        JSON_T
+    );
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    auto vals = copy.json_values();
+    ASSERT_EQ(vals[0]["a"], 1);
+    ASSERT_EQ(vals[1]["b"], 2);
+}
+
+/// @brief shallow copy of a timestamp series.
+TEST(SeriesShallowCopy, TimestampSeries) {
+    auto original = Series(
+        std::vector<TimeStamp>{
+            TimeStamp(MILLISECOND * 1),
+            TimeStamp(MILLISECOND * 2),
+        }
+    );
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), TIMESTAMP_T);
+    ASSERT_EQ(copy.at<int64_t>(0), MILLISECOND.nanoseconds());
+    ASSERT_EQ(copy.at<int64_t>(1), MILLISECOND.nanoseconds() * 2);
+}
+
+/// @brief non-mutating operations on a shared series should not trigger a copy.
+TEST(SeriesShallowCopy, ReadOnlyOperationsDoNotDetach) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto copy = original.shallow_copy();
+    [[maybe_unused]] auto val = copy.at<float>(0);
+    [[maybe_unused]] auto vals = copy.values<float>();
+    [[maybe_unused]] auto sz = copy.size();
+    [[maybe_unused]] auto bs = copy.byte_size();
+    [[maybe_unused]] auto dt = copy.data_type();
+    [[maybe_unused]] auto emp = copy.empty();
+    ASSERT_EQ(original.data(), copy.data());
+}
+
+/// @brief values() on a shallow copy should return a correct deep-copied vector.
+TEST(SeriesShallowCopy, ValuesReturnsCorrectData) {
+    auto original = Series(std::vector<int32_t>{10, 20, 30});
+    auto copy = original.shallow_copy();
+    auto vals = copy.values<int32_t>();
+    ASSERT_EQ(vals.size(), 3);
+    ASSERT_EQ(vals[0], 10);
+    ASSERT_EQ(vals[1], 20);
+    ASSERT_EQ(vals[2], 30);
+}
+
+/// @brief detach_buffer should allocate a new buffer when shared.
+TEST(SeriesDetachBuffer, AllocatesNewBufferWhenShared) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(original.data(), copy.data());
+    original.detach_buffer();
+    ASSERT_NE(original.data(), copy.data());
+}
+
+/// @brief detach_buffer should reset size to zero.
+TEST(SeriesDetachBuffer, ResetsSizeToZero) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f, 3.0f});
+    auto copy = original.shallow_copy();
+    original.detach_buffer();
+    ASSERT_EQ(original.size(), 0);
+    ASSERT_TRUE(original.empty());
+}
+
+/// @brief detach_buffer should preserve capacity.
+TEST(SeriesDetachBuffer, PreservesCapacity) {
+    auto original = Series(FLOAT32_T, 10);
+    original.write(std::vector<float>{1.0f, 2.0f});
+    auto copy = original.shallow_copy();
+    original.detach_buffer();
+    ASSERT_EQ(original.cap(), 10);
+    ASSERT_EQ(original.size(), 0);
+}
+
+/// @brief detach_buffer should leave the shallow copy intact.
+TEST(SeriesDetachBuffer, CopyRetainsOriginalData) {
+    auto original = Series(std::vector<double>{5.0, 10.0, 15.0});
+    auto copy = original.shallow_copy();
+    original.detach_buffer();
+    ASSERT_EQ(copy.size(), 3);
+    ASSERT_DOUBLE_EQ(copy.at<double>(0), 5.0);
+    ASSERT_DOUBLE_EQ(copy.at<double>(1), 10.0);
+    ASSERT_DOUBLE_EQ(copy.at<double>(2), 15.0);
+}
+
+/// @brief detach_buffer then write should produce independent data.
+TEST(SeriesDetachBuffer, WriteAfterDetachIsIndependent) {
+    auto original = Series(FLOAT32_T, 4);
+    original.write(std::vector<float>{1.0f, 2.0f});
+    auto copy = original.shallow_copy();
+    original.detach_buffer();
+    original.write(std::vector<float>{99.0f, 100.0f});
+    ASSERT_EQ(copy.at<float>(0), 1.0f);
+    ASSERT_EQ(copy.at<float>(1), 2.0f);
+    ASSERT_EQ(original.at<float>(0), 99.0f);
+    ASSERT_EQ(original.at<float>(1), 100.0f);
+}
+
+/// @brief detach_buffer on an unshared series should not reallocate.
+TEST(SeriesDetachBuffer, NoAllocWhenExclusive) {
+    auto original = Series(std::vector<float>{1.0f, 2.0f});
+    auto ptr_before = original.data();
+    original.detach_buffer();
+    ASSERT_EQ(original.data(), ptr_before);
+    ASSERT_EQ(original.size(), 0);
+}
+
+/// @brief the publish-and-reset pattern: shallow_copy followed by detach_buffer.
+TEST(SeriesDetachBuffer, PublishAndResetPattern) {
+    auto buffer = Series(FLOAT32_T, 100);
+    buffer.write(std::vector<float>{1.0f, 2.0f, 3.0f});
+
+    auto published = buffer.shallow_copy();
+    buffer.detach_buffer();
+
+    ASSERT_EQ(published.size(), 3);
+    ASSERT_EQ(published.at<float>(0), 1.0f);
+    ASSERT_EQ(published.at<float>(1), 2.0f);
+    ASSERT_EQ(published.at<float>(2), 3.0f);
+
+    buffer.write(std::vector<float>{10.0f, 20.0f});
+    ASSERT_EQ(buffer.size(), 2);
+    ASSERT_EQ(buffer.at<float>(0), 10.0f);
+
+    ASSERT_EQ(published.at<float>(0), 1.0f);
+    ASSERT_EQ(published.at<float>(1), 2.0f);
+    ASSERT_EQ(published.at<float>(2), 3.0f);
+}
+
+/// @brief repeated publish-and-reset cycles should not leak or corrupt data.
+TEST(SeriesDetachBuffer, RepeatedPublishCycles) {
+    auto buffer = Series(FLOAT32_T, 10);
+    std::vector<Series> published;
+
+    for (int cycle = 0; cycle < 5; cycle++) {
+        buffer.write(static_cast<float>(cycle));
+        published.push_back(buffer.shallow_copy());
+        buffer.detach_buffer();
+    }
+
+    for (int cycle = 0; cycle < 5; cycle++) {
+        ASSERT_EQ(published[cycle].size(), 1);
+        ASSERT_EQ(published[cycle].at<float>(0), static_cast<float>(cycle));
+    }
+}
+
+/// @brief it should correctly construct a BYTES series from a vector of byte blobs
+/// represented as strings, and report the correct size and byte_size.
+TEST(SeriesBytes, VectorConstruction) {
+    const std::vector<std::string> blobs = {
+        std::string("\x01\x02\x03", 3),
+        std::string("\xDE\xAD\xBE\xEF", 4),
+    };
+    const Series s(blobs, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_EQ(s.byte_size(), 15);
+}
+
+/// @brief it should correctly construct a BYTES series from an empty vector.
+TEST(SeriesBytes, EmptyVectorConstruction) {
+    const Series s(std::vector<std::string>{}, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_TRUE(s.empty());
+}
+
+/// @brief it should correctly construct a single-element BYTES series.
+TEST(SeriesBytes, SingleElementConstruction) {
+    const std::vector<std::string> blobs = {std::string("\xAB\xCD", 2)};
+    const Series s(blobs, BYTES_T);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 1);
+    ASSERT_EQ(s.byte_size(), 6);
+}
+
+/// @brief raw data pointer should reflect the length-prefixed binary layout.
+TEST(SeriesBytes, RawDataLayout) {
+    const std::string blob("\x01\x02\x03", 3);
+    const Series s(std::vector<std::string>{blob}, BYTES_T);
+    const auto *raw = reinterpret_cast<const uint8_t *>(s.data());
+    ASSERT_EQ(raw[0], 3);
+    ASSERT_EQ(raw[1], 0);
+    ASSERT_EQ(raw[2], 0);
+    ASSERT_EQ(raw[3], 0);
+    ASSERT_EQ(raw[4], 0x01);
+    ASSERT_EQ(raw[5], 0x02);
+    ASSERT_EQ(raw[6], 0x03);
+}
+
+/// @brief clear should reset size and byte_size to zero.
+TEST(SeriesBytes, ClearResetsSize) {
+    auto s = Series(
+        std::vector<std::string>{std::string("\x01\x02", 2), std::string("\x03", 1)},
+        BYTES_T
+    );
+    ASSERT_EQ(s.size(), 2);
+    ASSERT_GT(s.byte_size(), 0);
+    s.clear();
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_TRUE(s.empty());
+    ASSERT_EQ(s.byte_size(), 0);
+}
+
+/// @brief pre-allocated BYTES series should have zero size but non-zero byte_cap.
+TEST(SeriesBytes, AllocationVariable) {
+    const Series s(BYTES_T, 32);
+    ASSERT_EQ(s.data_type(), BYTES_T);
+    ASSERT_EQ(s.size(), 0);
+    ASSERT_EQ(s.byte_size(), 0);
+    ASSERT_EQ(s.byte_cap(), 32);
+}
+
+/// @brief shallow copy of a BYTES series should share the underlying buffer.
+TEST(SeriesBytes, ShallowCopySharesBuffer) {
+    auto original = Series(
+        std::vector<std::string>{std::string("\xAA\xBB", 2), std::string("\xCC", 1)},
+        BYTES_T
+    );
+    auto copy = original.shallow_copy();
+    ASSERT_EQ(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), BYTES_T);
+    ASSERT_EQ(copy.byte_size(), original.byte_size());
+}
+
+/// @brief deep copy of a BYTES series should produce an independent buffer with
+/// identical content.
+TEST(SeriesBytes, DeepCopyIsIndependent) {
+    auto original = Series(
+        std::vector<std::string>{
+            std::string("\x01\x02\x03", 3),
+            std::string("\x04\x05", 2),
+        },
+        BYTES_T
+    );
+    original.alignment = Alignment(2, 7);
+    const Series copy = original.deep_copy();
+    ASSERT_NE(copy.data(), original.data());
+    ASSERT_EQ(copy.size(), 2);
+    ASSERT_EQ(copy.data_type(), BYTES_T);
+    ASSERT_EQ(copy.byte_size(), original.byte_size());
+    ASSERT_EQ(copy.cap(), original.cap());
+    ASSERT_EQ(copy.alignment.uint64(), original.alignment.uint64());
+    const auto *orig_raw = reinterpret_cast<const uint8_t *>(original.data());
+    const auto *copy_raw = reinterpret_cast<const uint8_t *>(copy.data());
+    ASSERT_EQ(memcmp(orig_raw, copy_raw, original.byte_size()), 0);
+}
+
+/// @brief strings() should throw when called on a BYTES series.
+TEST(SeriesBytes, StringsThrowsForBytesType) {
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
+    ASSERT_THROW((void) s.strings(), std::runtime_error);
+}
+
+/// @brief at<std::string>() should throw when called on a BYTES series.
+TEST(SeriesBytes, AtStringThrowsForBytesType) {
+    const Series s(std::vector<std::string>{std::string("\x01\x02", 2)}, BYTES_T);
+    ASSERT_THROW((void) s.at<std::string>(0), std::runtime_error);
 }
 }

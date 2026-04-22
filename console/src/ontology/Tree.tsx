@@ -45,8 +45,8 @@ import {
 import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import { MultipleSelectionContextMenu } from "@/ontology/ContextMenu";
 import { DefaultContextMenu } from "@/ontology/DefaultContextMenu";
+import { MultipleSelectionContextMenu } from "@/ontology/MultipleSelectionContextMenu";
 import {
   type BaseProps,
   type GetResource,

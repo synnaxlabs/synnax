@@ -19,8 +19,9 @@ import (
 
 // Writer wraps a transaction to create, update, and delete labels.
 type Writer struct {
-	tx  gorp.Tx
-	otg ontology.Writer
+	tx    gorp.Tx
+	otg   ontology.Writer
+	table *gorp.Table[uuid.UUID, Label]
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If
@@ -32,7 +33,7 @@ func (w Writer) Create(
 	if l.Key == uuid.Nil {
 		l.Key = uuid.New()
 	}
-	if err = gorp.NewCreate[uuid.UUID, Label]().Entry(l).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DefineResource(ctx, OntologyID(l.Key))
@@ -57,9 +58,9 @@ func (w Writer) CreateMany(
 // not return an error if the label does not exist.
 func (w Writer) Delete(
 	ctx context.Context,
-	k uuid.UUID,
+	k Key,
 ) (err error) {
-	if err = gorp.NewDelete[uuid.UUID, Label]().WhereKeys(k).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().WhereKeys(k).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))
@@ -68,7 +69,7 @@ func (w Writer) Delete(
 // DeleteMany removes multiple labels from the database and ontology.
 func (w Writer) DeleteMany(
 	ctx context.Context,
-	ks []uuid.UUID,
+	ks []Key,
 ) (err error) {
 	for _, k := range ks {
 		if err = w.Delete(ctx, k); err != nil {
@@ -83,7 +84,7 @@ func (w Writer) DeleteMany(
 func (w Writer) Label(
 	ctx context.Context,
 	target ontology.ID,
-	labels []uuid.UUID,
+	labels []Key,
 ) error {
 	for _, label := range labels {
 		if err := w.otg.DefineRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {
@@ -106,7 +107,7 @@ func (w Writer) Clear(
 func (w Writer) RemoveLabel(
 	ctx context.Context,
 	target ontology.ID,
-	labels []uuid.UUID,
+	labels []Key,
 ) error {
 	for _, label := range labels {
 		if err := w.otg.DeleteRelationship(ctx, target, OntologyRelationshipTypeLabeledBy, OntologyID(label)); err != nil {

@@ -18,4 +18,4 @@ warnings.warn(
     stacklevel=2,
 )
 
-from synnax.ni import *
+from synnax.ni import *  # noqa: F403

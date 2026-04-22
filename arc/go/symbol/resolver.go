@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Resolver provides pluggable symbol resolution for global or built-in symbols.
@@ -25,7 +26,7 @@ import (
 // They can be attached to the root scope via CreateRootScope to make symbols available
 // throughout the program.
 type Resolver interface {
-	// Resolve looks up a symbol by exact name match. Returns query.NotFound error
+	// Resolve looks up a symbol by exact name match. Returns query.ErrNotFound error
 	// if the symbol does not exist.
 	Resolve(ctx context.Context, name string) (Symbol, error)
 	// Search returns symbols matching the given search term. Implementations should
@@ -38,7 +39,7 @@ type MapResolver map[string]Symbol
 
 var _ Resolver = (*MapResolver)(nil)
 
-// Resolve looks up a symbol by name in the map. Returns query.NotFound if not found.
+// Resolve looks up a symbol by name in the map. Returns query.ErrNotFound if not found.
 func (m MapResolver) Resolve(_ context.Context, name string) (Symbol, error) {
 	if s, ok := m[name]; ok {
 		return s, nil
@@ -85,7 +86,7 @@ func (c CompoundResolver) Resolve(ctx context.Context, name string) (Symbol, err
 
 func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, error) {
 	var (
-		seen           = make(map[string]bool)
+		seen           = make(set.Set[string])
 		symbols        []Symbol
 		accumulatedErr error
 	)
@@ -96,9 +97,9 @@ func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, er
 			continue
 		}
 		for _, sym := range results {
-			if !seen[sym.Name] {
+			if !seen.Contains(sym.Name) {
 				symbols = append(symbols, sym)
-				seen[sym.Name] = true
+				seen.Add(sym.Name)
 			}
 		}
 	}

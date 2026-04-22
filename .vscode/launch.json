@@ -15,6 +15,14 @@
         "http://localhost:5173/@fs/*": "/*"
       },
       "skipFiles": ["<node_internals>/**", "**/node_modules/**"]
+    },
+    {
+      "name": "Core: Debug",
+      "type": "go",
+      "request": "launch",
+      "mode": "auto",
+      "program": "${workspaceFolder}/core/main.go",
+      "args": ["start", "-i", "--mem"]
     }
   ]
 }

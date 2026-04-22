@@ -15,7 +15,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/control"
-	"github.com/synnaxlabs/x/binary"
 	"github.com/synnaxlabs/x/confluence"
 	xcontrol "github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/errors"
@@ -31,7 +30,7 @@ type ControlUpdate struct {
 // database. If the channel is not found, it is created.
 func (db *DB) ConfigureControlUpdateChannel(ctx context.Context, key ChannelKey, name string) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
@@ -128,13 +127,13 @@ func (db *DB) ControlStates() (u ControlUpdate) {
 	if !db.digestsConfigured() {
 		return
 	}
-	u.Transfers = make([]control.Transfer, 0, len(db.mu.unaryDBs)+len(db.mu.virtualDBs))
-	for _, d := range db.mu.unaryDBs {
+	u.Transfers = make([]control.Transfer, 0, len(db.mu.dbs.unary)+len(db.mu.dbs.virtual))
+	for _, d := range db.mu.dbs.unary {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
 	}
-	for _, d := range db.mu.virtualDBs {
+	for _, d := range db.mu.dbs.virtual {
 		if s := d.LeadingControlState(); s != nil {
 			u.Transfers = append(u.Transfers, control.Transfer{To: s})
 		}
@@ -150,9 +149,22 @@ func (db *DB) ControlUpdateToFrame(ctx context.Context, u ControlUpdate) Frame {
 	return telem.UnaryFrame(db.mu.digests.key, d)
 }
 
-func EncodeControlUpdate(ctx context.Context, u ControlUpdate) (s telem.Series, err error) {
+// EncodeControlUpdate encodes a ControlUpdate into a single-sample Series. The content
+// is JSON, but the DataType is set to StringT because the control digest channel is
+// created as a StringT virtual channel in core/pkg/distribution/layer.go. Both locations
+// must be updated together if the type is ever changed to JSONT.
+func EncodeControlUpdate(_ context.Context, u ControlUpdate) (telem.Series, error) {
+	s, err := telem.NewJSONSeriesV(u)
 	s.DataType = telem.StringT
-	s.Data, err = (&binary.JSONCodec{}).Encode(ctx, u)
-	s.Data = append(s.Data, '\n')
 	return s, err
+}
+
+// DecodeControlUpdate decodes a ControlUpdate from a single-sample Series. See
+// EncodeControlUpdate for why the Series has DataType StringT despite containing JSON.
+func DecodeControlUpdate(s telem.Series) (ControlUpdate, error) {
+	updates, err := telem.UnmarshalJSONSeries[ControlUpdate](s)
+	if err != nil || len(updates) == 0 {
+		return ControlUpdate{}, err
+	}
+	return updates[0], nil
 }

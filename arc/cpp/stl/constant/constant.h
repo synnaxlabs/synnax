@@ -17,7 +17,9 @@
 
 #include "arc/cpp/ir/ir.h"
 #include "arc/cpp/runtime/node/node.h"
+#include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/stl/stl.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::constant {
 /// @brief Node that outputs a constant value once on initialization,
@@ -48,14 +50,14 @@ public:
         }
         o_time->resize(1);
         o_time->set(0, x::telem::TimeStamp::now());
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 };
 
@@ -69,7 +71,8 @@ public:
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
         const auto &param = cfg.node.config["value"];
-        if (!param.value.has_value())
+        auto sample_value = types::to_sample_value(param.value, param.type);
+        if (!sample_value.has_value())
             return {
                 nullptr,
                 x::errors::Error(
@@ -79,7 +82,7 @@ public:
             };
         auto data_type = cfg.node.outputs[0].type.telem();
         return {
-            std::make_unique<Constant>(std::move(cfg.state), *param.value, data_type),
+            std::make_unique<Constant>(std::move(cfg.state), *sample_value, data_type),
             x::errors::NIL
         };
     }

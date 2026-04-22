@@ -73,7 +73,7 @@ const formatHref = (
 export const isSquare = (children: ReactNode): boolean => {
   if (Children.count(children) !== 1) {
     const parsedChildren = Children.toArray(children).filter(
-      (c) => typeof c !== "boolean",
+      (c) => typeof c !== "boolean" && c != " ",
     );
     if (parsedChildren.length !== 1) return false;
     children = parsedChildren[0];

@@ -1,0 +1,8 @@
+version: "v2.11.4"
+plugins:
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/mustsucceedlint"
+    path: ../x/go
+  - module: "github.com/synnaxlabs/x"
+    import: "github.com/synnaxlabs/x/analyzers/setlint"
+    path: ../x/go

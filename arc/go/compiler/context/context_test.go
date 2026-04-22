@@ -10,8 +10,6 @@
 package context_test
 
 import (
-	"context"
-
 	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,19 +22,17 @@ import (
 
 var _ = Describe("Context", func() {
 	var (
-		ctx     context.Context
 		scope   *symbol.Scope
 		typeMap map[antlr.ParserRuleContext]types.Type
 	)
 
 	BeforeEach(func() {
-		ctx = context.Background()
 		scope = symbol.CreateRootScope(nil)
 		typeMap = make(map[antlr.ParserRuleContext]types.Type)
 	})
 
 	Describe("CreateRoot", func() {
-		It("Should create a root context with initialized fields", func() {
+		It("Should create a root context with initialized fields", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			Expect(root.Scope).To(Equal(scope))
 			Expect(root.TypeMap).To(Equal(typeMap))
@@ -45,7 +41,7 @@ var _ = Describe("Context", func() {
 			Expect(root.Resolver).To(BeNil())
 		})
 
-		It("Should track the writer when a resolver is provided", func() {
+		It("Should track the writer when a resolver is provided", func(ctx SpecContext) {
 			resolver := resolve.NewResolver(nil)
 			root := ccontext.CreateRoot(ctx, scope, typeMap, resolver)
 			Expect(root.Resolver).To(Equal(resolver))
@@ -54,7 +50,7 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("Child", func() {
-		It("Should propagate all fields except AST", func() {
+		It("Should propagate all fields except AST", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			root.Hint = types.I32()
 			root.OutputMemoryBase = 42
@@ -70,13 +66,13 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("WithHint", func() {
-		It("Should return a context with the hint set", func() {
+		It("Should return a context with the hint set", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			withHint := root.WithHint(types.F64())
 			Expect(withHint.Hint).To(Equal(types.F64()))
 		})
 
-		It("Should not modify the original context", func() {
+		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			root.WithHint(types.F64())
 			Expect(root.Hint).To(Equal(types.Type{}))
@@ -84,14 +80,14 @@ var _ = Describe("Context", func() {
 	})
 
 	Describe("WithScope", func() {
-		It("Should return a context with the scope replaced", func() {
+		It("Should return a context with the scope replaced", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			newScope := symbol.CreateRootScope(nil)
 			withScope := root.WithScope(newScope)
 			Expect(withScope.Scope).To(Equal(newScope))
 		})
 
-		It("Should not modify the original context", func() {
+		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			newScope := symbol.CreateRootScope(nil)
 			root.WithScope(newScope)
@@ -99,8 +95,81 @@ var _ = Describe("Context", func() {
 		})
 	})
 
+	Describe("EnterBlock", func() {
+		It("Should increment block depth", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			Expect(root.BlockDepth()).To(Equal(0))
+			entered := root.EnterBlock()
+			Expect(entered.BlockDepth()).To(Equal(1))
+			nested := entered.EnterBlock()
+			Expect(nested.BlockDepth()).To(Equal(2))
+		})
+
+		It("Should not modify the original context", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			root.EnterBlock()
+			Expect(root.BlockDepth()).To(Equal(0))
+		})
+
+		It("Should propagate through Child", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			entered := root.EnterBlock().EnterBlock()
+			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](entered, nil)
+			Expect(child.BlockDepth()).To(Equal(2))
+		})
+	})
+
+	Describe("EnterLoop", func() {
+		It("Should make the loop entry available via CurrentLoop", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
+			looped := root.EnterLoop(entry)
+			got, ok := looped.CurrentLoop()
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(entry))
+		})
+
+		It("Should not modify the original context", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			root.EnterLoop(ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2})
+			_, ok := root.CurrentLoop()
+			Expect(ok).To(BeFalse())
+		})
+
+		It("Should stack nested loops and return the innermost", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			outer := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
+			inner := ccontext.LoopEntry{BreakDepth: 3, ContinueDepth: 4}
+			nested := root.EnterLoop(outer).EnterLoop(inner)
+			got, ok := nested.CurrentLoop()
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(inner))
+		})
+
+		It("Should isolate loop stacks between sibling contexts", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			entry := ccontext.LoopEntry{BreakDepth: 1, ContinueDepth: 2}
+			branch := root.EnterLoop(entry)
+			_, ok := root.CurrentLoop()
+			Expect(ok).To(BeFalse())
+			got, ok := branch.CurrentLoop()
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(entry))
+		})
+
+		It("Should propagate through Child", func(ctx SpecContext) {
+			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
+			entry := ccontext.LoopEntry{BreakDepth: 5, ContinueDepth: 6}
+			looped := root.EnterLoop(entry)
+			child := ccontext.Child[antlr.ParserRuleContext, antlr.ParserRuleContext](looped, nil)
+			got, ok := child.CurrentLoop()
+			Expect(ok).To(BeTrue())
+			Expect(got).To(Equal(entry))
+		})
+	})
+
 	Describe("WithNewWriter", func() {
-		It("Should return a context with a fresh writer", func() {
+		It("Should return a context with a fresh writer", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			originalWriter := root.Writer
 			withNew := root.WithNewWriter()
@@ -108,14 +177,14 @@ var _ = Describe("Context", func() {
 			Expect(withNew.Writer).ToNot(BeIdenticalTo(originalWriter))
 		})
 
-		It("Should not modify the original context", func() {
+		It("Should not modify the original context", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			originalWriter := root.Writer
 			root.WithNewWriter()
 			Expect(root.Writer).To(BeIdenticalTo(originalWriter))
 		})
 
-		It("Should track the new writer when a resolver is present", func() {
+		It("Should track the new writer when a resolver is present", func(ctx SpecContext) {
 			resolver := resolve.NewResolver(nil)
 			root := ccontext.CreateRoot(ctx, scope, typeMap, resolver)
 			Expect(root.WriterID).To(Equal(0))
@@ -123,7 +192,7 @@ var _ = Describe("Context", func() {
 			Expect(withNew.WriterID).To(Equal(1))
 		})
 
-		It("Should produce distinct writers from the module writer", func() {
+		It("Should produce distinct writers from the module writer", func(ctx SpecContext) {
 			root := ccontext.CreateRoot(ctx, scope, typeMap, nil)
 			w1 := root.WithNewWriter()
 			w2 := root.WithNewWriter()

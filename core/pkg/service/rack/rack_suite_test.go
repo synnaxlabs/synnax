@@ -10,20 +10,20 @@
 package rack_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
-
-var ctx = context.Background()
-
-var _ = BeforeEach(func() {
-	ctx = context.Background()
-})
 
 func TestRack(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Rack Suite")
 }
+
+var _ = BeforeSuite(func() {
+	ShouldNotLeakGoroutines()
+})
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

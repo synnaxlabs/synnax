@@ -21,7 +21,7 @@ import { z } from "zod";
 
 import { type framer } from "@/framer";
 import { ontology } from "@/ontology";
-import { keyZ as rackKeyZ } from "@/rack/payload";
+import { type Key as RackKey, keyZ as rackKeyZ } from "@/rack/types.gen";
 import { type ranger } from "@/ranger";
 import { status } from "@/status";
 import {
@@ -29,19 +29,25 @@ import {
   keyZ,
   type New,
   newZ,
+  ontologyID,
   type Payload,
-  type Schemas,
+  type PayloadSchemas as Schemas,
+  payloadZ,
   type Status,
   statusZ,
-  taskZ,
-} from "@/task/payload";
+} from "@/task/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
+
+export type { PayloadSchemas as Schemas } from "@/task/types.gen";
 
 export const COMMAND_CHANNEL_NAME = "sy_task_cmd";
 export const SET_CHANNEL_NAME = "sy_task_set";
 export const DELETE_CHANNEL_NAME = "sy_task_delete";
 
-const NOT_CREATED_ERROR = new Error("Task not created");
+export const rackKey = (key: Key): RackKey => Number(BigInt(key) >> 32n);
+
+export const newKey = (rackKey: RackKey, taskKey: number = 0): Key =>
+  ((BigInt(rackKey) << 32n) + BigInt(taskKey)).toString();
 
 const retrieveSnapshottedTo = async (taskKey: Key, ontologyClient: ontology.Client) => {
   const parents = await ontologyClient.retrieveParents(ontologyID(taskKey));
@@ -91,17 +97,17 @@ export class Task<S extends Schemas = Schemas> {
   private readonly rangeClient_?: ranger.Client;
 
   get frameClient(): framer.Client {
-    if (this.frameClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.frameClient_ == null) throw new Error("Task not created");
     return this.frameClient_;
   }
 
   get ontologyClient(): ontology.Client {
-    if (this.ontologyClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.ontologyClient_ == null) throw new Error("Task not created");
     return this.ontologyClient_;
   }
 
   get rangeClient(): ranger.Client {
-    if (this.rangeClient_ == null) throw NOT_CREATED_ERROR;
+    if (this.rangeClient_ == null) throw new Error("Task not created");
     return this.rangeClient_;
   }
 
@@ -119,10 +125,10 @@ export class Task<S extends Schemas = Schemas> {
     this.schemas =
       schemas ??
       ({
-        type: z.string() as unknown as S["type"],
-        config: z.unknown() as S["config"],
-        statusData: z.unknown() as S["statusData"],
-      } as S);
+        type: z.string(),
+        config: z.unknown(),
+        statusData: z.unknown(),
+      } as unknown as S);
     this.internal = internal;
     this.snapshot = snapshot;
     this.status = status;
@@ -185,7 +191,7 @@ export class Task<S extends Schemas = Schemas> {
 
   async snapshottedTo(): Promise<ontology.Resource | null> {
     if (this.ontologyClient == null || this.rangeClient == null)
-      throw NOT_CREATED_ERROR;
+      throw new Error("Task not created");
     if (!this.snapshot) return null;
     return await retrieveSnapshottedTo(this.key, this.ontologyClient);
   }
@@ -228,19 +234,19 @@ interface RetrieveSchemas<S extends Schemas = Schemas> {
 }
 
 const retrieveResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: array.nullableZ(taskZ(schemas)) });
+  z.object({ tasks: array.nullishToEmpty(payloadZ(schemas)) });
 
 export interface RetrieveRequest extends z.infer<typeof retrieveReqZ> {}
 
 const createReqZ = <S extends Schemas = Schemas>(schemas?: S) =>
   z.object({ tasks: newZ(schemas).array() });
 const createResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ tasks: taskZ(schemas).array() });
+  z.object({ tasks: payloadZ(schemas).array() });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 const deleteResZ = z.object({});
 const copyReqZ = z.object({ key: keyZ, name: z.string(), snapshot: z.boolean() });
 const copyResZ = <S extends Schemas = Schemas>(schemas?: S) =>
-  z.object({ task: taskZ(schemas) });
+  z.object({ task: payloadZ(schemas) });
 
 export class Client {
   private readonly client: UnaryClient;
@@ -320,7 +326,7 @@ export class Client {
     return isSingle ? sugared[0] : sugared;
   }
 
-  async copy(key: string, name: string, snapshot: boolean): Promise<Task> {
+  async copy(key: Key, name: string, snapshot: boolean): Promise<Task> {
     const copyRes = copyResZ();
     const response = await sendRequired(
       this.client,
@@ -329,7 +335,7 @@ export class Client {
       copyReqZ,
       copyRes,
     );
-    return this.sugar(response.task as Payload);
+    return this.sugar(response.task);
   }
 
   async list(rack?: number): Promise<Task[]> {
@@ -339,7 +345,7 @@ export class Client {
   }
 
   async retrieveSnapshottedTo(taskKey: Key): Promise<ontology.Resource | null> {
-    if (this.ontologyClient == null) throw NOT_CREATED_ERROR;
+    if (this.ontologyClient == null) throw new Error("Task not created");
     return await retrieveSnapshottedTo(taskKey, this.ontologyClient);
   }
 
@@ -385,15 +391,15 @@ export class Client {
     return await executeCommand({ ...params, frameClient: this.frameClient });
   }
 
-  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandsSyncParams<StatusData>,
   ): Promise<Status<StatusData>[]>;
 
-  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params: ExecuteCommandSyncParams<StatusData>,
   ): Promise<Status<StatusData>>;
 
-  async executeCommandSync<StatusData extends z.ZodType = z.ZodType>(
+  async executeCommandSync<StatusData extends z.ZodType = z.ZodNever>(
     params:
       | ExecuteCommandsSyncParams<StatusData>
       | ExecuteCommandSyncParams<StatusData>,
@@ -422,9 +428,6 @@ export class Client {
     });
   }
 }
-
-export const ontologyID = ontology.createIDFactory<Key>("task");
-export const TYPE_ONTOLOGY_ID = ontologyID("");
 
 export const statusKey = (key: Key): string => ontology.idToString(ontologyID(key));
 
@@ -458,7 +461,7 @@ const executeCommands = async ({
   frameClient,
   commands,
 }: ExecuteCommandsInternalParams): Promise<string[]> => {
-  if (frameClient == null) throw NOT_CREATED_ERROR;
+  if (frameClient == null) throw new Error("Task not created");
   const w = await frameClient.openWriter(COMMAND_CHANNEL_NAME);
   const cmds = commands.map((c) => ({ ...c, key: id.create() }));
   await w.write(COMMAND_CHANNEL_NAME, cmds);
@@ -466,14 +469,14 @@ const executeCommands = async ({
   return cmds.map((c) => c.key);
 };
 
-interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodType>
+interface ExecuteCommandSyncInternalParams<StatusData extends z.ZodType = z.ZodNever>
   extends
     Omit<ExecuteCommandsSyncInternalParams<StatusData>, "commands">,
     TaskExecuteCommandSyncParams {
   task: Key;
 }
 
-const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
+const executeCommandSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   task,
   type,
@@ -492,7 +495,7 @@ const executeCommandSync = async <StatusData extends z.ZodType = z.ZodType>({
     })
   )[0];
 
-interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodType> {
+interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.ZodNever> {
   frameClient: framer.Client | null;
   commands: NewCommand[];
   timeout?: CrudeTimeSpan;
@@ -500,14 +503,14 @@ interface ExecuteCommandsSyncInternalParams<StatusData extends z.ZodType = z.Zod
   name: string | string[] | (() => Promise<string | string[]>);
 }
 
-const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodType>({
+const executeCommandsSync = async <StatusData extends z.ZodType = z.ZodNever>({
   frameClient,
   commands,
   timeout = TimeSpan.seconds(10),
   statusDataZ,
   name: taskName,
 }: ExecuteCommandsSyncInternalParams<StatusData>): Promise<Status<StatusData>[]> => {
-  if (frameClient == null) throw NOT_CREATED_ERROR;
+  if (frameClient == null) throw new Error("Task not created");
   const streamer = await frameClient.openStreamer(status.SET_CHANNEL_NAME);
   const cmdKeys = await executeCommands({ frameClient, commands });
   const parsedTimeout = new TimeSpan(timeout);
@@ -559,7 +562,7 @@ const formatTimeoutError = async (
   } catch (e) {
     console.error("Failed to retrieve task name for timeout error:", e);
     return new Error(
-      `${formattedType} command to task with key ${strings.naturalLanguageJoin(key)} timed out after ${formattedTimeout}`,
+      `${formattedType} command to task with key ${strings.naturalLanguageJoin(array.toArray(key).map((k) => k.toString()))} timed out after ${formattedTimeout}`,
     );
   }
 };

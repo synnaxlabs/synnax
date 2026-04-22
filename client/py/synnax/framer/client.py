@@ -10,10 +10,10 @@
 from typing import cast, overload
 
 import pandas as pd
-from alamos import NOOP, Instrumentation
-from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
 
 import synnax.channel.payload as channel
+from alamos import NOOP, Instrumentation
+from freighter import AsyncStreamClient, UnaryClient, WebsocketClient
 from synnax import ontology
 from synnax.channel.retrieve import Retriever
 from synnax.exceptions import QueryError
@@ -30,7 +30,7 @@ from synnax.telem import (
     TimeRange,
     TimeSpan,
 )
-from synnax.telem.control import Authority, CrudeAuthority
+from x.control import Authority, CrudeAuthority
 
 ontology_type = ontology.ID(type="framer")
 
@@ -71,6 +71,7 @@ class Client:
         authorities: CrudeAuthority | list[CrudeAuthority] = Authority.ABSOLUTE,
         *,
         name: str = "",
+        group: int = 0,
         strict: bool = False,
         suppress_warnings: bool = True,
         mode: CrudeWriterMode = WriterMode.PERSIST_STREAM,
@@ -122,6 +123,7 @@ class Client:
             client=self.__stream_client,
             authorities=authorities,
             name=name,
+            group=group,
             mode=mode,
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
@@ -264,14 +266,18 @@ class Client:
         channels: channel.Params,
         n: int = 1,
     ) -> Frame | MultiSeries:
-        """
-        Reads the latest n samples from time_channel and data_channel.
+        """Reads the latest n samples from the given channel(s).
+
+        If fewer than n samples are available, returns only the samples that
+        exist.
 
         Args:
-            n: The number of samples to read.
+            channels: A single channel key/name or a list of channel keys/names.
+            n: The maximum number of samples to read. Defaults to 1.
 
         Returns:
-            A frame containing the latest n samples from time_channel and data_channel
+            A MultiSeries when a single channel is provided, or a Frame when
+            multiple channels are provided.
         """
         normal = channel.normalize_params(channels)
         aggregate = Frame()
@@ -297,15 +303,18 @@ class Client:
         downsample_factor: int = 1,
         throttle_rate: float = 0,
         use_experimental_codec: bool = True,
+        exclude_groups: list[int] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
         being receiving frames of data from the given channels.
 
         :param channels: The channels to stream from. This can be a single channel name,
         a list of channel names, a single channel key, or a list of channel keys.
-
         :param downsample_factor: The downsample factor to use for the streamer.
-        :param throttle_rate: The throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling).
+        :param throttle_rate: The throttle rate in Hz to limit the rate of frames sent
+        to the client. Defaults to 0 (no throttling).
+        :param exclude_groups: Writer group IDs whose frames should be filtered out by
+        the Core. Used for telemetry bypass deduplication.
         """
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -315,6 +324,7 @@ class Client:
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
             use_experimental_codec=use_experimental_codec,
+            exclude_groups=exclude_groups,
         )
 
     async def open_async_streamer(
@@ -322,6 +332,7 @@ class Client:
         channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
+        exclude_groups: list[int] | None = None,
     ) -> AsyncStreamer:
         adapter = ReadFrameAdapter(self.__channels)
         adapter.update(channels)
@@ -330,6 +341,7 @@ class Client:
             client=self.__async_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
+            exclude_groups=exclude_groups,
         )
         await s._open()
         return s

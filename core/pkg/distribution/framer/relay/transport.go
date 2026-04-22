@@ -22,6 +22,7 @@ type Request struct {
 
 type Response struct {
 	Frame frame.Frame `json:"frame" msgpack:"frame"`
+	Group uint32      `json:"group" msgpack:"group"`
 }
 
 func reqToStorage(req Request) ts.StreamerRequest {
@@ -29,7 +30,7 @@ func reqToStorage(req Request) ts.StreamerRequest {
 }
 
 func resFromStorage(res ts.StreamerResponse) Response {
-	return Response{Frame: frame.NewFromStorage(res.Frame)}
+	return Response{Frame: frame.NewFromStorage(res.Frame), Group: res.Group}
 }
 
 type (

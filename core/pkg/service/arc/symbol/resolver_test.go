@@ -20,18 +20,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("NewResolver", func() {
-	It("Should resolve an STL symbol", func() {
+	It("Should resolve an STL symbol", func(ctx SpecContext) {
 		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym, err := resolver.Resolve(ctx, "set_status")
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
 		Expect(sym.Name).To(Equal("set_status"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
 	})
 
-	It("Should resolve a channel by name", func() {
+	It("Should resolve a channel by name", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_test_ch",
 			Virtual:  true,
@@ -40,15 +40,14 @@ var _ = Describe("NewResolver", func() {
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym, err := resolver.Resolve(ctx, "resolver_test_ch")
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, "resolver_test_ch"))
 		Expect(sym.Name).To(Equal("resolver_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.F32())))
 		Expect(sym.ID).To(Equal(int(ch.Key())))
 	})
 
-	It("Should resolve a channel by numeric key", func() {
+	It("Should resolve a channel by numeric key", func(ctx SpecContext) {
 		ch := &channel.Channel{
 			Name:     "resolver_key_test_ch",
 			Virtual:  true,
@@ -57,14 +56,13 @@ var _ = Describe("NewResolver", func() {
 		Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym, err := resolver.Resolve(ctx, strconv.Itoa(int(ch.Key())))
-		Expect(err).ToNot(HaveOccurred())
+		sym := MustSucceed(resolver.Resolve(ctx, strconv.Itoa(int(ch.Key()))))
 		Expect(sym.Name).To(Equal("resolver_key_test_ch"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindChannel))
 		Expect(sym.Type).To(Equal(types.Chan(types.I64())))
 	})
 
-	It("Should return an error for a nonexistent symbol", func() {
+	It("Should return an error for a nonexistent symbol", func(ctx SpecContext) {
 		resolver := symbol.NewResolver(dist.Channel, nil)
 		_, err := resolver.Resolve(ctx, "does_not_exist_anywhere")
 		Expect(err).To(MatchError(query.ErrNotFound))

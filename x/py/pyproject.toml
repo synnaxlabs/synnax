@@ -1,19 +1,53 @@
 [project]
-name = "xpy"
-version = "0.0.1"
-description = "Shared Python utilities for the Synnax monorepo"
+name = "synnax-x"
+version = "0.55.0"
+description = "Shared Python utilities for Synnax"
+keywords = ["Synnax"]
+authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
 requires-python = ">=3.12,<4"
-dependencies = []
-classifiers = ["Private :: Do Not Upload"]
+dependencies = ["numpy>=2.4.4,<3", "pandas>=3.0.2,<4", "pydantic>=2.13.2,<3"]
+
+[project.urls]
+Homepage = "https://synnaxlabs.com"
+Repository = "https://github.com/synnaxlabs/synnax"
 
 [dependency-groups]
-dev = ["black>=26.1.0,<27", "isort>=7.0.0,<8", "mypy>=1.19.1,<2"]
+dev = [
+    "mypy>=1.20.1,<2",
+    "pytest-cov>=7.1.0,<8",
+    "pandas-stubs>=3.0.0.260204,<4",
+    "python-dateutil>=2.9.0.post0,<3",
+    "pytest>=9.0.3,<10",
+    "ruff>=0.15.11,<1",
+    "types-python-dateutil>=2.9.0.20260408,<3",
+]
 
-[tool.isort]
-profile = "black"
+[tool.hatch.build.targets.wheel]
+packages = ["x"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["x"]
 
 [tool.mypy]
 strict = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "color: mark test as a color test",
+    "control: mark test as a control test",
+    "deprecation: mark test as a deprecation test",
+    "series: mark test as a series test",
+    "telem: mark test as a telem test",
+    "timing: mark test as a timing test",
+]
 
 [build-system]
 requires = ["hatchling"]

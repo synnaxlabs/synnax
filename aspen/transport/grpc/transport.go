@@ -12,6 +12,7 @@ package grpc
 import (
 	"context"
 	"go/types"
+	"io"
 	"net"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/synnaxlabs/aspen/transport"
 	aspenv1 "github.com/synnaxlabs/aspen/transport/grpc/v1"
 	"github.com/synnaxlabs/freighter"
+	falamos "github.com/synnaxlabs/freighter/alamos"
 	fgrpc "github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
@@ -139,6 +141,10 @@ var (
 	_ freighter.Transport                = (*Transport)(nil)
 )
 
+// New constructs a Transport that uses the supplied pool for client
+// connections. The Transport does NOT take ownership of the pool — closing
+// the Transport will not close the pool. The caller is responsible for
+// closing the pool after every Transport that references it has been closed.
 func New(pool *fgrpc.Pool) *Transport {
 	return &Transport{
 		pledgeClient: &pledgeClient{
@@ -272,35 +278,38 @@ type Transport struct {
 	feedbackClient *feedbackClient
 	recServer      *recoveryServer
 	recClient      *recoveryClient
+	server         *grpc.Server
+	addr           address.Address
+	shutdown       io.Closer
 }
 
 var _ transport.Transport = (*Transport)(nil)
 
-func (t Transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
+func (t *Transport) PledgeServer() pledge.TransportServer { return t.pledgeServer }
 
-func (t Transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
+func (t *Transport) PledgeClient() pledge.TransportClient { return t.pledgeClient }
 
-func (t Transport) GossipServer() gossip.TransportServer { return t.gossipServer }
+func (t *Transport) GossipServer() gossip.TransportServer { return t.gossipServer }
 
-func (t Transport) GossipClient() gossip.TransportClient { return t.gossipClient }
+func (t *Transport) GossipClient() gossip.TransportClient { return t.gossipClient }
 
-func (t Transport) TxServer() kv.TxTransportServer { return t.txServer }
+func (t *Transport) TxServer() kv.TxTransportServer { return t.txServer }
 
-func (t Transport) TxClient() kv.TxTransportClient { return t.txClient }
+func (t *Transport) TxClient() kv.TxTransportClient { return t.txClient }
 
-func (t Transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
+func (t *Transport) LeaseServer() kv.LeaseTransportServer { return t.leaseServer }
 
-func (t Transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
+func (t *Transport) LeaseClient() kv.LeaseTransportClient { return t.leaseClient }
 
-func (t Transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
+func (t *Transport) FeedbackServer() kv.FeedbackTransportServer { return t.feedbackServer }
 
-func (t Transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
+func (t *Transport) FeedbackClient() kv.FeedbackTransportClient { return t.feedbackClient }
 
-func (t Transport) RecoveryServer() kv.RecoveryTransportServer { return t.recServer }
+func (t *Transport) RecoveryServer() kv.RecoveryTransportServer { return t.recServer }
 
-func (t Transport) RecoveryClient() kv.RecoveryTransportClient { return t.recClient }
+func (t *Transport) RecoveryClient() kv.RecoveryTransportClient { return t.recClient }
 
-func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
+func (t *Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.pledgeServer.BindTo(reg)
 	t.gossipServer.BindTo(reg)
 	t.txServer.BindTo(reg)
@@ -309,7 +318,7 @@ func (t Transport) BindTo(reg grpc.ServiceRegistrar) {
 	t.recServer.BindTo(reg)
 }
 
-func (t Transport) Use(middleware ...freighter.Middleware) {
+func (t *Transport) Use(middleware ...freighter.Middleware) {
 	t.pledgeServer.Use(middleware...)
 	t.pledgeClient.Use(middleware...)
 	t.gossipServer.Use(middleware...)
@@ -324,30 +333,47 @@ func (t Transport) Use(middleware ...freighter.Middleware) {
 	t.recClient.Use(middleware...)
 }
 
-func (t Transport) Report() alamos.Report {
+func (t *Transport) Report() alamos.Report {
 	return t.pledgeServer.Report()
 }
 
-func (t Transport) Configure(sCtx signal.Context, addr address.Address, external bool) error {
+func (t *Transport) Configure(addr address.Address, ins alamos.Instrumentation, external bool) error {
 	if external {
 		return nil
 	}
-	server := grpc.NewServer()
-	t.BindTo(server)
-	lis, err := net.Listen("tcp", addr.String())
+	t.server = grpc.NewServer()
+	t.BindTo(t.server)
+	t.addr = addr
+	mw, err := falamos.Middleware(falamos.Config{Instrumentation: ins})
 	if err != nil {
 		return err
 	}
-	sCtx.Go(func(ctx context.Context) (err error) {
+	t.Use(mw)
+	return nil
+}
+
+func (t *Transport) Serve() error {
+	if t.server == nil {
+		return nil
+	}
+	lis, err := net.Listen("tcp", t.addr.String())
+	if err != nil {
+		return err
+	}
+	sCtx, cancel := signal.WithCancel(context.Background())
+	t.shutdown = signal.NewHardShutdown(sCtx, cancel)
+	sCtx.Go(func(ctx context.Context) error {
+		errC := make(chan error, 1)
 		go func() {
-			err = server.Serve(lis)
+			errC <- t.server.Serve(lis)
 		}()
-		if err != nil {
+		defer t.server.Stop()
+		select {
+		case err := <-errC:
 			return err
+		case <-ctx.Done():
+			return ctx.Err()
 		}
-		defer server.Stop()
-		<-ctx.Done()
-		return ctx.Err()
 	},
 		signal.CancelOnFail(),
 		signal.WithRetryOnPanic(),
@@ -355,4 +381,11 @@ func (t Transport) Configure(sCtx signal.Context, addr address.Address, external
 		signal.WithRetryScale(1.05),
 	)
 	return nil
+}
+
+func (t *Transport) Close() error {
+	if t.shutdown == nil {
+		return nil
+	}
+	return t.shutdown.Close()
 }

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testdata"
 	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/binary"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
@@ -31,11 +31,11 @@ var _ = Describe("Migration Test", func() {
 				db        *cesium.DB
 				fs        xfs.FS
 				cleanUp   func() error
-				jsonCodec = binary.JSONCodec{}
+				jsonCodec = json.Codec
 			)
 			BeforeEach(func() { fs, cleanUp = makeFS() })
 			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
-			Specify("V1 to V2", func() {
+			Specify("V1 to V2", func(ctx SpecContext) {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
@@ -48,7 +48,7 @@ var _ = Describe("Migration Test", func() {
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
 					if ch.Key == testdata.LegacyRateKey {
-						Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+						Expect(err).To(MatchError(query.ErrNotFound))
 						continue
 					} else {
 						Expect(err).ToNot(HaveOccurred())
@@ -63,12 +63,10 @@ var _ = Describe("Migration Test", func() {
 						chInMeta  cesium.Channel
 					)
 
-					_, err = r.Read(buf)
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(r.Read(buf))
 					Expect(r.Close()).To(Succeed())
 
-					err = jsonCodec.Decode(ctx, buf, &chInMeta)
-					Expect(err).ToNot(HaveOccurred())
+					Expect(jsonCodec.Decode(ctx, buf, &chInMeta)).To(Succeed())
 					Expect(chInMeta).To(Equal(chInDB))
 
 				}

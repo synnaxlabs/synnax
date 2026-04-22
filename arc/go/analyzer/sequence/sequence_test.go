@@ -58,7 +58,7 @@ var resolver = symbol.MapResolver{
 }
 
 // analyzeAndExpectSuccess parses the source, analyzes it, and expects success.
-func analyzeAndExpectSuccess(source string) {
+func analyzeAndExpectSuccess(bCtx SpecContext, source string) {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, resolver)
 	analyzer.AnalyzeProgram(ctx)
@@ -66,7 +66,7 @@ func analyzeAndExpectSuccess(source string) {
 }
 
 // analyzeAndExpectError parses the source, analyzes it, expects failure, and returns the first error message.
-func analyzeAndExpectError(source string) string {
+func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ast := MustSucceed(parser.Parse(source))
 	ctx := context.CreateRoot(bCtx, ast, resolver)
 	analyzer.AnalyzeProgram(ctx)
@@ -81,6 +81,16 @@ var _ = Describe("Sequence Analyzer", func() {
 		Entry("single stage sequence", `
 			sequence main {
 				stage start {
+				}
+			}
+		`),
+		Entry("stage name same as sibling sequence name (different scopes)", `
+			sequence main {
+				stage abort {
+				}
+			}
+			sequence abort {
+				stage safed {
 				}
 			}
 		`),
@@ -142,8 +152,8 @@ var _ = Describe("Sequence Analyzer", func() {
 		)
 
 		DescribeTable("Invalid Transitions",
-			func(source, expectedError string) {
-				msg := analyzeAndExpectError(source)
+			func(bCtx SpecContext, source, expectedError string) {
+				msg := analyzeAndExpectError(bCtx, source)
 				Expect(msg).To(Equal(expectedError))
 			},
 			Entry("unknown stage name", `
@@ -165,20 +175,10 @@ var _ = Describe("Sequence Analyzer", func() {
 
 	Describe("Name Collisions", func() {
 		DescribeTable("Should detect name conflicts",
-			func(source, expectedError string) {
-				msg := analyzeAndExpectError(source)
+			func(bCtx SpecContext, source, expectedError string) {
+				msg := analyzeAndExpectError(bCtx, source)
 				Expect(msg).To(ContainSubstring(expectedError))
 			},
-			Entry("stage name conflicts with sequence name", `
-				sequence main {
-					stage abort {
-					}
-				}
-				sequence abort {
-					stage safed {
-					}
-				}
-			`, "conflicts with existing symbol"),
 			Entry("duplicate sequence names", `
 				sequence main {
 					stage step1 {
@@ -201,8 +201,8 @@ var _ = Describe("Sequence Analyzer", func() {
 	})
 
 	Describe("Top-Level Transitions", func() {
-		It("Should validate top-level entry points", func() {
-			analyzeAndExpectSuccess(`
+		It("Should validate top-level entry points", func(bCtx SpecContext) {
+			analyzeAndExpectSuccess(bCtx, `
 				start_cmd => main
 				sequence main {
 					stage step1 {
@@ -211,8 +211,8 @@ var _ = Describe("Sequence Analyzer", func() {
 			`)
 		})
 
-		It("Should error when target sequence doesn't exist", func() {
-			msg := analyzeAndExpectError(`
+		It("Should error when target sequence doesn't exist", func(bCtx SpecContext) {
+			msg := analyzeAndExpectError(bCtx, `
 				start_cmd => unknown_sequence
 			`)
 			Expect(msg).To(Equal("undefined symbol: unknown_sequence"))

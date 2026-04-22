@@ -10,13 +10,13 @@
 package signals_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSignals(t *testing.T) {
@@ -24,17 +24,9 @@ func TestSignals(t *testing.T) {
 	RunSpecs(t, "Signals Suite")
 }
 
-var (
-	mockCluster *mock.Cluster
-	dist        mock.Node
-	ctx         = context.Background()
-)
+var dist mock.Node
 
-var _ = BeforeSuite(func() {
-	mockCluster = mock.NewCluster()
-	dist = mockCluster.Provision(ctx)
-})
-
-var _ = AfterSuite(func() {
-	Expect(mockCluster.Close()).To(Succeed())
+var _ = BeforeSuite(func(ctx SpecContext) {
+	mockCluster := DeferClose(mock.NewCluster())
+	dist = DeferClose(mockCluster.Provision(ctx))
 })

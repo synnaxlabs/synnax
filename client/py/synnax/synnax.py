@@ -8,15 +8,16 @@
 #  included in the file licenses/APL.txt.
 
 import warnings
+from importlib.metadata import version as _version
 
 from alamos import NOOP, Instrumentation
 from freighter import URL
-
 from synnax import (
     access,
     arc,
     auth,
     channel,
+    connection,
     control,
     device,
     framer,
@@ -28,6 +29,7 @@ from synnax import (
     status,
     task,
     user,
+    view,
 )
 from synnax.config import try_load_options_if_none_provided
 from synnax.options import Options
@@ -36,19 +38,19 @@ from synnax.transport import Transport
 
 
 class Synnax(framer.Client):
-    """Client to perform operations against a Synnax cluster.
+    """Client to perform operations against a Synnax Core.
 
-    If using the python client for data analysis/personal use, the easiest way to
-    connect is to use the `synnax login` command, which will prompt and securely
-    store your credentials. The client can then be initialized without parameters. When
-    using the client in a production environment, it's best to provide the connection
-    parameter as arguments loaded from a configuration or environment variable.
+    If using the Python client for data analysis/personal use, the easiest way to
+    connect is to use the `sy login` command, which will prompt and securely store your
+    credentials. The client can then be initialized without parameters. When using the
+    client in a production environment, it's best to provide the connection parameter as
+    arguments loaded from a configuration or environment variable.
 
-    After running the synnax login command::
-        client = Synnax()
+    After running the sy login command::
+        client = sy.Synnax()
 
-    Without running the synnax login command::
-        client = Synnax(
+    Without running the sy login command::
+        client = sy.Synnax(
             host="synnax.example.com",
             port=9090,
             username="synnax",
@@ -58,6 +60,7 @@ class Synnax(framer.Client):
     """
 
     channels: channel.Client
+    connectivity: connection.Checker
     access: access.Client
     users: user.Client
     ranges: ranger.Client
@@ -70,6 +73,7 @@ class Synnax(framer.Client):
     statuses: status.Client
     arcs: arc.Client
     groups: group.Client
+    views: view.Client
 
     _transport: Transport
 
@@ -86,6 +90,7 @@ class Synnax(framer.Client):
         max_retries: int = 3,
         instrumentation: Instrumentation = NOOP,
         cache_channels: bool = True,
+        clock_skew_threshold: TimeSpan = TimeSpan.SECOND,
     ):
         """Creates a new client. Connection parameters can be provided as arguments, or,
         if none are provided, the client will attempt to load them from the Synnax
@@ -93,14 +98,16 @@ class Synnax(framer.Client):
         operating system's keychain.
 
         If using the client for data analysis/personal use, the easiest way to connect
-        is to use the `synnax login` command, which will prompt and securely store your
+        is to use the `sy login` command, which will prompt and securely store your
         credentials. The client can then be initialized without parameters.
 
-        :param host: Hostname of a node in the Synnax cluster.
-        :param port: Port of the node.
+        :param host: Hostname of a Core in the Synnax cluster.
+        :param port: Port of the Core.
         :param username: Username to authenticate with.
         :param password: Password to authenticate with.
-        :param secure: Whether to use TLS when connecting to the cluster.
+        :param secure: Whether to use TLS when connecting to the Core.
+        :param clock_skew_threshold: The maximum allowable clock skew between this
+            host and Synnax Core before a warning is issued. Defaults to 1 second.
         """
         opts = try_load_options_if_none_provided(host, port, username, password, secure)
         self._transport = _configure_transport(
@@ -119,6 +126,11 @@ class Synnax(framer.Client):
         self.auth.authenticate()
         self._transport.use(self.auth.middleware())
         self._transport.use_async(self.auth.async_middleware())
+        self.connectivity = connection.Checker(
+            client=self._transport.unary,
+            client_version=_version("synnax"),
+            clock_skew_threshold=clock_skew_threshold,
+        )
 
         cluster_retriever = channel.ClusterRetriever(
             self._transport.unary, instrumentation
@@ -152,6 +164,7 @@ class Synnax(framer.Client):
         self.signals = signals.Registry(frame_client=self, channels=ch_retriever)
         self.racks = rack.Client(client=self._transport.unary)
         self.devices = device.Client(client=self._transport.unary)
+        self.views = view.Client(client=self._transport.unary)
         self.tasks = task.Client(
             client=self._transport.unary,
             frame_client=self,
@@ -194,9 +207,14 @@ class Synnax(framer.Client):
         """Shuts down the client and closes all connections. All open iterators or
         writers must be closed before calling this method.
         """
-        # No-op for now, we'll definitely add cleanup logic in the future, so it's
-        # good to have this API defined.
-        ...
+        # getattr guard: if the constructor failed before connectivity was assigned,
+        # __del__ still calls close() and we need to handle the missing attribute.
+        conn = getattr(self, "connectivity", None)
+        if conn is not None:
+            conn.stop()
+
+    def __del__(self) -> None:
+        self.close()
 
 
 def _configure_transport(

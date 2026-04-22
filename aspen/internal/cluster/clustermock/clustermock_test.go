@@ -10,6 +10,7 @@
 package clustermock_test
 
 import (
+	"context"
 	"time"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -19,20 +20,23 @@ import (
 	"github.com/synnaxlabs/aspen/internal/cluster/gossip"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Cluster Mock", func() {
 	Describe("Builder", func() {
 		It("Should provision a set of cluster ClusterAPIs correctly", func() {
 			cfg := cluster.Config{Gossip: gossip.Config{Interval: 50 * time.Millisecond}}
-			builder := clustermock.NewBuilder(cfg)
 			ctx, cancel := signal.Isolated()
-			defer cancel()
-			c1, err := builder.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			builder := clustermock.NewBuilder(cfg)
+			DeferCleanup(func() {
+				Expect(builder.Close()).To(Succeed())
+				cancel()
+				Expect(ctx.Err()).To(MatchError(context.Canceled))
+			})
+			c1 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c1.HostKey()).To(Equal(node.Key(1)))
-			c2, err := builder.New(ctx, cfg)
-			Expect(err).ToNot(HaveOccurred())
+			c2 := MustSucceed(builder.New(ctx, cfg))
 			Expect(c2.HostKey()).To(Equal(node.Key(2)))
 			Expect(c2.Nodes()).To(HaveLen(2))
 		})

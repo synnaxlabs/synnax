@@ -1,6 +1,6 @@
 [project]
 name = "synnax"
-version = "0.53.2"
+version = "0.55.0"
 description = "Synnax Client Library"
 keywords = ["Synnax", "Synnax Python Client"]
 authors = [{ name = "Emiliano Bonilla", email = "ebonilla@synnaxlabs.com" }]
@@ -8,14 +8,15 @@ requires-python = ">=3.12,<4"
 dependencies = [
     "alamos",
     "synnax-freighter",
-    "click>=8.3.1,<9",
+    "synnax-x",
+    "click>=8.3.2,<9",
     "keyring>=25.7.0,<26",
     "matplotlib>=3.10.8,<4",
-    "nptdms>=1.10.0,<2",
-    "numpy>=2.4.1,<3",
-    "pandas>=3.0.0,<4",
-    "pydantic>=2.12.5,<3",
-    "rich>=14.3.1,<15",
+    "npTDMS>=1.10.0,<2",
+    "numpy>=2.4.4,<3",
+    "pandas>=3.0.2,<4",
+    "pydantic>=2.13.2,<3",
+    "rich>=15.0.0,<16",
     "urllib3>=2.6.3,<3",
 ]
 
@@ -29,23 +30,29 @@ Repository = "https://github.com/synnaxlabs/synnax"
 [dependency-groups]
 dev = [
     "asyncua>=1.1.8,<2; python_version < '3.14'",
-    "black>=26.1.0,<27",
     "flask>=3.1.3,<4",
-    "isort>=7.0.0,<8",
-    "mypy>=1.19.1,<2",
-    "pandas-stubs>=2.0.0",
-    "pymodbus>=3.11.4,<4",
-    "pytest>=9.0.2,<10",
+    "mypy>=1.20.1,<2",
+    "ruff>=0.15.11,<1",
+    "pandas-stubs>=3.0.0.260204,<4",
+    "pymodbus>=3.13.0,<4",
+    "pytest>=9.0.3,<10",
     "pytest-asyncio>=1.3.0,<2",
-    "pytest-cov>=7.0.0,<8",
-    "scipy>=1.17.0,<2",
+    "pytest-cov>=7.1.0,<8",
+    "scipy>=1.17.1,<2",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["synnax", "examples"]
 
-[tool.isort]
-profile = "black"
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["F", "I"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["synnax", "alamos", "freighter", "x"]
 
 [tool.mypy]
 plugins = ["pydantic.mypy"]
@@ -68,9 +75,11 @@ markers = [
     "auth: mark test as an auth test",
     "channel: mark test as a channel test",
     "cli: mark test as a cli test",
+    "color: mark test as a color test",
     "control: mark test as a control test",
     "deprecation: mark test as a deprecation test",
     "device: mark test as a device test",
+    "view: mark test as a view test",
     "ethercat: mark test as an ethercat test",
     "framer: mark test as a framer test",
     "http: mark test as an http test",
@@ -85,6 +94,7 @@ markers = [
     "ni: mark test as a ni test",
     "ontology: mark test as an ontology test",
     "opcua: mark test as an opcua test",
+    "pagerduty: mark test as a pagerduty test",
     "rack: mark test as a rack test",
     "ranger: mark test as a ranger test",
     "role: mark test as a role test",
@@ -101,6 +111,7 @@ markers = [
     "calculations: mark test as a calculated channels test",
     "delete: mark test as a data deletion test",
     "focus: marker to temporarily focus a test",
+    "user: marker to temporarily focus a user test",
 ]
 
 [build-system]

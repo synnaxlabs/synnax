@@ -180,7 +180,7 @@ const readStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .nullish();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -218,7 +218,7 @@ const writeStatusDataZ = z
     message: z.string(),
     errors: z.array(z.object({ message: z.string(), path: z.string() })).optional(),
   })
-  .or(z.null());
+  .optional();
 
 export const WRITE_SCHEMAS = {
   type: z.literal(WRITE_TYPE),
@@ -242,7 +242,7 @@ export const SCAN_TYPE = `${PREFIX}_scan`;
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
   config: record.nullishToEmpty(),
-  statusData: z.object({}).or(z.null()),
+  statusData: z.object({}).nullish(),
 } as const satisfies task.Schemas;
 
 export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";

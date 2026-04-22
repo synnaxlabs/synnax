@@ -15,6 +15,8 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/formatter"
+	"github.com/synnaxlabs/arc/parser"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Formatter", func() {
@@ -76,7 +78,7 @@ var _ = Describe("Formatter", func() {
 		Entry("sequence with stages", "sequence main{stage first{}stage second{}}", "sequence main {\n    stage first {}\n    stage second {}\n}\n"),
 		Entry("comments between stages",
 			"sequence main {\n    // setup phase\n    stage init {\n        x := 0\n    }\n    // execution phase\n    stage run {\n        x := x + 1\n    }\n}",
-			"sequence main {\n    // setup phase\n    stage init {\n        x := 0,\n    }\n    // execution phase\n    stage run {\n        x := x + 1,\n    }\n}\n"),
+			"sequence main {\n    // setup phase\n    stage init {\n        x := 0\n    }\n    // execution phase\n    stage run {\n        x := x + 1\n    }\n}\n"),
 	)
 
 	DescribeTable("Control Flow",
@@ -91,6 +93,15 @@ var _ = Describe("Formatter", func() {
 		Entry("comment in nested if",
 			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}",
 			"if x > 0 {\n    // check inner\n    if y > 0 {\n        // deepest\n        return 1\n    }\n}\n"),
+		Entry("if with identifier condition",
+			"if ready{return 1}",
+			"if ready {\n    return 1\n}\n"),
+		Entry("if with qualified identifier condition",
+			"if foo.bar{return 1}",
+			"if foo.bar {\n    return 1\n}\n"),
+		Entry("for with identifier condition",
+			"for ready{x := 1}",
+			"for ready {\n    x := 1\n}\n"),
 	)
 
 	DescribeTable("Comments",
@@ -203,7 +214,7 @@ var _ = Describe("Formatter", func() {
 		Entry("already formatted function with newlines", "func add(x i32, y i32) i32 {\n    return x + y\n}", "func add(x i32, y i32) i32 {\n    return x + y\n}\n"),
 		Entry("multiple functions", "func foo() {}\nfunc bar() {}", "func foo() {}\nfunc bar() {}\n"),
 		Entry("function with multiple statements", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}", "func test() {\n    x := 1\n    y := 2\n    return x + y\n}\n"),
-		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0,\n    }\n    stage run {\n        x := x + 1,\n    }\n}\n"),
+		Entry("sequence with stages and content", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}", "sequence main {\n    stage init {\n        x := 0\n    }\n    stage run {\n        x := x + 1\n    }\n}\n"),
 		Entry("nested if statements", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}", "func test() {\n    if x > 0 {\n        if y > 0 {\n            return 1\n        }\n    }\n}\n"),
 	)
 
@@ -269,7 +280,7 @@ var _ = Describe("Formatter", func() {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
 		Entry("next with stage name", "next done", "next done\n"),
-		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    },\n}\n"),
+		Entry("next in stage", "stage check{if x>0{next success}}", "stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
 	)
 
 	DescribeTable("Comments in Blocks",
@@ -383,6 +394,36 @@ var _ = Describe("Formatter", func() {
 		Entry("config values in flow statements", "sensor -> filter{threshold=10} -> output", "sensor -> filter{threshold=10} -> output\n"),
 		Entry("function declaration config block inline", "func threshold{limit f64}(value f64)u8{return u8(0)}", "func threshold{limit f64} (value f64) u8 {\n    return u8(0)\n}\n"),
 		Entry("nested config values", "x := foo{a=1} + bar{b=2}", "x := foo{a=1} + bar{b=2}\n"),
+		Entry("multiline anonymous config value collapses to one line",
+			"wait{\n    duration=2ms\n}",
+			"wait{duration=2ms}\n"),
+		Entry("multiline anonymous config value with trailing comma collapses to one line",
+			"wait{\n    duration=2ms,\n}",
+			"wait{duration=2ms}\n"),
+		Entry("multiline anonymous config value with multiple entries collapses to one line",
+			"wait{\n    duration=2ms,\n    retries=3\n}",
+			"wait{duration=2ms, retries=3}\n"),
+		Entry("multiline anonymous config value with trailing comma on last entry collapses to one line",
+			"wait{\n    duration=2ms,\n    retries=3,\n}",
+			"wait{duration=2ms, retries=3}\n"),
+		Entry("multiline anonymous config value in flow collapses to one line",
+			"sensor -> filter{\n    threshold=10\n} -> output",
+			"sensor -> filter{threshold=10} -> output\n"),
+		Entry("multiline anonymous config value in stage collapses to one line",
+			"stage run {\n    sensor -> filter{\n        threshold=10\n    } -> output\n}",
+			"stage run {\n    sensor -> filter{threshold=10} -> output\n}\n"),
+		Entry("multi-line config values keep = tight (no spaces around =)",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}\n"),
+		Entry("multi-line config values strip spaces around = from source",
+			"set_status{\n    status_key = \"lifecycle_press_alarm\",\n    name = \"Lifecycle Press Alarm\",\n    variant = \"warning\",\n    message = \"Pressure stable above 25 PSI\"\n}",
+			"set_status{\n    status_key=\"lifecycle_press_alarm\",\n    name=\"Lifecycle Press Alarm\",\n    variant=\"warning\",\n    message=\"Pressure stable above 25 PSI\"\n}\n"),
+		Entry("for-loop body is not treated as config values (single binding)",
+			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}",
+			"func f() {\n    for x := data {\n        sum = sum + x\n    }\n}\n"),
+		Entry("for-loop body is not treated as config values (pair binding)",
+			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}",
+			"func f() {\n    for i, x := data {\n        if x > peak {\n            peak = x\n            peak_idx = i\n        }\n    }\n}\n"),
 	)
 
 	DescribeTable("Config Block Formatting",
@@ -406,26 +447,92 @@ var _ = Describe("Formatter", func() {
 			"func foo{\n    x i32, // param\n} () {}\n"),
 	)
 
-	DescribeTable("Stage Body Trailing Commas",
+	DescribeTable("Stage Body Formatting",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
 		},
-		Entry("single item gets trailing comma", "stage init{x:=0}", "stage init {\n    x := 0,\n}\n"),
-		Entry("multiple items get trailing commas", "stage init{x:=0,y:=1}", "stage init {\n    x := 0,\n    y := 1,\n}\n"),
-		Entry("empty stage body no trailing comma", "stage init{}", "stage init {}\n"),
-		Entry("flow statement in stage", "stage run{sensor->output}", "stage run {\n    sensor -> output,\n}\n"),
-		Entry("trailing comment on last item",
+		// Non-empty stage bodies are always multi-line with newline-separated
+		// items and no commas, regardless of how the source was laid out.
+		Entry("empty stage body stays inline", "stage init{}", "stage init {}\n"),
+		Entry("single-line source with commas expands to multi-line",
+			"stage init { x := 0, y := 1 }",
+			"stage init {\n    x := 0\n    y := 1\n}\n"),
+		Entry("single-line source with trailing comma expands and drops comma",
+			"stage init { x := 0, y := 1, }",
+			"stage init {\n    x := 0\n    y := 1\n}\n"),
+		Entry("single item expands to multi-line",
+			"stage init{x:=0}",
+			"stage init {\n    x := 0\n}\n"),
+		Entry("flow statement on one line expands to multi-line",
+			"stage run{sensor->output}",
+			"stage run {\n    sensor -> output\n}\n"),
+		Entry("multi-line source keeps multi-line, no commas",
+			"stage init {\n    x := 0\n    y := 1\n}",
+			"stage init {\n    x := 0\n    y := 1\n}\n"),
+		Entry("multi-line drops user-written commas",
+			"stage init {\n    x := 0,\n    y := 1,\n}",
+			"stage init {\n    x := 0\n    y := 1\n}\n"),
+		Entry("multi-line with flow, comma dropped",
+			"stage run {\n    sensor -> output,\n}",
+			"stage run {\n    sensor -> output\n}\n"),
+		Entry("trailing comment on last item, no comma",
 			"stage init {\n    x := 0 // setup\n}",
-			"stage init {\n    x := 0, // setup\n}\n"),
-		Entry("trailing comment on comma item",
+			"stage init {\n    x := 0 // setup\n}\n"),
+		Entry("trailing comment on previously-comma item",
 			"stage init {\n    x := 0, // first\n    y := 1\n}",
-			"stage init {\n    x := 0, // first\n    y := 1,\n}\n"),
-		Entry("mixed items: assignment flow and next",
+			"stage init {\n    x := 0 // first\n    y := 1\n}\n"),
+		Entry("mixed items: assignment, flow, next on separate lines",
 			"stage run {\n    x := 1\n    sensor -> output\n    next done\n}",
-			"stage run {\n    x := 1\n    sensor -> output\n    next done,\n}\n"),
-		Entry("stage with if block",
+			"stage run {\n    x := 1\n    sensor -> output\n    next done\n}\n"),
+		Entry("stage with nested if block, no trailing comma",
 			"stage check {\n    if x > 0 {\n        next success\n    }\n}",
-			"stage check {\n    if x > 0 {\n        next success\n    },\n}\n"),
+			"stage check {\n    if x > 0 {\n        next success\n    }\n}\n"),
+	)
+
+	DescribeTable("Reactive Body Round-Trip",
+		func(input string) {
+			formatted := formatter.Format(input)
+			MustSucceed(parser.Parse(formatted))
+			Expect(formatter.Format(formatted)).To(Equal(formatted))
+		},
+		Entry("comma-separated stage body",
+			"sequence seq { stage s { 1 -> a, 1 -> b, 1 -> c } }"),
+		Entry("newline-separated stage body",
+			"sequence seq {\n    stage s {\n        1 -> a\n        1 -> b\n        1 -> c\n    }\n}"),
+		Entry("mixed separators in stage body",
+			"sequence seq {\n    stage s {\n        1 -> a,\n        1 -> b\n        1 -> c\n    }\n}"),
+		Entry("comma-separated stageless sequence body",
+			"sequence main { 1 -> valve_a, 1 -> valve_b }"),
+		Entry("newline-separated stageless sequence body",
+			"sequence main {\n    1 -> valve_a\n    1 -> valve_b\n}"),
+		Entry("sequence of stages with commas gets de-commaed",
+			"sequence main { stage a {}, stage b {} }"),
+		Entry("transitions in stage",
+			"sequence seq {\n    stage hold {\n        cond1 => next\n        cond2 => next\n    }\n}"),
+	)
+
+	DescribeTable("Stageless Sequence Body Formatting",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("single-line source with commas expands to multi-line",
+			"sequence main { 1 -> a, 1 -> b }",
+			"sequence main {\n    1 -> a\n    1 -> b\n}\n"),
+		Entry("single-line source drops trailing comma and expands",
+			"sequence main { 1 -> a, 1 -> b, }",
+			"sequence main {\n    1 -> a\n    1 -> b\n}\n"),
+		Entry("multi-line source stays multi-line with no commas",
+			"sequence main {\n    1 -> valve_a\n    1 -> valve_b\n}",
+			"sequence main {\n    1 -> valve_a\n    1 -> valve_b\n}\n"),
+		Entry("multi-line drops user-written commas",
+			"sequence main {\n    1 -> valve_a,\n    1 -> valve_b,\n}",
+			"sequence main {\n    1 -> valve_a\n    1 -> valve_b\n}\n"),
+		Entry("sequence containing stages expands to multi-line",
+			"sequence main { stage a {} stage b {} }",
+			"sequence main {\n    stage a {}\n    stage b {}\n}\n"),
+		Entry("sequence containing stages with commas strips them",
+			"sequence main { stage a {}, stage b {} }",
+			"sequence main {\n    stage a {}\n    stage b {}\n}\n"),
 	)
 
 	DescribeTable("Function Parameter Trailing Commas",

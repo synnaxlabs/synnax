@@ -20,13 +20,10 @@ import (
 var _ = Describe("Iterator", func() {
 	var kv xkv.DB
 	BeforeEach(func() {
-		kv = memkv.New()
-	})
-	AfterEach(func() {
-		Expect(kv.Close()).To(Succeed())
+		kv = DeferClose(memkv.New())
 	})
 	Describe("IterPrefix", func() {
-		It("Should iterate over keys with a given prefix", func() {
+		It("Should iterate over keys with a given prefix", func(ctx SpecContext) {
 			Expect(kv.Set(ctx, []byte("a/foo"), []byte("bar"))).To(Succeed())
 			Expect(kv.Set(ctx, []byte("a/baz"), []byte("qux"))).To(Succeed())
 			Expect(kv.Set(ctx, []byte("a/qux"), []byte("quux"))).To(Succeed())

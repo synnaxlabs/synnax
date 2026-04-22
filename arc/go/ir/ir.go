@@ -40,86 +40,36 @@
 // to a target Handle (node + parameter), forming the dependency graph that determines
 // execution order and data routing.
 //
-// Strata partition nodes into execution layers where nodes in stratum N can execute
-// in parallel, and nodes in stratum N depend only on nodes in strata 0 to N-1. This
-// stratification enables single-pass reactive execution without glitches (temporary
-// inconsistencies in computed values).
-//
-// # Example
-//
-// A simple Arc program computing "c = a + b" would have the following IR structure:
-//
-//	ir := &IR{
-//	    Functions: Functions{
-//	        {Key: "add", Inputs: Params{"a": I64, "b": I64}, Outputs: Params{"output": I64}},
-//	    },
-//	    Nodes: Nodes{
-//	        {Key: "n1", Type: "add", Config: map[string]any{}},
-//	    },
-//	    Edges: Edges{
-//	        {Source: Handle{Node: "input_a", Param: "value"}, Target: Handle{Node: "n1", Param: "a"}},
-//	        {Source: Handle{Node: "input_b", Param: "value"}, Target: Handle{Node: "n1", Param: "b"}},
-//	        {Source: Handle{Node: "n1", Param: "output"}, Target: Handle{Node: "output_c", Param: "value"}},
-//	    },
-//	    Strata: Strata{
-//	        {"input_a", "input_b"},  // Stratum 0: inputs
-//	        {"n1"},                   // Stratum 1: depends on inputs
-//	        {"output_c"},             // Stratum 2: depends on n1
-//	    },
-//	}
+// Root is a Scope (the unified Layer 2 execution primitive) whose strata
+// organize module-scope reactive flow and whose nested Scope members capture
+// top-level stages and sequences.
 package ir
 
 import (
 	"fmt"
 	"strings"
 
-	"github.com/antlr4-go/antlr/v4"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/arc/symbol"
-	"github.com/synnaxlabs/arc/types"
 )
-
-// Authorities holds the static authority declarations from an Arc program.
-// It captures both the default authority for all channels and per-channel overrides.
-type Authorities struct {
-	// Default is the default authority for all write channels not explicitly listed.
-	Default *uint8 `json:"default,omitempty" msgpack:"default,omitempty"`
-	// Channels maps channel keys to their specific authority values.
-	Channels map[uint32]uint8 `json:"channels,omitempty" msgpack:"channels,omitempty"`
-}
-
-// IR is the intermediate representation of an Arc program. It contains function
-// definitions, instantiated nodes, dataflow edges, execution stratification, and
-// the symbol table from analysis.
-type IR struct {
-	// Symbols is the symbol table from semantic analysis.
-	Symbols *symbol.Scope `json:"-"`
-	// TypeMap contains inferred types from the analyzer.
-	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
-	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities `json:"authorities" msgpack:"authorities,omitempty"`
-	// Functions contains all function and stage definitions in the program.
-	Functions Functions `json:"functions"`
-	// Sequences contains all sequence (state machine) definitions in the program.
-	// Each sequence contains its own stages with embedded node references.
-	Sequences Sequences `json:"sequences,omitempty"`
-	// Nodes contains all instantiated function instances in the dataflow graph.
-	Nodes Nodes `json:"nodes"`
-	// Edges contains all dataflow connections between node parameters.
-	// Edge.Kind distinguishes Continuous (-> reactive) from OneShot (=> transition) edges.
-	Edges Edges `json:"edges"`
-	// Strata contains the execution stratification for deterministic reactive execution.
-	Strata Strata `json:"strata"`
-}
 
 func (i *IR) IsZero() bool {
 	return len(i.Functions) == 0 &&
-		len(i.Sequences) == 0 &&
 		len(i.Nodes) == 0 &&
 		len(i.Edges) == 0 &&
-		len(i.Strata) == 0 &&
+		i.Root.IsZero() &&
 		i.Symbols == nil &&
 		i.TypeMap == nil
+}
+
+// IsZero reports whether the scope carries no execution content.
+func (s Scope) IsZero() bool {
+	return s.Key == "" &&
+		s.Mode == ScopeModeUnspecified &&
+		s.Liveness == LivenessUnspecified &&
+		s.Activation == nil &&
+		len(s.Strata) == 0 &&
+		len(s.Steps) == 0 &&
+		len(s.Transitions) == 0
 }
 
 // String returns the string representation of the IR.
@@ -134,31 +84,25 @@ func (i *IR) stringWithPrefix(prefix string) string {
 	hasFunctions := len(i.Functions) > 0
 	hasNodes := len(i.Nodes) > 0
 	hasEdges := len(i.Edges) > 0
-	hasStrata := len(i.Strata) > 0
-	hasSequences := len(i.Sequences) > 0
+	hasRoot := !i.Root.IsZero()
 
 	if hasFunctions {
-		isLast := !hasNodes && !hasEdges && !hasStrata && !hasSequences
+		isLast := !hasNodes && !hasEdges && !hasRoot
 		i.writeFunctions(&b, prefix, isLast)
 	}
 
 	if hasNodes {
-		isLast := !hasEdges && !hasStrata && !hasSequences
+		isLast := !hasEdges && !hasRoot
 		i.writeNodes(&b, prefix, isLast)
 	}
 
 	if hasEdges {
-		isLast := !hasStrata && !hasSequences
+		isLast := !hasRoot
 		i.writeEdges(&b, prefix, isLast)
 	}
 
-	if hasStrata {
-		isLast := !hasSequences
-		i.writeStrata(&b, prefix, isLast)
-	}
-
-	if hasSequences {
-		i.writeSequences(&b, prefix, true)
+	if hasRoot {
+		i.writeRoot(&b, prefix, true)
 	}
 
 	return b.String()
@@ -204,23 +148,99 @@ func (i *IR) writeEdges(b *strings.Builder, prefix string, last bool) {
 	}
 }
 
-func (i *IR) writeStrata(b *strings.Builder, prefix string, last bool) {
+func (i *IR) writeRoot(b *strings.Builder, prefix string, last bool) {
 	b.WriteString(prefix)
 	b.WriteString(treePrefix(last))
-	lo.Must(fmt.Fprintf(b, "Strata (%d layers)\n", len(i.Strata)))
+	b.WriteString("Root\n")
 	childPrefix := prefix + treeIndent(last)
-	b.WriteString(i.Strata.stringWithPrefix(childPrefix))
+	b.WriteString(i.Root.stringWithPrefix(childPrefix))
 }
 
-func (i *IR) writeSequences(b *strings.Builder, prefix string, last bool) {
-	b.WriteString(prefix)
-	b.WriteString(treePrefix(last))
-	lo.Must(fmt.Fprintf(b, "Sequences (%d)\n", len(i.Sequences)))
-	childPrefix := prefix + treeIndent(last)
-	for j, s := range i.Sequences {
-		isLast := j == len(i.Sequences)-1
-		b.WriteString(childPrefix)
-		b.WriteString(treePrefix(isLast))
-		b.WriteString(s.stringWithPrefix(childPrefix + treeIndent(isLast)))
+// String returns the tree representation of a Scope.
+func (s Scope) String() string { return s.stringWithPrefix("") }
+
+func (s Scope) stringWithPrefix(prefix string) string {
+	var b strings.Builder
+	lo.Must(fmt.Fprintf(&b, "%s [%s, %s]\n", scopeLabel(s), s.Mode, s.Liveness))
+	if s.Mode == ScopeModeParallel {
+		for i, stratum := range s.Strata {
+			isLast := i == len(s.Strata)-1 && len(s.Transitions) == 0
+			b.WriteString(prefix)
+			b.WriteString(treePrefix(isLast))
+			lo.Must(fmt.Fprintf(&b, "stratum %d\n", i))
+			childPrefix := prefix + treeIndent(isLast)
+			for j, m := range stratum {
+				isLastMember := j == len(stratum)-1
+				b.WriteString(childPrefix)
+				b.WriteString(treePrefix(isLastMember))
+				b.WriteString(m.stringWithPrefix(childPrefix + treeIndent(isLastMember)))
+			}
+		}
+	} else {
+		for i, m := range s.Steps {
+			isLast := i == len(s.Steps)-1 && len(s.Transitions) == 0
+			b.WriteString(prefix)
+			b.WriteString(treePrefix(isLast))
+			b.WriteString(m.stringWithPrefix(prefix + treeIndent(isLast)))
+		}
 	}
+	for i, t := range s.Transitions {
+		isLast := i == len(s.Transitions)-1
+		b.WriteString(prefix)
+		b.WriteString(treePrefix(isLast))
+		b.WriteString(t.String())
+		b.WriteByte('\n')
+	}
+	return b.String()
+}
+
+func scopeLabel(s Scope) string {
+	if s.Key == "" {
+		return "(scope)"
+	}
+	return s.Key
+}
+
+// NodeMember builds a leaf Member referencing the node with the given key.
+func NodeMember(key string) Member { return Member{NodeKey: new(key)} }
+
+// ScopeMember builds a Member wrapping the given nested Scope.
+func ScopeMember(s Scope) Member { return Member{Scope: &s} }
+
+// Key returns the member's lookup key — the string transitions target via
+// `=> name`. Derived from the set variant: the referenced node's key for
+// leaf members, the nested scope's key for scope members. Returns the empty
+// string for an unset member.
+func (m Member) Key() string {
+	switch {
+	case m.NodeKey != nil:
+		return *m.NodeKey
+	case m.Scope != nil:
+		return m.Scope.Key
+	default:
+		return ""
+	}
+}
+
+// String returns the tree representation of a Member.
+func (m Member) String() string { return m.stringWithPrefix("") }
+
+func (m Member) stringWithPrefix(prefix string) string {
+	switch {
+	case m.NodeKey != nil:
+		return fmt.Sprintf("%s\n", *m.NodeKey)
+	case m.Scope != nil:
+		return m.Scope.stringWithPrefix(prefix)
+	default:
+		return "(empty member)\n"
+	}
+}
+
+// String returns a concise description of the transition.
+func (t Transition) String() string {
+	target := "=> exit"
+	if t.TargetKey != nil {
+		target = "=> " + *t.TargetKey
+	}
+	return fmt.Sprintf("on %s/%s %s", t.On.Node, t.On.Param, target)
 }

@@ -24,6 +24,8 @@
 #include "arc/cpp/runtime/runtime.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/arc.h"
+#include "driver/arc/status/status.h"
+#include "driver/bypass/pipeline/factory.h"
 #include "driver/common/common.h"
 #include "driver/common/status.h"
 #include "driver/errors/errors.h"
@@ -34,7 +36,7 @@
 namespace driver::arc {
 /// @brief configuration for an arc runtime task.
 struct TaskConfig : common::BaseTaskConfig {
-    std::string arc_key;
+    x::uuid::UUID arc_key;
     ::arc::program::Program program;
     ::arc::runtime::loop::Config loop;
 
@@ -49,21 +51,21 @@ struct TaskConfig : common::BaseTaskConfig {
 
     explicit TaskConfig(x::json::Parser &parser):
         BaseTaskConfig(parser),
-        arc_key(parser.field<std::string>("arc_key")),
+        arc_key(parser.field<x::uuid::UUID>("arc_key")),
         loop(parser) {}
 
     static std::pair<TaskConfig, x::errors::Error>
     parse(const std::shared_ptr<synnax::Synnax> &client, x::json::Parser &parser) {
         auto cfg = TaskConfig(parser);
         if (!parser.ok()) return {std::move(cfg), parser.error()};
-        auto [arc_key, key_err] = x::uuid::UUID::parse(cfg.arc_key);
-        if (key_err) return {std::move(cfg), key_err};
         auto [arc_data, arc_err] = client->arcs.retrieve_by_key(
-            arc_key,
+            cfg.arc_key,
             synnax::arc::RetrieveOptions{.compile = true}
         );
         if (arc_err) return {std::move(cfg), arc_err};
-        cfg.program = ::arc::program::Program(arc_data.program);
+        if (!arc_data.program.has_value())
+            return {std::move(cfg), x::errors::Error("arc module not compiled")};
+        cfg.program = *arc_data.program;
         return {std::move(cfg), x::errors::NIL};
     }
 };
@@ -129,9 +131,21 @@ public:
         const std::shared_ptr<task::Context> &ctx,
         const TaskConfig &cfg,
         std::shared_ptr<pipeline::WriterFactory> writer_factory = nullptr,
-        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr
+        std::shared_ptr<pipeline::StreamerFactory> streamer_factory = nullptr,
+        std::shared_ptr<x::thread::rt::Manager> rt_manager = nullptr
     ) {
         auto task = std::unique_ptr<Task>(new Task(task_meta, ctx));
+
+        std::shared_ptr<x::thread::rt::Handle> rt_handle;
+        if (rt_manager != nullptr) {
+            x::thread::rt::Config base_rt;
+            base_rt.enabled = true;
+            base_rt.lock_memory = cfg.loop.lock_memory;
+            base_rt.priority = cfg.loop.rt_priority;
+            rt_handle = std::make_shared<x::thread::rt::Handle>(
+                rt_manager->allocate(base_rt)
+            );
+        }
 
         const ::arc::runtime::Config runtime_cfg{
             .program = cfg.program,
@@ -150,6 +164,11 @@ public:
                 return {digests, x::errors::NIL};
             },
             .loop = cfg.loop,
+            .factories =
+                {
+                    std::make_shared<::driver::arc::status::Module>(ctx->client),
+                },
+            .rt_handle = rt_handle,
         };
 
         auto [rt, err] = ::arc::runtime::load(
@@ -167,46 +186,51 @@ public:
 
         task->runtime = std::move(rt);
 
-        auto source = std::make_unique<Source>(*task);
-        auto sink = std::make_unique<Sink>(*task);
         if (!writer_factory)
-            writer_factory = std::make_shared<pipeline::SynnaxWriterFactory>(
-                ctx->client
-            );
+            writer_factory = bypass::pipeline::create_writer_factory(ctx);
         if (!streamer_factory)
-            streamer_factory = std::make_shared<pipeline::SynnaxStreamerFactory>(
-                ctx->client
+            streamer_factory = bypass::pipeline::create_streamer_factory(
+                ctx,
+                {task_meta.name, task_meta.name}
             );
-        auto initial_authorities = ::arc::runtime::build_authorities(
-            cfg.program.authorities,
-            task->runtime->write_channels
-        );
-        task->acquisition = std::make_unique<pipeline::Acquisition>(
-            writer_factory,
-            synnax::framer::WriterConfig{
-                .channels = task->runtime->write_channels,
-                .start = x::telem::TimeStamp::now(),
-                .authorities = std::move(initial_authorities),
-                .subject =
-                    x::control::Subject{
-                        .name = task_meta.name,
-                        .key = std::to_string(task_meta.key),
-                    },
-                .mode = common::data_saving_writer_mode(cfg.data_saving),
-            },
-            std::move(source),
-            x::breaker::default_config("arc_acquisition"),
-            "arc_acquisition",
-            /* err_on_unauthorized */ false,
-            /* open_eagerly */ true
-        );
-        task->control = std::make_unique<pipeline::Control>(
-            streamer_factory,
-            synnax::framer::StreamerConfig{.channels = task->runtime->read_channels},
-            std::move(sink),
-            x::breaker::default_config("arc_control"),
-            "arc_control"
-        );
+        if (!task->runtime->write_channels.empty()) {
+            auto source = std::make_unique<Source>(*task);
+            auto initial_authorities = ::arc::runtime::build_authorities(
+                cfg.program.authorities,
+                task->runtime->write_channels
+            );
+            task->acquisition = std::make_unique<pipeline::Acquisition>(
+                writer_factory,
+                synnax::framer::WriterConfig{
+                    .channels = task->runtime->write_channels,
+                    .start = x::telem::TimeStamp::now(),
+                    .authorities = std::move(initial_authorities),
+                    .subject =
+                        x::control::Subject{
+                            .key = std::to_string(task_meta.key),
+                            .name = task_meta.name,
+                        },
+                    .mode = common::data_saving_writer_mode(cfg.data_saving),
+                },
+                std::move(source),
+                x::breaker::default_config("arc_acquisition"),
+                "arc_acquisition",
+                /* err_on_unauthorized */ false,
+                /* open_eagerly */ true
+            );
+        }
+        if (!task->runtime->read_channels.empty()) {
+            auto sink = std::make_unique<Sink>(*task);
+            task->control = std::make_unique<pipeline::Control>(
+                streamer_factory,
+                synnax::framer::StreamerConfig{
+                    .channels = task->runtime->read_channels,
+                },
+                std::move(sink),
+                x::breaker::default_config("arc_control"),
+                "arc_control"
+            );
+        }
 
         return {std::move(task), x::errors::NIL};
     }
@@ -214,22 +238,26 @@ public:
     bool start(const std::string &cmd_key) {
         const auto start = x::telem::TimeStamp::now();
         const auto runtime_started = this->runtime->start();
-        const auto acq_started = this->acquisition->start(start);
-        const auto control_started = this->control->start();
+        auto acq_started = true;
+        if (this->acquisition) acq_started = this->acquisition->start(start);
+        auto control_started = true;
+        if (this->control) control_started = this->control->start();
         this->state.send_start(cmd_key);
         return acq_started && control_started && runtime_started;
     }
 
     bool stop(const std::string &cmd_key, const bool propagate_state) {
-        const auto control_stopped = this->control->stop();
+        auto control_stopped = true;
+        if (this->control) control_stopped = this->control->stop();
         this->runtime->close_outputs();
-        const auto acq_stopped = this->acquisition->stop();
+        auto acq_stopped = true;
+        if (this->acquisition) acq_stopped = this->acquisition->stop();
         const auto runtime_stopped = this->runtime->stop();
         if (propagate_state) this->state.send_stop(cmd_key);
         return control_stopped && acq_stopped && runtime_stopped;
     }
 
-    void exec(task::Command &cmd) override {
+    void exec(synnax::task::Command &cmd) override {
         if (cmd.type == "start")
             this->start(cmd.key);
         else if (cmd.type == "stop")

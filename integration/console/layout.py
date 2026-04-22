@@ -13,10 +13,10 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager
 from typing import Literal
 
-import synnax as sy
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.context_menu import ContextMenu
 from console.notifications import NotificationsClient
 
@@ -384,12 +384,16 @@ class LayoutClient:
     def get_selected_button(self, button_options: list[str]) -> str:
         """Get the currently selected button from a button group (no label)."""
         for option in button_options:
-            button = self.page.get_by_text(option).first
-            if button.count() > 0:
-                button.wait_for(state="attached", timeout=5000)
-                class_name = button.get_attribute("class") or ""
-                if "pluto-btn--filled" in class_name:
-                    return option
+            text_el = self.page.get_by_text(option, exact=True).first
+            if text_el.count() == 0:
+                continue
+            button = text_el.locator("xpath=ancestor-or-self::button[1]").first
+            if button.count() == 0:
+                continue
+            button.wait_for(state="attached", timeout=5000)
+            class_name = button.get_attribute("class") or ""
+            if "pluto-btn--filled" in class_name:
+                return option
 
         raise RuntimeError(f"No selected button found from options: {button_options}")
 
@@ -447,7 +451,7 @@ class LayoutClient:
             element.click(timeout=500)
         else:
             with self._bring_to_front(selector) as el:
-                el.click(timeout=500)
+                el.click(timeout=500, force=True)
 
         sy.sleep(0.1)
 

@@ -18,5 +18,5 @@ warnings.warn(
     stacklevel=2,
 )
 
-from synnax.ethercat import *
-from synnax.ethercat import __all__
+from synnax.ethercat import *  # noqa: F403
+from synnax.ethercat import __all__ as __all__  # noqa: F401

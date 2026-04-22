@@ -22,14 +22,17 @@ void Engine::run() {
     const auto cycle_time = x::telem::TimeSpan(
         this->cycle_time_ns.load(std::memory_order_acquire)
     );
-    x::thread::rt::Config rt_cfg = this->config.rt;
-    if (rt_cfg.enabled && !rt_cfg.has_timing()) {
-        rt_cfg.period = cycle_time;
-        rt_cfg.computation = cycle_time * 0.2;
-        rt_cfg.deadline = cycle_time * 0.8;
-        rt_cfg.prefer_deadline_scheduler = true;
+    if (this->config.rt_handle) {
+        this->config.rt_handle->apply();
+    } else {
+        x::thread::rt::Config rt_cfg = this->config.rt;
+        if (rt_cfg.enabled && !rt_cfg.has_timing()) {
+            rt_cfg.period = cycle_time;
+            rt_cfg.computation = cycle_time * 0.2;
+            rt_cfg.deadline = cycle_time * 0.8;
+        }
+        x::thread::rt::apply_config(rt_cfg);
     }
-    x::thread::rt::apply_config(rt_cfg);
     x::loop::Timer timer(cycle_time);
 
     // Track error state to avoid log spam - only log on state transitions
@@ -78,7 +81,7 @@ void Engine::run() {
 
         auto [elapsed, on_time] = timer.wait();
         if (!on_time && this->config.max_overrun.nanoseconds() > 0)
-            VLOG(2) << "[ethercat] cycle overrun: " << elapsed;
+            VLOG(1) << "[ethercat] cycle overrun: " << elapsed;
     }
 
     if (had_receive_error)

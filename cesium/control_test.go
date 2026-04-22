@@ -11,7 +11,6 @@ package cesium_test
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	"math"
 	"runtime"
@@ -33,6 +32,61 @@ import (
 )
 
 var _ = Describe("Control", func() {
+	Describe("EncodeControlUpdate / DecodeControlUpdate", func() {
+		It("Should round-trip a control update with transfers", func() {
+			original := cesium.ControlUpdate{
+				Transfers: []control.Transfer{
+					{
+						From: &control.State{
+							Subject:   xcontrol.Subject{Key: "writer-1", Name: "Writer One"},
+							Resource:  1,
+							Authority: xcontrol.Authority(100),
+						},
+						To: &control.State{
+							Subject:   xcontrol.Subject{Key: "writer-2", Name: "Writer Two"},
+							Resource:  1,
+							Authority: xcontrol.Authority(200),
+						},
+					},
+				},
+			}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			Expect(encoded.DataType).To(Equal(telem.StringT))
+			Expect(encoded.Len()).To(Equal(int64(1)))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(HaveLen(1))
+			Expect(decoded.Transfers[0].From.Subject.Name).To(Equal("Writer One"))
+			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
+			Expect(decoded.Transfers[0].To.Authority).To(Equal(xcontrol.Authority(200)))
+		})
+
+		It("Should round-trip a control update with an acquire (nil From)", func() {
+			original := cesium.ControlUpdate{
+				Transfers: []control.Transfer{
+					{
+						To: &control.State{
+							Subject:   xcontrol.Subject{Key: "w1", Name: "Writer"},
+							Resource:  5,
+							Authority: xcontrol.Authority(50),
+						},
+					},
+				},
+			}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(HaveLen(1))
+			Expect(decoded.Transfers[0].From).To(BeNil())
+			Expect(decoded.Transfers[0].To.Subject.Name).To(Equal("Writer"))
+		})
+
+		It("Should round-trip an empty control update", func() {
+			original := cesium.ControlUpdate{Transfers: []control.Transfer{}}
+			encoded := MustSucceed(cesium.EncodeControlUpdate(context.Background(), original))
+			decoded := MustSucceed(cesium.DecodeControlUpdate(encoded))
+			Expect(decoded.Transfers).To(BeEmpty())
+		})
+	})
+
 	for fsName, makeFS := range fileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var (
@@ -48,8 +102,8 @@ var _ = Describe("Control", func() {
 
 			Describe("Nominal", func() {
 				var db *cesium.DB
-				BeforeAll(func() {
-					db = openDBOnFS(fs)
+				BeforeAll(func(ctx SpecContext) {
+					db = openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, math.MaxUint32, "control")).To(Succeed())
 				})
 				AfterAll(func() {
@@ -57,7 +111,7 @@ var _ = Describe("Control", func() {
 				})
 
 				Describe("Single Channel, Two Writer Contention", func() {
-					It("Should correctly manage control authority between two writers", func() {
+					It("Should correctly manage control authority between two writers", func(ctx SpecContext) {
 						var (
 							indexChKey = GenerateChannelKey()
 							dataChKey  = GenerateChannelKey()
@@ -90,10 +144,10 @@ var _ = Describe("Control", func() {
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))
-						ctx, cancel := signal.Isolated()
+						sCtx, cancel := signal.Isolated()
 						defer cancel()
 						stIn, stOut := confluence.Attach(streamer, 2)
-						streamer.Flow(ctx)
+						streamer.Flow(sCtx)
 						Eventually(stOut.Outlet()).Should(Receive())
 
 						By("Writing to the first writer")
@@ -135,7 +189,7 @@ var _ = Describe("Control", func() {
 						Expect(w1.Close()).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 						stIn.Close()
-						Expect(ctx.Wait()).To(Succeed())
+						Expect(sCtx.Wait()).To(Succeed())
 
 						By("Reading the data")
 						f := MustSucceed(db.Read(
@@ -147,7 +201,7 @@ var _ = Describe("Control", func() {
 						Expect(f.SeriesAt(0).Data).To(Equal(telem.NewSeriesV[int16](1, 2, 3, 4, 5, 6).Data))
 					})
 
-					It("Should correctly hand off control authority when a writer is force closed via context cancellation", func() {
+					It("Should correctly hand off control authority when a writer is force closed via context cancellation", func(ctx SpecContext) {
 						var (
 							indexChKey = GenerateChannelKey()
 							dataChKey  = GenerateChannelKey()
@@ -215,18 +269,18 @@ var _ = Describe("Control", func() {
 						var res cesium.StreamerResponse
 						Eventually(stOut.Outlet()).Should(Receive(&res))
 						var d cesium.ControlUpdate
-						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
+						d = MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer One"))
 
 						By("Force closing the first writer through context cancellation")
 						cancel1()
-						Expect(ctx1.Wait()).To(HaveOccurredAs(context.Canceled))
+						Expect(ctx1.Wait()).To(MatchError(context.Canceled))
 
 						By("Propagating the control transfer")
 						Eventually(stOut.Outlet()).Should(Receive(&res))
-						Expect(json.Unmarshal(res.Frame.SeriesAt(0).Data, &d)).To(Succeed())
+						d = MustSucceed(cesium.DecodeControlUpdate(res.Frame.SeriesAt(0)))
 						Expect(d.Transfers).To(HaveLen(2))
 						Expect(d.Transfers[0].To).ToNot(BeNil())
 						Expect(d.Transfers[0].To.Subject.Name).To(Equal("Writer Two"))
@@ -275,7 +329,7 @@ var _ = Describe("Control", func() {
 						dataStreamerOut, controlStreamerOut confluence.Outlet[cesium.StreamerResponse]
 						shutdown                            io.Closer
 					)
-					BeforeEach(func() {
+					BeforeEach(func(ctx SpecContext) {
 						indexChKey = GenerateChannelKey()
 						dataChKey = GenerateChannelKey()
 						virtualChKey = GenerateChannelKey()
@@ -397,7 +451,7 @@ var _ = Describe("Control", func() {
 				// Specs testing the control digest system correctly propagates control
 				// changes between contending writers.
 				Describe("Control digests", func() {
-					It("Should propagate the control states of channels", func() {
+					It("Should propagate the control states of channels", func(ctx SpecContext) {
 						var k1, k2, k3 = GenerateChannelKey(), GenerateChannelKey(), GenerateChannelKey()
 						Expect(db.CreateChannel(ctx,
 							cesium.Channel{Name: "Seattle", Key: k1, Virtual: true, DataType: telem.StringT},
@@ -432,14 +486,14 @@ var _ = Describe("Control", func() {
 			})
 
 			Describe("Error paths", func() {
-				It("Should not allow control channel with key 0", func() {
-					db := openDBOnFS(fs)
+				It("Should not allow control channel with key 0", func(ctx SpecContext) {
+					db := openDBOnFS(ctx, fs)
 					Expect(db.ConfigureControlUpdateChannel(ctx, 0, "cat")).To(MatchError(ContainSubstring("key: must be positive")))
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should not allow configuring a control channel with datatype not string", func() {
-					db := openDBOnFS(fs)
+				It("Should not allow configuring a control channel with datatype not string", func(ctx SpecContext) {
+					db := openDBOnFS(ctx, fs)
 					key := GenerateChannelKey()
 					Expect(db.CreateChannel(ctx, cesium.Channel{
 						Name:     "Deshon",

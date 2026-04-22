@@ -67,6 +67,23 @@ sample_to_wasm(const x::telem::SampleValue &val, const types::Type &type) {
     }
 }
 
+/// @brief Convert json value to wasmtime::Val using the declared type.
+inline wasmtime::Val json_to_wasm(const x::json::json &val, const types::Type &type) {
+    if (val.is_null()) return wasmtime::Val(0);
+    const auto as_double = val.get<double>();
+    switch (type.kind) {
+        case types::Kind::F64:
+            return wasmtime::Val(as_double);
+        case types::Kind::F32:
+            return wasmtime::Val(static_cast<float>(as_double));
+        case types::Kind::I64:
+        case types::Kind::U64:
+            return wasmtime::Val(static_cast<int64_t>(as_double));
+        default:
+            return wasmtime::Val(static_cast<int32_t>(as_double));
+    }
+}
+
 /// Convert wasmtime::Val to SampleValue after WASM function returns
 inline x::telem::SampleValue
 sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
@@ -95,10 +112,7 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
             return x::telem::SampleValue(val.f64());
-        case types::Kind::Invalid:
-        case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
+        default:
             return x::telem::SampleValue(0);
     }
     return x::telem::SampleValue(0);
@@ -138,10 +152,10 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
-        case types::Kind::Invalid:
         case types::Kind::String:
-        case types::Kind::Chan:
-        case types::Kind::Series:
+            // String outputs are i32 handles in WASM
+            return x::telem::SampleValue(static_cast<int32_t>(bits));
+        default:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }
     return x::telem::SampleValue(static_cast<int32_t>(0));
@@ -280,7 +294,7 @@ public:
     private:
         Module &module;
         wasmtime::Func fn;
-        ir::Params outputs;
+        types::Params outputs;
         size_t config_count;
         uint32_t base;
         std::vector<wasmtime::Val> args;
@@ -290,9 +304,9 @@ public:
         Function(
             Module &module,
             wasmtime::Func fn,
-            const ir::Params &outputs,
-            const ir::Params &config,
-            const ir::Params &inputs,
+            const types::Params &outputs,
+            const types::Params &config,
+            const types::Params &inputs,
             const uint32_t base
         ):
             module(module),
@@ -302,25 +316,30 @@ public:
             base(base) {
             this->args.resize(config.size() + inputs.size(), wasmtime::Val(0));
             for (size_t i = 0; i < config.size(); i++) {
-                if (!config[i].value.has_value()) continue;
-                if (const auto *s = std::get_if<std::string>(&*config[i].value)) {
+                if (config[i].value.is_null()) continue;
+                if (config[i].value.is_string()) {
                     // String config params get a stable handle created once at
                     // configure time — not cleared by flush(), no per-call refresh.
                     // bindings is always non-null in production; the null branch is
                     // only reachable in tests that construct a Module without WASM
                     // host bindings, where args[i] stays 0 (unused).
+                    const auto &s = config[i].value.get<std::string>();
                     if (module.cfg.strings != nullptr)
                         this->args[i] = wasmtime::Val(
-                            static_cast<int32_t>(module.cfg.strings->create_config(*s))
+                            static_cast<int32_t>(module.cfg.strings->create_config(s))
                         );
                     continue;
                 }
-                this->args[i] = sample_to_wasm(*config[i].value, config[i].type);
+                auto sv = types::to_sample_value(config[i].value, config[i].type);
+                if (sv.has_value()) this->args[i] = sample_to_wasm(*sv, config[i].type);
             }
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
-                offset += static_cast<uint32_t>(param.type.density());
+                if (param.type.kind == types::Kind::String)
+                    offset += 4; // strings are i32 handles in WASM
+                else
+                    offset += static_cast<uint32_t>(param.type.density());
             }
         }
 
@@ -342,7 +361,6 @@ public:
             }
 
             const auto results = result.ok();
-
             if (this->base == 0) {
                 if (!output_vals.empty() && !results.empty())
                     output_vals[0] = Result{
@@ -365,9 +383,12 @@ public:
                 if ((dirty_flags & 1ULL << i) == 0) continue;
                 const auto output = this->outputs[i];
                 const uint32_t offset = this->offsets[i];
-                if (offset + output.type.density() > mem_size) continue;
+                const size_t byte_size = output.type.kind == types::Kind::String
+                                           ? 4
+                                           : output.type.density();
+                if (offset + byte_size > mem_size) continue;
                 uint64_t raw_value = 0;
-                memcpy(&raw_value, mem_data + offset, output.type.density());
+                memcpy(&raw_value, mem_data + offset, byte_size);
                 output_vals[i] = Result{
                     .value = sample_from_bits(raw_value, output.type),
                     .changed = true
@@ -377,6 +398,10 @@ public:
             return x::errors::NIL;
         }
     };
+
+    [[nodiscard]] std::shared_ptr<stl::str::State> strings() const {
+        return this->cfg.strings;
+    }
 
     [[nodiscard]] bool has_func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
@@ -389,7 +414,7 @@ public:
     /// @param node_config The node's config params with values. If empty, uses the
     /// function's config.
     std::pair<Function, x::errors::Error>
-    func(const std::string &name, const ir::Params &node_config = {}) {
+    func(const std::string &name, const types::Params &node_config = {}) {
         const auto export_opt = this->instance.get(this->store, name);
         const Function zero_func(*this, wasmtime::Func({}), {}, {}, {}, 0);
         if (!export_opt) return {zero_func, x::errors::NOT_FOUND};
@@ -407,6 +432,18 @@ public:
         if (const auto base_it = this->cfg.program.output_memory_bases.find(name);
             base_it != this->cfg.program.output_memory_bases.end()) {
             base = base_it->second;
+        }
+
+        for (const auto &output: func.outputs) {
+            if (!output.type.is_valid())
+                return {
+                    zero_func,
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "function '" + name + "' has output '" + output.name +
+                            "' with unresolved type"
+                    )
+                };
         }
 
         const auto &config_to_use = node_config.empty() ? func.config : node_config;

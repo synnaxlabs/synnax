@@ -22,9 +22,8 @@ namespace arc::stl::constant {
 runtime::node::Context make_context() {
     return runtime::node::Context{
         .elapsed = x::telem::SECOND,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -32,7 +31,7 @@ struct TestSetup {
     ir::IR ir;
     runtime::state::State state;
 
-    TestSetup(const types::Kind kind, const x::telem::SampleValue &value):
+    TestSetup(const types::Kind kind, const x::json::json &value):
         ir(build_ir(kind, value)),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
@@ -42,21 +41,21 @@ struct TestSetup {
     runtime::state::Node make_node() { return ASSERT_NIL_P(state.node("const")); }
 
 private:
-    static ir::IR build_ir(const types::Kind kind, const x::telem::SampleValue &value) {
-        ir::Param output_param;
+    static ir::IR build_ir(const types::Kind kind, const x::json::json &value) {
+        types::Param output_param;
         output_param.name = "output";
-        output_param.type = types::Type(kind);
+        output_param.type.kind = kind;
 
-        ir::Param value_param;
+        types::Param value_param;
         value_param.name = "value";
-        value_param.type = types::Type(kind);
+        value_param.type.kind = kind;
         value_param.value = value;
 
         ir::Node ir_node;
         ir_node.key = "const";
         ir_node.type = "constant";
-        ir_node.outputs.params.push_back(output_param);
-        ir_node.config.params.push_back(value_param);
+        ir_node.outputs.push_back(output_param);
+        ir_node.config.push_back(value_param);
 
         ir::Function fn;
         fn.key = "test";
@@ -189,7 +188,7 @@ TEST(ConstantTest, IsOutputTruthyDelegatesToState) {
     auto ctx = make_context();
     node.next(ctx);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that mark_changed is called on first next().
@@ -197,18 +196,14 @@ TEST(ConstantTest, MarkChangedCalledOnFirstNext) {
     TestSetup setup(types::Kind::F32, 42.5f);
     Constant node(setup.make_node(), 42.5f, x::telem::FLOAT32_T);
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx = make_context();
-    ctx.mark_changed = [&](const std::string &param) {
-        changed_called = true;
-        changed_param = param;
-    };
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     node.next(ctx);
 
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that mark_changed is not called on subsequent next() calls.
@@ -220,7 +215,7 @@ TEST(ConstantTest, MarkChangedNotCalledOnSubsequentNext) {
     node.next(ctx);
 
     int call_count = 0;
-    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ctx.mark_changed = [&](size_t) { call_count++; };
 
     node.next(ctx);
     node.next(ctx);

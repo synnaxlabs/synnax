@@ -1,0 +1,48 @@
+// Copyright 2025 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+syntax = "proto3";
+
+package distribution.channel.pb;
+
+import "core/pkg/distribution/channel/pb/channel.proto";
+import "google/protobuf/empty.proto";
+
+option go_package = "github.com/synnaxlabs/synnax/pkg/distribution/channel/pb";
+
+service ChannelCreateService {
+  rpc Exec(CreateMessage) returns (CreateMessage) {}
+}
+
+service ChannelDeleteService {
+  rpc Exec(DeleteRequest) returns (google.protobuf.Empty) {}
+}
+
+service ChannelRenameService {
+  rpc Exec(RenameRequest) returns (google.protobuf.Empty) {}
+}
+
+message CreateOptions {
+  bool retrieve_if_name_exists = 1;
+  bool overwrite_if_name_exists = 2;
+}
+
+message CreateMessage {
+  repeated pb.Channel channels = 1;
+  CreateOptions opts = 2;
+}
+
+message DeleteRequest {
+  repeated uint32 keys = 1;
+}
+
+message RenameRequest {
+  repeated uint32 keys = 1;
+  repeated string names = 2;
+}

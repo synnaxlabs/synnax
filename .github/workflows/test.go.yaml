@@ -8,7 +8,9 @@ on:
         required: true
         type: string
       ginkgo_flags:
-        description: Additional flags to pass to Ginkgo (e.g., --race, --fail-on-empty)
+        description:
+          Additional flags to pass to Ginkgo (e.g., -p, --randomize-all,
+          --fail-on-empty)
         required: false
         type: string
         default: ""
@@ -16,6 +18,13 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
+      prepare_assets:
+        description:
+          Whether to create placeholder assets (driver binaries) before lint and test.
+          Required for modules compiled with -tags driver.
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -42,14 +51,19 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version-file: go.work
+          go-version-file: ${{ inputs.directory }}/go.mod
           cache-dependency-path: |
-            go.work.sum
-            **/go.sum
+            ${{ inputs.directory }}/go.mod
+            ${{ inputs.directory }}/go.sum
 
       - name: Check formatting
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
+
+      - name: Prepare asset placeholders
+        if: inputs.prepare_assets
+        run: core/scripts/setup_assets.sh
+        shell: bash
 
       - name: Lint
         uses: golangci/golangci-lint-action@v9
@@ -59,12 +73,12 @@ jobs:
       - name: Test
         run: >-
           go run github.com/onsi/ginkgo/v2/ginkgo -r --randomize-suites
-          --fail-on-pending --cover --coverprofile=cover.out --keep-going --trace
+          --fail-on-pending --keep-going --cover --coverprofile=cover.out --race --trace
           --github-output ${{ inputs.ginkgo_flags }}
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

@@ -7,6 +7,7 @@ on:
     paths:
       - .github/workflows/deploy.py.yaml
       - alamos/py/**
+      - x/py/**
       - freighter/py/**
       - client/py/**
       - pyproject.toml
@@ -25,7 +26,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v8.1.0
 
       - name: Set up Python
         uses: actions/setup-python@v6
@@ -33,7 +34,7 @@ jobs:
           python-version-file: client/py/pyproject.toml
 
       - name: Diff Changes
-        uses: dorny/paths-filter@v3
+        uses: dorny/paths-filter@v4
         id: filter
         with:
           base: ${{ github.ref }}
@@ -46,9 +47,13 @@ jobs:
             alamos: &alamos
               - *shared
               - alamos/py/**
+            x: &x
+              - *shared
+              - x/py/**
             freighter: &freighter
               - *shared
               - *alamos
+              - *x
               - freighter/py/**
             client:
               - *shared
@@ -58,6 +63,11 @@ jobs:
       - name: Publish Alamos
         if: steps.filter.outputs.alamos == 'true'
         working-directory: alamos/py
+        run: uv build
+
+      - name: Publish X
+        if: steps.filter.outputs.x == 'true'
+        working-directory: x/py
         run: uv build
 
       - name: Publish Freighter
@@ -72,6 +82,7 @@ jobs:
 
       - name: Publish Code
         if:
-          steps.filter.outputs.alamos == 'true' || steps.filter.outputs.freighter ==
-          'true' || steps.filter.outputs.client == 'true'
+          steps.filter.outputs.alamos == 'true' || steps.filter.outputs.x == 'true' ||
+          steps.filter.outputs.freighter == 'true' || steps.filter.outputs.client ==
+          'true'
         run: uv publish

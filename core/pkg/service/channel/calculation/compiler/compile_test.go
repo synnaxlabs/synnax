@@ -10,7 +10,7 @@
 package compiler_test
 
 import (
-	"context"
+	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -27,69 +27,56 @@ import (
 )
 
 var (
-	ctx    context.Context
 	arcSvc *arc.Service
 	dist   mock.Node
 )
 
-var _ = BeforeSuite(func() {
-	ctx = context.Background()
-	distB := mock.NewCluster()
-	dist = distB.Provision(ctx)
-	labelSvc := MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+var _ = BeforeSuite(func(ctx SpecContext) {
+	distB := DeferClose(mock.NewCluster())
+	dist = DeferClose(distB.Provision(ctx))
+	labelSvc := MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(labelSvc.Close()).To(Succeed())
-	})
-	statusSvc := MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statusSvc := MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       dist.DB,
 		Group:    dist.Group,
 		Signals:  dist.Signals,
 		Ontology: dist.Ontology,
 		Label:    labelSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(statusSvc.Close()).To(Succeed())
-	})
-	rackService := MustSucceed(rack.OpenService(ctx, rack.ServiceConfig{
+	rackService := MustOpen(rack.OpenService(ctx, rack.ServiceConfig{
 		DB:           dist.DB,
 		Ontology:     dist.Ontology,
 		Group:        dist.Group,
 		HostProvider: mock.StaticHostKeyProvider(1),
 		Status:       statusSvc,
+		Search:       dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(rackService.Close()).To(Succeed())
-	})
-	taskSvc := MustSucceed(task.OpenService(ctx, task.ServiceConfig{
+	taskSvc := MustOpen(task.OpenService(ctx, task.ServiceConfig{
 		DB:       dist.DB,
 		Ontology: dist.Ontology,
 		Group:    dist.Group,
 		Rack:     rackService,
 		Status:   statusSvc,
+		Search:   dist.Search,
 	}))
-	DeferCleanup(func() {
-		Expect(taskSvc.Close()).To(Succeed())
-	})
-	arcSvc = MustSucceed(arc.OpenService(ctx, arc.ServiceConfig{
+	arcSvc = MustOpen(arc.OpenService(ctx, arc.ServiceConfig{
 		Channel:  dist.Channel,
 		Ontology: dist.Ontology,
 		DB:       dist.DB,
 		Signals:  dist.Signals,
 		Task:     taskSvc,
+		Search:   dist.Search,
 	}))
 })
 
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
-})
-
 var _ = Describe("Compile", func() {
-	It("Should compile simple expression", func() {
+	It("Should compile simple expression", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
@@ -105,11 +92,11 @@ var _ = Describe("Compile", func() {
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
-		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
+		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
-	It("Should compile expression with operations", func() {
+	It("Should compile expression with operations", func(ctx SpecContext) {
 		base := channel.Channel{Name: "base2", DataType: telem.Int64T, Virtual: true}
 		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
 		calc := channel.Channel{
@@ -126,10 +113,10 @@ var _ = Describe("Compile", func() {
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
 		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
-		Expect(mod.StateConfig.Reads.Keys()).To(ContainElement(base.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
 	})
 
-	It("Should compile with multiple dependencies", func() {
+	It("Should compile with multiple dependencies", func(ctx SpecContext) {
 		channels := []channel.Channel{
 			{Name: "base3", DataType: telem.Int64T, Virtual: true},
 			{Name: "base4", DataType: telem.Int64T, Virtual: true},
@@ -147,11 +134,31 @@ var _ = Describe("Compile", func() {
 			Channel:        calc,
 			SymbolResolver: arcSvc.NewSymbolResolver(nil),
 		}))
-		Expect(mod.StateConfig.Reads.Keys()).To(ContainElements(channel.KeysFromChannels(channels)))
-		Expect(mod.StateConfig.Writes.Keys()).To(ContainElement(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElements(channel.KeysFromChannels(channels)))
+		Expect(mod.StateConfig.Writes.Slice()).To(ContainElement(calc.Key()))
 	})
 
-	It("Should fail with invalid expression", func() {
+	It("Should compile expression with derivative operation", func(ctx SpecContext) {
+		base := channel.Channel{Name: channel.NewRandomName(), DataType: telem.Float64T, Virtual: true}
+		Expect(dist.Channel.Create(ctx, &base)).To(Succeed())
+		calc := channel.Channel{
+			Name:       channel.NewRandomName(),
+			DataType:   telem.Float64T,
+			Virtual:    true,
+			Expression: fmt.Sprintf("return %s", base.Name),
+			Operations: []channel.Operation{{Type: "derivative"}},
+		}
+		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())
+		mod := MustSucceed(compiler.Compile(ctx, compiler.Config{
+			ChannelService: dist.Channel,
+			Channel:        calc,
+			SymbolResolver: arcSvc.NewSymbolResolver(nil),
+		}))
+		Expect(mod.Channel.Key()).To(Equal(calc.Key()))
+		Expect(mod.StateConfig.Reads.Slice()).To(ContainElement(base.Key()))
+	})
+
+	It("Should fail with invalid expression", func(ctx SpecContext) {
 		calc := channel.Channel{
 			Name:       "calc4",
 			DataType:   telem.Int64T,

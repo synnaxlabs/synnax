@@ -12,13 +12,19 @@ package channel
 import (
 	"context"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -26,17 +32,20 @@ import (
 // Service is the central entity for managing channels within Synnax's distribution
 // layer. It provides facilities for creating and retrieving channels.
 type Service struct {
-	cfg ServiceConfig
-	db  *gorp.DB
+	cfg    ServiceConfig
+	db     *gorp.DB
+	closer io.MultiCloser
 	Writer
 	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
+	table *gorp.Table[Key, Channel]
 }
 
 type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
+	alamos.Instrumentation
 	HostResolver     cluster.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
@@ -44,6 +53,7 @@ type ServiceConfig struct {
 	Ontology         *ontology.Ontology
 	Group            *group.Service
 	IntOverflowCheck IntOverflowChecker
+	Search           *search.Index
 	// ValidateNames sets whether to validate channel names during creation and
 	// renaming.
 	ValidateNames *bool
@@ -63,10 +73,12 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "int_overflow_check", c.IntOverflowCheck)
 	validate.NotNil(v, "validate_names", c.ValidateNames)
 	validate.NotNil(v, "force_migration", c.ForceMigration)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
+	c.Instrumentation = override.Zero(c.Instrumentation, other.Instrumentation)
 	c.HostResolver = override.Nil(c.HostResolver, other.HostResolver)
 	c.ClusterDB = override.Nil(c.ClusterDB, other.ClusterDB)
 	c.TSChannel = override.Nil(c.TSChannel, other.TSChannel)
@@ -74,6 +86,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Ontology = override.Nil(c.Ontology, other.Ontology)
 	c.Group = override.Nil(c.Group, other.Group)
 	c.IntOverflowCheck = override.Nil(c.IntOverflowCheck, other.IntOverflowCheck)
+	c.Search = override.Nil(c.Search, other.Search)
 	c.ValidateNames = override.Nil(c.ValidateNames, other.ValidateNames)
 	c.ForceMigration = override.Nil(c.ForceMigration, other.ForceMigration)
 	return c
@@ -81,32 +94,34 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 
 var DefaultServiceConfig = ServiceConfig{ValidateNames: new(true), ForceMigration: new(false)}
 
-func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, cfgs...)
 	if err != nil {
 		return nil, err
 	}
-	var g group.Group
+	s = &Service{cfg: cfg, db: cfg.ClusterDB, otg: cfg.Ontology}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
+		DB:              cfg.ClusterDB,
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Channel]("msgpack_to_orc")},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
+		return nil, err
+	}
 	if cfg.Group != nil {
-		if g, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); err != nil {
+		if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Channels", ontology.RootID); !ok(err, nil) {
 			return nil, err
 		}
 	}
-	proxy, err := newLeaseProxy(ctx, cfg, g)
-	if err != nil {
+	if s.proxy, err = newLeaseProxy(ctx, cfg, s.group, s.table); !ok(err, nil) {
 		return nil, err
-	}
-	s := &Service{
-		cfg:   cfg,
-		db:    cfg.ClusterDB,
-		proxy: proxy,
-		otg:   cfg.Ontology,
-		group: g,
 	}
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
 	}
+	cfg.Search.RegisterService(s)
 	return s, nil
 }
 
@@ -116,11 +131,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 
 func (s *Service) Group() group.Group { return s.group }
 
+// Observe returns an observable that notifies callers of changes to channel entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
+	return s.table.Observe()
+}
+
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:                      gorp.NewRetrieve[Key, Channel](),
+		gorp:                      s.table.NewRetrieve(),
 		tx:                        s.db,
-		otg:                       s.otg,
+		search:                    s.cfg.Search,
 		validateRetrievedChannels: s.validateChannels,
 	}
 }
@@ -132,6 +152,8 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 	defer s.proxy.mu.RUnlock()
 	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
 }
+
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
 	res := make([]Channel, 0, len(channels))

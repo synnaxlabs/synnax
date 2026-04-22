@@ -21,16 +21,16 @@ import (
 
 var _ = Describe("Metrics", Ordered, func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db      *cesium.DB
 				fs      fs.FS
 				cleanUp func() error
 			)
-			BeforeAll(func() {
+			BeforeAll(func(ctx SpecContext) {
 				fs, cleanUp = makeFS()
-				db = openDBOnFS(fs)
+				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
@@ -38,9 +38,9 @@ var _ = Describe("Metrics", Ordered, func() {
 			})
 
 			Describe("Metrics", func() {
-				It("Should return zero metrics for an empty database", func() {
+				It("Should return zero metrics for an empty database", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("empty-metrics"))
-					emptyDB := openDBOnFS(sub)
+					emptyDB := openDBOnFS(ctx, sub)
 					defer func() { Expect(emptyDB.Close()).To(Succeed()) }()
 
 					m := emptyDB.Metrics()
@@ -48,9 +48,9 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(0))
 				})
 
-				It("Should return correct channel count for unary channels", func() {
+				It("Should return correct channel count for unary channels", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("unary-metrics"))
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()
 
 					indexKey := GenerateChannelKey()
@@ -77,9 +77,9 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(2))
 				})
 
-				It("Should return correct channel count including virtual channels", func() {
+				It("Should return correct channel count including virtual channels", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("virtual-metrics"))
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()
 
 					indexKey := GenerateChannelKey()
@@ -103,9 +103,9 @@ var _ = Describe("Metrics", Ordered, func() {
 					Expect(m.ChannelCount).To(Equal(2))
 				})
 
-				It("Should return correct disk size after writing data", func() {
+				It("Should return correct disk size after writing data", func(ctx SpecContext) {
 					sub := MustSucceed(fs.Sub("size-metrics"))
-					subDB := openDBOnFS(sub)
+					subDB := openDBOnFS(ctx, sub)
 					defer func() { Expect(subDB.Close()).To(Succeed()) }()
 
 					indexKey := GenerateChannelKey()

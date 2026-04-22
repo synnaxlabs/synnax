@@ -10,13 +10,13 @@
 package role_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -26,7 +26,6 @@ import (
 )
 
 var (
-	ctx       = context.Background()
 	db        *gorp.DB
 	otg       *ontology.Ontology
 	g         *group.Service
@@ -35,32 +34,32 @@ var (
 	userSvc   *user.Service
 )
 
-var _ = BeforeSuite(func() {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{DB: db}))
-	g = MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg}))
-	userSvc = MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
-	policySvc = MustSucceed(policy.OpenService(ctx, policy.ServiceConfig{
+	policySvc = MustOpen(policy.OpenService(ctx, policy.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
+		Search:   searchIdx,
 	}))
-	svc = MustSucceed(role.OpenService(ctx, role.ServiceConfig{
+	svc = MustOpen(role.OpenService(ctx, role.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
+		Search:   searchIdx,
 	}))
-})
-
-var _ = AfterSuite(func() {
-	Expect(svc.Close()).To(Succeed())
-	Expect(policySvc.Close()).To(Succeed())
-	Expect(g.Close()).To(Succeed())
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })
 
 func TestRole(t *testing.T) {

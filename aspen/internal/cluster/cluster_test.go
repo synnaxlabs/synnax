@@ -11,6 +11,8 @@ package cluster_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Cluster", func() {
@@ -30,26 +31,29 @@ var _ = Describe("Cluster", func() {
 		clusterCtx signal.Context
 		shutdown   context.CancelFunc
 	)
+	// clusterCtx is derived from context.Background() because it is stored
+	// in a shared var and used by It blocks, so it must outlive BeforeEach.
 	BeforeEach(func() {
-		clusterCtx, shutdown = signal.WithCancel(ctx)
+		clusterCtx, shutdown = signal.WithCancel(context.Background())
 		builder = clustermock.NewBuilder(cluster.Config{
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
 		})
-	})
-
-	AfterEach(func() {
-		shutdown()
-		Expect(clusterCtx.Err()).To(HaveOccurredAs(context.Canceled))
+		// Tear down in explicit order: clusters first (so their internal
+		// signal contexts cancel and drain), then cancel the test's
+		// clusterCtx and verify the cancellation took effect.
+		DeferCleanup(func() {
+			Expect(builder.Close()).To(Succeed())
+			shutdown()
+			Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
+		})
 	})
 
 	Describe("Node", func() {
 
 		It("Should return a node by its Name", func() {
-			c1, err := builder.New(clusterCtx, cluster.Config{})
-			Expect(err).ToNot(HaveOccurred())
-			c2, err := builder.New(clusterCtx, cluster.Config{})
-			Expect(err).ToNot(HaveOccurred())
+			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
+			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			Eventually(func() node.Key {
 				n, _ := c2.Node(c1.HostKey())
 				return n.Key
@@ -65,10 +69,8 @@ var _ = Describe("Cluster", func() {
 	Describe("Resolve", func() {
 
 		It("Should resolve the address of a node by its Name", func() {
-			c1, err := builder.New(clusterCtx, cluster.Config{})
-			Expect(err).ToNot(HaveOccurred())
-			c2, err := builder.New(clusterCtx, cluster.Config{})
-			Expect(err).ToNot(HaveOccurred())
+			c1 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
+			c2 := MustSucceed(builder.New(clusterCtx, cluster.Config{}))
 			Eventually(func() address.Address {
 				addr, _ := c1.Resolve(c2.HostKey())
 				return addr

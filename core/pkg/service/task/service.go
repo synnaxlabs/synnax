@@ -11,23 +11,25 @@ package task
 
 import (
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	xio "github.com/synnaxlabs/x/io"
+	"github.com/synnaxlabs/x/migrate"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/query"
-	xstatus "github.com/synnaxlabs/x/status"
+	"github.com/synnaxlabs/x/service"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
@@ -58,6 +60,9 @@ type ServiceConfig struct {
 	// Channel is used to create channels related to task operations.
 	// [OPTIONAL]
 	Channel *channel.Service
+	// Search is the search index for fuzzy searching tasks.
+	// [REQUIRED]
+	Search *search.Index
 	alamos.Instrumentation
 }
 
@@ -76,6 +81,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Status = override.Nil(c.Status, other.Status)
 	c.Signals = override.Nil(c.Signals, other.Signals)
 	c.Channel = override.Nil(c.Channel, other.Channel)
+	c.Search = override.Nil(c.Search, other.Search)
 	return c
 }
 
@@ -87,32 +93,55 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "rack", c.Rack)
 	validate.NotNil(v, "status", c.Status)
+	validate.NotNil(v, "search", c.Search)
 	return v.Error()
 }
 
 type Service struct {
-	cfg                           ServiceConfig
-	shutdownSignals               io.Closer
-	disconnectSuspectRackObserver observe.Disconnect
-	group                         group.Group
-	commandChannelKey             channel.Key
+	cfg               ServiceConfig
+	closer            xio.MultiCloser
+	group             group.Group
+	table             *gorp.Table[Key, Task]
+	commandChannelKey channel.Key
 }
 
-func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
+// Observe returns an observable that notifies callers of changes to task entries.
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Task]] {
+	return s.table.Observe()
+}
+
+func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
 	cfg, err := config.New(DefaultServiceConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
-	g, err := cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID)
-	if err != nil {
+	s = &Service{cfg: cfg}
+	cleanup, ok := service.NewOpener(ctx, &s.closer)
+	defer func() { err = cleanup(err) }()
+	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
+	if s.table, err = gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			v0Mig,
+			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[v54.Key, Key, v54.Task, Task](
+					"v54_drop_status",
+					MigrateTask,
+				),
+				"msgpack_to_orc",
+			),
+		},
+		Instrumentation: cfg.Instrumentation,
+	}); !ok(err, s.table) {
 		return nil, err
 	}
-	s := &Service{cfg: cfg, group: g}
+	if s.group, err = cfg.Group.CreateOrRetrieve(ctx, "Tasks", ontology.RootID); !ok(err, nil) {
+		return nil, err
+	}
 	cfg.Ontology.RegisterService(s)
+	cfg.Search.RegisterService(s)
 	s.cleanupInternalOntologyResources(ctx)
-	if err := s.migrateStatusesForExistingTasks(ctx); err != nil {
-		return nil, err
-	}
 	if cfg.Channel != nil {
 		cmdCh := channel.Channel{
 			Name:     "sy_task_cmd",
@@ -124,20 +153,22 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 			ctx,
 			&cmdCh,
 			channel.RetrieveIfNameExists(),
-		); err != nil {
+		); !ok(err, nil) {
 			return nil, err
 		}
 		s.commandChannelKey = cmdCh.Key()
 	}
-	s.disconnectSuspectRackObserver = cfg.Rack.OnSuspect(s.onSuspectRack)
+	disconnect := cfg.Rack.OnSuspect(s.onSuspectRack)
+	ok(nil, xio.NoFailCloserFunc(disconnect))
 	if cfg.Signals == nil {
 		return s, nil
 	}
-	if s.shutdownSignals, err = signals.PublishFromGorp(
+	var sig io.Closer
+	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric[Key, Task](cfg.DB, telem.Uint64T),
-	); err != nil {
+		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
+	); !ok(err, sig) {
 		return nil, err
 	}
 	return s, nil
@@ -163,13 +194,7 @@ func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	}
 }
 
-func (s *Service) Close() error {
-	s.disconnectSuspectRackObserver()
-	if s.shutdownSignals != nil {
-		return s.shutdownSignals.Close()
-	}
-	return nil
-}
+func (s *Service) Close() error { return s.closer.Close() }
 
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
@@ -179,59 +204,16 @@ func (s *Service) NewWriter(tx gorp.Tx) Writer {
 		rack:   s.cfg.Rack.NewWriter(tx),
 		group:  s.group,
 		status: status.NewWriter[StatusDetails](s.cfg.Status, tx),
+		table:  s.table,
 	}
 }
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		otg:    s.cfg.Ontology,
+		search: s.cfg.Search,
 		baseTX: s.cfg.DB,
-		gorp:   gorp.NewRetrieve[Key, Task](),
+		gorp:   s.table.NewRetrieve(),
 	}
-}
-
-func (s *Service) migrateStatusesForExistingTasks(ctx context.Context) error {
-	var tasks []Task
-	if err := s.NewRetrieve().Entries(&tasks).Exec(ctx, nil); err != nil {
-		return err
-	}
-	if len(tasks) == 0 {
-		return nil
-	}
-	statusKeys := make([]string, len(tasks))
-	for i, t := range tasks {
-		statusKeys[i] = OntologyID(t.Key).String()
-	}
-	var existingStatuses []Status
-	if err := status.NewRetrieve[StatusDetails](s.cfg.Status).
-		WhereKeys(statusKeys...).
-		Entries(&existingStatuses).
-		Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
-		return err
-	}
-	existingKeys := make(map[string]bool)
-	for _, stat := range existingStatuses {
-		existingKeys[stat.Key] = true
-	}
-	var missingStatuses []Status
-	for _, t := range tasks {
-		key := OntologyID(t.Key).String()
-		if !existingKeys[key] {
-			missingStatuses = append(missingStatuses, Status{
-				Key:     key,
-				Name:    t.Name,
-				Time:    telem.Now(),
-				Variant: xstatus.VariantWarning,
-				Message: fmt.Sprintf("%s status unknown", t.Name),
-				Details: StatusDetails{Task: t.Key},
-			})
-		}
-	}
-	if len(missingStatuses) == 0 {
-		return nil
-	}
-	s.cfg.L.Info("creating unknown statuses for existing tasks", zap.Int("count", len(missingStatuses)))
-	return status.NewWriter[StatusDetails](s.cfg.Status, nil).SetMany(ctx, &missingStatuses)
 }
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
@@ -250,7 +232,7 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 			Variant:     rackStat.Variant,
 			Message:     rackStat.Message,
 			Description: rackStat.Description,
-			Details:     StatusDetails{Task: tsk.Key},
+			Details:     StatusDetails{Task: tsk.Key, Running: false},
 		}
 	}
 	if err := status.NewWriter[StatusDetails](s.cfg.Status, nil).

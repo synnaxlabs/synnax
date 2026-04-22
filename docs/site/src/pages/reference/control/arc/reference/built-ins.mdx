@@ -29,10 +29,10 @@ Returns the length of a series or string.
 
 ```arc
 data := [1.0, 2.0, 3.0]
-length := len(data)      // 3 (i64)
+length := len(data) // 3 (i64)
 
 msg := "hello"
-chars := len(msg)        // 5 (i64)
+chars := len(msg) // 5 (i64)
 ```
 
 | Parameter   | Type              | Description                 |
@@ -45,7 +45,7 @@ chars := len(msg)        // 5 (i64)
 Returns the current timestamp in nanoseconds.
 
 ```arc
-current := now()         // i64 ns
+current := now() // i64 ns
 ```
 
 | Parameter   | Type  | Description                     |
@@ -79,7 +79,6 @@ reset and fire immediately on the next tick of the interval.
 ```arc
 // 20Hz control loop
 interval{period=50ms} -> pressure_controller{}
-
 // 1Hz data logging
 interval{period=1s} -> log_all_sensors{}
 ```
@@ -89,12 +88,12 @@ interval{period=1s} -> log_all_sensors{}
 // It fires immediately on re-entry, then every 1s after that.
 sequence main {
     stage on {
-        1 -> heater_cmd,
-        interval{period=1s} -> temp > 200 => off,
+        1 -> heater_cmd
+        interval{period=1s} -> temp > 200 => off
     }
     stage off {
-        0 -> heater_cmd,
-        start_cmd => on,
+        0 -> heater_cmd
+        start_cmd => on
     }
 }
 ```
@@ -184,6 +183,32 @@ sensor -> max{count=50} -> max_display
 
 All statistical functions support a `reset` input signal (`u8`) for manual reset.
 
+### derivative
+
+Computes the rate of change per second (dx/dt) of a streaming signal.
+
+```arc
+sensor -> derivative{} -> rate_display
+```
+
+| Config     | Type    | Description                       |
+| ---------- | ------- | --------------------------------- |
+| **Input**  | numeric | Value to differentiate            |
+| **Output** | `f64`   | Rate of change per second (dx/dt) |
+
+The derivative node tracks the previous value and timestamp across invocations. On each
+sample, it computes `(current - previous) / dt`, where `dt` is the elapsed time in
+seconds. The first sample always outputs `0` since there is no previous value. If the
+time delta is zero or negative, the output is also `0`.
+
+```arc
+// Monitor rate of temperature change
+thermocouple -> derivative{} -> temp_rate
+// Alarm when the rate exceeds a threshold
+pressure -> derivative{} -> pressure_rate
+pressure_rate > 100.0 => alarm
+```
+
 <Divider.Divider x />
 
 ## I/O Nodes
@@ -266,23 +291,25 @@ Updates a status that triggers notifications in Console.
 
 ```arc
 ox_pt_1 > 500 -> set_status{
-    statusKey="overpressure",
-    variant="error",
-    message="Pressure exceeded limit"
+    status_key = "overpressure",
+    name = "Over-Pressure Alarm",
+    variant = "error",
+    message = "Pressure exceeded limit"
 }
 ```
 
-| Config      | Type  | Description                                      |
-| ----------- | ----- | ------------------------------------------------ |
-| `statusKey` | `str` | Name of status to update                         |
-| `variant`   | `str` | Severity: `"success"`, `"warning"`, or `"error"` |
-| `message`   | `str` | Notification message                             |
-| **Input**   | `u8`  | Trigger condition                                |
+| Config       | Type  | Required | Description                                      |
+| ------------ | ----- | -------- | ------------------------------------------------ |
+| `status_key` | `str` | Yes      | Key of the status to update                      |
+| `variant`    | `str` | Yes      | Severity: `"success"`, `"warning"`, or `"error"` |
+| `message`    | `str` | Yes      | Notification message                             |
+| `name`       | `str` | No       | Display name (defaults to `""`)                  |
+| **Input**    | `u8`  |          | Trigger condition                                |
 
 **Workflow:**
 
 1. Create a status in Synnax Console
-2. Reference that status in Arc using `statusKey`
+2. Reference that status in Arc using `status_key`
 3. When the input is truthy, Arc updates the status and sends a notification
 
 <Divider.Divider x />
@@ -326,16 +353,16 @@ set_authority{value=0}
 
 <Note.Note variant="warning">
   Setting `set_authority{(value = 0)}` sets authority to the minimum, allowing any other
-  writer with authority above 0 to take control. Empty stages do NOT lower authority —
-  the writer holds its current authority as long as the program is running.
+  writer with authority above 0 to take control. Empty stages do NOT lower authority.
+  The writer holds its current authority as long as the program is running.
 </Note.Note>
 
 **Usage in a stage:**
 
 ```arc
 stage emergency {
-    set_authority{value=255},
-    0 -> press_vlv_cmd,
+    set_authority{value=255}
+    0 -> press_vlv_cmd
     1 -> vent_vlv_cmd
 }
 ```
@@ -364,8 +391,8 @@ constant{value=100.0} -> setpoint
 Arc provides the `^` operator for exponentiation:
 
 ```arc
-result := 2 ^ 8          // 256
-square := value ^ 2      // value squared
+result := 2 ^ 8 // 256
+square := value ^ 2 // value squared
 ```
 
 <Note.Note variant="warning">
@@ -393,6 +420,7 @@ if x < 0 {
 | `avg`           | Statistics | Running average            |
 | `min`           | Statistics | Running minimum            |
 | `max`           | Statistics | Running maximum            |
+| `derivative`    | Statistics | Rate of change (dx/dt)     |
 | `on`            | I/O        | Read from channel          |
 | `write`         | I/O        | Write to channel           |
 | `select`        | Signal     | Route by condition         |

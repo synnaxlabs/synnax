@@ -11,51 +11,93 @@
 
 #include "arc/cpp/ir/testutil/testutil.h"
 
-/// @brief sequence() should collect nodes from strata into stage nodes list
-TEST(BuilderTest, SequenceCollectsNodesFromStrata) {
-    auto ir = arc::ir::testutil::Builder()
-                  .sequence("main", {{"stage_a", {{"A", "B"}, {"C"}}}})
-                  .build();
+namespace arc::ir::testutil {
+/// @brief strata() should layer node members across the Root scope's strata.
+TEST(BuilderTest, StrataLayerMembersAcrossRoot) {
+    const auto ir = Builder()
+                        .node("A")
+                        .node("B")
+                        .node("C")
+                        .strata({{"A", "B"}, {"C"}})
+                        .build();
 
-    ASSERT_EQ(ir.sequences.size(), 1);
-    ASSERT_EQ(ir.sequences[0].key, "main");
-    ASSERT_EQ(ir.sequences[0].stages.size(), 1);
-
-    const auto &stage = ir.sequences[0].stages[0];
-    ASSERT_EQ(stage.key, "stage_a");
-    ASSERT_EQ(stage.nodes.size(), 3);
-    EXPECT_EQ(stage.nodes[0], "A");
-    EXPECT_EQ(stage.nodes[1], "B");
-    EXPECT_EQ(stage.nodes[2], "C");
-    ASSERT_EQ(stage.strata.size(), 2);
+    EXPECT_EQ(ir.root.mode, arc::ir::ScopeMode::Parallel);
+    EXPECT_EQ(ir.root.liveness, arc::ir::Liveness::Always);
+    ASSERT_EQ(ir.root.strata.size(), 2);
+    ASSERT_EQ(ir.root.strata[0].size(), 2);
+    ASSERT_TRUE(ir.root.strata[0][0].node_key.has_value());
+    EXPECT_EQ(*ir.root.strata[0][0].node_key, "A");
+    EXPECT_EQ(*ir.root.strata[1][0].node_key, "C");
 }
 
-/// @brief sequence() should handle multiple stages
-TEST(BuilderTest, SequenceHandlesMultipleStages) {
-    auto ir = arc::ir::testutil::Builder()
-                  .sequence("seq", {{"first", {{"X"}}}, {"second", {{"Y"}, {"Z"}}}})
-                  .build();
+/// @brief sequence() with parallel stratum specs should produce a sequential
+/// gated scope whose steps are parallel gated child scopes.
+TEST(BuilderTest, SequenceAppendsSequentialWithParallelChildren) {
+    const auto ir = Builder()
+                        .sequence(
+                            "main",
+                            {
+                                ScopeSpec{
+                                    .key = "stage_a",
+                                    .strata = {{"A", "B"}, {"C"}},
+                                },
+                                ScopeSpec{
+                                    .key = "stage_b",
+                                    .strata = {{"D"}},
+                                },
+                            }
+                        )
+                        .build();
 
-    ASSERT_EQ(ir.sequences[0].stages.size(), 2);
-    ASSERT_EQ(ir.sequences[0].stages[0].nodes.size(), 1);
-    EXPECT_EQ(ir.sequences[0].stages[0].nodes[0], "X");
-    ASSERT_EQ(ir.sequences[0].stages[1].nodes.size(), 2);
+    ASSERT_EQ(ir.root.strata.size(), 1);
+    const auto &root_members = ir.root.strata[0];
+    ASSERT_EQ(root_members.size(), 1);
+    ASSERT_NE(root_members[0].scope, nullptr);
+
+    const auto &main = *root_members[0].scope;
+    EXPECT_EQ(main.key, "main");
+    EXPECT_EQ(main.mode, arc::ir::ScopeMode::Sequential);
+    EXPECT_EQ(main.liveness, arc::ir::Liveness::Gated);
+    ASSERT_EQ(main.steps.size(), 2);
+
+    const auto &stage_a = *main.steps[0].scope;
+    EXPECT_EQ(stage_a.mode, arc::ir::ScopeMode::Parallel);
+    ASSERT_EQ(stage_a.strata.size(), 2);
+    ASSERT_EQ(stage_a.strata[0].size(), 2);
+    EXPECT_EQ(*stage_a.strata[0][0].node_key, "A");
+
+    const auto &stage_b = *main.steps[1].scope;
+    ASSERT_EQ(stage_b.strata.size(), 1);
+    EXPECT_EQ(*stage_b.strata[0][0].node_key, "D");
 }
 
-/// @brief sequence() should handle empty strata
-TEST(BuilderTest, SequenceHandlesEmptyStrata) {
-    auto ir = arc::ir::testutil::Builder().sequence("empty", {{"stage", {}}}).build();
+/// @brief sequence() with step specs should produce a sequential gated
+/// scope whose steps are sequential gated child scopes.
+TEST(BuilderTest, SequenceAppendsSequentialWithSequentialChildren) {
+    const auto ir = Builder()
+                        .sequence(
+                            "main",
+                            {
+                                ScopeSpec{
+                                    .key = "flow_a",
+                                    .steps = {"N1", "N2"},
+                                },
+                            }
+                        )
+                        .build();
 
-    ASSERT_EQ(ir.sequences[0].stages[0].nodes.size(), 0);
+    const auto &main = *ir.root.strata[0][0].scope;
+    ASSERT_EQ(main.steps.size(), 1);
+    const auto &flow_a = *main.steps[0].scope;
+    EXPECT_EQ(flow_a.mode, arc::ir::ScopeMode::Sequential);
+    ASSERT_EQ(flow_a.steps.size(), 2);
+    EXPECT_EQ(*flow_a.steps[0].node_key, "N1");
+    EXPECT_EQ(*flow_a.steps[1].node_key, "N2");
 }
 
-/// @brief edge() should create continuous edges
+/// @brief edge() should create continuous edges.
 TEST(BuilderTest, EdgeCreatesContinuousEdges) {
-    auto ir = arc::ir::testutil::Builder()
-                  .node("A")
-                  .node("B")
-                  .edge("A", "out", "B", "in")
-                  .build();
+    const auto ir = Builder().node("A").node("B").edge("A", "out", "B", "in").build();
 
     ASSERT_EQ(ir.edges.size(), 1);
     EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Continuous);
@@ -65,14 +107,15 @@ TEST(BuilderTest, EdgeCreatesContinuousEdges) {
     EXPECT_EQ(ir.edges[0].target.param, "in");
 }
 
-/// @brief oneshot() should create one-shot edges
-TEST(BuilderTest, OneshotCreatesOneShotEdges) {
-    auto ir = arc::ir::testutil::Builder()
-                  .node("A")
-                  .node("B")
-                  .oneshot("A", "trigger", "B", "activate")
-                  .build();
+/// @brief conditional() should create conditional edges.
+TEST(BuilderTest, ConditionalCreatesConditionalEdges) {
+    const auto ir = Builder()
+                        .node("A")
+                        .node("B")
+                        .conditional("A", "trigger", "B", "activate")
+                        .build();
 
     ASSERT_EQ(ir.edges.size(), 1);
-    EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::OneShot);
+    EXPECT_EQ(ir.edges[0].kind, arc::ir::EdgeKind::Conditional);
+}
 }

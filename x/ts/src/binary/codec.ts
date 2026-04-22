@@ -11,6 +11,7 @@ import { type z } from "zod";
 
 import { caseconv } from "@/caseconv";
 import { narrow } from "@/narrow";
+import { zod } from "@/zod";
 
 /**
  * Codec is an entity that encodes and decodes messages to and from a
@@ -26,7 +27,7 @@ export interface Codec {
    * @param payload - The payload to encode.
    * @returns An ArrayBuffer containing the encoded payload.
    */
-  encode: (payload: unknown) => Uint8Array;
+  encode: (payload: unknown, schema?: z.ZodType) => Uint8Array<ArrayBuffer>;
 
   /**
    * Decodes the given binary representation into a type checked payload.
@@ -51,8 +52,8 @@ export class JSONCodec implements Codec {
     this.encoder = new TextEncoder();
   }
 
-  encode(payload: unknown): Uint8Array {
-    return this.encoder.encode(this.encodeString(payload));
+  encode(payload: unknown, schema?: z.ZodType): Uint8Array<ArrayBuffer> {
+    return this.encoder.encode(this.encodeString(payload, schema));
   }
 
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
@@ -61,12 +62,13 @@ export class JSONCodec implements Codec {
 
   decodeString<P extends z.ZodType>(data: string, schema?: P): z.infer<P> {
     const parsed = JSON.parse(data);
-    const unpacked = caseconv.snakeToCamel(parsed);
-    return schema != null ? schema.parse(unpacked) : (unpacked as z.infer<P>);
+    const unpacked = caseconv.snakeToCamel(parsed, { schema });
+    return schema != null ? zod.parse(schema, unpacked) : (unpacked as z.infer<P>);
   }
 
-  encodeString(payload: unknown): string {
-    const caseConverted = caseconv.camelToSnake(payload);
+  encodeString(payload: unknown, schema?: z.ZodType): string {
+    const parsed = schema != null ? zod.parse(schema, payload) : payload;
+    const caseConverted = caseconv.camelToSnake(parsed ?? {}, { schema });
     return JSON.stringify(caseConverted, (_, v) => {
       if (ArrayBuffer.isView(v)) return Array.from(v as Uint8Array);
       if (typeof v === "bigint") return v.toString();
@@ -81,7 +83,7 @@ export class JSONCodec implements Codec {
 export class CSVCodec implements Codec {
   contentType = "text/csv";
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     const csvString = this.encodeString(payload);
     return new TextEncoder().encode(csvString);
   }
@@ -144,7 +146,7 @@ export class CSVCodec implements Codec {
 export class TextCodec implements Codec {
   contentType = "text/plain";
 
-  encode(payload: unknown): Uint8Array {
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
     if (typeof payload !== "string")
       throw new Error("TextCodec.encode payload must be a string");
     return new TextEncoder().encode(payload);

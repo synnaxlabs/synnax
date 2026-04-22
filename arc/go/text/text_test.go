@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -52,17 +53,6 @@ func findEdgeBySourceParam(edges []ir.Edge, param string) ir.Edge {
 	return ir.Edge{}
 }
 
-// findEdgeByTarget finds an edge by target node key
-func findEdgeByTarget(edges []ir.Edge, targetNode string) ir.Edge {
-	for _, e := range edges {
-		if e.Target.Node == targetNode {
-			return e
-		}
-	}
-	Fail("expected edge with target node '" + targetNode + "' to exist")
-	return ir.Edge{}
-}
-
 // countNodesByType counts nodes of a specific type
 func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	count := 0
@@ -74,44 +64,95 @@ func countNodesByType(nodes ir.Nodes, nodeType string) int {
 	return count
 }
 
+// findTopLevelScope returns the top-level Scope member whose key matches.
+// Fails the spec if no such member exists. Top-level scopes are always
+// members of the root scope's first stratum.
+func findTopLevelScope(prog ir.IR, key string) ir.Scope {
+	for _, stratum := range prog.Root.Strata {
+		for _, m := range stratum {
+			if m.Scope != nil && m.Scope.Key == key {
+				return *m.Scope
+			}
+		}
+	}
+	Fail("expected top-level scope '" + key + "' to exist")
+	return ir.Scope{}
+}
+
+// findMember returns the first direct member of a scope with the matching key.
+// Searches both Steps (sequential scopes) and Strata (parallel scopes).
+// Fails the spec if no such member exists.
+func findMember(scope ir.Scope, key string) ir.Member {
+	for _, m := range scope.Steps {
+		if m.Key() == key {
+			return m
+		}
+	}
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.Key() == key {
+				return m
+			}
+		}
+	}
+	Fail("expected member '" + key + "' in scope '" + scope.Key + "'")
+	return ir.Member{}
+}
+
+// scopeNodeRefs collects every leaf-node key reachable within a scope
+// (across all strata and steps). Used to assert that a set of synthesized
+// node keys belongs to a particular scope.
+func scopeNodeRefs(scope ir.Scope) []string {
+	var keys []string
+	for _, stratum := range scope.Strata {
+		for _, m := range stratum {
+			if m.NodeKey != nil {
+				keys = append(keys, *m.NodeKey)
+			}
+		}
+	}
+	for _, m := range scope.Steps {
+		if m.NodeKey != nil {
+			keys = append(keys, *m.NodeKey)
+		}
+	}
+	return keys
+}
+
 var _ = Describe("Text", func() {
 	Describe("Parse", func() {
 		It("Should correctly parse a text-based arc program", func() {
 			source := `
 			func add(a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
 			func adder{} (a i64, b i64) i64 {
-				return add(a, b)
+			    return add(a, b)
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
 		})
 	})
 
 	Describe("Analyze", func() {
-		It("Should correctly analyze a text-based arc program", func() {
+		It("Should correctly analyze a text-based arc program", func(ctx SpecContext) {
 			source := `
 			func add(a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
 			func adder{} (a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			Expect(parsedText.AST).ToNot(BeNil())
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
@@ -142,16 +183,14 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Channel Flow Analysis", func() {
-			It("Should analyze flow with channel identifier", func() {
+			It("Should analyze flow with channel identifier", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
 				}
 				source := `
-				func print{} () {
-				}
+				func print{} () {}
 
-				sensor -> print{}
-				`
+				sensor -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -164,7 +203,7 @@ var _ = Describe("Text", func() {
 				Expect(channelNode.Config).To(HaveLen(1))
 				Expect(channelNode.Config[0].Name).To(Equal("channel"))
 				Expect(channelNode.Config[0].Type).To(Equal(types.Chan(types.I32())))
-				Expect(channelNode.Channels.Read.Contains(10042)).To(BeTrue())
+				Expect(channelNode.Channels.Read).To(HaveKey(uint32(10042)))
 
 				printNode := findNodeByKey(inter.Nodes, "print_0")
 				Expect(printNode.Type).To(Equal("print"))
@@ -174,13 +213,11 @@ var _ = Describe("Text", func() {
 				Expect(edge.Target.Node).To(Equal(printNode.Key))
 			})
 
-			It("Should report error for unresolved channel", func() {
+			It("Should report error for unresolved channel", func(ctx SpecContext) {
 				source := `
-				func print{} () {
-				}
+				func print{} () {}
 
-				unknown_channel -> print{}
-				`
+				unknown_channel -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -189,17 +226,15 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Expression Flow Analysis", func() {
-			It("Should analyze flow with expression nodes", func() {
+			It("Should analyze flow with expression nodes", func(ctx SpecContext) {
 				source := `
 				func add(a i64, b i64) i64 {
-					return a + b
+				    return a + b
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				add(1, 2) -> print{}
-				`
+				add(1, 2) -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -219,7 +254,7 @@ var _ = Describe("Text", func() {
 			})
 
 			DescribeTable("Literal constant generation",
-				func(source string, resolver symbol.MapResolver, expectConstant bool, expectedType types.Type) {
+				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectConstant bool, expectedType types.Type) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 					Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -254,20 +289,15 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Config Values", func() {
-			It("Should extract named config values", func() {
+			It("Should extract named config values", func(ctx SpecContext) {
 				source := `
-				func processor{
-					threshold i64,
-					scale f64
-				} () i64 {
-					return threshold
+				func processor{threshold i64, scale f64} () i64 {
+				    return threshold
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				processor{threshold=100, scale=2.5} -> print{}
-				`
+				processor{threshold=100, scale=2.5} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -284,21 +314,15 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[1].Value).To(Equal(2.5))
 			})
 
-			It("Should handle simple config with multiple values", func() {
+			It("Should handle simple config with multiple values", func(ctx SpecContext) {
 				source := `
-				func calculator{
-					a i64,
-					b i64,
-					c i64
-				} () i64 {
-					return a + b + c
+				func calculator{a i64, b i64, c i64} () i64 {
+				    return a + b + c
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				calculator{a=10,b=20,c=30} -> print{}
-				`
+				calculator{a=10, b=20, c=30} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -316,22 +340,18 @@ var _ = Describe("Text", func() {
 				}
 			})
 
-			It("Should resolve channel name to channel ID in config parameter", func() {
+			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
 				}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=temp_sensor} -> display{}
-				`
+				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -341,25 +361,21 @@ var _ = Describe("Text", func() {
 				Expect(readerNode.Config[0].Name).To(Equal("channel"))
 				Expect(readerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(readerNode.Config[0].Value).To(Equal(uint32(10042)))
-				Expect(readerNode.Channels.Read.Contains(uint32(10042))).To(BeTrue())
+				Expect(readerNode.Channels.Read).To(HaveKey(uint32(10042)))
 			})
 
-			It("Should produce diagnostic error when channel config type mismatches", func() {
+			It("Should produce diagnostic error when channel config type mismatches", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10043},
 				}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=temp_sensor} -> display{}
-				`
+				reader{channel=temp_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -370,20 +386,16 @@ var _ = Describe("Text", func() {
 				Expect(diagStr).To(ContainSubstring("chan i32"))
 			})
 
-			It("Should produce diagnostic error when channel name is not found in resolver", func() {
+			It("Should produce diagnostic error when channel name is not found in resolver", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{}
 				source := `
-				func reader{
-					channel chan f64
-				} () f64 {
-					return channel
+				func reader{channel chan f64} () f64 {
+				    return channel
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				reader{channel=unknown_sensor} -> display{}
-				`
+				reader{channel=unknown_sensor} -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -392,7 +404,7 @@ var _ = Describe("Text", func() {
 				Expect(diagStr).To(ContainSubstring("unknown_sensor"))
 			})
 
-			It("Should reject read channel for config param requiring write channel", func() {
+			It("Should reject read channel for config param requiring write channel", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
 					control.SymbolResolver,
 					symbol.MapResolver{
@@ -406,33 +418,29 @@ var _ = Describe("Text", func() {
 				}
 				source := `
 				func source{} () u8 {
-					return 1
+				    return 1
 				}
 
-				source{} -> set_authority{value=200, channel=read_sensor}
-				`
+				source{} -> set_authority{value=200, channel=read_sensor}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
 			})
 
-			It("Should resolve channel name for write operations and add to Channels.Write", func() {
+			It("Should resolve channel name for write operations and add to Channels.Write", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_channel": {Name: "output_channel", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10055},
 				}
 				source := `
-				func writer{
-					channel chan f64
-				} (value f64) {
-					channel = value
+				func writer{channel chan f64} (value f64) {
+				    channel = value
 				}
 
 				func source{} () f64 {
-					return 1.0
+				    return 1.0
 				}
 
-				source{} -> writer{channel=output_channel}
-				`
+				source{} -> writer{channel=output_channel}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -442,11 +450,11 @@ var _ = Describe("Text", func() {
 				Expect(writerNode.Config[0].Name).To(Equal("channel"))
 				Expect(writerNode.Config[0].Type).To(Equal(types.Chan(types.F64())))
 				Expect(writerNode.Config[0].Value).To(Equal(uint32(10055)))
-				Expect(writerNode.Channels.Write.Contains(uint32(10055))).To(BeTrue())
-				Expect(writerNode.Channels.Read.Contains(uint32(10055))).To(BeFalse())
+				Expect(writerNode.Channels.Write).To(HaveKey(uint32(10055)))
+				Expect(writerNode.Channels.Read).NotTo(HaveKey(uint32(10055)))
 			})
 
-			It("Should register separate write channels when function with channel config is used multiple times", func() {
+			It("Should register separate write channels when function with channel config is used multiple times", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"toggle_1":  {Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10011},
 					"toggle_2":  {Name: "toggle_2", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10012},
@@ -454,17 +462,16 @@ var _ = Describe("Text", func() {
 					"counter_2": {Name: "counter_2", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10014},
 				}
 				source := `
-				func count_rising{counter chan f32}(input u8) {
-					prev $= input
-					if input != 0 and prev == 0 {
-						counter = counter + 1.0
-					}
-					prev = input
+				func count_rising{counter chan f32} (input u8) {
+				    prev $= input
+				    if input != 0 and prev == 0 {
+				        counter = counter + 1.0
+				    }
+				    prev = input
 				}
 
 				toggle_1 -> count_rising{counter=counter_1}
-				toggle_2 -> count_rising{counter=counter_2}
-				`
+				toggle_2 -> count_rising{counter=counter_2}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -474,30 +481,29 @@ var _ = Describe("Text", func() {
 				node2 := findNodeByKey(inter.Nodes, "count_rising_1")
 
 				// Each node should have its own write channel
-				Expect(node1.Channels.Write.Contains(uint32(10013))).To(BeTrue(), "first node should write to counter_1")
-				Expect(node2.Channels.Write.Contains(uint32(10014))).To(BeTrue(), "second node should write to counter_2")
+				Expect(node1.Channels.Write).To(HaveKey(uint32(10013)), "first node should write to counter_1")
+				Expect(node2.Channels.Write).To(HaveKey(uint32(10014)), "second node should write to counter_2")
 
-				Expect(node1.Channels.Read.Contains(uint32(10013))).To(BeTrue(), "first node should read from counter_1")
-				Expect(node2.Channels.Read.Contains(uint32(10014))).To(BeTrue(), "second node should read from counter_2")
+				Expect(node1.Channels.Read).To(HaveKey(uint32(10013)), "first node should read from counter_1")
+				Expect(node2.Channels.Read).To(HaveKey(uint32(10014)), "second node should read from counter_2")
 			})
 
-			It("Should not add stateful variable to write channels when initialized from global channel", func() {
+			It("Should not add stateful variable to write channels when initialized from global channel", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"toggle_1":  {Name: "toggle_1", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10101},
 					"counter_1": {Name: "counter_1", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10102},
 				}
 				source := `
 				func count_rising(input u8) {
-					counter $= counter_1
-					prev $= input
-					if input != 0 and prev == 0 {
-						counter = counter + 1.0
-					}
-					prev = input
+				    counter $= counter_1
+				    prev $= input
+				    if input != 0 and prev == 0 {
+				        counter = counter + 1.0
+				    }
+				    prev = input
 				}
 
-				toggle_1 -> count_rising{}
-				`
+				toggle_1 -> count_rising{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -506,68 +512,61 @@ var _ = Describe("Text", func() {
 				node := findNodeByKey(inter.Nodes, "count_rising_0")
 
 				// counter_1 should be in Read (stateful var is initialized from channel value)
-				Expect(node.Channels.Read.Contains(uint32(10102))).To(BeTrue(), "should read from counter_1")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10102)), "should read from counter_1")
 				// Write channels should be empty - we write to a stateful variable, not a channel
 				Expect(node.Channels.Write).To(BeEmpty(), "should not have any write channels")
 			})
 
-			It("Should resolve read-only config param channel in Channels.Read", func() {
+			It("Should resolve read-only config param channel in Channels.Read", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"do_0_state":       {Name: "do_0_state", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10201},
 					"do_0_counter":     {Name: "do_0_counter", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10202},
 					"do_0_counter_max": {Name: "do_0_counter_max", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10203},
 				}
 				source := `
-				func count_rising_test{counter_ch chan f32, max_ch chan f32}(input u8) {
-					prev $= input
-					counter f32 $= 0
-					read_val := max_ch + f32(0.0)
+				func count_rising_test{counter_ch chan f32, max_ch chan f32} (input u8) {
+				    prev $= input
+				    counter f32 $= 0
+				    read_val := max_ch + f32(0.0)
 
-					if counter < read_val {
-						counter = read_val
-					}
+				    if counter < read_val {
+				        counter = read_val
+				    }
 
-					if input and not prev {
-						counter = counter + 1.0
-					}
+				    if input and not prev {
+				        counter = counter + 1.0
+				    }
 
-					counter_ch = counter
-					prev = input
+				    counter_ch = counter
+				    prev = input
 				}
 
-				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}
-				`
+				do_0_state -> count_rising_test{counter_ch=do_0_counter, max_ch=do_0_counter_max}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 				node := findNodeByKey(inter.Nodes, "count_rising_test_0")
-				Expect(node.Channels.Write.Contains(uint32(10202))).To(BeTrue(), "should write to do_0_counter")
-				Expect(node.Channels.Read.Contains(uint32(10203))).To(BeTrue(), "should read from do_0_counter_max")
+				Expect(node.Channels.Write).To(HaveKey(uint32(10202)), "should write to do_0_counter")
+				Expect(node.Channels.Read).To(HaveKey(uint32(10203)), "should read from do_0_counter_max")
 				Expect(node.Config).To(HaveLen(2))
 				Expect(node.Config[0].Value).To(Equal(uint32(10202)))
 				Expect(node.Config[1].Value).To(Equal(uint32(10203)))
 			})
 
-			It("Should handle config values using global constants", func() {
+			It("Should handle config values using global constants", func(ctx SpecContext) {
 				source := `
 				A := 10
 				B := 20
 				C := 30
 
-				func calculator{
-					a i64,
-					b i64,
-					c i64
-				} () i64 {
-					return a + b + c
+				func calculator{a i64, b i64, c i64} () i64 {
+				    return a + b + c
 				}
 
-				func print{} () {
-				}
+				func print{} () {}
 
-				calculator{a=A, b=B, c=C} -> print{}
-				`
+				calculator{a=A, b=B, c=C} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -585,23 +584,18 @@ var _ = Describe("Text", func() {
 				}
 			})
 
-			It("Should handle f64 global constants in config", func() {
+			It("Should handle f64 global constants in config", func(ctx SpecContext) {
 				source := `
 				SCALE := 2.5
 				OFFSET := 0.1
 
-				func transform{
-					scale f64,
-					offset f64
-				} (x f64) f64 {
-					return x * scale + offset
+				func transform{scale f64, offset f64} (x f64) f64 {
+				    return x * scale + offset
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				transform{scale=SCALE, offset=OFFSET} -> sink{}
-				`
+				transform{scale=SCALE, offset=OFFSET} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -618,22 +612,17 @@ var _ = Describe("Text", func() {
 				}
 			})
 
-			It("Should handle mixed literal and constant config values", func() {
+			It("Should handle mixed literal and constant config values", func(ctx SpecContext) {
 				source := `
 				THRESHOLD := 100
 
-				func filter{
-					threshold i64,
-					enabled i64
-				} (x i64) i64 {
-					return x
+				func filter{threshold i64, enabled i64} (x i64) i64 {
+				    return x
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				filter{threshold=THRESHOLD, enabled=1} -> sink{}
-				`
+				filter{threshold=THRESHOLD, enabled=1} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -651,21 +640,17 @@ var _ = Describe("Text", func() {
 				}
 			})
 
-			It("Should handle typed global constants in config", func() {
+			It("Should handle typed global constants in config", func(ctx SpecContext) {
 				source := `
 				MAX_VALUE i32 := 255
 
-				func clamp{
-					max i32
-				} (x i32) i32 {
-					return x
+				func clamp{max i32} (x i32) i32 {
+				    return x
 				}
 
-				func sink{} () {
-				}
+				func sink{} () {}
 
-				clamp{max=MAX_VALUE} -> sink{}
-				`
+				clamp{max=MAX_VALUE} -> sink{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -677,7 +662,70 @@ var _ = Describe("Text", func() {
 				Expect(node.Config[0].Value).To(Equal(int32(255)))
 			})
 
-			It("Should handle global constant as flow source to channel", func() {
+			It("Should resolve anonymous config values by position into IR nodes", func(ctx SpecContext) {
+				source := `
+				func transform{scale f64, offset f64} (x f64) f64 {
+				    return x * scale + offset
+				}
+
+				func sink{} () {}
+
+				transform{2.5, 0.1} -> sink{}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "transform_0")
+				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Config[0].Name).To(Equal("scale"))
+				Expect(node.Config[0].Value).To(Equal(2.5))
+				Expect(node.Config[1].Name).To(Equal("offset"))
+				Expect(node.Config[1].Value).To(Equal(0.1))
+			})
+
+			It("Should resolve partial anonymous config with defaults into IR nodes", func(ctx SpecContext) {
+				source := `
+				func controller{setpoint f64, gain f64 = 1.0} (x f64) f64 {
+				    return x
+				}
+
+				func sink{} () {}
+
+				controller{100.0} -> sink{}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "controller_0")
+				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Config[0].Name).To(Equal("setpoint"))
+				Expect(node.Config[0].Value).To(Equal(100.0))
+				Expect(node.Config[1].Name).To(Equal("gain"))
+				Expect(node.Config[1].Value).To(Equal(1.0))
+			})
+
+			It("Should resolve channel identifier as anonymous config into IR", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"sensor_chan": {Name: "sensor_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10001},
+				}
+				source := `
+				func controller{sensor chan f64, setpoint f64} () {
+				    v := sensor
+				}
+
+				sensor_chan -> controller{sensor_chan, 100.0}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "controller_0")
+				Expect(node.Config).To(HaveLen(2))
+				Expect(node.Config[0].Name).To(Equal("sensor"))
+				Expect(node.Config[1].Name).To(Equal("setpoint"))
+				Expect(node.Config[1].Value).To(Equal(100.0))
+			})
+
+			It("Should handle global constant as flow source to channel", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"my_channel": {Name: "my_channel", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
@@ -699,10 +747,10 @@ var _ = Describe("Text", func() {
 
 				writeNode := findNodeByType(inter.Nodes, "write")
 				Expect(writeNode.Channels.Write).To(HaveLen(1))
-				Expect(writeNode.Channels.Write.Contains(uint32(10001))).To(BeTrue())
+				Expect(lo.HasKey(writeNode.Channels.Write, uint32(10001))).To(BeTrue())
 			})
 
-			It("Should handle global constant as flow source in a sequence stage", func() {
+			It("Should handle global constant as flow source in a sequence stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"drive_speed_sp": {Name: "drive_speed_sp", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
@@ -710,11 +758,10 @@ var _ = Describe("Text", func() {
 				DRIVE_SP := 2500
 
 				sequence main {
-					stage init {
-						DRIVE_SP => drive_speed_sp
-					}
-				}
-				`
+				    stage init {
+				        DRIVE_SP => drive_speed_sp
+				    }
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -731,21 +778,20 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Edge Parameter Validation", func() {
-			It("Should create edges with parameters that exist in node definitions", func() {
+			It("Should create edges with parameters that exist in node definitions", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				func filter{} (data i64) i64 {
-					return data
+				    return data
 				}
 
 				func transform{} (value i64) i64 {
-					return value * 2
+				    return value * 2
 				}
 
-				sensor -> filter{} -> transform{}
-				`
+				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -780,18 +826,17 @@ var _ = Describe("Text", func() {
 				Expect(tgtNode1.Inputs.Has(edge1.Target.Param)).To(BeTrue())
 			})
 
-			It("Should handle functions with custom input parameter names", func() {
+			It("Should handle functions with custom input parameter names", func(ctx SpecContext) {
 				source := `
 				func generator{} () i64 {
-					return 42
+				    return 42
 				}
 
 				func processor{} (inputValue i64) i64 {
-					return inputValue * 2
+				    return inputValue * 2
 				}
 
-				generator{} -> processor{}
-				`
+				generator{} -> processor{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -808,16 +853,14 @@ var _ = Describe("Text", func() {
 				Expect(tgtNode.Inputs.Has("inputValue")).To(BeTrue())
 			})
 
-			It("Should verify channel node outputs are defined", func() {
+			It("Should verify channel node outputs are defined", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp": {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10044},
 				}
 				source := `
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
-				temp -> display{}
-				`
+				temp -> display{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -832,17 +875,15 @@ var _ = Describe("Text", func() {
 				Expect(channelNode.Outputs.Has(edge.Source.Param)).To(BeTrue())
 			})
 
-			It("Should handle binary operator parameter names", func() {
+			It("Should handle binary operator parameter names", func(ctx SpecContext) {
 				source := `
 				func add{} (a i64, b i64) i64 {
-					return a + b
+				    return a + b
 				}
 
-				func print{} (value i64) {
-				}
+				func print{} (value i64) {}
 
-				add{} -> print{}
-				`
+				add{} -> print{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -864,27 +905,24 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Output Routing Tables", func() {
-			It("Should analyze simple output routing with multiple targets", func() {
+			It("Should analyze simple output routing with multiple targets", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
-				func logger{} (value f64) {
-				}
+				func logger{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: alarm{},
-					low: logger{}
-				}
-				`
+				    high: alarm{},
+				    low: logger{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -911,27 +949,25 @@ var _ = Describe("Text", func() {
 				Expect(lowEdge.Target.Param).To(Equal("value"))
 			})
 
-			It("Should handle routing with chained processing", func() {
+			It("Should handle routing with chained processing", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
 				func amplify{} (signal f64) f64 {
-					return signal * 2
+				    return signal * 2
 				}
 
-				func display{} (value f64) {
-				}
+				func display{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: amplify{} -> display{}
-				}
-				`
+				    high: amplify{} -> display{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -949,38 +985,36 @@ var _ = Describe("Text", func() {
 				Expect(edge1.Target.Node).To(Equal("display_0"))
 			})
 
-			It("Should not create phantom output edges for void functions in routing branches", func() {
+			It("Should not create phantom output edges for void functions in routing branches", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10301},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func increment{ch chan u32}() {
-					ch = ch + 1
+				func increment{ch chan u32} () {
+				    ch = ch + 1
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: increment{ch=counter} -> alarm{}
-				}
-				`
+				    high: increment{ch=counter} -> alarm{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				outputSet := make(map[ir.Handle]bool)
+				outputSet := make(set.Set[ir.Handle])
 				for _, n := range inter.Nodes {
 					for _, p := range n.Outputs {
-						outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
+						outputSet.Add(ir.Handle{Node: n.Key, Param: p.Name})
 					}
 				}
 				for _, edge := range inter.Edges {
@@ -989,19 +1023,17 @@ var _ = Describe("Text", func() {
 				}
 			})
 
-			It("Should report error for non-existent output parameter", func() {
+			It("Should report error for non-existent output parameter", func(ctx SpecContext) {
 				source := `
 				func simple{} () (bob i64) {
-					bob = 42
+				    bob = 42
 				}
 
-				func display{} (value i64) {
-				}
+				func display{} (value i64) {}
 
 				simple{} -> {
-					nonexistent: display{}
-				}
-				`
+				    nonexistent: display{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeFalse())
@@ -1010,81 +1042,73 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Stratification", func() {
-			It("Should calculate strata for simple flow chain", func() {
+			It("Should calculate strata for simple flow chain", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10001},
 				}
 				source := `
 				func filter{} (data i64) i64 {
-					return data
+				    return data
 				}
 
 				func transform{} (value i64) i64 {
-					return value * 2
+				    return value * 2
 				}
 
-				sensor -> filter{} -> transform{}
-				`
+				sensor -> filter{} -> transform{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(3))
-
-				// Stratum 0: sensor, Stratum 1: filter, Stratum 2: transform
-				Expect(inter.Strata[0]).To(ContainElement("on_sensor_0"))
-				Expect(inter.Strata[1]).To(ContainElement("filter_0"))
-				Expect(inter.Strata[2]).To(ContainElement("transform_0"))
+				Expect(inter.Root.Strata).To(HaveLen(3))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("on_sensor_0"))
+				Expect(inter.Root.Strata[1][0].Key()).To(Equal("filter_0"))
+				Expect(inter.Root.Strata[2][0].Key()).To(Equal("transform_0"))
 			})
 
-			It("Should calculate strata for output routing tables", func() {
+			It("Should calculate strata for output routing tables", func(ctx SpecContext) {
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
-				func alarm{} (value f64) {
-				}
+				func alarm{} (value f64) {}
 
-				func logger{} (value f64) {
-				}
+				func logger{} (value f64) {}
 
 				demux{threshold=100.0} -> {
-					high: alarm{},
-					low: logger{}
-				}
-				`
+				    high: alarm{},
+				    low: logger{}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Strata).ToNot(BeNil())
-				Expect(inter.Strata).To(HaveLen(2))
-
-				// Stratum 0: demux, Stratum 1: alarm and logger (parallel)
-				Expect(inter.Strata[0]).To(ContainElement("demux_0"))
-				Expect(inter.Strata[1]).To(ContainElements("alarm_0", "logger_0"))
+				Expect(inter.Root.Strata).To(HaveLen(2))
+				Expect(inter.Root.Strata[0][0].Key()).To(Equal("demux_0"))
+				keys := lo.Map(inter.Root.Strata[1], func(m ir.Member, _ int) string {
+					return m.Key()
+				})
+				Expect(keys).To(ContainElements("alarm_0", "logger_0"))
 			})
 		})
 
 		Context("Channel Sink Detection", func() {
-			It("Should create write node for channel at end of flow", func() {
+			It("Should create write node for channel at end of flow", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"input_chan":  {Name: "input_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10021},
 					"output_chan": {Name: "output_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10022},
 				}
 				source := `
 				func double{} (x f32) f32 {
-					return x * 2
+				    return x * 2
 				}
 
-				input_chan -> double{} -> output_chan
-				`
+				input_chan -> double{} -> output_chan`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1093,18 +1117,19 @@ var _ = Describe("Text", func() {
 
 				inputNode := inter.Nodes[0]
 				Expect(inputNode.Type).To(Equal("on"))
-				Expect(inputNode.Channels.Read.Contains(uint32(10021))).To(BeTrue())
+				Expect(inputNode.Channels.Read).To(HaveKey(uint32(10021)))
 				Expect(inputNode.Outputs).To(HaveLen(1))
 
 				outputNode := inter.Nodes[2]
 				Expect(outputNode.Type).To(Equal("write"))
-				Expect(outputNode.Channels.Write.Contains(uint32(10022))).To(BeTrue())
+				Expect(outputNode.Channels.Write).To(HaveKey(uint32(10022)))
 				Expect(outputNode.Inputs).To(HaveLen(1))
 				Expect(outputNode.Inputs[0].Name).To(Equal("input"))
-				Expect(outputNode.Outputs).To(BeEmpty())
+				Expect(outputNode.Outputs).To(HaveLen(1))
+				Expect(outputNode.Outputs[0].Type).To(Equal(types.U8()))
 			})
 
-			It("Should handle channel-to-channel flow", func() {
+			It("Should handle channel-to-channel flow", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"chan1": {Name: "chan1", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10031},
 					"chan2": {Name: "chan2", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10032},
@@ -1116,30 +1141,29 @@ var _ = Describe("Text", func() {
 
 				Expect(inter.Nodes).To(HaveLen(2))
 				Expect(inter.Nodes[0].Type).To(Equal("on"))
-				Expect(inter.Nodes[0].Channels.Read.Contains(uint32(10031))).To(BeTrue())
+				Expect(inter.Nodes[0].Channels.Read).To(HaveKey(uint32(10031)))
 				Expect(inter.Nodes[1].Type).To(Equal("write"))
-				Expect(inter.Nodes[1].Channels.Write.Contains(uint32(10032))).To(BeTrue())
+				Expect(inter.Nodes[1].Channels.Write).To(HaveKey(uint32(10032)))
 			})
 
-			It("Should handle channel sinks in routing tables", func() {
+			It("Should handle channel sinks in routing tables", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10041},
 					"low_chan":  {Name: "low_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10045},
 				}
 				source := `
 				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				    if (value > threshold) {
+				        high = value
+				    } else {
+				        low = value
+				    }
 				}
 
 				demux{threshold=100.0} -> {
-					high: high_chan,
-					low: low_chan
-				}
-				`
+				    high: high_chan,
+				    low: low_chan
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1165,199 +1189,249 @@ var _ = Describe("Text", func() {
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
-					func print{} () {
-					}
+					func print{} () {}
 
-					print{}
-				`),
+					print{}`),
 				Entry("single channel identifier", `sensor`),
 			)
 		})
 
 		Context("Sequence Targeting", func() {
-			It("Should connect one-shot edge to sequence's first stage entry node", func() {
+			It("Should connect one-shot edge to sequence's first stage entry node", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
 				sequence main {
-					stage run {
-					}
+				    stage run {}
 				}
 
-				trigger => main
-				`
+				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(2))
-
+				// The channel read is the only node; the scope activation is
+				// stamped directly on main's Scope (no synthesized entry
+				// node, no edge).
+				Expect(inter.Nodes).To(HaveLen(1))
 				triggerNode := findNodeByKey(inter.Nodes, "on_trigger_0")
 				Expect(triggerNode.Type).To(Equal("on"))
 
-				entryNode := findNodeByKey(inter.Nodes, "entry_main_run")
-				Expect(entryNode.Type).To(Equal("stage_entry"))
-				Expect(entryNode.Inputs).To(HaveLen(1))
-				Expect(entryNode.Inputs[0].Name).To(Equal("activate"))
+				// Sequence activation: trigger.output fires main's gated
+				// scope.
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Mode).To(Equal(ir.ScopeModeSequential))
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_trigger_0"))
+				Expect(main.Activation.Param).To(Equal(ir.DefaultOutputParam))
 
-				// Verify no write node was created for sequence
+				// No dataflow edges and no write node for the sequence name.
+				Expect(inter.Edges).To(BeEmpty())
 				for _, node := range inter.Nodes {
 					Expect(node.Key).ToNot(HavePrefix("write_main"))
 				}
-
-				Expect(inter.Edges).To(HaveLen(1))
-				edge := inter.Edges[0]
-				Expect(edge.Source.Node).To(Equal("on_trigger_0"))
-				Expect(edge.Source.Param).To(Equal("output"))
-				Expect(edge.Target.Node).To(Equal("entry_main_run"))
-				Expect(edge.Target.Param).To(Equal("activate"))
-				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
 			})
 
-			It("Should handle continuous flow to sequence", func() {
+			It("Should handle continuous flow to sequence", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10061},
 				}
 				source := `
 				sequence main {
-					stage run {
-					}
+				    stage run {}
 				}
 
-				sensor -> main
-				`
+				sensor -> main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Edges).To(HaveLen(1))
-				edge := inter.Edges[0]
-				Expect(edge.Kind).To(Equal(ir.EdgeKindContinuous))
-				Expect(edge.Target.Node).To(Equal("entry_main_run"))
-				Expect(edge.Target.Param).To(Equal("activate"))
+				// Continuous flow into a sequence activates the sequence
+				// scope just like a conditional transition would; the
+				// difference in source syntax doesn't change the IR shape.
+				Expect(inter.Edges).To(BeEmpty())
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_sensor_0"))
 			})
 
-			It("Should handle sequence with multiple stages - connects to first stage", func() {
+			It("Should handle sequence with multiple stages - activates first stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
 				sequence main {
-					stage first {
-					}
-					stage second {
-					}
+				    stage first {}
+				    stage second {}
 				}
 
-				trigger => main
-				`
+				trigger => main`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				Expect(inter.Nodes).To(HaveLen(3))
-				Expect(inter.Edges).To(HaveLen(1))
+				// Only the trigger read exists; stages are Scope members,
+				// not IR nodes.
+				Expect(inter.Nodes).To(HaveLen(1))
+				Expect(inter.Edges).To(BeEmpty())
 
-				edge := inter.Edges[0]
-				Expect(edge.Target.Node).To(Equal("entry_main_first"))
-				Expect(edge.Target.Param).To(Equal("activate"))
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Steps).To(HaveLen(2))
+				Expect(main.Steps[0].Key()).To(Equal("first"))
+				Expect(main.Activation).ToNot(BeNil())
+				Expect(main.Activation.Node).To(Equal("on_trigger_0"))
 			})
 
-			It("Should error when targeting empty sequence (no stages)", func() {
+			It("Should error when targeting empty sequence (no stages)", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10051},
 				}
 				source := `
-				sequence empty {
-				}
+				sequence empty {}
 
-				trigger => empty
-				`
+				trigger => empty`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
-				Expect(diagnostics.String()).To(ContainSubstring("no stages"))
+				Expect(diagnostics.String()).To(ContainSubstring("no steps"))
 			})
 
-			It("Should handle sequence in routing table as sink", func() {
+			It("Should handle sequence in routing table as sink", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"high_chan": {Name: "high_chan", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10071},
 				}
 				source := `
 				sequence alarm {
-					stage active {
-					}
+				    stage active {}
 				}
 
-				func demux{threshold f64} (value f64) (high f64, low f64) {
-					if (value > threshold) {
-						high = value
-					} else {
-						low = value
-					}
+				func demux{threshold f64} (value f64) (high u8, low f64) {
+				    if (value > threshold) {
+				        high = 1
+				    } else {
+				        low = value
+				    }
 				}
 
 				demux{threshold=100.0} -> {
-					high: alarm,
-					low: high_chan
-				}
-				`
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-				Expect(inter.Nodes).To(HaveLen(3))
-
-				entryNode := findNodeByKey(inter.Nodes, "entry_alarm_active")
-				Expect(entryNode.Type).To(Equal("stage_entry"))
-
-				writeNode := findNodeByType(inter.Nodes, "write")
-				Expect(writeNode.Channels.Write.Contains(uint32(10071))).To(BeTrue())
-
-				Expect(inter.Edges).To(HaveLen(2))
-
-				alarmEdge := findEdgeByTarget(inter.Edges, "entry_alarm_active")
-				Expect(alarmEdge.Target.Param).To(Equal("activate"))
-			})
-
-		})
-
-		Context("Direct Stage Targeting", func() {
-			It("Should allow targeting a stage by name within a sequence", func() {
-				resolver := symbol.MapResolver{
-					"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
-				}
-				source := `
-				sequence main {
-					stage first {
-						input > 10 => second
-					}
-					stage second {
-					}
+				    high: alarm,
+				    low: high_chan
 				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				// Should have edges connecting to the second stage's entry node
-				secondEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
-				Expect(secondEdge.Target.Param).To(Equal("activate"))
-				Expect(secondEdge.Kind).To(Equal(ir.EdgeKindOneShot))
+				// demux node + write node for the `low` branch. The `high`
+				// branch is a scope reference that becomes an activation.
+				Expect(inter.Nodes).To(HaveLen(2))
+
+				demuxNode := findNodeByType(inter.Nodes, "demux")
+				writeNode := findNodeByType(inter.Nodes, "write")
+				Expect(writeNode.Channels.Write).To(HaveKey(uint32(10071)))
+
+				// Only the write edge exists; the `high` branch lands on
+				// alarm's scope activation.
+				Expect(inter.Edges).To(HaveLen(1))
+				alarm := findTopLevelScope(inter, "alarm")
+				Expect(alarm.Activation).ToNot(BeNil())
+				Expect(alarm.Activation.Node).To(Equal(demuxNode.Key))
+				Expect(alarm.Activation.Param).To(Equal("high"))
+			})
+
+		})
+
+		Context("Direct Stage Targeting", func() {
+			It("Should emit a member-key transition when targeting a sibling stage", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        input > 10 => second
+				    }
+				    stage second {}
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// The `=> second` edge becomes a Transition on main whose
+				// on-handle fires from the comparison node.
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Transitions).To(HaveLen(1))
+				t := main.Transitions[0]
+				Expect(t.TargetKey).ToNot(BeNil())
+				Expect(*t.TargetKey).To(Equal("second"))
+				Expect(t.On.Node).To(HavePrefix("expression_"))
+			})
+		})
+
+		Context("Top-level anonymous scopes", func() {
+			It("Should compile an anonymous top-level stage and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11001},
+				}
+				source := `
+				stage {
+				    1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("stage_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile an anonymous top-level sequence and produce a root member with an auto-generated key", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11002},
+				}
+				source := `
+				sequence {
+				    1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(HavePrefix("seq_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
 			})
 		})
 
 		Context("next keyword", func() {
-			It("Should wire next to the following stage's entry node", func() {
+			It("Should emit a member-key transition targeting the following stage", func(ctx SpecContext) {
 				source := `
 				sequence main {
-					stage first {
-						1 -> output,
-						input > 10 => next
-					}
-					stage second {
-						0 -> output
-					}
+				    stage first {
+				        1 -> output
+				        input > 10 => next
+				    }
+				    stage second {
+				        0 -> output
+				    }
 				}`
 				resolver := symbol.MapResolver{
 					"input":  {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10091},
@@ -1367,13 +1441,16 @@ var _ = Describe("Text", func() {
 				inter, diag := text.Analyze(ctx, parsedText, resolver)
 				Expect(diag.Ok()).To(BeTrue(), diag.String())
 
-				nextEdge := findEdgeByTarget(inter.Edges, "entry_main_second")
-				Expect(nextEdge.Target.Param).To(Equal("activate"))
-				Expect(nextEdge.Kind).To(Equal(ir.EdgeKindOneShot))
+				main := findTopLevelScope(inter, "main")
+				nextT, ok := lo.Find(main.Transitions, func(t ir.Transition) bool {
+					return t.TargetKey != nil && *t.TargetKey == "second"
+				})
+				Expect(ok).To(BeTrue(), "expected a transition targeting 'second'")
+				Expect(nextT.On.Node).To(HavePrefix("expression_"))
 			})
 
 			DescribeTable("next keyword error cases",
-				func(source string, resolver symbol.MapResolver, expectedError string) {
+				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diag := text.Analyze(ctx, parsedText, resolver)
 					Expect(diag).ToNot(BeNil())
@@ -1383,9 +1460,9 @@ var _ = Describe("Text", func() {
 				Entry("next in last stage",
 					`
 					sequence main {
-						stage only {
-							input > 10 => next
-						}
+					    stage only {
+					        input > 10 => next
+					    }
 					}`,
 					symbol.MapResolver{
 						"input": {Name: "input", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10081},
@@ -1403,16 +1480,14 @@ var _ = Describe("Text", func() {
 		})
 
 		Context("Implicit Expression Triggers", func() {
-			It("Should inject implicit trigger for expression as first flow node", func() {
+			It("Should inject implicit trigger for expression as first flow node", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				sensor > 20 => alarm{}
-				`
+				sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1421,11 +1496,11 @@ var _ = Describe("Text", func() {
 
 				triggerNode := findNodeByKey(inter.Nodes, "on_sensor_0")
 				Expect(triggerNode.Type).To(Equal("on"))
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				exprNode := inter.Nodes[1]
 				Expect(exprNode.Type).To(HavePrefix("expression_"))
-				Expect(exprNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10142)))
 
 				Expect(inter.Edges).To(HaveLen(2))
 
@@ -1434,24 +1509,22 @@ var _ = Describe("Text", func() {
 				Expect(edge0.Target.Node).To(Equal(exprNode.Key))
 				Expect(edge0.Kind).To(Equal(ir.EdgeKindContinuous))
 
-				// Second edge: expression -> alarm (OneShot from =>)
+				// Second edge: expression -> alarm (Conditional from =>)
 				edge1 := inter.Edges[1]
 				Expect(edge1.Source.Node).To(Equal(exprNode.Key))
 				Expect(edge1.Target.Node).To(Equal("alarm_0"))
-				Expect(edge1.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(edge1.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
-			It("Should inject multiple triggers for multi-channel expression", func() {
+			It("Should inject multiple triggers for multi-channel expression", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp":     {Name: "temp", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10151},
 					"pressure": {Name: "pressure", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10152},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				temp + pressure > 100 => alarm{}
-				`
+				temp + pressure > 100 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1469,8 +1542,8 @@ var _ = Describe("Text", func() {
 					}
 				}
 				Expect(exprNode.Channels.Read).To(HaveLen(2))
-				Expect(exprNode.Channels.Read.Contains(uint32(10151))).To(BeTrue())
-				Expect(exprNode.Channels.Read.Contains(uint32(10152))).To(BeTrue())
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10151)))
+				Expect(exprNode.Channels.Read).To(HaveKey(uint32(10152)))
 
 				Expect(inter.Edges).To(HaveLen(3))
 
@@ -1484,7 +1557,7 @@ var _ = Describe("Text", func() {
 				Expect(exprEdgeCount).To(Equal(2))
 			})
 
-			It("Should not inject trigger for constant expressions", func() {
+			It("Should not inject trigger for constant expressions", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output": {Name: "output", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10161},
 				}
@@ -1499,16 +1572,14 @@ var _ = Describe("Text", func() {
 				Expect(triggerCount).To(Equal(0))
 			})
 
-			It("Should not inject trigger when expression is not first node", func() {
+			It("Should not inject trigger when expression is not first node", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
-				func alarm{} (value u8) {
-				}
+				func alarm{} (value u8) {}
 
-				sensor -> sensor > 20 => alarm{}
-				`
+				sensor -> sensor > 20 => alarm{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1521,19 +1592,17 @@ var _ = Describe("Text", func() {
 				Expect(inter.Edges).To(HaveLen(2))
 			})
 
-			It("Should inject trigger for expression in sequence stage", func() {
+			It("Should inject trigger for expression in sequence stage", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 10142},
 				}
 				source := `
 				sequence main {
-					stage monitoring {
-						sensor > 100 => next
-					}
-					stage alarm {
-					}
-				}
-				`
+				    stage monitoring {
+				        sensor > 100 => next
+				    }
+				    stage alarm {}
+				}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1542,12 +1611,12 @@ var _ = Describe("Text", func() {
 				Expect(triggerCount).To(Equal(1))
 
 				triggerNode := findNodeByType(inter.Nodes, "on")
-				Expect(triggerNode.Channels.Read.Contains(uint32(10142))).To(BeTrue())
+				Expect(triggerNode.Channels.Read).To(HaveKey(uint32(10142)))
 			})
 		})
 
 		Context("Interval One-Shot Edge Generation", func() {
-			It("Should generate one-shot edge for interval triggering function", func() {
+			It("Should generate one-shot edge for interval triggering function", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"interval": {
 						Name: "interval",
@@ -1559,11 +1628,9 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				func press{} () {
-				}
+				func press{} () {}
 
-				interval{period=50ms} => press{}
-				`
+				interval{period=50ms} => press{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1579,10 +1646,10 @@ var _ = Describe("Text", func() {
 				Expect(edge.Source.Node).To(Equal(intervalNode.Key))
 				Expect(edge.Source.Param).To(Equal("output"))
 				Expect(edge.Target.Node).To(Equal("press_0"))
-				Expect(edge.Kind).To(Equal(ir.EdgeKindOneShot))
+				Expect(edge.Kind).To(Equal(ir.EdgeKindConditional))
 			})
 
-			It("Should generate continuous edge for interval with -> operator", func() {
+			It("Should generate continuous edge for interval with -> operator", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"interval": {
 						Name: "interval",
@@ -1594,11 +1661,9 @@ var _ = Describe("Text", func() {
 					},
 				}
 				source := `
-				func handler{} () {
-				}
+				func handler{} () {}
 
-				interval{period=50ms} -> handler{}
-				`
+				interval{period=50ms} -> handler{}`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1612,7 +1677,7 @@ var _ = Describe("Text", func() {
 
 	Describe("Unit Dimensional Analysis", func() {
 		DescribeTable("dimension compatibility",
-			func(source string, expectOk bool, expectedErrorContains string) {
+			func(ctx SpecContext, source string, expectOk bool, expectedErrorContains string) {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diag := text.Analyze(ctx, parsedText, nil)
 				if expectOk {
@@ -1623,32 +1688,36 @@ var _ = Describe("Text", func() {
 				}
 			},
 			Entry("error when adding incompatible dimensions",
-				`func bad() f64 { return 5psi + 3s }`,
+				`func bad() f64 {
+    return 5psi + 3s
+}`,
 				false, "incompatible dimensions:",
 			),
 			Entry("allow adding same dimensions",
-				`func good() f64 { return 100psi + 50psi }`,
+				`func good() f64 {
+    return 100psi + 50psi
+}`,
 				true, "",
 			),
 			Entry("allow multiplying different dimensions",
-				`func velocity() f64 { return 100m / 10s }`,
+				`func velocity() f64 {
+    return 100m / 10s
+}`,
 				true, "",
 			),
 		)
 	})
 
 	Describe("Single Invocations in Stages", func() {
-		It("Should compile standalone function invocation to IR node", func() {
+		It("Should compile standalone function invocation to IR node", func(ctx SpecContext) {
 			source := `
-			func setup() {
-			}
+			func setup() {}
 
 			sequence main {
-				stage start {
-					setup{},
-				}
-			}
-			`
+			    stage start {
+			        setup{}
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1656,18 +1725,19 @@ var _ = Describe("Text", func() {
 			setupNode := findNodeByType(inter.Nodes, "setup")
 			Expect(setupNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Nodes).To(ContainElement(setupNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(setupNode.Key))
 		})
 
-		It("Should compile standalone expression to IR node", func() {
+		It("Should compile standalone expression to IR node", func(ctx SpecContext) {
 			source := `
 			sequence main {
-				stage start {
-					1 + 2,
-				}
-			}
-			`
+			    stage start {
+			        1 + 2
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1680,59 +1750,45 @@ var _ = Describe("Text", func() {
 			Expect(exprNode.Outputs).To(HaveLen(1))
 			Expect(exprNode.Outputs[0].Type.Kind).To(Equal(types.KindI64))
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Nodes).To(ContainElement(exprNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(exprNode.Key))
 		})
 
-		It("Should not create phantom output edges for void functions in flow chains", func() {
+		It("Should reject void functions mid-chain in flow statements", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"counter": {Name: "counter", Kind: symbol.KindChannel, Type: types.Chan(types.U32()), ID: 10201},
 				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10202},
 			}
 			source := `
-			func increment{ch chan u32}() {
-				ch = ch + 1
+			func increment{ch chan u32} () {
+			    ch = ch + 1
 			}
 
 			sequence main {
-				stage first {
-					trigger => increment{ch=counter} => next,
-				}
-				stage second {
-				}
-			}
-			`
+			    stage first {
+			        trigger => increment{ch=counter} => next
+			    }
+			    stage second {}
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
-			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-
-			// Verify that every edge source references a node output that actually exists.
-			// This is the invariant that was violated when void functions appeared mid-chain,
-			// causing a nil pointer dereference in state.Node().
-			outputSet := make(map[ir.Handle]bool)
-			for _, n := range inter.Nodes {
-				for _, p := range n.Outputs {
-					outputSet[ir.Handle{Node: n.Key, Param: p.Name}] = true
-				}
-			}
-			for _, edge := range inter.Edges {
-				Expect(outputSet).To(HaveKey(edge.Source),
-					"edge source %v references a non-existent node output", edge.Source)
-			}
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("has no output"))
 		})
 
-		It("Should place single invocation nodes in stratum 0", func() {
+		It("Should place a single-invocation step's node in its stage's first phase", func(ctx SpecContext) {
 			source := `
 			func initialize() u8 {
-				return 1
+			    return 1
 			}
 
 			sequence main {
-				stage start {
-					initialize{},
-				}
-			}
-			`
+			    stage start {
+			        initialize{}
+			    }
+			}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1740,24 +1796,27 @@ var _ = Describe("Text", func() {
 			initNode := findNodeByType(inter.Nodes, "initialize")
 			Expect(initNode.Inputs).To(BeEmpty())
 
-			seq := MustBeOk(inter.Sequences.Find("main"))
-			Expect(seq.Stages[0].Strata).To(HaveLen(1))
-			Expect(seq.Stages[0].Strata[0]).To(ContainElement(initNode.Key))
+			main := findTopLevelScope(inter, "main")
+			start := findMember(main, "start")
+			Expect(start.Scope).ToNot(BeNil())
+			Expect(start.Scope.Mode).To(Equal(ir.ScopeModeParallel))
+			Expect(start.Scope.Strata).ToNot(BeEmpty())
+			Expect(scopeNodeRefs(*start.Scope)).To(ContainElement(initNode.Key))
 		})
 	})
 
 	Describe("Authority Analysis", func() {
-		It("Should include authority config in IR with simple form", func() {
+		It("Should include authority config in IR with simple form", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 			}
 			source := `
 			authority 200
 
-			func a{} () {}
-			func b{} () {}
-			a{} -> b{}
-			`
+			func a{} () f64 {
+			    return 0.0
+			}
+			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1765,18 +1824,22 @@ var _ = Describe("Text", func() {
 			Expect(*inter.Authorities.Default).To(Equal(uint8(200)))
 		})
 
-		It("Should include per-channel authority overrides", func() {
+		It("Should include per-channel authority overrides", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"valve": {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
 				"vent":  {Name: "vent", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 200},
 			}
 			source := `
-			authority (200 valve 100 vent 150)
+			authority (
+			    200
+			    valve 100
+			    vent 150
+			)
 
-			func a{} () {}
-			func b{} () {}
-			a{} -> b{}
-			`
+			func a{} () f64 {
+			    return 0.0
+			}
+			a{} -> valve`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1787,13 +1850,12 @@ var _ = Describe("Text", func() {
 			Expect(inter.Authorities.Channels[200]).To(Equal(uint8(150)))
 		})
 
-		It("Should report error for authority after function", func() {
+		It("Should report error for authority after function", func(ctx SpecContext) {
 			source := `
 			func a{} () {}
 			authority 200
 			func b{} () {}
-			a{} -> b{}
-			`
+			a{} -> b{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeFalse())
@@ -1802,17 +1864,15 @@ var _ = Describe("Text", func() {
 	})
 
 	Describe("Compile", func() {
-		It("Should compile a simple arc program to WebAssembly", func() {
+		It("Should compile a simple arc program to WebAssembly", func(ctx SpecContext) {
 			source := `
 			func adder{} (a i64, b i64) i64 {
-				return a + b
+			    return a + b
 			}
 
-			func print{} () {
-			}
+			func print{} () {}
 
-			adder{} -> print{}
-			`
+			adder{} -> print{}`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, nil)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1821,7 +1881,7 @@ var _ = Describe("Text", func() {
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 
-		It("Should compile function with channel config param assigned to intermediate variable", func() {
+		It("Should compile function with channel config param assigned to intermediate variable", func(ctx SpecContext) {
 			// This is the exact user pattern that was failing:
 			// sp := set_point (where set_point is a chan f32 config param)
 			resolver := symbol.MapResolver{
@@ -1831,46 +1891,56 @@ var _ = Describe("Text", func() {
 					Type: types.Chan(types.F32()),
 					ID:   10025,
 				},
+				"alarm_out": {
+					Name: "alarm_out",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.U8()),
+					ID:   10026,
+				},
 			}
 			source := `
 			func tolerance_alarm{
-				tolerance_upper f32,
-				tolerance_lower f32,
-				set_point chan f32,
-				samples i64
+			    tolerance_upper f32,
+			    tolerance_lower f32,
+			    set_point chan f32,
+			    samples i64,
 			} (value f32) u8 {
-				count i64 $= 0
-				sp := set_point
+			    count i64 $= 0
+			    sp := set_point
 
-				if value >= (sp + tolerance_upper) {
-					count = count + 1
-				} else if value <= (sp - tolerance_lower) {
-					count = count + 1
-				} else {
-					count = 0
-				}
+			    if value >= (sp + tolerance_upper) {
+			        count = count + 1
+			    } else if value <= (sp - tolerance_lower) {
+			        count = count + 1
+			    } else {
+			        count = 0
+			    }
 
-				if count >= samples {
-					return 1
-				}
-				return 0
+			    if count >= samples {
+			        return 1
+			    }
+			    return 0
 			}
 
-			virt_1 -> tolerance_alarm{tolerance_upper=200.0, tolerance_lower=0.0, set_point=virt_1, samples=10} -> virt_1
-			`
+			virt_1 -> tolerance_alarm{
+			    tolerance_upper = 200.0,
+			    tolerance_lower = 0.0,
+			    set_point = virt_1,
+			    samples = 10
+			} -> alarm_out`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 			Expect(ir.Nodes).To(HaveLen(3))
 			Expect(ir.Nodes[1].Channels.Read).To(HaveLen(1))
-			Expect(ir.Nodes[1].Channels.Read.Contains(10025)).To(BeTrue())
+			Expect(ir.Nodes[1].Channels.Read).To(HaveKey(uint32(10025)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 			Expect(module.Output)
 		})
 
-		It("Should compile function with channel config param assigned to intermediate variable and written to", func() {
+		It("Should compile function with channel config param assigned to intermediate variable and written to", func(ctx SpecContext) {
 			// Test that writing to an intermediate variable correctly tracks the channel
 			// out := output (config param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
@@ -1895,16 +1965,13 @@ var _ = Describe("Text", func() {
 				},
 			}
 			source := `
-			func writer{
-				output chan f32
-			} (value f32) u8 {
-				out := output
-				out = value * 2.0
-				return 0
+			func writer{output chan f32} (value f32) u8 {
+			    out := output
+			    out = value * 2.0
+			    return 0
 			}
 
-			input_ch -> writer{output=write_target} -> sink_ch
-			`
+			input_ch -> writer{output=write_target} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1915,13 +1982,13 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10200)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10200)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
 		})
 
-		It("Should compile function with global channel assigned to intermediate variable and written to", func() {
+		It("Should compile function with global channel assigned to intermediate variable and written to", func(ctx SpecContext) {
 			// Test that writing through an alias of a global channel correctly tracks the channel
 			// out := output (global channel)
 			// out = value * 3.0 (write to channel through alias)
@@ -1947,13 +2014,12 @@ var _ = Describe("Text", func() {
 			}
 			source := `
 			func writer{} (value f32) u8 {
-				out := output_ch
-				out = value * 3.0
-				return 0
+			    out := output_ch
+			    out = value * 3.0
+			    return 0
 			}
 
-			input_ch -> writer{} -> sink_ch
-			`
+			input_ch -> writer{} -> sink_ch`
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			ir, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -1962,7 +2028,7 @@ var _ = Describe("Text", func() {
 			writerNode := ir.Nodes[1]
 			Expect(writerNode.Type).To(Equal("writer"))
 			Expect(writerNode.Channels.Write).To(HaveLen(1))
-			Expect(writerNode.Channels.Write.Contains(10210)).To(BeTrue())
+			Expect(writerNode.Channels.Write).To(HaveKey(uint32(10210)))
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())

@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -81,7 +80,7 @@ func (s *Service) Create(
 type RetrieveRequest struct {
 	For        ontology.ID `json:"for" msgpack:"for"`
 	SearchTerm string      `json:"search_term" msgpack:"search_term"`
-	Keys       []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys       []label.Key `json:"keys" msgpack:"keys"`
 	Names      []string    `json:"names" msgpack:"names"`
 	Limit      int         `json:"limit" msgpack:"limit"`
 	Offset     int         `json:"offset" msgpack:"offset"`
@@ -133,7 +132,7 @@ func (s *Service) Retrieve(
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []label.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(
@@ -154,7 +153,7 @@ func (s *Service) Delete(
 
 type AddRequest struct {
 	ID      ontology.ID `json:"id" msgpack:"id" validate:"required"`
-	Labels  []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
+	Labels  []label.Key `json:"labels" msgpack:"labels" validate:"required"`
 	Replace bool        `json:"replace" msgpack:"replace"`
 }
 
@@ -182,7 +181,7 @@ func (s *Service) Add(
 
 type RemoveRequest struct {
 	ID     ontology.ID `json:"id" msgpack:"id" validate:"required"`
-	Labels []uuid.UUID `json:"labels" msgpack:"labels" validate:"required"`
+	Labels []label.Key `json:"labels" msgpack:"labels" validate:"required"`
 }
 
 func (s *Service) Remove(

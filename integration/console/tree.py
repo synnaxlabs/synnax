@@ -9,6 +9,8 @@
 
 """Tree navigation utilities for Console UI automation."""
 
+import re
+
 from playwright.sync_api import Locator, Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
@@ -174,23 +176,11 @@ class Tree:
         :param item: The Locator for the tree item to check.
         :returns: True if expanded, False otherwise.
         """
-        # Check for expanded class on the expansion indicator
         expand_icon = item.locator("svg.pluto-tree__expansion-indicator").first
         if expand_icon.count() == 0:
             return False
         class_attr = expand_icon.get_attribute("class") or ""
         return "pluto-tree__expansion-indicator--expanded" in class_attr
-
-    def get_editable_text(self, item: Locator) -> str:
-        """Get the editable text content from a tree item.
-
-        :param item: The Locator for the tree item.
-        :returns: The text content.
-        """
-        text_element = item.locator("p.pluto-text--editable")
-        if text_element.count() > 0:
-            return text_element.inner_text().strip()
-        return item.inner_text().strip()
 
     def rename(self, item: Locator, new_name: str) -> None:
         """Rename a tree item via context menu.
@@ -300,6 +290,64 @@ class Tree:
             return True
         except PlaywrightTimeoutError:
             return False
+
+    def get_depth(self, item: Locator) -> int:
+        """Get the integer tree depth level of an item from its CSS variable.
+
+        The Pluto tree sets ``--pluto-tree-item-offset`` as an inline
+        style using the formula ``depth * 2.5 + 1.5`` rem. We parse
+        the numeric value and reverse the formula to get the depth level.
+
+        :param item: The Locator for the tree item.
+        :returns: The integer depth level (0 = root).
+        """
+        style = item.get_attribute("style") or ""
+        match = re.search(r"--pluto-tree-item-offset:\s*([\d.]+)", style)
+        if not match:
+            return 0
+        offset = float(match.group(1))
+        return int((offset - 1.5) / 2.5)
+
+    def has_expand_arrow(self, item: Locator) -> bool:
+        """Check if a tree item has an expand arrow (i.e. can have children).
+
+        :param item: The Locator for the tree item.
+        :returns: True if the item has an expansion indicator.
+        """
+        indicator = item.locator("svg.pluto-tree__expansion-indicator")
+        return indicator.count() > 0
+
+    def get_children_names(
+        self, parent: Locator, prefix: str, parent_name: str
+    ) -> list[str]:
+        """Get visible child item names nested under a parent in the tree.
+
+        Walks sibling items with the given prefix that appear after the parent
+        and have a greater tree depth.
+
+        :param parent: The Locator for the parent tree item.
+        :param prefix: The ID prefix of child items (e.g. 'device:').
+        :param parent_name: Display name of the parent (used to skip it).
+        :returns: List of child item names.
+        """
+        all_items = self.page.locator(f"div[id^='{prefix}']").all()
+        names: list[str] = []
+        found_parent = False
+        parent_depth = self.get_depth(parent)
+        for item in all_items:
+            if not item.is_visible():
+                continue
+            item_text = self.get_text(item)
+            if item_text == parent_name or parent_name in item_text:
+                found_parent = True
+                continue
+            if found_parent:
+                item_depth = self.get_depth(item)
+                if item_depth > parent_depth:
+                    names.append(self.get_text(item))
+                else:
+                    break
+        return names
 
     def set_editable_text(self, item: Locator, text: str) -> None:
         """Set the editable text content of a tree item.

@@ -8,8 +8,8 @@
 #  included in the file licenses/APL.txt.
 
 from freighter import UnaryClient
-
 from synnax.access import policy, role
+from synnax.access.action import Action
 
 
 class Client:
@@ -22,3 +22,11 @@ class Client:
     ):
         self.policies = policy.Client(transport)
         self.roles = role.Client(transport)
+
+
+__all__ = [
+    "Action",
+    "Client",
+    "PolicyClient",
+    "RoleClient",
+]

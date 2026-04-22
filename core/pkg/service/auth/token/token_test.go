@@ -36,8 +36,7 @@ var _ = Describe("token", func() {
 		cfg token.ServiceConfig
 	)
 	JustBeforeEach(func() {
-		k, err := rsa.GenerateKey(nil, 1024)
-		Expect(err).ToNot(HaveOccurred())
+		k := MustSucceed(rsa.GenerateKey(nil, 1024))
 		cfg.KeyProvider = &mockKeyService{key: k}
 		svc = MustSucceed(token.NewService(cfg))
 	})
@@ -46,8 +45,7 @@ var _ = Describe("token", func() {
 		Describe("Token Generation", func() {
 			It("Should generate a token for the given issuer", func() {
 				issuer := uuid.New()
-				token, err := svc.New(issuer)
-				Expect(err).ToNot(HaveOccurred())
+				token := MustSucceed(svc.New(issuer))
 				Expect(token).ToNot(BeEmpty())
 			})
 		})
@@ -55,11 +53,9 @@ var _ = Describe("token", func() {
 		Describe("Token Validation", func() {
 			It("Should validate a token", func() {
 				issuer := uuid.New()
-				token, err := svc.New(issuer)
-				Expect(err).ToNot(HaveOccurred())
+				token := MustSucceed(svc.New(issuer))
 				Expect(token).ToNot(BeEmpty())
-				issuer2, err := svc.Validate(token)
-				Expect(err).ToNot(HaveOccurred())
+				issuer2 := MustSucceed(svc.Validate(token))
 				Expect(issuer).To(Equal(issuer2))
 			})
 		})
@@ -78,15 +74,13 @@ var _ = Describe("token", func() {
 			issuer := uuid.New()
 			tk := MustSucceed(svc.New(issuer))
 
-			id, newToken, err := svc.ValidateMaybeRefresh(tk)
-			Expect(err).ToNot(HaveOccurred())
+			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
 			Expect(newToken).To(BeEmpty())
 
 			now = now.Add(time.Second * 6)
 
-			id, newToken, err = svc.ValidateMaybeRefresh(tk)
-			Expect(err).ToNot(HaveOccurred())
+			id, newToken = MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
 			Expect(newToken).ToNot(BeEmpty())
 		})
@@ -103,13 +97,12 @@ var _ = Describe("token", func() {
 		It("Should not refresh the token if the user does not submit a validation request within the refresh threshold", func() {
 			issuer := uuid.New()
 			tk := MustSucceed(svc.New(issuer))
-			id, newToken, err := svc.ValidateMaybeRefresh(tk)
-			Expect(err).ToNot(HaveOccurred())
+			id, newToken := MustSucceed2(svc.ValidateMaybeRefresh(tk))
 			Expect(id).To(Equal(issuer))
 			Expect(newToken).ToNot(BeEmpty())
 			time.Sleep(time.Second * 2)
 			Expect(svc.ValidateMaybeRefresh(tk)).Error().
-				To(HaveOccurredAs(auth.ExpiredToken))
+				To(MatchError(auth.ExpiredToken))
 		})
 	})
 })

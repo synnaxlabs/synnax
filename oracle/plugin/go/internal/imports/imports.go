@@ -13,11 +13,13 @@ package imports
 import (
 	"path/filepath"
 	"sort"
+
+	"github.com/synnaxlabs/x/set"
 )
 
 // Manager tracks Go imports needed for generated files.
 type Manager struct {
-	external map[string]bool
+	external set.Set[string]
 	internal map[string]*internalImport
 }
 
@@ -29,13 +31,13 @@ type internalImport struct {
 // NewManager creates a new import manager.
 func NewManager() *Manager {
 	return &Manager{
-		external: make(map[string]bool),
+		external: make(set.Set[string]),
 		internal: make(map[string]*internalImport),
 	}
 }
 
 // AddExternal adds an external package import.
-func (m *Manager) AddExternal(path string) { m.external[path] = true }
+func (m *Manager) AddExternal(path string) { m.external.Add(path) }
 
 // AddInternal adds an internal package import with an alias.
 func (m *Manager) AddInternal(alias, path string) {
@@ -82,7 +84,7 @@ func (i InternalImportData) NeedsAlias() bool {
 func (m *Manager) InternalImports() []InternalImportData {
 	result := make([]InternalImportData, 0, len(m.internal))
 	for _, imp := range m.internal {
-		if m.external[imp.Path] {
+		if m.external.Contains(imp.Path) {
 			continue
 		}
 		result = append(result, InternalImportData{

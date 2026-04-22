@@ -35,7 +35,7 @@ const (
 	SemanticTokenTypeStage
 	SemanticTokenTypeBlock
 	SemanticTokenTypeStatefulVariable
-	SemanticTokenTypeEdgeOneShot
+	SemanticTokenTypeEdgeConditional
 	SemanticTokenTypeEdgeContinuous
 	SemanticTokenTypeConstant
 	SemanticTokenTypeConfig
@@ -59,7 +59,7 @@ var semanticTokenTypes = []string{
 	"stage",
 	"block",
 	"statefulVariable",
-	"edgeOneShot",
+	"edgeConditional",
 	"edgeContinuous",
 	"constant",
 	"config",
@@ -114,8 +114,7 @@ func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Sc
 	)
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
-		tokenType := uint32(SemanticTokenTypeVariable)
-		return &tokenType
+		return nil
 	}
 	return mapSymbolKind(sym.Kind)
 }
@@ -143,8 +142,10 @@ func mapSymbolKind(kind symbol.Kind) *uint32 {
 		tokenType = SemanticTokenTypeSequence
 	case symbol.KindStage:
 		tokenType = SemanticTokenTypeStage
-	case symbol.KindBlock:
+	case symbol.KindBlock, symbol.KindLoop:
 		tokenType = SemanticTokenTypeBlock
+	case symbol.KindLoopVariable:
+		tokenType = SemanticTokenTypeVariable
 	default:
 		tokenType = SemanticTokenTypeVariable
 	}
@@ -156,6 +157,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 	switch antlrType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF,
 		parser.ArcLexerELSE, parser.ArcLexerRETURN,
+		parser.ArcLexerFOR, parser.ArcLexerBREAK, parser.ArcLexerCONTINUE,
 		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerAND, parser.ArcLexerOR,
 		parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
@@ -167,7 +169,7 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		parser.ArcLexerCHAN:
 		tokenType = SemanticTokenTypeType
 	case parser.ArcLexerTRANSITION:
-		tokenType = SemanticTokenTypeEdgeOneShot
+		tokenType = SemanticTokenTypeEdgeConditional
 	case parser.ArcLexerARROW:
 		tokenType = SemanticTokenTypeEdgeContinuous
 	case parser.ArcLexerDECLARE, parser.ArcLexerSTATE_DECLARE, parser.ArcLexerASSIGN,

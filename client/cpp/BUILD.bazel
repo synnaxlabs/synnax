@@ -4,6 +4,7 @@ cc_library(
     name = "synnax",
     srcs = [
         "transport.cpp",
+        "//core/pkg/version",
     ],
     hdrs = [
         "synnax.h",
@@ -14,12 +15,14 @@ cc_library(
         "//client/cpp/arc",
         "//client/cpp/auth",
         "//client/cpp/channel",
+        "//client/cpp/connection",
         "//client/cpp/device",
         "//client/cpp/framer",
         "//client/cpp/rack",
         "//client/cpp/ranger",
         "//client/cpp/status",
-        "//core/pkg/api/grpc/v1:api_grpc",
+        "//client/cpp/view",
+        "//core/pkg/api/grpc:api_grpc",
         "//freighter/cpp:freighter",
         "//freighter/cpp/grpc",
         "//x/cpp/json",

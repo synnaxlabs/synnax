@@ -7,10 +7,10 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import synnax as sy
 from playwright.sync_api import Locator
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+import synnax as sy
 from console.layout import LayoutClient
 from console.page import ConsolePage
 
@@ -36,27 +36,45 @@ class Log(ConsolePage):
         if channel_name is not None:
             self.set_channel(channel_name)
 
-    def set_channel(self, channel_name: str) -> None:
+    def clear_channels(self) -> None:
+        """Remove all currently selected channels from the log."""
         self.layout.show_visualization_toolbar()
-        self.layout.click_btn("Channel")
-        self.layout.select_from_dropdown(channel_name, "Select a Channel")
+        toolbar = self.page.locator(".console-log-toolbar")
+        while True:
+            remove_btns = toolbar.locator(
+                ".console-log__channel-row .pluto-btn--text:not(.pluto--disabled)"
+            )
+            if remove_btns.count() == 0:
+                break
+            remove_btns.first.click()
+
+    def set_channel(self, channel_name: str) -> None:
+        """Add a channel to the log via the 'Add a channel...' row."""
+        self.layout.show_visualization_toolbar()
+        toolbar = self.page.locator(".console-log-toolbar")
+        add_trigger = toolbar.get_by_text("Add a channel...")
+        add_trigger.click()
+        self.layout.select_from_dropdown(channel_name, "Search channels")
 
     def has_channel(self, channel_name: str) -> bool:
         """Check if a channel is shown in the Log toolbar."""
         self.layout.get_tab(self.page_name).click()
         self.layout.show_visualization_toolbar()
-        channel_btn = (
-            self.page.locator("text=Channel").locator("..").locator("button").first
-        )
-        channel_text = channel_btn.inner_text().strip()
-        result = channel_name in channel_text
-        return result
+        toolbar = self.page.locator(".console-log-toolbar")
+        rows = toolbar.locator(".console-log__channel-row")
+        for i in range(rows.count()):
+            row_text = rows.nth(i).inner_text() or ""
+            if channel_name in row_text:
+                return True
+        return False
 
     def is_empty(self) -> bool:
         """Check if the log shows any empty state message."""
         if not self.pane_locator:
             return True
-        no_channel = self.pane_locator.locator("text=No channel configured").count() > 0
+        no_channel = (
+            self.pane_locator.locator("text=No channels configured").count() > 0
+        )
         no_data = self.pane_locator.locator("text=No data received yet").count() > 0
         return no_channel or no_data
 
@@ -64,7 +82,7 @@ class Log(ConsolePage):
         """Check if the log shows 'No channel configured' message."""
         if not self.pane_locator:
             return False
-        return self.pane_locator.locator("text=No channel configured").count() > 0
+        return self.pane_locator.locator("text=No channels configured").count() > 0
 
     def is_waiting_for_data(self) -> bool:
         """Check if the log shows 'No data received yet' message."""

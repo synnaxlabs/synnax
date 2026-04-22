@@ -28,7 +28,7 @@ type mockNode struct {
 
 func (m *mockNode) Next(node.Context) { m.nextCalled++ }
 
-func (m *mockNode) IsOutputTruthy(param string) bool { return false }
+func (m *mockNode) IsOutputTruthy(int) bool { return false }
 
 func (m *mockNode) Reset() {}
 
@@ -47,7 +47,7 @@ func (m *mockFactory) Create(_ context.Context, cfg node.Config) (node.Node, err
 	return m.returnNode, m.returnError
 }
 
-func newTestConfig(nodeType string) node.Config {
+func newTestConfig(ctx context.Context, nodeType string) node.Config {
 	g := graph.Graph{
 		Nodes:     []graph.Node{{Key: "n1", Type: nodeType}},
 		Functions: []graph.Function{{Key: nodeType}},
@@ -62,81 +62,79 @@ func newTestConfig(nodeType string) node.Config {
 
 var _ = Describe("Node", func() {
 	Describe("CompoundFactory", func() {
-		It("Should try factories in order", func() {
+		It("Should try factories in order", func(ctx SpecContext) {
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "type2", returnNode: &mockNode{}}
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			n := MustSucceed(compound.Create(ctx, newTestConfig("type2")))
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "type2")))
 			Expect(n).ToNot(BeNil())
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(0))
 		})
 
-		It("Should return NotFound when no factory matches", func() {
+		It("Should return NotFound when no factory matches", func(ctx SpecContext) {
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "type2"}
 			compound := node.CompoundFactory{factory1, factory2}
-			_, err := compound.Create(ctx, newTestConfig("unknown"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			_, err := compound.Create(ctx, newTestConfig(ctx, "unknown"))
+			Expect(err).To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 		})
 
-		It("Should stop on first non-NotFound error", func() {
+		It("Should stop on first non-NotFound error", func(ctx SpecContext) {
 			expectedErr := errors.New("factory error")
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "type2", returnError: expectedErr}
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			_, err := compound.Create(ctx, newTestConfig("type2"))
-			Expect(err).To(HaveOccurredAs(expectedErr))
+			_, err := compound.Create(ctx, newTestConfig(ctx, "type2"))
+			Expect(err).To(MatchError(expectedErr))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(0))
 		})
 
-		It("Should handle empty factory list", func() {
+		It("Should handle empty factory list", func(ctx SpecContext) {
 			compound := node.CompoundFactory{}
-			_, err := compound.Create(ctx, newTestConfig("test"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(compound.Create(ctx, newTestConfig(ctx, "test"))).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should handle single factory", func() {
+		It("Should handle single factory", func(ctx SpecContext) {
 			factory := &mockFactory{nodeType: "test", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{factory}
-			n := MustSucceed(compound.Create(ctx, newTestConfig("test")))
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "test")))
 			Expect(n).ToNot(BeNil())
 			Expect(factory.createCalled).To(Equal(1))
 		})
 
-		It("Should try all factories when all return NotFound", func() {
+		It("Should try all factories when all return NotFound", func(ctx SpecContext) {
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "type2"}
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			_, err := compound.Create(ctx, newTestConfig("unknown"))
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(compound.Create(ctx, newTestConfig(ctx, "unknown"))).Error().To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(1))
 		})
 
-		It("Should return first successful match", func() {
+		It("Should return first successful match", func(ctx SpecContext) {
 			expectedNode := &mockNode{}
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "test", returnNode: expectedNode}
 			factory3 := &mockFactory{nodeType: "test", returnNode: &mockNode{}}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			n := MustSucceed(compound.Create(ctx, newTestConfig("test")))
+			n := MustSucceed(compound.Create(ctx, newTestConfig(ctx, "test")))
 			Expect(n).To(Equal(expectedNode))
 			Expect(factory3.createCalled).To(Equal(0))
 		})
 	})
 
 	Describe("Config", func() {
-		It("Should hold node configuration", func() {
+		It("Should hold node configuration", func(ctx SpecContext) {
 			var (
 				irNode = ir.Node{Key: "test", Type: "constant"}
 				g      = graph.Graph{

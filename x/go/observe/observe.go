@@ -14,6 +14,7 @@ import (
 	"go/types"
 	"sync"
 
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/signal"
 )
 
@@ -26,7 +27,7 @@ type Observable[T any] interface {
 	// OnChange is called when the state of the observable changes. The returned
 	// function can be used to disconnect the handler, stopping it from being called
 	// when the observable changes.
-	OnChange(handler func(context.Context, T)) Disconnect
+	OnChange(func(context.Context, T)) Disconnect
 }
 
 // Observer is an interface that can notify subscribers of changes to an observable.
@@ -36,36 +37,33 @@ type Observer[T any] interface {
 	Notify(context.Context, T)
 	// GoNotify starts a goroutine to notify all subscribers of the Value.
 	GoNotify(context.Context, T)
-	// NotifyGenerator calls the given generator function for each handler bound
-	// to the observer.
+	// NotifyGenerator calls the given generator function for each handler bound to the
+	// observer.
 	NotifyGenerator(context.Context, func() T)
 }
 
 type base[T any] struct {
-	handlers map[*func(context.Context, T)]struct{}
+	handlers set.Set[*func(context.Context, T)]
 	mu       sync.RWMutex
 }
 
-// New creates a new observer with the given options.
-func New[T any]() Observer[T] { return &base[T]{} }
+// New creates a new observer.
+func New[T any]() Observer[T] {
+	return &base[T]{handlers: set.New[*func(context.Context, T)]()}
+}
 
-// OnChange implements the Observable interface.
 func (b *base[T]) OnChange(handler func(context.Context, T)) Disconnect {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	p := &handler
-	if b.handlers == nil {
-		b.handlers = make(map[*func(context.Context, T)]struct{})
-	}
-	b.handlers[p] = struct{}{}
+	b.handlers.Add(p)
 	return func() {
 		b.mu.Lock()
 		defer b.mu.Unlock()
-		delete(b.handlers, p)
+		b.handlers.Remove(p)
 	}
 }
 
-// Notify implements the Observer interface.
 func (b *base[T]) Notify(ctx context.Context, v T) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -74,7 +72,6 @@ func (b *base[T]) Notify(ctx context.Context, v T) {
 	}
 }
 
-// NotifyGenerator implements the Observer interface.
 func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	b.mu.RLock()
 	defer b.mu.RUnlock()
@@ -83,8 +80,11 @@ func (b *base[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	}
 }
 
-// GoNotify implements the Observer interface.
-func (b *base[T]) GoNotify(ctx context.Context, v T) { go b.Notify(ctx, v) }
+func (b *base[T]) GoNotify(ctx context.Context, v T) {
+	// context.WithoutCancel is used because the goroutine outlives the caller - we
+	// sever the cancellation chain while preserving values such as trace spans.
+	go b.Notify(context.WithoutCancel(ctx), v)
+}
 
 type asyncMessage[T any] struct {
 	ctx context.Context
@@ -97,10 +97,6 @@ type asyncHandler[T any] struct {
 	closed sync.Once
 }
 
-// async is an Observer implementation where each handler runs in its own
-// goroutine managed by signal.Go. Notify and NotifyGenerator dispatch
-// non-blocking to each handler's channel, dropping values if the handler is
-// behind. This prevents slow handlers from blocking the caller or each other.
 type async[T any] struct {
 	mu       sync.RWMutex
 	ctx      context.Context
@@ -109,13 +105,18 @@ type async[T any] struct {
 	handlers map[*asyncHandler[T]]func(context.Context, T)
 }
 
-// NewAsync creates an Observer where each registered handler receives
-// notifications on a dedicated goroutine via a buffered channel. If a handler
-// falls behind, notifications are dropped rather than blocking the caller.
-// Goroutines are managed by the provided signal.Go, which handles panic
-// recovery, lifecycle tracking, and context-driven shutdown.
+// NewAsync creates an Observer where each registered handler receives notifications on
+// a dedicated goroutine via a buffered channel. If a handler falls behind,
+// notifications are dropped rather than blocking the caller. Goroutines are managed by
+// the provided signal.Go, which handles panic recovery, lifecycle tracking, and
+// context-driven shutdown.
 func NewAsync[T any](ctx signal.Context, opts ...signal.RoutineOption) Observer[T] {
-	return &async[T]{ctx: ctx, g: ctx, opts: opts}
+	return &async[T]{
+		ctx:      ctx,
+		g:        ctx,
+		opts:     opts,
+		handlers: make(map[*asyncHandler[T]]func(context.Context, T)),
+	}
 }
 
 func (a *async[T]) OnChange(handler func(context.Context, T)) Disconnect {
@@ -140,9 +141,6 @@ func (a *async[T]) OnChange(handler func(context.Context, T)) Disconnect {
 			}
 		}
 	}, a.opts...)
-	if a.handlers == nil {
-		a.handlers = make(map[*asyncHandler[T]]func(context.Context, T))
-	}
 	a.handlers[h] = handler
 	return func() {
 		a.mu.Lock()
@@ -182,7 +180,9 @@ func (a *async[T]) NotifyGenerator(ctx context.Context, generator func() T) {
 	}
 }
 
-func (a *async[T]) GoNotify(ctx context.Context, v T) { go a.Notify(ctx, v) }
+func (a *async[T]) GoNotify(ctx context.Context, v T) {
+	go a.Notify(context.WithoutCancel(ctx), v)
+}
 
 // Noop is an observable that never calls its OnChange function and does
 // not store any handlers. Use this when you want to implement the Observable
@@ -191,12 +191,11 @@ type Noop[T any] struct{}
 
 var _ Observable[any] = Noop[any]{}
 
-// OnChange implements Observable.
-func (Noop[T]) OnChange(_ func(context.Context, T)) Disconnect { return func() {} }
+func (Noop[T]) OnChange(func(context.Context, T)) Disconnect { return func() {} }
 
 // Translator wraps an Observable and transforms its emitted values using the Translate
-// function. Translate returns the transformed value and a boolean indicating whether
-// to notify the handler. If the boolean is false, the handler is not called.
+// function. Translate returns the transformed value and a boolean indicating whether to
+// notify the handler. If the boolean is false, the handler is not called.
 type Translator[I any, O any] struct {
 	Observable[I]
 	Translate func(context.Context, I) (O, bool)

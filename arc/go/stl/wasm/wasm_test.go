@@ -10,6 +10,7 @@
 package wasm_test
 
 import (
+	"context"
 	"math"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +26,7 @@ import (
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/series"
+	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	stltime "github.com/synnaxlabs/arc/stl/time"
@@ -42,9 +44,7 @@ import (
 var _ = Describe("ConvertConfigValue", func() {
 	DescribeTable("supported numeric and timestamp types",
 		func(v any, expected uint64) {
-			result, err := wasm.ConvertConfigValue(v)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(result).To(Equal(expected))
+			Expect(wasm.ConvertConfigValue(v)).To(Equal(expected))
 		},
 		Entry("int8", int8(1), uint64(1)),
 		Entry("int16", int16(2), uint64(2)),
@@ -84,6 +84,7 @@ func (h *testHarness) ChannelState() *channel.ProgramState { return h.channelSta
 
 // newHarness creates a new test harness from a graph definition.
 func newHarness(
+	ctx context.Context,
 	g arc.Graph,
 	resolver symbol.Resolver,
 	channelDigests ...channel.Digest,
@@ -110,17 +111,21 @@ func newHarness(
 	_, _ = stlmath.NewModule(ctx, wasmRT)
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
 	errorsMod.SetMemory(guest.Memory())
 
-	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+	factory := node.CompoundFactory{
+		&wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       stringsState,
+			NodeKeySetter: statefulMod,
+		},
+		channelMod,
+		&stat.Module{},
 	}
 	return &testHarness{
 		graph:        g,
@@ -134,7 +139,7 @@ func newHarness(
 	}
 }
 
-func (h *testHarness) Close() {
+func (h *testHarness) Close(ctx context.Context) {
 	Expect(h.guest.Close(ctx)).To(Succeed())
 	Expect(h.wasmRT.Close(ctx)).To(Succeed())
 }
@@ -145,7 +150,7 @@ func (h *testHarness) SetInput(nodeKey string, idx int, data telem.Series, time 
 	*n.OutputTime(idx) = time
 }
 
-func (h *testHarness) CreateNode(nodeKey string) node.Node {
+func (h *testHarness) CreateNode(ctx context.Context, nodeKey string) node.Node {
 	return MustSucceed(h.factory.Create(ctx, node.Config{
 		Node:    h.analyzed.Nodes.Get(nodeKey),
 		State:   h.state.Node(nodeKey),
@@ -153,10 +158,24 @@ func (h *testHarness) CreateNode(nodeKey string) node.Node {
 	}))
 }
 
-func (h *testHarness) Execute(nodeKey string) set.Set[string] {
-	n := h.CreateNode(nodeKey)
+// Execute creates and runs the named node, returning the set of output
+// names marked changed.
+func (h *testHarness) Execute(ctx context.Context, nodeKey string) set.Set[string] {
+	return h.NextChanged(ctx, h.CreateNode(ctx, nodeKey), nodeKey)
+}
+
+// NextChanged calls n.Next and returns the set of output names that were
+// marked changed during the call. nodeKey identifies which IR node owns
+// n so that the MarkChanged ordinal can be resolved back to a name —
+// production runtime nodes only deal in ordinals.
+func (h *testHarness) NextChanged(ctx context.Context, n node.Node, nodeKey string) set.Set[string] {
+	outputs := h.analyzed.Nodes.Get(nodeKey).Outputs
 	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) {
+		if i >= 0 && i < len(outputs) {
+			changed.Add(outputs[i].Name)
+		}
+	}})
 	return changed
 }
 
@@ -170,6 +189,7 @@ func (h *testHarness) OutputTime(nodeKey string, idx int) telem.Series {
 
 // newTextHarness creates a test harness from text source code.
 func newTextHarness(
+	ctx context.Context,
 	source string,
 	resolver symbol.Resolver,
 	channelDigests ...channel.Digest,
@@ -197,17 +217,21 @@ func newTextHarness(
 	_, _ = stlmath.NewModule(ctx, wasmRT)
 	errorsMod := MustSucceed(stlerrors.NewModule(ctx, nil, wasmRT))
 	_, _ = stltime.NewModule(ctx, wasmRT)
-	_, _ = channel.NewModule(ctx, channelState, stringsState, wasmRT)
+	channelMod, _ := channel.NewModule(ctx, channelState, stringsState, wasmRT)
 
 	guest := MustSucceed(wasmRT.Instantiate(ctx, prog.WASM))
 	stringsMod.SetMemory(guest.Memory())
 	errorsMod.SetMemory(guest.Memory())
 
-	factory := &wasm.Module{
-		Module:        guest,
-		Memory:        guest.Memory(),
-		Strings:       stringsState,
-		NodeKeySetter: statefulMod,
+	factory := node.CompoundFactory{
+		&wasm.Module{
+			Module:        guest,
+			Memory:        guest.Memory(),
+			Strings:       stringsState,
+			NodeKeySetter: statefulMod,
+		},
+		channelMod,
+		&stat.Module{},
 	}
 	return &testHarness{
 		prog:         prog,
@@ -276,26 +300,26 @@ func binaryOpGraph(
 }
 
 // expectOutput is a helper that executes a single-function graph and checks the first output element.
-func expectOutput[T telem.Sample](key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
+func expectOutput[T telem.Sample](ctx context.Context, key string, outType types.Type, body string, resolver symbol.Resolver, expected T) {
 	g := singleFunctionGraph(key, outType, body)
-	h := newHarness(g, resolver)
-	defer h.Close()
-	h.Execute(key)
+	h := newHarness(ctx, g, resolver)
+	defer h.Close(ctx)
+	h.Execute(ctx, key)
 	result := h.Output(key, 0)
 	Expect(telem.UnmarshalSeries[T](result)[0]).To(Equal(expected))
 }
 
 var _ = Describe("WASM", func() {
 	Describe("Next with mismatched input lengths", func() {
-		It("Should repeat shorter input values to match longest input", func() {
+		It("Should repeat shorter input values to match longest input", func(ctx SpecContext) {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1, 2, 3, 4, 5), telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](10, 20), telem.NewSeriesSecondsTSV(1, 2))
 
-			changed := h.Execute("add")
+			changed := h.Execute(ctx, "add")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 
 			result := h.Output("add", 0)
@@ -304,29 +328,29 @@ var _ = Describe("WASM", func() {
 			Expect(h.OutputTime("add", 0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)))
 		})
 
-		It("Should handle equal length inputs correctly", func() {
+		It("Should handle equal length inputs correctly", func(ctx SpecContext) {
 			g := binaryOpGraph("multiply", "a", "b", types.I32(), types.I32(), `{ return lhs * rhs }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("a", 0, telem.NewSeriesV[int32](2, 3, 4), telem.NewSeriesSecondsTSV(10, 20, 30))
 			h.SetInput("b", 0, telem.NewSeriesV[int32](5, 6, 7), telem.NewSeriesSecondsTSV(10, 20, 30))
 
-			h.Execute("multiply")
+			h.Execute(ctx, "multiply")
 			result := h.Output("multiply", 0)
 			Expect(result.Len()).To(Equal(int64(3)))
 			Expect(telem.UnmarshalSeries[int32](result)).To(Equal([]int32{10, 18, 28}))
 		})
 
-		It("Should repeat single value input across all iterations", func() {
+		It("Should repeat single value input across all iterations", func(ctx SpecContext) {
 			g := binaryOpGraph("subtract", "x", "y", types.F32(), types.F32(), `{ return lhs - rhs }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("x", 0, telem.NewSeriesV[float32](100.0, 200.0, 300.0, 400.0), telem.NewSeriesSecondsTSV(5, 10, 15, 20))
 			h.SetInput("y", 0, telem.NewSeriesV[float32](25.0), telem.NewSeriesSecondsTSV(5))
 
-			h.Execute("subtract")
+			h.Execute(ctx, "subtract")
 			result := h.Output("subtract", 0)
 			Expect(result.Len()).To(Equal(int64(4)))
 			Expect(telem.UnmarshalSeries[float32](result)).To(Equal([]float32{75.0, 175.0, 275.0, 375.0}))
@@ -334,7 +358,7 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Next with multiple outputs", func() {
-		It("Should handle functions with multiple outputs and mismatched input lengths", func() {
+		It("Should handle functions with multiple outputs and mismatched input lengths", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -355,13 +379,13 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("a", 0, telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(1, 2, 3))
 			h.SetInput("b", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 
-			changed := h.Execute("math_ops")
+			changed := h.Execute(ctx, "math_ops")
 			Expect(changed.Contains("sum")).To(BeTrue())
 			Expect(changed.Contains("product")).To(BeTrue())
 
@@ -374,31 +398,30 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Runtime Operations - ProgramState Persistence", func() {
-		It("Should persist stateful variables across function calls", func() {
+		It("Should persist stateful variables across function calls", func(ctx SpecContext) {
 			g := singleFunctionGraph("counter", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
 				return count
 			}`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("counter")
+			n := h.CreateNode(ctx, "counter")
 
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(1)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(2)))
 
 			n.Reset()
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "counter")
 			Expect(telem.UnmarshalSeries[int64](h.Output("counter", 0))[0]).To(Equal(int64(3)))
 		})
 
-		It("Should isolate stateful variables between different functions", func() {
+		It("Should isolate stateful variables between different functions", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -425,12 +448,12 @@ var _ = Describe("WASM", func() {
 					{Key: "c2", Type: "counter2"},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n1 := h.CreateNode("c1")
-			n2 := h.CreateNode("c2")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n1 := h.CreateNode(ctx, "c1")
+			n2 := h.CreateNode(ctx, "c2")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n1.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("c1", 0))[0]).To(Equal(int64(1)))
@@ -447,7 +470,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("c2", 0))[0]).To(Equal(int64(20)))
 		})
 
-		It("Should isolate stateful variables between nodes of the same function", func() {
+		It("Should isolate stateful variables between nodes of the same function", func(ctx SpecContext) {
 			// This test verifies that two node instances of the same function type
 			// have separate state storage (important fix for node instance isolation)
 			g := arc.Graph{
@@ -467,12 +490,12 @@ var _ = Describe("WASM", func() {
 					{Key: "counter_b", Type: "counter"},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n1 := h.CreateNode("counter_a")
-			n2 := h.CreateNode("counter_b")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n1 := h.CreateNode(ctx, "counter_a")
+			n2 := h.CreateNode(ctx, "counter_b")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			// First execution of counter_a should return 1
 			n1.Next(nCtx)
@@ -504,7 +527,7 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Optional Parameters", func() {
-		It("Should use default value for unconnected optional input", func() {
+		It("Should use default value for unconnected optional input", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -520,15 +543,15 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "x", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add", Param: "x"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("x", 0, telem.NewSeriesV[int64](5, 15, 25), telem.NewSeriesSecondsTSV(1, 2, 3))
-			h.Execute("add")
+			h.Execute(ctx, "add")
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{15, 25, 35}))
 		})
 
-		It("Should handle multiple optional parameters", func() {
+		It("Should handle multiple optional parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -544,15 +567,15 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "a", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "compute", Param: "a"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("a", 0, telem.NewSeriesV[int32](5, 10), telem.NewSeriesSecondsTSV(1, 2))
-			h.Execute("compute")
+			h.Execute(ctx, "compute")
 			Expect(telem.UnmarshalSeries[int32](h.Output("compute", 0))).To(Equal([]int32{13, 23}))
 		})
 
-		It("Should handle float64 optional parameters", func() {
+		It("Should handle float64 optional parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -568,34 +591,34 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "value", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale", Param: "value"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("value", 0, telem.NewSeriesV[float64](10.0, 20.0), telem.NewSeriesSecondsTSV(1, 2))
-			h.Execute("scale")
+			h.Execute(ctx, "scale")
 			Expect(telem.UnmarshalSeries[float64](h.Output("scale", 0))).To(Equal([]float64{25.0, 50.0}))
 		})
 
-		It("Should allow overriding optional parameter with connected edge", func() {
+		It("Should allow overriding optional parameter with connected edge", func(ctx SpecContext) {
 			g := binaryOpGraph("add", "x", "y", types.I64(), types.I64(), `{ return lhs + rhs }`)
 			// Modify to add optional value
 			g.Functions[0].Inputs[1].Value = int64(10)
 
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("x", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("y", 0, telem.NewSeriesV[int64](100), telem.NewSeriesSecondsTSV(1))
-			h.Execute("add")
+			h.Execute(ctx, "add")
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{105}))
 		})
 	})
 
 	Describe("Alignment and TimeRange Propagation", func() {
-		It("Should sum alignments from multiple inputs and propagate to outputs", func() {
+		It("Should sum alignments from multiple inputs and propagate to outputs", func(ctx SpecContext) {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			lhsSeries := telem.NewSeriesV[int64](1, 2, 3)
 			lhsSeries.Alignment = 100
@@ -607,7 +630,7 @@ var _ = Describe("WASM", func() {
 			rhsSeries.TimeRange = telem.TimeRange{Start: 5 * telem.SecondTS, End: 25 * telem.SecondTS}
 			h.SetInput("rhs", 0, rhsSeries, telem.NewSeriesSecondsTSV(5, 15, 25))
 
-			h.Execute("add")
+			h.Execute(ctx, "add")
 
 			result := h.Output("add", 0)
 			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{11, 22, 33}))
@@ -616,7 +639,7 @@ var _ = Describe("WASM", func() {
 			Expect(result.TimeRange.End).To(Equal(30 * telem.SecondTS))
 		})
 
-		It("Should propagate alignment and time range to multiple outputs", func() {
+		It("Should propagate alignment and time range to multiple outputs", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -637,8 +660,8 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "b", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "math_ops", Param: "b"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			aSeries := telem.NewSeriesV[int64](2, 3)
 			aSeries.Alignment = 200
@@ -650,7 +673,7 @@ var _ = Describe("WASM", func() {
 			bSeries.TimeRange = telem.TimeRange{Start: 50 * telem.SecondTS, End: 250 * telem.SecondTS}
 			h.SetInput("b", 0, bSeries, telem.NewSeriesSecondsTSV(50, 200))
 
-			h.Execute("math_ops")
+			h.Execute(ctx, "math_ops")
 
 			expectedAlignment := telem.Alignment(500)
 			expectedTimeRange := telem.TimeRange{Start: 50 * telem.SecondTS, End: 250 * telem.SecondTS}
@@ -666,29 +689,28 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Stateful Series Variables", func() {
-		It("Should persist stateful series variables across calls", func() {
+		It("Should persist stateful series variables across calls", func(ctx SpecContext) {
 			g := singleFunctionGraph("series_state", types.F64(), `{ history series f64 $= [0.0]
 							return history[0] }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("series_state")
-			changed := make(set.Set[string])
+			n := h.CreateNode(ctx, "series_state")
 
 			// First call
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "series_state")
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 
 			// Second call - state persists
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			h.NextChanged(ctx, n, "series_state")
 			Expect(telem.UnmarshalSeries[float64](h.Output("series_state", 0))[0]).To(Equal(float64(0.0)))
 		})
 	})
 
 	Describe("Series Literal Edge Cases", func() {
 		DescribeTable("empty series",
-			func(elemType string, outType types.Type) {
-				expectOutput("empty_series", types.I64(), `{
+			func(ctx SpecContext, elemType string, outType types.Type) {
+				expectOutput(ctx, "empty_series", types.I64(), `{
 				s series `+elemType+` := []
 				return len(s)
 			}`, stl.SymbolResolver, int32(0))
@@ -705,22 +727,22 @@ var _ = Describe("WASM", func() {
 			}`, nil, int32(42)),
 		)
 
-		It("Should handle single element f64 series", func() {
-			expectOutput("single_elem", types.F64(), `{
+		It("Should handle single element f64 series", func(ctx SpecContext) {
+			expectOutput(ctx, "single_elem", types.F64(), `{
 				s series f64 := [3.14]
 				return s[0]
 			}`, nil, 3.14)
 		})
 
-		It("Should handle 10 element series access", func() {
-			expectOutput("ten_elem", types.I32(), `{
+		It("Should handle 10 element series access", func(ctx SpecContext) {
+			expectOutput(ctx, "ten_elem", types.I32(), `{
 				s series i32 := [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
 				return s[9]
 			}`, nil, int32(9))
 		})
 
-		It("Should sum elements from 10 element series", func() {
-			expectOutput("sum_ten", types.I32(), `{
+		It("Should sum elements from 10 element series", func(ctx SpecContext) {
+			expectOutput(ctx, "sum_ten", types.I32(), `{
 				s series i32 := [1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
 				return s[0] + s[1] + s[2] + s[3] + s[4] + s[5] + s[6] + s[7] + s[8] + s[9]
 			}`, nil, int32(10))
@@ -756,8 +778,8 @@ var _ = Describe("WASM", func() {
 			}`, nil, int32(5)),
 		)
 
-		It("Should add i64 series", func() {
-			expectOutput("add_i64", types.I64(), `{
+		It("Should add i64 series", func(ctx SpecContext) {
+			expectOutput(ctx, "add_i64", types.I64(), `{
 				a series i64 := [1, 2, 3]
 				b series i64 := [10, 20, 30]
 				c series i64 := a + b
@@ -781,8 +803,8 @@ var _ = Describe("WASM", func() {
 			}`, nil, float32(3.0)),
 		)
 
-		It("Should mod f64 series", func() {
-			expectOutput("mod_f64", types.F64(), `{
+		It("Should mod f64 series", func(ctx SpecContext) {
+			expectOutput(ctx, "mod_f64", types.F64(), `{
 				a series f64 := [10.0, 20.0]
 				b series f64 := [3.0, 7.0]
 				c series f64 := a % b
@@ -936,30 +958,436 @@ var _ = Describe("WASM", func() {
 				return len(a + b)
 			}`, stl.SymbolResolver, int32(11)),
 		)
+
+		DescribeTable("qualified string.len() calls",
+			expectOutput[int32],
+			Entry("simple string", "qlen_str", types.I64(), `{
+				return string.len("hello")
+			}`, stl.SymbolResolver, int32(5)),
+			Entry("empty string", "qlen_empty", types.I64(), `{
+				return string.len("")
+			}`, stl.SymbolResolver, int32(0)),
+			Entry("string variable", "qlen_var", types.I64(), `{
+				s str := "world"
+				return string.len(s)
+			}`, stl.SymbolResolver, int32(5)),
+		)
+
+		DescribeTable("qualified string.concat() calls",
+			expectOutput[int32],
+			Entry("two literals", "qconcat_lit", types.I64(), `{
+				return len(string.concat("ab", "cd"))
+			}`, stl.SymbolResolver, int32(4)),
+			Entry("variables", "qconcat_var", types.I64(), `{
+				a str := "hello"
+				b str := " world"
+				return string.len(string.concat(a, b))
+			}`, stl.SymbolResolver, int32(11)),
+		)
+
+		DescribeTable("qualified string.equal() calls",
+			expectOutput[int32],
+			Entry("equal strings", "qeq_true", types.I32(), `{
+				return string.equal("abc", "abc")
+			}`, stl.SymbolResolver, int32(1)),
+			Entry("unequal strings", "qeq_false", types.I32(), `{
+				return string.equal("abc", "def")
+			}`, stl.SymbolResolver, int32(0)),
+		)
+	})
+
+	Describe("Qualified math.pow()", func() {
+		DescribeTable("const, const (i64)",
+			expectOutput[int32],
+			Entry("i64 literals", "pow_ii", types.I64(), `{
+				return math.pow(2, 10)
+			}`, stl.SymbolResolver, int32(1024)),
+		)
+
+		DescribeTable("const, const (f64)",
+			expectOutput[float64],
+			Entry("f64 literals", "pow_ff64", types.F64(), `{
+				return math.pow(2.0, 3.0)
+			}`, stl.SymbolResolver, float64(8.0)),
+			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
+				return math.pow(9.0, 0.5)
+			}`, stl.SymbolResolver, float64(3.0)),
+		)
+
+		It("chan, const (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 5), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_ci")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ci", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 27, 125}))
+		})
+
+		It("chan, const (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](2.0, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](2.0), telem.NewSeriesSecondsTSV(1))
+
+			changed := h.Execute(ctx, "pow_cf")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cf", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{4.0, 9.0, 16.0}))
+		})
+
+		It("const, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](1, 2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3, 4))
+
+			changed := h.Execute(ctx, "pow_ic")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_ic", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{2, 4, 8, 16}))
+		})
+
+		It("const, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](3.0), telem.NewSeriesSecondsTSV(1))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](1.0, 2.0, 3.0), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_fc")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_fc", 0)
+			Expect(telem.UnmarshalSeries[float64](result)).To(Equal([]float64{3.0, 9.0, 27.0}))
+		})
+
+		It("chan, chan (i64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[int64](2, 3, 10), telem.NewSeriesSecondsTSV(1, 2, 3))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[int64](3, 2, 4), telem.NewSeriesSecondsTSV(1, 2, 3))
+
+			changed := h.Execute(ctx, "pow_cc_i")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_i", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{8, 9, 10000}))
+		})
+
+		It("chan, chan (f64)", func(ctx SpecContext) {
+			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
+				`{ return math.pow(lhs, rhs) }`)
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("base_src", 0, telem.NewSeriesV[float64](4.0, 27.0), telem.NewSeriesSecondsTSV(1, 2))
+			h.SetInput("exp_src", 0, telem.NewSeriesV[float64](0.5, 1.0/3.0), telem.NewSeriesSecondsTSV(1, 2))
+
+			changed := h.Execute(ctx, "pow_cc_f")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("pow_cc_f", 0)
+			values := telem.UnmarshalSeries[float64](result)
+			Expect(values[0]).To(BeNumerically("~", 2.0, 1e-9))
+			Expect(values[1]).To(BeNumerically("~", 3.0, 1e-9))
+		})
+	})
+
+	Describe("String Function Type Safety", func() {
+		DescribeTable("Should reject non-string arguments to string functions",
+			func(ctx SpecContext, source string) {
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			},
+			Entry("string.len with integer", `
+				func bad() i64 { return string.len(123) }
+			`),
+			Entry("string.concat with integer", `
+				func bad() str { return string.concat(1, 2) }
+			`),
+			Entry("string.equal with integer", `
+				func bad() i32 { return string.equal(1, 2) }
+			`),
+		)
+	})
+
+	Describe("String Channel Input", func() {
+		It("Should convert string channel data to handles for function parameters", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "str_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "str_len", Type: "str_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "str_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "str_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("str_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.len()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:     "qstr_len",
+						Inputs:  types.Params{{Name: "s", Type: types.String()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(s) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "qstr_len", Type: "qstr_len"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_len", Param: "s"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[string]("hello", "world!", ""),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "qstr_len")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_len", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
+		})
+
+		It("Should convert string channel data to handles for qualified string.concat()", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "qstr_concat",
+						Inputs: types.Params{
+							{Name: "a", Type: types.String()},
+							{Name: "b", Type: types.String()},
+						},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return string.len(string.concat(a, b)) }`},
+					},
+					{
+						Key:     "src_a",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+					{
+						Key:     "src_b",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+						Body:    ir.Body{Raw: `{ return "" }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "src_a", Type: "src_a"},
+					{Key: "src_b", Type: "src_b"},
+					{Key: "qstr_concat", Type: "qstr_concat"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "src_a", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "a"},
+					},
+					{
+						Source: ir.Handle{Node: "src_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "qstr_concat", Param: "b"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("src_a", 0,
+				telem.NewSeriesV[string]("hello"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+			h.SetInput("src_b", 0,
+				telem.NewSeriesV[string](" world"),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			changed := h.Execute(ctx, "qstr_concat")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("qstr_concat", 0)
+			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{11}))
+		})
+	})
+
+	Describe("Named String Output Memory Layout", func() {
+		It("Should compute correct memory offsets for string outputs in graph nodes", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "value", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = "ok"
+							value = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			// The key assertion: this must not panic on Density() for
+			// string-typed named outputs in either the compiler or runtime.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("labeler", 0,
+				telem.NewSeriesV[int64](5),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "labeler") }).ToNot(Panic())
+		})
+
+		It("Should handle multiple string outputs without panicking", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "tagger",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "first", Type: types.String()},
+							{Name: "second", Type: types.String()},
+							{Name: "count", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							first = "a"
+							second = "b"
+							count = x
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "tagger", Type: "tagger"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "tagger", Param: "x"},
+					},
+				},
+			}
+			// Must not panic even with multiple string outputs
+			// contributing to the memory offset calculation.
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("tagger", 0,
+				telem.NewSeriesV[int64](42),
+				telem.NewSeriesSecondsTSV(1),
+			)
+
+			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
+		})
 	})
 
 	Describe("No-Input Node Initialization", func() {
-		It("Should execute only once per stage entry for nodes with no inputs", func() {
+		It("Should execute only once per stage entry for nodes with no inputs", func(ctx SpecContext) {
 			// Create a stateful counter function with no inputs
 			g := singleFunctionGraph("init_counter", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
 				return count
 			}`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("init_counter")
+			n := h.CreateNode(ctx, "init_counter")
 
 			// First call - should execute and return 1
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed := h.NextChanged(ctx, n, "init_counter")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(1)))
 
 			// Second call - should NOT execute again (initialized flag)
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "init_counter")
 			// No output should be marked as changed since we didn't execute
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
 
@@ -967,25 +1395,23 @@ var _ = Describe("WASM", func() {
 			n.Reset()
 
 			// Third call - should execute again after reset
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "init_counter")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			// Counter persists so it should be 2 now
 			Expect(telem.UnmarshalSeries[int64](h.Output("init_counter", 0))[0]).To(Equal(int64(2)))
 		})
 
-		It("Should execute every time for non-entry nodes with inputs", func() {
+		It("Should execute every time for non-entry nodes with inputs", func(ctx SpecContext) {
 			g := binaryOpGraph("add", "lhs", "rhs", types.I64(), types.I64(), `{ return lhs + rhs }`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("add")
+			n := h.CreateNode(ctx, "add")
 
 			h.SetInput("lhs", 0, telem.NewSeriesV[int64](1), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](2), telem.NewSeriesSecondsTSV(1))
 
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed := h.NextChanged(ctx, n, "add")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(3)))
 
@@ -993,15 +1419,14 @@ var _ = Describe("WASM", func() {
 			h.SetInput("rhs", 0, telem.NewSeriesV[int64](20), telem.NewSeriesSecondsTSV(2))
 
 			// Nodes with incoming edges should execute every time they have new input
-			changed = make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+			changed = h.NextChanged(ctx, n, "add")
 			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))[0]).To(Equal(int64(30)))
 		})
 	})
 
 	Describe("Config Parameters", func() {
-		It("Should pass config values to WASM function", func() {
+		It("Should pass config values to WASM function", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1025,22 +1450,21 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "add_config", Param: "y"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			// Set up input source output
 			h.SetInput("input_source", 0, telem.NewSeriesV[int64](5), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode("add_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n := h.CreateNode(ctx, "add_config")
+			h.NextChanged(ctx, n, "add_config")
 
 			output := h.Output("add_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int64](output)[0]).To(Equal(int64(15)))
 		})
 
-		It("Should handle multiple config parameters", func() {
+		It("Should handle multiple config parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1064,21 +1488,20 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "multi_config", Param: "c"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[int32](3), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode("multi_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n := h.CreateNode(ctx, "multi_config")
+			h.NextChanged(ctx, n, "multi_config")
 
 			output := h.Output("multi_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[int32](output)[0]).To(Equal(int32(18)))
 		})
 
-		It("Should handle float64 config parameters", func() {
+		It("Should handle float64 config parameters", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1102,14 +1525,13 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "input_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "scale_config", Param: "value"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode("scale_config")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			n := h.CreateNode(ctx, "scale_config")
+			h.NextChanged(ctx, n, "scale_config")
 
 			output := h.Output("scale_config", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1119,7 +1541,7 @@ var _ = Describe("WASM", func() {
 
 	Describe("Imperative Channel Writes", func() {
 		Describe("Writing to Non-Indexed Channels", func() {
-			It("Should write only data channel when index is not configured", func() {
+			It("Should write only data channel when index is not configured", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_ch": {
 						Name: "output_ch",
@@ -1133,12 +1555,12 @@ var _ = Describe("WASM", func() {
 					return 42
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 100, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("write_test")
+				h.Execute(ctx, "write_test")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1148,7 +1570,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Writing to Indexed Channels", func() {
-			It("Should write both data and index channel when index is configured", func() {
+			It("Should write both data and index channel when index is configured", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"output_ch": {
 						Name: "output_ch",
@@ -1162,12 +1584,12 @@ var _ = Describe("WASM", func() {
 					return 99
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 100, Index: 101, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("write_indexed")
+				h.Execute(ctx, "write_indexed")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1179,7 +1601,7 @@ var _ = Describe("WASM", func() {
 				Expect(ts[0]).To(BeNumerically(">", 0))
 			})
 
-			It("Should write timestamp that is approximately now", func() {
+			It("Should write timestamp that is approximately now", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"sensor_out": {
 						Name: "sensor_out",
@@ -1193,13 +1615,13 @@ var _ = Describe("WASM", func() {
 					return 42
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 200, Index: 201, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
 				before := telem.Now()
-				h.Execute("write_ts")
+				h.Execute(ctx, "write_ts")
 				after := telem.Now()
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
@@ -1210,7 +1632,7 @@ var _ = Describe("WASM", func() {
 				Expect(ts[0]).To(BeNumerically("<=", after))
 			})
 
-			It("Should write to multiple indexed channels independently", func() {
+			It("Should write to multiple indexed channels independently", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"ch_a": {
 						Name: "ch_a",
@@ -1231,13 +1653,13 @@ var _ = Describe("WASM", func() {
 					return 0
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 10, Index: 11, DataType: telem.Int32T},
 					channel.Digest{Key: 20, Index: 21, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("multi_write")
+				h.Execute(ctx, "multi_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1251,7 +1673,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Sequential Writes with Timestamps", func() {
-			It("Should produce increasing timestamps for sequential writes", func() {
+			It("Should produce increasing timestamps for sequential writes", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"counter_ch": {
 						Name: "counter_ch",
@@ -1267,17 +1689,17 @@ var _ = Describe("WASM", func() {
 					return count
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 300, Index: 301, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				n := h.CreateNode("seq_write")
+				n := h.CreateNode(ctx, "seq_write")
 				timestamps := make([]telem.TimeStamp, 3)
 
 				for i := range 3 {
 					n.Reset()
-					n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+					n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 					fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 					Expect(changed).To(BeTrue())
 					ts := telem.UnmarshalSeries[telem.TimeStamp](fr.Get(301).Series[0])
@@ -1290,7 +1712,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Integer Type Channel Writes", func() {
-			It("Should write i32 with index", func() {
+			It("Should write i32 with index", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"i32_ch": {
 						Name: "i32_ch",
@@ -1304,12 +1726,12 @@ var _ = Describe("WASM", func() {
 					return -50000
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 700, Index: 701, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("i32_write")
+				h.Execute(ctx, "i32_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1318,7 +1740,7 @@ var _ = Describe("WASM", func() {
 				Expect(fr.Get(701).Series).To(HaveLen(1))
 			})
 
-			It("Should write u8 with index", func() {
+			It("Should write u8 with index", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"u8_ch": {
 						Name: "u8_ch",
@@ -1332,12 +1754,12 @@ var _ = Describe("WASM", func() {
 					return 255
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 800, Index: 801, DataType: telem.Uint8T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("u8_write")
+				h.Execute(ctx, "u8_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1348,7 +1770,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Float Type Channel Writes", func() {
-			It("Should write f64 with index", func() {
+			It("Should write f64 with index", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"f64_ch": {
 						Name: "f64_ch",
@@ -1362,12 +1784,12 @@ var _ = Describe("WASM", func() {
 					return 3.14159
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 1100, Index: 1101, DataType: telem.Float64T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("f64_write")
+				h.Execute(ctx, "f64_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1376,7 +1798,7 @@ var _ = Describe("WASM", func() {
 				Expect(fr.Get(1101).Series).To(HaveLen(1))
 			})
 
-			It("Should write f32 with index", func() {
+			It("Should write f32 with index", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"f32_ch": {
 						Name: "f32_ch",
@@ -1390,12 +1812,12 @@ var _ = Describe("WASM", func() {
 					return 2.718
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 1200, Index: 1201, DataType: telem.Float32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("f32_write")
+				h.Execute(ctx, "f32_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1406,19 +1828,19 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Edge Cases", func() {
-			It("Should handle empty flush when no writes occur", func() {
+			It("Should handle empty flush when no writes occur", func(ctx SpecContext) {
 				g := singleFunctionGraph("no_write", types.I32(), `{ return 42 }`)
-				h := newHarness(g, nil)
-				defer h.Close()
+				h := newHarness(ctx, g, nil)
+				defer h.Close(ctx)
 
-				h.Execute("no_write")
+				h.Execute(ctx, "no_write")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeFalse())
 				Expect(fr.RawKeys()).To(BeEmpty())
 			})
 
-			It("Should handle channel with zero as index (no index)", func() {
+			It("Should handle channel with zero as index (no index)", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"no_idx_ch": {
 						Name: "no_idx_ch",
@@ -1432,12 +1854,12 @@ var _ = Describe("WASM", func() {
 					return 123
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 900, Index: 0, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("zero_idx")
+				h.Execute(ctx, "zero_idx")
 
 				fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 				Expect(changed).To(BeTrue())
@@ -1447,7 +1869,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		Describe("Comparison with Declarative Writes", func() {
-			It("Should produce same output structure as WriteChan for indexed channels", func() {
+			It("Should produce same output structure as WriteChan for indexed channels", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"test_ch": {
 						Name: "test_ch",
@@ -1461,12 +1883,12 @@ var _ = Describe("WASM", func() {
 					return 123
 				}`)
 
-				h := newHarness(g, resolver,
+				h := newHarness(ctx, g, resolver,
 					channel.Digest{Key: 1000, Index: 1001, DataType: telem.Int32T},
 				)
-				defer h.Close()
+				defer h.Close(ctx)
 
-				h.Execute("imperative_vs_decl")
+				h.Execute(ctx, "imperative_vs_decl")
 
 				fr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
 				dataKeys := make(set.Set[uint32])
@@ -1480,7 +1902,7 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Void Functions (No Outputs)", func() {
-		It("Should execute without panic when function has no outputs", func() {
+		It("Should execute without panic when function has no outputs", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1503,16 +1925,16 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_func", Param: "trigger"}},
 				},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 
-			changed := h.Execute("void_func")
+			changed := h.Execute(ctx, "void_func")
 			Expect(changed).To(BeEmpty())
 		})
 
-		It("Should execute void function with stateful variables", func() {
+		It("Should execute void function with stateful variables", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"output_ch": {
 					Name: "output_ch",
@@ -1547,13 +1969,13 @@ var _ = Describe("WASM", func() {
 					{Source: ir.Handle{Node: "trigger_source", Param: ir.DefaultOutputParam}, Target: ir.Handle{Node: "void_with_state", Param: "trigger"}},
 				},
 			}
-			h := newHarness(g, resolver, channel.Digest{Key: 100, DataType: telem.Int32T})
-			defer h.Close()
+			h := newHarness(ctx, g, resolver, channel.Digest{Key: 100, DataType: telem.Int32T})
+			defer h.Close(ctx)
 
 			h.SetInput("trigger_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 
-			n := h.CreateNode("void_with_state")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n := h.CreateNode(ctx, "void_with_state")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Reset()
 			n.Next(nCtx)
@@ -1570,17 +1992,17 @@ var _ = Describe("WASM", func() {
 	})
 
 	Describe("Flow Expression Execution", func() {
-		It("Should execute every time for flow expression nodes", func() {
+		It("Should execute every time for flow expression nodes", func(ctx SpecContext) {
 			g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
 				return count
 			}`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -1592,17 +2014,17 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
 		})
 
-		It("Should continue executing after reset for expression nodes", func() {
+		It("Should continue executing after reset for expression nodes", func(ctx SpecContext) {
 			g := singleFunctionGraph("expression_0", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
 				return count
 			}`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("expression_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n := h.CreateNode(ctx, "expression_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(1)))
@@ -1616,17 +2038,17 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](h.Output("expression_0", 0))[0]).To(Equal(int64(3)))
 		})
 
-		It("Should not treat non-expression nodes as expressions", func() {
+		It("Should not treat non-expression nodes as expressions", func(ctx SpecContext) {
 			g := singleFunctionGraph("expr_0", types.I64(), `{
 				count i64 $= 0
 				count = count + 1
 				return count
 			}`)
-			h := newHarness(g, nil)
-			defer h.Close()
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
 
-			n := h.CreateNode("expr_0")
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			n := h.CreateNode(ctx, "expr_0")
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 
 			n.Next(nCtx)
 			Expect(telem.UnmarshalSeries[int64](h.Output("expr_0", 0))[0]).To(Equal(int64(1)))
@@ -1640,7 +2062,7 @@ var _ = Describe("WASM", func() {
 		// Regression test for: "cannot pop the 2nd f32 operand for f32.add:
 		// type mismatch: expected f32, but was i32"
 		// Bug occurred when reading from a channel config parameter and performing arithmetic.
-		It("Should read from channel config param and perform f32 arithmetic", func() {
+		It("Should read from channel config param and perform f32 arithmetic", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"do_0_counter": {
 					Name: "do_0_counter",
@@ -1668,16 +2090,16 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Ingest initial channel value (5.0), execute, expect write (6.0)
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](5.0))
 			h.ChannelState().Ingest(fr)
-			h.Execute("increment_counter")
+			h.Execute(ctx, "increment_counter")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
@@ -1685,7 +2107,7 @@ var _ = Describe("WASM", func() {
 		})
 
 		// Test matching the user's original example with stateful variable and conditional
-		It("Should handle channel config param with stateful variable and conditional", func() {
+		It("Should handle channel config param with stateful variable and conditional", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"do_0_counter": {
 					Name: "do_0_counter",
@@ -1730,17 +2152,17 @@ var _ = Describe("WASM", func() {
 				},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Initial state: counter=0, input=0, prev initializes to 0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("count_rising")
+			h.Execute(ctx, "count_rising")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // input=0, no rising edge
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
@@ -1750,7 +2172,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(100, telem.NewSeriesV[float32](0.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
-			h.Execute("count_rising")
+			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
@@ -1761,7 +2183,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(3))
-			h.Execute("count_rising")
+			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // No rising edge
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
@@ -1771,7 +2193,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(4))
-			h.Execute("count_rising")
+			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeFalse()) // Falling edge, no increment
 			Expect(outFr.Get(100).Series).To(HaveLen(0))
@@ -1781,14 +2203,14 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(100, telem.NewSeriesV[float32](1.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("input_source", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(5))
-			h.Execute("count_rising")
+			h.Execute(ctx, "count_rising")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(100).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(100).Series[0])[0]).To(Equal(float32(2.0)))
 		})
 
-		It("Should handle multiple channel config parameters", func() {
+		It("Should handle multiple channel config parameters", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"temp_sensor": {
 					Name: "temp_sensor",
@@ -1841,26 +2263,26 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 101, DataType: telem.Float32T},
 				channel.Digest{Key: 102, DataType: telem.Float32T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Test: temp=25.5, pressure=101.3, expect result=126.8
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(100, telem.NewSeriesV[float32](25.5))
 			fr = fr.Append(101, telem.NewSeriesV[float32](101.3))
 			h.ChannelState().Ingest(fr)
-			h.Execute("combine_sensors")
+			h.Execute(ctx, "combine_sensors")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(102).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(102).Series[0])[0]).To(BeNumerically("~", float32(126.8), 0.01))
 		})
 
-		It("Should handle multiple channel config params with different operations", func() {
+		It("Should handle multiple channel config params with different operations", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"input_a": {
 					Name: "input_a",
@@ -1931,14 +2353,14 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 200, DataType: telem.Float64T},
 				channel.Digest{Key: 201, DataType: telem.Float64T},
 				channel.Digest{Key: 202, DataType: telem.Float64T},
 				channel.Digest{Key: 203, DataType: telem.Float64T},
 				channel.Digest{Key: 204, DataType: telem.Float64T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Test: a=10.0, b=3.0
 			// Expected: sum=13.0, diff=7.0, product=30.0
@@ -1946,7 +2368,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(200, telem.NewSeriesV[float64](10.0))
 			fr = fr.Append(201, telem.NewSeriesV[float64](3.0))
 			h.ChannelState().Ingest(fr)
-			h.Execute("multi_op")
+			h.Execute(ctx, "multi_op")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 
@@ -1960,7 +2382,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[float64](outFr.Get(204).Series[0])[0]).To(Equal(float64(30.0)))
 		})
 
-		It("Should handle channel config param used multiple times in expression", func() {
+		It("Should handle channel config param used multiple times in expression", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"value_ch": {
 					Name: "value_ch",
@@ -2005,17 +2427,17 @@ var _ = Describe("WASM", func() {
 				Edges: []graph.Edge{},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 300, DataType: telem.Float32T},
 				channel.Digest{Key: 301, DataType: telem.Float32T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Test: value=7.0, expect squared=49.0
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(300, telem.NewSeriesV[float32](7.0))
 			h.ChannelState().Ingest(fr)
-			h.Execute("square_value")
+			h.Execute(ctx, "square_value")
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(301).Series).To(HaveLen(1))
@@ -2025,14 +2447,14 @@ var _ = Describe("WASM", func() {
 			fr = telem.Frame[uint32]{}
 			fr = fr.Append(300, telem.NewSeriesV[float32](0.5))
 			h.ChannelState().Ingest(fr)
-			h.Execute("square_value")
+			h.Execute(ctx, "square_value")
 			outFr, changed = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
 			Expect(outFr.Get(301).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(301).Series[0])[0]).To(Equal(float32(0.25)))
 		})
 
-		It("Should handle mixed channel and non-channel config params", func() {
+		It("Should handle mixed channel and non-channel config params", func(ctx SpecContext) {
 			// This tests the tolerance_alarm pattern: some config params are channels,
 			// others are plain values (f32, i64)
 			resolver := symbol.MapResolver{
@@ -2098,10 +2520,10 @@ var _ = Describe("WASM", func() {
 				},
 			}
 
-			h := newHarness(g, resolver,
+			h := newHarness(ctx, g, resolver,
 				channel.Digest{Key: 400, DataType: telem.Float32T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// set_point=100.0, tolerance_upper=10.0, tolerance_lower=5.0
 			// upper_limit = 110.0, lower_limit = 95.0
@@ -2112,7 +2534,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("tolerance_check")
+			h.Execute(ctx, "tolerance_check")
 			result := h.Output("tolerance_check", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2121,7 +2543,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
-			h.Execute("tolerance_check")
+			h.Execute(ctx, "tolerance_check")
 			result = h.Output("tolerance_check", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2130,7 +2552,7 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
-			h.Execute("tolerance_check")
+			h.Execute(ctx, "tolerance_check")
 			result = h.Output("tolerance_check", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2139,12 +2561,12 @@ var _ = Describe("WASM", func() {
 			fr = fr.Append(400, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("value_source", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(4))
-			h.Execute("tolerance_check")
+			h.Execute(ctx, "tolerance_check")
 			result = h.Output("tolerance_check", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
 		})
 
-		It("Should handle intermediate variable assignment from channel config param", func() {
+		It("Should handle intermediate variable assignment from channel config param", func(ctx SpecContext) {
 			// This is the EXACT user code that was failing.
 			// The key pattern is: sp := set_point (where set_point is chan f32)
 			resolver := symbol.MapResolver{
@@ -2194,12 +2616,12 @@ func tolerance_alarm{
 
 input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_point=set_point_ch, samples=3} -> output_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// set_point_ch has value 100.0
 			// tolerance_upper=10.0, tolerance_lower=5.0, samples=3
@@ -2211,7 +2633,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0)) // set_point_ch = 100.0
 			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](105.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("tolerance_alarm_0")
+			h.Execute(ctx, "tolerance_alarm_0")
 			result := h.Output("tolerance_alarm_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2220,7 +2642,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(2))
-			h.Execute("tolerance_alarm_0")
+			h.Execute(ctx, "tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2229,7 +2651,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 			fr = fr.Append(200, telem.NewSeriesV[float32](100.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_val_0", 0, telem.NewSeriesV[float32](115.0), telem.NewSeriesSecondsTSV(3))
-			h.Execute("tolerance_alarm_0")
+			h.Execute(ctx, "tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 
@@ -2243,7 +2665,7 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				telem.NewSeriesV[float32](115.0),
 				telem.NewSeriesSecondsTSV(4),
 			)
-			h.Execute("tolerance_alarm_0")
+			h.Execute(ctx, "tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
 
@@ -2260,12 +2682,12 @@ input_val -> tolerance_alarm{tolerance_upper=10.0, tolerance_lower=5.0, set_poin
 				telem.NewSeriesV[float32](198.0),
 				telem.NewSeriesSecondsTSV(5),
 			)
-			h.Execute("tolerance_alarm_0")
+			h.Execute(ctx, "tolerance_alarm_0")
 			result = h.Output("tolerance_alarm_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
 
-		It("Should handle writing to channel through intermediate variable", func() {
+		It("Should handle writing to channel through intermediate variable", func(ctx SpecContext) {
 			// Test that writing to an intermediate variable correctly writes to the channel
 			// out := output (config param with channel type)
 			// out = value * 2.0 (write to channel through intermediate variable)
@@ -2301,16 +2723,16 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set input value to 25.0, expect write_target to receive 50.0 (25 * 2)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](25.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("writer_0")
+			h.Execute(ctx, "writer_0")
 
 			// Check that the channel was written to with the correct value
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
@@ -2319,7 +2741,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](50.0))
 		})
 
-		It("Should handle nested intermediate variable assignments from channel config param", func() {
+		It("Should handle nested intermediate variable assignments from channel config param", func(ctx SpecContext) {
 			// Test that we can chain intermediate variable assignments:
 			// out := output      (from config param)
 			// out2 := out        (from intermediate variable)
@@ -2357,16 +2779,16 @@ func writer{
 
 input_ch -> writer{output=write_target} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set input value to 10.0, expect write_target to receive 30.0 (10 * 3)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("writer_0")
+			h.Execute(ctx, "writer_0")
 
 			// Check that the channel was written to with the correct value
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
@@ -2375,7 +2797,7 @@ input_ch -> writer{output=write_target} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](30.0))
 		})
 
-		It("Should handle writing to channel through global channel alias", func() {
+		It("Should handle writing to channel through global channel alias", func(ctx SpecContext) {
 			// Test that writing through an alias of a global channel works correctly
 			// out := output_ch   (global channel alias)
 			// out = value * 4.0  (write to channel through alias)
@@ -2409,16 +2831,16 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set input value to 5.0, expect output_ch to receive 20.0 (5 * 4)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](5.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("writer_0")
+			h.Execute(ctx, "writer_0")
 
 			// Check that the channel was written to with the correct value
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
@@ -2427,7 +2849,7 @@ input_ch -> writer{} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
 		})
 
-		It("Should handle triple nested aliases from global channel", func() {
+		It("Should handle triple nested aliases from global channel", func(ctx SpecContext) {
 			// Test deeply nested alias chain:
 			// a := global_ch
 			// b := a
@@ -2465,16 +2887,16 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set input value to 4.0, expect output_ch to receive 20.0 (4 * 5)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](4.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("writer_0")
+			h.Execute(ctx, "writer_0")
 
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
@@ -2482,7 +2904,7 @@ input_ch -> writer{} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0))
 		})
 
-		It("Should handle multiple aliases to same global channel", func() {
+		It("Should handle multiple aliases to same global channel", func(ctx SpecContext) {
 			// Test multiple independent aliases to the same channel:
 			// out1 := output_ch
 			// out2 := output_ch
@@ -2520,19 +2942,19 @@ func writer{} (value f32) u8 {
 
 input_ch -> writer{} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set input value to 10.0
 			// First write: 10 * 2 = 20
 			// Second write: 10 * 3 = 30
 			// Both writes go to the same channel - the runtime accumulates them
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](10.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("writer_0")
+			h.Execute(ctx, "writer_0")
 
 			fr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
@@ -2541,7 +2963,7 @@ input_ch -> writer{} -> sink_ch
 			Expect(fr.Get(200).Series[0]).To(telem.MatchSeriesDataV[float32](20.0, 30.0))
 		})
 
-		It("Should handle reading from global channel alias", func() {
+		It("Should handle reading from global channel alias", func(ctx SpecContext) {
 			// Test reading through a global channel alias:
 			// sp := set_point_ch  (alias to global channel)
 			// threshold := sp     (read from the channel through alias)
@@ -2578,12 +3000,12 @@ func checker{} (value f32) u8 {
 
 input_ch -> checker{} -> output_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Float32T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			// Set set_point_ch to 50.0
 			fr := telem.Frame[uint32]{}
@@ -2592,18 +3014,18 @@ input_ch -> checker{} -> output_ch
 
 			// Test with value=60 (above threshold), should return 1
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](60.0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("checker_0")
+			h.Execute(ctx, "checker_0")
 			result := h.Output("checker_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(1)))
 
 			// Test with value=40 (below threshold), should return 0
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[float32](40.0), telem.NewSeriesSecondsTSV(2))
-			h.Execute("checker_0")
+			h.Execute(ctx, "checker_0")
 			result = h.Output("checker_0", 0)
 			Expect(telem.UnmarshalSeries[uint8](result)[0]).To(Equal(uint8(0)))
 		})
 
-		It("Should write to separate channels when function with channel config is used multiple times", func() {
+		It("Should write to separate channels when function with channel config is used multiple times", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"input_1": {
 					Name: "input_1",
@@ -2656,7 +3078,7 @@ func increment{
 input_1 -> increment{counter=counter_1} -> sink_1
 input_2 -> increment{counter=counter_2} -> sink_2
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 101, DataType: telem.Uint8T},
 				channel.Digest{Key: 102, DataType: telem.Uint8T},
 				channel.Digest{Key: 201, DataType: telem.Float32T},
@@ -2664,7 +3086,7 @@ input_2 -> increment{counter=counter_2} -> sink_2
 				channel.Digest{Key: 301, DataType: telem.Uint8T},
 				channel.Digest{Key: 302, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(201, telem.NewSeriesV[float32](0.0))
@@ -2673,8 +3095,8 @@ input_2 -> increment{counter=counter_2} -> sink_2
 
 			h.SetInput("on_input_1_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
 			h.SetInput("on_input_2_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(1))
-			h.Execute("increment_0")
-			h.Execute("increment_1")
+			h.Execute(ctx, "increment_0")
+			h.Execute(ctx, "increment_1")
 
 			outFr, changed := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(changed).To(BeTrue())
@@ -2684,7 +3106,7 @@ input_2 -> increment{counter=counter_2} -> sink_2
 			Expect(telem.UnmarshalSeries[float32](outFr.Get(202).Series[0])[0]).To(Equal(float32(1.0)))
 		})
 
-		It("Should not write to channel when stateful variable initialized from channel is modified", func() {
+		It("Should not write to channel when stateful variable initialized from channel is modified", func(ctx SpecContext) {
 			resolver := symbol.MapResolver{
 				"input_ch": {
 					Name: "input_ch",
@@ -2719,19 +3141,19 @@ func count_local (trigger u8) u8 {
 
 input_ch -> count_local{} -> sink_ch
 `
-			h := newTextHarness(source, resolver,
+			h := newTextHarness(ctx, source, resolver,
 				channel.Digest{Key: 100, DataType: telem.Uint8T},
 				channel.Digest{Key: 200, DataType: telem.Float32T},
 				channel.Digest{Key: 300, DataType: telem.Uint8T},
 			)
-			defer h.Close()
+			defer h.Close(ctx)
 
 			fr := telem.Frame[uint32]{}
 			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
 			h.ChannelState().Ingest(fr)
 
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](0), telem.NewSeriesSecondsTSV(1))
-			h.Execute("count_local_0")
+			h.Execute(ctx, "count_local_0")
 
 			outFr, _ := h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(outFr.Get(200).Series).To(BeEmpty())
@@ -2740,7 +3162,7 @@ input_ch -> count_local{} -> sink_ch
 			fr = fr.Append(200, telem.NewSeriesV[float32](5.0))
 			h.ChannelState().Ingest(fr)
 			h.SetInput("on_input_ch_0", 0, telem.NewSeriesV[uint8](1), telem.NewSeriesSecondsTSV(2))
-			h.Execute("count_local_0")
+			h.Execute(ctx, "count_local_0")
 
 			outFr, _ = h.ChannelState().Flush(telem.Frame[uint32]{})
 			Expect(outFr.Get(200).Series).To(BeEmpty())
@@ -2748,7 +3170,7 @@ input_ch -> count_local{} -> sink_ch
 	})
 
 	Describe("String config params", func() {
-		It("should create and execute a node with a string config param without error", func() {
+		It("should create and execute a node with a string config param without error", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{{
 					Key:     "log_fn",
@@ -2762,9 +3184,476 @@ input_ch -> count_local{} -> sink_ch
 					Config: map[string]any{"msg": "hello"},
 				}},
 			}
-			h := newHarness(g, nil)
-			defer h.Close()
-			h.Execute("log_fn")
+			h := newHarness(ctx, g, nil)
+			defer h.Close(ctx)
+			h.Execute(ctx, "log_fn")
+		})
+	})
+
+	Describe("For Loops", func() {
+		Describe("Range loops", func() {
+			DescribeTable("should compute correct sums",
+				expectOutput[int64],
+				Entry("1-arg range", "range1", types.I64(), `{
+					sum i64 := 0
+					for i := range(5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("2-arg range", "range2", types.I64(), `{
+					sum i64 := 0
+					for i := range(5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(35)),
+				Entry("3-arg range with step", "range3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(20)),
+				Entry("empty range", "range_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("reversed bounds", "range_rev", types.I64(), `{
+					sum i64 := 99
+					for i := range(10, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("step of 3", "range_step3", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 3) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("explicit step of 1", "range_step1", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("step larger than range", "range_big_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 5, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("step equals range", "range_step_eq", types.I64(), `{
+					sum i64 := 0
+					for i := range(0, 10, 10) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(0)),
+				Entry("negative step", "range_neg_step", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -2) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(30)),
+				Entry("negative step of -1", "range_neg1", types.I64(), `{
+					sum i64 := 0
+					for i := range(10, 0, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(55)),
+				Entry("negative step with large gap", "range_neg_big", types.I64(), `{
+					sum i64 := 0
+					for i := range(20, 0, -5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(50)),
+				Entry("negative step empty", "range_neg_empty", types.I64(), `{
+					sum i64 := 99
+					for i := range(0, 10, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(99)),
+				Entry("negative start positive end", "range_neg_start", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, 5) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("both bounds negative", "range_neg_both", types.I64(), `{
+					sum i64 := 0
+					for i := range(-5, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-14)),
+				Entry("positive to negative descending", "range_pos_to_neg", types.I64(), `{
+					sum i64 := 0
+					for i := range(3, -3, -1) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(3)),
+				Entry("mixed i32 start with i64 end", "range_mixed", types.I64(), `{
+					lo i32 := 1
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(10)),
+				Entry("mixed i32 start with i64 end and i32 step", "range_3arg_mixed", types.I64(), `{
+					lo i32 := 0
+					hi i64 := 10
+					s i32 := 3
+					sum i64 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(18)),
+				Entry("mixed types with negative start", "range_mixed_neg", types.I64(), `{
+					lo i32 := -5
+					hi i64 := 5
+					sum i64 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(-5)),
+				Entry("mixed types descending with negative step", "range_mixed_desc", types.I64(), `{
+					hi i64 := 5
+					lo i32 := -5
+					s i32 := -2
+					sum i64 := 0
+					for i := range(hi, lo, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int64(5)),
+			)
+
+			It("Should handle mixed i16 start with i32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_i32", types.I32(), `{
+					lo i16 := 0
+					hi i32 := 4
+					sum i32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should handle mixed u8 start with u32 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u32", types.U32(), `{
+					lo u8 := 1
+					hi u32 := 4
+					sum u32 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint32(6))
+			})
+
+			It("Should handle u8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_only", types.U8(), `{
+					sum u8 := 0
+					for i := range(u8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint8(10))
+			})
+
+			It("Should handle i8 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_only", types.I8(), `{
+					sum i8 := 0
+					for i := range(i8(1), i8(5)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int8(10))
+			})
+
+			It("Should handle u16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u16_only", types.U16(), `{
+					sum u16 := 0
+					for i := range(u16(10)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(45))
+			})
+
+			It("Should handle i16 range bounds", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i16_only", types.I16(), `{
+					sum i16 := 0
+					for i := range(i16(1), i16(6)) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(15))
+			})
+
+			It("Should handle mixed i8 start with i16 end", func(ctx SpecContext) {
+				expectOutput(ctx, "range_i8_i16", types.I16(), `{
+					lo i8 := 0
+					hi i16 := 5
+					sum i16 := 0
+					for i := range(lo, hi) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int16(10))
+			})
+
+			It("Should handle mixed u8 start with u16 end and u8 step", func(ctx SpecContext) {
+				expectOutput(ctx, "range_u8_u16_step", types.U16(), `{
+					lo u8 := 0
+					hi u16 := 10
+					s u8 := 2
+					sum u16 := 0
+					for i := range(lo, hi, s) {
+						sum = sum + i
+					}
+					return sum
+				}`, nil, uint16(20))
+			})
+		})
+
+		Describe("Series iteration", func() {
+			It("Should sum elements with single-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_sum", types.I32(), `{
+					data series i32 := [1, 2, 3, 4, 5]
+					sum i32 := 0
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should compute weighted sum with two-ident form", func(ctx SpecContext) {
+				expectOutput(ctx, "series_weighted", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for i, x := data {
+						sum = sum + x * (i + 1)
+					}
+					return sum
+				}`, nil, int32(140))
+			})
+
+			It("Should produce zero iterations for empty series", func(ctx SpecContext) {
+				expectOutput(ctx, "series_empty", types.I32(), `{
+					data series i32 := []
+					sum i32 := 99
+					for x := data {
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(99))
+			})
+		})
+
+		Describe("Break and continue", func() {
+			It("Should break on threshold in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "break_thresh", types.I32(), `{
+					data series i32 := [1, 2, 3, 100, 5]
+					sum i32 := 0
+					for x := data {
+						if x > 50 {
+							break
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip odd indices in range loop", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_skip", types.I32(), `{
+					sum i32 := 0
+					for i := range(i32(6)) {
+						if i % 2 != 0 {
+							continue
+						}
+						sum = sum + i
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+
+			It("Should continue to skip elements in series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_series", types.I32(), `{
+					data series i32 := [10, -1, 20, -1, 30]
+					sum i32 := 0
+					for x := data {
+						if x < 0 {
+							continue
+						}
+						sum = sum + x
+					}
+					return sum
+				}`, nil, int32(60))
+			})
+
+			It("Should continue only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "cont_nested", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j == 2 {
+								continue
+							}
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int64(9))
+			})
+
+			It("Should break only the inner loop when nested", func(ctx SpecContext) {
+				expectOutput(ctx, "break_inner_only", types.I64(), `{
+					sum i64 := 0
+					for i := range(3) {
+						for j := range(10) {
+							if j >= 2 {
+								break
+							}
+							sum = sum + 1
+						}
+						sum = sum + 100
+					}
+					return sum
+				}`, nil, int64(306))
+			})
+		})
+
+		Describe("Conditional and infinite", func() {
+			It("Should execute while-style countdown", func(ctx SpecContext) {
+				expectOutput(ctx, "while_count", types.I32(), `{
+					n i32 := 5
+					sum i32 := 0
+					for n > 0 {
+						sum = sum + n
+						n = n - 1
+					}
+					return sum
+				}`, nil, int32(15))
+			})
+
+			It("Should execute infinite loop with break", func(ctx SpecContext) {
+				expectOutput(ctx, "inf_break", types.I32(), `{
+					val i32 := 1
+					for {
+						val = val * 2
+						if val > 100 {
+							break
+						}
+					}
+					return val
+				}`, nil, int32(128))
+			})
+		})
+
+		Describe("Nested loops", func() {
+			It("Should compute matrix iteration count", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_count", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(12))
+			})
+
+			It("Should handle inner break with outer running fully", func(ctx SpecContext) {
+				expectOutput(ctx, "inner_break", types.I64(), `{
+					count i64 := 0
+					for i := range(3) {
+						for j := range(4) {
+							if j > 1 {
+								break
+							}
+							count = count + 1
+						}
+					}
+					return count
+				}`, nil, int64(6))
+			})
+
+			It("Should handle 3-deep nested range loops", func(ctx SpecContext) {
+				expectOutput(ctx, "nested_3deep", types.I64(), `{
+					count i64 := 0
+					for i := range(2) {
+						for j := range(3) {
+							for k := range(4) {
+								count = count + 1
+							}
+						}
+					}
+					return count
+				}`, nil, int64(24))
+			})
+
+			It("Should nest range loop inside series iteration", func(ctx SpecContext) {
+				expectOutput(ctx, "series_range_nested", types.I32(), `{
+					data series i32 := [10, 20, 30]
+					sum i32 := 0
+					for x := data {
+						for j := range(i32(x / 10)) {
+							sum = sum + 1
+						}
+					}
+					return sum
+				}`, nil, int32(6))
+			})
+		})
+
+		Describe("Stateful across calls", func() {
+			It("Should accumulate across reactive executions", func(ctx SpecContext) {
+				g := singleFunctionGraph("loop_state", types.I64(), `{
+					total i64 $= 0
+					for i := range(3) {
+						total = total + 1
+					}
+					return total
+				}`)
+				h := newHarness(ctx, g, nil)
+				defer h.Close(ctx)
+
+				n := h.CreateNode(ctx, "loop_state")
+				nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
+
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(3)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(6)))
+
+				n.Reset()
+				n.Next(nCtx)
+				Expect(telem.UnmarshalSeries[int64](h.Output("loop_state", 0))[0]).To(Equal(int64(9)))
+			})
 		})
 	})
 })

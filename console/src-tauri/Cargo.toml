@@ -7,10 +7,10 @@ rust-version = "1.91"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-build = { version = "2.5.3", features = [] }
+tauri-build = { version = "2.5.6", features = [] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-objc2 = "0.6.3"
+objc2 = "0.6.4"
 objc2-app-kit = { version = "0.3.2", features = [
     "NSApplication",
     "NSButton",
@@ -20,24 +20,23 @@ objc2-app-kit = { version = "0.3.2", features = [
     "NSWindowController",
 ] }
 objc2-foundation = "0.3.2"
-rand = "0.9.2"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.3.7", features = ["deep-link"] }
+tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 
 [dependencies]
 device_query = "4.0.1"
 serde = "1.0.228"
 serde_json = "1.0.149"
-tauri = { version = "2.9.5", features = ["devtools"] }
+tauri = { version = "2.10.3", features = ["devtools"] }
 tauri-plugin-store = "2.4.2"
-tauri-plugin-deep-link = "2.4.6"
-tauri-plugin-fs = "2.4.5"
-tauri-plugin-shell = "2.3.4"
-tauri-plugin-updater = "2.9.0"
-tauri-plugin-dialog = "2.6.0"
+tauri-plugin-deep-link = "2.4.7"
+tauri-plugin-fs = "2.5.0"
+tauri-plugin-shell = "2.3.5"
+tauri-plugin-updater = "2.10.1"
+tauri-plugin-dialog = "2.7.0"
 tauri-plugin-process = "2.3.1"
-tauri-plugin-prevent-default = "4.0.3"
+tauri-plugin-prevent-default = "5.0.0"
 window-shadows = "0.2.2"
 
 [features]

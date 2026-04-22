@@ -9,7 +9,12 @@
 
 package testutil
 
-import "github.com/onsi/gomega"
+import (
+	"io"
+
+	"github.com/onsi/ginkgo/v2"
+	"github.com/onsi/gomega"
+)
 
 // MustSucceed is a test helper that asserts the error is nil and returns the value.
 // This is useful for unwrapping Go's value-error return pattern in test assertions.
@@ -108,4 +113,23 @@ func MustBeOkWithOffset[T any](offset int) func(value T, ok bool) T {
 		gomega.ExpectWithOffset(offset+1, ok).To(gomega.BeTrue())
 		return value
 	}
+}
+
+// MustOpen is a test helper that asserts the error is nil, registers a cleanup that
+// closes the value at the end of the current Ginkgo scope, and returns the value.
+// It collapses the common pattern of unwrapping an Open/New call and scheduling its
+// Close teardown into a single expression.
+//
+// Example:
+//
+//	otg := MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+func MustOpen[T io.Closer](v T, err error) T {
+	gomega.ExpectWithOffset(1, err).ToNot(gomega.HaveOccurred())
+	DeferClose(v)
+	return v
+}
+
+func DeferClose[T io.Closer](v T) T {
+	ginkgo.DeferCleanup(func() { gomega.Expect(v.Close()).To(gomega.Succeed()) })
+	return v
 }

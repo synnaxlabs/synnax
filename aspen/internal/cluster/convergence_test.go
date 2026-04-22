@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/rand"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 type newConvergenceVars struct {
@@ -67,7 +68,7 @@ var _ = Describe("Convergence", func() {
 			It(fmt.Sprintf("Should converge a Cluster size of %v in %v "+
 				"at an interval of %v seconds and a peer address count of %v",
 				values.clusterSize, values.convergenceThreshold,
-				values.gossipInterval, values.peerAddrCount), func() {
+				values.gossipInterval, values.peerAddrCount), func(ctx SpecContext) {
 				var (
 					clusters  []*cluster.Cluster
 					addresses []address.Address
@@ -76,7 +77,7 @@ var _ = Describe("Convergence", func() {
 					gossipT := gossipNet.UnaryServer("")
 					pledgeT := pledgeNet.UnaryServer(gossipT.Address)
 					peerAddresses := rand.SubSlice(addresses, values.peerAddrCount)
-					cluster, err := cluster.Open(
+					cluster := DeferClose(MustSucceed(cluster.Open(
 						ctx,
 						cluster.Config{
 							HostAddress: gossipT.Address,
@@ -92,10 +93,9 @@ var _ = Describe("Convergence", func() {
 								TransportClient: gossipNet.UnaryClient(),
 								Interval:        values.gossipInterval,
 							},
-							Storage: memkv.New(),
+							Storage: DeferClose(memkv.New()),
 						},
-					)
-					Expect(err).ToNot(HaveOccurred())
+					)))
 					addresses = append(addresses, gossipT.Address)
 					clusters = append(clusters, cluster)
 				}
@@ -105,9 +105,6 @@ var _ = Describe("Convergence", func() {
 				}
 				for _, c := range clusters {
 					Eventually(c.Nodes, values.convergenceThreshold).Should(HaveLen(values.clusterSize))
-				}
-				for _, c := range clusters {
-					Expect(c.Close()).To(Succeed())
 				}
 			})
 

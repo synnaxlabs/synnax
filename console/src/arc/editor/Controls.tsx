@@ -42,7 +42,6 @@ export const Controls = ({ state }: ControlsProps) => {
       name,
       key: state.key,
       text: state.text,
-      version: "0.0.0",
       graph: translateGraphToServer(state.graph),
       mode: state.mode,
       rack: selectedRack,
@@ -71,6 +70,7 @@ export const Controls = ({ state }: ControlsProps) => {
           onChange={setSelectedRack}
           allowNone
           location="top"
+          initialQuery={INITIAL_RACK_QUERY}
         />
         <Base.ConfigureButton
           onClick={handleConfigure}
@@ -85,3 +85,5 @@ export const Controls = ({ state }: ControlsProps) => {
     </Base.Frame>
   );
 };
+
+const INITIAL_RACK_QUERY: rack.RetrieveArgs = { integration: "arc" };

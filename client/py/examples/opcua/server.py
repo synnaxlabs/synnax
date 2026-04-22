@@ -173,7 +173,6 @@ async def update_floats(floats, elapsed):
     by skipping the write (using same pattern as arrays).
     """
     for idx, float_var in enumerate(floats):
-
         value = math.sin(elapsed) + idx
         if idx == ERROR_FLOAT_INDEX and random.random() < ERROR_INJECTION_RATE:
             value = inject_error([value])
@@ -300,9 +299,9 @@ async def run_server(
         command_values.append(initial_value)
 
     print("\nRead-only variables (auto-updated by server):")
-    print(f"  Arrays: my_array_0 to my_array_{ARRAY_COUNT-1}")
-    print(f"  Floats: my_float_0 to my_float_{FLOAT_COUNT-1}")
-    print(f"  Bools:  my_bool_0 to my_bool_{BOOL_COUNT-1}")
+    print(f"  Arrays: my_array_0 to my_array_{ARRAY_COUNT - 1}")
+    print(f"  Floats: my_float_0 to my_float_{FLOAT_COUNT - 1}")
+    print(f"  Bools:  my_bool_0 to my_bool_{BOOL_COUNT - 1}")
     print("\nWaiting for commands...\n")
 
     # Start monitoring task
@@ -356,6 +355,12 @@ class OPCUASim(DeviceSim):
         self.encrypted = encrypted
         self.user_manager = user_manager
         self.max_sessions = max_sessions
+
+    def start(self) -> None:
+        super().start()
+        # Allow OPCUA Server time to startup
+        # so server doesn't reject the Core for trying to connect too many times
+        sy.sleep(5)
 
     async def _run_server(self) -> None:
         await run_server(

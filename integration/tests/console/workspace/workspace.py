@@ -10,7 +10,6 @@
 import json
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
-from xpy import get_synnax_version
 
 from console.case import ConsoleCase
 from console.log import Log
@@ -18,6 +17,7 @@ from console.plot import Plot
 from console.schematic.schematic import Schematic
 from console.table import Table
 from framework.utils import get_fixture_path, get_results_path
+from x import get_synnax_version
 
 EXPECTED_PAGES = ["Metrics Plot", "Metrics Schematic", "Metrics Log", "Metrics Table"]
 
@@ -70,9 +70,9 @@ class Workspace(ConsoleCase):
         expected = f"v{get_synnax_version()}"
         displayed = self.console.layout.get_version()
         self.log(f"Version badge displays: {displayed}, expected prefix: {expected}")
-        assert displayed.startswith(
-            expected
-        ), f"Version badge '{displayed}' does not start with expected '{expected}'"
+        assert displayed.startswith(expected), (
+            f"Version badge '{displayed}' does not start with expected '{expected}'"
+        )
 
     def test_switch_workspaces_in_resources(self) -> None:
         """Test switching between workspaces by double-clicking in resources toolbar."""
@@ -96,17 +96,17 @@ class Workspace(ConsoleCase):
             old_name="WorkspaceA", new_name="RenamedWorkspace"
         )
 
-        assert self.console.workspace.exists(
-            "RenamedWorkspace"
-        ), "Workspace should be renamed in Resources Toolbar"
+        assert self.console.workspace.exists("RenamedWorkspace"), (
+            "Workspace should be renamed in Resources Toolbar"
+        )
 
         workspace_selector = self.page.get_by_role("button").filter(
             has_text="RenamedWorkspace"
         )
         workspace_selector.wait_for(state="visible", timeout=5000)
-        assert (
-            workspace_selector.is_visible()
-        ), "Workspace Selector should show renamed workspace"
+        assert workspace_selector.is_visible(), (
+            "Workspace Selector should show renamed workspace"
+        )
 
         self.console.workspace.rename(
             old_name="RenamedWorkspace", new_name="WorkspaceA"
@@ -119,9 +119,9 @@ class Workspace(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Plot.json")
         self.console.workspace.import_page(json_path, "Metrics Plot")
 
-        assert self.console.workspace.page_exists(
-            "Metrics Plot"
-        ), "Imported line plot should appear in workspace resources"
+        assert self.console.workspace.page_exists("Metrics Plot"), (
+            "Imported line plot should appear in workspace resources"
+        )
 
         plot = Plot.from_open_page(self.console.layout, self.client, "Metrics Plot")
         labels = plot.get_line_labels()
@@ -139,23 +139,23 @@ class Workspace(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Schematic.json")
         self.console.workspace.import_page(json_path, "Metrics Schematic")
 
-        assert self.console.workspace.page_exists(
-            "Metrics Schematic"
-        ), "Imported schematic should appear in workspace resources"
+        assert self.console.workspace.page_exists("Metrics Schematic"), (
+            "Imported schematic should appear in workspace resources"
+        )
 
         schematic = Schematic.from_open_page(
             self.console.layout, self.client, "Metrics Schematic"
         )
-        assert (
-            schematic.get_symbol_count() == 2
-        ), "Imported schematic should have 2 gauge symbols"
+        assert schematic.get_symbol_count() == 2, (
+            "Imported schematic should have 2 gauge symbols"
+        )
         props = schematic.get_properties()
-        assert (
-            props["control_authority"] == 134
-        ), f"Expected control_authority 134, got {props['control_authority']}"
-        assert (
-            props["show_control_legend"] is False
-        ), "Expected show_control_legend to be False"
+        assert props["control_authority"] == 134, (
+            f"Expected control_authority 134, got {props['control_authority']}"
+        )
+        assert props["show_control_legend"] is False, (
+            "Expected show_control_legend to be False"
+        )
 
         self.console.layout.close_tab("Metrics Schematic")
 
@@ -165,14 +165,14 @@ class Workspace(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Log.json")
         self.console.workspace.import_page(json_path, "Metrics Log")
 
-        assert self.console.workspace.page_exists(
-            "Metrics Log"
-        ), "Imported log should appear in workspace resources"
+        assert self.console.workspace.page_exists("Metrics Log"), (
+            "Imported log should appear in workspace resources"
+        )
 
         log = Log.from_open_page(self.console.layout, self.client, "Metrics Log")
-        assert log.has_channel(
-            "sy_node_1_metrics_cpu_percentage"
-        ), "Imported log should have sy_node_1_metrics_cpu_percentage channel"
+        assert log.has_channel("sy_node_1_metrics_cpu_percentage"), (
+            "Imported log should have sy_node_1_metrics_cpu_percentage channel"
+        )
 
         self.console.layout.close_tab("Metrics Log")
 
@@ -182,25 +182,25 @@ class Workspace(ConsoleCase):
         json_path = get_fixture_path("ImportSpace/Metrics Table.json")
         self.console.workspace.import_page(json_path, "Metrics Table")
 
-        assert self.console.workspace.page_exists(
-            "Metrics Table"
-        ), "Imported table should appear in workspace resources"
+        assert self.console.workspace.page_exists("Metrics Table"), (
+            "Imported table should appear in workspace resources"
+        )
 
         table = Table.from_open_page(self.console.layout, self.client, "Metrics Table")
-        assert (
-            table.get_row_count() == 2
-        ), f"Expected 2 rows, got {table.get_row_count()}"
-        assert (
-            table.get_column_count() == 2
-        ), f"Expected 2 columns, got {table.get_column_count()}"
+        assert table.get_row_count() == 2, (
+            f"Expected 2 rows, got {table.get_row_count()}"
+        )
+        assert table.get_column_count() == 2, (
+            f"Expected 2 columns, got {table.get_column_count()}"
+        )
         assert table.has_text("CPU %", 0, 0), "Cell [0,0] should have text 'CPU %'"
         assert table.has_text("Mem %", 0, 1), "Cell [0,1] should have text 'Mem %'"
-        assert table.has_channel(
-            "sy_node_1_metrics_cpu_percentage", 1, 0
-        ), "Cell [1,0] should have sy_node_1_metrics_cpu_percentage"
-        assert table.has_channel(
-            "sy_node_1_metrics_mem_percentage", 1, 1
-        ), "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
+        assert table.has_channel("sy_node_1_metrics_cpu_percentage", 1, 0), (
+            "Cell [1,0] should have sy_node_1_metrics_cpu_percentage"
+        )
+        assert table.has_channel("sy_node_1_metrics_mem_percentage", 1, 1), (
+            "Cell [1,1] should have sy_node_1_metrics_mem_percentage"
+        )
 
         self.console.layout.close_tab("Metrics Table")
 
@@ -230,9 +230,9 @@ class Workspace(ConsoleCase):
         }
         for page_name, page_type in expected.items():
             assert page_name in layouts, f"Export should contain layout '{page_name}'"
-            assert (
-                page_type in component_types
-            ), f"Export should contain {page_type} component"
+            assert page_type in component_types, (
+                f"Export should contain {page_type} component"
+            )
 
     def test_import_workspace(self) -> None:
         """Test importing a workspace via command palette."""
@@ -265,9 +265,9 @@ class Workspace(ConsoleCase):
         self.page.get_by_role("button", name="No workspace").wait_for(
             state="visible", timeout=5000
         )
-        assert self.page.get_by_role(
-            "button", name="No workspace"
-        ).is_visible(), "No workspace should be active after clearing"
+        assert self.page.get_by_role("button", name="No workspace").is_visible(), (
+            "No workspace should be active after clearing"
+        )
 
         self.console.layout.close_left_toolbar()
 

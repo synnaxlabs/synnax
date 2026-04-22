@@ -21,6 +21,7 @@
 #include "arc/cpp/stl/channel/state.h"
 #include "arc/cpp/stl/stl.h"
 #include "arc/cpp/stl/str/state.h"
+#include "arc/cpp/types/types.h"
 
 namespace arc::stl::channel {
 
@@ -77,7 +78,7 @@ public:
                 std::move(time_series)
             );
             this->high_water_mark = ::x::telem::Alignment(upper_val + 1);
-            ctx.mark_changed(ir::default_output_param);
+            ctx.mark_changed(0);
             return x::errors::NIL;
         }
         return x::errors::NIL;
@@ -95,8 +96,8 @@ public:
             this->high_water_mark = upper;
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return this->state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 };
 
@@ -109,7 +110,7 @@ public:
     Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
         state(std::move(state)), channel_key(channel_key) {}
 
-    x::errors::Error next(runtime::node::Context & /*ctx*/) override {
+    x::errors::Error next(runtime::node::Context &ctx) override {
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(0);
         if (data->empty()) return x::errors::NIL;
@@ -122,11 +123,22 @@ public:
             )
         );
         this->state.write_series(this->channel_key, data, time);
+        auto &out = this->state.output(0);
+        out->resize(1);
+        out->set(0, static_cast<uint8_t>(1));
+        out->alignment = data->alignment;
+        out->time_range = data->time_range;
+        auto &out_time = this->state.output_time(0);
+        out_time->resize(1);
+        out_time->set(0, time->at<int64_t>(time->size() - 1));
+        out_time->alignment = data->alignment;
+        out_time->time_range = data->time_range;
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return this->state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 };
 
@@ -145,7 +157,18 @@ public:
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
         if (!this->handles(cfg.node.type)) return {nullptr, x::errors::NOT_FOUND};
-        auto channel_key = cfg.node.config["channel"].get<types::ChannelKey>();
+        const auto &ch_param = cfg.node.config["channel"];
+        auto ch_sv = types::to_sample_value(ch_param.value, ch_param.type);
+        if (!ch_sv.has_value())
+            return {
+                nullptr,
+                x::errors::Error(
+                    x::errors::VALIDATION,
+                    std::string(cfg.node.type) +
+                        " node missing required channel parameter"
+                )
+            };
+        auto channel_key = x::telem::cast<types::ChannelKey>(*ch_sv);
         if (cfg.node.type == "on")
             return {
                 std::make_unique<On>(std::move(cfg.state), channel_key),

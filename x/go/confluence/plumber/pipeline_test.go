@@ -20,6 +20,7 @@ import (
 	. "github.com/synnaxlabs/x/confluence/plumber"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Pipeline", func() {
@@ -28,17 +29,15 @@ var _ = Describe("Pipeline", func() {
 	Describe("Basic Usage", func() {
 		It("Should set and get a source", func() {
 			emitter := &confluence.Emitter[int]{}
-			SetSource[int](pipe, "source", emitter)
-			source, err := GetSource[int](pipe, "source")
-			Expect(err).ToNot(HaveOccurred())
+			SetSource(pipe, "source", emitter)
+			source := MustSucceed(GetSource[int](pipe, "source"))
 			Expect(source).To(Equal(emitter))
 		})
 
 		It("Should set and get a sink", func() {
 			unarySink := &confluence.UnarySink[int]{}
-			SetSink[int](pipe, "sink", unarySink)
-			sink, err := GetSink[int](pipe, "sink")
-			Expect(err).ToNot(HaveOccurred())
+			SetSink(pipe, "sink", unarySink)
+			sink := MustSucceed(GetSink[int](pipe, "sink"))
 			Expect(sink).To(Equal(unarySink))
 		})
 

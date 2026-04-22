@@ -11,11 +11,14 @@
 
 import { lib } from "@synnaxlabs/vite-plugin";
 import path from "path";
-import { defineConfig } from "vite";
+import { defineConfig, esmExternalRequirePlugin } from "vite";
 
 export default defineConfig({
   base: "/drift/",
-  plugins: [lib({ name: "drift" })],
+  plugins: [
+    esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
+    lib({ name: "drift" }),
+  ],
   build: {
     lib: {
       entry: {
@@ -24,13 +27,12 @@ export default defineConfig({
         tauri: path.resolve(".", "src/tauri/index.ts"),
       },
     },
-    rollupOptions: {
+    rolldownOptions: {
       external: [
         "react",
         "react-dom",
         "react-redux",
         "@reduxjs/toolkit",
-        "proxy-memoize",
         "@tauri-apps/api",
       ],
       output: {
@@ -38,5 +40,13 @@ export default defineConfig({
       },
     },
   },
-  test: { globals: true, environment: "jsdom" },
+  test: {
+    globals: true,
+    environment: "jsdom",
+    exclude: ["**/node_modules/**", "**/dist/**"],
+    coverage: {
+      include: ["src/**/*.ts", "src/**/*.tsx"],
+      exclude: ["src/**/*.spec.ts", "src/**/*.spec.tsx", "src/**/*.bench.ts"],
+    },
+  },
 });

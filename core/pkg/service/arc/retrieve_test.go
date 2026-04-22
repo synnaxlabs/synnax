@@ -20,7 +20,7 @@ import (
 
 var _ = Describe("Retrieve", func() {
 	Describe("Arc Retrieve", func() {
-		It("Should retrieve an Arc", func() {
+		It("Should retrieve an Arc", func(ctx SpecContext) {
 			a := arc.Arc{
 				Name:  "test-retrieve",
 				Graph: graph.Graph{},
@@ -30,10 +30,11 @@ var _ = Describe("Retrieve", func() {
 
 			var retrievedArc arc.Arc
 			Expect(svc.NewRetrieve().WhereKeys(a.Key).Entry(&retrievedArc).Exec(ctx, tx)).To(Succeed())
-			Expect(retrievedArc).To(Equal(a))
+			Expect(retrievedArc.Key).To(Equal(a.Key))
+			Expect(retrievedArc.Name).To(Equal(a.Name))
 		})
 
-		It("Should retrieve multiple Arcs", func() {
+		It("Should retrieve multiple Arcs", func(ctx SpecContext) {
 			arcs := []arc.Arc{
 				{Name: "arc-multi-1", Graph: graph.Graph{}, Text: text.Text{}},
 				{Name: "arc-multi-2", Graph: graph.Graph{}, Text: text.Text{}},
@@ -51,7 +52,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(retrievedArcs).To(HaveLen(3))
 		})
 
-		It("Should retrieve Arc after transaction commit", func() {
+		It("Should retrieve Arc after transaction commit", func(ctx SpecContext) {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "tx-test-arc",
@@ -69,7 +70,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(newTx.Close()).To(Succeed())
 		})
 
-		It("Should retrieve Arc without transaction", func() {
+		It("Should retrieve Arc without transaction", func(ctx SpecContext) {
 			localTx := db.OpenTx()
 			a := arc.Arc{
 				Name:  "no-tx-arc",

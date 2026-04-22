@@ -17,6 +17,7 @@ import { OPC } from "@/hardware/opc";
 import { type Layout } from "@/layout";
 import { type Palette } from "@/palette";
 
+export * from "@/hardware/device/link";
 export * from "@/hardware/device/notifications";
 export * from "@/hardware/device/ontology";
 export * from "@/hardware/device/Toolbar";

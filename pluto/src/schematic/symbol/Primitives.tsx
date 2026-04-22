@@ -16,6 +16,7 @@ import {
   direction,
   type location,
   type optional,
+  TimeSpan,
   xy,
 } from "@synnaxlabs/x";
 import {
@@ -219,6 +220,7 @@ interface ToggleProps extends Omit<ComponentPropsWithRef<"button">, "color" | "v
   triggered?: boolean;
   enabled?: boolean;
   color?: color.Crude;
+  onClickDelay?: number | TimeSpan;
 }
 
 interface ToggleValveButtonProps extends ToggleProps, OrientableProps {}
@@ -229,21 +231,63 @@ const Toggle = ({
   triggered = false,
   orientation = "left",
   color: colorVal,
+  onClickDelay = 0,
+  onClick,
+  onMouseDown,
+  style,
   ...rest
-}: ToggleValveButtonProps): ReactElement => (
-  <button
-    className={CSS(
-      CSS.B("symbol-primitive"),
-      CSS.B("symbol-primitive-toggle"),
-      orientation != null && CSS.loc(orientation),
-      enabled && CSS.M("enabled"),
-      triggered && CSS.M("triggered"),
-      className,
-    )}
-    color={color.cssString(colorVal)}
-    {...rest}
-  />
-);
+}: ToggleValveButtonProps): ReactElement => {
+  const parsedDelay = TimeSpan.fromMilliseconds(onClickDelay);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleClick: MouseEventHandler<HTMLButtonElement> = (e) => {
+    if (parsedDelay.isZero) onClick?.(e);
+  };
+
+  const handleMouseDown: MouseEventHandler<HTMLButtonElement> = (e) => {
+    onMouseDown?.(e);
+    if (parsedDelay.isZero) return;
+    document.addEventListener(
+      "mouseup",
+      () => {
+        if (timeoutRef.current != null) clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      },
+      { once: true },
+    );
+    timeoutRef.current = setTimeout(() => {
+      onClick?.(e);
+      timeoutRef.current = null;
+    }, parsedDelay.milliseconds);
+  };
+
+  const pStyle = useMemo(() => {
+    if (parsedDelay.isZero) return style;
+    return {
+      ...style,
+      [CSS.var("toggle-delay")]: `${parsedDelay.seconds.toString()}s`,
+    };
+  }, [parsedDelay.milliseconds, style]);
+
+  return (
+    <button
+      className={CSS(
+        CSS.B("symbol-primitive"),
+        CSS.B("symbol-primitive-toggle"),
+        !parsedDelay.isZero && CSS.BM("symbol-primitive-toggle", "delayed"),
+        orientation != null && CSS.loc(orientation),
+        enabled && CSS.M("enabled"),
+        triggered && CSS.M("triggered"),
+        className,
+      )}
+      color={color.cssString(colorVal)}
+      onClick={handleClick}
+      onMouseDown={handleMouseDown}
+      style={pStyle}
+      {...rest}
+    />
+  );
+};
 
 interface DivProps
   extends Omit<ComponentPropsWithRef<"div">, "color" | "onResize">, OrientableProps {}
@@ -2068,6 +2112,18 @@ export const TextBox = ({
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
       {...rest}
     >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </HandleBoundary>
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}

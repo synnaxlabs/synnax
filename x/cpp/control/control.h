@@ -11,19 +11,17 @@
 
 #include <string>
 
-#include "x/go/control/x/go/control/control.pb.h"
+#include "x/cpp/control/proto.gen.h"
+#include "x/cpp/control/types.gen.h"
 
 namespace x::control {
-using Authority = std::uint8_t;
 constexpr Authority AUTHORITY_ABSOLUTE = 255;
 
-struct Subject {
-    std::string name;
-    std::string key;
+inline bool operator==(const Subject &a, const Subject &b) {
+    return a.key == b.key;
+}
 
-    void to_proto(::control::ControlSubject *s) const {
-        s->set_name(name);
-        s->set_key(key);
-    }
-};
+inline bool operator!=(const Subject &a, const Subject &b) {
+    return !(a == b);
+}
 }

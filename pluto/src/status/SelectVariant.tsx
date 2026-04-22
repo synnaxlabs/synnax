@@ -10,37 +10,14 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Select as Base } from "@/select";
-import { Indicator } from "@/status/base/Indicator";
-
-const DATA: Base.StaticEntry<status.Variant>[] = [
-  {
-    key: "success",
-    name: "Success",
-    icon: <Indicator variant="success" />,
-  },
-  {
-    key: "error",
-    name: "Error",
-    icon: <Indicator variant="error" />,
-  },
-  {
-    key: "warning",
-    name: "Warning",
-    icon: <Indicator variant="warning" />,
-  },
-  {
-    key: "info",
-    name: "Info",
-    icon: <Indicator variant="info" />,
-  },
-];
+import { Select } from "@/select";
+import { VARIANT_DATA } from "@/status/variantData";
 
 export interface SelectVariantProps extends Omit<
-  Base.StaticProps<status.Variant>,
+  Select.StaticProps<status.Variant>,
   "data" | "resourceName"
 > {}
 
 export const SelectVariant = (props: SelectVariantProps): ReactElement => (
-  <Base.Static {...props} data={DATA} resourceName="status variant" />
+  <Select.Static {...props} data={VARIANT_DATA} resourceName="variant" />
 );

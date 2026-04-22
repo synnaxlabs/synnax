@@ -12,19 +12,20 @@ package resolution
 import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 type Table struct {
-	Imports    map[string]bool
-	Namespaces map[string]bool
+	Imports    set.Set[string]
+	Namespaces set.Set[string]
 	Types      []Type
 }
 
 func NewTable() *Table {
 	t := &Table{
 		Types:      make([]Type, 0),
-		Imports:    make(map[string]bool),
-		Namespaces: make(map[string]bool),
+		Imports:    make(set.Set[string]),
+		Namespaces: make(set.Set[string]),
 	}
 	t.registerBuiltins()
 	return t
@@ -36,7 +37,7 @@ func (t *Table) registerBuiltins() {
 		"uint8", "uint12", "uint16", "uint20", "uint32", "uint64",
 		"float32", "float64",
 		"bool", "string", "uuid",
-		"json", "bytes", "color", "any",
+		"record", "bytes", "color", "any",
 	}
 	for _, name := range primitives {
 		t.Types = append(t.Types, Type{
@@ -130,9 +131,9 @@ func (t *Table) DistinctTypes() []Type {
 	})
 }
 
-func (t *Table) MarkImported(path string) { t.Imports[path] = true }
+func (t *Table) MarkImported(path string) { t.Imports.Add(path) }
 
-func (t *Table) IsImported(path string) bool { return t.Imports[path] }
+func (t *Table) IsImported(path string) bool { return t.Imports.Contains(path) }
 
 func (t *Table) EnumsInNamespace(ns string) []Type {
 	return lo.Filter(t.Types, func(typ Type, _ int) bool {
@@ -149,9 +150,9 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 		return types
 	}
 
-	inSet := make(map[string]bool, len(types))
+	inSet := make(set.Set[string], len(types))
 	for _, typ := range types {
-		inSet[typ.QualifiedName] = true
+		inSet.Add(typ.QualifiedName)
 	}
 
 	dependencies := make(map[string][]string, len(types))
@@ -159,7 +160,7 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 		deps := t.collectDependencies(typ)
 		var filteredDeps []string
 		for _, dep := range deps {
-			if inSet[dep] && dep != typ.QualifiedName {
+			if inSet.Contains(dep) && dep != typ.QualifiedName {
 				filteredDeps = append(filteredDeps, dep)
 			}
 		}
@@ -206,10 +207,10 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 	}
 
 	result := make([]Type, 0, len(types))
-	sortedSet := make(map[string]bool, len(sorted))
+	sortedSet := make(set.Set[string], len(sorted))
 	for _, qname := range sorted {
 		result = append(result, typeMap[qname])
-		sortedSet[qname] = true
+		sortedSet.Add(qname)
 	}
 
 	// If there was a cycle, append remaining types in their original order.
@@ -217,7 +218,7 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 	// are appended at the end in declaration order.
 	if len(sorted) != len(types) {
 		for _, typ := range types {
-			if !sortedSet[typ.QualifiedName] {
+			if !sortedSet.Contains(typ.QualifiedName) {
 				result = append(result, typ)
 			}
 		}
@@ -228,7 +229,7 @@ func (t *Table) TopologicalSort(types []Type) []Type {
 
 func (t *Table) collectDependencies(typ Type) []string {
 	var deps []string
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 
 	var addDep func(ref TypeRef)
 	addDep = func(ref TypeRef) {
@@ -249,8 +250,8 @@ func (t *Table) collectDependencies(typ Type) []string {
 			resolved, ok = t.Lookup(typ.Namespace, ref.Name)
 		}
 		if ok {
-			if !seen[resolved.QualifiedName] {
-				seen[resolved.QualifiedName] = true
+			if !seen.Contains(resolved.QualifiedName) {
+				seen.Add(resolved.QualifiedName)
 				deps = append(deps, resolved.QualifiedName)
 			}
 		}

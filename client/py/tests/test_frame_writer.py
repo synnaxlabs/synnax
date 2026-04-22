@@ -14,8 +14,8 @@ import pandas as pd
 import pytest
 
 import synnax as sy
-from synnax.util.random import random_name
-from tests.telem import seconds_linspace
+from x.strings import random_name
+from x.telem import seconds_linspace
 
 
 @pytest.mark.framer
@@ -434,8 +434,115 @@ class TestWriter:
         w.close()
         w.close()
 
-    # def test_writer_close_error(
-    #     self,
-    #     indexed_pair: list[sy.Channel],
-    #     client: sy.Synnax
-    # ):
+    def test_write_string_channel(self, client: sy.Synnax):
+        """Should write and read persisted string data"""
+        idx = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            index=idx.key,
+            data_type=sy.DataType.STRING,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND,
+            channels=[idx.key, data.key],
+        ) as w:
+            w.write(
+                {
+                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    data.key: ["hello", "world"],
+                }
+            )
+            w.commit()
+        f = client.read(sy.TimeRange.MAX, data.key)
+        assert list(f) == ["hello", "world"]
+
+    def test_write_json_channel(self, client: sy.Synnax):
+        """Should write and read persisted JSON data"""
+        idx = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            index=idx.key,
+            data_type=sy.DataType.JSON,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND,
+            channels=[idx.key, data.key],
+        ) as w:
+            w.write(
+                {
+                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    data.key: [{"key": "value"}, {"num": 42}],
+                }
+            )
+            w.commit()
+        f = client.read(sy.TimeRange.MAX, data.key)
+        assert len(f) == 2
+        assert f[0] == {"key": "value"}
+        assert f[1] == {"num": 42}
+
+    def test_write_mixed_fixed_and_variable(self, client: sy.Synnax):
+        """Should write fixed and variable channels sharing an index"""
+        idx = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        float_ch = client.channels.create(
+            name=random_name(),
+            index=idx.key,
+            data_type=sy.DataType.FLOAT64,
+        )
+        str_ch = client.channels.create(
+            name=random_name(),
+            index=idx.key,
+            data_type=sy.DataType.STRING,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND,
+            channels=[idx.key, float_ch.key, str_ch.key],
+        ) as w:
+            w.write(
+                {
+                    idx.key: seconds_linspace(1, 3),
+                    float_ch.key: np.array([1.1, 2.2, 3.3], dtype=np.float64),
+                    str_ch.key: ["a", "b", "c"],
+                }
+            )
+            w.commit()
+        f = client.read(sy.TimeRange.MAX, [float_ch.key, str_ch.key])
+        assert len(f[float_ch.key]) == 3
+        assert list(f[str_ch.key]) == ["a", "b", "c"]
+
+    def test_write_string_with_newlines(self, client: sy.Synnax):
+        """Should persist strings containing newlines correctly"""
+        idx = client.channels.create(
+            name=random_name(),
+            is_index=True,
+            data_type=sy.DataType.TIMESTAMP,
+        )
+        data = client.channels.create(
+            name=random_name(),
+            index=idx.key,
+            data_type=sy.DataType.STRING,
+        )
+        with client.open_writer(
+            start=1 * sy.TimeSpan.SECOND,
+            channels=[idx.key, data.key],
+        ) as w:
+            w.write(
+                {
+                    idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+                    data.key: ["line1\nline2", "no newline"],
+                }
+            )
+            w.commit()
+        f = client.read(sy.TimeRange.MAX, data.key)
+        assert list(f) == ["line1\nline2", "no newline"]

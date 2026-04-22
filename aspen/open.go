@@ -15,17 +15,14 @@ package aspen
 
 import (
 	"context"
-	"io"
 
 	"github.com/cockroachdb/pebble/v2"
 	"github.com/synnaxlabs/aspen/internal/cluster"
 	"github.com/synnaxlabs/aspen/internal/kv"
-	"github.com/synnaxlabs/freighter/alamos"
 	"github.com/synnaxlabs/x/address"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/pebblekv"
 	"github.com/synnaxlabs/x/service"
-	"github.com/synnaxlabs/x/signal"
 )
 
 func Open(
@@ -43,14 +40,21 @@ func Open(
 	defer func() {
 		err = cleanup(err)
 	}()
+	// Register the owned grpc client pool first so it closes LAST. The
+	// transport (added below) and any cluster goroutines that hold it must
+	// stop using the pool before pool.Close runs.
+	if o.transport.ownedPool != nil {
+		if !ok(nil, o.transport.ownedPool) {
+			return nil, ctx.Err()
+		}
+	}
 	if o.kv.Engine == nil {
 		if o.kv.Engine, err = openKV(o); !ok(err, o.kv.Engine) {
 			return nil, err
 		}
 	}
 	o.cluster.Storage = o.kv.Engine
-	var transportCloser io.Closer
-	if transportCloser, err = configureTransport(ctx, o); !ok(err, transportCloser) {
+	if err = configureTransport(o); !ok(err, nil) {
 		return nil, err
 	}
 	if db.Cluster, err = cluster.Open(ctx, o.cluster); !ok(err, db.Cluster) {
@@ -60,24 +64,19 @@ func Open(
 	if db.DB, err = kv.Open(ctx, o.kv); !ok(err, db.DB) {
 		return nil, err
 	}
+	if err = o.transport.Serve(); !ok(err, o.transport) {
+		return nil, err
+	}
 
 	return db, err
 }
 
-func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
-	sCtx, cancel := signal.WithCancel(
-		o.T.Transfer(ctx, context.Background()),
-		signal.WithInstrumentation(o.Instrumentation),
-	)
-	transportShutdown := signal.NewHardShutdown(sCtx, cancel)
-	if err := o.transport.Configure(sCtx, o.addr, o.transport.external); err != nil {
-		return transportShutdown, err
+func configureTransport(o *options) error {
+	if err := o.transport.Configure(
+		o.addr, o.Instrumentation, o.transport.external,
+	); err != nil {
+		return err
 	}
-	mw, err := alamos.Middleware(alamos.Config{Instrumentation: o.Instrumentation})
-	if err != nil {
-		return transportShutdown, err
-	}
-	o.transport.Use(mw)
 	o.cluster.Gossip.TransportClient = o.transport.GossipClient()
 	o.cluster.Gossip.TransportServer = o.transport.GossipServer()
 	o.cluster.Pledge.TransportClient = o.transport.PledgeClient()
@@ -90,7 +89,7 @@ func configureTransport(ctx context.Context, o *options) (io.Closer, error) {
 	o.kv.FeedbackTransportClient = o.transport.FeedbackClient()
 	o.kv.RecoveryTransportServer = o.transport.RecoveryServer()
 	o.kv.RecoveryTransportClient = o.transport.RecoveryClient()
-	return transportShutdown, nil
+	return nil
 }
 
 func openKV(o *options) (xkv.DB, error) {

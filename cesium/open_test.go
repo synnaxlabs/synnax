@@ -23,8 +23,8 @@ import (
 
 var _ = Describe("Open", func() {
 	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				fs      fs.FS
 				cleanUp func() error
@@ -36,30 +36,31 @@ var _ = Describe("Open", func() {
 				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Opening db on existing folder", func() {
-				It("Should not panic when opening a db in a directory with already existing files", func() {
+				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub"))
 					MustSucceed(s.Sub("1234notnumeric"))
 					f := MustSucceed(s.Open("123.txt", os.O_CREATE))
 					Expect(f.Close()).To(Succeed())
 
-					db := openDBOnFS(s)
+					db := openDBOnFS(ctx, s)
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should error when numeric folders do not have meta.json file", func() {
+				It("Should error when numeric folders do not have meta.json file", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub"))
-					_, err := s.Sub("1")
-					Expect(err).ToNot(HaveOccurred())
+					MustSucceed(s.Sub("1"))
 
-					db, err := cesium.Open(ctx, "", cesium.WithFS(s), cesium.WithInstrumentation(PanicLogger()))
-					Expect(db).To(BeNil())
-					Expect(err).To(HaveOccurred())
-					Expect(err.Error()).To(ContainSubstring("required"))
+					Expect(cesium.Open(
+						ctx,
+						"",
+						cesium.WithFS(s),
+						cesium.WithInstrumentation(PanicLogger()),
+					)).Error().To(MatchError(ContainSubstring("required")))
 				})
 
-				It("Should not error when db gets created with proper numeric folders", func() {
+				It("Should not error when db gets created with proper numeric folders", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub0"))
-					db := openDBOnFS(s)
+					db := openDBOnFS(ctx, s)
 					key := GenerateChannelKey()
 
 					Expect(db.CreateChannel(ctx, cesium.Channel{
@@ -70,9 +71,8 @@ var _ = Describe("Open", func() {
 					})).To(Succeed())
 					Expect(db.Close()).To(Succeed())
 
-					db = openDBOnFS(s)
-					ch, err := db.RetrieveChannel(ctx, key)
-					Expect(err).ToNot(HaveOccurred())
+					db = openDBOnFS(ctx, s)
+					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 
 					Expect(ch.Key).To(Equal(key))
 					Expect(ch.IsIndex).To(BeTrue())
@@ -87,9 +87,9 @@ var _ = Describe("Open", func() {
 					Expect(db.Close()).To(Succeed())
 				})
 
-				It("Should not error when db is opened on existing directory", func() {
+				It("Should not error when db is opened on existing directory", func(ctx SpecContext) {
 					s := MustSucceed(fs.Sub("sub3"))
-					db := openDBOnFS(s)
+					db := openDBOnFS(ctx, s)
 					indexKey := GenerateChannelKey()
 					key := GenerateChannelKey()
 
@@ -115,7 +115,7 @@ var _ = Describe("Open", func() {
 					Expect(db.Close()).To(Succeed())
 
 					By("Reopening the db on the file system with existing data")
-					db = openDBOnFS(s)
+					db = openDBOnFS(ctx, s)
 					ch := MustSucceed(db.RetrieveChannel(ctx, key))
 					Expect(ch).ToNot(BeNil())
 					Expect(ch.Key).To(Equal(key))

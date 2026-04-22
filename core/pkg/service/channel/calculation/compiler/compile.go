@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -63,10 +64,18 @@ const (
 // PreProcess compiles the channel's expression to discover channel references
 // and infer output types without building the full execution graph.
 func PreProcess(ctx context.Context, cfg Config) (arc.Program, error) {
-	outputDataType := types.FromTelem(cfg.Channel.DataType)
+	ana := analyzer.New(cfg.SymbolResolver)
+	result, err := ana.Analyze(ctx, cfg.Channel)
+	if err != nil {
+		return arc.Program{}, err
+	}
+	dt := result.ExpressionReturnType
+	if cfg.Channel.DataType != result.ChanDataType {
+		dt = types.FromTelem(cfg.Channel.DataType)
+	}
 	fn := ir.Function{
 		Key:     calculationKey,
-		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: outputDataType}},
+		Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: dt}},
 		Body:    ir.Body{Raw: fmt.Sprintf("{%s}", cfg.Channel.Expression)},
 	}
 	g := arc.Graph{Functions: ir.Functions{fn}}
@@ -128,7 +137,7 @@ func Compile(ctx context.Context, cfgs ...Config) (Module, error) {
 			nextKey := fmt.Sprintf("op_%d", i+1)
 			g.Nodes = append(g.Nodes, graph.Node{
 				Key:  fmt.Sprintf("op_%d", i),
-				Type: o.Type,
+				Type: string(o.Type),
 				Config: map[string]any{
 					"duration": o.Duration,
 				},

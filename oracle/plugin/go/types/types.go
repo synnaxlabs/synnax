@@ -33,13 +33,6 @@ import (
 
 const goModulePrefix = "github.com/synnaxlabs/synnax/"
 
-func toPascalCase(s string) string {
-	if naming.IsScreamingCase(s) {
-		return s
-	}
-	return lo.PascalCase(s)
-}
-
 // primitiveMapper is the Go-specific primitive type mapper.
 var primitiveMapper = goprimitives.Mapper()
 
@@ -76,7 +69,7 @@ func (p *Plugin) Check(*plugin.Request) error { return nil }
 
 var goPostWriter = &exec.PostWriter{
 	Extensions: []string{".go"},
-	Commands:   [][]string{{"gofmt", "-w"}},
+	Commands:   [][]string{{"gofmt", "-s", "-w"}},
 }
 
 // PostWrite runs gofmt on all generated Go files.
@@ -101,20 +94,25 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 type goFileGenerator struct{}
 
 func (g *goFileGenerator) GenerateFile(ctx *framework.GenerateContext) (string, error) {
-	content, err := generateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
+	content, err := GenerateGoFile(ctx.OutputPath, ctx.Structs, ctx.Enums, ctx.TypeDefs, ctx.Table, ctx.RepoRoot)
 	if err != nil {
 		return "", err
 	}
 	return string(content), nil
 }
 
-func generateGoFile(
+// GenerateGoFile generates a Go types file for the given structs, enums, and
+// type definitions at the specified output path. Exported for use by the
+// migrate plugin to generate frozen type definitions. ImportOverrides maps
+// original import paths to replacements (nil for normal operation).
+func GenerateGoFile(
 	outputPath string,
 	structs []resolution.Type,
 	enums []resolution.Type,
 	typeDefs []resolution.Type,
 	table *resolution.Table,
 	repoRoot string,
+	importOverrides ...map[string]string,
 ) ([]byte, error) {
 	namespace := ""
 	if len(structs) > 0 {
@@ -189,11 +187,12 @@ func resolveGoImportPath(outputPath, repoRoot string) string {
 }
 
 func processEnum(e resolution.Type) enumData {
+	name := naming.GetGoName(e)
 	form := e.Form.(resolution.EnumForm)
 	values := make([]enumValueData, 0, len(form.Values))
 	for _, v := range form.Values {
 		values = append(values, enumValueData{
-			Name:     toPascalCase(v.Name),
+			Name:     naming.ToPascalCase(v.Name),
 			Value:    v.StringValue(),
 			IntValue: v.IntValue(),
 		})
@@ -208,7 +207,8 @@ func processEnum(e resolution.Type) enumData {
 		}
 	}
 	return enumData{
-		Name:        e.Name,
+		Name:        name,
+		Doc:         doc.Get(e.Domains),
 		Values:      values,
 		IsIntEnum:   form.IsIntEnum,
 		StartsAtOne: startsAtOne,
@@ -216,22 +216,17 @@ func processEnum(e resolution.Type) enumData {
 }
 
 func processTypeDef(td resolution.Type, data *templateData) typeDefData {
-	name := getGoName(td)
-	if name == "" {
-		name = td.Name
-	}
+	name := naming.GetGoName(td)
 
 	switch form := td.Form.(type) {
 	case resolution.DistinctForm:
 		result := typeDefData{
 			Name:     name,
+			Doc:      doc.Get(td.Domains),
 			BaseType: data.resolver.ResolveTypeRef(form.Base, data.ctx),
 			IsAlias:  false,
 		}
-		for _, tp := range form.TypeParams {
-			if tp.HasDefault() {
-				continue
-			}
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
 		result.IsGeneric = len(result.TypeParams) > 0
@@ -240,12 +235,7 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		targetRef := form.Target
 		if targetResolved, ok := targetRef.Resolve(data.table); ok {
 			if targetForm, ok := targetResolved.Form.(resolution.StructForm); ok {
-				var nonDefaultedParams []resolution.TypeParam
-				for _, tp := range targetForm.TypeParams {
-					if !tp.HasDefault() {
-						nonDefaultedParams = append(nonDefaultedParams, tp)
-					}
-				}
+				nonDefaultedParams := resolution.NonDefaultedTypeParams(targetForm.TypeParams)
 				providedArgs := len(targetRef.TypeArgs)
 				if providedArgs < len(nonDefaultedParams) {
 					newTypeArgs := make([]resolution.TypeRef, len(nonDefaultedParams))
@@ -265,13 +255,11 @@ func processTypeDef(td resolution.Type, data *templateData) typeDefData {
 		baseType := data.resolver.ResolveTypeRef(targetRef, data.ctx)
 		result := typeDefData{
 			Name:     name,
+			Doc:      doc.Get(td.Domains),
 			BaseType: baseType,
 			IsAlias:  true,
 		}
-		for _, tp := range form.TypeParams {
-			if tp.HasDefault() {
-				continue
-			}
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			result.TypeParams = append(result.TypeParams, processTypeParam(tp, data))
 		}
 		result.IsGeneric = len(result.TypeParams) > 0
@@ -294,10 +282,7 @@ func processStruct(entry resolution.Type, data *templateData) structData {
 		sd.Name = name
 	}
 
-	for _, tp := range form.TypeParams {
-		if tp.HasDefault() {
-			continue
-		}
+	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		sd.TypeParams = append(sd.TypeParams, processTypeParam(tp, data))
 	}
 	sd.IsGeneric = len(sd.TypeParams) > 0
@@ -370,9 +355,12 @@ func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData
 }
 
 func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
+	if resolution.IsConstraint(constraint.Name) {
+		return constraint.Name
+	}
 	if resolution.IsPrimitive(constraint.Name) {
 		switch constraint.Name {
-		case "json":
+		case "record":
 			return "any"
 		case "string":
 			return "~string"
@@ -389,11 +377,11 @@ func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 
 func processField(field resolution.Field, data *templateData) fieldData {
 	goType := data.resolver.ResolveTypeRef(field.Type, data.ctx)
-	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "binary.MsgpackEncodedJSON") {
+	if field.IsHardOptional && !strings.HasPrefix(goType, "[]") && !strings.HasPrefix(goType, "map[") && !strings.HasPrefix(goType, "msgpack.EncodedJSON") {
 		goType = "*" + goType
 	}
 	return fieldData{
-		GoName:         toPascalCase(field.Name),
+		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
 		JSONName:       lo.SnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,
@@ -436,10 +424,7 @@ func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType
 func resolveExtendsType(extendsRef resolution.TypeRef, parent resolution.Type, data *templateData) string {
 	targetOutputPath := output.GetPath(parent, "go")
 
-	name := getGoName(parent)
-	if name == "" {
-		name = parent.Name
-	}
+	name := naming.GetGoName(parent)
 
 	if parent.Namespace == data.Namespace && (targetOutputPath == "" || targetOutputPath == data.OutputPath) {
 		return buildGenericType(name, extendsRef.TypeArgs, &parent, data)
@@ -515,6 +500,7 @@ func (f fieldData) TagSuffix() string {
 
 type enumData struct {
 	Name        string
+	Doc         string
 	Values      []enumValueData
 	IsIntEnum   bool
 	StartsAtOne bool
@@ -528,6 +514,7 @@ type enumValueData struct {
 
 type typeDefData struct {
 	Name       string
+	Doc        string
 	BaseType   string
 	TypeParams []typeParamData
 	IsAlias    bool
@@ -558,19 +545,25 @@ import (
 )
 {{- end}}
 {{- range .TypeDefs}}
-{{- if .IsAlias}}
+{{- if .Doc}}
 
+{{formatDoc .Name .Doc}}
+{{- end}}
+{{- if .IsAlias}}
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} = {{.BaseType}}
 {{- else}}
-
 type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end}}{{$tp.Name}} {{$tp.Constraint}}{{end}}]{{end}} {{.BaseType}}
 {{- end}}
 {{- end}}
 {{- range $enum := .Enums}}
 
+{{- if $enum.Doc}}
+{{formatDoc $enum.Name $enum.Doc}}
+{{- end}}
 {{- if $enum.IsIntEnum}}
-
 type {{$enum.Name}} uint8
+
+//go:generate stringer -type={{$enum.Name}}
 
 const (
 {{- range $i, $v := $enum.Values}}
@@ -583,6 +576,8 @@ const (
 )
 {{- else}}
 
+{{- if not $enum.Doc}}
+{{- end}}
 type {{$enum.Name}} string
 
 const (
@@ -628,7 +623,3 @@ type {{.Name}}{{if .IsGeneric}}[{{range $i, $tp := .TypeParams}}{{if $i}}, {{end
 {{end -}}
 {{end -}}
 `))
-
-func getGoName(t resolution.Type) string {
-	return domain.GetStringFromType(t, "go", "name")
-}
