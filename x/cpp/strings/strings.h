@@ -30,13 +30,12 @@ inline void write_number(char *p, int v, int width) noexcept {
 /// @param parts the strings to join.
 /// @param sep the separator to insert between each pair of adjacent strings.
 /// @returns the concatenated result, or an empty string if parts is empty.
-[[nodiscard]] inline std::string join(
-    const std::vector<std::string> &parts,
-    const std::string_view sep
-) {
+[[nodiscard]] inline std::string
+join(const std::vector<std::string> &parts, const std::string_view sep) {
     if (parts.empty()) return {};
     size_t total = sep.size() * (parts.size() - 1);
-    for (const auto &p : parts) total += p.size();
+    for (const auto &p: parts)
+        total += p.size();
     std::string out;
     out.reserve(total);
     out += parts[0];

@@ -100,22 +100,13 @@ TEST(Join, Single) {
 }
 
 TEST(Join, Multiple) {
-    EXPECT_EQ(
-        x::strings::join({"a", "b", "c"}, "; "),
-        "a; b; c"
-    );
+    EXPECT_EQ(x::strings::join({"a", "b", "c"}, "; "), "a; b; c");
 }
 
 TEST(Join, CommaSeparator) {
-    EXPECT_EQ(
-        x::strings::join({"x", "y"}, ", "),
-        "x, y"
-    );
+    EXPECT_EQ(x::strings::join({"x", "y"}, ", "), "x, y");
 }
 
 TEST(Join, EmptyStringsInParts) {
-    EXPECT_EQ(
-        x::strings::join({"", "b", ""}, "; "),
-        "; b; "
-    );
+    EXPECT_EQ(x::strings::join({"", "b", ""}, "; "), "; b; ");
 }

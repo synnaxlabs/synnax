@@ -757,8 +757,9 @@ template<typename T>
     }
     return std::visit(
         []<typename IT>(IT &&arg) -> T {
-            if constexpr (std::is_arithmetic_v<T> &&
-                          std::is_arithmetic_v<std::decay_t<IT>>)
+            if constexpr (
+                std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>
+            )
                 return static_cast<T>(arg);
             throw std::runtime_error("invalid type conversion");
         },
