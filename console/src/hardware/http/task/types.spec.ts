@@ -946,7 +946,7 @@ describe("HTTP Task Types", () => {
   });
 });
 
-describe("HTTP Scan Task statusData", () => {
+describe("HTTP Scan Task ", () => {
   describe("config", () => {
     it("should accept null", () => {
       expect(SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
