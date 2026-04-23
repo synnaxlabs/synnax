@@ -9,6 +9,7 @@
 
 #include <set>
 
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/device/device.h"
@@ -355,14 +356,8 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             continue;
         }
     }
-    if (!error_msgs.empty()) {
-        std::string combined;
-        for (size_t i = 0; i < error_msgs.size(); i++) {
-            if (i > 0) combined += "; ";
-            combined += error_msgs[i];
-        }
-        return {first_error_type, combined};
-    }
+    if (!error_msgs.empty())
+        return {first_error_type, x::strings::join(error_msgs, "; ")};
     return x::errors::NIL;
 }
 

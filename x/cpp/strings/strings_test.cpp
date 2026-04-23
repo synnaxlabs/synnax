@@ -11,7 +11,7 @@
 
 #include "gtest/gtest.h"
 
-#include "x/cpp/strings/put.h"
+#include "x/cpp/strings/strings.h"
 
 TEST(Put, Width2Zero) {
     char buf[2];
@@ -89,4 +89,33 @@ TEST(Put, Width1) {
     char buf[1];
     x::strings::write_number(buf, 5, 1);
     EXPECT_EQ(buf[0], '5');
+}
+
+TEST(Join, Empty) {
+    EXPECT_EQ(x::strings::join({}, "; "), "");
+}
+
+TEST(Join, Single) {
+    EXPECT_EQ(x::strings::join({"hello"}, "; "), "hello");
+}
+
+TEST(Join, Multiple) {
+    EXPECT_EQ(
+        x::strings::join({"a", "b", "c"}, "; "),
+        "a; b; c"
+    );
+}
+
+TEST(Join, CommaSeparator) {
+    EXPECT_EQ(
+        x::strings::join({"x", "y"}, ", "),
+        "x, y"
+    );
+}
+
+TEST(Join, EmptyStringsInParts) {
+    EXPECT_EQ(
+        x::strings::join({"", "b", ""}, "; "),
+        "; b; "
+    );
 }

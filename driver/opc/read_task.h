@@ -17,17 +17,14 @@
 /// module
 #include "x/cpp/json/json.h"
 #include "x/cpp/loop/loop.h"
+#include "x/cpp/strings/strings.h"
 
 /// internal
-#include "x/cpp/defer/defer.h"
 
 #include "driver/common/read_task.h"
 #include "driver/common/sample_clock.h"
 #include "driver/opc/connection/connection.h"
-#include "driver/opc/errors/errors.h"
-#include "driver/opc/telem/telem.h"
 #include "driver/opc/types/types.h"
-#include "driver/pipeline/acquisition.h"
 
 namespace driver::opc {
 struct InputChan {
@@ -287,12 +284,8 @@ public:
         auto start = ::x::telem::TimeStamp::now();
 
         if (!error_messages.empty()) {
-            // Aggregate all error messages
             fr.clear();
-            res.warning = error_messages[0];
-            for (size_t i = 1; i < error_messages.size(); ++i) {
-                res.warning += "; " + error_messages[i];
-            }
+            res.warning = x::strings::join(error_messages, "; ");
             return res;
         }
 

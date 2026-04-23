@@ -25,7 +25,7 @@
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/strings/put.h"
+#include "x/cpp/strings/strings.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
