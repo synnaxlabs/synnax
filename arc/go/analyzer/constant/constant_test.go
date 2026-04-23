@@ -35,16 +35,21 @@ func analyzeProgram(
 	return ctx
 }
 
+// analyzeExpectSuccess parses and analyzes code, asserting no errors. Warnings
+// from passes orthogonal to the constant analyzer (e.g., unused-declaration
+// warnings on constants declared purely as test fixtures) are ignored.
 func analyzeExpectSuccess(
 	specCtx context.Context,
 	src string,
 	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(specCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(BeEmpty(), ctx.Diagnostics.String())
+	ExpectWithOffset(1, ctx.Diagnostics.Errors()).To(BeEmpty(), ctx.Diagnostics.String())
 	return ctx
 }
 
+// analyzeExpectError parses and analyzes code, asserting exactly one error
+// whose message matches msgMatcher.
 func analyzeExpectError(
 	specCtx context.Context,
 	src string,
@@ -52,9 +57,10 @@ func analyzeExpectError(
 	msgMatcher OmegaMatcher,
 ) acontext.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(specCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	errs := ctx.Diagnostics.Errors()
+	ExpectWithOffset(1, errs).To(HaveLen(1), ctx.Diagnostics.String())
+	ExpectWithOffset(1, errs[0].Message).To(msgMatcher)
+	ExpectWithOffset(1, errs[0].Severity).To(Equal(diagnostics.SeverityError))
 	return ctx
 }
 

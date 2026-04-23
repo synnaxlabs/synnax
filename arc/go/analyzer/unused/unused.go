@@ -67,6 +67,12 @@ func unusedDiagnostic(scope *symbol.Scope) *diagnostics.Diagnostic {
 			WithCode(codes.UncalledFunction).
 			WithNote("prefix the name with an underscore to suppress this warning")
 		return &d
+	case symbol.KindGlobalConstant:
+		d := diagnostics.
+			Warningf(scope.AST, "unused global constant '%s'", scope.Name).
+			WithCode(codes.UnusedGlobalConstant).
+			WithNote("prefix the name with an underscore to suppress this warning")
+		return &d
 	case symbol.KindVariable, symbol.KindStatefulVariable:
 		label, ok := variableLabel(scope)
 		if !ok {

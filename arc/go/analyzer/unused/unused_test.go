@@ -196,6 +196,46 @@ var _ = Describe("Unused Variable (ARC5101)", func() {
 	})
 })
 
+var _ = Describe("Unused Global Constant (ARC5103)", func() {
+	Describe("emits warning for", func() {
+		It("a global constant that is never referenced", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				MAX_PRESSURE := 500.0
+				func _noop() {}
+			`, nil, codes.UnusedGlobalConstant, "unused global constant 'MAX_PRESSURE'")
+		})
+	})
+
+	Describe("does not warn for", func() {
+		It("a constant referenced in a function body", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				MAX := 100
+				func _check(x i64) i64 {
+					return x + MAX
+				}
+			`, nil, codes.UnusedGlobalConstant)
+		})
+
+		It("a constant referenced in a conditional", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				THRESHOLD := 100
+				func _check(x i64) i64 {
+					if x > THRESHOLD {
+						return 1
+					}
+					return 0
+				}
+			`, nil, codes.UnusedGlobalConstant)
+		})
+
+		It("a constant whose name begins with an underscore", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				_RESERVED := 42
+			`, nil, codes.UnusedGlobalConstant)
+		})
+	})
+})
+
 var _ = Describe("Uncalled Function (ARC5102)", func() {
 	Describe("emits warning for", func() {
 		It("a function that is never called anywhere", func(bCtx SpecContext) {

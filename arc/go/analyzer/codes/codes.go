@@ -40,4 +40,7 @@ const (
 	// call site (flow statement, stage body, routing table, or function-body
 	// expression). Prefix the name with an underscore to suppress.
 	UncalledFunction diagnostics.ErrorCode = "ARC5102"
+	// UnusedGlobalConstant indicates a top-level constant was declared but never
+	// referenced from any expression. Prefix the name with an underscore to suppress.
+	UnusedGlobalConstant diagnostics.ErrorCode = "ARC5103"
 )
