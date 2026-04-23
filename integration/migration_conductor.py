@@ -524,6 +524,7 @@ def main() -> None:
     parser.add_argument(
         "--from",
         dest="from_version",
+        nargs="?",
         default="",
         help="Version to migrate from (e.g., '0.55.0'). Defaults to latest "
         "release. All setup folders with version <= this value are run "

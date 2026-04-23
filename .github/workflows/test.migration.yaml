@@ -88,7 +88,9 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
-        run: uv run mc --from "${{ inputs.base_version }}"
+        run: >-
+          uv run mc ${{ inputs.base_version != '' && format('--from {0}',
+          inputs.base_version) || '' }}
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
