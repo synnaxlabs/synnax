@@ -242,9 +242,7 @@ jobs:
 
       - name: Install Rust
         if: inputs.driver
-        run: |
-          rustup update
-          rustup default stable
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Build Driver (Windows)
         if: inputs.driver && matrix.os == 'windows-build-bot'
@@ -843,13 +841,10 @@ jobs:
           mv temp.json tauri.conf.json
 
       - name: Install Rust
-        run: rustup update
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          workspaces: console/src-tauri -> target
-          shared-key: ${{ runner.os }}
+          cache-workspaces: console/src-tauri -> target
+          cache-shared-key: ${{ runner.os }}
 
       - name: Install Dependencies
         run: pnpm install
