@@ -39,11 +39,14 @@ import (
 // declaration rather than a cascade.
 
 // analyzeSequenceReachability emits ARC5201 and ARC5202 diagnostics by
-// computing forward reachability over the sequence/stage activation graph.
-func analyzeSequenceReachability(ctx context.Context[parser.IProgramContext]) {
+// computing forward reachability over the sequence/stage activation graph,
+// and returns the set of reachable sequence and stage scopes for use by
+// downstream passes such as function reachability.
+func analyzeSequenceReachability(ctx context.Context[parser.IProgramContext]) set.Set[*symbol.Scope] {
 	edges := collectActivationEdges(ctx)
 	reachable := reachableFromRoot(edges)
 	emitReachabilityDiagnostics(ctx, reachable)
+	return reachable
 }
 
 // collectActivationEdges walks the program AST and builds the activation

@@ -880,8 +880,9 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, resolver)
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			msg := (*ctx.Diagnostics)[0].Message
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			msg := errs[0].Message
 			Expect(msg).To(ContainSubstring("circular function call"))
 			Expect(msg).To(ContainSubstring("a"))
 			Expect(msg).To(ContainSubstring("c"))

@@ -464,9 +464,10 @@ var _ = Describe("Uncalled Function (ARC5102)", func() {
 		})
 
 		It("a function only called from another uncalled function", func(bCtx SpecContext) {
-			// Both helper and wrapper are unreferenced from any entry point.
-			// (Call-graph reachability composition arrives with R4/R5; for
-			// now both are independently flagged as never-called.)
+			// Neither helper nor wrapper has a live call site, so both are
+			// flagged. Call-graph liveness propagates from the virtual root
+			// via top-level flows and reachable stages; a chain of calls
+			// that never reaches such a live caller is dead end to end.
 			diags := analyze(bCtx, `
 				func helper(x i32) i32 {
 					return x * 2
@@ -476,8 +477,56 @@ var _ = Describe("Uncalled Function (ARC5102)", func() {
 				}
 			`, nil)
 			warns := warningsWithCode(diags, codes.UncalledFunction)
+			Expect(warns).To(HaveLen(2), diags.String())
+			messages := []string{warns[0].Message, warns[1].Message}
+			Expect(messages).To(ContainElement(ContainSubstring("uncalled function 'helper'")))
+			Expect(messages).To(ContainElement(ContainSubstring("uncalled function 'wrapper'")))
+		})
+
+		It("a function called only from an unstarted sequence", func(bCtx SpecContext) {
+			// orphan is ARC5202; its stages are unreachable; dead_call's
+			// single invocation lives in a dead stage, so dead_call is
+			// uncalled.
+			resolver := symbol.MapResolver{
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 1},
+				"sink":    {Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
+			}
+			diags := analyze(bCtx, `
+				func dead_call(x i32) i32 {
+					return x + 1
+				}
+				sequence orphan {
+					stage first {
+						trigger -> dead_call{} -> sink
+					}
+				}
+			`, resolver)
+			warns := warningsWithCode(diags, codes.UncalledFunction)
 			Expect(warns).To(HaveLen(1), diags.String())
-			Expect(warns[0].Message).To(ContainSubstring("uncalled function 'wrapper'"))
+			Expect(warns[0].Message).To(ContainSubstring("uncalled function 'dead_call'"))
+		})
+
+		It("a function called only from an unreachable stage", func(bCtx SpecContext) {
+			resolver := symbol.MapResolver{
+				"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+				"sensor":  {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 2},
+				"sink":    {Name: "sink", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 3},
+			}
+			diags := analyze(bCtx, `
+				func dead_call(x i32) i32 {
+					return x + 1
+				}
+				sequence main {
+					stage entry { 1 -> sink }
+					stage unreached {
+						sensor -> dead_call{} -> sink
+					}
+				}
+				trigger => main
+			`, resolver)
+			warns := warningsWithCode(diags, codes.UncalledFunction)
+			Expect(warns).To(HaveLen(1), diags.String())
+			Expect(warns[0].Message).To(ContainSubstring("uncalled function 'dead_call'"))
 		})
 	})
 

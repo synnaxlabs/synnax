@@ -34,7 +34,8 @@ import (
 func Analyze(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope, ctx.Diagnostics)
 	analyzeUnreachableCode(ctx)
-	analyzeSequenceReachability(ctx)
+	reachable := analyzeSequenceReachability(ctx)
+	analyzeFunctionReachability(ctx, reachable)
 }
 
 func walk(scope *symbol.Scope, diag *diagnostics.Diagnostics) {
@@ -65,12 +66,6 @@ func unusedDiagnostic(scope *symbol.Scope) *diagnostics.Diagnostic {
 		return nil
 	}
 	switch scope.Kind {
-	case symbol.KindFunction:
-		d := diagnostics.
-			Warningf(scope.AST, "uncalled function '%s'", scope.Name).
-			WithCode(codes.UncalledFunction).
-			WithNote("prefix the name with an underscore to suppress this warning")
-		return &d
 	case symbol.KindGlobalConstant:
 		d := diagnostics.
 			Warningf(scope.AST, "unused global constant '%s'", scope.Name).

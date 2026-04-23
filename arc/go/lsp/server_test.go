@@ -23,6 +23,19 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
+// errorDiags returns only the Error-severity entries in a diagnostic slice.
+// Tests that assert on a specific error's properties use this to avoid
+// coupling to unrelated warnings from the analyzer's lint passes.
+func errorDiags(ds []protocol.Diagnostic) []protocol.Diagnostic {
+	var out []protocol.Diagnostic
+	for _, d := range ds {
+		if d.Severity == protocol.DiagnosticSeverityError {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 var _ = Describe("Server Diagnostics", func() {
 	var (
 		server *lsp.Server
@@ -111,15 +124,17 @@ var _ = Describe("Server Diagnostics", func() {
 		It("Should include error code for function argument count mismatch", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc _test() { _z := add(1) }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3001"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Code).To(Equal("ARC3001"))
 		})
 
 		It("Should include error code for function argument type mismatch", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc _test() { _z := process(\"hello\") }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3002"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Code).To(Equal("ARC3002"))
 		})
 	})
 
@@ -127,9 +142,10 @@ var _ = Describe("Server Diagnostics", func() {
 		It("Should include function signature in related information for argument errors", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc _test() { _z := add(1) }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].RelatedInformation).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].RelatedInformation).To(HaveLen(1))
+			Expect(errs[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
 		})
 	})
 })
