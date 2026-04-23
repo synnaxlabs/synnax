@@ -1391,7 +1391,7 @@ var _ = Describe("Text", func() {
 				Expect(scopeMembers).To(HaveLen(1))
 				s := scopeMembers[0].Scope
 				Expect(s.Key).To(HavePrefix("stage_"))
-				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Liveness).To(Equal(ir.LivenessAlways))
 				Expect(s.Activation).To(BeNil())
 			})
 
@@ -1416,8 +1416,133 @@ var _ = Describe("Text", func() {
 				Expect(scopeMembers).To(HaveLen(1))
 				s := scopeMembers[0].Scope
 				Expect(s.Key).To(HavePrefix("seq_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level sequence as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11010},
+				}
+				source := `
+				sequence main {
+				    stage s {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(Equal("main"))
 				Expect(s.Liveness).To(Equal(ir.LivenessGated))
 				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level stage as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11011},
+				}
+				source := `
+				stage main {
+				    1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(Equal("main"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level sequence as LivenessGated with an activation handle when `trigger => name` targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11012},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11013},
+				}
+				source := `
+				trigger => main
+
+				sequence main {
+				    stage s {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var main *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "main" {
+							main = m.Scope
+						}
+					}
+				}
+				Expect(main).ToNot(BeNil())
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Activation).ToNot(BeNil())
+			})
+
+			It("Should compile a nested sequence as LivenessAlways", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11014},
+				}
+				source := `
+				sequence outer {
+				    stage s {
+				        sequence inner {
+				            stage t {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var outer *ir.Scope
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil && m.Scope.Key == "outer" {
+						outer = m.Scope
+						break
+					}
+				}
+				Expect(outer).ToNot(BeNil())
+				Expect(outer.Liveness).To(Equal(ir.LivenessGated))
+				Expect(outer.Steps).To(HaveLen(1))
+				stageScope := outer.Steps[0].Scope
+				Expect(stageScope).ToNot(BeNil())
+				Expect(stageScope.Key).To(Equal("s"))
+				Expect(stageScope.Liveness).To(Equal(ir.LivenessAlways))
+				var nestedSeq *ir.Scope
+				for _, stratum := range stageScope.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil && mem.Scope.Key == "inner" {
+							nestedSeq = mem.Scope
+						}
+					}
+				}
+				Expect(nestedSeq).ToNot(BeNil())
+				Expect(nestedSeq.Liveness).To(Equal(ir.LivenessAlways))
 			})
 		})
 

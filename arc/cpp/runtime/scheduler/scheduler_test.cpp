@@ -112,6 +112,15 @@ static ir::Scope parallel_scope(std::string key, std::vector<ir::Members> strata
     return s;
 }
 
+static ir::Scope always_scope(std::string key, std::vector<ir::Members> strata) {
+    ir::Scope s;
+    s.key = std::move(key);
+    s.mode = ir::ScopeMode::Parallel;
+    s.liveness = ir::Liveness::Always;
+    s.strata = std::move(strata);
+    return s;
+}
+
 static ir::Scope sequential_scope(
     std::string key,
     std::vector<ir::Member> steps,
@@ -651,18 +660,16 @@ TEST_F(SchedulerTest, GatedScopeActivatesOnceHandleFires) {
 
 // ----- Activation cascading & reset -----
 
-// A top-level gated scope with no Activation handle cannot be reached by `=>`
-// in source. It must auto-run at boot via cascade from the always-live root.
-// This verifies the unified rule: cascade targets any gated child lacking an
-// Activation handle, independent of whether the parent is root or a nested
-// scope.
-TEST_F(SchedulerTest, TopLevelGatedScopeWithoutHandleAutoActivates) {
+// Anonymous top-level scopes cannot be referenced by `=>` from source, so the
+// analyzer emits them as LivenessAlways to mark them as program entrypoints.
+// The parallel cascade activates every always-live child of an active parent.
+TEST_F(SchedulerTest, AnonymousTopLevelAlwaysScopeAutoActivates) {
     auto &n = mock("n");
-    auto gated = parallel_scope("anon", {stratum_of({ir::node_member("n")})});
+    auto anon = always_scope("anon", {stratum_of({ir::node_member("n")})});
     auto ir = program_of(
         {ir_node("n")},
         {},
-        root_scope({ir::scope_member(std::move(gated))})
+        root_scope({ir::scope_member(std::move(anon))})
     );
     const auto s = build(std::move(ir));
     s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
@@ -670,12 +677,30 @@ TEST_F(SchedulerTest, TopLevelGatedScopeWithoutHandleAutoActivates) {
     EXPECT_EQ(n.next_called, 1);
 }
 
+// A named top-level scope with no activation is emitted by the analyzer when
+// the user declared `sequence main { ... }` but no `=> main` trigger exists
+// anywhere in source. It must stay inert — the only way to activate it is an
+// external trigger.
+TEST_F(SchedulerTest, NamedTopLevelGatedScopeWithoutHandleStaysInert) {
+    auto &n = mock("n");
+    auto gated = parallel_scope("main", {stratum_of({ir::node_member("n")})});
+    auto ir = program_of(
+        {ir_node("n")},
+        {},
+        root_scope({ir::scope_member(std::move(gated))})
+    );
+    const auto s = build(std::move(ir));
+    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(n.reset_called, 0);
+    EXPECT_EQ(n.next_called, 0);
+}
+
 // When an outer gated scope activates via its handle, it cascade-activates a
-// nested gated child that has no Activation handle of its own.
-TEST_F(SchedulerTest, CascadeResetsNestedGatedScopeOnActivation) {
+// nested always-live child.
+TEST_F(SchedulerTest, CascadeResetsNestedAlwaysScopeOnActivation) {
     mock("trigger", {true});
     auto &inner = mock("inner");
-    auto nested = parallel_scope("nested", {stratum_of({ir::node_member("inner")})});
+    auto nested = always_scope("nested", {stratum_of({ir::node_member("inner")})});
     auto outer = parallel_scope(
         "outer",
         {stratum_of({ir::scope_member(std::move(nested))})}

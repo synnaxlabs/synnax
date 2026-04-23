@@ -121,6 +121,18 @@ func parallelScope(key string, strata ...ir.Members) ir.Scope {
 	}
 }
 
+// alwaysScope composes a parallel+always-live Scope from one or more strata.
+// Use for nested scopes that run whenever their parent runs, and for
+// anonymous top-level scopes that auto-start at boot.
+func alwaysScope(key string, strata ...ir.Members) ir.Scope {
+	return ir.Scope{
+		Key:      key,
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+		Strata:   strata,
+	}
+}
+
 // sequentialScope composes a sequential+gated Scope with the given
 // ordered steps and transitions.
 func sequentialScope(key string, steps []ir.Member, transitions ...ir.Transition) ir.Scope {
@@ -646,10 +658,10 @@ var _ = Describe("Scheduler", func() {
 			Expect(stageNode.ResetCalled).To(Equal(1))
 		})
 
-		It("Should cascade reset into nested gated scopes on activation", func(ctx SpecContext) {
+		It("Should cascade reset into nested always-live scopes on activation", func(ctx SpecContext) {
 			mock("trigger", true)
 			inner := mock("inner")
-			nested := parallelScope("nested", stratum(ir.NodeMember("inner")))
+			nested := alwaysScope("nested", stratum(ir.NodeMember("inner")))
 			outer := parallelScope("outer", stratum(ir.ScopeMember(nested)))
 			act := ir.Handle{Node: "trigger", Param: "output"}
 			outer.Activation = &act
@@ -664,14 +676,13 @@ var _ = Describe("Scheduler", func() {
 			Expect(inner.NextCalled).To(Equal(1))
 		})
 
-		It("Should auto-activate a top-level gated scope that has no activation handle", func(ctx SpecContext) {
-			// A top-level sequence/stage with no Activation handle cannot
-			// be reached by `=>` in source. It must auto-run at boot via
-			// cascade from the always-live root. This is the unified rule:
-			// cascade targets any gated child lacking an Activation handle,
-			// regardless of whether the parent is root or a nested scope.
+		It("Should auto-activate an anonymous top-level always-live scope", func(ctx SpecContext) {
+			// Anonymous top-level scopes cannot be referenced by `=>` from
+			// source, so the analyzer emits them as LivenessAlways to mark
+			// them as program entrypoints. The parallel cascade activates
+			// every always-live child of an active parent.
 			inner := mock("n")
-			stage := parallelScope("anon", stratum(ir.NodeMember("n")))
+			stage := alwaysScope("anon", stratum(ir.NodeMember("n")))
 			prog := programOf(
 				[]ir.Node{irNode("n")},
 				nil,
@@ -681,6 +692,24 @@ var _ = Describe("Scheduler", func() {
 			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 			Expect(inner.ResetCalled).To(Equal(1))
 			Expect(inner.NextCalled).To(Equal(1))
+		})
+
+		It("Should leave a named top-level gated scope inert when it has no activation handle", func(ctx SpecContext) {
+			// A named top-level scope with no activation is emitted by the
+			// analyzer when the user declared `sequence main { ... }` but no
+			// `=> main` trigger exists anywhere in source. It must stay
+			// inert — the only way to activate it is an external trigger.
+			inner := mock("n")
+			stage := parallelScope("main", stratum(ir.NodeMember("n")))
+			prog := programOf(
+				[]ir.Node{irNode("n")},
+				nil,
+				rootScope(ir.ScopeMember(stage)),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(inner.ResetCalled).To(Equal(0))
+			Expect(inner.NextCalled).To(Equal(0))
 		})
 	})
 
