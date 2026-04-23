@@ -33,6 +33,7 @@ Usage:
 """
 
 import argparse
+import importlib.util
 import os
 import platform
 import re
@@ -261,6 +262,40 @@ def stop_core(proc: subprocess.Popen[bytes]) -> None:
     log(f"WARNING: Port {PORT} still in use after Core process exited")
 
 
+def _resolve_latest_version() -> str:
+    """Discover the latest release version from GitHub releases."""
+    log("Discovering latest release version...")
+    result = subprocess.run(
+        [
+            "gh",
+            "release",
+            "list",
+            "--repo",
+            REPO,
+            "--json",
+            "tagName",
+            "--limit",
+            "200",
+            "--jq",
+            ".[].tagName",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    versions = []
+    for tag in result.stdout.strip().splitlines():
+        m = re.match(r"^synnax-v(\d+\.\d+\.\d+)$", tag)
+        if m:
+            versions.append(m.group(1))
+    if not versions:
+        raise RuntimeError("Could not find any release version")
+    versions.sort(key=lambda v: tuple(int(p) for p in v.split(".")))
+    latest = versions[-1]
+    log(f"Resolved latest release: v{latest}")
+    return latest
+
+
 def _parse_version(version_str: str) -> tuple[int, int]:
     """Parse a version string like '0.55.0' into its major.minor tuple (0, 55)."""
     parts = version_str.split(".")
@@ -268,13 +303,15 @@ def _parse_version(version_str: str) -> tuple[int, int]:
 
 
 def _read_setup_version(script: Path) -> str | None:
-    """Read the SETUP_VERSION constant from a setup script."""
-    m = re.search(
-        r'^SETUP_VERSION\s*=\s*["\']([^"\']+)["\']',
-        script.read_text(),
-        re.MULTILINE,
-    )
-    return m.group(1) if m else None
+    """Read the SETUP_VERSION constant from a setup script by importing it."""
+    # Use spec_from_file_location because this module runs from integration/,
+    # not inside a package, so importlib.import_module can't resolve the path.
+    spec = importlib.util.spec_from_file_location(script.stem, script)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return getattr(module, "SETUP_VERSION", None)
 
 
 def discover_setup_scripts(
@@ -309,11 +346,42 @@ def _version_to_pip_spec(version: str) -> str:
     return f"synnax>={major}.{minor},<{major}.{minor + 1}"
 
 
-def _version_to_release(version: str) -> str:
-    """Convert a version string to a release version for downloading
-    Core binaries. E.g., '0.54' -> '0.54.0'"""
+def _resolve_release_version(version: str) -> str:
+    """Resolve a major.minor version to the latest patch release.
+
+    E.g., '0.54' -> '0.54.2' (whatever the latest 0.54.x release is).
+    """
     major, minor = _parse_version(version)
-    return f"{major}.{minor}.0"
+    result = subprocess.run(
+        [
+            "gh",
+            "release",
+            "list",
+            "--repo",
+            REPO,
+            "--json",
+            "tagName",
+            "--limit",
+            "200",
+            "--jq",
+            ".[].tagName",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    prefix = f"synnax-v{major}.{minor}."
+    patches = []
+    for tag in result.stdout.strip().splitlines():
+        if tag.startswith(prefix) and not tag.endswith("-rc"):
+            patch = tag[len(prefix) :]
+            if patch.isdigit():
+                patches.append(int(patch))
+    if not patches:
+        raise RuntimeError(f"No releases found for v{major}.{minor}")
+    latest = f"{major}.{minor}.{max(patches)}"
+    log(f"  Resolved v{version} -> v{latest}")
+    return latest
 
 
 def create_setup_venv(version: str) -> Path:
@@ -400,12 +468,13 @@ def run(from_version: str, dev: bool) -> bool:
         for s in scripts:
             log(f"  v{version} — {s.stem}")
 
-    needed_versions = {_version_to_release(v) for v, _ in setup_groups}
+    resolved_versions = {v: _resolve_release_version(v) for v, _ in setup_groups}
+    needed_versions = set(resolved_versions.values())
     needed_versions.add(from_version)
     _prune_binaries(needed_versions)
 
     for version, scripts in setup_groups:
-        release_version = _version_to_release(version)
+        release_version = resolved_versions[version]
         log(f"{'=' * 60}")
         log(f"Setup: v{version} ({len(scripts)} scripts)")
         log(f"{'=' * 60}")
@@ -455,9 +524,10 @@ def main() -> None:
     parser.add_argument(
         "--from",
         dest="from_version",
-        required=True,
-        help="Version to migrate from (e.g., '0.55.0'). All setup folders "
-        "with version <= this value are run before verification.",
+        default="",
+        help="Version to migrate from (e.g., '0.55.0'). Defaults to latest "
+        "release. All setup folders with version <= this value are run "
+        "before verification.",
     )
     parser.add_argument(
         "--dev",
@@ -469,11 +539,13 @@ def main() -> None:
 
     log("Migration conductor\n")
 
+    from_version = args.from_version or _resolve_latest_version()
+
     _ensure_clean_state()
 
     success = False
     try:
-        success = run(args.from_version, args.dev)
+        success = run(from_version, args.dev)
     finally:
         _ensure_clean_state()
 

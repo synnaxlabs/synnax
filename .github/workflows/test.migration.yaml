@@ -9,8 +9,7 @@ on:
         required: true
       base_version:
         description:
-          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest major
-          release."
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest release."
         type: string
         required: false
         default: ""
@@ -23,49 +22,14 @@ on:
         required: true
       base_version:
         description:
-          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest major
-          release."
+          "Base version to migrate from (e.g. '0.54.0'). Defaults to latest release."
         type: string
         required: false
         default: ""
 
 jobs:
-  resolve:
-    name: Resolve Base Version
-    runs-on: ubuntu-latest
-    outputs:
-      base_version: ${{ steps.resolve.outputs.base_version }}
-    steps:
-      - name: Resolve Base Version
-        id: resolve
-        env:
-          GH_TOKEN: ${{ github.token }}
-          INPUT_VERSION: ${{ inputs.base_version }}
-        run: |
-          if [[ -n "$INPUT_VERSION" ]]; then
-            echo "base_version=$INPUT_VERSION" >> "$GITHUB_OUTPUT"
-            echo "Using provided base version: $INPUT_VERSION"
-            exit 0
-          fi
-          echo "Discovering latest major release..."
-          VERSION=$(
-            gh release list --repo synnaxlabs/synnax --json tagName --limit 200 \
-              --jq '.[].tagName' \
-            | grep -E '^synnax-v[0-9]+\.[0-9]+\.0$' \
-            | sed 's/^synnax-v//' \
-            | sort -V \
-            | tail -n1
-          )
-          if [[ -z "$VERSION" ]]; then
-            echo "ERROR: Could not find any major release" >&2
-            exit 1
-          fi
-          echo "base_version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Resolved latest major release: $VERSION"
-
   test:
-    name: "From v${{ needs.resolve.outputs.base_version }} (${{ matrix.os }})"
-    needs: [resolve]
+    name: "Migration (${{ matrix.os }})"
     timeout-minutes: 60
     runs-on:
       - self-hosted
@@ -124,15 +88,13 @@ jobs:
           SYNNAX_LICENSE_KEY: ${{ secrets.SYNNAX_LICENSE_KEY }}
           PYTHONUNBUFFERED: "1"
           PYTHONIOENCODING: utf-8
-        run: uv run mc --from ${{ needs.resolve.outputs.base_version }}
+        run: uv run mc --from "${{ inputs.base_version }}"
 
       - name: Upload Test Results
         uses: actions/upload-artifact@v7
         if: always()
         with:
-          name:
-            migration-results-v${{ needs.resolve.outputs.base_version }}-${{ matrix.os
-            }}
+          name: migration-results-${{ matrix.os }}
           path: integration/tests/results/*
           retention-days: 7
 
@@ -140,8 +102,6 @@ jobs:
         uses: actions/upload-artifact@v7
         if: ${{ failure() || cancelled() }}
         with:
-          name:
-            migration-core-logs-v${{ needs.resolve.outputs.base_version }}-${{ matrix.os
-            }}-attempt-${{ github.run_attempt }}
+          name: migration-core-logs-${{ matrix.os }}-attempt-${{ github.run_attempt }}
           path: ~/synnax-migration-data/synnax-core.log
           retention-days: 7

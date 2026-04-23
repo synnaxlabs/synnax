@@ -28,11 +28,9 @@ from tests.migration.channels_calc_setup import (
     CALC_RESET,
     CALC_SRC_F32,
     CALC_TYPE_CHANNELS,
-    MS,
     PASSTHROUGH_EXPR,
     WIN_DOMAIN_GAP_S,
     WIN_NUM_DOMAINS,
-    S,
     _win_value,
 )
 
@@ -66,7 +64,7 @@ CALC_NESTED_L3 = CALC_NESTED_CHANNELS[2][0]
 
 def _timestamps(start: sy.TimeStamp, count: int, offset: int = 1) -> NpArray:
     return np.array(
-        [start + i * MS for i in range(offset, offset + count)],
+        [start + i * sy.TimeSpan.MILLISECOND for i in range(offset, offset + count)],
         dtype=np.int64,
     )
 
@@ -213,8 +211,8 @@ class CalcChannelsVerify(TestCase):
             "mig_calc_i64_add": (i64 + 100).astype(np.int64),
         }
 
-        base = sy.TimeStamp(WIN_EPOCH_BASE * S)
-        tr = sy.TimeRange(base, base + 10 * S)
+        base = sy.TimeStamp(WIN_EPOCH_BASE * sy.TimeSpan.SECOND)
+        tr = sy.TimeRange(base, base + 10 * sy.TimeSpan.SECOND)
         keys = [calc_channels[name].key for name in expected_values]
         frame = self.client.read(tr, keys)
 
@@ -265,8 +263,13 @@ class CalcChannelsVerify(TestCase):
 
     def test_calc_windowed(self) -> None:
         self.log("Testing: Windowed calc channels")
-        base = sy.TimeStamp(WIN_EPOCH_BASE * S) + 10 * S
-        end = base + int(WIN_NUM_DOMAINS * WIN_DOMAIN_GAP_S * 1000) * MS
+        base = (
+            sy.TimeStamp(WIN_EPOCH_BASE * sy.TimeSpan.SECOND) + 10 * sy.TimeSpan.SECOND
+        )
+        end = (
+            base
+            + int(WIN_NUM_DOMAINS * WIN_DOMAIN_GAP_S * 1000) * sy.TimeSpan.MILLISECOND
+        )
         tr = sy.TimeRange(base, end)
 
         calc_cos = self.client.channels.retrieve(WIN_CALC_COS)

@@ -9,14 +9,13 @@
 
 """Migration setup: calculated channels with operations, expressions, and windows."""
 
+from collections.abc import Callable
+
 import numpy as np
 
 import synnax as sy
 
 SETUP_VERSION = "0.49"
-
-S = sy.TimeSpan.SECOND
-MS = sy.TimeSpan.MILLISECOND
 
 CALC_IDX = "mig_calc_idx"
 CALC_SRC_F32 = "mig_calc_src_f32"
@@ -31,15 +30,15 @@ CALC_OP_CHANNELS: list[tuple[str, str, sy.TimeSpan, bool]] = [
     ("mig_calc_op_avg", "avg", sy.TimeSpan(0), False),
     ("mig_calc_op_min", "min", sy.TimeSpan(0), False),
     ("mig_calc_op_max", "max", sy.TimeSpan(0), False),
-    ("mig_calc_op_avg_win", "avg", 5 * S, False),
-    ("mig_calc_op_min_win", "min", 10 * S, False),
-    ("mig_calc_op_max_win", "max", 15 * S, False),
+    ("mig_calc_op_avg_win", "avg", 5 * sy.TimeSpan.SECOND, False),
+    ("mig_calc_op_min_win", "min", 10 * sy.TimeSpan.SECOND, False),
+    ("mig_calc_op_max_win", "max", 15 * sy.TimeSpan.SECOND, False),
     ("mig_calc_op_avg_rst", "avg", sy.TimeSpan(0), True),
     ("mig_calc_op_min_rst", "min", sy.TimeSpan(0), True),
     ("mig_calc_op_max_rst", "max", sy.TimeSpan(0), True),
-    ("mig_calc_op_avg_win_rst", "avg", 5 * S, True),
-    ("mig_calc_op_min_win_rst", "min", 10 * S, True),
-    ("mig_calc_op_max_win_rst", "max", 15 * S, True),
+    ("mig_calc_op_avg_win_rst", "avg", 5 * sy.TimeSpan.SECOND, True),
+    ("mig_calc_op_min_win_rst", "min", 10 * sy.TimeSpan.SECOND, True),
+    ("mig_calc_op_max_win_rst", "max", 15 * sy.TimeSpan.SECOND, True),
 ]
 
 CALC_EXPR = f"return {CALC_SRC_F32} * 2 + 5"
@@ -85,34 +84,32 @@ def _win_value(seed: str, d: int) -> float:
     return float(t**2)
 
 
-if __name__ == "__main__":
-    from setup import log, run
+def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:
+    log("  [calc] Creating source channels...")
 
-    def setup(client: sy.Synnax) -> None:
-        log("  [calc] Creating source channels...")
+    calc_idx = client.channels.create(
+        name=CALC_IDX,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
+    client.channels.create(
+        name=CALC_SRC_F32,
+        data_type=sy.DataType.FLOAT32,
+        index=calc_idx.key,
+        retrieve_if_name_exists=True,
+    )
+    reset = client.channels.create(
+        name=CALC_RESET,
+        data_type=sy.DataType.UINT8,
+        virtual=True,
+        retrieve_if_name_exists=True,
+    )
 
-        calc_idx = client.channels.create(
-            name=CALC_IDX,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        client.channels.create(
-            name=CALC_SRC_F32,
-            data_type=sy.DataType.FLOAT32,
-            index=calc_idx.key,
-            retrieve_if_name_exists=True,
-        )
-        reset = client.channels.create(
-            name=CALC_RESET,
-            data_type=sy.DataType.UINT8,
-            virtual=True,
-            retrieve_if_name_exists=True,
-        )
-
-        log("  [calc] Creating operation calc channels...")
-        for name, op_type, duration, uses_reset in CALC_OP_CHANNELS:
-            client.channels.create(
+    log("  [calc] Creating operation calc channels...")
+    client.channels.create(
+        [
+            sy.Channel(
                 name=name,
                 data_type=sy.DataType.FLOAT32,
                 expression=PASSTHROUGH_EXPR,
@@ -123,144 +120,155 @@ if __name__ == "__main__":
                         reset_channel=reset.key if uses_reset else 0,
                     )
                 ],
-                retrieve_if_name_exists=True,
             )
+            for name, op_type, duration, uses_reset in CALC_OP_CHANNELS
+        ],
+        retrieve_if_name_exists=True,
+    )
 
-        for name, op_type in CALC_EXPR_OP_CHANNELS:
-            client.channels.create(
+    client.channels.create(
+        [
+            sy.Channel(
                 name=name,
                 data_type=sy.DataType.FLOAT32,
                 expression=CALC_EXPR,
                 operations=[sy.channel.Operation(type=op_type)],
-                retrieve_if_name_exists=True,
             )
+            for name, op_type in CALC_EXPR_OP_CHANNELS
+        ],
+        retrieve_if_name_exists=True,
+    )
 
-        log("  [calc] Creating typed expression channels and writing data...")
-        src_f32 = client.channels.retrieve(CALC_SRC_F32)
-        src_f32_b = client.channels.create(
-            name=CALC_SRC_F32_B,
+    log("  [calc] Creating typed expression channels and writing data...")
+    src_f32 = client.channels.retrieve(CALC_SRC_F32)
+    src_f32_b, src_f64, src_i64 = client.channels.create(
+        [
+            sy.Channel(
+                name=CALC_SRC_F32_B,
+                data_type=sy.DataType.FLOAT32,
+                index=calc_idx.key,
+            ),
+            sy.Channel(
+                name=CALC_SRC_F64, data_type=sy.DataType.FLOAT64, index=calc_idx.key
+            ),
+            sy.Channel(
+                name=CALC_SRC_I64, data_type=sy.DataType.INT64, index=calc_idx.key
+            ),
+        ],
+        retrieve_if_name_exists=True,
+    )
+
+    for name, expression in CALC_TYPE_CHANNELS:
+        client.channels.create(
+            name=name,
+            expression=expression,
+            retrieve_if_name_exists=True,
+        )
+
+    start = sy.TimeStamp(100 * sy.TimeSpan.SECOND)
+    timestamps = np.array(
+        [start + i * sy.TimeSpan.MILLISECOND for i in range(1, 1 + len(CALC_F32_DATA))],
+        dtype=np.int64,
+    )
+    with client.open_writer(
+        start=start,
+        channels=[
+            calc_idx.key,
+            src_f32.key,
+            src_f32_b.key,
+            src_f64.key,
+            src_i64.key,
+        ],
+        enable_auto_commit=True,
+    ) as writer:
+        writer.write(
+            {
+                calc_idx.key: timestamps,
+                src_f32.key: CALC_F32_DATA,
+                src_f32_b.key: CALC_F32_B_DATA,
+                src_f64.key: CALC_F64_DATA,
+                src_i64.key: CALC_I64_DATA,
+            }
+        )
+
+    log("  [calc] Creating nested calc chain...")
+    for name, expression in CALC_NESTED_CHANNELS:
+        client.channels.create(
+            name=name,
+            expression=expression,
+            retrieve_if_name_exists=True,
+        )
+
+    log("  [calc] Creating windowed calc channels and writing data...")
+    win_idx = client.channels.create(
+        name=WIN_IDX,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
+    src_cos = client.channels.create(
+        name=WIN_SRC_COS,
+        data_type=sy.DataType.FLOAT32,
+        index=win_idx.key,
+        retrieve_if_name_exists=True,
+    )
+    src_quad = client.channels.create(
+        name=WIN_SRC_QUAD,
+        data_type=sy.DataType.FLOAT32,
+        index=win_idx.key,
+        retrieve_if_name_exists=True,
+    )
+
+    for calc_name, src_name in [
+        ("mig_win_calc_cos", WIN_SRC_COS),
+        ("mig_win_calc_quad", WIN_SRC_QUAD),
+    ]:
+        client.channels.create(
+            name=calc_name,
             data_type=sy.DataType.FLOAT32,
-            index=calc_idx.key,
-            retrieve_if_name_exists=True,
-        )
-        src_f64 = client.channels.create(
-            name=CALC_SRC_F64,
-            data_type=sy.DataType.FLOAT64,
-            index=calc_idx.key,
-            retrieve_if_name_exists=True,
-        )
-        src_i64 = client.channels.create(
-            name=CALC_SRC_I64,
-            data_type=sy.DataType.INT64,
-            index=calc_idx.key,
+            expression=f"return {src_name}",
+            operations=[
+                sy.channel.Operation(
+                    type="avg", duration=WIN_WINDOW_S * sy.TimeSpan.SECOND
+                )
+            ],
             retrieve_if_name_exists=True,
         )
 
-        for name, expression in CALC_TYPE_CHANNELS:
-            client.channels.create(
-                name=name,
-                expression=expression,
-                retrieve_if_name_exists=True,
-            )
+    def _win_noisy_data(seed: str, d: int) -> np.ndarray:
+        rng = np.random.default_rng(seed=hash((seed, d)) & 0xFFFFFFFF)
+        center = _win_value(seed, d)
+        return (center + rng.normal(0, WIN_NOISE_STD, WIN_SAMPLES_PER_DOMAIN)).astype(
+            np.float32
+        )
 
-        start = sy.TimeStamp(100 * S)
+    base = sy.TimeStamp(100 * sy.TimeSpan.SECOND) + 10 * sy.TimeSpan.SECOND
+    write_keys = [win_idx.key, src_cos.key, src_quad.key]
+
+    for d in range(WIN_NUM_DOMAINS):
+        domain_start = base + int(d * WIN_DOMAIN_GAP_S * 1000) * sy.TimeSpan.MILLISECOND
         timestamps = np.array(
-            [start + i * MS for i in range(1, 1 + len(CALC_F32_DATA))],
+            [
+                domain_start + i * WIN_DT_MS * sy.TimeSpan.MILLISECOND
+                for i in range(WIN_SAMPLES_PER_DOMAIN)
+            ],
             dtype=np.int64,
         )
         with client.open_writer(
-            start=start,
-            channels=[
-                calc_idx.key,
-                src_f32.key,
-                src_f32_b.key,
-                src_f64.key,
-                src_i64.key,
-            ],
+            domain_start,
+            write_keys,
             enable_auto_commit=True,
         ) as writer:
             writer.write(
                 {
-                    calc_idx.key: timestamps,
-                    src_f32.key: CALC_F32_DATA,
-                    src_f32_b.key: CALC_F32_B_DATA,
-                    src_f64.key: CALC_F64_DATA,
-                    src_i64.key: CALC_I64_DATA,
+                    win_idx.key: timestamps,
+                    src_cos.key: _win_noisy_data("cosine", d),
+                    src_quad.key: _win_noisy_data("quadratic", d),
                 }
             )
 
-        log("  [calc] Creating nested calc chain...")
-        for name, expression in CALC_NESTED_CHANNELS:
-            client.channels.create(
-                name=name,
-                expression=expression,
-                retrieve_if_name_exists=True,
-            )
 
-        log("  [calc] Creating windowed calc channels and writing data...")
-        win_idx = client.channels.create(
-            name=WIN_IDX,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        src_cos = client.channels.create(
-            name=WIN_SRC_COS,
-            data_type=sy.DataType.FLOAT32,
-            index=win_idx.key,
-            retrieve_if_name_exists=True,
-        )
-        src_quad = client.channels.create(
-            name=WIN_SRC_QUAD,
-            data_type=sy.DataType.FLOAT32,
-            index=win_idx.key,
-            retrieve_if_name_exists=True,
-        )
-
-        for calc_name, src_name in [
-            ("mig_win_calc_cos", WIN_SRC_COS),
-            ("mig_win_calc_quad", WIN_SRC_QUAD),
-        ]:
-            client.channels.create(
-                name=calc_name,
-                data_type=sy.DataType.FLOAT32,
-                expression=f"return {src_name}",
-                operations=[
-                    sy.channel.Operation(type="avg", duration=WIN_WINDOW_S * S)
-                ],
-                retrieve_if_name_exists=True,
-            )
-
-        def _win_noisy_data(seed: str, d: int) -> np.ndarray:
-            rng = np.random.default_rng(seed=hash((seed, d)) & 0xFFFFFFFF)
-            center = _win_value(seed, d)
-            return (
-                center + rng.normal(0, WIN_NOISE_STD, WIN_SAMPLES_PER_DOMAIN)
-            ).astype(np.float32)
-
-        base = sy.TimeStamp(100 * S) + 10 * S
-        write_keys = [win_idx.key, src_cos.key, src_quad.key]
-
-        for d in range(WIN_NUM_DOMAINS):
-            domain_start = base + int(d * WIN_DOMAIN_GAP_S * 1000) * MS
-            timestamps = np.array(
-                [
-                    domain_start + i * WIN_DT_MS * MS
-                    for i in range(WIN_SAMPLES_PER_DOMAIN)
-                ],
-                dtype=np.int64,
-            )
-            with client.open_writer(
-                domain_start,
-                write_keys,
-                enable_auto_commit=True,
-            ) as writer:
-                writer.write(
-                    {
-                        win_idx.key: timestamps,
-                        src_cos.key: _win_noisy_data("cosine", d),
-                        src_quad.key: _win_noisy_data("quadratic", d),
-                    }
-                )
+if __name__ == "__main__":
+    from setup import run
 
     run(setup)

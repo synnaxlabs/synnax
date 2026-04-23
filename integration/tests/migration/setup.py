@@ -10,20 +10,12 @@
 """Shared constants and helpers for migration setup scripts.
 
 Setup scripts run in isolated venvs with version-pinned synnax clients from
-PyPI. Only code inside ``if __name__ == "__main__"`` executes in the venv;
-module-level constants are safe to import from verify scripts.
-
-Some setup scripts import ``examples`` simulators (OPCUASim, ModbusSim) inside
-the ``__main__`` guard. These are standalone servers, not test dependencies. We
-use the latest workspace version intentionally. The simulator just needs to
-present a valid endpoint, and pinning would prevent us from updating the sims.
+PyPI. Each script defines ``setup(client, log)`` at module level and a minimal
+``__main__`` guard that calls ``run(setup)``. Module-level constants are safe
+to import from verify scripts.
 """
 
-import platform
-import socket
-import subprocess
 import sys
-import time
 from collections.abc import Callable
 from datetime import datetime
 
@@ -34,41 +26,16 @@ PORT = 9090
 USERNAME = "synnax"
 PASSWORD = "seldon"
 
-S = sy.TimeSpan.SECOND
-MS = sy.TimeSpan.MILLISECOND
-
 
 def log(msg: str) -> None:
     ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
     print(f"{ts} | {msg}")
 
 
-def kill_port(port: int) -> None:
-    """Kill any process listening on the given port."""
-    try:
-        with socket.create_connection(("localhost", port), timeout=0.5):
-            pass
-    except (ConnectionRefusedError, OSError):
-        return
-    log(f"Killing process on port {port}...")
-    if platform.system() == "Windows":
-        subprocess.run(
-            [
-                "powershell",
-                "-Command",
-                f"Stop-Process -Id (Get-NetTCPConnection -LocalPort {port}).OwningProcess -Force",
-            ],
-            capture_output=True,
-        )
-    else:
-        subprocess.run(
-            ["bash", "-c", f"lsof -ti:{port} | xargs kill -9 2>/dev/null"],
-            capture_output=True,
-        )
-    time.sleep(1)
+LogFn = Callable[[str], None]
 
 
-def run(setup_fn: Callable[[sy.Synnax], None]) -> None:
+def run(setup_fn: Callable[[sy.Synnax, LogFn], None]) -> None:
     """Run a setup function with connection handling and error reporting."""
     client = sy.Synnax(
         host=HOST,
@@ -77,7 +44,7 @@ def run(setup_fn: Callable[[sy.Synnax], None]) -> None:
         password=PASSWORD,
     )
     try:
-        setup_fn(client)
+        setup_fn(client, log)
     except Exception as e:
         log(f"FAILED: {e}")
         sys.exit(1)

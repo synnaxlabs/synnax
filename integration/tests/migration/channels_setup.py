@@ -9,13 +9,13 @@
 
 """Migration setup: typed data channels with known sample data."""
 
+from collections.abc import Callable
+
 import numpy as np
 
 import synnax as sy
 
 SETUP_VERSION = "0.49"
-
-S = sy.TimeSpan.SECOND
 
 IDX_NAME = "mig_channels_idx"
 
@@ -286,46 +286,45 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, np.ndarray]] = [
 ]
 
 
+def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:
+    log("  [channels] Creating index and data channels...")
+
+    idx = client.channels.create(
+        name=IDX_NAME,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
+
+    data_channels = client.channels.create(
+        [
+            sy.Channel(name=name, data_type=data_type, index=idx.key)
+            for name, data_type, _ in DATA_CHANNELS
+        ],
+        retrieve_if_name_exists=True,
+    )
+
+    log("  [channels] Writing sample data...")
+    sample_count = len(DATA_CHANNELS[0][2])
+    start = sy.TimeStamp(200 * sy.TimeSpan.SECOND)
+    timestamps = np.array(
+        [start + i * sy.TimeSpan.SECOND for i in range(sample_count)],
+        dtype=np.int64,
+    )
+    channel_keys = [idx.key] + [ch.key for ch in data_channels]
+    with client.open_writer(
+        start=start,
+        channels=channel_keys,
+        name="mig_channels_writer",
+        enable_auto_commit=True,
+    ) as writer:
+        payload: dict[int, np.ndarray] = {idx.key: timestamps}
+        for ch, (_, _, expected) in zip(data_channels, DATA_CHANNELS):
+            payload[ch.key] = expected
+        writer.write(payload)
+
+
 if __name__ == "__main__":
-    from setup import log, run
-
-    def setup(client: sy.Synnax) -> None:
-        log("  [channels] Creating index and data channels...")
-
-        idx = client.channels.create(
-            name=IDX_NAME,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-
-        data_channels = []
-        for name, data_type, _ in DATA_CHANNELS:
-            ch = client.channels.create(
-                name=name,
-                data_type=data_type,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
-            data_channels.append(ch)
-
-        log("  [channels] Writing sample data...")
-        sample_count = len(DATA_CHANNELS[0][2])
-        start = sy.TimeStamp(200 * S)
-        timestamps = np.array(
-            [start + i * S for i in range(sample_count)],
-            dtype=np.int64,
-        )
-        channel_keys = [idx.key] + [ch.key for ch in data_channels]
-        with client.open_writer(
-            start=start,
-            channels=channel_keys,
-            name="mig_channels_writer",
-            enable_auto_commit=True,
-        ) as writer:
-            payload: dict[int, np.ndarray] = {idx.key: timestamps}
-            for ch, (_, _, expected) in zip(data_channels, DATA_CHANNELS):
-                payload[ch.key] = expected
-            writer.write(payload)
+    from setup import run
 
     run(setup)

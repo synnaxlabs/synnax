@@ -9,6 +9,8 @@
 
 """Migration setup: RBAC roles, users, and role assignments."""
 
+from collections.abc import Callable
+
 import synnax as sy
 
 SETUP_VERSION = "0.52"
@@ -23,38 +25,40 @@ USERS_SPEC: list[tuple[str, str, str, str]] = [
     ("mig_rbac_viewer", "MigViewer", "RbacUser", "Viewer"),
 ]
 
-if __name__ == "__main__":
-    from setup import log, run
 
-    def setup(client: sy.Synnax) -> None:
-        log("  [rbac] Creating custom role...")
+def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:
+    log("  [rbac] Creating custom role...")
 
-        role = client.access.roles.create(
-            sy.Role(
-                name=CUSTOM_ROLE_NAME,
-                description=CUSTOM_ROLE_DESCRIPTION,
-            )
+    role = client.access.roles.create(
+        sy.Role(
+            name=CUSTOM_ROLE_NAME,
+            description=CUSTOM_ROLE_DESCRIPTION,
+        )
+    )
+
+    log("  [rbac] Creating users...")
+    for username, first_name, last_name, _ in USERS_SPEC:
+        client.users.create(
+            username=username,
+            password=PASSWORD,
+            first_name=first_name,
+            last_name=last_name,
         )
 
-        log("  [rbac] Creating users...")
-        for username, first_name, last_name, _ in USERS_SPEC:
-            client.users.create(
-                username=username,
-                password=PASSWORD,
-                first_name=first_name,
-                last_name=last_name,
-            )
+    log("  [rbac] Assigning roles...")
+    internal = client.access.roles.retrieve(internal=True)
+    builtin_by_name = {r.name: r for r in internal}
 
-        log("  [rbac] Assigning roles...")
-        internal = client.access.roles.retrieve(internal=True)
-        builtin_by_name = {r.name: r for r in internal}
+    for username, _, _, role_name in USERS_SPEC:
+        user = client.users.retrieve(username=username)
+        if role_name == CUSTOM_ROLE_NAME:
+            role_key = role.key
+        else:
+            role_key = builtin_by_name[role_name].key
+        client.access.roles.assign(user=user.key, role=role_key)
 
-        for username, _, _, role_name in USERS_SPEC:
-            user = client.users.retrieve(username=username)
-            if role_name == CUSTOM_ROLE_NAME:
-                role_key = role.key
-            else:
-                role_key = builtin_by_name[role_name].key
-            client.access.roles.assign(user=user.key, role=role_key)
+
+if __name__ == "__main__":
+    from setup import run
 
     run(setup)
