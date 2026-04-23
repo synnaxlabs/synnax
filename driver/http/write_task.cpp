@@ -9,6 +9,7 @@
 
 #include <set>
 
+#include "x/cpp/strings/strings.h"
 #include "x/cpp/uuid/uuid.h"
 
 #include "driver/http/device/device.h"
@@ -331,25 +332,32 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
 
     auto results = processor->execute(requests);
 
-    // Check results and return the first error.
+    std::vector<std::string> error_msgs;
+    std::string first_error_type;
     for (size_t i = 0; i < results.size(); i++) {
         const auto ep_idx = ep_indices[i];
         const auto &ep = cfg.endpoints[ep_idx];
         auto &[resp, req_err] = results[i];
-        if (req_err)
-            return {
-                req_err.type,
+        if (req_err) {
+            if (first_error_type.empty()) first_error_type = req_err.type;
+            error_msgs.push_back(
                 std::string(to_string(ep.request.method)) + " " +
-                    base_requests[ep_idx].url + ": " + req_err.data,
-            };
+                base_requests[ep_idx].url + ": " + req_err.data
+            );
+            continue;
+        }
         if (auto status_err = errors::from_status(resp.status_code); status_err) {
+            if (first_error_type.empty()) first_error_type = status_err.type;
             auto msg = std::string(to_string(ep.request.method)) + " " +
                        base_requests[ep_idx].url + " returned " +
                        std::to_string(resp.status_code);
             if (!resp.body.empty()) msg += ": " + resp.body;
-            return {status_err.type, msg};
+            error_msgs.push_back(msg);
+            continue;
         }
     }
+    if (!error_msgs.empty())
+        return {first_error_type, x::strings::join(error_msgs, "; ")};
     return x::errors::NIL;
 }
 
