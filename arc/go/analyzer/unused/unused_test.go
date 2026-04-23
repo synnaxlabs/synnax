@@ -196,6 +196,135 @@ var _ = Describe("Unused Variable (ARC5101)", func() {
 	})
 })
 
+var _ = Describe("Sequence Reachability (ARC5201, ARC5202)", func() {
+	// simpleResolver declares the channels used by the fixtures in this block.
+	simpleResolver := symbol.MapResolver{
+		"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+		"valve":   {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 2},
+		"sensor":  {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 3},
+	}
+
+	Describe("ARC5202 unstarted sequence", func() {
+		It("emits a warning for a sequence that is never activated", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				sequence orphan {
+					stage only { 1 -> valve }
+				}
+			`, simpleResolver, codes.UnstartedSequence, "unstarted sequence 'orphan'")
+		})
+
+		It("does not warn for a sequence activated at the top level", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence main {
+					stage only { 1 -> valve }
+				}
+				trigger => main
+			`, simpleResolver, codes.UnstartedSequence)
+		})
+
+		It("does not warn for a sequence activated from another reachable sequence", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence main {
+					stage hand_off { 1 => downstream }
+				}
+				sequence downstream {
+					stage only { 1 -> valve }
+				}
+				trigger => main
+			`, simpleResolver, codes.UnstartedSequence)
+		})
+
+		It("warns on a sequence activated only from an unstarted sequence", func(bCtx SpecContext) {
+			// downstream is chained from orphan, but orphan itself is
+			// unreachable, so both are unstarted.
+			diags := analyze(bCtx, `
+				sequence orphan {
+					stage hand_off { 1 => downstream }
+				}
+				sequence downstream {
+					stage only { 1 -> valve }
+				}
+			`, simpleResolver)
+			warns := warningsWithCode(diags, codes.UnstartedSequence)
+			Expect(warns).To(HaveLen(2), diags.String())
+		})
+
+		It("does not warn for a sequence whose name begins with an underscore", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence _wip {
+					stage only { 1 -> valve }
+				}
+			`, simpleResolver, codes.UnstartedSequence)
+		})
+	})
+
+	Describe("ARC5201 unreachable stage", func() {
+		It("emits a warning for a stage with no incoming transition", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				sequence main {
+					stage press {
+						1 -> valve,
+						sensor > 50 => stop
+					}
+					stage abort {
+						0 -> valve
+					}
+					stage stop {
+						0 -> valve
+					}
+				}
+				trigger => main
+			`, simpleResolver, codes.UnreachableStage, "unreachable stage 'abort'")
+		})
+
+		It("does not warn for a stage reached via '=> next'", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence main {
+					stage first {
+						1 -> valve,
+						sensor > 10 => next
+					}
+					stage second {
+						0 -> valve
+					}
+				}
+				trigger => main
+			`, simpleResolver, codes.UnreachableStage)
+		})
+
+		It("does not warn for the entry stage of a reached sequence", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence main {
+					stage entry { 1 -> valve }
+				}
+				trigger => main
+			`, simpleResolver, codes.UnreachableStage)
+		})
+
+		It("does not warn on stages inside an unstarted sequence (no cascade)", func(bCtx SpecContext) {
+			// orphan is itself flagged by ARC5202; its stages should not
+			// pile on separate ARC5201 warnings.
+			diags := analyze(bCtx, `
+				sequence orphan {
+					stage first { 1 -> valve }
+					stage second { 0 -> valve }
+				}
+			`, simpleResolver)
+			Expect(warningsWithCode(diags, codes.UnreachableStage)).To(BeEmpty(), diags.String())
+		})
+
+		It("does not warn for a stage whose name begins with an underscore", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				sequence main {
+					stage entry { 1 -> valve }
+					stage _later { 0 -> valve }
+				}
+				trigger => main
+			`, simpleResolver, codes.UnreachableStage)
+		})
+	})
+})
+
 var _ = Describe("Unreachable Code (ARC5203)", func() {
 	Describe("emits warning for", func() {
 		It("a statement after a bare return", func(bCtx SpecContext) {

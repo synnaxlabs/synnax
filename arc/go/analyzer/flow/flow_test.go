@@ -1324,9 +1324,10 @@ sequence main {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("standalone function"))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("required input"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("standalone function"))
+			Expect(errs[0].Message).To(ContainSubstring("required input"))
 		})
 
 		It("Should allow standalone function with inputs that have default values", func(bCtx SpecContext) {

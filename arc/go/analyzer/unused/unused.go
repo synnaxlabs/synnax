@@ -28,12 +28,13 @@ import (
 )
 
 // Analyze walks the program and emits warnings for unreferenced declarations
-// (ARC51xx) and unreachable statements (ARC52xx). It should run after
-// analyzeDeclarations so that every use-site has had a chance to mark its
-// target scope Referenced.
+// (ARC51xx) and unreachable statements and stages (ARC52xx). It should run
+// after analyzeDeclarations so that every use-site has had a chance to mark
+// its target scope Referenced.
 func Analyze(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope, ctx.Diagnostics)
 	analyzeUnreachableCode(ctx)
+	analyzeSequenceReachability(ctx)
 }
 
 func walk(scope *symbol.Scope, diag *diagnostics.Diagnostics) {
