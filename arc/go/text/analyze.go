@@ -547,7 +547,7 @@ func Analyze(
 			i.Nodes = append(i.Nodes, nodes...)
 			i.Edges = append(i.Edges, edges...)
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
-			seqScope, nodes, edges, ok := analyzeTopLevelSequence(
+			seqScope, nodes, edges, ok := analyzeSequence(
 				acontext.Child(aCtx, seqDecl),
 				kg,
 				shell,
@@ -1073,10 +1073,14 @@ func analyzeSequence(
 		return ir.Scope{}, nil, nil, false
 	}
 	seqName := seqScope.Name
+	liveness := ir.LivenessAlways
+	if ctx.AST.IDENTIFIER() != nil {
+		liveness = ir.LivenessGated
+	}
 	scope := ir.Scope{
 		Key:      seqName,
 		Mode:     ir.ScopeModeSequential,
-		Liveness: ir.LivenessAlways,
+		Liveness: liveness,
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -1165,9 +1169,13 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			// Anonymous inline nested sequences inherit the synthesized step
-			// key so Member.Key() is derivable from the scope.
-			if nestedScope.Key == "" {
+			// Anonymous inline nested sequences must use the outer's
+			// synthesized step key so autoWireTransition from the preceding
+			// flow step can address them; analyzeSequence otherwise stamps
+			// the scope.Key with an AutoName (seq_N) that does not match
+			// collectStepKeys' step_N. Named nested sequences keep their
+			// source-level name.
+			if nestedSeqDecl.IDENTIFIER() == nil {
 				nestedScope.Key = si.key
 			}
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &nestedScope})
@@ -1198,24 +1206,6 @@ func analyzeTopLevelStage(
 		return ir.Scope{}, nil, nil, false
 	}
 	scope.Key = stageSym.Name
-	if ctx.AST.IDENTIFIER() != nil {
-		scope.Liveness = ir.LivenessGated
-	}
-	return scope, nodes, edges, true
-}
-
-func analyzeTopLevelSequence(
-	ctx acontext.Context[parser.ISequenceDeclarationContext],
-	kg *keyGenerator,
-	shell *shellBuilder,
-) (ir.Scope, []ir.Node, []ir.Edge, bool) {
-	scope, nodes, edges, ok := analyzeSequence(ctx, kg, shell)
-	if !ok {
-		return ir.Scope{}, nil, nil, false
-	}
-	if ctx.AST.IDENTIFIER() != nil {
-		scope.Liveness = ir.LivenessGated
-	}
 	return scope, nodes, edges, true
 }
 
@@ -1225,13 +1215,15 @@ func analyzeStage(
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
 	stageName := ""
+	liveness := ir.LivenessAlways
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		stageName = id.GetText()
+		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
 		Key:      stageName,
 		Mode:     ir.ScopeModeParallel,
-		Liveness: ir.LivenessAlways,
+		Liveness: liveness,
 	}
 	var (
 		nodes   []ir.Node

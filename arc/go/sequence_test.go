@@ -421,6 +421,122 @@ var _ = Describe("Sequence", func() {
 			out, _ = h.Flush()
 			Expect(lastU8(out, 101)).To(Equal(uint8(0)))
 		})
+
+		It("Transitions into an anonymous nested sequence step after the preceding flow step", func(ctx SpecContext) {
+			// Regression: analyzeSequence stamps the nested scope's Key with
+			// an AutoName (seq_N) for anonymous nested sequences, but
+			// collectStepKeys and autoWireTransition reference it by the
+			// outer's step key (step_N). Without the nested-scope Key
+			// override in the step iteration, the transition target lookup
+			// misses and the sequence stalls at step 0 forever.
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"a":         {types.U8(), 101},
+				"b":         {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    1 -> a
+				    sequence {
+				        1 -> b
+				    }
+				}
+				start_cmd => main`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+				channel.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"outer's first write must fire on trigger")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"nested anonymous sequence must activate once outer's first step transitions")
+		})
+
+		It("Anonymous top-level sequence auto-starts and sequentially runs a nested anonymous valve-timing sub-sequence", func(ctx SpecContext) {
+			// The outer is anonymous → LivenessAlways → root cascade activates
+			// it at boot (no trigger channel needed). The outer is sequential,
+			// so its nested sub-sequence is a step member — activated by step
+			// machinery (not cascade) when the outer's wait{2s} fires.
+			//
+			// Expected timeline (all absolute elapsed):
+			//     t = 0..2s    outer holds at step 0 (wait{2s}); no writes.
+			//     t ≈ 2s       outer → step 1 (inner activates); press = 1.
+			//     t ≈ 2.25s    inner's first wait{250ms} fires; press = 0.
+			//     t ≈ 2.5s     inner's second wait{250ms} fires; vent = 1.
+			//     t ≈ 2.75s    inner's third wait{250ms} fires; vent = 0.
+			resolver := channelSymbols(map[string]channelDef{
+				"press_vlv_cmd": {types.U8(), 101},
+				"vent_vlv_cmd":  {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence {
+				    wait{2s}
+				    sequence {
+				        1 -> press_vlv_cmd
+				        wait{250ms}
+				        0 -> press_vlv_cmd
+				        wait{250ms}
+				        1 -> vent_vlv_cmd
+				        wait{250ms}
+				        0 -> vent_vlv_cmd
+				    }
+				}`, resolver,
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+				channel.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			// Prime the scheduler. Outer auto-starts; step 0 (wait{2s}) begins
+			// tracking from this tick.
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"press must not fire while outer is holding at wait{2s}")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"vent must not fire while outer is holding at wait{2s}")
+
+			// Still inside outer's wait{2s} — elapsed = 1s, threshold 2s.
+			advance(h, ctx, 1*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"press must not fire at t=1s (outer wait{2s} still blocking)")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"vent must not fire at t=1s")
+
+			// At t ≈ 2.01s outer's wait{2s} fires; step machinery activates
+			// the nested sequence; inner step 0 runs press = 1.
+			advance(h, ctx, 2*telem.Second+10*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"press must open once the outer's 2s wait elapses and step machinery activates the inner sequence")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"vent must not fire yet — inner has only reached its first write")
+
+			// At t ≈ 2.27s inner's first wait{250ms} fires; press = 0.
+			advance(h, ctx, 2*telem.Second+270*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(0)),
+				"press must close after inner's first wait{250ms} elapses")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"vent must still be untouched at t≈2.27s")
+
+			// At t ≈ 2.53s inner's second wait{250ms} fires; vent = 1.
+			advance(h, ctx, 2*telem.Second+530*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"press must not be re-written after it closed")
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"vent must open after inner's second wait{250ms} elapses")
+
+			// At t ≈ 2.79s inner's third wait{250ms} fires; vent = 0.
+			advance(h, ctx, 2*telem.Second+790*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(0)),
+				"vent must close after inner's third wait{250ms} elapses")
+		})
 	})
 
 	Describe("Reactive flows", func() {

@@ -717,6 +717,31 @@ TEST_F(SchedulerTest, CascadeResetsNestedAlwaysScopeOnActivation) {
     EXPECT_EQ(inner.next_called, 1);
 }
 
+// Exercises the uniform cascade rule at a non-root depth: root (Always) →
+// outer (Always) → middle (Always) → leaf node. Any break in the rule would
+// leave the leaf unactivated.
+TEST_F(SchedulerTest, CascadeThroughNestedAlwaysScopesAtDepth) {
+    auto &leaf = mock("leaf");
+    auto inner = always_scope("inner", {stratum_of({ir::node_member("leaf")})});
+    auto middle = always_scope(
+        "middle",
+        {stratum_of({ir::scope_member(std::move(inner))})}
+    );
+    auto outer = always_scope(
+        "outer",
+        {stratum_of({ir::scope_member(std::move(middle))})}
+    );
+    auto ir = program_of(
+        {ir_node("leaf")},
+        {},
+        root_scope({ir::scope_member(std::move(outer))})
+    );
+    const auto s = build(std::move(ir));
+    s->next(x::telem::MILLISECOND, node::RunReason::TimerTick);
+    EXPECT_EQ(leaf.reset_called, 1);
+    EXPECT_EQ(leaf.next_called, 1);
+}
+
 // ----- Sequential scope transitions -----
 
 TEST_F(SchedulerTest, AdvancesOnTransitionFire) {

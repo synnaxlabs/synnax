@@ -1501,7 +1501,7 @@ var _ = Describe("Text", func() {
 				Expect(main.Activation).ToNot(BeNil())
 			})
 
-			It("Should compile a nested sequence as LivenessAlways", func(ctx SpecContext) {
+			It("Should compile named nested scopes as LivenessGated at every depth", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11014},
 				}
@@ -1518,31 +1518,131 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
-				Expect(inter.Root.Strata).To(HaveLen(1))
 				var outer *ir.Scope
-				for _, m := range inter.Root.Strata[0] {
-					if m.Scope != nil && m.Scope.Key == "outer" {
-						outer = m.Scope
-						break
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "outer" {
+							outer = m.Scope
+						}
 					}
 				}
 				Expect(outer).ToNot(BeNil())
 				Expect(outer.Liveness).To(Equal(ir.LivenessGated))
 				Expect(outer.Steps).To(HaveLen(1))
-				stageScope := outer.Steps[0].Scope
-				Expect(stageScope).ToNot(BeNil())
-				Expect(stageScope.Key).To(Equal("s"))
-				Expect(stageScope.Liveness).To(Equal(ir.LivenessAlways))
-				var nestedSeq *ir.Scope
-				for _, stratum := range stageScope.Strata {
+				stageS := outer.Steps[0].Scope
+				Expect(stageS).ToNot(BeNil())
+				Expect(stageS.Key).To(Equal("s"))
+				Expect(stageS.Liveness).To(Equal(ir.LivenessGated))
+				var inner *ir.Scope
+				for _, stratum := range stageS.Strata {
 					for _, mem := range stratum {
 						if mem.Scope != nil && mem.Scope.Key == "inner" {
-							nestedSeq = mem.Scope
+							inner = mem.Scope
 						}
 					}
 				}
-				Expect(nestedSeq).ToNot(BeNil())
-				Expect(nestedSeq.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(inner).ToNot(BeNil())
+				Expect(inner.Liveness).To(Equal(ir.LivenessGated))
+				Expect(inner.Steps).To(HaveLen(1))
+				stageT := inner.Steps[0].Scope
+				Expect(stageT).ToNot(BeNil())
+				Expect(stageT.Key).To(Equal("t"))
+				Expect(stageT.Liveness).To(Equal(ir.LivenessGated))
+			})
+
+			It("Should compile anonymous nested scopes as LivenessAlways at every depth", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11015},
+				}
+				source := `
+				sequence {
+				    stage {
+				        sequence {
+				            stage {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var outer *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "seq_") {
+							outer = m.Scope
+						}
+					}
+				}
+				Expect(outer).ToNot(BeNil())
+				Expect(outer.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(outer.Steps).To(HaveLen(1))
+				stageA := outer.Steps[0].Scope
+				Expect(stageA).ToNot(BeNil())
+				Expect(stageA.Liveness).To(Equal(ir.LivenessAlways))
+				var innerSeq *ir.Scope
+				for _, stratum := range stageA.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil {
+							innerSeq = mem.Scope
+						}
+					}
+				}
+				Expect(innerSeq).ToNot(BeNil())
+				Expect(innerSeq.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(innerSeq.Steps).To(HaveLen(1))
+				stageB := innerSeq.Steps[0].Scope
+				Expect(stageB).ToNot(BeNil())
+				Expect(stageB.Liveness).To(Equal(ir.LivenessAlways))
+			})
+
+			It("Should compile mixed named/anonymous nesting per the uniform rule", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11016},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        sequence {
+				            stage {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var main *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "main" {
+							main = m.Scope
+						}
+					}
+				}
+				Expect(main).ToNot(BeNil())
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Steps).To(HaveLen(1))
+				first := main.Steps[0].Scope
+				Expect(first).ToNot(BeNil())
+				Expect(first.Key).To(Equal("first"))
+				Expect(first.Liveness).To(Equal(ir.LivenessGated))
+				var anonSeq *ir.Scope
+				for _, stratum := range first.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil && strings.HasPrefix(mem.Scope.Key, "seq_") {
+							anonSeq = mem.Scope
+						}
+					}
+				}
+				Expect(anonSeq).ToNot(BeNil())
+				Expect(anonSeq.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(anonSeq.Steps).To(HaveLen(1))
+				anonStage := anonSeq.Steps[0].Scope
+				Expect(anonStage).ToNot(BeNil())
+				Expect(anonStage.Liveness).To(Equal(ir.LivenessAlways))
 			})
 		})
 

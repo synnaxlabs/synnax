@@ -711,6 +711,25 @@ var _ = Describe("Scheduler", func() {
 			Expect(inner.ResetCalled).To(Equal(0))
 			Expect(inner.NextCalled).To(Equal(0))
 		})
+
+		It("Should cascade through nested always-live scopes at depth", func(ctx SpecContext) {
+			// Exercises the uniform cascade rule at a non-root depth: root
+			// (Always) → outer (Always) → middle (Always) → leaf node. Any
+			// break in the rule would leave the leaf unactivated.
+			leaf := mock("leaf")
+			inner := alwaysScope("inner", stratum(ir.NodeMember("leaf")))
+			middle := alwaysScope("middle", stratum(ir.ScopeMember(inner)))
+			outer := alwaysScope("outer", stratum(ir.ScopeMember(middle)))
+			prog := programOf(
+				[]ir.Node{irNode("leaf")},
+				nil,
+				rootScope(ir.ScopeMember(outer)),
+			)
+			s := build(prog)
+			s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
+			Expect(leaf.ResetCalled).To(Equal(1))
+			Expect(leaf.NextCalled).To(Equal(1))
+		})
 	})
 
 	Describe("Change propagation", func() {
