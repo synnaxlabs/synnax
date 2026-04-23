@@ -396,7 +396,7 @@ func (s *Server) getCompletionItems(
 ) []protocol.CompletionItem {
 	completionCtx := DetectCompletionContext(doc.displayContent(), pos)
 
-	if completionCtx == ContextComment {
+	if completionCtx == ContextComment || completionCtx == ContextNone {
 		return []protocol.CompletionItem{}
 	}
 

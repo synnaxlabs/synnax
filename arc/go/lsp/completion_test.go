@@ -123,10 +123,10 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show function keywords at statement start inside func body", func(ctx SpecContext) {
-			content := "func foo() { "
+			content := "func foo() {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start in func body")
@@ -196,10 +196,10 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should not show types at statement start", func(ctx SpecContext) {
-			content := "func foo() { "
+			content := "func foo() {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
@@ -861,5 +861,44 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
 				"Unqualified prefix should still show channels")
 		})
+	})
+
+	Describe("Same-Line After Opening Brace", func() {
+		DescribeTable("returns no completions when the cursor is on the same line as the opening brace",
+			func(ctx SpecContext, content string, line, char uint32) {
+				OpenArcDocument(server, ctx, uri, content)
+				completions := Completion(server, ctx, uri, line, char)
+				Expect(completions).ToNot(BeNil())
+				Expect(completions.Items).To(BeEmpty())
+			},
+			Entry("func, cursor flush against brace",
+				"func cat() {", uint32(0), uint32(12)),
+			Entry("func, cursor after trailing space",
+				"func cat() { ", uint32(0), uint32(13)),
+			Entry("sequence, cursor flush against brace",
+				"sequence main {", uint32(0), uint32(15)),
+			Entry("sequence, cursor after trailing space",
+				"sequence main { ", uint32(0), uint32(16)),
+			Entry("stage, cursor flush against brace",
+				"sequence main {\n    stage cat {", uint32(1), uint32(15)),
+			Entry("stage, cursor after trailing space",
+				"sequence main {\n    stage cat { ", uint32(1), uint32(16)),
+		)
+
+		DescribeTable("still returns block-body completions on the next line",
+			func(ctx SpecContext, content string, line, char uint32, expectedLabel string) {
+				OpenArcDocument(server, ctx, uri, content)
+				completions := Completion(server, ctx, uri, line, char)
+				Expect(completions).ToNot(BeNil())
+				Expect(HasCompletion(completions.Items, expectedLabel)).To(BeTrue(),
+					"Expected to find %q completion on the new line inside the block", expectedLabel)
+			},
+			Entry("func body offers return",
+				"func cat() {\n    \n}", uint32(1), uint32(4), "return"),
+			Entry("sequence body offers stage",
+				"sequence main {\n    \n}", uint32(1), uint32(4), "stage"),
+			Entry("stage body offers next",
+				"sequence main {\n    stage cat {\n        \n    }\n}", uint32(2), uint32(8), "next"),
+		)
 	})
 })
