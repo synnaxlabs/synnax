@@ -57,9 +57,9 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			diagnostic := (*ctx.Diagnostics)[0]
-			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 		})
 
 		It("Should allow variable declaration from a function parameter", func(bCtx SpecContext) {
@@ -286,8 +286,9 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
 		})
 	})
 
@@ -640,7 +641,7 @@ var _ = Describe("Analyzer Integration", func() {
 					cycle_a()
 				}
 			`, chResolver)
-			for _, d := range *ctx.Diagnostics {
+			for _, d := range ctx.Diagnostics.Errors() {
 				Expect(d.Message).ToNot(ContainSubstring("wrapper"))
 			}
 		})

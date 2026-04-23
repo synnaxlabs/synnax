@@ -126,7 +126,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 			It("should coexist with functions", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `
 					MAX := 100
-					func foo() {}
+					func _foo() {}
 				`, nil)
 				Expect(ctx.Scope.Children).To(HaveLen(2))
 				consts := ctx.Scope.FilterChildrenByKind(symbol.KindGlobalConstant)
@@ -193,36 +193,36 @@ var _ = Describe("Global Constant Analyzer", func() {
 		It("should resolve constant in function body", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				MAX := 100
-				func check(x i64) i64 {
+				func _check(x i64) i64 {
 					return x + MAX
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 
 		It("should use constant in expression", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				PI := 3.14159
-				func area(r f64) f64 {
+				func _area(r f64) f64 {
 					return r * r * PI
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "area"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_area"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 
 		It("should allow constant in condition", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				THRESHOLD := 100
-				func check(x i64) i64 {
+				func _check(x i64) i64 {
 					if (x > THRESHOLD) {
 						return 1
 					}
 					return 0
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 	})

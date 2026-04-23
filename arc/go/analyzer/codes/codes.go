@@ -36,4 +36,8 @@ const (
 	// UnusedVariable indicates a local or stateful variable (including a channel alias)
 	// was declared but never referenced. Prefix the name with an underscore to suppress.
 	UnusedVariable diagnostics.ErrorCode = "ARC5101"
+	// UncalledFunction indicates a function was declared but never invoked from any
+	// call site (flow statement, stage body, routing table, or function-body
+	// expression). Prefix the name with an underscore to suppress.
+	UncalledFunction diagnostics.ErrorCode = "ARC5102"
 )

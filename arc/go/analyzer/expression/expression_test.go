@@ -1035,8 +1035,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("type mismatch: cannot use i32 and f32 in + operation"))
 		})
 
 		It("Should not return an error when adding a channel to a variable of the same type", func(specCtx SpecContext) {
