@@ -777,7 +777,7 @@ TEST(HTTPWriteTask, ParallelMultipleEndpoints) {
 }
 
 /// @brief when one endpoint in a parallel batch returns an error, the write should
-/// still return that error.
+/// still return that error with the failing endpoint's details.
 TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
     mock::Server server(
         mock::ServerConfig{
@@ -831,8 +831,77 @@ TEST(HTTPWriteTask, ParallelBatchPartialFailure) {
 
     auto err = sink->write(frame);
     ASSERT_OCCURRED_AS(err, errors::TEMPORARY_ERROR);
+    EXPECT_NE(err.data.find("/api/bad"), std::string::npos)
+        << "Expected failing endpoint path in error. Got: " << err.data;
 
     // Both requests should have been sent (parallel, not short-circuit).
+    auto reqs = server.received_requests();
+    ASSERT_EQ(reqs.size(), 2);
+}
+
+/// @brief when multiple endpoints in a parallel batch return errors, the combined
+/// error should contain details from all failing endpoints.
+TEST(HTTPWriteTask, ParallelBatchAllFailures) {
+    mock::Server server(
+        mock::ServerConfig{
+            .routes = {
+                {
+                    .method = Method::POST,
+                    .path = "/api/client-err",
+                    .status_code = 400,
+                    .response_body = R"({"error":"bad request"})",
+                },
+                {
+                    .method = Method::POST,
+                    .path = "/api/server-err",
+                    .status_code = 500,
+                    .response_body = R"({"error":"internal"})",
+                },
+            },
+        }
+    );
+    ASSERT_NIL(server.start());
+    x::defer::defer stop_server([&server] { server.stop(); });
+
+    WriteTaskConfig cfg;
+    cfg.device = "test-device";
+    cfg.auto_start = false;
+
+    WriteEndpoint ep1;
+    ep1.request.method = Method::POST;
+    ep1.request.path = "/api/client-err";
+    ep1.request.request_content_type = "application/json";
+    ep1.channel.pointer = x::json::json::json_pointer("/value");
+    ep1.channel.json_type = x::json::Type::Number;
+    ep1.channel.channel_key = 1;
+
+    WriteEndpoint ep2;
+    ep2.request.method = Method::POST;
+    ep2.request.path = "/api/server-err";
+    ep2.request.request_content_type = "application/json";
+    ep2.channel.pointer = x::json::json::json_pointer("/value");
+    ep2.channel.json_type = x::json::Type::Number;
+    ep2.channel.channel_key = 2;
+
+    cfg.endpoints = {ep1, ep2};
+    cfg.cmd_keys = {1, 2};
+
+    auto [sink, processor] = make_sink(cfg, server.base_url());
+
+    x::telem::Frame frame;
+    frame.emplace(synnax::channel::Key(1), x::telem::Series(std::vector<double>{10.0}));
+    frame.emplace(synnax::channel::Key(2), x::telem::Series(std::vector<double>{20.0}));
+
+    auto err = sink->write(frame);
+    // The first error type encountered determines the overall error type.
+    ASSERT_OCCURRED_AS(err, errors::CRITICAL_ERROR);
+    EXPECT_NE(err.data.find("/api/client-err"), std::string::npos)
+        << "Expected first failing endpoint in error. Got: " << err.data;
+    EXPECT_NE(err.data.find("/api/server-err"), std::string::npos)
+        << "Expected second failing endpoint in error. Got: " << err.data;
+    EXPECT_NE(err.data.find("; "), std::string::npos)
+        << "Expected errors joined by '; '. Got: " << err.data;
+
     auto reqs = server.received_requests();
     ASSERT_EQ(reqs.size(), 2);
 }
