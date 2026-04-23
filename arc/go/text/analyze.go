@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -630,7 +631,7 @@ func Analyze(
 	// Apply deferred activations collected by flow statements that target
 	// top-level scopes (for example `trigger => main`). The activation is
 	// stamped directly onto the corresponding nested Scope member.
-	bound := make(map[string]struct{}, len(shell.activations))
+	bound := set.New[string]()
 	if len(shell.activations) > 0 && len(i.Root.Strata) > 0 {
 		stratum := i.Root.Strata[0]
 		for idx := range stratum {
@@ -640,7 +641,7 @@ func Analyze(
 			}
 			if handle, ok := shell.activations[m.Scope.Key]; ok {
 				m.Scope.Activation = new(handle)
-				bound[m.Scope.Key] = struct{}{}
+				bound.Add(m.Scope.Key)
 			}
 		}
 	}
@@ -649,7 +650,7 @@ func Analyze(
 	// registered activation should bind. If one does not, something upstream
 	// registered an activation without going through analyzeNamedRef.
 	for key := range shell.activations {
-		if _, ok := bound[key]; !ok {
+		if !bound.Contains(key) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
 				nil,
 				"internal: activation target '%s' did not bind to a "+
