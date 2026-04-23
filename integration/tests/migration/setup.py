@@ -7,7 +7,17 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Shared constants and helpers for migration setup scripts."""
+"""Shared constants and helpers for migration setup scripts.
+
+Setup scripts run in isolated venvs with version-pinned synnax clients from
+PyPI. Only code inside ``if __name__ == "__main__"`` executes in the venv;
+module-level constants are safe to import from verify scripts.
+
+Some setup scripts import ``examples`` simulators (OPCUASim, ModbusSim) inside
+the ``__main__`` guard. These are standalone servers, not test dependencies. We
+use the latest workspace version intentionally. The simulator just needs to
+present a valid endpoint, and pinning would prevent us from updating the sims.
+"""
 
 import platform
 import socket
