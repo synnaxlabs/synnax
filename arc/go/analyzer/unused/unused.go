@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package unused emits diagnostics for declarations that are never referenced.
+// Package unused emits diagnostics for dead code: declarations that are never
+// referenced (ARC51xx) and statements that can never execute (ARC52xx).
 //
-// This pass runs after the main analyzer passes have populated the scope tree and
-// set Referenced on every scope that was looked up from a use-site. It walks the
-// scope tree, and for each declaration in a category covered by an ARC51xx rule
-// whose scope was never referenced, it emits a warning.
+// Declaration checks walk the scope tree and rely on other analyzer passes
+// having set Referenced on every scope that was resolved from a use-site.
+// Statement-level unreachable-code checks walk function body ASTs directly.
 package unused
 
 import (
@@ -20,17 +20,20 @@ import (
 
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// Analyze walks the program's scope tree and emits warnings for unreferenced
-// variable declarations (ARC5101). It should run after analyzeDeclarations so
-// that every use-site has had a chance to mark its target scope Referenced.
+// Analyze walks the program and emits warnings for unreferenced declarations
+// (ARC51xx) and unreachable statements (ARC52xx). It should run after
+// analyzeDeclarations so that every use-site has had a chance to mark its
+// target scope Referenced.
 func Analyze(ctx context.Context[parser.IProgramContext]) {
 	walk(ctx.Scope, ctx.Diagnostics)
+	analyzeUnreachableCode(ctx)
 }
 
 func walk(scope *symbol.Scope, diag *diagnostics.Diagnostics) {
@@ -103,4 +106,61 @@ func variableLabel(scope *symbol.Scope) (string, bool) {
 	default:
 		return "", false
 	}
+}
+
+// analyzeUnreachableCode walks each top-level function body and emits an
+// ARC5203 warning for the first statement in any block that is preceded by a
+// statement that always returns. Only function bodies are analyzed: stage
+// bodies are reactive parallel flows with no notion of statement ordering.
+func analyzeUnreachableCode(ctx context.Context[parser.IProgramContext]) {
+	for _, item := range ctx.AST.AllTopLevelItem() {
+		if fnDecl := item.FunctionDeclaration(); fnDecl != nil {
+			checkBlock(fnDecl.Block(), ctx.Diagnostics)
+		}
+	}
+}
+
+// checkBlock emits at most one ARC5203 warning per block and recurses into
+// nested if / else-if / else blocks. It stops scanning a block after emitting
+// a warning so callers are not overwhelmed by cascades in a long dead tail.
+func checkBlock(block parser.IBlockContext, diag *diagnostics.Diagnostics) {
+	if block == nil {
+		return
+	}
+	statements := block.AllStatement()
+	for i, stmt := range statements {
+		if ifStmt := stmt.IfStatement(); ifStmt != nil {
+			checkIfStatement(ifStmt, diag)
+		}
+		if i < len(statements)-1 && statementAlwaysExits(stmt) {
+			next := statements[i+1]
+			diag.Add(diagnostics.
+				Warningf(next, "unreachable code: previous statement always returns").
+				WithCode(codes.UnreachableCode))
+			return
+		}
+	}
+}
+
+func checkIfStatement(ifStmt parser.IIfStatementContext, diag *diagnostics.Diagnostics) {
+	checkBlock(ifStmt.Block(), diag)
+	for _, elseIf := range ifStmt.AllElseIfClause() {
+		checkBlock(elseIf.Block(), diag)
+	}
+	if elseClause := ifStmt.ElseClause(); elseClause != nil {
+		checkBlock(elseClause.Block(), diag)
+	}
+}
+
+// statementAlwaysExits reports whether execution cannot fall through past this
+// statement in program order. A bare return always exits; an if/else exits
+// only when every branch always returns (handled by IfStmtAlwaysReturns).
+func statementAlwaysExits(stmt parser.IStatementContext) bool {
+	if stmt.ReturnStatement() != nil {
+		return true
+	}
+	if ifStmt := stmt.IfStatement(); ifStmt != nil {
+		return function.IfStmtAlwaysReturns(ifStmt)
+	}
+	return false
 }

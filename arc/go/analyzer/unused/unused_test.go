@@ -196,6 +196,94 @@ var _ = Describe("Unused Variable (ARC5101)", func() {
 	})
 })
 
+var _ = Describe("Unreachable Code (ARC5203)", func() {
+	Describe("emits warning for", func() {
+		It("a statement after a bare return", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				func _test() i32 {
+					return 0
+					x := 1
+					return x
+				}
+			`, nil, codes.UnreachableCode, "unreachable code")
+		})
+
+		It("a statement after an if/else where both branches return", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				func _test(c i32) i32 {
+					if c > 0 {
+						return 1
+					} else {
+						return 2
+					}
+					x := 1
+					return x
+				}
+			`, nil, codes.UnreachableCode, "unreachable code")
+		})
+
+		It("a statement after a return inside an if-branch", func(bCtx SpecContext) {
+			expectWarning(bCtx, `
+				func _test(c i32) i32 {
+					if c > 0 {
+						return 1
+						x := 1
+					}
+					return 0
+				}
+			`, nil, codes.UnreachableCode, "unreachable code")
+		})
+
+		It("only the first unreachable statement per block (no pile-up)", func(bCtx SpecContext) {
+			diags := analyze(bCtx, `
+				func _test() i32 {
+					return 0
+					x := 1
+					y := 2
+					z := 3
+				}
+			`, nil)
+			warns := warningsWithCode(diags, codes.UnreachableCode)
+			Expect(warns).To(HaveLen(1), diags.String())
+		})
+	})
+
+	Describe("does not warn for", func() {
+		It("a return at the end of a block", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				func _test() i32 {
+					x := 1
+					return x
+				}
+			`, nil, codes.UnreachableCode)
+		})
+
+		It("an if/else where only some branches return", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				func _test(c i32) i32 {
+					if c > 0 {
+						return 1
+					}
+					return 0
+				}
+			`, nil, codes.UnreachableCode)
+		})
+
+		It("a return inside only one branch of an if/else-if/else chain", func(bCtx SpecContext) {
+			expectNoWarning(bCtx, `
+				func _test(c i32) i32 {
+					if c > 0 {
+						return 1
+					} else if c < 0 {
+						return -1
+					}
+					return 0
+				}
+			`, nil, codes.UnreachableCode)
+		})
+	})
+})
+
 var _ = Describe("Unused Global Constant (ARC5103)", func() {
 	Describe("emits warning for", func() {
 		It("a global constant that is never referenced", func(bCtx SpecContext) {

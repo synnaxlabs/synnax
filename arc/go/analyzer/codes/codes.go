@@ -43,4 +43,9 @@ const (
 	// UnusedGlobalConstant indicates a top-level constant was declared but never
 	// referenced from any expression. Prefix the name with an underscore to suppress.
 	UnusedGlobalConstant diagnostics.ErrorCode = "ARC5103"
+	// UnreachableCode indicates a statement appears after an earlier statement in
+	// the same block that always returns, so it can never execute. Applies only
+	// inside function bodies; stage bodies are reactive parallel flows, not
+	// sequential statements.
+	UnreachableCode diagnostics.ErrorCode = "ARC5203"
 )
