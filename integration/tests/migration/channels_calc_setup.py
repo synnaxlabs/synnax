@@ -7,11 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration setup: calculated channels with operations, expressions, and windows.
-
-Standalone script — uses only synnax + stdlib.
-Once committed, this file is never modified.
-"""
+"""Migration setup: calculated channels with operations, expressions, and windows."""
 
 import numpy as np
 

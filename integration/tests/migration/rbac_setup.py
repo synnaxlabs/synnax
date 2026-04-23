@@ -7,11 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration setup: RBAC roles, users, and role assignments.
-
-Standalone script — uses only synnax + stdlib.
-Once committed, this file is never modified.
-"""
+"""Migration setup: RBAC roles, users, and role assignments."""
 
 import synnax as sy
 
