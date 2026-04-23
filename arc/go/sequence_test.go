@@ -537,6 +537,229 @@ var _ = Describe("Sequence", func() {
 			Expect(lastU8(out, 102)).To(Equal(uint8(0)),
 				"vent must close after inner's third wait{250ms} elapses")
 		})
+
+		It("Anonymous outer auto-starts, transitions from a gated stage into a named nested sequence via => next", func(ctx SpecContext) {
+			// The outer is anonymous → LivenessAlways → root cascade activates
+			// it at boot. It has two sequential steps:
+			//   step 0: stage cat { wait{2s} => next }
+			//   step 1: sequence puff { wait{2s}; 1 -> ox_mpv_cmd }
+			//
+			// Stage body = parallel reactive flows, so cat's wait{2s} gates
+			// the => next transition. Sequence body = sequential steps, so
+			// puff's wait{2s} blocks before the write. Even though puff is
+			// named (normally LivenessGated), as a step of the parent it's
+			// activated by step machinery — no explicit => puff is needed.
+			//
+			// Expected timeline:
+			//     t = 0..2s    cat holds at wait{2s}; ox_mpv_cmd untouched.
+			//     t ≈ 2s       cat's wait fires, => next advances to puff;
+			//                  puff's wait{2s} begins. Still no write.
+			//     t ≈ 4s       puff's wait fires; 1 -> ox_mpv_cmd.
+			resolver := channelSymbols(map[string]channelDef{
+				"ox_mpv_cmd": {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence {
+				    stage cat {
+				        wait{2s} => next
+				    }
+				    sequence puff {
+				        wait{2s}
+				        1 -> ox_mpv_cmd
+				    }
+				}`, resolver,
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			// Prime the scheduler. Outer auto-starts; cat's wait{2s} begins.
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"ox_mpv_cmd must not fire while cat is holding at wait{2s}")
+
+			// Still inside cat's wait{2s}.
+			advance(h, ctx, 1*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"ox_mpv_cmd must not fire at t=1s (cat still blocking)")
+
+			// At t ≈ 2.01s cat's wait fires, => next activates puff, puff's
+			// own wait{2s} begins — the write must not fire yet.
+			advance(h, ctx, 2*telem.Second+10*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"ox_mpv_cmd must not fire when puff activates — its own wait{2s} gates the write")
+
+			// Halfway through puff's wait.
+			advance(h, ctx, 3*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"ox_mpv_cmd must not fire at t≈3s (puff's wait{2s} still blocking)")
+
+			// At t ≈ 4.02s puff's wait fires; 1 -> ox_mpv_cmd.
+			advance(h, ctx, 4*telem.Second+20*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"ox_mpv_cmd must open once puff's 2s wait elapses after cat transitions")
+
+			// Sequence has completed; no further writes on subsequent ticks.
+			advance(h, ctx, 5*telem.Second)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"ox_mpv_cmd must not be rewritten after the sequence completes")
+		})
+
+		It("Resolves => X to an enclosing sequence's member across intermediate stages", func(ctx SpecContext) {
+			// `=> after` fires from inside an anonymous nested sequence inside
+			// stage cat — two structural layers (stage + nested seq) between
+			// the firing flow and the target. The target lives in the outer
+			// anonymous sequence's memberKeys, so the stack walk finds it
+			// there and the transition lives on the outer frame. When the
+			// inner wait fires, the outer advances step 0 (cat) → step 1
+			// (after); cat freezes, after runs.
+			resolver := channelSymbols(map[string]channelDef{
+				"x": {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence {
+				    stage cat {
+				        sequence {
+				            wait{1s} => after
+				        }
+				    }
+				    sequence after {
+				        1 -> x
+				    }
+				}`, resolver,
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"x must not be written while cat holds at wait{1s}")
+
+			advance(h, ctx, 500*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"x must still be untouched mid-wait")
+
+			advance(h, ctx, 1*telem.Second+10*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"after the wait fires, outer must advance to `after` and write 1")
+		})
+
+		It("Resolves => b through a nested sequence to a sibling stage", func(ctx SpecContext) {
+			// `=> b` from inside a nested sequence inside stage a must find
+			// b as a member of main (the outer frame) and advance main from
+			// stage a to stage b.
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"x":         {types.U8(), 101},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    stage a {
+				        sequence {
+				            wait{500ms} => b
+				        }
+				    }
+				    stage b {
+				        1 -> x
+				    }
+				}
+				start_cmd => main`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(out.Get(101).Series).To(BeEmpty(),
+				"x must not be written while a holds at wait{500ms}")
+
+			advance(h, ctx, 600*telem.Millisecond)
+			out, _ = h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"main must advance from a to b and write 1")
+		})
+
+		It("Applies shadowing: innermost sequence's member wins over outer same-name", func(ctx SpecContext) {
+			// Both `inner` and the outer anonymous sequence contain a member
+			// named `target`. From inside stage `a` (a step of inner),
+			// `=> target` must resolve to inner's target, not outer's. The
+			// shadowing rule is lexical — closer wrapping sequence wins —
+			// so adding a same-named sibling in an outer scope cannot
+			// silently steal a jump that used to resolve locally.
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"x_inner":   {types.U8(), 101},
+				"x_outer":   {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence {
+				    sequence inner {
+				        stage a {
+				            start_cmd => target
+				        }
+				        stage target {
+				            1 -> x_inner
+				        }
+				    }
+				    sequence target {
+				        1 -> x_outer
+				    }
+				}`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+				channel.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 101)).To(Equal(uint8(1)),
+				"inner's target must run and write to x_inner")
+			Expect(out.Get(102).Series).To(BeEmpty(),
+				"outer's target must be shadowed by inner's target and never run")
+		})
+
+		It("Preserves top-level activation for => other across sibling sequences", func(ctx SpecContext) {
+			// Regression guard: `=> other` from inside main should still
+			// activate root-level `other` via the cross-scope activation
+			// path. `other` is not in any enclosing frame's memberKeys
+			// (main's memberKeys are [step_0], not [other]), so the stack
+			// walk misses and we fall through to root activation.
+			resolver := channelSymbols(map[string]channelDef{
+				"start_cmd": {types.U8(), 100},
+				"trigger":   {types.U8(), 101},
+				"x":         {types.U8(), 102},
+			})
+			h := newRuntimeHarness(ctx, `
+				sequence main {
+				    trigger => other
+				}
+				sequence other {
+				    1 -> x
+				}
+				start_cmd => main`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.Uint8T},
+				channel.Digest{Key: 102, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			trigger(h, ctx, 100)
+			h.Ingest(101, telem.NewSeriesV[uint8](1))
+			advance(h, ctx, telem.Millisecond)
+			out, _ := h.Flush()
+			Expect(lastU8(out, 102)).To(Equal(uint8(1)),
+				"=> other must activate other and write 1 to x")
+		})
 	})
 
 	Describe("Reactive flows", func() {
