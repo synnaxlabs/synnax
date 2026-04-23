@@ -7,24 +7,22 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Migration test: create channels and write known data on the old version."""
+"""Migration setup: typed data channels with known sample data."""
 
-from abc import abstractmethod
-from typing import Any
+from collections.abc import Callable
 
 import numpy as np
 
 import synnax as sy
-from framework.test_case import TestCase
 
-NpArray = np.ndarray[Any, Any]
+SETUP_VERSION = "0.49"
 
 IDX_NAME = "mig_channels_idx"
 
 F32 = np.finfo(np.float32)
 F64 = np.finfo(np.float64)
 
-DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
+DATA_CHANNELS: list[tuple[str, sy.DataType, np.ndarray]] = [
     (
         "mig_ch_float32",
         sy.DataType.FLOAT32,
@@ -288,93 +286,45 @@ DATA_CHANNELS: list[tuple[str, sy.DataType, NpArray]] = [
 ]
 
 
-class ChannelsMigration(TestCase):
-    """Base class defining the migration test contract for channels.
+def setup(client: sy.Synnax, log: Callable[[str], None]) -> None:
+    log("  [channels] Creating index and data channels...")
 
-    Subclasses must implement each test method — setup creates the state,
-    verify checks it after migration.
-    """
+    idx = client.channels.create(
+        name=IDX_NAME,
+        data_type=sy.DataType.TIMESTAMP,
+        is_index=True,
+        retrieve_if_name_exists=True,
+    )
 
-    def run(self) -> None:
-        self.test_channel_types()
-        self.test_data_integrity()
+    data_channels = client.channels.create(
+        [
+            sy.Channel(name=name, data_type=data_type, index=idx.key)
+            for name, data_type, _ in DATA_CHANNELS
+        ],
+        retrieve_if_name_exists=True,
+    )
 
-    @abstractmethod
-    def test_channel_types(self) -> None: ...
-
-    @abstractmethod
-    def test_data_integrity(self) -> None: ...
-
-
-class ChannelsSetup(ChannelsMigration):
-    """Create channels and write known sample data for migration verification."""
-
-    def test_channel_types(self) -> None:
-        self.log("Testing: Create channels")
-        client = self.client
-
-        self.idx = client.channels.create(
-            name=IDX_NAME,
-            data_type=sy.DataType.TIMESTAMP,
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        self.data_channels = []
-        for name, data_type, _ in DATA_CHANNELS:
-            ch = client.channels.create(
-                name=name,
-                data_type=data_type,
-                index=self.idx.key,
-                retrieve_if_name_exists=True,
-            )
-            self.data_channels.append(ch)
-
-    def test_data_integrity(self) -> None:
-        self.log("Testing: Write sample data")
-        sample_count = len(DATA_CHANNELS[0][2])
-        start = sy.TimeStamp.now()
-        timestamps = np.array(
-            [start + i * sy.TimeSpan.SECOND for i in range(sample_count)],
-            dtype=np.int64,
-        )
-        channel_keys = [self.idx.key] + [ch.key for ch in self.data_channels]
-        with self.client.open_writer(
-            start=start,
-            channels=channel_keys,
-            name="mig_channels_writer",
-        ) as writer:
-            payload: dict[int, NpArray] = {self.idx.key: timestamps}
-            for ch, (_, _, expected) in zip(self.data_channels, DATA_CHANNELS):
-                payload[ch.key] = expected
-            writer.write(payload)
+    log("  [channels] Writing sample data...")
+    sample_count = len(DATA_CHANNELS[0][2])
+    start = sy.TimeStamp(200 * sy.TimeSpan.SECOND)
+    timestamps = np.array(
+        [start + i * sy.TimeSpan.SECOND for i in range(sample_count)],
+        dtype=np.int64,
+    )
+    channel_keys = [idx.key] + [ch.key for ch in data_channels]
+    with client.open_writer(
+        start=start,
+        channels=channel_keys,
+        name="mig_channels_writer",
+        enable_auto_commit=True,
+    ) as writer:
+        payload: dict[int, np.ndarray] = {idx.key: timestamps}
+        for ch, (_, _, expected) in zip(data_channels, DATA_CHANNELS):
+            payload[ch.key] = expected
+        writer.write(payload)
 
 
-class ChannelsVerify(ChannelsMigration):
-    """Verify channels exist with correct types and data after migration."""
+if __name__ == "__main__":
+    from setup import run
 
-    def test_channel_types(self) -> None:
-        self.log("Testing: Channel types")
-        idx = self.client.channels.retrieve(IDX_NAME)
-        assert idx.data_type == sy.DataType.TIMESTAMP, (
-            f"Expected TIMESTAMP, got {idx.data_type}"
-        )
-        assert idx.is_index, "Expected index channel"
-
-        for name, expected_type, _ in DATA_CHANNELS:
-            ch = self.client.channels.retrieve(name)
-            assert ch.data_type == expected_type, (
-                f"{name}: expected {expected_type}, got {ch.data_type}"
-            )
-            assert ch.index == idx.key, (
-                f"{name}: expected index={idx.key}, got {ch.index}"
-            )
-
-    def test_data_integrity(self) -> None:
-        self.log("Testing: Data integrity")
-        time_range = sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now())
-        keys = [self.client.channels.retrieve(name).key for name, _, _ in DATA_CHANNELS]
-        frame = self.client.read(time_range, keys)
-
-        for key, (name, _, expected) in zip(keys, DATA_CHANNELS):
-            data = frame[key].to_numpy()
-            assert np.array_equal(data, expected), f"{name}: data mismatch: {data}"
+    run(setup)

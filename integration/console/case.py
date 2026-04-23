@@ -67,7 +67,7 @@ class ConsoleCase(TestCase):
         port = self.synnax_connection.port
 
         self.page.goto(f"http://{host}:{port}/", timeout=20000)
-        if "Core built without embedded console" in self.page.content():
+        if "core built without embedded console" in self.page.content().lower():
             port = 5173
             self.page.goto(f"http://{host}:{port}/", timeout=15000)
 

@@ -10,23 +10,24 @@
 import synnax as sy
 from tests.driver.modbus_task import ModbusReadTaskCase
 from tests.driver.task import create_channel, create_index
-from tests.migration.task import (
-    ReadTaskConsoleVerify,
-    ReadTaskMigration,
-    ReadTaskMigrationSetup,
-    ReadTaskMigrationVerify,
+from tests.migration.task_modbus_setup import (
+    CHANNEL_PREFIX,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
 )
-
-TASK_NAME = "mig_modbus_read"
-IDX_NAME = "mig_modbus_idx"
-CHANNEL_PREFIX = "mig_modbus_reg"
-NUM_CHANNELS = 2
+from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class ModbusReadMigration(ReadTaskMigration, ModbusReadTaskCase):
-    """Modbus read task migration base."""
+class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
+    """Verify Modbus task config survived and task can still run."""
 
     task_name = TASK_NAME
+    task_type = "modbus_read"
+    task_class = sy.modbus.ReadTask
+    channel_prefix = CHANNEL_PREFIX
+    num_channels = NUM_CHANNELS
+    pre_start_sleep = 2
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
@@ -44,20 +45,6 @@ class ModbusReadMigration(ReadTaskMigration, ModbusReadTaskCase):
             )
             for i in range(NUM_CHANNELS)
         ]
-
-
-class ModbusReadSetup(ReadTaskMigrationSetup, ModbusReadMigration):
-    """Create a Modbus read task, run it, and verify sample collection."""
-
-
-class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadMigration):
-    """Verify Modbus task data survived, settings intact, and task still runs."""
-
-    task_type = "modbus_read"
-    task_class = sy.modbus.ReadTask
-    channel_prefix = CHANNEL_PREFIX
-    num_channels = NUM_CHANNELS
-    pre_start_sleep = 2
 
 
 class ModbusReadConsoleVerify(ReadTaskConsoleVerify):
