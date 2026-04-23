@@ -652,7 +652,7 @@ func Analyze(
 	for key := range shell.activations {
 		if !bound.Contains(key) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(
-				nil,
+				t.AST,
 				"internal: activation target '%s' did not bind to a "+
 					"top-level scope; this should have been rejected by "+
 					"analyzeNamedRef",
