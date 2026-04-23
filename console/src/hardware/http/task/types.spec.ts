@@ -947,10 +947,20 @@ describe("HTTP Task Types", () => {
 });
 
 describe("HTTP Scan Task statusData", () => {
-  it("should accept null", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+  describe("config", () => {
+    it("should accept null", () => {
+      expect(SCAN_SCHEMAS.config.safeParse(null).success).toBe(true);
+    });
+    it("should accept undefined", () => {
+      expect(SCAN_SCHEMAS.config.safeParse(undefined).success).toBe(true);
+    });
   });
-  it("should accept undefined", () => {
-    expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+  describe("statusData", () => {
+    it("should accept null", () => {
+      expect(SCAN_SCHEMAS.statusData.safeParse(null).success).toBe(true);
+    });
+    it("should accept undefined", () => {
+      expect(SCAN_SCHEMAS.statusData.safeParse(undefined).success).toBe(true);
+    });
   });
 });
