@@ -10,23 +10,24 @@
 import synnax as sy
 from tests.driver.opcua_task import OPCUAReadTaskCase
 from tests.driver.task import create_channel, create_index
-from tests.migration.task import (
-    ReadTaskConsoleVerify,
-    ReadTaskMigration,
-    ReadTaskMigrationSetup,
-    ReadTaskMigrationVerify,
+from tests.migration.task_opc_setup import (
+    CHANNEL_PREFIX,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
 )
-
-TASK_NAME = "mig_opc_read"
-IDX_NAME = "mig_opc_idx"
-CHANNEL_PREFIX = "mig_opc_float"
-NUM_CHANNELS = 2
+from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
 
 
-class OPCUAReadMigration(ReadTaskMigration, OPCUAReadTaskCase):
-    """OPC UA read task migration base."""
+class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadTaskCase):
+    """Verify OPC UA task config survived and task can still run."""
 
     task_name = TASK_NAME
+    task_type = "opc_read"
+    task_class = sy.opcua.ReadTask
+    channel_prefix = CHANNEL_PREFIX
+    num_channels = NUM_CHANNELS
+    pre_start_sleep = 5
 
     @staticmethod
     def create_channels(client: sy.Synnax) -> list[sy.opcua.ReadChannel]:
@@ -44,20 +45,6 @@ class OPCUAReadMigration(ReadTaskMigration, OPCUAReadTaskCase):
             )
             for i in range(NUM_CHANNELS)
         ]
-
-
-class OPCUAReadSetup(ReadTaskMigrationSetup, OPCUAReadMigration):
-    """Create an OPC UA read task, run it, and verify sample collection."""
-
-
-class OPCUAReadVerify(ReadTaskMigrationVerify, OPCUAReadMigration):
-    """Verify OPC UA task data survived, settings intact, and task still runs."""
-
-    task_type = "opc_read"
-    task_class = sy.opcua.ReadTask
-    channel_prefix = CHANNEL_PREFIX
-    num_channels = NUM_CHANNELS
-    pre_start_sleep = 5
 
 
 class OPCUAReadConsoleVerify(ReadTaskConsoleVerify):

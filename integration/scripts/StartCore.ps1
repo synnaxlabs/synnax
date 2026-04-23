@@ -18,7 +18,7 @@ if (-not (Test-Path "$env:USERPROFILE\synnax-data")) {
 
 # Start Synnax using PowerShell Start-Process which creates a truly detached process
 Set-Location "$env:USERPROFILE\synnax-data"
-$synnaxPath = "$env:USERPROFILE\Desktop\synnax.exe"
+$synnaxPath = "$env:USERPROFILE\synnax-binaries\synnax.exe"
 
 Write-Host "Starting Synnax server..."
 
@@ -85,4 +85,4 @@ Write-Host "Synnax server started successfully and is ready!"
 
 # Output Synnax version
 Write-Host "Synnax version:"
-& "$env:USERPROFILE\Desktop\synnax.exe" version
+& "$env:USERPROFILE\synnax-binaries\synnax.exe" version

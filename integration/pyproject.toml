@@ -61,6 +61,10 @@ ignore_missing_imports = true
 module = "nisyscfg.*"
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+module = "setup"
+ignore_missing_imports = true
+
 [tool.pydantic-mypy]
 init_forbid_extra = true
 init_types = true
