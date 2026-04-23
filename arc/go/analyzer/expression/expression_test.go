@@ -36,10 +36,11 @@ func expectOperatorTypeError(
 	ctx := context.CreateRoot(specCtx, ast, nil)
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(*ctx.Diagnostics).To(HaveLen(1))
-	Expect((*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(typeName))
-	Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring(operator))
+	errs := ctx.Diagnostics.Errors()
+	Expect(errs).To(HaveLen(1))
+	Expect(errs[0].Severity).To(Equal(diagnostics.SeverityError))
+	Expect(errs[0].Message).To(ContainSubstring(typeName))
+	Expect(errs[0].Message).To(ContainSubstring(operator))
 }
 
 var _ = Describe("Expressions", func() {
@@ -905,8 +906,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined symbol: undefinedVar"))
 		})
 
 		It("Should not allow shadowing", func(specCtx SpecContext) {
@@ -922,8 +924,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("name x conflicts with existing symbol"))
 		})
 	})
 
@@ -1507,8 +1510,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("literal integer exponent"))
 		})
 
 		It("Should reject dimensioned exponent", func(specCtx SpecContext) {
@@ -1522,8 +1526,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("dimensionless"))
 		})
 
 		It("Should reject dimensioned base with float literal exponent", func(specCtx SpecContext) {
@@ -1536,8 +1541,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("literal integer exponent"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("literal integer exponent"))
 		})
 
 		It("Should reject dimensioned base with unit-suffixed literal exponent", func(specCtx SpecContext) {
@@ -1550,8 +1556,9 @@ var _ = Describe("Expressions", func() {
 			ctx := context.CreateRoot(specCtx, ast, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("dimensionless"))
 		})
 	})
 })

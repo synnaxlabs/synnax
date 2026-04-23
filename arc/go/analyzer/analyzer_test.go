@@ -1153,9 +1153,10 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
-			Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring("undefined2"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(2))
+			Expect(errs[0].Message).To(ContainSubstring("undefined1"))
+			Expect(errs[1].Message).To(ContainSubstring("undefined2"))
 		})
 
 		It("Should not cascade undefined errors for poisoned symbols", func(bCtx SpecContext) {
@@ -1169,8 +1170,9 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no "undefined x" cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined_var"))
 		})
 
 		It("Should not cascade type errors when operands are Invalid", func(bCtx SpecContext) {
@@ -1184,8 +1186,9 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no type mismatch cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined_var"))
 		})
 
 		It("Should report all errors in if/else branches", func(bCtx SpecContext) {
@@ -1201,7 +1204,7 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			Expect(ctx.Diagnostics.Errors()).To(HaveLen(2))
 		})
 	})
 })

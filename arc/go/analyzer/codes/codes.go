@@ -12,6 +12,7 @@
 //   - Category 2xxx: Type system errors
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
+//   - Category 5xxx: Unused / unreachable code (warnings)
 package codes
 
 import "github.com/synnaxlabs/x/diagnostics"
@@ -31,4 +32,8 @@ const (
 	SymbolUndefined diagnostics.ErrorCode = "ARC4001"
 	// SymbolRedefined indicates a symbol was declared more than once in the same scope.
 	SymbolRedefined diagnostics.ErrorCode = "ARC4002"
+
+	// UnusedVariable indicates a local or stateful variable (including a channel alias)
+	// was declared but never referenced. Prefix the name with an underscore to suppress.
+	UnusedVariable diagnostics.ErrorCode = "ARC5101"
 )

@@ -46,8 +46,8 @@ var _ = Describe("SetupTestServer", func() {
 			},
 		}
 		server, uri := SetupTestServer(lsp.Config{GlobalResolver: resolver})
-		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
-		completions := Completion(server, ctx, uri, 0, 24)
+		OpenArcDocument(server, ctx, uri, "func test() { _x := sensor }")
+		completions := Completion(server, ctx, uri, 0, 25)
 		Expect(completions).ToNot(BeNil())
 		Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue())
 	})
@@ -77,7 +77,7 @@ var _ = Describe("SetupTestServerWithClient", func() {
 			},
 		}
 		server, uri, client := SetupTestServerWithClient(lsp.Config{GlobalResolver: resolver})
-		OpenArcDocument(server, ctx, uri, "func test() { x := sensor }")
+		OpenArcDocument(server, ctx, uri, "func test() { _x := sensor }")
 		Expect(client.Diagnostics()).To(BeEmpty())
 	})
 })

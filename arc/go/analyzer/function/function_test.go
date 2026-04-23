@@ -533,7 +533,7 @@ var _ = Describe("Function Analyzer", func() {
 						return ox_pt_1
 					}
 					func process() {
-						x := readSensor()
+						readSensor()
 					}
 				`, resolver)
 
@@ -919,7 +919,6 @@ var _ = Describe("Function Analyzer", func() {
 			It("should warn when named output is never assigned", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `
 					func compute() (result f64) {
-						x := 42.0
 					}
 				`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -949,7 +948,6 @@ var _ = Describe("Function Analyzer", func() {
 				analyzeExpectSuccess(bCtx, `
 					func compute() (result f64) {
 						if (1 < 0) {
-							x := 1
 						} else if (1 > 0) {
 							result = 42.0
 						}
@@ -961,7 +959,6 @@ var _ = Describe("Function Analyzer", func() {
 				analyzeExpectSuccess(bCtx, `
 					func compute() (result f64) {
 						if (1 < 0) {
-							x := 1
 						} else {
 							result = 42.0
 						}

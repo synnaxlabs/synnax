@@ -60,7 +60,7 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with fallback end position when no stop token", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
+			OpenArcDocument(server, ctx, uri, "func test() i32 {\n\t_x := 1\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			diag := client.Diagnostics()[0]
@@ -109,14 +109,14 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Error Codes", func() {
 		It("Should include error code for function argument count mismatch", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { _z := add(1) }")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3001"))
 		})
 
 		It("Should include error code for function argument type mismatch", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc test() { z := process(\"hello\") }")
+			OpenArcDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc test() { _z := process(\"hello\") }")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3002"))
@@ -125,7 +125,7 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Related Information", func() {
 		It("Should include function signature in related information for argument errors", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { _z := add(1) }")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			Expect(client.Diagnostics()[0].RelatedInformation).To(HaveLen(1))
@@ -202,7 +202,7 @@ var _ = Describe("Debounced Diagnostics", func() {
 
 		// Send invalid code, then quickly send valid code
 		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
-		ChangeDocument(server, ctx, uri, "func test() {\n\tx := 42\n}", 3)
+		ChangeDocument(server, ctx, uri, "func test() {\n\t_x := 42\n}", 3)
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
 		time.Sleep(50 * time.Millisecond)
@@ -253,7 +253,7 @@ var _ = Describe("Incremental Sync", func() {
 	})
 
 	It("Should not treat a newline insertion at position (0,0) as a full replacement", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 42\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\t_x := 42\n}")
 		Expect(client.Diagnostics()).To(BeEmpty())
 		baseline := client.PublishCount()
 
@@ -341,7 +341,7 @@ var _ = Describe("External Change Notifications", func() {
 	})
 
 	It("Should republish diagnostics when external state changes", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\t_x := my_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol: my_channel"))
 		resolver["my_channel"] = symbol.Symbol{
@@ -373,7 +373,7 @@ var _ = Describe("External Change Notifications", func() {
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F64()),
 		}
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := sensor\n}")
+		OpenArcDocument(server, ctx, uri, "func test() {\n\t_x := sensor\n}")
 		Expect(client.Diagnostics()).To(BeEmpty())
 		delete(resolver, "sensor")
 		observer.Notify(ctx, struct{}{})
@@ -383,8 +383,8 @@ var _ = Describe("External Change Notifications", func() {
 
 	It("Should republish diagnostics for multiple open documents", func(ctx SpecContext) {
 		uri2 := protocol.DocumentURI("file:///test2.arc")
-		OpenArcDocument(server, ctx, uri, "func test1() {\n\tx := channel_a\n}")
-		OpenArcDocument(server, ctx, uri2, "func test2() {\n\ty := channel_b\n}")
+		OpenArcDocument(server, ctx, uri, "func test1() {\n\t_x := channel_a\n}")
+		OpenArcDocument(server, ctx, uri2, "func test2() {\n\t_y := channel_b\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		resolver["channel_a"] = symbol.Symbol{
 			Name: "channel_a",

@@ -714,6 +714,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
+	varScope.Referenced = true
 
 	if compoundOp := ctx.AST.CompoundOp(); compoundOp != nil {
 		analyzeCompoundAssignment(ctx, varScope, compoundOp)

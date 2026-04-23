@@ -582,8 +582,9 @@ int_chan -> consumer{}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
 		})
 
 		It("Should detect type mismatch in func config parameters", func(bCtx SpecContext) {
@@ -801,8 +802,9 @@ sensor_chan > threshold -> alarm{}
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: threshold"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("undefined symbol: threshold"))
 		})
 	})
 
