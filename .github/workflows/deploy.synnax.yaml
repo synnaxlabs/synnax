@@ -208,8 +208,8 @@ jobs:
         run: |
           Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
 
-      - name: Update Rust
-        run: rustup update
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install trusted-signing-cli
         run: cargo install trusted-signing-cli
