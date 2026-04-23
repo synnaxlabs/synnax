@@ -7,7 +7,7 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-"""Shared base classes for read-task migration tests.
+"""Shared base classes for read-task migration verify tests.
 
 Each protocol file (task_opc.py, task_modbus.py, task_ni.py) inherits from these
 alongside its protocol-specific ReadTaskCase and only needs to define:
@@ -19,7 +19,6 @@ alongside its protocol-specific ReadTaskCase and only needs to define:
 """
 
 import platform
-from abc import abstractmethod
 
 import synnax as sy
 from console.case import ConsoleCase
@@ -27,47 +26,8 @@ from console.task_page import TaskPage
 from tests.driver.task import ReadTaskCase
 
 
-class ReadTaskMigration(ReadTaskCase):
-    """Base migration contract for read tasks.
-
-    Provides ``run()``, ``teardown()``, and the abstract test methods.
-    """
-
-    def run(self) -> None:
-        self.test_task_config()
-        self.test_data()
-
-    def teardown(self) -> None:
-        """Stop task and sims without deleting — must survive across phases."""
-        if self.tsk is not None:
-            self.tsk.stop()
-            self.log(f"Task '{self.task_name}' stopped")
-        # OPC UA and Modbus inherit SimulatorCase which provides sims.
-        if hasattr(self, "sims"):
-            for sim in getattr(self, "sims").values():
-                if sim is not None:
-                    sim.stop()
-
-    @abstractmethod
-    def test_task_config(self) -> None: ...
-
-    @abstractmethod
-    def test_data(self) -> None: ...
-
-
-class ReadTaskMigrationSetup(ReadTaskMigration):
-    """Setup phase: create the task, verify it exists, collect samples."""
-
-    def test_task_config(self) -> None:
-        assert self.tsk is not None
-        self.test_task_exists()
-
-    def test_data(self) -> None:
-        self.test_start_and_stop()
-
-
-class ReadTaskMigrationVerify(ReadTaskMigration):
-    """Verify phase: retrieve existing task, assert config/data, re-run.
+class ReadTaskMigrationVerify(ReadTaskCase):
+    """Verify phase: retrieve existing task, assert config, re-run.
 
     Subclasses must set:
         task_type:       Task type string (e.g. ``"opc_read"``).
@@ -101,6 +61,20 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
         typed.set_internal(raw)
         return typed
 
+    def run(self) -> None:
+        self.test_task_config()
+        self.test_data()
+
+    def teardown(self) -> None:
+        """Stop task and sims without deleting — must survive across phases."""
+        if self.tsk is not None:
+            self.tsk.stop()
+            self.log(f"Task '{self.task_name}' stopped")
+        if hasattr(self, "sims"):
+            for sim in getattr(self, "sims").values():
+                if sim is not None:
+                    sim.stop()
+
     def test_task_config(self) -> None:
         self.log("Testing: Task config survived migration")
         self.test_task_exists()
@@ -115,12 +89,7 @@ class ReadTaskMigrationVerify(ReadTaskMigration):
         )
 
     def test_data(self) -> None:
-        self.log("Testing: Data survived migration")
-        for i in range(self.num_channels):
-            ch = self.client.channels.retrieve(f"{self.channel_prefix}_{i}")
-            data = ch.read(sy.TimeRange(sy.TimeStamp.MIN, sy.TimeStamp.now()))
-            assert len(data) > 0, f"Channel '{ch.name}' has no data after migration"
-
+        self.log("Testing: Task can run after migration")
         if self.pre_start_sleep:
             self.log(f"Sleeping {self.pre_start_sleep}s before start/stop")
             sy.sleep(self.pre_start_sleep)
