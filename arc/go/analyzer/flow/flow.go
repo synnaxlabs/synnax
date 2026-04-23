@@ -264,7 +264,6 @@ func resolveFunc[T antlr.ParserRuleContext](
 		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "%s is not a function", name))
 		return nil
 	}
-	sym.Referenced = true
 	return sym
 }
 

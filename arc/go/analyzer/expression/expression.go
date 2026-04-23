@@ -384,7 +384,6 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			return
 		}
 		if scope.Kind == symbol.KindFunction {
-			scope.Referenced = true
 			validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			callerFn, fnErr := ctx.Scope.ClosestAncestorOfKind(symbol.KindFunction)
 			if fnErr != nil && !errors.Is(fnErr, query.ErrNotFound) {
@@ -484,7 +483,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return
 		}
-		resolved.Referenced = true
+		ctx.MarkReferenced(resolved)
 		// Track channel reads for:
 		// 1. Direct channel symbols (KindChannel)
 		// 2. Config params with channel type (they are the source)

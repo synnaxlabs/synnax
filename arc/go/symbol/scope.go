@@ -101,10 +101,6 @@ type Scope struct {
 	Counter *int
 	// Children are nested scopes within this scope.
 	Children []*Scope
-	// Referenced is set when an identifier resolution has looked this scope up from
-	// a use-site (read or write) outside of its own declaration. Used by the unused
-	// declaration analyzer to emit warnings for declarations nothing refers to.
-	Referenced bool
 	Symbol
 }
 
