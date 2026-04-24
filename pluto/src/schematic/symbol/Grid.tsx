@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { location } from "@synnaxlabs/x";
+import { NodeResizer } from "@xyflow/react";
 import {
   cloneElement,
   type CSSProperties,
@@ -50,6 +51,7 @@ export interface GridProps extends PropsWithChildren<{}> {
   onRotate?: () => void;
   allowCenter?: boolean;
   allowRotate?: boolean;
+  onResize?: (dimensions: { width: number; height: number }) => void;
 }
 
 interface GridElProps {
@@ -172,6 +174,7 @@ export const Grid = ({
   allowCenter,
   onRotate,
   symbolKey,
+  onResize,
   ...rest
 }: GridProps) => {
   const prevEditable = useRef(editable);
@@ -223,6 +226,13 @@ export const Grid = ({
         >
           <Icon.Rotate />
         </Button.Button>
+      )}
+      {onResize != null && editable && (
+        <NodeResizer
+          onResize={(_event, { width, height }) =>
+            onResize?.({ width: Math.round(width), height: Math.round(height) })
+          }
+        />
       )}
       <div className={DRAG_HANDLE_CLASS}>{children}</div>
     </>

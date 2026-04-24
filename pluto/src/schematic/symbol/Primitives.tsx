@@ -1450,7 +1450,6 @@ export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
   color?: color.Crude;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   backgroundColor?: color.Crude;
   strokeWidth?: number;
@@ -3185,7 +3184,6 @@ export interface CylinderProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
   color?: color.Crude;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   backgroundColor?: color.Crude;
 }

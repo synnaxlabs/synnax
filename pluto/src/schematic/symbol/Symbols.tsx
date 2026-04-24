@@ -13,6 +13,7 @@ import {
   type bounds,
   box,
   color,
+  dimensions,
   direction,
   location,
   type record,
@@ -97,6 +98,15 @@ const labelGridItem = (
     location: orientation,
   };
 };
+
+const dimensionsOnResize = (dims: dimensions.Dimensions) => ({ dimensions: dims });
+const sideLengthOnResize = ({ width }: dimensions.Dimensions) => ({
+  sideLength: width / 2,
+});
+const radiusOnResize = ({ width }: dimensions.Dimensions) => ({ radius: width / 2 });
+const inlineSizeOnResize = ({ width }: dimensions.Dimensions) => ({
+  inlineSize: width,
+});
 
 export type SymbolProps<P extends object = record.Unknown> = P & {
   symbolKey: string;
@@ -217,13 +227,14 @@ type LabeledProps<P extends object = record.Unknown> = P & {
   orientation?: location.Outer;
 };
 
-interface LabeledOverrides {
-  grid: Partial<Omit<GridProps, "editable">>;
+interface LabeledOverrides<P> {
+  grid?: Partial<Omit<GridProps, "editable">>;
+  onResize?: (dims: { width: number; height: number }) => Partial<P>;
 }
 
 export const createLabeled = <P extends object = record.Unknown>(
   BaseSymbol: FC<P>,
-  overrides?: LabeledOverrides,
+  overrides?: LabeledOverrides<P>,
 ) => {
   const C = ({
     symbolKey,
@@ -255,6 +266,11 @@ export const createLabeled = <P extends object = record.Unknown>(
               label: { ...label, orientation: loc },
             } as Partial<LabeledProps<P>>);
         }}
+        onResize={
+          overrides?.onResize
+            ? (dims) => onChange(overrides.onResize!(dims))
+            : undefined
+        }
       >
         {/* @ts-expect-error - typescript with HOCs */}
         <BaseSymbol orientation={orientation} {...rest} />
@@ -548,14 +564,12 @@ export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius">
 export const Tank = createLabeled(
   ({
     backgroundColor,
-    onChange,
     orientation,
     color,
     dimensions,
     borderRadius,
   }: SymbolProps<TankProps>): ReactElement => (
     <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -563,7 +577,10 @@ export const Tank = createLabeled(
       backgroundColor={backgroundColor}
     />
   ),
-  { grid: { allowCenter: true, allowRotate: false } },
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -593,6 +610,9 @@ export const Triangle = createLabeled(
       {...rest}
     />
   ),
+  {
+    onResize: sideLengthOnResize,
+  },
 );
 export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
 
@@ -618,6 +638,9 @@ export const PolygonSymbol = createLabeled(
       {...rest}
     />
   ),
+  {
+    onResize: sideLengthOnResize,
+  },
 );
 
 export const Circle = createLabeled(
@@ -636,21 +659,22 @@ export const Circle = createLabeled(
       {...rest}
     />
   ),
-  { grid: { allowRotate: false } },
+  {
+    grid: { allowRotate: false },
+    onResize: radiusOnResize,
+  },
 );
 
 export const Box = createLabeled(
   ({
     backgroundColor,
     borderRadius,
-    onChange,
     orientation,
     color,
     dimensions,
     strokeWidth,
   }: SymbolProps<BoxProps>): ReactElement => (
     <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -659,7 +683,10 @@ export const Box = createLabeled(
       strokeWidth={strokeWidth}
     />
   ),
-  { grid: { allowCenter: true, allowRotate: false } },
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
 );
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
@@ -878,6 +905,7 @@ export const Value = ({
       symbolKey={symbolKey}
       items={gridItems}
       allowRotate={false}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1117,6 +1145,8 @@ export const Light = ({
       allowRotate={false}
       editable={selected}
       symbolKey={symbolKey}
+      // 51.2 = Light SVG width (64) * BASE_SCALE (0.8) from Primitives.tsx
+      onResize={({ width }) => onChange({ scale: width / 51.2 })}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1161,14 +1191,12 @@ export const Cylinder = createLabeled<
 >(
   ({
     backgroundColor,
-    onChange,
     orientation,
     color,
     dimensions,
     borderRadius,
   }): ReactElement => (
     <Primitives.Cylinder
-      onResize={(dimensions) => onChange({ dimensions })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -1176,6 +1204,9 @@ export const Cylinder = createLabeled<
       backgroundColor={backgroundColor}
     />
   ),
+  {
+    onResize: dimensionsOnResize,
+  },
 );
 export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChange">>;
 
@@ -1255,6 +1286,7 @@ export const Select = ({
       allowRotate={false}
       editable={selected && !draggable}
       items={gridItems}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1323,6 +1355,7 @@ export const StateIndicator = ({
       allowRotate={false}
       editable={selected && !draggable}
       symbolKey={symbolKey}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1360,7 +1393,10 @@ export const Embed = createLabeled(
   }: SymbolProps<EmbedProps>): ReactElement => (
     <Primitives.Embed dimensions={dims} color={colorVal} />
   ),
-  { grid: { allowCenter: true, allowRotate: false } },
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
 );
 
 export const EmbedPreview = (props: EmbedProps): ReactElement => (
