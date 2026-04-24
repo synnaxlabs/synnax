@@ -26,15 +26,23 @@ export const ZERO_MEASURE_STATE: MeasureState = {
   mode: "one",
 };
 
+export const annotationsStateZ = z.object({
+  visible: z.boolean().default(true),
+});
+export interface AnnotationsState extends z.infer<typeof annotationsStateZ> {}
+export const ZERO_ANNOTATIONS_STATE: AnnotationsState = { visible: true };
+
 export const stateZ = v3.stateZ.omit({ version: true }).extend({
   version: z.literal(VERSION),
   measure: measureStateZ,
+  annotations: annotationsStateZ.default(ZERO_ANNOTATIONS_STATE),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
   ...v3.ZERO_STATE,
   version: VERSION,
   measure: ZERO_MEASURE_STATE,
+  annotations: ZERO_ANNOTATIONS_STATE,
 };
 
 export const sliceStateZ = v3.sliceStateZ
@@ -52,6 +60,7 @@ export const stateMigration = migrate.createMigration<v3.State, State>({
     ...state,
     version: VERSION,
     measure: ZERO_MEASURE_STATE,
+    annotations: ZERO_ANNOTATIONS_STATE,
   }),
 });
 
