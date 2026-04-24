@@ -4846,3 +4846,40 @@ export const StateIndicator = ({
     </Div>
   );
 };
+
+export interface EmbedProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+  color?: color.Crude;
+}
+
+const DEFAULT_EMBED_DIMENSIONS = { width: 400, height: 300 };
+
+export const Embed = ({
+  className,
+  dimensions: dims = DEFAULT_EMBED_DIMENSIONS,
+  color: colorVal,
+  ...rest
+}: EmbedProps): ReactElement => {
+  const t = Theming.use();
+  const borderColor = color.cssString(colorVal ?? t.colors.gray.l5);
+  const textColor = color.cssString(t.colors.gray.l9);
+  return (
+    <Div
+      className={CSS(CSS.B("embed"), className)}
+      {...rest}
+      style={{ ...dims, borderColor }}
+    >
+      <HandleBoundary orientation="left">
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={0} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("embed", "content")}>
+        <Text.Text level="small" color={textColor}>
+          Select a page
+        </Text.Text>
+      </div>
+    </Div>
+  );
+};

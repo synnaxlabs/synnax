@@ -1516,3 +1516,46 @@ export const StateIndicatorForm = (): ReactElement => {
   const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
   return <Tabs.Tabs {...props} grow />;
 };
+
+export const EmbedForm = (): ReactElement => (
+  <FormWrapper x align="stretch">
+    <Flex.Box y grow>
+      <LabelControls path="label" />
+      <Flex.Box x>
+        <Form.Field<number> path="dimensions.width" label="Width" grow>
+          {({ value, ...rest }) => (
+            <Input.Numeric
+              value={value ?? 400}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...rest}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number> path="dimensions.height" label="Height" grow>
+          {({ value, ...rest }) => (
+            <Input.Numeric
+              value={value ?? 300}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...rest}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<string>
+          path="layoutKey"
+          label="Page"
+          padHelpText={false}
+          grow
+        >
+          {(props) => (
+            <Input.Text {...props} placeholder="Select a page" disabled />
+          )}
+        </Form.Field>
+      </Flex.Box>
+    </Flex.Box>
+    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
+  </FormWrapper>
+);

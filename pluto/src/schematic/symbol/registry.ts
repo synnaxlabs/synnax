@@ -27,6 +27,7 @@ import {
   InputForm,
   LightForm,
   OffPageReferenceForm,
+  EmbedForm,
   SelectForm,
   SetpointForm,
   StateIndicatorForm,
@@ -185,6 +186,9 @@ import {
   type OrificeProps,
   PaddleAgitator,
   type PaddleAgitatorProps,
+  Embed,
+  EmbedPreview,
+  type EmbedProps,
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
@@ -374,6 +378,7 @@ const VARIANTS = [
   "strainerCone",
   "customActuator",
   "customStatic",
+  "embed",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -472,6 +477,8 @@ const zeroLabel = (label: string): zeroLabelReturn => ({
 const ZERO_DIMENSIONS = { width: 125, height: 200 };
 
 const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
+
+const ZERO_EMBED_DIMENSIONS = { width: 400, height: 300 };
 
 const ZERO_BOX_BORDER_RADIUS = 3;
 
@@ -1929,6 +1936,21 @@ const customStatic: Spec<CustomStaticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const embed: Spec<EmbedProps> = {
+  name: "Embed",
+  key: "embed",
+  Form: EmbedForm,
+  Symbol: Embed,
+  defaultProps: () => ({
+    layoutKey: "",
+    ...zeroLabel("Embed"),
+    dimensions: ZERO_EMBED_DIMENSIONS,
+    ...ZERO_PROPS,
+  }),
+  Preview: EmbedPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
   gauge,
@@ -2030,6 +2052,7 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   strainerCone,
   customActuator,
   customStatic,
+  embed,
 };
 
 export interface Group extends group.Group {
@@ -2186,5 +2209,11 @@ export const GROUPS: Group[] = [
       "strainerCone",
       "flowStraightener",
     ],
+  },
+  {
+    key: "containers",
+    name: "Containers",
+    Icon: Icon.Visualize,
+    symbols: ["embed"],
   },
 ];

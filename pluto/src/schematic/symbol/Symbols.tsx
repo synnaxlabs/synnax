@@ -1347,3 +1347,22 @@ export const StateIndicatorPreview = ({
     color={colorVal}
   />
 );
+
+export interface EmbedProps extends Primitives.EmbedProps {
+  layoutKey: string;
+  label?: LabelExtensionProps;
+}
+
+export const Embed = createLabeled(
+  ({
+    dimensions: dims,
+    color: colorVal,
+  }: SymbolProps<EmbedProps>): ReactElement => (
+    <Primitives.Embed dimensions={dims} color={colorVal} />
+  ),
+  { grid: { allowCenter: true, allowRotate: false } },
+);
+
+export const EmbedPreview = (props: EmbedProps): ReactElement => (
+  <Primitives.Embed {...props} dimensions={{ width: 100, height: 50 }} />
+);
