@@ -108,6 +108,37 @@ describe("symbol registry", () => {
     });
   });
 
+  describe("iframeEmbed", () => {
+    it("should be in the registry", () => {
+      expect(REGISTRY).toHaveProperty("iframeEmbed");
+    });
+
+    it("should be in the containers group", () => {
+      const containersGroup = GROUPS.find((g) => g.key === "containers");
+      expect(containersGroup).toBeDefined();
+      expect(containersGroup!.symbols).toContain("iframeEmbed");
+    });
+
+    it("should have searchTerms that include iframe and dashboard terms", () => {
+      const terms = REGISTRY.iframeEmbed.searchTerms!;
+      expect(terms).toContain("iframe embed");
+      expect(terms).toContain("dashboard embed");
+      expect(terms).toContain("grafana embed");
+      expect(terms).toContain("widget embed");
+    });
+
+    it("should have default dimensions of 320x180", () => {
+      const props = REGISTRY.iframeEmbed.defaultProps(mockTheme);
+      expect(props.dimensions).toEqual({ width: 320, height: 180 });
+    });
+
+    it("should have an empty url and blockCookies true in default props", () => {
+      const props = REGISTRY.iframeEmbed.defaultProps(mockTheme);
+      expect(props.url).toBe("");
+      expect(props.blockCookies).toBe(true);
+    });
+  });
+
   describe("pageEmbed", () => {
     it("should not be in the registry", () => {
       expect(REGISTRY).not.toHaveProperty("pageEmbed");
@@ -147,6 +178,28 @@ describe("symbol registry", () => {
           (s.searchTerms != null && s.searchTerms.toLowerCase().includes("mjpeg")),
       );
       expect(matchingSpecs.some((s) => s.key === "mediaEmbed")).toBe(true);
+    });
+
+    it("should find iframeEmbed when searching for 'grafana'", () => {
+      const allSpecs = Object.values(REGISTRY);
+      const matchingSpecs = allSpecs.filter(
+        (s) =>
+          s.name.toLowerCase().includes("grafana") ||
+          (s.searchTerms != null &&
+            s.searchTerms.toLowerCase().includes("grafana")),
+      );
+      expect(matchingSpecs.some((s) => s.key === "iframeEmbed")).toBe(true);
+    });
+
+    it("should find iframeEmbed when searching for 'dashboard'", () => {
+      const allSpecs = Object.values(REGISTRY);
+      const matchingSpecs = allSpecs.filter(
+        (s) =>
+          s.name.toLowerCase().includes("dashboard") ||
+          (s.searchTerms != null &&
+            s.searchTerms.toLowerCase().includes("dashboard")),
+      );
+      expect(matchingSpecs.some((s) => s.key === "iframeEmbed")).toBe(true);
     });
   });
 });

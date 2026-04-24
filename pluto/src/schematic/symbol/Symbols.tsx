@@ -1385,25 +1385,62 @@ export interface MediaEmbedProps extends Primitives.EmbedProps {
   label?: LabelExtensionProps;
 }
 
-export const MediaEmbed = createLabeled(
-  ({ dimensions: dims, color: colorVal, url }: SymbolProps<MediaEmbedProps>) => (
-    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
-      {url != null && url.length > 0 ? (
-        <img
-          src={url}
-          style={{ width: "100%", height: "100%", objectFit: "contain" }}
-        />
-      ) : undefined}
-    </Primitives.Embed>
-  ),
-  {
-    grid: { allowCenter: true, allowRotate: false },
-    onResize: dimensionsOnResize,
-  },
+export const MediaEmbedBase = ({
+  dimensions: dims,
+  color: colorVal,
+  url,
+}: SymbolProps<MediaEmbedProps>): ReactElement => (
+  <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+    {url != null && url.length > 0 ? (
+      <img
+        src={url}
+        style={{ width: "100%", height: "100%", objectFit: "contain" }}
+      />
+    ) : undefined}
+  </Primitives.Embed>
 );
+
+export const MediaEmbed = createLabeled(MediaEmbedBase, {
+  grid: { allowCenter: true, allowRotate: false },
+  onResize: dimensionsOnResize,
+});
 
 export const MediaEmbedPreview = (): ReactElement => (
   <Icon.Play style={{ fontSize: 36 }} />
+);
+
+export interface IframeEmbedProps extends MediaEmbedProps {
+  blockCookies: boolean;
+}
+
+// IMPORTANT: If postMessage communication with the iframe is ever added, always
+// validate event.origin before acting on messages to prevent cross-origin attacks.
+export const IframeEmbedBase = ({
+  dimensions: dims,
+  color: colorVal,
+  url,
+  blockCookies,
+}: SymbolProps<IframeEmbedProps>): ReactElement => (
+  <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+    {url != null && url.length > 0 ? (
+      <iframe
+        src={url}
+        sandbox={
+          blockCookies ? "allow-scripts" : "allow-scripts allow-same-origin"
+        }
+        style={{ width: "100%", height: "100%", border: "none" }}
+      />
+    ) : undefined}
+  </Primitives.Embed>
+);
+
+export const IframeEmbed = createLabeled(IframeEmbedBase, {
+  grid: { allowCenter: true, allowRotate: false },
+  onResize: dimensionsOnResize,
+});
+
+export const IframeEmbedPreview = (): ReactElement => (
+  <Icon.Visualize style={{ fontSize: 36 }} />
 );
 
 export interface PageEmbedProps extends Primitives.EmbedProps {

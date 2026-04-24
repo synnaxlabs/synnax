@@ -24,6 +24,7 @@ import {
   CommonToggleForm,
   CylinderForm,
   GaugeForm,
+  IframeEmbedForm,
   InputForm,
   LightForm,
   MediaEmbedForm,
@@ -155,6 +156,9 @@ import {
   type HeatExchangerStraightTubeProps,
   HelicalAgitator,
   type HelicalAgitatorProps,
+  IframeEmbed,
+  IframeEmbedPreview,
+  type IframeEmbedProps,
   Input,
   InputPreview,
   type InputProps,
@@ -380,6 +384,7 @@ const VARIANTS = [
   "customActuator",
   "customStatic",
   "mediaEmbed",
+  "iframeEmbed",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1974,6 +1979,34 @@ const mediaEmbed: Spec<MediaEmbedProps> = {
   ),
 };
 
+const iframeEmbed: Spec<IframeEmbedProps> = {
+  name: "Iframe Embed",
+  key: "iframeEmbed",
+  Form: IframeEmbedForm,
+  Symbol: IframeEmbed,
+  defaultProps: () => ({
+    url: "",
+    blockCookies: true,
+    ...zeroLabel("Iframe Embed"),
+    dimensions: ZERO_EMBED_DIMENSIONS,
+    ...ZERO_PROPS,
+  }),
+  Preview: IframeEmbedPreview,
+  zIndex: Z_INDEX_LOWER,
+  searchTerms: withSuffix(
+    "embed",
+    "google",
+    "iframe",
+    "webpage",
+    "website",
+    "dashboard",
+    "grafana",
+    "widget",
+    "html",
+    "web",
+  ),
+};
+
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
   gauge,
@@ -2076,6 +2109,7 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   customActuator,
   customStatic,
   mediaEmbed,
+  iframeEmbed,
 };
 
 export interface Group extends group.Group {
@@ -2237,6 +2271,6 @@ export const GROUPS: Group[] = [
     key: "containers",
     name: "Containers",
     Icon: Icon.Visualize,
-    symbols: ["mediaEmbed"],
+    symbols: ["mediaEmbed", "iframeEmbed"],
   },
 ];

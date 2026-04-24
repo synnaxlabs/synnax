@@ -18,7 +18,13 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement, useCallback } from "react";
+import {
+  type CSSProperties,
+  type FC,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+} from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -1517,7 +1523,7 @@ export const StateIndicatorForm = (): ReactElement => {
   return <Tabs.Tabs {...props} grow />;
 };
 
-const EmbedFormBase = ({ children }: { children: ReactElement }): ReactElement => (
+const EmbedFormBase = ({ children }: { children: ReactNode }): ReactElement => (
   <FormWrapper x align="stretch">
     <Flex.Box y grow>
       <LabelControls path="label" />
@@ -1556,6 +1562,23 @@ export const MediaEmbedForm = (): ReactElement => (
     <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
       {(props) => <Input.Text {...props} placeholder="http://localhost:8554/stream" />}
     </Form.Field>
+  </EmbedFormBase>
+);
+
+export const IframeEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <>
+      <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
+        {(props) => (
+          <Input.Text
+            {...props}
+            placeholder="https://grafana.local/dashboard"
+            title="Target URL must allow/enable iframe embedding."
+          />
+        )}
+      </Form.Field>
+      <Form.SwitchField path="blockCookies" label="Block Cookies" />
+    </>
   </EmbedFormBase>
 );
 
