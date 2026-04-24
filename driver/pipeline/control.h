@@ -39,8 +39,8 @@ public:
     virtual ~Sink() = default;
 };
 
-/// @brief an interface that receives data the network (from Synnax during production,
-/// and from mock objects during testing).
+/// @brief an interface that receives data (from Synnax during production, and from mock
+/// objects during testing).
 class Streamer {
 public:
     /// @brief blocks until the next frame of telemetry is available. If an error is
