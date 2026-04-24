@@ -13,7 +13,7 @@ import {
   type bounds,
   box,
   color,
-  dimensions,
+  type dimensions,
   direction,
   location,
   type record,
@@ -100,12 +100,16 @@ const labelGridItem = (
   };
 };
 
-const dimensionsOnResize = (dims: dimensions.Dimensions) => ({ dimensions: dims });
-const sideLengthOnResize = ({ width }: dimensions.Dimensions) => ({
+export const dimensionsOnResize = (dims: dimensions.Dimensions) => ({
+  dimensions: dims,
+});
+export const sideLengthOnResize = ({ width }: dimensions.Dimensions) => ({
   sideLength: width / 2,
 });
-const radiusOnResize = ({ width }: dimensions.Dimensions) => ({ radius: width / 2 });
-const inlineSizeOnResize = ({ width }: dimensions.Dimensions) => ({
+export const radiusOnResize = ({ width }: dimensions.Dimensions) => ({
+  radius: width / 2,
+});
+export const inlineSizeOnResize = ({ width }: dimensions.Dimensions) => ({
   inlineSize: width,
 });
 
@@ -1190,13 +1194,7 @@ export const OffPageReferencePreview = ({
 export const Cylinder = createLabeled<
   SymbolProps<Omit<Primitives.CylinderProps, "onChange">>
 >(
-  ({
-    backgroundColor,
-    orientation,
-    color,
-    dimensions,
-    borderRadius,
-  }): ReactElement => (
+  ({ backgroundColor, orientation, color, dimensions, borderRadius }): ReactElement => (
     <Primitives.Cylinder
       orientation={orientation}
       color={color}

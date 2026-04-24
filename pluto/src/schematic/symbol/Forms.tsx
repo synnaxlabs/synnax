@@ -1554,9 +1554,7 @@ const EmbedFormBase = ({ children }: { children: ReactElement }): ReactElement =
 export const MediaEmbedForm = (): ReactElement => (
   <EmbedFormBase>
     <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
-      {(props) => (
-        <Input.Text {...props} placeholder="http://localhost:8554/stream" />
-      )}
+      {(props) => <Input.Text {...props} placeholder="http://localhost:8554/stream" />}
     </Form.Field>
   </EmbedFormBase>
 );
@@ -1564,9 +1562,7 @@ export const MediaEmbedForm = (): ReactElement => (
 export const PageEmbedForm = (): ReactElement => (
   <EmbedFormBase>
     <Form.Field<string> path="pageKey" label="Page" padHelpText={false} grow>
-      {(props) => (
-        <Input.Text {...props} placeholder="Select a page" disabled />
-      )}
+      {(props) => <Input.Text {...props} placeholder="Select a page" disabled />}
     </Form.Field>
   </EmbedFormBase>
 );

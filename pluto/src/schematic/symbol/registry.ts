@@ -26,9 +26,8 @@ import {
   GaugeForm,
   InputForm,
   LightForm,
-  OffPageReferenceForm,
   MediaEmbedForm,
-  PageEmbedForm,
+  OffPageReferenceForm,
   SelectForm,
   SetpointForm,
   StateIndicatorForm,
@@ -174,6 +173,9 @@ import {
   type LiquidRingCompressorProps,
   ManualValve,
   type ManualValveProps,
+  MediaEmbed,
+  MediaEmbedPreview,
+  type MediaEmbedProps,
   NeedleValve,
   type NeedleValveProps,
   Nozzle,
@@ -187,12 +189,6 @@ import {
   type OrificeProps,
   PaddleAgitator,
   type PaddleAgitatorProps,
-  MediaEmbed,
-  MediaEmbedPreview,
-  type MediaEmbedProps,
-  PageEmbed,
-  PageEmbedPreview,
-  type PageEmbedProps,
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
@@ -384,7 +380,6 @@ const VARIANTS = [
   "customActuator",
   "customStatic",
   "mediaEmbed",
-  "pageEmbed",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1958,22 +1953,25 @@ const mediaEmbed: Spec<MediaEmbedProps> = {
   }),
   Preview: MediaEmbedPreview,
   zIndex: Z_INDEX_LOWER,
-  searchTerms: withSuffix("embed", "video", "image", "gif", "svg", "mjpeg", "stream", "camera", "picture", "png", "url", "jpeg", "jpg", "webcam", "ip", "feed", "photo"),
-};
-
-const pageEmbed: Spec<PageEmbedProps> = {
-  name: "Page Embed",
-  key: "pageEmbed",
-  Form: PageEmbedForm,
-  Symbol: PageEmbed,
-  defaultProps: () => ({
-    pageKey: "",
-    ...zeroLabel("Page Embed"),
-    dimensions: ZERO_EMBED_DIMENSIONS,
-    ...ZERO_PROPS,
-  }),
-  Preview: PageEmbedPreview,
-  zIndex: Z_INDEX_LOWER,
+  searchTerms: withSuffix(
+    "embed",
+    "video",
+    "image",
+    "gif",
+    "svg",
+    "mjpeg",
+    "stream",
+    "camera",
+    "picture",
+    "png",
+    "url",
+    "jpeg",
+    "jpg",
+    "webcam",
+    "ip",
+    "feed",
+    "photo",
+  ),
 };
 
 export const REGISTRY: Record<Variant, Spec<any>> = {
@@ -2078,7 +2076,6 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   customActuator,
   customStatic,
   mediaEmbed,
-  pageEmbed,
 };
 
 export interface Group extends group.Group {
@@ -2240,6 +2237,6 @@ export const GROUPS: Group[] = [
     key: "containers",
     name: "Containers",
     Icon: Icon.Visualize,
-    symbols: ["mediaEmbed", "pageEmbed"],
+    symbols: ["mediaEmbed"],
   },
 ];
