@@ -162,7 +162,7 @@ func (s *Service) Retrieve(
 			return res, err
 		}
 		for i, stat := range statuses {
-			resRacks[i].Status = (*rack.Status)(&stat)
+			resRacks[i].Status = &stat
 		}
 	}
 

@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v54"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -119,16 +119,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
-	if s.table, err = gorp.OpenTable[Key, Task](ctx, gorp.TableConfig[Task]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Task]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
 			gorp.CodecMigration[v54.Key, v54.Task]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[v54.Key, Key, v54.Task, Task](
-					"v54_drop_status",
-					MigrateTask,
-				),
+				gorp.NewEntryMigration("v54_drop_status", MigrateTask),
 				"msgpack_to_orc",
 			),
 		},
@@ -167,7 +164,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigPureNumeric[Key, Task](s.table.Observe(), telem.Uint64T),
+		signals.GorpPublisherConfigPureNumeric(s.table.Observe(), telem.Uint64T),
 	); !ok(err, sig) {
 		return nil, err
 	}

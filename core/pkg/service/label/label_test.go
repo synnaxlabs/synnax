@@ -63,7 +63,7 @@ var _ = Describe("Label", Ordered, func() {
 				Color: color.MustFromHex("#000000"),
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
-			Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
+			Expect(l.Key).ToNot(Equal(uuid.Nil))
 		})
 		It("Should create many labels", func(ctx SpecContext) {
 			ls := []xlabel.Label{
@@ -78,7 +78,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			for _, l := range ls {
-				Expect(l.Key).ToNot(Equal(label.Key(uuid.Nil)))
+				Expect(l.Key).ToNot(Equal(uuid.Nil))
 			}
 		})
 	})

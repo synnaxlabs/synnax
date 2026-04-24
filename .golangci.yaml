@@ -5,6 +5,7 @@ linters:
     - modernize
     - revive
     - usestdlibvars
+    - unconvert
     - mustsucceedlint
     - setlint
   settings:
@@ -24,6 +25,8 @@ linters:
             - []
             - []
             - - skip-package-name-checks: true
+    unconvert:
+      fast-math: true
     usestdlibvars:
       time-date-month: true
       time-month: true

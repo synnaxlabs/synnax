@@ -109,7 +109,7 @@ func (h *MockErrorHandler) HandleError(_ context.Context, nodeKey string, err er
 
 // stratum builds a Members slice from the given member list, representing
 // one execution stratum within a parallel scope.
-func stratum(members ...ir.Member) ir.Members { return ir.Members(members) }
+func stratum(members ...ir.Member) ir.Members { return members }
 
 // parallelScope composes a parallel+gated Scope from one or more strata.
 func parallelScope(key string, strata ...ir.Members) ir.Scope {

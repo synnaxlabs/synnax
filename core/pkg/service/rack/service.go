@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -137,16 +137,13 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		HostProvider: cfg.HostProvider,
 		Status:       cfg.Status,
 	})
-	if s.table, err = gorp.OpenTable[Key, Rack](ctx, gorp.TableConfig[Rack]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Rack]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
 			gorp.CodecMigration[v54.Key, v54.Rack]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[v54.Key, Key, v54.Rack, Rack](
-					"v54_drop_status",
-					MigrateRack,
-				),
+				gorp.NewEntryMigration("v54_drop_status", MigrateRack),
 				"msgpack_to_orc",
 			),
 		},
@@ -174,7 +171,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigNumeric[Key, Rack](s.table.Observe(), telem.Uint32T),
+			signals.GorpPublisherConfigNumeric(s.table.Observe(), telem.Uint32T),
 		); !ok(err, sig) {
 			return nil, err
 		}

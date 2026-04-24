@@ -109,9 +109,9 @@ func (r *offsetResolver) byteOffset(
 	sampleIdx int64,
 ) (telem.Size, error) {
 	if r.cache == nil {
-		total := r.density.SampleCount(telem.Size(iter.Size()))
+		total := r.density.SampleCount(iter.Size())
 		if sampleIdx >= total {
-			return telem.Size(iter.Size()), nil
+			return iter.Size(), nil
 		}
 		return r.density.Size(sampleIdx), nil
 	}
@@ -120,7 +120,7 @@ func (r *offsetResolver) byteOffset(
 		return 0, err
 	}
 	if sampleIdx >= t.sampleCount {
-		return telem.Size(iter.Size()), nil
+		return iter.Size(), nil
 	}
 	return t.byteOffsetAt(sampleIdx), nil
 }
@@ -130,7 +130,7 @@ func (r *offsetResolver) domainSampleCount(
 	iter *domain.Iterator,
 ) (int64, error) {
 	if r.cache == nil {
-		return r.density.SampleCount(telem.Size(iter.Size())), nil
+		return r.density.SampleCount(iter.Size()), nil
 	}
 	t, err := r.tableFor(ctx, iter)
 	if err != nil {
@@ -147,7 +147,7 @@ func (r *offsetResolver) invalidate() {
 
 func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t *offsetTable, err error) {
 	domainIdx := iter.Position()
-	size := telem.Size(iter.Size())
+	size := iter.Size()
 	// A domain index is stable across an entire writer session, so a table
 	// cached after commit N will have a stale sampleCount if the writer
 	// appends more data in commit N+1 against the same domain index. Gate the

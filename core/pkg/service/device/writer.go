@@ -35,9 +35,9 @@ type Writer struct {
 	table  *gorp.Table[string, Device]
 }
 
-func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
+func resolveStatus(d *Device, provided *Status) *Status {
 	if provided == nil {
-		return &status.Status[StatusDetails]{
+		return &Status{
 			Key:     OntologyID(d.Key).String(),
 			Name:    d.Name,
 			Time:    telem.Now(),
@@ -46,7 +46,7 @@ func resolveStatus(d *Device, provided *Status) *status.Status[StatusDetails] {
 			Details: StatusDetails{Rack: d.Rack, Device: d.Key},
 		}
 	}
-	stat := status.Status[StatusDetails](*provided)
+	stat := *provided
 	stat.Key = OntologyID(d.Key).String()
 	stat.Name = d.Name
 	stat.Details.Device = d.Key

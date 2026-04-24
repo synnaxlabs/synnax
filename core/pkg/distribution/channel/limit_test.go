@@ -76,7 +76,7 @@ var _ = Describe("Limit", Ordered, func() {
 
 	It("Should allow creating channels after deleting some to stay under the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
-		channels := make([]channel.Channel, int(limit))
+		channels := make([]channel.Channel, limit)
 		for i := range limit {
 			ch := channel.Channel{
 				IsIndex:     true,
@@ -124,7 +124,7 @@ var _ = Describe("Limit", Ordered, func() {
 
 	It("Should allow retrieving channels even at the limit", func(ctx SpecContext) {
 		// Create channels up to the limit
-		createdChannels := make([]channel.Channel, int(limit))
+		createdChannels := make([]channel.Channel, limit)
 		for i := range limit {
 			ch := channel.Channel{
 				IsIndex:     true,
@@ -158,7 +158,7 @@ var _ = Describe("Limit", Ordered, func() {
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 	})
 	It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {
-		createdChannels := make([]channel.Channel, int(limit))
+		createdChannels := make([]channel.Channel, limit)
 		for i := range limit {
 			ch := channel.Channel{
 				IsIndex:     true,

@@ -32,9 +32,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
-		))
+		v54Table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v54.Device]{DB: db}))
 		seed := v54.Device{
 			Key:        "DEV-SERIAL-001",
 			Rack:       42,
@@ -47,11 +45,11 @@ var _ = Describe("v54 -> current Device migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
+					gorp.NewEntryMigration(
 						"v54_drop_status_parent",
 						device.MigrateDevice,
 					),
@@ -69,7 +67,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		Expect(got.Model).To(Equal(seed.Model))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Configured).To(Equal(seed.Configured))
-		Expect(got.Properties).To(Equal(msgpack.EncodedJSON(seed.Properties)))
+		Expect(got.Properties).To(Equal(seed.Properties))
 		Expect(got.Status).To(BeNil())
 		Expect(got.Parent).To(BeNil())
 	})
@@ -77,9 +75,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 	It("drops Status and Parent and preserves core wire fields when v54 entries carry populated Status and Parent", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
-		))
+		v54Table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v54.Device]{DB: db}))
 		key := "DEV-SERIAL-002"
 		seed := v54.Device{
 			Key:        key,
@@ -106,11 +102,11 @@ var _ = Describe("v54 -> current Device migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
+					gorp.NewEntryMigration(
 						"v54_drop_status_parent",
 						device.MigrateDevice,
 					),

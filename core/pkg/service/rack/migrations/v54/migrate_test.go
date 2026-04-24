@@ -30,9 +30,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 	It("rewrites v54-encoded entries through the new codec", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Rack](
-			ctx, gorp.TableConfig[v54.Rack]{DB: db},
-		))
+		v54Table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v54.Rack]{DB: db}))
 		seed := v54.Rack{
 			Key:          v54.Key(0x0001_0001),
 			Name:         "Seed Rack",
@@ -42,14 +40,11 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v54.Key, rack.Key, v54.Rack, rack.Rack](
-						"v54_drop_status",
-						rack.MigrateRack,
-					),
+					gorp.NewEntryMigration("v54_drop_status", rack.MigrateRack),
 				},
 			},
 		))
@@ -68,9 +63,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 	It("drops Status and preserves core wire fields when v54 entries carry a populated Status", func(ctx SpecContext) {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
-		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Rack](
-			ctx, gorp.TableConfig[v54.Rack]{DB: db},
-		))
+		v54Table := MustOpen(gorp.OpenTable(ctx, gorp.TableConfig[v54.Rack]{DB: db}))
 		key := v54.Key(0x0001_0002)
 		seed := v54.Rack{
 			Key:      key,
@@ -91,14 +84,11 @@ var _ = Describe("v54 -> current Rack migration", func() {
 		}
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
-		currentTable := MustOpen(gorp.OpenTable[rack.Key, rack.Rack](
+		currentTable := MustOpen(gorp.OpenTable(
 			ctx, gorp.TableConfig[rack.Rack]{
 				DB: db,
 				Migrations: []migrate.Migration{
-					gorp.NewEntryMigration[v54.Key, rack.Key, v54.Rack, rack.Rack](
-						"v54_drop_status",
-						rack.MigrateRack,
-					),
+					gorp.NewEntryMigration("v54_drop_status", rack.MigrateRack),
 				},
 			},
 		))

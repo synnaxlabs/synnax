@@ -24,7 +24,7 @@ type Payload struct {
 }
 
 // Error implements the error interface.
-func (p Payload) Error() string { return string(p.Type) + "---" + p.Data }
+func (p Payload) Error() string { return p.Type + "---" + p.Data }
 
 func (p *Payload) Unmarshal(d string) {
 	a := strings.Split(d, "---")

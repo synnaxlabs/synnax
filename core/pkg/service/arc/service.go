@@ -155,15 +155,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Arc]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			gorp.CodecMigration[uuid.UUID, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
-					"v54_drop_program_status",
-					MigrateArc,
-				),
+				gorp.NewEntryMigration("v54_drop_program_status", MigrateArc),
 				"msgpack_to_orc",
 			),
 		},
@@ -178,7 +175,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		if sig, err = signals.PublishFromGorp(
 			ctx,
 			s.cfg.Signals,
-			signals.GorpPublisherConfigUUID[Arc](s.table.Observe()),
+			signals.GorpPublisherConfigUUID(s.table.Observe()),
 		); !ok(err, sig) {
 			return nil, err
 		}

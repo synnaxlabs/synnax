@@ -976,7 +976,7 @@ var _ = Describe("Time", func() {
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				tolerance := 50 * telem.Millisecond
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   0,
@@ -986,21 +986,21 @@ var _ = Describe("Time", func() {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
 				changedOutputs = nil
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Elapsed:   99500 * telem.Microsecond,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 			})
@@ -1019,7 +1019,7 @@ var _ = Describe("Time", func() {
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				tolerance := 50 * telem.Millisecond
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   0,
@@ -1029,7 +1029,7 @@ var _ = Describe("Time", func() {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
@@ -1043,7 +1043,7 @@ var _ = Describe("Time", func() {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(BeEmpty())
 			})
@@ -1062,14 +1062,14 @@ var _ = Describe("Time", func() {
 				*intervalNode.Output(0) = telem.NewSeriesV[uint8]()
 				*intervalNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				tolerance := 50 * telem.Millisecond
 				fireCount := 0
 				tickTimes := []telem.TimeSpan{
 					0,
-					telem.TimeSpan(99500 * telem.Microsecond),
-					telem.TimeSpan(199800 * telem.Microsecond),
-					telem.TimeSpan(300100 * telem.Microsecond),
-					telem.TimeSpan(399000 * telem.Microsecond),
+					99500 * telem.Microsecond,
+					199800 * telem.Microsecond,
+					300100 * telem.Microsecond,
+					399000 * telem.Microsecond,
 				}
 
 				for _, elapsed := range tickTimes {
@@ -1082,7 +1082,7 @@ var _ = Describe("Time", func() {
 							fireCount++
 						},
 						MarkSelfChanged: func() {},
-						SetDeadline:     func(_ telem.TimeSpan) {},
+						SetDeadline:     func(telem.TimeSpan) {},
 					})
 				}
 				Expect(fireCount).To(Equal(5))
@@ -1112,7 +1112,7 @@ var _ = Describe("Time", func() {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
@@ -1126,7 +1126,7 @@ var _ = Describe("Time", func() {
 						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 			})
@@ -1170,7 +1170,7 @@ var _ = Describe("Time", func() {
 				*waitNode.Output(0) = telem.NewSeriesV[uint8]()
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
-				tolerance := telem.TimeSpan(50 * telem.Millisecond)
+				tolerance := 50 * telem.Millisecond
 				var waitChangedOutputs []int
 
 				n.Next(node.Context{
@@ -1182,20 +1182,20 @@ var _ = Describe("Time", func() {
 						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(waitChangedOutputs).To(BeEmpty())
 
 				n.Next(node.Context{
 					Context:   ctx,
-					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
+					Elapsed:   99500 * telem.Microsecond,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
 					MarkChanged: func(i int) {
 						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
-					SetDeadline:     func(_ telem.TimeSpan) {},
+					SetDeadline:     func(telem.TimeSpan) {},
 				})
 				Expect(waitChangedOutputs).To(HaveLen(1))
 			})

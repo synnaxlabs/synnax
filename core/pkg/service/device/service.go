@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	v54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -115,16 +115,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration(v0.MigrationConfig{Status: cfg.Status})
-	if s.table, err = gorp.OpenTable[string, Device](ctx, gorp.TableConfig[Device]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Device]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
 			gorp.CodecMigration[string, v54.Device]("msgpack_to_orc", v0Mig.Key()),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[string, string, v54.Device, Device](
-					"v54_drop_status_parent",
-					MigrateDevice,
-				),
+				gorp.NewEntryMigration("v54_drop_status_parent", MigrateDevice),
 				"msgpack_to_orc",
 			),
 		},
@@ -144,7 +141,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigString[Device](s.table.Observe()),
+			signals.GorpPublisherConfigString(s.table.Observe()),
 		); !ok(err, sig) {
 			return nil, err
 		}
@@ -190,9 +187,9 @@ func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve devices on suspect rack", zap.Error(err))
 	}
-	statuses := make([]status.Status[StatusDetails], len(devices))
+	statuses := make([]Status, len(devices))
 	for i, device := range devices {
-		statuses[i] = status.Status[StatusDetails]{
+		statuses[i] = Status{
 			Key:         OntologyID(device.Key).String(),
 			Name:        device.Name,
 			Time:        telem.Now(),

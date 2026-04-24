@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	xio "github.com/synnaxlabs/x/io"
@@ -90,7 +90,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 		if sig, err = signals.PublishFromGorp(
 			ctx,
 			cfg.Signals,
-			signals.GorpPublisherConfigUUID[Policy](s.table.Observe()),
+			signals.GorpPublisherConfigUUID(s.table.Observe()),
 		); !ok(err, sig) {
 			return nil, err
 		}

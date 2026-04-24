@@ -184,7 +184,7 @@ func (s *Service) Retrieve(
 				}
 				continue
 			}
-			pid := ontology.ID(parent.ID)
+			pid := parent.ID
 			res.Devices[i].Parent = &pid
 		}
 	}

@@ -498,7 +498,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[float32](25)))).To(BeTrue())
 			Expect(w.Close()).To(Succeed())
 			Eventually(func(g Gomega) {
-				var stat status.Status[svcarc.StatusDetails]
+				var stat svcarc.Status
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
 					WhereKeys("ox_alarm").Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))

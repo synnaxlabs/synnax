@@ -47,7 +47,7 @@ var _ = Describe("Math", func() {
 			var negTwo int32 = -2
 			var expected int32 = -8
 			res = rt.Call(ctx, "math", "pow_i32", testutil.I32(negTwo), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(uint32(expected))))
+			Expect(testutil.AsU32(res[0])).To(Equal(uint32(expected)))
 		})
 
 		It("Should compute u64 power", func(ctx SpecContext) {

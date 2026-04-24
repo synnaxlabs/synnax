@@ -279,7 +279,7 @@ func translateChannelsBackward(
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: cluster.NodeKey(ch.Leaseholder),
+			Leaseholder: ch.Leaseholder,
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),

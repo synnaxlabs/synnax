@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
-	"github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/ranger/migrations/v0"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
@@ -113,7 +113,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
@@ -132,7 +132,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if sig, err = signals.PublishFromGorp(
 		ctx,
 		cfg.Signals,
-		signals.GorpPublisherConfigUUID[Range](s.table.Observe()),
+		signals.GorpPublisherConfigUUID(s.table.Observe()),
 	); !ok(err, sig) {
 		return nil, err
 	}
