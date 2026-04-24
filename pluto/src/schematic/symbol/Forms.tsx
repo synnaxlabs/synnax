@@ -1517,7 +1517,7 @@ export const StateIndicatorForm = (): ReactElement => {
   return <Tabs.Tabs {...props} grow />;
 };
 
-export const EmbedForm = (): ReactElement => (
+const EmbedFormBase = ({ children }: { children: ReactElement }): ReactElement => (
   <FormWrapper x align="stretch">
     <Flex.Box y grow>
       <LabelControls path="label" />
@@ -1525,7 +1525,7 @@ export const EmbedForm = (): ReactElement => (
         <Form.Field<number> path="dimensions.width" label="Width" grow>
           {({ value, ...rest }) => (
             <Input.Numeric
-              value={value ?? 400}
+              value={value ?? 320}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
@@ -1536,7 +1536,7 @@ export const EmbedForm = (): ReactElement => (
         <Form.Field<number> path="dimensions.height" label="Height" grow>
           {({ value, ...rest }) => (
             <Input.Numeric
-              value={value ?? 300}
+              value={value ?? 180}
               dragScale={DIMENSIONS_DRAG_SCALE}
               bounds={DIMENSIONS_BOUNDS}
               endContent="px"
@@ -1544,18 +1544,29 @@ export const EmbedForm = (): ReactElement => (
             />
           )}
         </Form.Field>
-        <Form.Field<string>
-          path="layoutKey"
-          label="Page"
-          padHelpText={false}
-          grow
-        >
-          {(props) => (
-            <Input.Text {...props} placeholder="Select a page" disabled />
-          )}
-        </Form.Field>
+        {children}
       </Flex.Box>
     </Flex.Box>
     <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
   </FormWrapper>
+);
+
+export const MediaEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
+      {(props) => (
+        <Input.Text {...props} placeholder="http://localhost:8554/stream" />
+      )}
+    </Form.Field>
+  </EmbedFormBase>
+);
+
+export const PageEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <Form.Field<string> path="pageKey" label="Page" padHelpText={false} grow>
+      {(props) => (
+        <Input.Text {...props} placeholder="Select a page" disabled />
+      )}
+    </Form.Field>
+  </EmbedFormBase>
 );

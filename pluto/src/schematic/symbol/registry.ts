@@ -27,7 +27,8 @@ import {
   InputForm,
   LightForm,
   OffPageReferenceForm,
-  EmbedForm,
+  MediaEmbedForm,
+  PageEmbedForm,
   SelectForm,
   SetpointForm,
   StateIndicatorForm,
@@ -186,9 +187,12 @@ import {
   type OrificeProps,
   PaddleAgitator,
   type PaddleAgitatorProps,
-  Embed,
-  EmbedPreview,
-  type EmbedProps,
+  MediaEmbed,
+  MediaEmbedPreview,
+  type MediaEmbedProps,
+  PageEmbed,
+  PageEmbedPreview,
+  type PageEmbedProps,
   PistonPump,
   type PistonPumpProps,
   PolygonSymbol,
@@ -272,6 +276,7 @@ export interface Spec<P extends object = object> {
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<PreviewProps<P>>;
   zIndex: number;
+  searchTerms?: string;
 }
 
 const Z_INDEX_UPPER = 4;
@@ -378,7 +383,8 @@ const VARIANTS = [
   "strainerCone",
   "customActuator",
   "customStatic",
-  "embed",
+  "mediaEmbed",
+  "pageEmbed",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -478,7 +484,7 @@ const ZERO_DIMENSIONS = { width: 125, height: 200 };
 
 const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
 
-const ZERO_EMBED_DIMENSIONS = { width: 400, height: 300 };
+const ZERO_EMBED_DIMENSIONS = { width: 320, height: 180 };
 
 const ZERO_BOX_BORDER_RADIUS = 3;
 
@@ -1936,18 +1942,37 @@ const customStatic: Spec<CustomStaticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const embed: Spec<EmbedProps> = {
-  name: "Embed",
-  key: "embed",
-  Form: EmbedForm,
-  Symbol: Embed,
+const withSuffix = (suffix: string, ...terms: string[]): string =>
+  terms.map((t) => `${t} ${suffix}`).join(" ");
+
+const mediaEmbed: Spec<MediaEmbedProps> = {
+  name: "Media Embed",
+  key: "mediaEmbed",
+  Form: MediaEmbedForm,
+  Symbol: MediaEmbed,
   defaultProps: () => ({
-    layoutKey: "",
-    ...zeroLabel("Embed"),
+    url: "",
+    ...zeroLabel("Media Embed"),
     dimensions: ZERO_EMBED_DIMENSIONS,
     ...ZERO_PROPS,
   }),
-  Preview: EmbedPreview,
+  Preview: MediaEmbedPreview,
+  zIndex: Z_INDEX_LOWER,
+  searchTerms: withSuffix("embed", "video", "image", "gif", "svg", "mjpeg", "stream", "camera", "picture", "png", "url", "jpeg", "jpg", "webcam", "ip", "feed", "photo"),
+};
+
+const pageEmbed: Spec<PageEmbedProps> = {
+  name: "Page Embed",
+  key: "pageEmbed",
+  Form: PageEmbedForm,
+  Symbol: PageEmbed,
+  defaultProps: () => ({
+    pageKey: "",
+    ...zeroLabel("Page Embed"),
+    dimensions: ZERO_EMBED_DIMENSIONS,
+    ...ZERO_PROPS,
+  }),
+  Preview: PageEmbedPreview,
   zIndex: Z_INDEX_LOWER,
 };
 
@@ -2052,7 +2077,8 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   strainerCone,
   customActuator,
   customStatic,
-  embed,
+  mediaEmbed,
+  pageEmbed,
 };
 
 export interface Group extends group.Group {
@@ -2214,6 +2240,6 @@ export const GROUPS: Group[] = [
     key: "containers",
     name: "Containers",
     Icon: Icon.Visualize,
-    symbols: ["embed"],
+    symbols: ["mediaEmbed", "pageEmbed"],
   },
 ];

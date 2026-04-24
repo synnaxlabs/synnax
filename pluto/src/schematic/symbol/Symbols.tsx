@@ -31,6 +31,7 @@ import {
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import {
   DRAG_HANDLE_CLASS,
   Grid,
@@ -1381,17 +1382,21 @@ export const StateIndicatorPreview = ({
   />
 );
 
-export interface EmbedProps extends Primitives.EmbedProps {
-  layoutKey: string;
+export interface MediaEmbedProps extends Primitives.EmbedProps {
+  url: string;
   label?: LabelExtensionProps;
 }
 
-export const Embed = createLabeled(
-  ({
-    dimensions: dims,
-    color: colorVal,
-  }: SymbolProps<EmbedProps>): ReactElement => (
-    <Primitives.Embed dimensions={dims} color={colorVal} />
+export const MediaEmbed = createLabeled(
+  ({ dimensions: dims, color: colorVal, url }: SymbolProps<MediaEmbedProps>) => (
+    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+      {url != null && url.length > 0 ? (
+        <img
+          src={url}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      ) : undefined}
+    </Primitives.Embed>
   ),
   {
     grid: { allowCenter: true, allowRotate: false },
@@ -1399,6 +1404,25 @@ export const Embed = createLabeled(
   },
 );
 
-export const EmbedPreview = (props: EmbedProps): ReactElement => (
-  <Primitives.Embed {...props} dimensions={{ width: 100, height: 50 }} />
+export const MediaEmbedPreview = (): ReactElement => (
+  <Icon.Play style={{ fontSize: 36 }} />
+);
+
+export interface PageEmbedProps extends Primitives.EmbedProps {
+  pageKey: string;
+  label?: LabelExtensionProps;
+}
+
+export const PageEmbed = createLabeled(
+  ({ dimensions: dims, color: colorVal }: SymbolProps<PageEmbedProps>) => (
+    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Select a page" />
+  ),
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
+);
+
+export const PageEmbedPreview = (): ReactElement => (
+  <Icon.Workspace style={{ fontSize: 36 }} />
 );

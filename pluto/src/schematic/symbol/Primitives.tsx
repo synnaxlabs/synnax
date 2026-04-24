@@ -4848,14 +4848,17 @@ export const StateIndicator = ({
 export interface EmbedProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   color?: color.Crude;
+  placeholder?: string;
 }
 
-const DEFAULT_EMBED_DIMENSIONS = { width: 400, height: 300 };
+const DEFAULT_EMBED_DIMENSIONS = { width: 320, height: 180 };
 
 export const Embed = ({
   className,
   dimensions: dims = DEFAULT_EMBED_DIMENSIONS,
   color: colorVal,
+  placeholder = "Embed",
+  children,
   ...rest
 }: EmbedProps): ReactElement => {
   const t = Theming.use();
@@ -4874,9 +4877,11 @@ export const Embed = ({
         <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
       </HandleBoundary>
       <div className={CSS.BE("embed", "content")}>
-        <Text.Text level="small" color={textColor}>
-          Select a page
-        </Text.Text>
+        {children ?? (
+          <Text.Text level="small" color={textColor}>
+            {placeholder}
+          </Text.Text>
+        )}
       </div>
     </Div>
   );
