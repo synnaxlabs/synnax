@@ -61,6 +61,14 @@ interface GridElProps {
   onLocationChange: (key: string, loc: location.Location) => void;
 }
 
+export const roundResizeDims = (
+  width: number,
+  height: number,
+): { width: number; height: number } => ({
+  width: Math.round(width),
+  height: Math.round(height),
+});
+
 const HAUL_TYPE = "Schematic.Grid";
 
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
@@ -230,7 +238,7 @@ export const Grid = ({
       {onResize != null && editable && (
         <NodeResizer
           onResize={(_event, { width, height }) =>
-            onResize?.({ width: Math.round(width), height: Math.round(height) })
+            onResize?.(roundResizeDims(width, height))
           }
         />
       )}

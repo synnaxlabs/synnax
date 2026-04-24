@@ -185,8 +185,7 @@ describe("symbol registry", () => {
       const matchingSpecs = allSpecs.filter(
         (s) =>
           s.name.toLowerCase().includes("grafana") ||
-          (s.searchTerms != null &&
-            s.searchTerms.toLowerCase().includes("grafana")),
+          (s.searchTerms != null && s.searchTerms.toLowerCase().includes("grafana")),
       );
       expect(matchingSpecs.some((s) => s.key === "iframeEmbed")).toBe(true);
     });
@@ -196,8 +195,7 @@ describe("symbol registry", () => {
       const matchingSpecs = allSpecs.filter(
         (s) =>
           s.name.toLowerCase().includes("dashboard") ||
-          (s.searchTerms != null &&
-            s.searchTerms.toLowerCase().includes("dashboard")),
+          (s.searchTerms != null && s.searchTerms.toLowerCase().includes("dashboard")),
       );
       expect(matchingSpecs.some((s) => s.key === "iframeEmbed")).toBe(true);
     });

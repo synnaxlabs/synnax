@@ -11,7 +11,13 @@ import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { IframeEmbedBase, MediaEmbedBase } from "@/schematic/symbol/Symbols";
+import {
+  IframeEmbedBase,
+  IframeEmbedPreview,
+  MediaEmbedBase,
+  MediaEmbedPreview,
+  PageEmbedPreview,
+} from "@/schematic/symbol/Symbols";
 import { Theming } from "@/theming";
 
 const Wrapper = ({ children }: PropsWithChildren): ReactElement => (
@@ -40,18 +46,16 @@ describe("MediaEmbedBase", () => {
   });
 
   it("should render placeholder text when URL is empty", () => {
-    const { getByText } = render(
-      <MediaEmbedBase {...BASE_PROPS} url="" />,
-      { wrapper: Wrapper },
-    );
+    const { getByText } = render(<MediaEmbedBase {...BASE_PROPS} url="" />, {
+      wrapper: Wrapper,
+    });
     expect(getByText("Enter a URL")).toBeTruthy();
   });
 
   it("should not render an img element when URL is empty", () => {
-    const { container } = render(
-      <MediaEmbedBase {...BASE_PROPS} url="" />,
-      { wrapper: Wrapper },
-    );
+    const { container } = render(<MediaEmbedBase {...BASE_PROPS} url="" />, {
+      wrapper: Wrapper,
+    });
     expect(container.querySelector("img")).toBeNull();
   });
 
@@ -129,9 +133,7 @@ describe("IframeEmbedBase", () => {
       { wrapper: Wrapper },
     );
     const iframe = container.querySelector("iframe")!;
-    expect(iframe.getAttribute("sandbox")).toBe(
-      "allow-scripts allow-same-origin",
-    );
+    expect(iframe.getAttribute("sandbox")).toBe("allow-scripts allow-same-origin");
   });
 
   it("should have no border", () => {
@@ -144,6 +146,27 @@ describe("IframeEmbedBase", () => {
       { wrapper: Wrapper },
     );
     const iframe = container.querySelector("iframe")!;
-    expect(iframe.getAttribute("style")).toContain("border:");
+    expect(iframe.style.borderStyle).toBe("none");
+  });
+});
+
+describe("MediaEmbedPreview", () => {
+  it("should render", () => {
+    const { container } = render(<MediaEmbedPreview />);
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+});
+
+describe("IframeEmbedPreview", () => {
+  it("should render", () => {
+    const { container } = render(<IframeEmbedPreview />);
+    expect(container.querySelector("svg")).not.toBeNull();
+  });
+});
+
+describe("PageEmbedPreview", () => {
+  it("should render", () => {
+    const { container } = render(<PageEmbedPreview />);
+    expect(container.querySelector("svg")).not.toBeNull();
   });
 });

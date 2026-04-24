@@ -1392,10 +1392,7 @@ export const MediaEmbedBase = ({
 }: SymbolProps<MediaEmbedProps>): ReactElement => (
   <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
     {url != null && url.length > 0 ? (
-      <img
-        src={url}
-        style={{ width: "100%", height: "100%", objectFit: "contain" }}
-      />
+      <img src={url} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
     ) : undefined}
   </Primitives.Embed>
 );
@@ -1415,6 +1412,11 @@ export interface IframeEmbedProps extends MediaEmbedProps {
 
 // IMPORTANT: If postMessage communication with the iframe is ever added, always
 // validate event.origin before acting on messages to prevent cross-origin attacks.
+// NOTE: When blockCookies is false, sandbox="allow-scripts allow-same-origin" is
+// used. A same-origin embedded page could remove its own sandbox via
+// window.frameElement.removeAttribute("sandbox"). This is acceptable because
+// same-origin content is already fully trusted; cross-origin content cannot
+// access window.frameElement (returns null).
 export const IframeEmbedBase = ({
   dimensions: dims,
   color: colorVal,
@@ -1425,9 +1427,7 @@ export const IframeEmbedBase = ({
     {url != null && url.length > 0 ? (
       <iframe
         src={url}
-        sandbox={
-          blockCookies ? "allow-scripts" : "allow-scripts allow-same-origin"
-        }
+        sandbox={blockCookies ? "allow-scripts" : "allow-scripts allow-same-origin"}
         style={{ width: "100%", height: "100%", border: "none" }}
       />
     ) : undefined}
@@ -1440,7 +1440,7 @@ export const IframeEmbed = createLabeled(IframeEmbedBase, {
 });
 
 export const IframeEmbedPreview = (): ReactElement => (
-  <Icon.Visualize style={{ fontSize: 36 }} />
+  <Icon.Code style={{ fontSize: 36 }} />
 );
 
 export interface PageEmbedProps extends Primitives.EmbedProps {
