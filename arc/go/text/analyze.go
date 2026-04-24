@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // keyGenerator produces globally unique IR node keys. It maintains a running
@@ -118,6 +119,27 @@ func (s *shellBuilder) addTransition(t ir.Transition) {
 	)
 }
 
+// addTransitionTo appends a transition to a specific frame, not necessarily
+// the innermost. Used when a cross-level `=> X` resolves to a frame further
+// up the stack — the transition must live on the frame that owns X so the
+// scheduler advances that frame's active step.
+func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
+	f.transitions = append(f.transitions, t)
+}
+
+// resolveTargetFrame walks the shell stack innermost-first and returns the
+// first frame whose memberKeys contain name, or nil if none does. This
+// implements the lexical-scope rule for `=> X`: innermost enclosing sequence
+// that has X as a member wins (so local names shadow outer ones).
+func (s *shellBuilder) resolveTargetFrame(name string) *seqFrame {
+	for i := len(s.stack) - 1; i >= 0; i-- {
+		if slices.Contains(s.stack[i].memberKeys, name) {
+			return s.stack[i]
+		}
+	}
+	return nil
+}
+
 // registerActivation records that the scope named key should be activated by
 // the given handle. The activation is stamped onto the emitted Scope by the
 // main Analyze loop once all top-level items have been processed.
@@ -136,7 +158,11 @@ func (s *shellBuilder) applyTransitionIntent(on ir.Handle, intent transitionInte
 		next := s.top().nextMember()
 		s.addTransition(ir.Transition{On: on, TargetKey: new(next)})
 	case intent.memberKey != "":
-		s.addTransition(ir.Transition{On: on, TargetKey: new(intent.memberKey)})
+		frame := intent.targetFrame
+		if frame == nil {
+			frame = s.top()
+		}
+		s.addTransitionTo(frame, ir.Transition{On: on, TargetKey: new(intent.memberKey)})
 	case intent.activateKey != "":
 		s.registerActivation(intent.activateKey, on)
 		if s.top() != nil {
@@ -171,8 +197,17 @@ type transitionIntent struct {
 	// intent is consumed.
 	isNext bool
 	// memberKey, when non-empty and isNext is false, names a sibling member
-	// in the enclosing sequence to transition to.
+	// to transition to. The transition lives on targetFrame (or shell.top()
+	// when targetFrame is nil — the same-level fallback).
 	memberKey string
+	// targetFrame is the frame that owns memberKey. When set to a frame
+	// further up the stack than shell.top(), the transition fires on an
+	// enclosing sequence and runtime deactivation of intermediate scopes
+	// cascades via deactivateStep; no explicit exits are needed on inner
+	// frames because they freeze when their parent step is deactivated and
+	// are reset to step 0 on the next activation (scheduler.go
+	// deactivateScope / activateScope).
+	targetFrame *seqFrame
 	// activateKey, when non-empty, names a top-level scope whose activation
 	// should be set to the firing handle. Combined with an exit transition
 	// when the intent is consumed inside a sequence.
@@ -267,14 +302,11 @@ func analyzeIdentifierByRole(
 	}
 
 	switch sym.Kind {
-	case symbol.KindSequence:
-		intent, ok := analyzeSequenceRef(ctx, sym)
+	case symbol.KindSequence, symbol.KindStage:
+		intent, ok := analyzeNamedRef(ctx, sym, shell)
 		if !ok {
 			return flowNodeResult{}, false
 		}
-		return flowNodeResult{transition: &intent}, true
-	case symbol.KindStage:
-		intent := analyzeStageRef(sym, shell)
 		return flowNodeResult{transition: &intent}, true
 	case symbol.KindGlobalConstant:
 		r, ok := buildGlobalConstantNode(name, sym, kg)
@@ -289,39 +321,58 @@ func analyzeIdentifierByRole(
 	}
 }
 
-// analyzeSequenceRef builds a transition intent for an identifier that
-// resolves to a sequence (or a top-level stage whose symbol node happens to
-// be an IStageDeclarationContext). The intent says "when the firing handle
-// is truthy, activate `sym.Name`". If the reference appears inside another
-// sequence, the consumer will additionally emit an exit transition.
-func analyzeSequenceRef(
+// analyzeNamedRef builds a transition intent for `=> X` where X is a named
+// stage or sequence. Resolution is lexical:
+//
+//  1. Walk the shell stack innermost-first; the first enclosing sequence
+//     frame that has X as a direct member owns the transition (same-level
+//     sibling jump — works across any number of intermediate stages or
+//     nested sequences because deactivation cascades through
+//     deactivateStep).
+//  2. If no enclosing frame owns X, X must be a top-level scope (declared
+//     directly under the file root). Register a cross-scope activation.
+//  3. Otherwise, X is unreachable — emit a diagnostic.
+//
+// This rule makes sequences behave as black boxes from the outside: you can
+// jump around inside your own nesting, you can call a top-level neighbor at
+// its front door, but you cannot reach across a structural boundary to land
+// on some other sequence's internal step.
+func analyzeNamedRef(
 	ctx acontext.Context[parser.IIdentifierContext],
-	seqSym *symbol.Scope,
+	sym *symbol.Scope,
+	shell *shellBuilder,
 ) (transitionIntent, bool) {
-	if _, ok := seqSym.AST.(parser.IStageDeclarationContext); ok {
-		return transitionIntent{activateKey: seqSym.Name}, true
+	if frame := shell.resolveTargetFrame(sym.Name); frame != nil {
+		return transitionIntent{memberKey: sym.Name, targetFrame: frame}, true
 	}
-	seqDecl, ok := seqSym.AST.(parser.ISequenceDeclarationContext)
-	if !ok || len(seqDecl.AllSequenceItem()) == 0 {
-		ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST, "sequence '%s' has no steps", seqSym.Name))
-		return transitionIntent{}, false
+	if isRootLevelScope(sym) {
+		if seqDecl, ok := sym.AST.(parser.ISequenceDeclarationContext); ok {
+			if len(seqDecl.AllSequenceItem()) == 0 {
+				ctx.Diagnostics.Add(diagnostics.Errorf(
+					ctx.AST, "sequence '%s' has no steps", sym.Name,
+				))
+				return transitionIntent{}, false
+			}
+		}
+		return transitionIntent{activateKey: sym.Name}, true
 	}
-	return transitionIntent{activateKey: seqSym.Name}, true
+	ctx.Diagnostics.Add(diagnostics.Errorf(
+		ctx.AST,
+		"'%s' is not reachable from here: it is neither a sibling within an "+
+			"enclosing sequence nor a top-level scope",
+		sym.Name,
+	))
+	return transitionIntent{}, false
 }
 
-// analyzeStageRef builds a transition intent for an identifier that resolves
-// to a stage. A reference to a sibling stage in the enclosing sequence jumps
-// to that sibling; a reference to a stage in a different top-level scope
-// activates that top-level scope and exits the current sequence.
-func analyzeStageRef(stageSym *symbol.Scope, shell *shellBuilder) transitionIntent {
-	if frame := shell.top(); frame != nil && stageSym.Parent != nil && stageSym.Parent.Name == frame.name {
-		return transitionIntent{memberKey: stageSym.Name}
+// isRootLevelScope reports whether sym is declared directly under the file
+// root (i.e., a top-level sequence or stage). Uses a structural parent
+// check so anonymous/auto-named wrapper scopes don't misclassify.
+func isRootLevelScope(sym *symbol.Scope) bool {
+	if sym == nil || sym.Parent == nil || sym.Parent.Parent != nil {
+		return false
 	}
-	topName := stageSym.Name
-	if stageSym.Parent != nil && stageSym.Parent.Name != "" {
-		topName = stageSym.Parent.Name
-	}
-	return transitionIntent{activateKey: topName}
+	return sym.Kind == symbol.KindSequence || sym.Kind == symbol.KindStage
 }
 
 func buildChannelReadNode(name string, sym *symbol.Scope, kg *keyGenerator) (nodeResult, bool) {
@@ -537,7 +588,7 @@ func Analyze(
 
 	for _, item := range t.AST.AllTopLevelItem() {
 		if flow := item.FlowStatement(); flow != nil {
-			nodes, edges, ok := analyzeFlow(acontext.Child(aCtx, flow), kg, shell)
+			nodes, edges, _, ok := analyzeFlow(acontext.Child(aCtx, flow), kg, shell)
 			if !ok {
 				return i, aCtx.Diagnostics
 			}
@@ -580,6 +631,7 @@ func Analyze(
 	// Apply deferred activations collected by flow statements that target
 	// top-level scopes (for example `trigger => main`). The activation is
 	// stamped directly onto the corresponding nested Scope member.
+	bound := set.New[string]()
 	if len(shell.activations) > 0 && len(i.Root.Strata) > 0 {
 		stratum := i.Root.Strata[0]
 		for idx := range stratum {
@@ -589,7 +641,23 @@ func Analyze(
 			}
 			if handle, ok := shell.activations[m.Scope.Key]; ok {
 				m.Scope.Activation = new(handle)
+				bound.Add(m.Scope.Key)
 			}
+		}
+	}
+	// Safety net: analyzeNamedRef should reject any `=> X` whose X is
+	// neither an enclosing-sequence member nor a top-level scope, so every
+	// registered activation should bind. If one does not, something upstream
+	// registered an activation without going through analyzeNamedRef.
+	for key := range shell.activations {
+		if !bound.Contains(key) {
+			aCtx.Diagnostics.Add(diagnostics.Errorf(
+				t.AST,
+				"internal: activation target '%s' did not bind to a "+
+					"top-level scope; this should have been rejected by "+
+					"analyzeNamedRef",
+				key,
+			))
 		}
 	}
 
@@ -799,23 +867,30 @@ func (p *flowChainProcessor) processRoutingTable(rt parser.IRoutingTableContext)
 	return true
 }
 
+// analyzeFlow processes a single flow statement. In addition to the IR nodes
+// and edges it produced, it reports whether the flow chain terminated in an
+// explicit transition target (`=> next`, `=> name`, or a scope-valued
+// identifier). Callers that auto-wire a terminal transition for the flow
+// step should suppress that auto-wire when transitionEmitted is true, since
+// the explicit transition already covers (and may target a different frame
+// than) the auto-wire would.
 func analyzeFlow(
 	ctx acontext.Context[parser.IFlowStatementContext],
 	kg *keyGenerator,
 	shell *shellBuilder,
-) ([]ir.Node, []ir.Edge, bool) {
+) (nodes []ir.Node, edges []ir.Edge, transitionEmitted bool, ok bool) {
 	p := newFlowChainProcessor(ctx, kg, shell)
 	for i, child := range ctx.AST.GetChildren() {
 		switch c := child.(type) {
 		case parser.IFlowNodeContext:
 			if !p.processFlowNode(c) {
-				return nil, nil, false
+				return nil, nil, false, false
 			}
 		case parser.IFlowOperatorContext:
 			p.lastOpIndex = i
 		case parser.IRoutingTableContext:
 			if !p.processRoutingTable(c) {
-				return nil, nil, false
+				return nil, nil, false, false
 			}
 		}
 	}
@@ -824,9 +899,9 @@ func analyzeFlow(
 			ctx.AST,
 			"flow statement requires at least two nodes",
 		))
-		return nil, nil, false
+		return nil, nil, false, false
 	}
-	return p.nodes, p.edges, true
+	return p.nodes, p.edges, p.transitionEmitted, true
 }
 
 func extractConfigValues(
@@ -1073,10 +1148,14 @@ func analyzeSequence(
 		return ir.Scope{}, nil, nil, false
 	}
 	seqName := seqScope.Name
+	liveness := ir.LivenessAlways
+	if ctx.AST.IDENTIFIER() != nil {
+		liveness = ir.LivenessGated
+	}
 	scope := ir.Scope{
 		Key:      seqName,
 		Mode:     ir.ScopeModeSequential,
-		Liveness: ir.LivenessGated,
+		Liveness: liveness,
 	}
 
 	items := ctx.AST.AllSequenceItem()
@@ -1123,7 +1202,7 @@ func analyzeSequence(
 		}
 
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			nodes, edges, ok := analyzeFlow(
+			nodes, edges, transitionEmitted, ok := analyzeFlow(
 				acontext.Child(ctx, flowStmt).WithScope(seqScope),
 				kg,
 				shell,
@@ -1135,7 +1214,13 @@ func analyzeSequence(
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &child})
 			allNodes = append(allNodes, nodes...)
 			allEdges = append(allEdges, edges...)
-			if len(nodes) > 0 {
+			// Only auto-wire the step-advance transition when the flow did
+			// not already terminate in an explicit `=> X`. The explicit
+			// transition may target an outer frame; emitting the auto-wire
+			// alongside it causes the inner frame's evaluator to clear the
+			// firing-node's mark before the outer frame's evaluator sees
+			// it, preventing the cross-level jump from firing.
+			if !transitionEmitted && len(nodes) > 0 {
 				autoWireTransition(shell, nodes[len(nodes)-1], nextKey)
 			}
 			continue
@@ -1165,9 +1250,13 @@ func analyzeSequence(
 			if !ok {
 				return ir.Scope{}, nil, nil, false
 			}
-			// Anonymous inline nested sequences inherit the synthesized step
-			// key so Member.Key() is derivable from the scope.
-			if nestedScope.Key == "" {
+			// Anonymous inline nested sequences must use the outer's
+			// synthesized step key so autoWireTransition from the preceding
+			// flow step can address them; analyzeSequence otherwise stamps
+			// the scope.Key with an AutoName (seq_N) that does not match
+			// collectStepKeys' step_N. Named nested sequences keep their
+			// source-level name.
+			if nestedSeqDecl.IDENTIFIER() == nil {
 				nestedScope.Key = si.key
 			}
 			scope.Steps = append(scope.Steps, ir.Member{Scope: &nestedScope})
@@ -1207,13 +1296,15 @@ func analyzeStage(
 	shell *shellBuilder,
 ) (ir.Scope, []ir.Node, []ir.Edge, bool) {
 	stageName := ""
+	liveness := ir.LivenessAlways
 	if id := ctx.AST.IDENTIFIER(); id != nil {
 		stageName = id.GetText()
+		liveness = ir.LivenessGated
 	}
 	scope := ir.Scope{
 		Key:      stageName,
 		Mode:     ir.ScopeModeParallel,
-		Liveness: ir.LivenessGated,
+		Liveness: liveness,
 	}
 	var (
 		nodes   []ir.Node
@@ -1228,7 +1319,7 @@ func analyzeStage(
 
 	for _, item := range stageBody.AllStageItem() {
 		if flowStmt := item.FlowStatement(); flowStmt != nil {
-			itemNodes, itemEdges, ok := analyzeFlow(
+			itemNodes, itemEdges, _, ok := analyzeFlow(
 				acontext.Child(ctx, flowStmt),
 				kg,
 				shell,

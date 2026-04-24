@@ -28,6 +28,11 @@ const (
 	ContextConfigParamName
 	ContextConfigParamValue
 	ContextAuthorityEntry
+	// ContextNone marks positions where the editor should not surface any
+	// completions, such as the same line as the opening brace of a func,
+	// sequence, or stage body. Completions resume once the cursor moves to
+	// the next line.
+	ContextNone
 )
 
 type configContextInfo struct {
@@ -100,6 +105,9 @@ func DetectCompletionContext(content string, pos protocol.Position) CompletionCo
 	}
 	if configCtx := detectConfigContext(tokensBeforeCursor); configCtx != ContextUnknown {
 		return configCtx
+	}
+	if isSameLineAfterOpenBrace(lastToken, pos) {
+		return ContextNone
 	}
 	if isTypeAnnotationContext(tokensBeforeCursor, lastToken) {
 		return ContextTypeAnnotation
@@ -307,16 +315,30 @@ func isExpressionContext(lastToken antlr.Token) bool {
 	return false
 }
 
+// isSameLineAfterOpenBrace reports whether the cursor sits on the same line as
+// the most recent token, when that token is an opening brace. The check is used
+// to suppress completions immediately after typing the `{` of a func, sequence,
+// or stage body so suggestions only appear once the cursor moves to the next
+// line. Config braces (e.g. `myFunc{`) are filtered out earlier in
+// DetectCompletionContext, so they keep their existing parameter completions.
+func isSameLineAfterOpenBrace(lastToken antlr.Token, pos protocol.Position) bool {
+	if lastToken.GetTokenType() != parser.ArcLexerLBRACE {
+		return false
+	}
+	cursorLine := int(pos.Line) + 1
+	return cursorLine == lastToken.GetLine()
+}
+
 func isStatementStartContext(tokens []antlr.Token, lastToken antlr.Token, pos protocol.Position) bool {
 	tokenType := lastToken.GetTokenType()
+	lastLine := lastToken.GetLine()
+	cursorLine := int(pos.Line) + 1
 	if tokenType == parser.ArcLexerLBRACE {
-		return true
+		return cursorLine > lastLine
 	}
 	if len(tokens) == 0 {
 		return true
 	}
-	lastLine := lastToken.GetLine()
-	cursorLine := int(pos.Line) + 1
 	if cursorLine > lastLine {
 		switch tokenType {
 		case parser.ArcLexerRBRACE,

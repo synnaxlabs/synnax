@@ -183,19 +183,19 @@ Program build_deep_nested(size_t depth) {
     ir::Scope current;
     current.key = "s0";
     current.mode = ir::ScopeMode::Parallel;
-    current.liveness = ir::Liveness::Gated;
+    current.liveness = ir::Liveness::Always;
     current.strata.push_back(ir::Members{ir::node_member("leaf")});
 
     for (size_t i = 1; i < depth; ++i) {
         ir::Scope outer;
         outer.key = "s" + std::to_string(i);
         outer.mode = ir::ScopeMode::Parallel;
-        outer.liveness = ir::Liveness::Gated;
+        outer.liveness = ir::Liveness::Always;
         outer.strata.push_back(ir::Members{ir::scope_member(std::move(current))});
         current = std::move(outer);
     }
-    ir::Handle act{"trigger", "go"};
-    current.activation = act;
+    current.liveness = ir::Liveness::Gated;
+    current.activation = ir::Handle{"trigger", "go"};
 
     p.ir.root.mode = ir::ScopeMode::Parallel;
     p.ir.root.liveness = ir::Liveness::Always;

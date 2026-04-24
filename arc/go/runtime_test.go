@@ -44,6 +44,7 @@ import (
 type runtimeHarness struct {
 	scheduler    *scheduler.Scheduler
 	channelState *channel.ProgramState
+	controlState *control.ProgramState
 	nodeState    *node.ProgramState
 	wasmRT       wazero.Runtime
 	closers      []func(context.Context) error
@@ -93,6 +94,7 @@ func newRuntimeHarness(
 
 	h := &runtimeHarness{
 		channelState: channelState,
+		controlState: controlState,
 		nodeState:    nodeState,
 		wasmRT:       wasmRT,
 	}
@@ -170,6 +172,13 @@ func (h *runtimeHarness) Output(nodeKey string, paramIdx int) telem.Series {
 
 func (h *runtimeHarness) OutputTime(nodeKey string, paramIdx int) telem.Series {
 	return *h.nodeState.Node(nodeKey).OutputTime(paramIdx)
+}
+
+// FlushAuthority drains and returns all authority changes buffered by
+// set_authority nodes this cycle. Tests assert on the returned slice to
+// verify authority semantics that aren't observable via channel writes.
+func (h *runtimeHarness) FlushAuthority() []control.AuthorityChange {
+	return h.controlState.Flush()
 }
 
 type channelDef struct {

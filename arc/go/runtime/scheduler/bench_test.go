@@ -90,25 +90,30 @@ func buildFanoutChain(n int) (ir.IR, map[string]node.Node) {
 	return programOf(irNodes, edges, rootWithStrata(stratum(p0...), stratum(p1...))), nodes
 }
 
-// buildDeepNested constructs a chain of D nested gated-parallel scopes with
-// one node at the leaf. The outer scope is activated once; the walk has to
-// descend D levels every cycle.
+// buildDeepNested constructs a chain of D nested parallel scopes with one
+// node at the leaf. The outermost scope is gated and activated via an
+// external handle; all inner wrappers are always-live so the cascade
+// descends the full chain on each activation.
 func buildDeepNested(depth int) (ir.IR, map[string]node.Node) {
 	irNodes := []ir.Node{irNode("leaf")}
 	nodes := map[string]node.Node{"leaf": newBenchNode()}
-	current := parallelScope("s0", stratum(ir.NodeMember("leaf")))
+	current := ir.Scope{
+		Key:      "s0",
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+		Strata:   []ir.Members{stratum(ir.NodeMember("leaf"))},
+	}
 	for i := 1; i < depth; i++ {
 		current = ir.Scope{
 			Key:      "s" + strconv.Itoa(i),
 			Mode:     ir.ScopeModeParallel,
-			Liveness: ir.LivenessGated,
+			Liveness: ir.LivenessAlways,
 			Strata:   []ir.Members{{ir.ScopeMember(current)}},
 		}
 	}
-	// Wrap the outermost gated scope with an always-live root and activate
-	// via an external source so the whole chain is live each cycle.
 	irNodes = append(irNodes, irNode("trigger", "go"))
 	nodes["trigger"] = newBenchNode(true)
+	current.Liveness = ir.LivenessGated
 	current.Activation = &ir.Handle{Node: "trigger", Param: "go"}
 	root := rootWithStrata(stratum(ir.NodeMember("trigger"), ir.ScopeMember(current)))
 	return programOf(irNodes, nil, root), nodes
