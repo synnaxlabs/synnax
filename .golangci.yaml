@@ -3,6 +3,7 @@ linters:
   enable:
     - exptostd
     - modernize
+    - perfsprint
     - revive
     - usestdlibvars
     - unconvert
@@ -16,6 +17,8 @@ linters:
         - fieldalignment
     ineffassign:
       check-escaping-errors: true
+    perfsprint:
+      err-error: true
     revive:
       rules:
         - name: error-naming

@@ -67,7 +67,7 @@ func runCheck(cmd *cobra.Command, args []string) error {
 			return err
 		}
 		if result != string(source) {
-			printInfo(fmt.Sprintf("needs formatting: %s", f))
+			printInfo("needs formatting: " + f)
 			unformatted++
 		}
 	}

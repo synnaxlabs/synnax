@@ -140,8 +140,7 @@ func (m *seriesMatcher) FailureMessage(actual any) string {
 			actualSeries.DataString(),
 		))
 	}
-	return fmt.Sprintf("Series did not match:\n%s",
-		formatDifferences(differences))
+	return "Series did not match:\n" + formatDifferences(differences)
 }
 
 func (m *seriesMatcher) NegatedFailureMessage(actual any) string {

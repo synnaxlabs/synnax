@@ -280,5 +280,5 @@ func (m *opcodeMatcher) NegatedFailureMessage(actual any) string {
 		return fmt.Sprintf("Expected not to match, but got invalid type %T", actual)
 	}
 
-	return fmt.Sprintf("Expected opcodes not to match, but they did:\n  %s", actualOpcodes.String())
+	return "Expected opcodes not to match, but they did:\n  " + actualOpcodes.String()
 }

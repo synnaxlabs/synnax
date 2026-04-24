@@ -26,9 +26,7 @@ type UndefinedSymbolError struct {
 }
 
 // Error implements the error interface.
-func (e *UndefinedSymbolError) Error() string {
-	return fmt.Sprintf("undefined symbol: %s", e.Name)
-}
+func (e *UndefinedSymbolError) Error() string { return "undefined symbol: " + e.Name }
 
 // GetHint implements diagnostics.HintProvider. It lazily computes similar symbol
 // suggestions using the scope's search infrastructure, which may involve expensive

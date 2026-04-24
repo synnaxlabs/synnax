@@ -173,7 +173,7 @@ func runMigrate(cmd *cobra.Command) error {
 			return errors.Wrapf(err, "failed to delete retargeted file %s", d)
 		}
 		if verbose {
-			printDim(fmt.Sprintf("  moved %s", d))
+			printDim("  moved " + d)
 		}
 	}
 

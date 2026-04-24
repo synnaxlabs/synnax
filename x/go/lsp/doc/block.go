@@ -21,30 +21,24 @@ type title struct {
 }
 
 // Title creates a title block with just a name.
-func Title(name string) Block {
-	return title{name: name}
-}
+func Title(name string) Block { return title{name: name} }
 
 // TitleWithKind creates a title block with a name and kind annotation.
-func TitleWithKind(name, kind string) Block {
-	return title{name: name, kind: kind}
-}
+func TitleWithKind(name, kind string) Block { return title{name: name, kind: kind} }
 
 // Render returns the markdown representation of the title.
 func (t title) Render() string {
 	if t.kind != "" {
 		return fmt.Sprintf("#### %s\n##### %s", t.name, t.kind)
 	}
-	return fmt.Sprintf("#### %s", t.name)
+	return "#### " + t.name
 }
 
 // Paragraph is a simple text block.
 type Paragraph string
 
 // Render returns the paragraph text.
-func (p Paragraph) Render() string {
-	return string(p)
-}
+func (p Paragraph) Render() string { return string(p) }
 
 // code renders a fenced code block.
 type code struct {
@@ -89,9 +83,7 @@ type errorBlock struct {
 }
 
 // Error creates an error block with just a message.
-func Error(message string) Block {
-	return errorBlock{message: message}
-}
+func Error(message string) Block { return errorBlock{message: message} }
 
 // ErrorWithCode creates an error block with a code and message.
 func ErrorWithCode(code, message string) Block {
@@ -103,16 +95,14 @@ func (e errorBlock) Render() string {
 	if e.code != "" {
 		return fmt.Sprintf("**Error %s**: %s", e.code, e.message)
 	}
-	return fmt.Sprintf("**Error**: %s", e.message)
+	return "**Error**: " + e.message
 }
 
 // Hint renders a suggestion hint.
 type Hint string
 
 // Render returns the markdown representation of the hint.
-func (h Hint) Render() string {
-	return fmt.Sprintf("_Hint_: %s", string(h))
-}
+func (h Hint) Render() string { return "_Hint_: " + string(h) }
 
 // fix renders a fix suggestion with optional code.
 type fix struct {
@@ -131,7 +121,7 @@ func (f fix) Render() string {
 	if f.code != "" {
 		return fmt.Sprintf("**Fix**: %s\n\n```%s\n%s\n```", f.description, f.language, f.code)
 	}
-	return fmt.Sprintf("**Fix**: %s", f.description)
+	return "**Fix**: " + f.description
 }
 
 // list renders a bullet or numbered list.
@@ -141,14 +131,10 @@ type list struct {
 }
 
 // List creates an unordered list.
-func List(items ...string) Block {
-	return list{items: items, ordered: false}
-}
+func List(items ...string) Block { return list{items: items, ordered: false} }
 
 // OrderedList creates an ordered list.
-func OrderedList(items ...string) Block {
-	return list{items: items, ordered: true}
-}
+func OrderedList(items ...string) Block { return list{items: items, ordered: true} }
 
 // Render returns the markdown representation of the list.
 func (l list) Render() string {
@@ -160,7 +146,7 @@ func (l list) Render() string {
 		if l.ordered {
 			parts[i] = fmt.Sprintf("%d. %s", i+1, item)
 		} else {
-			parts[i] = fmt.Sprintf("- %s", item)
+			parts[i] = "- " + item
 		}
 	}
 	return strings.Join(parts, "\n")
@@ -170,25 +156,19 @@ func (l list) Render() string {
 type Bold string
 
 // Render returns the markdown bold text.
-func (b Bold) Render() string {
-	return fmt.Sprintf("**%s**", string(b))
-}
+func (b Bold) Render() string { return fmt.Sprintf("**%s**", string(b)) }
 
 // Italic renders italic text.
 type Italic string
 
 // Render returns the markdown italic text.
-func (i Italic) Render() string {
-	return fmt.Sprintf("_%s_", string(i))
-}
+func (i Italic) Render() string { return fmt.Sprintf("_%s_", string(i)) }
 
 // InlineCode renders inline code.
 type InlineCode string
 
 // Render returns the markdown inline code.
-func (c InlineCode) Render() string {
-	return fmt.Sprintf("`%s`", string(c))
-}
+func (c InlineCode) Render() string { return fmt.Sprintf("`%s`", string(c)) }
 
 // divider renders a horizontal rule.
 type divider struct{}

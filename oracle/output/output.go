@@ -12,6 +12,7 @@ package output
 
 import (
 	"fmt"
+	"strconv"
 
 	"charm.land/lipgloss/v2"
 )
@@ -42,7 +43,7 @@ func PluginStart(name string) {
 // PluginDone prints a message when a plugin finishes with file count.
 func PluginDone(name string, fileCount int) {
 	p := pluginStyle.Render(name)
-	c := countStyle.Render(fmt.Sprintf("%d", fileCount))
+	c := countStyle.Render(strconv.Itoa(fileCount))
 	word := "file"
 	if fileCount != 1 {
 		word = "files"
@@ -53,7 +54,7 @@ func PluginDone(name string, fileCount int) {
 // PostWriteStep prints a post-write step in progress.
 func PostWriteStep(tool string, fileCount int, action string) {
 	t := actionStyle.Render(tool)
-	c := countStyle.Render(fmt.Sprintf("%d", fileCount))
+	c := countStyle.Render(strconv.Itoa(fileCount))
 	word := "file"
 	if fileCount != 1 {
 		word = "files"

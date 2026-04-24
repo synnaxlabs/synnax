@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"strconv"
 	"testing"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -41,7 +42,7 @@ func makeResources(n int) []ontology.Resource {
 	for i := range n {
 		name := fmt.Sprintf(names[i%len(names)], i)
 		resources[i] = ontology.Resource{
-			ID:   ontology.ID{Type: "bench", Key: fmt.Sprintf("%d", i)},
+			ID:   ontology.ID{Type: "bench", Key: strconv.Itoa(i)},
 			Name: name,
 		}
 	}

@@ -472,10 +472,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 				zodType = result.ZodType
 			}
 			if toNumber {
-				zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))", zodType)
+				zodType = zodType + ".or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))"
 			}
 			if toString {
-				zodType = fmt.Sprintf("%s.or(z.number().transform(String).or(z.bigint().transform(String)))", zodType)
+				zodType = zodType + ".or(z.number().transform(String).or(z.bigint().transform(String)))"
 			}
 			return typeDefData{
 				Name:    td.Name,
@@ -505,10 +505,10 @@ func (p *Plugin) processTypeDef(td resolution.Type, data *templateData) typeDefD
 			zodType = result.ZodType
 		}
 		if toNumber {
-			zodType = fmt.Sprintf("%s.or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))", zodType)
+			zodType = zodType + ".or(z.string().refine((v) => !isNaN(Number(v))).transform(Number))"
 		}
 		if toString {
-			zodType = fmt.Sprintf("%s.or(z.number().transform(String))", zodType)
+			zodType = zodType + ".or(z.number().transform(String))"
 		}
 		return typeDefData{
 			Name:    td.Name,
@@ -1106,11 +1106,11 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 		switch primitive {
 		case "string":
 			addXImport(data, xImport{name: "id", submodule: "id"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => id.create())", fd.ZodType)
+			fd.ZodType = fd.ZodType + ".default(() => id.create())"
 			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		case "uuid":
 			addXImport(data, xImport{name: "uuid", submodule: "uuid"})
-			fd.ZodType = fmt.Sprintf("%s.default(() => uuid.create())", fd.ZodType)
+			fd.ZodType = fd.ZodType + ".default(() => uuid.create())"
 			fd.ZodSchemaType = fmt.Sprintf("z.ZodDefault<%s>", fd.ZodSchemaType)
 		}
 	}
@@ -1253,7 +1253,7 @@ func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.
 			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
 		}
-		return fmt.Sprintf("typeof %s", schemaName)
+		return "typeof " + schemaName
 
 	case resolution.EnumForm:
 		schemaName := lo.CamelCase(resolved.Name) + "Z"
@@ -1266,7 +1266,7 @@ func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.
 			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
 		}
-		return fmt.Sprintf("typeof %s", schemaName)
+		return "typeof " + schemaName
 	}
 
 	return "unknown"
@@ -1785,10 +1785,10 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			if rules.Default.IntValue == 0 {
 				if typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp") {
 					addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeStamp.ZERO)", zodType)
+					zodType = zodType + ".default(TimeStamp.ZERO)"
 				} else if typeRef.Name == "TimeSpan" || strings.HasSuffix(typeRef.Name, ".TimeSpan") {
 					addXImport(data, xImport{name: "TimeSpan", submodule: "telem"})
-					zodType = fmt.Sprintf("%s.default(TimeSpan.ZERO)", zodType)
+					zodType = zodType + ".default(TimeSpan.ZERO)"
 				} else {
 					zodType = fmt.Sprintf("%s.default(%d)", zodType, rules.Default.IntValue)
 				}
@@ -1803,14 +1803,14 @@ func (p *Plugin) applyValidation(zodType string, domain resolution.Domain, typeR
 			// Handle identifier-based defaults like "now" for timestamps
 			if rules.Default.IdentValue == "now" && (typeRef.Name == "TimeStamp" || strings.HasSuffix(typeRef.Name, ".TimeStamp")) {
 				addXImport(data, xImport{name: "TimeStamp", submodule: "telem"})
-				zodType = fmt.Sprintf("%s.default(() => TimeStamp.now())", zodType)
+				zodType = zodType + ".default(() => TimeStamp.now())"
 			}
 			// Handle "create" for auto-generating string keys
 			// Use key.ResolvePrimitive to handle type aliases like `Key distinct string`
 			primitive := key.ResolvePrimitive(typeRef, table)
 			if rules.Default.IdentValue == "create" && (isString || primitive == "string") {
 				addXImport(data, xImport{name: "id", submodule: "id"})
-				zodType = fmt.Sprintf("%s.default(() => id.create())", zodType)
+				zodType = zodType + ".default(() => id.create())"
 			}
 			if ev, ok := validation.ResolveEnumVariant(rules.Default.IdentValue, typeRef, table); ok {
 				zodType = fmt.Sprintf("%s.default(%s)", zodType, p.enumVariantToTS(ev, data))

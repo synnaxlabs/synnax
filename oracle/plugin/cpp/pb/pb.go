@@ -216,8 +216,8 @@ func (p *Plugin) generateProto(
 	}
 
 	data.includes.addSystem("utility")
-	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
-	data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", outputPath))
+	data.includes.addInternal(outputPath + "/types.gen.h")
+	data.includes.addInternal(outputPath + "/json.gen.h")
 	data.includes.addInternal("x/cpp/errors/errors.h")
 	data.includes.addInternal("x/cpp/pb/pb.h")
 
@@ -470,7 +470,7 @@ func (p *Plugin) generateFieldConversion(
 	typeRef := field.Type
 	pbFieldName := toSnakeCase(field.Name)
 	pbAccessorName := keywords.Escape(pbFieldName)
-	pbSetter := fmt.Sprintf("pb.set_%s", pbAccessorName)
+	pbSetter := "pb.set_" + pbAccessorName
 
 	if p.isFixedSizeUint8Array(typeRef, data.table) {
 		return p.generateFixedSizeUint8ArrayConversion(field, data)
@@ -627,8 +627,8 @@ func (p *Plugin) generateStructConversion(
 	if resolved.Namespace != data.rawNs {
 		targetOutputPath := output.GetPath(resolved, "cpp")
 		if targetOutputPath != "" {
-			data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-			data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+			data.includes.addInternal(targetOutputPath + "/proto.gen.h")
+			data.includes.addInternal(targetOutputPath + "/json.gen.h")
 		}
 	}
 
@@ -871,8 +871,8 @@ func (p *Plugin) generateAliasConversion(
 		if targetResolved.Namespace != data.rawNs {
 			targetOutputPath := output.GetPath(targetResolved, "cpp")
 			if targetOutputPath != "" {
-				data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-				data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+				data.includes.addInternal(targetOutputPath + "/proto.gen.h")
+				data.includes.addInternal(targetOutputPath + "/json.gen.h")
 			}
 		}
 		cppType := domain.GetName(resolved, "cpp")
@@ -957,8 +957,8 @@ func (p *Plugin) generateArrayElementConversion(
 				if resolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(resolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(targetOutputPath + "/proto.gen.h")
+						data.includes.addInternal(targetOutputPath + "/json.gen.h")
 					}
 				}
 				elemCppType := p.typeRefToCppForTranslator(elemType, data)
@@ -1105,8 +1105,8 @@ func (p *Plugin) generateNestedArrayConversion(
 					if innerResolved.Namespace != data.rawNs {
 						targetOutputPath := output.GetPath(innerResolved, "cpp")
 						if targetOutputPath != "" {
-							data.includes.addInternal(fmt.Sprintf("%s/proto.gen.h", targetOutputPath))
-							data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+							data.includes.addInternal(targetOutputPath + "/proto.gen.h")
+							data.includes.addInternal(targetOutputPath + "/json.gen.h")
 						}
 					}
 					innerCppType := p.typeRefToCppForTranslator(innerElem, data)

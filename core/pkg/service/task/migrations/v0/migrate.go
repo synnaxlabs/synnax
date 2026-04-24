@@ -11,7 +11,6 @@ package v0
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -77,7 +76,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 						Name:    t.Name,
 						Time:    telem.Now(),
 						Variant: xstatus.VariantWarning,
-						Message: fmt.Sprintf("%s status unknown", t.Name),
+						Message: t.Name + " status unknown",
 						Details: StatusDetails{Task: t.Key},
 					})
 				}

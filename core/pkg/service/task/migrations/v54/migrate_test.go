@@ -57,7 +57,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
-		Expect(got.Config).To(Equal(msgpack.EncodedJSON(seed.Config)))
+		Expect(got.Config).To(Equal(seed.Config))
 		Expect(got.Internal).To(Equal(seed.Internal))
 		Expect(got.Snapshot).To(Equal(seed.Snapshot))
 		Expect(got.Status).To(BeNil())

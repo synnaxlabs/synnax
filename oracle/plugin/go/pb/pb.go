@@ -508,7 +508,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 		}
 
 		paramName := typeRef.TypeParam.Name
-		converterFunc := fmt.Sprintf("translate%s", paramName)
+		converterFunc := "translate" + paramName
 
 		forwardExpr := fmt.Sprintf("%s(%s)", converterFunc, goFieldName)
 		backwardExpr := fmt.Sprintf("%s(%s)", converterFunc, pbFieldName)
@@ -754,23 +754,23 @@ func (p *Plugin) generateFixedSizeUint8ArrayConversion(
 ) (forward, backward string) {
 	resolved, ok := typeRef.Resolve(data.table)
 	if !ok {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	goOutput := output.GetPath(resolved, "go")
 	if goOutput == "" {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
 	if err != nil {
-		return fmt.Sprintf("%s[:]", goField), pbField
+		return goField + "[:]", pbField
 	}
 
 	alias := naming.DerivePackageName(goOutput)
 	data.imports.AddInternal(alias, importPath)
 
-	forward = fmt.Sprintf("%s.Bytes()", goField)
+	forward = goField + ".Bytes()"
 	backward = fmt.Sprintf("%s.FromBytes(%s)", alias, pbField)
 
 	return forward, backward
@@ -877,7 +877,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	switch primitive {
 	case "uuid":
 		data.imports.AddExternal("github.com/google/uuid")
-		return fmt.Sprintf("%s.String()", goField),
+		return goField + ".String()",
 			fmt.Sprintf("uuid.Parse(%s)", pbField), false, true
 	case "timestamp":
 		data.imports.AddExternal("github.com/synnaxlabs/x/telem")
@@ -894,7 +894,7 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "record":
 		data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
 		return fmt.Sprintf("structpb.NewStruct(%s)", goField),
-			fmt.Sprintf("%s.AsMap()", pbField), true, false
+			pbField + ".AsMap()", true, false
 	case "uint12":
 		data.imports.AddExternal("github.com/synnaxlabs/x/types")
 		return fmt.Sprintf("uint32(%s)", goField),
@@ -1016,8 +1016,8 @@ func (p *Plugin) generateGenericStructConversion(
 
 		if typeArg.IsTypeParam() && typeArg.TypeParam != nil && !typeArg.TypeParam.HasDefault() {
 			paramName := typeArg.TypeParam.Name
-			forwardConverters = append(forwardConverters, fmt.Sprintf("translate%s", paramName))
-			backwardConverters = append(backwardConverters, fmt.Sprintf("translate%s", paramName))
+			forwardConverters = append(forwardConverters, "translate"+paramName)
+			backwardConverters = append(backwardConverters, "translate"+paramName)
 			explicitTypeArgs = append(explicitTypeArgs, paramName)
 			continue
 		}
@@ -1029,8 +1029,8 @@ func (p *Plugin) generateGenericStructConversion(
 
 				p.ensureAnyHelper(argResolved, data)
 
-				forwardConverters = append(forwardConverters, fmt.Sprintf("%sToPBAny", argGoName))
-				backwardConverters = append(backwardConverters, fmt.Sprintf("%sFromPBAny", argGoName))
+				forwardConverters = append(forwardConverters, argGoName+"ToPBAny")
+				backwardConverters = append(backwardConverters, argGoName+"FromPBAny")
 
 				explicitTypeArgs = append(explicitTypeArgs, fmt.Sprintf("%s.%s", data.parentAlias, argGoName))
 				continue
@@ -1182,7 +1182,7 @@ func (p *Plugin) generateTypeDefConversion(
 
 	if baseType.Name == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
-		forward = fmt.Sprintf("%s.String()", goField)
+		forward = goField + ".String()"
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolved.Name)
 		return forward, backward, backwardCast, true
@@ -1223,7 +1223,7 @@ func (p *Plugin) generateAliasConversion(
 	// Handle uuid specially
 	if primitiveName == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
-		forward = fmt.Sprintf("%s.String()", goField)
+		forward = goField + ".String()"
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
 		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolved.Name)
 		return forward, backward, backwardCast, true
@@ -1263,7 +1263,7 @@ func (p *Plugin) generateArrayConversion(
 				for _, ta := range elemType.TypeArgs {
 					if ta.IsTypeParam() && ta.TypeParam != nil && !ta.TypeParam.HasDefault() {
 						typeParamArgs = append(typeParamArgs, ta.TypeParam.Name)
-						converterArgs = append(converterArgs, fmt.Sprintf("translate%s", ta.TypeParam.Name))
+						converterArgs = append(converterArgs, "translate"+ta.TypeParam.Name)
 					}
 				}
 				if len(typeParamArgs) > 0 {

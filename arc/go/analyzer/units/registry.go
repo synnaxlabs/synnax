@@ -9,11 +9,7 @@
 
 package units
 
-import (
-	"fmt"
-
-	"github.com/synnaxlabs/arc/types"
-)
+import "github.com/synnaxlabs/arc/types"
 
 // Registry maps unit names to their definitions.
 // Each entry defines the dimensions, scale factor (to SI base unit), and display name.
@@ -143,7 +139,7 @@ func Resolve(name string) (*types.Unit, bool) {
 func MustResolve(name string) *types.Unit {
 	u, ok := Resolve(name)
 	if !ok {
-		panic(fmt.Sprintf("units: failed to resolve %s", name))
+		panic("units: failed to resolve " + name)
 	}
 	return u
 }

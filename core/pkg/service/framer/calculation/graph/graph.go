@@ -898,7 +898,7 @@ func (g *Graph) logCompileError(
 		for i, dep := range deps {
 			s := fmt.Sprintf("%s %s", dep, dep.DataType)
 			if dep.IsCalculated() {
-				s += fmt.Sprintf(" expression: %s", dep.Expression)
+				s += " expression: " + dep.Expression
 			}
 			depStrs[i] = s
 		}

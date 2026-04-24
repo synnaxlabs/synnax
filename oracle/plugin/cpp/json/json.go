@@ -132,7 +132,7 @@ func (p *Plugin) generateFile(
 		rawNs:         namespace,
 	}
 
-	data.includes.addInternal(fmt.Sprintf("%s/types.gen.h", outputPath))
+	data.includes.addInternal(outputPath + "/types.gen.h")
 	data.includes.addInternal("x/cpp/json/json.h")
 
 	for _, s := range structs {
@@ -414,7 +414,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				if targetResolved.Namespace != data.rawNs {
 					targetOutputPath := output.GetPath(targetResolved, "cpp")
 					if targetOutputPath != "" {
-						data.includes.addInternal(fmt.Sprintf("%s/json.gen.h", targetOutputPath))
+						data.includes.addInternal(targetOutputPath + "/json.gen.h")
 					}
 				}
 			}
@@ -431,7 +431,7 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 				headerName := lo.SnakeCase(resolved.Name)
 				includePath = fmt.Sprintf("%s/%s.h", targetOutputPath, headerName)
 			} else {
-				includePath = fmt.Sprintf("%s/json.gen.h", targetOutputPath)
+				includePath = targetOutputPath + "/json.gen.h"
 			}
 			data.includes.addInternal(includePath)
 			ns := deriveNamespace(targetOutputPath)

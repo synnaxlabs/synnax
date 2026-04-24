@@ -10,8 +10,6 @@
 package compiler_test
 
 import (
-	"fmt"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
@@ -145,7 +143,7 @@ var _ = Describe("Compile", func() {
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base.Name),
+			Expression: "return " + base.Name,
 			Operations: []channel.Operation{{Type: "derivative"}},
 		}
 		Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())

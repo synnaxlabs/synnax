@@ -228,7 +228,7 @@ func (m Member) String() string { return m.stringWithPrefix("") }
 func (m Member) stringWithPrefix(prefix string) string {
 	switch {
 	case m.NodeKey != nil:
-		return fmt.Sprintf("%s\n", *m.NodeKey)
+		return *m.NodeKey + "\n"
 	case m.Scope != nil:
 		return m.Scope.stringWithPrefix(prefix)
 	default:

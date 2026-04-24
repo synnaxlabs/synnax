@@ -11,7 +11,6 @@ package runtime
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"math"
 	stdtime "time"
@@ -356,7 +355,7 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 	stat := task.Status{
 		Key:         task.OntologyID(t.task.Key).String(),
 		Variant:     status.VariantWarning,
-		Message:     fmt.Sprintf("Runtime error in %s", nodeType),
+		Message:     "Runtime error in " + nodeType,
 		Description: err.Error(),
 		Time:        telem.Now(),
 		Details:     task.StatusDetails{Task: t.task.Key, Running: true},

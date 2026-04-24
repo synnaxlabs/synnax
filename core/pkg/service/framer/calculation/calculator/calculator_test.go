@@ -718,7 +718,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{
 					Type:     "avg",
@@ -770,7 +770,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Float64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{Type: "derivative"},
 			},
@@ -824,7 +824,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			Name:       channel.NewRandomName(),
 			DataType:   telem.Int64T,
 			Virtual:    true,
-			Expression: fmt.Sprintf("return %s", base[0].Name),
+			Expression: "return " + base[0].Name,
 			Operations: []channel.Operation{
 				{
 					Type:     "avg",
@@ -924,13 +924,13 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return %s", b1[0].Name),
+				Expression: "return " + b1[0].Name,
 			}
 			c2 := channel.Channel{
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Int64T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return %s", b2[0].Name),
+				Expression: "return " + b2[0].Name,
 			}
 			calc1 := open(ctx, &idx, &b1, &c1)
 			calc2 := open(ctx, &idx, &b2, &c2)
@@ -1003,7 +1003,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Virtual:    true,
-				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
+				Expression: "return 2.0 * " + base[0].Name,
 			}
 			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
@@ -1028,7 +1028,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Virtual:    true,
-				Expression: fmt.Sprintf("return 1000 - %s", base[0].Name),
+				Expression: "return 1000 - " + base[0].Name,
 			}
 			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
@@ -1053,7 +1053,7 @@ var _ = Describe("Calculator", Ordered, func() {
 			calc := channel.Channel{
 				Name:       channel.NewRandomName(),
 				Virtual:    true,
-				Expression: fmt.Sprintf("return 1000.0 / %s", base[0].Name),
+				Expression: "return 1000.0 / " + base[0].Name,
 			}
 			c := openWithInferredType(ctx, &base, &calc)
 			Expect(calc.DataType).To(Equal(telem.Float32T))
@@ -1079,7 +1079,7 @@ var _ = Describe("Calculator", Ordered, func() {
 				Name:       channel.NewRandomName(),
 				DataType:   telem.Float32T,
 				Virtual:    true,
-				Expression: fmt.Sprintf("return 2.0 * %s", base[0].Name),
+				Expression: "return 2.0 * " + base[0].Name,
 			}
 			Expect(dist.Channel.CreateMany(ctx, &base)).To(Succeed())
 			Expect(dist.Channel.Create(ctx, &calc)).To(Succeed())

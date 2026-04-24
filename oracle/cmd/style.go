@@ -11,6 +11,7 @@ package cmd
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"charm.land/lipgloss/v2"
@@ -86,7 +87,7 @@ func printFileWritten(plugin, path string) {
 }
 
 func printSchemaCount(count int) {
-	c := countStyle.Render(fmt.Sprintf("%d", count))
+	c := countStyle.Render(strconv.Itoa(count))
 	word := "schema"
 	if count != 1 {
 		word = "schemas"
@@ -103,7 +104,7 @@ func printSyncedCount(written, unchanged int) {
 		)
 		return
 	}
-	w := countStyle.Render(fmt.Sprintf("%d", written))
+	w := countStyle.Render(strconv.Itoa(written))
 	word := "file"
 	if written != 1 {
 		word = "files"
@@ -120,13 +121,13 @@ func printValidationPassed(structs, enums int) {
 	if structs > 0 {
 		parts = append(
 			parts,
-			fmt.Sprintf("%s structs", countStyle.Render(fmt.Sprintf("%d", structs))),
+			countStyle.Render(strconv.Itoa(structs))+" structs",
 		)
 	}
 	if enums > 0 {
 		parts = append(
 			parts,
-			fmt.Sprintf("%s enums", countStyle.Render(fmt.Sprintf("%d", enums))),
+			countStyle.Render(strconv.Itoa(enums))+" enums",
 		)
 	}
 	msg := "valid " + dimStyle.Render("(") +
@@ -147,7 +148,7 @@ func printDiagnostics(diagnosticStr string) {
 }
 
 func printFormattingStart(count int) {
-	c := countStyle.Render(fmt.Sprintf("%d", count))
+	c := countStyle.Render(strconv.Itoa(count))
 	word := "schema"
 	if count != 1 {
 		word = "schemas"
@@ -164,7 +165,7 @@ func printFormattingDone(formatted int) {
 		)
 		return
 	}
-	c := countStyle.Render(fmt.Sprintf("%d", formatted))
+	c := countStyle.Render(strconv.Itoa(formatted))
 	word := "file"
 	if formatted != 1 {
 		word = "files"

@@ -11,7 +11,6 @@ package graph
 
 import (
 	"context"
-	"fmt"
 	"go/types"
 	"sync"
 
@@ -142,7 +141,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
 			if err != nil {
-				statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err)
+				statuses[ch.Key()] = calculation.StatusFromError(ch.Key(), ch.Name, "invalid expression for "+ch.Name, err)
 				invalidCount++
 				s.L.Debug("channel expression invalid",
 					zap.Stringer("channel", ch.Key()),
@@ -235,7 +234,7 @@ func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.
 					zap.String("name", ch.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(ch.Key(), ch.Name, fmt.Sprintf("invalid expression for %s", ch.Name), err))
+				s.setNodeStatus(ctx, calculation.StatusFromError(ch.Key(), ch.Name, "invalid expression for "+ch.Name, err))
 			} else {
 				s.L.Debug("calculated channel inspected",
 					zap.Stringer("channel", ch.Key()),
@@ -356,7 +355,7 @@ func (s *Graph) reconcileQueued(
 					zap.String("name", refetched.Name),
 					zap.Error(err),
 				)
-				s.setNodeStatus(ctx, calculation.StatusFromError(key, refetched.Name, fmt.Sprintf("invalid expression for %s", refetched.Name), err))
+				s.setNodeStatus(ctx, calculation.StatusFromError(key, refetched.Name, "invalid expression for "+refetched.Name, err))
 				continue
 			}
 			s.clearNodeStatus(ctx, key)

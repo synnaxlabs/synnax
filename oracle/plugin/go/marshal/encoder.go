@@ -507,7 +507,7 @@ func (b *encoderBuilder) processHardOptional(
 	b.decodeLines = append(b.decodeLines,
 		ind+"{ present, err := r.Bool(); if err != nil { return err }",
 		ind+"if present {",
-		ind+fmt.Sprintf("\tvar v %s", goType),
+		ind+"\tvar v "+goType,
 	)
 	b.depth++
 	b.inBlock++
@@ -656,8 +656,8 @@ func (b *encoderBuilder) processMap(
 		ind+"\tn, err := r.CollectionLen(); if err != nil { return err }",
 		ind+fmt.Sprintf("\t%s = make(map[%s]%s, n)", setPath, goKeyType, goValType),
 		ind+"\tfor range n {",
-		ind+fmt.Sprintf("\t\tvar key %s", goKeyType),
-		ind+fmt.Sprintf("\t\tvar val %s", goValType),
+		ind+"\t\tvar key "+goKeyType,
+		ind+"\t\tvar val "+goValType,
 	)
 
 	b.depth++

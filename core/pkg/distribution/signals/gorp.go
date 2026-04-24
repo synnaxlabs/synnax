@@ -180,7 +180,7 @@ func PublishFromGorp[K gorp.Key, E gorp.Entry[K]](
 			},
 		}
 		obsCfg = ObservablePublisherConfig{
-			Name:          fmt.Sprintf("gorp_%s", strings.ToLower(types.Name[E]())),
+			Name:          "gorp_" + strings.ToLower(types.Name[E]()),
 			Observable:    obs,
 			SetChannel:    channel.Channel{Name: cfg.SetName, DataType: cfg.SetDataType, Internal: true},
 			DeleteChannel: channel.Channel{Name: cfg.DeleteName, DataType: cfg.DeleteDataType, Internal: true},

@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -558,21 +559,21 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 			base = "true"
 		}
 	case "int8":
-		base = fmt.Sprintf("%d", (idx%126)+1)
+		base = strconv.Itoa((idx % 126) + 1)
 	case "int16":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "int32":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "int64":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint8":
-		base = fmt.Sprintf("%d", (idx%254)+1)
+		base = strconv.Itoa((idx % 254) + 1)
 	case "uint12", "uint16":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint20", "uint32":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "uint64":
-		base = fmt.Sprintf("%d", idx+1)
+		base = strconv.Itoa(idx + 1)
 	case "float32":
 		base = fmt.Sprintf("%d.5", idx)
 	case "float64":

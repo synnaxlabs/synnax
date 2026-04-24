@@ -11,7 +11,6 @@ package pagerduty_test
 
 import (
 	"context"
-	"fmt"
 	"strings"
 	"time"
 
@@ -21,6 +20,7 @@ import (
 	pd "github.com/synnaxlabs/synnax/pkg/service/pagerduty"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	"github.com/synnaxlabs/x/errors"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -431,7 +431,7 @@ var _ = Describe("AlertTask", func() {
 
 		It("Should set error status when sendEvent fails",
 			func(ctx context.Context) {
-				sender.setError(fmt.Errorf("simulated PagerDuty outage"))
+				sender.setError(errors.New("simulated PagerDuty outage"))
 				tsk := configureAndStart(ctx, validConfig(
 					pd.AlertConfig{Status: "send-failure", Enabled: true},
 				))

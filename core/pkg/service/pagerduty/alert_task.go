@@ -12,7 +12,6 @@ package pagerduty
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/PagerDuty/go-pagerduty"
@@ -171,7 +170,7 @@ func (t *alertTask) buildTriggerEvent(
 ) pagerduty.V2Event {
 	summary := s.Message
 	if s.Description != "" {
-		summary += fmt.Sprintf(": %s", s.Description)
+		summary += ": " + s.Description
 	}
 	return pagerduty.V2Event{
 		RoutingKey: t.cfg.RoutingKey,
@@ -225,7 +224,7 @@ func (t *alertTask) sendEvent(ctx context.Context, event pagerduty.V2Event) {
 			zap.Error(err),
 		)
 		t.updateStatus(ctx, xstatus.VariantError, true,
-			fmt.Sprintf("Failed to send PagerDuty event: %s", err.Error()))
+			"Failed to send PagerDuty event: "+err.Error())
 		return
 	}
 	t.factoryCfg.L.Debug(
