@@ -8,6 +8,7 @@ linters:
     - revive
     - usestdlibvars
     - unconvert
+    - unparam
     - mustsucceedlint
     - setlint
   settings:
