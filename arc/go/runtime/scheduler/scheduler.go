@@ -302,8 +302,9 @@ func (s *Scheduler) clearLeafNodeSelfChanged(m *member) {
 
 // activateScope marks a scope active and primes its members. Sequential
 // scopes activate step 0; parallel scopes reset every leaf-node member and
-// cascade-activate nested gated scopes that have no Activation handle —
-// gated children with a handle wait for it to fire via markChanged.
+// cascade-activate always-live nested scopes. Gated children wait for their
+// Activation handle to fire via markChanged; gated children with no handle
+// stay inert (used for named top-level scopes awaiting an external trigger).
 func (s *Scheduler) activateScope(ss *scope) {
 	ss.active = true
 	if ss.ir.Mode == ir.ScopeModeSequential {
@@ -318,9 +319,7 @@ func (s *Scheduler) activateScope(ss *scope) {
 			s.resetLeafNode(m)
 			continue
 		}
-		if m.scope != nil &&
-			m.scope.ir.Liveness == ir.LivenessGated &&
-			m.scope.ir.Activation == nil {
+		if m.scope != nil && m.scope.ir.Liveness == ir.LivenessAlways {
 			s.activateScope(m.scope)
 		}
 	}

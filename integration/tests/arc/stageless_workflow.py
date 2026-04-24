@@ -32,11 +32,12 @@ class StagelessWorkflow(ArcConsoleCase):
     feature set AND the auto-activation rule for anonymous top-level
     scopes.
 
-    The sequence has no name, so no ``=>`` can target it. Under the
-    unified cascade rule, the always-live root cascade-activates gated
-    children that have no Activation handle — which anonymous top-level
-    scopes always lack. The sequence therefore auto-starts on the first
-    scheduler cycle with no start-command trigger.
+    The sequence has no name, so the analyzer emits it as
+    ``LivenessAlways``. The always-live root scope cascade-activates its
+    ``LivenessAlways`` children on the first scheduler cycle, so the
+    sequence auto-starts with no start-command trigger. Named top-level
+    scopes would be emitted as ``LivenessGated`` and would stay inert
+    until an external trigger fires.
 
     The body covers every stageless construct in one workflow: write
     cascading (three consecutive writes that fire on a single tick), a
