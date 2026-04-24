@@ -20,8 +20,8 @@ var _ = Describe("PB", func() {
 	It("Should translate a payload to its protobuf representation", func() {
 		pld := errors.Payload{Type: "Cat", Data: "Orange"}
 		pb := errors.TranslatePayloadForward(pld)
-		Expect(pb.Type).To(Equal("Cat"))
-		Expect(pb.Data).To(Equal("Orange"))
+		Expect(pb.GetType()).To(Equal("Cat"))
+		Expect(pb.GetData()).To(Equal("Orange"))
 	})
 
 	It("Should translate a protobuf representation to a payload", func() {

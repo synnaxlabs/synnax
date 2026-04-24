@@ -53,7 +53,7 @@ func (l loginRequestTranslator) Backward(
 	_ context.Context,
 	req *LoginRequest,
 ) (apiauth.LoginRequest, error) {
-	creds := svcauth.InsecureCredentials{Username: req.Username, Password: password.Raw(req.Password)}
+	creds := svcauth.InsecureCredentials{Username: req.GetUsername(), Password: password.Raw(req.GetPassword())}
 	return apiauth.LoginRequest{InsecureCredentials: creds}, nil
 }
 
@@ -80,18 +80,18 @@ func (l loginResponseTranslator) Backward(
 	_ context.Context,
 	r *LoginResponse,
 ) (apiauth.LoginResponse, error) {
-	key, err := uuid.Parse(r.User.Key)
+	key, err := uuid.Parse(r.GetUser().GetKey())
 	return apiauth.LoginResponse{
-		Token: r.Token,
+		Token: r.GetToken(),
 		User: user.User{
 			Key:      key,
-			Username: r.User.Username,
+			Username: r.GetUser().GetUsername(),
 		},
 		ClusterInfo: apiauth.ClusterInfo{
-			ClusterKey:  r.ClusterInfo.ClusterKey,
-			NodeVersion: r.ClusterInfo.NodeVersion,
-			NodeKey:     cluster.NodeKey(r.ClusterInfo.NodeKey),
-			NodeTime:    telem.TimeStamp(r.ClusterInfo.NodeTime),
+			ClusterKey:  r.GetClusterInfo().GetClusterKey(),
+			NodeVersion: r.GetClusterInfo().GetNodeVersion(),
+			NodeKey:     cluster.NodeKey(r.GetClusterInfo().GetNodeKey()),
+			NodeTime:    telem.TimeStamp(r.GetClusterInfo().GetNodeTime()),
 		},
 	}, err
 }

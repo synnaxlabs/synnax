@@ -75,14 +75,14 @@ func (t setRequestTranslator) Backward(
 	msg *SetRequest,
 ) (apistatus.SetRequest, error) {
 	var parent ontology.ID
-	if msg.Parent != "" {
+	if msg.GetParent() != "" {
 		var err error
-		parent, err = ontology.ParseID(msg.Parent)
+		parent, err = ontology.ParseID(msg.GetParent())
 		if err != nil {
 			return apistatus.SetRequest{}, err
 		}
 	}
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.GetStatuses(), xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetRequest{}, err
 	}
@@ -104,7 +104,7 @@ func (t setResponseTranslator) Backward(
 	_ context.Context,
 	msg *SetResponse,
 ) (apistatus.SetResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.GetStatuses(), xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.SetResponse{}, err
 	}
@@ -140,26 +140,26 @@ func (t retrieveRequestTranslator) Backward(
 ) (apistatus.RetrieveRequest, error) {
 	var (
 		err          error
-		hasLabelKeys = make([]label.Key, len(msg.HasLabels))
+		hasLabelKeys = make([]label.Key, len(msg.GetHasLabels()))
 	)
-	for i, label := range msg.HasLabels {
+	for i, label := range msg.GetHasLabels() {
 		hasLabelKeys[i], err = uuid.Parse(label)
 		if err != nil {
 			return apistatus.RetrieveRequest{}, err
 		}
 	}
-	variants := make([]xstatus.Variant, len(msg.Variants))
-	for i, v := range msg.Variants {
+	variants := make([]xstatus.Variant, len(msg.GetVariants()))
+	for i, v := range msg.GetVariants() {
 		variants[i] = xstatus.Variant(v)
 	}
 	return apistatus.RetrieveRequest{
-		Keys:          msg.Keys,
-		SearchTerm:    msg.SearchTerm,
-		Offset:        int(msg.Offset),
-		Limit:         int(msg.Limit),
+		Keys:          msg.GetKeys(),
+		SearchTerm:    msg.GetSearchTerm(),
+		Offset:        int(msg.GetOffset()),
+		Limit:         int(msg.GetLimit()),
 		HasLabels:     hasLabelKeys,
 		Variants:      variants,
-		IncludeLabels: msg.IncludeLabels,
+		IncludeLabels: msg.GetIncludeLabels(),
 	}, nil
 }
 
@@ -178,7 +178,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
 ) (apistatus.RetrieveResponse, error) {
-	statuses, err := statuspb.StatusesFromPB(msg.Statuses, xpb.AnyFromPBAny)
+	statuses, err := statuspb.StatusesFromPB(msg.GetStatuses(), xpb.AnyFromPBAny)
 	if err != nil {
 		return apistatus.RetrieveResponse{}, err
 	}
@@ -196,7 +196,7 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (apistatus.DeleteRequest, error) {
-	return apistatus.DeleteRequest{Keys: msg.Keys}, nil
+	return apistatus.DeleteRequest{Keys: msg.GetKeys()}, nil
 }
 
 func New(a *api.Transport) grpc.BindableTransport {

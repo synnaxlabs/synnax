@@ -41,11 +41,11 @@ func (p pledgeTranslator) Forward(_ context.Context, req pledge.Request) (*aspen
 }
 
 func (p pledgeTranslator) Backward(_ context.Context, msg *aspenv1.ClusterPledge) (pledge.Request, error) {
-	cKey, err := uuid.Parse(msg.ClusterKey)
+	cKey, err := uuid.Parse(msg.GetClusterKey())
 	if err != nil {
 		return pledge.Request{}, err
 	}
-	return pledge.Request{Key: node.Key(msg.NodeKey), ClusterKey: cKey}, nil
+	return pledge.Request{Key: node.Key(msg.GetNodeKey()), ClusterKey: cKey}, nil
 }
 
 type clusterGossipTranslator struct{}
@@ -71,24 +71,24 @@ func (c clusterGossipTranslator) Forward(_ context.Context, msg gossip.Message) 
 
 func (c clusterGossipTranslator) Backward(_ context.Context, tMsg *aspenv1.ClusterGossip) (gossip.Message, error) {
 	var msg gossip.Message
-	if len(tMsg.Digests) > 0 {
+	if len(tMsg.GetDigests()) > 0 {
 		msg.Digests = make(map[node.Key]node.Digest)
 	}
-	if len(tMsg.Nodes) > 0 {
+	if len(tMsg.GetNodes()) > 0 {
 		msg.Nodes = make(map[node.Key]node.Node)
 	}
-	for _, d := range tMsg.Digests {
-		msg.Digests[node.Key(d.Id)] = node.Digest{
-			Key:       node.Key(d.Id),
-			Heartbeat: version.Heartbeat{Version: d.Heartbeat.Version, Generation: d.Heartbeat.Generation},
+	for _, d := range tMsg.GetDigests() {
+		msg.Digests[node.Key(d.GetId())] = node.Digest{
+			Key:       node.Key(d.GetId()),
+			Heartbeat: version.Heartbeat{Version: d.GetHeartbeat().GetVersion(), Generation: d.GetHeartbeat().GetGeneration()},
 		}
 	}
-	for _, n := range tMsg.Nodes {
-		msg.Nodes[node.Key(n.Key)] = node.Node{
-			Key:       node.Key(n.Key),
-			Address:   address.Address(n.Address),
-			State:     node.State(n.State),
-			Heartbeat: version.Heartbeat{Version: n.Heartbeat.Version, Generation: n.Heartbeat.Generation},
+	for _, n := range tMsg.GetNodes() {
+		msg.Nodes[node.Key(n.GetKey())] = node.Node{
+			Key:       node.Key(n.GetKey()),
+			Address:   address.Address(n.GetAddress()),
+			State:     node.State(n.GetState()),
+			Heartbeat: version.Heartbeat{Version: n.GetHeartbeat().GetVersion(), Generation: n.GetHeartbeat().GetGeneration()},
 		}
 	}
 	return msg, nil
@@ -107,11 +107,11 @@ func (bt batchTranslator) Forward(_ context.Context, msg kv.TxRequest) (*aspenv1
 func (bt batchTranslator) Backward(ctx context.Context, tMsg *aspenv1.TxRequest) (kv.TxRequest, error) {
 	msg := kv.TxRequest{
 		Context:     ctx,
-		Sender:      node.Key(tMsg.Sender),
-		Leaseholder: node.Key(tMsg.Leaseholder),
-		Operations:  make([]kv.Operation, len(tMsg.Operations)),
+		Sender:      node.Key(tMsg.GetSender()),
+		Leaseholder: node.Key(tMsg.GetLeaseholder()),
+		Operations:  make([]kv.Operation, len(tMsg.GetOperations())),
 	}
-	for i, o := range tMsg.Operations {
+	for i, o := range tMsg.GetOperations() {
 		msg.Operations[i] = translateOpBackward(o)
 	}
 	return msg, nil
@@ -130,12 +130,12 @@ func translateOpForward(msg kv.Operation) (tMsg *aspenv1.Operation) {
 func translateOpBackward(msg *aspenv1.Operation) (tMsg kv.Operation) {
 	return kv.Operation{
 		Change: xkv.Change{
-			Key:     msg.Key,
-			Value:   msg.Value,
-			Variant: change.Variant(msg.Variant),
+			Key:     msg.GetKey(),
+			Value:   msg.GetValue(),
+			Variant: change.Variant(msg.GetVariant()),
 		},
-		Leaseholder: node.Key(msg.Leaseholder),
-		Version:     version.Counter(msg.Version),
+		Leaseholder: node.Key(msg.GetLeaseholder()),
+		Version:     version.Counter(msg.GetVersion()),
 	}
 }
 
@@ -155,14 +155,14 @@ func (ft feedbackTranslator) Forward(_ context.Context, msg kv.FeedbackMessage) 
 
 func (ft feedbackTranslator) Backward(_ context.Context, tMsg *aspenv1.FeedbackMessage) (kv.FeedbackMessage, error) {
 	msg := kv.FeedbackMessage{
-		Sender:  node.Key(tMsg.Sender),
-		Digests: make([]kv.Digest, len(tMsg.Digests)),
+		Sender:  node.Key(tMsg.GetSender()),
+		Digests: make([]kv.Digest, len(tMsg.GetDigests())),
 	}
-	for i, f := range tMsg.Digests {
+	for i, f := range tMsg.GetDigests() {
 		msg.Digests[i] = kv.Digest{
-			Key:         f.Key,
-			Version:     version.Counter(f.Version),
-			Leaseholder: node.Key(f.Leaseholder),
+			Key:         f.GetKey(),
+			Version:     version.Counter(f.GetVersion()),
+			Leaseholder: node.Key(f.GetLeaseholder()),
 		}
 	}
 	return msg, nil
@@ -175,7 +175,7 @@ func (r recoveryRequestTranslator) Forward(_ context.Context, msg kv.RecoveryReq
 }
 
 func (r recoveryRequestTranslator) Backward(_ context.Context, tMsg *aspenv1.RecoveryRequest) (kv.RecoveryRequest, error) {
-	return kv.RecoveryRequest{HighWater: version.Counter(tMsg.HighWater)}, nil
+	return kv.RecoveryRequest{HighWater: version.Counter(tMsg.GetHighWater())}, nil
 }
 
 type recoveryResponseTranslator struct{}
@@ -189,8 +189,8 @@ func (r recoveryResponseTranslator) Forward(_ context.Context, msg kv.RecoveryRe
 }
 
 func (r recoveryResponseTranslator) Backward(ctx context.Context, tMsg *aspenv1.RecoveryResponse) (kv.RecoveryResponse, error) {
-	msg := kv.RecoveryResponse{Operations: make([]kv.Operation, len(tMsg.Operations))}
-	for i, o := range tMsg.Operations {
+	msg := kv.RecoveryResponse{Operations: make([]kv.Operation, len(tMsg.GetOperations()))}
+	for i, o := range tMsg.GetOperations() {
 		msg.Operations[i] = translateOpBackward(o)
 	}
 	return msg, nil

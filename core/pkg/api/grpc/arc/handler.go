@@ -71,7 +71,7 @@ func (t createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
 ) (apiarc.CreateRequest, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.GetArcs())
 	if err != nil {
 		return apiarc.CreateResponse{}, err
 	}
@@ -93,7 +93,7 @@ func (t createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
 ) (apiarc.CreateResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.GetArcs())
 	if err != nil {
 		return apiarc.CreateResponse{}, nil
 	}
@@ -120,8 +120,8 @@ func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (apiarc.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, 0, len(msg.Keys))
-	for _, keyStr := range msg.Keys {
+	keys := make([]uuid.UUID, 0, len(msg.GetKeys()))
+	for _, keyStr := range msg.GetKeys() {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {
 			return apiarc.RetrieveRequest{}, err
@@ -130,12 +130,12 @@ func (t retrieveRequestTranslator) Backward(
 	}
 	return apiarc.RetrieveRequest{
 		Keys:          keys,
-		Names:         msg.Names,
-		SearchTerm:    msg.SearchTerm,
-		Limit:         int(msg.Limit),
-		Offset:        int(msg.Offset),
-		IncludeStatus: msg.IncludeStatus,
-		Compile:       msg.Compile,
+		Names:         msg.GetNames(),
+		SearchTerm:    msg.GetSearchTerm(),
+		Limit:         int(msg.GetLimit()),
+		Offset:        int(msg.GetOffset()),
+		IncludeStatus: msg.GetIncludeStatus(),
+		Compile:       msg.GetCompile(),
 	}, nil
 }
 
@@ -154,7 +154,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
 ) (apiarc.RetrieveResponse, error) {
-	arcs, err := pb.ArcsFromPB(msg.Arcs)
+	arcs, err := pb.ArcsFromPB(msg.GetArcs())
 	if err != nil {
 		return apiarc.RetrieveResponse{}, err
 	}
@@ -173,8 +173,8 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (apiarc.DeleteRequest, error) {
-	keys := make([]uuid.UUID, 0, len(msg.Keys))
-	for _, keyStr := range msg.Keys {
+	keys := make([]uuid.UUID, 0, len(msg.GetKeys()))
+	for _, keyStr := range msg.GetKeys() {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {
 			return apiarc.DeleteRequest{}, err

@@ -79,7 +79,7 @@ func (createRequestTranslator) Forward(_ context.Context, req apitask.CreateRequ
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (apitask.CreateRequest, error) {
-	tasks, err := taskpb.TasksFromPB(req.Tasks)
+	tasks, err := taskpb.TasksFromPB(req.GetTasks())
 	if err != nil {
 		return apitask.CreateRequest{}, err
 	}
@@ -95,7 +95,7 @@ func (createResponseTranslator) Forward(_ context.Context, res apitask.CreateRes
 }
 
 func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (apitask.CreateResponse, error) {
-	tasks, err := taskpb.TasksFromPB(res.Tasks)
+	tasks, err := taskpb.TasksFromPB(res.GetTasks())
 	if err != nil {
 		return apitask.CreateResponse{}, err
 	}
@@ -114,11 +114,11 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req apitask.Retrieve
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apitask.RetrieveRequest, error) {
 	return apitask.RetrieveRequest{
-		Rack:          rack.Key(req.Rack),
-		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.Keys),
-		Names:         req.Names,
-		Types:         req.Types,
-		IncludeStatus: req.IncludeStatus,
+		Rack:          rack.Key(req.GetRack()),
+		Keys:          unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys()),
+		Names:         req.GetNames(),
+		Types:         req.GetTypes(),
+		IncludeStatus: req.GetIncludeStatus(),
 	}, nil
 }
 
@@ -131,7 +131,7 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res apitask.Retriev
 }
 
 func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (apitask.RetrieveResponse, error) {
-	tasks, err := taskpb.TasksFromPB(res.Tasks)
+	tasks, err := taskpb.TasksFromPB(res.GetTasks())
 	if err != nil {
 		return apitask.RetrieveResponse{}, err
 	}
@@ -143,7 +143,7 @@ func (deleteRequestTranslator) Forward(_ context.Context, req apitask.DeleteRequ
 }
 
 func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (apitask.DeleteRequest, error) {
-	return apitask.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.Keys)}, nil
+	return apitask.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint64, task.Key](req.GetKeys())}, nil
 }
 
 func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest) (*CopyRequest, error) {
@@ -156,9 +156,9 @@ func (copyRequestTranslator) Forward(_ context.Context, req apitask.CopyRequest)
 
 func (copyRequestTranslator) Backward(_ context.Context, req *CopyRequest) (apitask.CopyRequest, error) {
 	return apitask.CopyRequest{
-		Key:      task.Key(req.Key),
-		Name:     req.Name,
-		Snapshot: req.Snapshot,
+		Key:      task.Key(req.GetKey()),
+		Name:     req.GetName(),
+		Snapshot: req.GetSnapshot(),
 	}, nil
 }
 
@@ -171,7 +171,7 @@ func (copyResponseTranslator) Forward(_ context.Context, res apitask.CopyRespons
 }
 
 func (copyResponseTranslator) Backward(_ context.Context, res *CopyResponse) (apitask.CopyResponse, error) {
-	t, err := taskpb.TaskFromPB(res.Task)
+	t, err := taskpb.TaskFromPB(res.GetTask())
 	if err != nil {
 		return apitask.CopyResponse{}, err
 	}

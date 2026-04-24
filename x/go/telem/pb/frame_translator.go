@@ -37,11 +37,11 @@ func FrameFromPB[Key types.SizedNumeric](
 	if pb == nil {
 		return telem.Frame[Key]{}, nil
 	}
-	series, err := ManySeriesFromPB(pb.Series)
+	series, err := ManySeriesFromPB(pb.GetSeries())
 	if err != nil {
 		return telem.Frame[Key]{}, err
 	}
-	return telem.MultiFrame(xunsafe.CastSlice[uint32, Key](pb.Keys), series), nil
+	return telem.MultiFrame(xunsafe.CastSlice[uint32, Key](pb.GetKeys()), series), nil
 }
 
 // SeriesToPB converts Series to Series.
@@ -66,13 +66,13 @@ func SeriesFromPB(pb *Series) (telem.Series, error) {
 		return r, nil
 	}
 	var err error
-	r.TimeRange, err = TimeRangeFromPB(pb.TimeRange)
+	r.TimeRange, err = TimeRangeFromPB(pb.GetTimeRange())
 	if err != nil {
 		return r, err
 	}
-	r.DataType = telem.DataType(pb.DataType)
-	r.Data = pb.Data
-	r.Alignment = telem.Alignment(pb.Alignment)
+	r.DataType = telem.DataType(pb.GetDataType())
+	r.Data = pb.GetData()
+	r.Alignment = telem.Alignment(pb.GetAlignment())
 	return r, nil
 }
 

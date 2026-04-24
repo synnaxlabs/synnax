@@ -75,13 +75,13 @@ func (t createRequestTranslator) Backward(
 	_ context.Context,
 	msg *CreateRequest,
 ) (apichannel.CreateRequest, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.GetChannels())
 	if err != nil {
 		return apichannel.CreateRequest{}, err
 	}
 	return apichannel.CreateRequest{
 		Channels:             channels,
-		RetrieveIfNameExists: msg.RetrieveIfNameExists,
+		RetrieveIfNameExists: msg.GetRetrieveIfNameExists(),
 	}, nil
 }
 
@@ -100,7 +100,7 @@ func (t createResponseTranslator) Backward(
 	_ context.Context,
 	msg *CreateResponse,
 ) (apichannel.CreateResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.GetChannels())
 	if err != nil {
 		return apichannel.CreateResponse{}, err
 	}
@@ -124,10 +124,10 @@ func (t retrieveRequestTranslator) Backward(
 	msg *RetrieveRequest,
 ) (apichannel.RetrieveRequest, error) {
 	return apichannel.RetrieveRequest{
-		NodeKey:    cluster.NodeKey(msg.NodeKey),
-		Names:      msg.Names,
-		SearchTerm: msg.Search,
-		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
+		NodeKey:    cluster.NodeKey(msg.GetNodeKey()),
+		Names:      msg.GetNames(),
+		SearchTerm: msg.GetSearch(),
+		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.GetKeys()),
 	}, nil
 }
 
@@ -146,7 +146,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveResponse,
 ) (apichannel.RetrieveResponse, error) {
-	channels, err := entitypb.ChannelsFromPB(msg.Channels)
+	channels, err := entitypb.ChannelsFromPB(msg.GetChannels())
 	if err != nil {
 		return apichannel.RetrieveResponse{}, err
 	}
@@ -168,8 +168,8 @@ func (t deleteRequestTranslator) Backward(
 	msg *DeleteRequest,
 ) (apichannel.DeleteRequest, error) {
 	return apichannel.DeleteRequest{
-		Keys:  unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),
-		Names: msg.Names,
+		Keys:  unsafe.ReinterpretSlice[uint32, channel.Key](msg.GetKeys()),
+		Names: msg.GetNames(),
 	}, nil
 }
 

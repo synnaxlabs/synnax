@@ -83,7 +83,7 @@ func (t setRequestTranslator) Forward(
 ) (*SetRequest, error) {
 	return &SetRequest{
 		Range:   r.Range.String(),
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
@@ -91,10 +91,10 @@ func (t setRequestTranslator) Backward(
 	_ context.Context,
 	r *SetRequest,
 ) (apialias.SetRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apialias.SetRequest{
 		Range:   key,
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.GetAliases()),
 	}, err
 }
 
@@ -112,10 +112,10 @@ func (t resolveRequestTranslator) Backward(
 	_ context.Context,
 	r *ResolveRequest,
 ) (apialias.ResolveRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apialias.ResolveRequest{
 		Range:   key,
-		Aliases: r.Aliases,
+		Aliases: r.GetAliases(),
 	}, err
 }
 
@@ -133,7 +133,7 @@ func (t resolveResponseTranslator) Backward(
 	r *ResolveResponse,
 ) (apialias.ResolveResponse, error) {
 	return apialias.ResolveResponse{
-		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.Aliases),
+		Aliases: unsafe.ReinterpretMapValues[string, uint32, channel.Key](r.GetAliases()),
 	}, nil
 }
 
@@ -151,10 +151,10 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
 ) (apialias.DeleteRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apialias.DeleteRequest{
 		Range:    key,
-		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
+		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.GetChannels()),
 	}, err
 }
 
@@ -171,7 +171,7 @@ func (t listRequestTranslator) Backward(
 	_ context.Context,
 	r *ListRequest,
 ) (apialias.ListRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apialias.ListRequest{
 		Range: key,
 	}, err
@@ -182,7 +182,7 @@ func (t listResponseTranslator) Forward(
 	r apialias.ListResponse,
 ) (*ListResponse, error) {
 	return &ListResponse{
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
@@ -191,7 +191,7 @@ func (t listResponseTranslator) Backward(
 	r *ListResponse,
 ) (apialias.ListResponse, error) {
 	return apialias.ListResponse{
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.GetAliases()),
 	}, nil
 }
 
@@ -209,10 +209,10 @@ func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (apialias.RetrieveRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apialias.RetrieveRequest{
 		Range:    key,
-		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.Channels),
+		Channels: unsafe.ReinterpretSlice[uint32, channel.Key](r.GetChannels()),
 	}, err
 }
 
@@ -221,7 +221,7 @@ func (t retrieveResponseTranslator) Forward(
 	r apialias.RetrieveResponse,
 ) (*RetrieveResponse, error) {
 	return &RetrieveResponse{
-		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[channel.Key, uint32](r.Aliases),
 	}, nil
 }
 
@@ -230,7 +230,7 @@ func (t retrieveResponseTranslator) Backward(
 	r *RetrieveResponse,
 ) (apialias.RetrieveResponse, error) {
 	return apialias.RetrieveResponse{
-		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key, string](r.Aliases),
+		Aliases: unsafe.ReinterpretMapKeys[uint32, channel.Key](r.GetAliases()),
 	}, nil
 }
 

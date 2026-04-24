@@ -37,8 +37,8 @@ func translateOptionsForward(opts channel.CreateOptions) *CreateOptions {
 
 func translateOptionsBackward(opts *CreateOptions) channel.CreateOptions {
 	return channel.CreateOptions{
-		RetrieveIfNameExists:                        opts.RetrieveIfNameExists,
-		OverwriteIfNameExistsAndDifferentProperties: opts.OverwriteIfNameExists,
+		RetrieveIfNameExists:                        opts.GetRetrieveIfNameExists(),
+		OverwriteIfNameExistsAndDifferentProperties: opts.GetOverwriteIfNameExists(),
 	}
 }
 
@@ -60,13 +60,13 @@ func (c CreateMessageTranslator) Backward(
 	_ context.Context,
 	msg *CreateMessage,
 ) (channel.CreateMessage, error) {
-	channels, err := ChannelsFromPB(msg.Channels)
+	channels, err := ChannelsFromPB(msg.GetChannels())
 	if err != nil {
 		return channel.CreateMessage{}, err
 	}
 	return channel.CreateMessage{
 		Channels: channels,
-		Opts:     translateOptionsBackward(msg.Opts),
+		Opts:     translateOptionsBackward(msg.GetOpts()),
 	}, nil
 }
 
@@ -81,7 +81,7 @@ func (d DeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (channel.DeleteRequest, error) {
-	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys)}, nil
+	return channel.DeleteRequest{Keys: channel.KeysFromUint32(msg.GetKeys())}, nil
 }
 
 func (r RenameMessageTranslator) Forward(
@@ -99,7 +99,7 @@ func (r RenameMessageTranslator) Backward(
 	msg *RenameRequest,
 ) (channel.RenameRequest, error) {
 	return channel.RenameRequest{
-		Names: msg.Names,
-		Keys:  channel.KeysFromUint32(msg.Keys),
+		Names: msg.GetNames(),
+		Keys:  channel.KeysFromUint32(msg.GetKeys()),
 	}, nil
 }

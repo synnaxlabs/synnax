@@ -68,7 +68,7 @@ func (createRequestTranslator) Forward(_ context.Context, req apirack.CreateRequ
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (apirack.CreateRequest, error) {
-	racks, err := rackpb.RacksFromPB(req.Racks)
+	racks, err := rackpb.RacksFromPB(req.GetRacks())
 	if err != nil {
 		return apirack.CreateRequest{}, err
 	}
@@ -84,7 +84,7 @@ func (createResponseTranslator) Forward(_ context.Context, res apirack.CreateRes
 }
 
 func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (apirack.CreateResponse, error) {
-	racks, err := rackpb.RacksFromPB(res.Racks)
+	racks, err := rackpb.RacksFromPB(res.GetRacks())
 	if err != nil {
 		return apirack.CreateResponse{}, err
 	}
@@ -102,10 +102,10 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req apirack.Retrieve
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (apirack.RetrieveRequest, error) {
 	return apirack.RetrieveRequest{
-		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys),
-		Names:         req.Names,
-		Integration:   req.Integration,
-		IncludeStatus: req.IncludeStatus,
+		Keys:          unsafe.ReinterpretSlice[uint32, rack.Key](req.GetKeys()),
+		Names:         req.GetNames(),
+		Integration:   req.GetIntegration(),
+		IncludeStatus: req.GetIncludeStatus(),
 	}, nil
 }
 
@@ -118,7 +118,7 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res apirack.Retriev
 }
 
 func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (apirack.RetrieveResponse, error) {
-	racks, err := rackpb.RacksFromPB(res.Racks)
+	racks, err := rackpb.RacksFromPB(res.GetRacks())
 	if err != nil {
 		return apirack.RetrieveResponse{}, err
 	}
@@ -130,7 +130,7 @@ func (deleteRequestTranslator) Forward(_ context.Context, req apirack.DeleteRequ
 }
 
 func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (apirack.DeleteRequest, error) {
-	return apirack.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.Keys)}, nil
+	return apirack.DeleteRequest{Keys: unsafe.ReinterpretSlice[uint32, rack.Key](req.GetKeys())}, nil
 }
 
 func New(a *api.Transport) grpc.BindableTransport {

@@ -67,7 +67,7 @@ func (createRequestTranslator) Forward(_ context.Context, req view.CreateRequest
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (view.CreateRequest, error) {
-	views, err := pb.ViewsFromPB(req.Views)
+	views, err := pb.ViewsFromPB(req.GetViews())
 	if err != nil {
 		return view.CreateRequest{}, err
 	}
@@ -83,7 +83,7 @@ func (createResponseTranslator) Forward(_ context.Context, res view.CreateRespon
 }
 
 func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (view.CreateResponse, error) {
-	views, err := pb.ViewsFromPB(res.Views)
+	views, err := pb.ViewsFromPB(res.GetViews())
 	if err != nil {
 		return view.CreateResponse{}, err
 	}
@@ -105,8 +105,8 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req view.RetrieveReq
 }
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (view.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, len(req.Keys))
-	for i, k := range req.Keys {
+	keys := make([]uuid.UUID, len(req.GetKeys()))
+	for i, k := range req.GetKeys() {
 		parsed, err := uuid.Parse(k)
 		if err != nil {
 			return view.RetrieveRequest{}, err
@@ -115,10 +115,10 @@ func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveReques
 	}
 	return view.RetrieveRequest{
 		Keys:       keys,
-		Types:      req.Types,
-		SearchTerm: req.SearchTerm,
-		Limit:      int(req.Limit),
-		Offset:     int(req.Offset),
+		Types:      req.GetTypes(),
+		SearchTerm: req.GetSearchTerm(),
+		Limit:      int(req.GetLimit()),
+		Offset:     int(req.GetOffset()),
 	}, nil
 }
 
@@ -131,7 +131,7 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res view.RetrieveRe
 }
 
 func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (view.RetrieveResponse, error) {
-	views, err := pb.ViewsFromPB(res.Views)
+	views, err := pb.ViewsFromPB(res.GetViews())
 	if err != nil {
 		return view.RetrieveResponse{}, err
 	}
@@ -147,8 +147,8 @@ func (deleteRequestTranslator) Forward(_ context.Context, req view.DeleteRequest
 }
 
 func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (view.DeleteRequest, error) {
-	keys := make([]uuid.UUID, len(req.Keys))
-	for i, k := range req.Keys {
+	keys := make([]uuid.UUID, len(req.GetKeys()))
+	for i, k := range req.GetKeys() {
 		parsed, err := uuid.Parse(k)
 		if err != nil {
 			return view.DeleteRequest{}, err

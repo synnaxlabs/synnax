@@ -79,10 +79,10 @@ func (t getRequestTranslator) Backward(
 	_ context.Context,
 	r *GetRequest,
 ) (apikv.GetRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apikv.GetRequest{
 		Range: key,
-		Keys:  r.Keys,
+		Keys:  r.GetKeys(),
 	}, err
 }
 
@@ -101,7 +101,7 @@ func (t getResponseTranslator) Backward(
 	_ context.Context,
 	r *GetResponse,
 ) (apikv.GetResponse, error) {
-	pairs, err := translatePairsBackward(r.Pairs)
+	pairs, err := translatePairsBackward(r.GetPairs())
 	if err != nil {
 		return apikv.GetResponse{}, err
 	}
@@ -123,7 +123,7 @@ func (t setRequestTranslator) Backward(
 	_ context.Context,
 	r *SetRequest,
 ) (apikv.SetRequest, error) {
-	pairs, err := translatePairsBackward(r.Pairs)
+	pairs, err := translatePairsBackward(r.GetPairs())
 	if err != nil {
 		return apikv.SetRequest{}, err
 	}
@@ -144,10 +144,10 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
 ) (apikv.DeleteRequest, error) {
-	key, err := uuid.Parse(r.Range)
+	key, err := uuid.Parse(r.GetRange())
 	return apikv.DeleteRequest{
 		Range: key,
-		Keys:  r.Keys,
+		Keys:  r.GetKeys(),
 	}, err
 }
 

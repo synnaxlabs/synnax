@@ -35,13 +35,13 @@ var _ = Describe("Any", func() {
 		It("Should pack a proto.Message directly", func() {
 			msg := wrapperspb.String("hello")
 			result := MustSucceed(pb.AnyToPBAny(msg))
-			Expect(result.TypeUrl).To(ContainSubstring("StringValue"))
+			Expect(result.GetTypeUrl()).To(ContainSubstring("StringValue"))
 		})
 
 		It("Should convert a map[string]any to structpb.Struct", func() {
 			m := map[string]any{"key": "value", "count": float64(42)}
 			result := MustSucceed(pb.AnyToPBAny(m))
-			Expect(result.TypeUrl).To(ContainSubstring("Struct"))
+			Expect(result.GetTypeUrl()).To(ContainSubstring("Struct"))
 		})
 
 		It("Should convert an arbitrary struct via JSON marshaling", func() {
@@ -50,7 +50,7 @@ var _ = Describe("Any", func() {
 				Value int    `json:"value"`
 			}
 			result := MustSucceed(pb.AnyToPBAny(custom{Name: "test", Value: 5}))
-			Expect(result.TypeUrl).To(ContainSubstring("Struct"))
+			Expect(result.GetTypeUrl()).To(ContainSubstring("Struct"))
 		})
 	})
 

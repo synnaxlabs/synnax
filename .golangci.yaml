@@ -4,6 +4,7 @@ linters:
     - exptostd
     - modernize
     - perfsprint
+    - protogetter
     - revive
     - usestdlibvars
     - unconvert

@@ -81,7 +81,7 @@ func (t createRequestTranslator) Backward(
 	_ context.Context,
 	r *CreateRequest,
 ) (apiranger.CreateRequest, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := pb.RangesFromPB(r.GetRanges())
 	if err != nil {
 		return apiranger.CreateRequest{}, nil
 	}
@@ -103,7 +103,7 @@ func (t createResponseTranslator) Backward(
 	_ context.Context,
 	r *CreateResponse,
 ) (apiranger.CreateResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := pb.RangesFromPB(r.GetRanges())
 	if err != nil {
 		return apiranger.CreateResponse{}, nil
 	}
@@ -125,15 +125,15 @@ func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (apiranger.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
-	for i := range r.Keys {
-		key, err := uuid.Parse(r.Keys[i])
+	keys := make([]uuid.UUID, len(r.GetKeys()))
+	for i := range r.GetKeys() {
+		key, err := uuid.Parse(r.GetKeys()[i])
 		if err != nil {
 			return apiranger.RetrieveRequest{}, err
 		}
 		keys[i] = key
 	}
-	return apiranger.RetrieveRequest{Keys: keys, Names: r.Names}, nil
+	return apiranger.RetrieveRequest{Keys: keys, Names: r.GetNames()}, nil
 }
 
 func (t retrieveResponseTranslator) Forward(
@@ -151,7 +151,7 @@ func (t retrieveResponseTranslator) Backward(
 	_ context.Context,
 	r *RetrieveResponse,
 ) (apiranger.RetrieveResponse, error) {
-	ranges, err := pb.RangesFromPB(r.Ranges)
+	ranges, err := pb.RangesFromPB(r.GetRanges())
 	if err != nil {
 		return apiranger.RetrieveResponse{}, nil
 	}
@@ -173,9 +173,9 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
 ) (apiranger.DeleteRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
-	for i := range r.Keys {
-		key, err := uuid.Parse(r.Keys[i])
+	keys := make([]uuid.UUID, len(r.GetKeys()))
+	for i := range r.GetKeys() {
+		key, err := uuid.Parse(r.GetKeys()[i])
 		if err != nil {
 			return apiranger.DeleteRequest{}, err
 		}
@@ -198,10 +198,10 @@ func (t renameRequestTranslator) Backward(
 	_ context.Context,
 	r *RenameRequest,
 ) (apiranger.RenameRequest, error) {
-	key, err := uuid.Parse(r.Key)
+	key, err := uuid.Parse(r.GetKey())
 	return apiranger.RenameRequest{
 		Key:  key,
-		Name: r.Name,
+		Name: r.GetName(),
 	}, err
 }
 

@@ -50,7 +50,7 @@ type Pool struct {
 }
 
 func NewPool(targetPrefix address.Address, dialOpts ...grpc.DialOption) *Pool {
-	return &Pool{Pool: pool.New[address.Address, *ClientConn](&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
+	return &Pool{Pool: pool.New(&factory{dialOpts: dialOpts, targetPrefix: targetPrefix})}
 }
 
 // factory implements the pool.Factory interface.

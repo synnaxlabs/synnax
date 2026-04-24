@@ -32,7 +32,7 @@ func (requestTranslator) Backward(
 	_ context.Context,
 	req *v1.Request,
 ) (test.Request, error) {
-	return test.Request{ID: int(req.Id), Message: req.Message}, nil
+	return test.Request{ID: int(req.GetId()), Message: req.GetMessage()}, nil
 }
 
 type responseTranslator struct{}
@@ -50,5 +50,5 @@ func (responseTranslator) Backward(
 	_ context.Context,
 	res *v1.Response,
 ) (test.Response, error) {
-	return test.Response{ID: int(res.Id), Message: res.Message}, nil
+	return test.Response{ID: int(res.GetId()), Message: res.GetMessage()}, nil
 }

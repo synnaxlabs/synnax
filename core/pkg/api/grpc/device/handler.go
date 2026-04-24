@@ -68,7 +68,7 @@ func (createRequestTranslator) Forward(_ context.Context, req device.CreateReque
 }
 
 func (createRequestTranslator) Backward(_ context.Context, req *CreateRequest) (device.CreateRequest, error) {
-	devices, err := pb.DevicesFromPB(req.Devices)
+	devices, err := pb.DevicesFromPB(req.GetDevices())
 	if err != nil {
 		return device.CreateRequest{}, err
 	}
@@ -84,7 +84,7 @@ func (createResponseTranslator) Forward(_ context.Context, res device.CreateResp
 }
 
 func (createResponseTranslator) Backward(_ context.Context, res *CreateResponse) (device.CreateResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
+	devices, err := pb.DevicesFromPB(res.GetDevices())
 	if err != nil {
 		return device.CreateResponse{}, err
 	}
@@ -110,18 +110,18 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req device.RetrieveR
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (device.RetrieveRequest, error) {
 	return device.RetrieveRequest{
-		Keys:           req.Keys,
-		Names:          req.Names,
-		Makes:          req.Makes,
-		Models:         req.Models,
-		Locations:      req.Locations,
-		SearchTerm:     req.Search,
-		Limit:          int(req.Limit),
-		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.Racks),
-		Offset:         int(req.Offset),
-		IgnoreNotFound: req.IgnoreNotFound,
-		IncludeStatus:  req.IncludeStatus,
-		IncludeParent:  req.IncludeParent,
+		Keys:           req.GetKeys(),
+		Names:          req.GetNames(),
+		Makes:          req.GetMakes(),
+		Models:         req.GetModels(),
+		Locations:      req.GetLocations(),
+		SearchTerm:     req.GetSearch(),
+		Limit:          int(req.GetLimit()),
+		Racks:          unsafe.ReinterpretSlice[uint32, rack.Key](req.GetRacks()),
+		Offset:         int(req.GetOffset()),
+		IgnoreNotFound: req.GetIgnoreNotFound(),
+		IncludeStatus:  req.GetIncludeStatus(),
+		IncludeParent:  req.GetIncludeParent(),
 	}, nil
 }
 
@@ -134,7 +134,7 @@ func (retrieveResponseTranslator) Forward(_ context.Context, res device.Retrieve
 }
 
 func (retrieveResponseTranslator) Backward(_ context.Context, res *RetrieveResponse) (device.RetrieveResponse, error) {
-	devices, err := pb.DevicesFromPB(res.Devices)
+	devices, err := pb.DevicesFromPB(res.GetDevices())
 	if err != nil {
 		return device.RetrieveResponse{}, err
 	}
@@ -146,7 +146,7 @@ func (deleteRequestTranslator) Forward(_ context.Context, req device.DeleteReque
 }
 
 func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (device.DeleteRequest, error) {
-	return device.DeleteRequest{Keys: req.Keys}, nil
+	return device.DeleteRequest{Keys: req.GetKeys()}, nil
 }
 
 func New(a *api.Transport) grpc.BindableTransport {

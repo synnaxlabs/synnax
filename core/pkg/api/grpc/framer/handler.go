@@ -130,34 +130,34 @@ func (t frameWriterRequestTranslator) Backward(
 	if msg == nil {
 		return
 	}
-	r.Command = writer.Command(msg.Command)
-	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
+	r.Command = writer.Command(msg.GetCommand())
+	frm, err := telempb.FrameFromPB[channel.Key](msg.GetFrame())
 	if err != nil {
 		return r, err
 	}
-	if msg.Config != nil {
-		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
+	if msg.GetConfig() != nil {
+		subj, err := controlpb.SubjectFromPB(msg.GetConfig().GetControlSubject())
 		if err != nil {
 			return apifra.WriterRequest{}, err
 		}
-		keys := translateChannelKeysBackward(msg.Config.Keys)
+		keys := translateChannelKeysBackward(msg.GetConfig().GetKeys())
 		r.Config = apifra.WriterConfig{
 			Keys:                     keys,
-			Start:                    telem.TimeStamp(msg.Config.Start),
-			Mode:                     writer.Mode(msg.Config.Mode),
-			Authorities:              msg.Config.Authorities,
-			EnableAutoCommit:         msg.Config.EnableAutoCommit,
-			AutoIndexPersistInterval: telem.TimeSpan(msg.Config.AutoIndexPersistInterval),
+			Start:                    telem.TimeStamp(msg.GetConfig().GetStart()),
+			Mode:                     writer.Mode(msg.GetConfig().GetMode()),
+			Authorities:              msg.GetConfig().GetAuthorities(),
+			EnableAutoCommit:         msg.GetConfig().GetEnableAutoCommit(),
+			AutoIndexPersistInterval: telem.TimeSpan(msg.GetConfig().GetAutoIndexPersistInterval()),
 			ControlSubject:           subj,
-			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
+			ErrOnUnauthorized:        msg.GetConfig().GetErrOnUnauthorized(),
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {
 			return r, err
 		}
 	}
 	r.Frame = frame.Frame{Frame: frm}
-	if t.codec != nil && len(msg.Buffer) > 0 {
-		r.Frame, err = t.codec.Decode(msg.Buffer)
+	if t.codec != nil && len(msg.GetBuffer()) > 0 {
+		r.Frame, err = t.codec.Decode(msg.GetBuffer())
 	}
 	return r, err
 }
@@ -178,9 +178,9 @@ func (t frameWriterResponseTranslator) Backward(
 	msg *WriterResponse,
 ) (apifra.WriterResponse, error) {
 	return apifra.WriterResponse{
-		Command: writer.Command(msg.Command),
-		End:     telem.TimeStamp(msg.End),
-		Err:     errors.TranslatePayloadBackward(msg.Error),
+		Command: writer.Command(msg.GetCommand()),
+		End:     telem.TimeStamp(msg.GetEnd()),
+		Err:     errors.TranslatePayloadBackward(msg.GetError()),
 	}, nil
 }
 
@@ -206,17 +206,17 @@ func (t frameIteratorRequestTranslator) Backward(
 	_ context.Context,
 	msg *IteratorRequest,
 ) (apifra.IteratorRequest, error) {
-	tr, err := telempb.TimeRangeFromPB(msg.Range)
+	tr, err := telempb.TimeRangeFromPB(msg.GetRange())
 	if err != nil {
 		return apifra.IteratorRequest{}, err
 	}
 	return apifra.IteratorRequest{
-		Command:   iterator.Command(msg.Command),
-		Span:      telem.TimeSpan(msg.Span),
+		Command:   iterator.Command(msg.GetCommand()),
+		Span:      telem.TimeSpan(msg.GetSpan()),
 		Bounds:    tr,
-		Keys:      translateChannelKeysBackward(msg.Keys),
-		Stamp:     telem.TimeStamp(msg.Stamp),
-		ChunkSize: msg.ChunkSize,
+		Keys:      translateChannelKeysBackward(msg.GetKeys()),
+		Stamp:     telem.TimeStamp(msg.GetStamp()),
+		ChunkSize: msg.GetChunkSize(),
 	}, nil
 }
 
@@ -243,18 +243,18 @@ func (t frameIteratorResponseTranslator) Backward(
 	ctx context.Context,
 	msg *IteratorResponse,
 ) (apifra.IteratorResponse, error) {
-	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
+	frm, err := telempb.FrameFromPB[channel.Key](msg.GetFrame())
 	if err != nil {
 		return apifra.IteratorResponse{}, err
 	}
 	return apifra.IteratorResponse{
-		Variant: iterator.ResponseVariant(msg.Variant),
-		Command: iterator.Command(msg.Command),
-		NodeKey: cluster.NodeKey(msg.NodeKey),
-		Ack:     msg.Ack,
-		SeqNum:  int(msg.SeqNum),
+		Variant: iterator.ResponseVariant(msg.GetVariant()),
+		Command: iterator.Command(msg.GetCommand()),
+		NodeKey: cluster.NodeKey(msg.GetNodeKey()),
+		Ack:     msg.GetAck(),
+		SeqNum:  int(msg.GetSeqNum()),
 		Frame:   framer.Frame{Frame: frm},
-		Error:   fgrpc.DecodeError(ctx, msg.Error),
+		Error:   fgrpc.DecodeError(ctx, msg.GetError()),
 	}, nil
 }
 
@@ -275,12 +275,12 @@ func (t frameStreamerRequestTranslator) Backward(
 	msg *StreamerRequest,
 ) (apifra.StreamerRequest, error) {
 	rq := apifra.StreamerRequest{
-		Keys:             translateChannelKeysBackward(msg.Keys),
-		DownsampleFactor: int(msg.DownsampleFactor),
-		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
-		ExcludeGroups:    msg.ExcludeGroups,
+		Keys:             translateChannelKeysBackward(msg.GetKeys()),
+		DownsampleFactor: int(msg.GetDownsampleFactor()),
+		ThrottleRate:     telem.Rate(msg.GetThrottleRateHz()),
+		ExcludeGroups:    msg.GetExcludeGroups(),
 	}
-	if msg.EnableExperimentalCodec {
+	if msg.GetEnableExperimentalCodec() {
 		return rq, t.codec.Update(ctx, rq.Keys)
 	}
 	return rq, nil
@@ -308,7 +308,7 @@ func (t frameStreamerResponseTranslator) Backward(
 	_ context.Context,
 	msg *StreamerResponse,
 ) (apifra.StreamerResponse, error) {
-	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
+	tr, err := telempb.FrameFromPB[channel.Key](msg.GetFrame())
 	if err != nil {
 		return apifra.StreamerResponse{}, nil
 	}
@@ -330,11 +330,11 @@ func (t frameDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (apifra.DeleteRequest, error) {
-	tr, err := telempb.TimeRangeFromPB(msg.Bounds)
+	tr, err := telempb.TimeRangeFromPB(msg.GetBounds())
 	if err != nil {
 		return apifra.DeleteRequest{}, nil
 	}
-	return apifra.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys), Names: msg.Names, Bounds: tr}, nil
+	return apifra.DeleteRequest{Keys: channel.KeysFromUint32(msg.GetKeys()), Names: msg.GetNames(), Bounds: tr}, nil
 }
 
 type writerServer struct{ *framerWriterServerCore }

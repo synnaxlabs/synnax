@@ -49,9 +49,9 @@ func (responseTranslator) Backward(
 	r *CheckResponse,
 ) (connectivity.CheckResponse, error) {
 	return connectivity.CheckResponse{
-		ClusterKey:  r.ClusterKey,
-		NodeVersion: r.NodeVersion,
-		NodeTime:    telem.TimeStamp(r.NodeTime),
+		ClusterKey:  r.GetClusterKey(),
+		NodeVersion: r.GetNodeVersion(),
+		NodeTime:    telem.TimeStamp(r.GetNodeTime()),
 	}, nil
 }
 
