@@ -25,6 +25,7 @@ const embedSchema = z.object({
   url: z.string(),
   blockCookies: z.boolean().optional(),
   pageKey: z.string().optional(),
+  scale: z.number().optional(),
   dimensions: z.object({ width: z.number(), height: z.number() }),
   label: z.object({
     label: z.string(),
@@ -41,6 +42,7 @@ const embedValues: z.infer<typeof embedSchema> = {
   url: "",
   blockCookies: true,
   pageKey: "",
+  scale: 1,
   dimensions: { width: 320, height: 180 },
   label: { label: "Test" },
   orientation: "left",
@@ -112,6 +114,13 @@ describe("IframeEmbedForm", () => {
       'input[title="Target URL must allow/enable iframe embedding."]',
     );
     expect(urlInput).not.toBeNull();
+  });
+
+  it("should render the Scale field", () => {
+    const { getByText } = render(<IframeEmbedForm />, {
+      wrapper: EmbedFormWrapper,
+    });
+    expect(getByText("Scale")).toBeTruthy();
   });
 });
 

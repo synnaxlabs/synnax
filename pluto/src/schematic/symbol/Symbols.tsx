@@ -1408,6 +1408,7 @@ export const MediaEmbedPreview = (): ReactElement => (
 
 export interface IframeEmbedProps extends MediaEmbedProps {
   blockCookies: boolean;
+  scale?: number;
 }
 
 // IMPORTANT: If postMessage communication with the iframe is ever added, always
@@ -1417,18 +1418,30 @@ export interface IframeEmbedProps extends MediaEmbedProps {
 // window.frameElement.removeAttribute("sandbox"). This is acceptable because
 // same-origin content is already fully trusted; cross-origin content cannot
 // access window.frameElement (returns null).
+export const iframeScaleStyle = (scale: number): CSSProperties => ({
+  width: `${100 / scale}%`,
+  height: `${100 / scale}%`,
+  border: "none",
+  transform: `scale(${scale})`,
+  transformOrigin: "0 0",
+  position: "absolute",
+  top: 0,
+  left: 0,
+});
+
 export const IframeEmbedBase = ({
   dimensions: dims,
   color: colorVal,
   url,
   blockCookies,
+  scale = 1,
 }: SymbolProps<IframeEmbedProps>): ReactElement => (
   <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
     {url != null && url.length > 0 ? (
       <iframe
         src={url}
         sandbox={blockCookies ? "allow-scripts" : "allow-scripts allow-same-origin"}
-        style={{ width: "100%", height: "100%", border: "none" }}
+        style={iframeScaleStyle(scale)}
       />
     ) : undefined}
   </Primitives.Embed>

@@ -12,6 +12,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  iframeScaleStyle,
   IframeEmbedBase,
   IframeEmbedPreview,
   MediaEmbedBase,
@@ -148,6 +149,37 @@ describe("IframeEmbedBase", () => {
     const iframe = container.querySelector("iframe")!;
     expect(iframe.style.borderStyle).toBe("none");
   });
+
+  it("should apply scale transform when scale is provided", () => {
+    const { container } = render(
+      <IframeEmbedBase
+        {...BASE_PROPS}
+        url="https://grafana.local/dashboard"
+        blockCookies
+        scale={2}
+      />,
+      { wrapper: Wrapper },
+    );
+    const iframe = container.querySelector("iframe")!;
+    expect(iframe.style.transform).toBe("scale(2)");
+    expect(iframe.style.width).toBe("50%");
+    expect(iframe.style.height).toBe("50%");
+  });
+
+  it("should default to scale 1 when scale is not provided", () => {
+    const { container } = render(
+      <IframeEmbedBase
+        {...BASE_PROPS}
+        url="https://grafana.local/dashboard"
+        blockCookies
+      />,
+      { wrapper: Wrapper },
+    );
+    const iframe = container.querySelector("iframe")!;
+    expect(iframe.style.transform).toBe("scale(1)");
+    expect(iframe.style.width).toBe("100%");
+    expect(iframe.style.height).toBe("100%");
+  });
 });
 
 describe("MediaEmbedPreview", () => {
@@ -168,5 +200,36 @@ describe("PageEmbedPreview", () => {
   it("should render", () => {
     const { container } = render(<PageEmbedPreview />);
     expect(container.querySelector("svg")).not.toBeNull();
+  });
+});
+
+describe("iframeScaleStyle", () => {
+  it("should return identity styles at scale 1", () => {
+    const style = iframeScaleStyle(1);
+    expect(style.width).toBe("100%");
+    expect(style.height).toBe("100%");
+    expect(style.transform).toBe("scale(1)");
+  });
+
+  it("should compute inverse dimensions for scale > 1", () => {
+    const style = iframeScaleStyle(2);
+    expect(style.width).toBe("50%");
+    expect(style.height).toBe("50%");
+    expect(style.transform).toBe("scale(2)");
+  });
+
+  it("should compute inverse dimensions for fractional scale", () => {
+    const style = iframeScaleStyle(0.5);
+    expect(style.width).toBe("200%");
+    expect(style.height).toBe("200%");
+    expect(style.transform).toBe("scale(0.5)");
+  });
+
+  it("should always position absolutely at top-left", () => {
+    const style = iframeScaleStyle(1.5);
+    expect(style.position).toBe("absolute");
+    expect(style.top).toBe(0);
+    expect(style.left).toBe(0);
+    expect(style.transformOrigin).toBe("0 0");
   });
 });

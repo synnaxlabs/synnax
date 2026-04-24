@@ -1524,7 +1524,7 @@ export const StateIndicatorForm = (): ReactElement => {
 };
 
 const EmbedFormBase = ({ children }: { children: ReactNode }): ReactElement => (
-  <FormWrapper x align="stretch">
+  <FormWrapper x align="stretch" className={CSS.B("embed-form")}>
     <Flex.Box y grow>
       <LabelControls path="label" />
       <Flex.Box x>
@@ -1568,6 +1568,18 @@ export const MediaEmbedForm = (): ReactElement => (
 export const IframeEmbedForm = (): ReactElement => (
   <EmbedFormBase>
     <>
+      <Form.Field<number> path="scale" label="Scale" grow>
+        {({ value, onChange, ...rest }) => (
+          <Input.Numeric
+            value={Math.round((value ?? 1) * 100)}
+            onChange={(v) => onChange(parseFloat((v / 100).toFixed(2)))}
+            dragScale={SCALE_CONTROL_DRAG_SCALE}
+            bounds={SCALE_CONTROL_BOUNDS}
+            endContent="%"
+            {...rest}
+          />
+        )}
+      </Form.Field>
       <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
         {(props) => (
           <Input.Text

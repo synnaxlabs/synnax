@@ -357,11 +357,13 @@
 .pluto-embed {
     border: var(--pluto-border);
     border-width: 2px;
+    overflow: hidden;
 
     & .pluto-embed__content {
         display: flex;
         align-items: center;
         justify-content: center;
+        position: relative;
         width: 100%;
         height: 100%;
     }
