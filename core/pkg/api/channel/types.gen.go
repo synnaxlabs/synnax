@@ -42,7 +42,7 @@ type Channel struct {
 	// nanosecond timestamps.
 	IsIndex bool `json:"is_index" msgpack:"is_index"`
 	// Index is the channel used to index this channel's values, associating each value with
-	// a timestamp. If zero, the channel's data will be indexed using its rate.
+	// a timestamp.
 	Index distributionchannel.Key `json:"index" msgpack:"index"`
 	// Alias is an optional alternate name for the channel within a specific context.
 	Alias string `json:"alias" msgpack:"alias"`
