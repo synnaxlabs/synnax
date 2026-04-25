@@ -111,8 +111,7 @@ Channel struct {
     local_index LocalKey            {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     virtual     bool                {
@@ -195,8 +194,7 @@ APIChannel struct {
     index       Key                  {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     alias       string?              {
@@ -267,8 +265,7 @@ NewChannel struct extends APIChannel {
     index       Key?                 {
         @doc value """
             is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         """
     }
     is_index    bool?                {

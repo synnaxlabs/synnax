@@ -339,6 +339,8 @@ func analyzeDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			flow.Analyze(acontext.Child(ctx, flowStmt))
 		} else if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
 			sequence.Analyze(acontext.Child(ctx, seqDecl))
+		} else if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			sequence.AnalyzeTopLevelStage(acontext.Child(ctx, stageDecl))
 		}
 	}
 }

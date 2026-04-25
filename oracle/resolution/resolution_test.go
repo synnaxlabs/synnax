@@ -492,6 +492,72 @@ var _ = Describe("Type Forms", func() {
 		})
 	})
 
+	Describe("NonDefaultedTypeParams", func() {
+		It("returns empty slice for empty input", func() {
+			Expect(resolution.NonDefaultedTypeParams(nil)).To(BeEmpty())
+			Expect(resolution.NonDefaultedTypeParams([]resolution.TypeParam{})).To(BeEmpty())
+		})
+
+		It("returns all params when none have a default", func() {
+			tps := []resolution.TypeParam{
+				{Name: "T"},
+				{Name: "U", Constraint: &resolution.TypeRef{Name: "Comparable"}},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(2))
+			Expect(result[0].Name).To(Equal("T"))
+			Expect(result[1].Name).To(Equal("U"))
+		})
+
+		It("filters out defaulted params", func() {
+			variantRef := resolution.TypeRef{Name: "Variant"}
+			tps := []resolution.TypeParam{
+				{Name: "Details"},
+				{Name: "V", Default: &variantRef},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Name).To(Equal("Details"))
+		})
+
+		It("preserves order of non-defaulted params", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B"},
+				{Name: "C", Default: &def},
+				{Name: "D"},
+				{Name: "E"},
+			}
+			result := resolution.NonDefaultedTypeParams(tps)
+			Expect(result).To(HaveLen(3))
+			Expect(result[0].Name).To(Equal("B"))
+			Expect(result[1].Name).To(Equal("D"))
+			Expect(result[2].Name).To(Equal("E"))
+		})
+
+		It("returns empty slice when every param has a default", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B", Default: &def},
+			}
+			Expect(resolution.NonDefaultedTypeParams(tps)).To(BeEmpty())
+		})
+
+		It("does not mutate its input", func() {
+			def := resolution.TypeRef{Name: "Default"}
+			tps := []resolution.TypeParam{
+				{Name: "A", Default: &def},
+				{Name: "B"},
+			}
+			_ = resolution.NonDefaultedTypeParams(tps)
+			Expect(tps).To(HaveLen(2))
+			Expect(tps[0].Name).To(Equal("A"))
+			Expect(tps[0].HasDefault()).To(BeTrue())
+		})
+	})
+
 	Describe("TypeRef", func() {
 		It("detects type parameters", func() {
 			ref := resolution.TypeRef{

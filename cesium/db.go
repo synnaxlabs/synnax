@@ -57,9 +57,11 @@ type DB struct {
 	relay  *relay
 	closed *atomic.Bool
 	mu     struct {
-		unaryDBs   map[ChannelKey]unary.DB
-		virtualDBs map[ChannelKey]virtual.DB
-		digests    struct {
+		dbs struct {
+			unary   map[ChannelKey]unary.DB
+			virtual map[ChannelKey]virtual.DB
+		}
+		digests struct {
 			shutdown io.Closer
 			inlet    confluence.Inlet[WriterRequest]
 			outlet   confluence.Outlet[WriterResponse]
@@ -123,12 +125,12 @@ func (db *DB) Metrics() Metrics {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 	var size telem.Size
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.dbs.unary {
 		size += u.Size()
 	}
 	return Metrics{
 		DiskSize:     size,
-		ChannelCount: len(db.mu.unaryDBs) + len(db.mu.virtualDBs),
+		ChannelCount: len(db.mu.dbs.unary) + len(db.mu.dbs.virtual),
 	}
 }
 
@@ -158,7 +160,7 @@ func (db *DB) Close() error {
 	err = errors.Join(err, db.shutdown.Close())
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	for _, u := range db.mu.unaryDBs {
+	for _, u := range db.mu.dbs.unary {
 		err = errors.Join(err, u.Close())
 	}
 	return err

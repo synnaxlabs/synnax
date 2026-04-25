@@ -573,3 +573,139 @@ TEST(MockServerTest, RedirectRoute) {
 
     server.stop();
 }
+
+/// @brief remaining_failures should return the error status for the configured number
+/// of requests, then switch to 200.
+TEST(MockServerTest, RemainingFailuresCountdown) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::POST,
+        .path = "/flaky",
+        .status_code = 500,
+        .response_body = R"({"error":"internal"})",
+        .remaining_failures = 2,
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+
+    auto res1 = cli.Post("/flaky", "{}", "application/json");
+    ASSERT_NE(res1, nullptr);
+    EXPECT_EQ(res1->status, 500);
+
+    auto res2 = cli.Post("/flaky", "{}", "application/json");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->status, 500);
+
+    auto res3 = cli.Post("/flaky", "{}", "application/json");
+    ASSERT_NE(res3, nullptr);
+    EXPECT_EQ(res3->status, 200);
+
+    auto res4 = cli.Post("/flaky", "{}", "application/json");
+    ASSERT_NE(res4, nullptr);
+    EXPECT_EQ(res4->status, 200);
+
+    EXPECT_EQ(server.received_requests().size(), 4);
+
+    server.stop();
+}
+
+/// @brief remaining_failures=0 should always use the configured status_code.
+TEST(MockServerTest, RemainingFailuresZeroUsesConfiguredStatus) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::GET,
+        .path = "/stable",
+        .status_code = 503,
+        .response_body = "unavailable",
+        .content_type = "text/plain",
+        .remaining_failures = 0,
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+
+    auto res1 = cli.Get("/stable");
+    ASSERT_NE(res1, nullptr);
+    EXPECT_EQ(res1->status, 503);
+    EXPECT_EQ(res1->body, "unavailable");
+
+    auto res2 = cli.Get("/stable");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->status, 503);
+
+    server.stop();
+}
+
+/// @brief remaining_failures=1 should fail once then succeed on all subsequent
+/// requests.
+TEST(MockServerTest, RemainingFailuresOneFailsThenSucceeds) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::PUT,
+        .path = "/once",
+        .status_code = 429,
+        .response_body = R"({"error":"rate limited"})",
+        .remaining_failures = 1,
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+
+    auto res1 = cli.Put("/once", "{}", "application/json");
+    ASSERT_NE(res1, nullptr);
+    EXPECT_EQ(res1->status, 429);
+
+    auto res2 = cli.Put("/once", "{}", "application/json");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->status, 200);
+
+    auto res3 = cli.Put("/once", "{}", "application/json");
+    ASSERT_NE(res3, nullptr);
+    EXPECT_EQ(res3->status, 200);
+
+    server.stop();
+}
+
+/// @brief remaining_failures counters should reset when the server is restarted.
+TEST(MockServerTest, RemainingFailuresResetsOnRestart) {
+    mock::ServerConfig cfg;
+    cfg.routes = {{
+        .method = Method::POST,
+        .path = "/reset",
+        .status_code = 500,
+        .response_body = R"({"error":"internal"})",
+        .remaining_failures = 1,
+    }};
+    mock::Server server(cfg);
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli(server.base_url());
+
+    auto res1 = cli.Post("/reset", "{}", "application/json");
+    ASSERT_NE(res1, nullptr);
+    EXPECT_EQ(res1->status, 500);
+
+    auto res2 = cli.Post("/reset", "{}", "application/json");
+    ASSERT_NE(res2, nullptr);
+    EXPECT_EQ(res2->status, 200);
+
+    server.stop();
+    server.clear_requests();
+    ASSERT_NIL(server.start());
+
+    httplib::Client cli2(server.base_url());
+
+    auto res3 = cli2.Post("/reset", "{}", "application/json");
+    ASSERT_NE(res3, nullptr);
+    EXPECT_EQ(res3->status, 500);
+
+    auto res4 = cli2.Post("/reset", "{}", "application/json");
+    ASSERT_NE(res4, nullptr);
+    EXPECT_EQ(res4->status, 200);
+
+    server.stop();
+}

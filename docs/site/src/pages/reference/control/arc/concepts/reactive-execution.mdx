@@ -64,39 +64,42 @@ Run every time data arrives:
 ```arc
 // Scale sensor readings continuously
 tank_pressure -> scale{factor=2.0} -> pressure_scaled
-
 // Run a control loop every 50ms
 interval{period=50ms} -> controller{}
-
 // Average two sensors
-(sensor_1 + sensor_2) / 2.0 -> average_display
+ (sensor_1 + sensor_2) / 2.0 -> average_display
 ```
 
 Every time the source produces data, the entire pipeline executes.
 
-### One-Shot Edges (`=>`)
+### Conditional Edges (`=>`)
 
-Fire once when a condition becomes true, then stop:
+Fire while the source expression is truthy:
 
 ```arc
-// Abort when pressure exceeds limit (fires once)
-tank_pressure > 600 => abort
-
-// Advance to next stage when target reached
+// Advance to the next stage while pressure is above target
 tank_pressure > 500 => next
-
-// Log a message once when pressure drops
+// Jump to abort while pressure exceeds the limit
+tank_pressure > 600 => abort
+// Call a function while pressure stays low
 tank_pressure < 20 => log_message{}
 ```
 
-One-shot edges reset when the containing stage is re-entered. Timing nodes (`interval`
-and `wait`) also reset on stage re-entry. An `interval` fires immediately on the first
-tick after re-entry, and a `wait` restarts its countdown from zero.
+A conditional edge has no hidden state. On ticks where the source is truthy, it
+propagates to its target. On ticks where it's falsy, it doesn't.
+
+Edges whose target is a stage or sequence name are **transitions**. See
+[Sequences and Stages](/reference/control/arc/concepts/sequences-and-stages#transitions)
+for how transitions combine with stage activation.
+
+Timing nodes (`interval` and `wait`) reset on stage re-entry. An `interval` fires
+immediately on the first tick after re-entry, and a `wait` restarts its countdown from
+zero.
 
 <Note.Note variant="warning">
-A common mistake is using `->` when you meant `=>`. If you want something to happen
-once (like a stage transition), use `=>`. If you use `->`, the transition will keep
-firing every cycle while the condition is true.
+A common mistake is using `->` when you meant `=>`. `->` fires on every data arrival
+from the source. `=>` fires only while the source is truthy. For most stage
+transitions, `=>` is what you want.
 </Note.Note>
 
 <Divider.Divider x />
@@ -129,8 +132,8 @@ data flow:
 
 ```arc
 stage pressurize {
-    1 -> valve_cmd,
-    tank_pressure -> controller{} -> throttle,
+    1 -> valve_cmd
+    tank_pressure -> controller{} -> throttle
     tank_pressure > 500 => next
 }
 ```
@@ -164,10 +167,8 @@ Inline expressions work as implicit functions:
 ```arc
 // Comparison
 temperature > 100 -> alarm{}
-
 // Arithmetic
-(sensor_1 + sensor_2) / 2.0 -> display
-
+ (sensor_1 + sensor_2) / 2.0 -> display
 // Logical combination
 pressure > 100 or emergency -> shutdown{}
 ```
@@ -191,7 +192,7 @@ sequence main {
         start_btn => next
     }
     stage running {
-        stop_btn => idle  // valid: can return to idle
+        stop_btn => idle // valid: can return to idle
     }
 }
 ```

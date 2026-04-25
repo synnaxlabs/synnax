@@ -10,11 +10,10 @@
 package telem
 
 // Density represents a density in bytes per value.
-type Density uint32
+type Density uint8
 
 // SampleCount returns the number of samples within the number of bytes provided in
-// Size.
-// For example,
+// Size. For example,
 //
 //	Bit64.SampleCount(16) == 2
 func (d Density) SampleCount(size Size) int64 {
@@ -24,9 +23,8 @@ func (d Density) SampleCount(size Size) int64 {
 	return int64(size) / int64(d)
 }
 
-// Size returns the number of bytes occupied by the number of samples provided
-// in sampleCount.
-// For example,
+// Size returns the number of bytes occupied by the number of samples provided in
+// sampleCount. For example,
 //
 //	Bit64.Size(2) == 16
 func (d Density) Size(sampleCount int64) Size {

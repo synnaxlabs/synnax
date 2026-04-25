@@ -1447,7 +1447,7 @@ sequence main {
 				Expect(seq).NotTo(BeNil())
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(2))
 
 				// First stage: precheck
@@ -1468,7 +1468,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1484,7 +1484,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				stage := stages[0]
 				body := stage.StageBody()
 				items := body.AllStageItem()
@@ -1511,7 +1511,7 @@ sequence seq {
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq).NotTo(BeNil())
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1539,7 +1539,7 @@ sequence main {
 				// Verify sequence
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(3))
 
 				// Verify stage names
@@ -1547,6 +1547,97 @@ sequence main {
 				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurize"))
 				Expect(stages[2].IDENTIFIER().GetText()).To(Equal("complete"))
 			})
+		})
+
+		Context("Optional Commas In Stage Bodies", func() {
+			DescribeTable("Should parse stage bodies with any mix of comma / newline separators",
+				func(code string, expectedItems int) {
+					prog := mustParseProgram(code)
+					seq := prog.TopLevelItem(0).SequenceDeclaration()
+					stages := allStageDecls(seq)
+					Expect(stages).To(HaveLen(1))
+					Expect(stages[0].StageBody().AllStageItem()).To(HaveLen(expectedItems))
+				},
+				Entry("newline-separated transitions, no commas", `
+sequence seq {
+    stage hold {
+        condition1 => next
+        condition2 => next
+    }
+}`, 2),
+				Entry("newline-separated flows, no commas", `
+sequence seq {
+    stage fire {
+        1 -> ox_cmd
+        1 -> fuel_cmd
+    }
+}`, 2),
+				Entry("mixed flows and invocations, no commas", `
+sequence seq {
+    stage settle {
+        0 -> vent_cmd
+        wait{duration=2s}
+        pressure < LOW => done
+    }
+}`, 3),
+				Entry("mix of comma-separated and newline-separated items", `
+sequence seq {
+    stage mixed {
+        1 -> a,
+        1 -> b
+        1 -> c
+    }
+}`, 3),
+				Entry("comma-separated inline on one line", `sequence seq { stage s { 1 -> a, 1 -> b } }`, 2),
+				Entry("newline-separated with trailing comma still valid", `
+sequence seq {
+    stage s {
+        1 -> a
+        1 -> b,
+    }
+}`, 2),
+				Entry("all legacy comma-separated form still parses", `
+sequence seq {
+    stage s {
+        1 -> a,
+        1 -> b,
+        1 -> c
+    }
+}`, 3),
+			)
+		})
+
+		Context("Optional Commas In Stageless Sequence Bodies", func() {
+			DescribeTable("Should parse stageless sequence bodies with any mix of separators",
+				func(code string, expectedItems int) {
+					prog := mustParseProgram(code)
+					seq := prog.TopLevelItem(0).SequenceDeclaration()
+					Expect(seq.AllSequenceItem()).To(HaveLen(expectedItems))
+				},
+				Entry("newline-separated, no commas (legacy form)", `
+sequence main {
+    1 -> valve_a
+    1 -> valve_b
+}`, 2),
+				Entry("comma-separated on one line", `sequence main { 1 -> valve_a, 1 -> valve_b }`, 2),
+				Entry("comma-separated across multiple lines", `
+sequence main {
+    1 -> valve_a,
+    1 -> valve_b,
+}`, 2),
+				Entry("mixed commas and newlines", `
+sequence main {
+    1 -> valve_a,
+    1 -> valve_b
+    1 -> valve_c
+}`, 3),
+				Entry("mixed flows and invocations with commas", `
+sequence main {
+    1 -> valve_a,
+    wait{duration=2s},
+    0 -> valve_a
+}`, 3),
+			)
 		})
 	})
 
@@ -1678,4 +1769,14 @@ func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpre
 
 func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
 	return expr.LogicalOrExpression().LogicalAndExpression(0)
+}
+
+func allStageDecls(seq parser.ISequenceDeclarationContext) []parser.IStageDeclarationContext {
+	var stages []parser.IStageDeclarationContext
+	for _, item := range seq.AllSequenceItem() {
+		if s := item.StageDeclaration(); s != nil {
+			stages = append(stages, s)
+		}
+	}
+	return stages
 }

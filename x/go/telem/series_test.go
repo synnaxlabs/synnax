@@ -10,12 +10,15 @@
 package telem_test
 
 import (
+	"encoding/binary"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 )
 
 func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
@@ -27,6 +30,130 @@ func valueAtTest[T telem.FixedSample](value T, dt telem.DataType) func() {
 }
 
 var _ = Describe("Series", func() {
+	Describe("Validate", func() {
+		Context("Fixed Density", func() {
+			DescribeTable("valid data",
+				func(s telem.Series) {
+					Expect(s.Validate()).To(Succeed())
+				},
+				Entry("int64", telem.NewSeriesV[int64](1, 2, 3)),
+				Entry("int32", telem.NewSeriesV[int32](1, 2, 3)),
+				Entry("int16", telem.NewSeriesV[int16](1, 2, 3)),
+				Entry("int8", telem.NewSeriesV[int8](1, 2, 3)),
+				Entry("uint64", telem.NewSeriesV[uint64](1, 2, 3)),
+				Entry("uint32", telem.NewSeriesV[uint32](1, 2, 3)),
+				Entry("uint16", telem.NewSeriesV[uint16](1, 2, 3)),
+				Entry("uint8", telem.NewSeriesV[uint8](1, 2, 3)),
+				Entry("float64", telem.NewSeriesV(1.0, 2.0, 3.0)),
+				Entry("float32", telem.NewSeriesV[float32](1.0, 2.0)),
+				Entry("timestamp", telem.NewSeriesSecondsTSV(1, 2, 3)),
+				Entry("uuid", telem.NewSeriesV(uuid.New())),
+				Entry("empty", telem.Series{DataType: telem.Int64T}),
+			)
+
+			DescribeTable("misaligned data",
+				func(dt telem.DataType, dataLen int) {
+					s := telem.Series{DataType: dt, Data: make([]byte, dataLen)}
+					Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+				},
+				Entry("uint32 with 7 bytes", telem.Uint32T, 7),
+				Entry("uint32 with 1 byte", telem.Uint32T, 1),
+				Entry("float64 with 13 bytes", telem.Float64T, 13),
+				Entry("int64 with 5 bytes", telem.Int64T, 5),
+				Entry("int16 with 3 bytes", telem.Int16T, 3),
+				Entry("uuid with 17 bytes", telem.UUIDT, 17),
+				Entry("timestamp with 9 bytes", telem.TimeStampT, 9),
+			)
+		})
+
+		Context("Variable Density", func() {
+			It("Should accept valid string series", func() {
+				s := telem.NewSeriesV("hello", "world")
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept valid bytes series", func() {
+				s := telem.NewSeriesV([]byte{1, 2, 3}, []byte{4, 5})
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept valid JSON series", func() {
+				s := MustSucceed(telem.NewJSONSeriesV(
+					map[string]any{"key": "value"},
+					map[string]any{"arr": []int{1, 2, 3}},
+				))
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should accept an empty variable series", func() {
+				s := telem.Series{DataType: telem.StringT}
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should reject a prefix pointing past the buffer end", func() {
+				data := make([]byte, 8)
+				binary.LittleEndian.PutUint32(data[0:], 100)
+				s := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should reject trailing bytes after valid samples", func() {
+				valid := telem.NewSeriesV("ok")
+				valid.Data = append(valid.Data, 0xFF, 0xFF)
+				Expect(valid.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should reject trailing bytes that are less than a prefix", func() {
+				valid := telem.NewSeriesV("ok")
+				valid.Data = append(valid.Data, 0xFF)
+				Expect(valid.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+		})
+
+		Context("JSON Validity", func() {
+			It("Should reject invalid JSON", func() {
+				data := telem.MarshalVariableSample([]byte(`{not json}`))
+				s := telem.Series{DataType: telem.JSONT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should accept valid JSON primitives", func() {
+				data := telem.MarshalVariableSample([]byte(`42`))
+				data = append(data, telem.MarshalVariableSample([]byte(`"hello"`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`true`))...)
+				data = append(data, telem.MarshalVariableSample([]byte(`null`))...)
+				s := telem.Series{DataType: telem.JSONT, Data: data}
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+
+		Context("UTF-8 Validity", func() {
+			It("Should reject invalid UTF-8 in string series", func() {
+				invalidUTF8 := []byte{0xFF, 0xFE}
+				data := telem.MarshalVariableSample(invalidUTF8)
+				s := telem.Series{DataType: telem.StringT, Data: data}
+				Expect(s.Validate()).Error().To(MatchError(validate.ErrValidation))
+			})
+
+			It("Should accept valid UTF-8 including multi-byte characters", func() {
+				s := telem.NewSeriesV("hello", "日本語", "émoji 🎉")
+				Expect(s.Validate()).To(Succeed())
+			})
+
+			It("Should not check UTF-8 for bytes series", func() {
+				s := telem.NewSeriesV([]byte{0xFF, 0xFE})
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+
+		Context("Unknown DataType", func() {
+			It("Should skip validation for unknown data types", func() {
+				s := telem.Series{DataType: telem.UnknownT, Data: []byte{1, 2, 3}}
+				Expect(s.Validate()).To(Succeed())
+			})
+		})
+	})
+
 	Describe("Len", func() {
 		It("Should correctly return the number of samples in a series with a fixed length data type", func() {
 			s := telem.NewSeriesV[int64](1, 2, 3)

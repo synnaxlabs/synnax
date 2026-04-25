@@ -112,10 +112,7 @@ func generateEncoderCodecFile(
 		// record) are substituted by the types plugin and the Go type is concrete.
 		var typeParams []typeParamData
 		if form.IsGeneric() {
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					continue
-				}
+			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
 					Constraint: typeParamConstraint(tp),
@@ -273,7 +270,7 @@ func (b *encoderBuilder) processFields(
 			continue
 		}
 		marshalDirective := domain.GetStringFromField(f, "go", "marshal")
-		if marshalDirective == "skip" {
+		if marshalDirective == "omit" {
 			continue
 		}
 		goName := naming.GetFieldName(f)

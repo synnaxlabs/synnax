@@ -8,8 +8,10 @@
         { "case": "driver/disconnect_task" },
         { "case": "driver/modbus_read" },
         { "case": "driver/modbus_write" },
+        { "case": "driver/modbus_invalid" },
         { "case": "driver/opcua_read" },
         { "case": "driver/opcua_write" },
+        { "case": "driver/opcua_invalid" },
         { "case": "driver/ni_read" },
         { "case": "driver/ni_write" },
         { "case": "driver/ni_disconnect" },
@@ -17,6 +19,7 @@
         { "case": "driver/opcua_driver_responsiveness" },
         { "case": "driver/http_read" },
         { "case": "driver/http_write" },
+        { "case": "driver/http_invalid" },
         { "case": "driver/grand_finale" }
       ]
     },

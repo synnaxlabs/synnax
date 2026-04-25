@@ -40,6 +40,7 @@ export type RuleState = latest.RuleState;
 export type RulesState = latest.RulesState;
 export type ChannelsState = latest.ChannelsState;
 export type RangesState = latest.RangesState;
+export type AnnotationsState = latest.AnnotationsState;
 export type State = latest.State;
 export type ToolbarTab = latest.ToolbarTab;
 export type ToolbarState = latest.ToolbarState;
@@ -48,6 +49,7 @@ export type ControlState = latest.ControlState;
 export type SliceState = latest.SliceState;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_CHANNELS_STATE = latest.ZERO_CHANNELS_STATE;
+export const ZERO_ANNOTATIONS_STATE = latest.ZERO_ANNOTATIONS_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
@@ -172,6 +174,11 @@ export interface SetMeasureModePayload {
   mode: measure.Mode;
 }
 
+export interface SetRangeAnnotationsVisiblePayload {
+  key: string;
+  visible: boolean;
+}
+
 export const typedLineKeyToString = (key: TypedLineKey): string =>
   `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
 
@@ -227,7 +234,7 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const migrated = migrateState(payload);
+      const migrated = anyStateZ.parse(payload);
       const { key: layoutKey } = migrated;
       const existing = state.plots[layoutKey];
       if (existing != null && existing.version === migrated.version) return;
@@ -369,6 +376,12 @@ export const { actions, reducer } = createSlice({
     setMeasureMode: (state, { payload }: PayloadAction<SetMeasureModePayload>) => {
       state.plots[payload.key].measure.mode = payload.mode;
     },
+    setRangeAnnotationsVisible: (
+      state,
+      { payload }: PayloadAction<SetRangeAnnotationsVisiblePayload>,
+    ) => {
+      state.plots[payload.key].annotations.visible = payload.visible;
+    },
   },
 });
 
@@ -392,6 +405,7 @@ export const {
   setRemoteCreated,
   setSelection,
   setMeasureMode,
+  setRangeAnnotationsVisible,
   create: internalCreate,
 } = actions;
 

@@ -195,7 +195,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		n.Output(j).Resize(int64(n.offsets[j]))
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
-			ctx.MarkChanged(n.ir.Outputs[j].Name)
+			ctx.MarkChanged(j)
 		}
 	}
 }

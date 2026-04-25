@@ -6,6 +6,7 @@ import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import Release from "@/components/releases/Release.astro";
 import LabJack from "@/pages/releases/LabJack.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -19,6 +20,8 @@ export const components = mdxOverrides;
 Synnax v0.36.0 introduces several new quality of life improvements and bug fixes,
 including a new line plot annotation tool, schematic undo/redo, a new way to select the
 time of the range, and a refactored LabJack write task.
+
+<Divider.Divider x />
 
 ### Line Plot Annotation Tool
 
@@ -35,6 +38,8 @@ can be accessed by clicking the 'Annotations' tab in the Visualization Toolbar.
   }}
 />
 
+<Divider.Divider x />
+
 ### Schematic Undo/Redo
 
 You can now undo and redo changes to a schematic. This feature is possible by using the
@@ -42,6 +47,8 @@ You can now undo and redo changes to a schematic. This feature is possible by us
 editing.
 
 <Video client:only="react" id="releases/0-36-0/schematic-undo" themed={false} />
+
+<Divider.Divider x />
 
 ### New Range DateTime Selector
 
@@ -52,12 +59,16 @@ the appropriate date and time.
 
 <Image client:only="react" id="releases/0-36-0/range" themed={false} />
 
+<Divider.Divider x />
+
 ### Breaking Changes
 
 This release introduces a breaking change in the communication protocol that the Core
 and Console use to communicate. This change means that **Console versions 0.36.0 and
 newer** will not work with **Core versions of 0.35.0 and older**. To avoid issues,
 please ensure that your Core and Console are updated to the same version.
+
+<Divider.Divider x />
 
 ### Other Improvements and Bug Fixes
 
