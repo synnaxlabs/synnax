@@ -878,6 +878,29 @@ describe("Series", () => {
       });
     });
 
+    describe("boolean", () => {
+      it("should correctly interpret the series as boolean", () => {
+        const s = new Series([true, false, true]);
+        const s2 = s.as("boolean");
+        expect(s2.at(0)).toBe(true);
+        expect(s2.at(1)).toBe(false);
+        expect(s2.at(2)).toBe(true);
+        expect(Array.from(s2)).toEqual([true, false, true]);
+      });
+      it("should throw an error if the series is not BOOLEAN", () => {
+        const s = new Series([1, 2, 3]);
+        expect(() => {
+          s.as("boolean");
+        }).toThrow();
+      });
+      it("should throw an error if the series is a string", () => {
+        const s = new Series(["a", "b", "c"]);
+        expect(() => {
+          s.as("boolean");
+        }).toThrow();
+      });
+    });
+
     describe("property preservation during conversion", () => {
       it("should preserve all properties when converting a series with .as()", () => {
         // Create a series with all possible properties set
@@ -2080,11 +2103,28 @@ describe("MultiSeries", () => {
       expect(Array.from(asBigInt)).toEqual([1n, 2n, 3n, 4n]);
     });
 
+    it("should correctly cast a boolean series to boolean type", () => {
+      const a = new Series([true, false]);
+      const b = new Series([false, true]);
+      const multi = new MultiSeries([a, b]);
+      const asBool = multi.as("boolean");
+      expect(asBool.at(0)).toBe(true);
+      expect(asBool.at(3)).toBe(true);
+      expect(Array.from(asBool)).toEqual([true, false, false, true]);
+    });
+
     it("should throw an error when trying to cast to an incompatible type", () => {
       const a = new Series(["cat", "dog"]);
       const b = new Series(["impala", "zebra"]);
       const multi = new MultiSeries([a, b]);
       expect(() => multi.as("bigint")).toThrow();
+    });
+
+    it("should throw when casting a non-boolean series to boolean", () => {
+      const a = new Series(new Float32Array([1, 2]));
+      const b = new Series(new Float32Array([3, 4]));
+      const multi = new MultiSeries([a, b]);
+      expect(() => multi.as("boolean")).toThrow();
     });
   });
 

@@ -31,26 +31,31 @@ DATA_LENGTH_SIZE = 4
 KEY_SIZE = 4
 FLAGS_SIZE = 1
 SEQ_NUM_SIZE = 4
+BITS_PER_BYTE = 8
+
+
+def _bit_packed_byte_count(n_samples: int) -> int:
+    return (n_samples + BITS_PER_BYTE - 1) // BITS_PER_BYTE
 
 
 def _series_wire_byte_length(ser: Series) -> int:
     if ser.data_type == DataType.BOOL:
-        return (len(ser) + 7) // 8
+        return _bit_packed_byte_count(len(ser))
     return len(ser.data)
 
 
 def _pack_bool_bits(src: bytes) -> bytes:
-    dst = bytearray((len(src) + 7) // 8)
+    dst = bytearray(_bit_packed_byte_count(len(src)))
     for i, b in enumerate(src):
         if b != 0:
-            dst[i >> 3] |= 1 << (i & 7)
+            dst[i // BITS_PER_BYTE] |= 1 << (i % BITS_PER_BYTE)
     return bytes(dst)
 
 
 def _unpack_bool_bits(src: memoryview, sample_count: int) -> bytes:
     dst = bytearray(sample_count)
     for i in range(sample_count):
-        dst[i] = (src[i >> 3] >> (i & 7)) & 1
+        dst[i] = (src[i // BITS_PER_BYTE] >> (i % BITS_PER_BYTE)) & 1
     return bytes(dst)
 
 
@@ -313,7 +318,7 @@ class Codec:
                 data_byte_len = curr_len * data_type.density
 
             if data_type == DataType.BOOL:
-                wire_bytes = (curr_len + 7) // 8
+                wire_bytes = _bit_packed_byte_count(curr_len)
                 series_data = _unpack_bool_bits(
                     buffer[idx : idx + wire_bytes], curr_len
                 )

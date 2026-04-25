@@ -35,13 +35,21 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
+const bitsPerByte = 8
+
+// bitPackedByteCount returns the number of wire bytes needed to bit-pack nSamples
+// boolean samples (one bit each, LSB-first).
+func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
+	return (nSamples + bitsPerByte - 1) / bitsPerByte
+}
+
 // wireSize returns the number of bytes a series occupies on the wire after
 // per-type encoding. BoolT samples are bit-packed at one bit each; variable-length
 // types carry their length-prefixed in-memory representation directly; other fixed
 // types use their in-memory byte count.
 func wireSize(s telem.Series) int {
 	if s.DataType == telem.BoolT {
-		return int((s.Len() + 7) / 8)
+		return int(bitPackedByteCount(s.Len()))
 	}
 	return int(s.Size())
 }
@@ -49,10 +57,10 @@ func wireSize(s telem.Series) int {
 // packBoolBits packs byte-packed canonical bool data (one sample per byte) into
 // bit-packed wire bytes (LSB-first within each byte).
 func packBoolBits(src []byte) []byte {
-	dst := make([]byte, (len(src)+7)/8)
+	dst := make([]byte, bitPackedByteCount(len(src)))
 	for i, b := range src {
 		if b != 0 {
-			dst[i/8] |= 1 << (i % 8)
+			dst[i/bitsPerByte] |= 1 << (i % bitsPerByte)
 		}
 	}
 	return dst
@@ -63,7 +71,7 @@ func packBoolBits(src []byte) []byte {
 func unpackBoolBits(src []byte, n int) []byte {
 	dst := make([]byte, n)
 	for i := range n {
-		dst[i] = (src[i/8] >> (i % 8)) & 1
+		dst[i] = (src[i/bitsPerByte] >> (i % bitsPerByte)) & 1
 	}
 	return dst
 }
@@ -753,7 +761,7 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 		}
 		s.DataType = dataType
 		if dataType == telem.BoolT {
-			packed := make([]byte, (dataLenOrSize+7)/8)
+			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
 			if _, err = c.reader.Read(packed); err != nil {
 				return err
 			}

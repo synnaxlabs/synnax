@@ -116,13 +116,15 @@ const nullArrayZ = z
 
 const UINT32_SIZE = 4;
 
-type JSType = "string" | "number" | "bigint";
+type JSType = "string" | "number" | "bigint" | "boolean";
 
 const checkAsType = (jsType: JSType, dataType: DataType) => {
   if (jsType === "number" && !dataType.isNumeric)
     throw new Error(`cannot convert series of type ${dataType.toString()} to number`);
   if (jsType === "bigint" && !dataType.usesBigInt)
     throw new Error(`cannot convert series of type ${dataType.toString()} to bigint`);
+  if (jsType === "boolean" && !dataType.equals(DataType.BOOLEAN))
+    throw new Error(`cannot convert series of type ${dataType.toString()} to boolean`);
 };
 
 const SERIES_DISCRIMINATOR = "sy_x_telem_series";
@@ -939,7 +941,13 @@ export class Series<T extends TelemValue = TelemValue>
    */
   as(jsType: "bigint"): Series<bigint>;
 
-  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): Series<T> {
+  /**
+   * Reinterprets the series as containing booleans as its JS primitive type.
+   * @throws if the series does not have a data type of BOOLEAN.
+   */
+  as(jsType: "boolean"): Series<boolean>;
+
+  as<T extends TelemValue>(jsType: JSType): Series<T> {
     checkAsType(jsType, this.dataType);
     return this as unknown as Series<T>;
   }
@@ -1324,7 +1332,13 @@ export class MultiSeries<T extends TelemValue = TelemValue> implements Iterable<
    */
   as(jsType: "bigint"): MultiSeries<bigint>;
 
-  as<T extends TelemValue>(jsType: "string" | "number" | "bigint"): MultiSeries<T> {
+  /**
+   * Reinterprets the series as containing booleans as its JS primitive type.
+   * @throws if the series does not have a data type of BOOLEAN.
+   */
+  as(jsType: "boolean"): MultiSeries<boolean>;
+
+  as<T extends TelemValue>(jsType: JSType): MultiSeries<T> {
     checkAsType(jsType, this.dataType);
     return this as unknown as MultiSeries<T>;
   }

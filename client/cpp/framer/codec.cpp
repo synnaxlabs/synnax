@@ -79,18 +79,24 @@ constexpr std::size_t KEY_SIZE = 4;
 constexpr std::size_t FLAGS_SIZE = 1;
 constexpr std::size_t SEQ_NUM_SIZE = 4;
 constexpr std::size_t TIME_RANGE_SIZE = 16;
+constexpr std::size_t BITS_PER_BYTE = 8;
+
+constexpr std::size_t bit_packed_byte_count(const std::size_t n_samples) {
+    return (n_samples + BITS_PER_BYTE - 1) / BITS_PER_BYTE;
+}
 
 static size_t series_wire_byte_length(const x::telem::Series &ser) {
-    if (ser.data_type() == x::telem::BOOL_T) return (ser.size() + 7) / 8;
+    if (ser.data_type() == x::telem::BOOL_T) return bit_packed_byte_count(ser.size());
     return ser.byte_size();
 }
 
 static std::vector<uint8_t>
 pack_bool_bits(const std::byte *src, const size_t n_samples) {
-    std::vector<uint8_t> dst((n_samples + 7) / 8, 0);
+    std::vector<uint8_t> dst(bit_packed_byte_count(n_samples), 0);
     const auto *src_bytes = reinterpret_cast<const uint8_t *>(src);
     for (size_t i = 0; i < n_samples; i++)
-        if (src_bytes[i] != 0) dst[i >> 3] |= static_cast<uint8_t>(1u << (i & 7));
+        if (src_bytes[i] != 0)
+            dst[i / BITS_PER_BYTE] |= static_cast<uint8_t>(1u << (i % BITS_PER_BYTE));
     return dst;
 }
 
@@ -98,7 +104,7 @@ static std::vector<uint8_t>
 unpack_bool_bits(const uint8_t *src, const size_t n_samples) {
     std::vector<uint8_t> dst(n_samples);
     for (size_t i = 0; i < n_samples; i++)
-        dst[i] = (src[i >> 3] >> (i & 7)) & 1;
+        dst[i] = (src[i / BITS_PER_BYTE] >> (i % BITS_PER_BYTE)) & 1;
     return dst;
 }
 
@@ -325,7 +331,7 @@ Codec::decode(const uint8_t *data, const size_t size) const {
         s.alignment = ref_alignment;
 
         if (it->second == x::telem::BOOL_T) {
-            const size_t wire_bytes = (local_data_len_or_byte_cap + 7) / 8;
+            const size_t wire_bytes = bit_packed_byte_count(local_data_len_or_byte_cap);
             std::vector<uint8_t> packed(wire_bytes);
             reader.read(reinterpret_cast<std::byte *>(packed.data()), wire_bytes);
             const auto unpacked = unpack_bool_bits(
