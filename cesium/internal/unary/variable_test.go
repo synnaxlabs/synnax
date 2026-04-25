@@ -370,6 +370,69 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(lengthPrefixReads).To(BeZero())
 				})
 
+				It("Should serve reads from cache after a second commit on the same domain without rebuilding", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("multi-commit-flush"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "multi-commit-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        rec,
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "multi-commit-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					Expect(unary.Write(ctx, idx, 1000*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(1000, 1001, 1002, 1003, 1004),
+					)).To(Succeed())
+
+					iw, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:   1000 * telem.SecondTS,
+						Subject: xcontrol.Subject{Key: "multi-commit-flush"},
+					}))
+					MustSucceed(iw.Write(telem.NewSeriesV("a", "b", "c")))
+					MustSucceed(iw.Commit(ctx))
+					// Second commit on the same domain: publish should replace
+					// the cache entry rather than waiting for the next read to
+					// invalidate it via the size gate.
+					MustSucceed(iw.Write(telem.NewSeriesV("d", "e")))
+					MustSucceed(iw.Commit(ctx))
+					MustSucceed(iw.Close())
+
+					rec.Reset()
+					frame := MustSucceed(data.Read(ctx,
+						(1000 * telem.SecondTS).Range(1005*telem.SecondTS),
+					))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c", "d", "e"}))
+
+					// The post-commit-2 cache entry should serve the read
+					// directly. A rebuild scan would emit one 4-byte ReadAt
+					// per sample.
+					var lengthPrefixReads int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpReadAt && e.Length == 4 {
+							lengthPrefixReads++
+						}
+					}
+					Expect(lengthPrefixReads).To(BeZero())
+				})
+
 				It("Should rebuild the cached offset table after the domain grows", func(ctx SpecContext) {
 					subFS := MustSucceed(fs.Sub("cache-refresh"))
 					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
