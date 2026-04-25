@@ -155,6 +155,63 @@ var _ = Describe("Recorder", func() {
 		})
 	})
 
+	Describe("Pass-through", func() {
+		It("Should pass non-recorded FS methods through to the inner FS without recording", func() {
+			f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(f)
+			MustSucceed(f.Write([]byte("hello")))
+			rec.Reset()
+
+			Expect(rec.Exists("a.bin")).To(BeTrue())
+			Expect(rec.Exists("missing.bin")).To(BeFalse())
+			Expect(rec.Events()).To(BeEmpty())
+		})
+
+		It("Should pass non-recorded File methods through to the inner File without recording", func() {
+			f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(f)
+			MustSucceed(f.Write([]byte("hello")))
+			rec.Reset()
+
+			Expect(f.Truncate(2)).To(Succeed())
+			Expect(f.Sync()).To(Succeed())
+			Expect(rec.Events()).To(BeEmpty())
+		})
+	})
+
+	Describe("Intent-based recording", func() {
+		It("Should record the requested length on a short read", func() {
+			f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(f)
+			MustSucceed(f.Write([]byte("hi")))
+			rec.Reset()
+
+			// Asking for more bytes than the file contains is a short read; the
+			// recorder should still record the requested length, not the
+			// returned length.
+			buf := make([]byte, 16)
+			_, _ = f.ReadAt(buf, 0)
+			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+				xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 0, Length: 16},
+			))
+		})
+
+		It("Should record the requested length when ReadAt fails past EOF", func() {
+			f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(f)
+			MustSucceed(f.Write([]byte("hi")))
+			rec.Reset()
+
+			// Reading past the end of the file fails, but the recorder should
+			// still capture the attempt with the caller-requested length.
+			buf := make([]byte, 4)
+			_, _ = f.ReadAt(buf, 100)
+			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+				xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 100, Length: 4},
+			))
+		})
+	})
+
 	Describe("Concurrency", func() {
 		It("Should record every event safely under concurrent writers", func() {
 			const writers = 16
