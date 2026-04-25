@@ -823,6 +823,34 @@ inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
 
 using NowFunc = std::function<TimeStamp()>;
 
+/// @brief provides monotonically increasing timestamps. On platforms with
+/// coarse clock resolution (e.g. Windows), consecutive now() calls can return
+/// the same value. MonoClock guarantees each call returns a strictly greater
+/// timestamp than the previous one by bumping by 1 nanosecond when necessary.
+class MonoClock {
+public:
+    /// @brief constructs a MonoClock with an optional custom time source.
+    /// If source is null, defaults to TimeStamp::now.
+    explicit MonoClock(NowFunc source = nullptr):
+        source(source ? std::move(source) : NowFunc([] {
+            return TimeStamp::now();
+        })) {}
+
+    /// @brief returns a timestamp strictly greater than any previous call.
+    TimeStamp now() {
+        auto ts = source();
+        if (ts <= last) ts = last + 1;
+        last = ts;
+        return ts;
+    }
+
+private:
+    /// @brief the underlying time source.
+    NowFunc source;
+    /// @brief the last timestamp returned by now().
+    TimeStamp last{0};
+};
+
 namespace details {
 const std::string UNKNOWN_T;
 const std::string FLOAT64_T = "float64";
