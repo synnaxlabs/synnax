@@ -227,10 +227,10 @@ describe("Channel", () => {
       ).rejects.toThrow(NotFoundError);
     });
     test("retrieve by search term", async () => {
-      const prefix = `searchable-channel-${id.create()}`;
+      const prefix = id.create();
       await client.channels.create([
-        { name: `${prefix}-1`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}-2`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_1`, virtual: true, dataType: DataType.FLOAT32 },
+        { name: `${prefix}_2`, virtual: true, dataType: DataType.FLOAT32 },
       ]);
       await expect
         .poll(
