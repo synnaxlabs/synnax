@@ -562,11 +562,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 
 				It("Should not write the index file on commits within the persist interval", func(ctx SpecContext) {
+					Expect(db.Close()).To(Succeed())
 					rec := xfs.NewRecorder(fs)
-					recDB := MustSucceed(domain.Open(domain.Config{FS: rec, FileSize: 1 * telem.Megabyte, Instrumentation: PanicLogger()}))
-					defer func() { Expect(recDB.Close()).To(Succeed()) }()
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              rec,
+						FileSize:        1 * telem.Megabyte,
+						Instrumentation: PanicLogger(),
+					}))
 
-					w := MustSucceed(recDB.OpenWriter(ctx, domain.WriterConfig{
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
 						Start:                    100 * telem.SecondTS,
 						AutoIndexPersistInterval: 1 * telem.Hour,
 					}))
