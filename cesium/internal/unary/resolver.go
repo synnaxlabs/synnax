@@ -187,9 +187,15 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*
 	if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
 		return cached, nil
 	}
-	// Concurrent callers missing on the same domain collapse into one scan via
-	// singleflight; the leader rebuilds and the waiters share its result.
-	key := strconv.FormatInt(int64(tr.Start), 10)
+	// Concurrent callers missing on the same (Start, End) collapse into one scan
+	// via singleflight; the leader rebuilds and the waiters share its result. End
+	// is part of the key because the leader's closure runs against the leader's
+	// iter, which carries a frozen (Start, End, size) snapshot of the pointer at
+	// reload time. A follower that joined with a newer End would otherwise receive
+	// a table truncated to the leader's older view, and byteOffset / sampleCount
+	// queries against the missing tail samples would silently fall through to the
+	// iter.Size() / zero-sampleCount fallback paths and lose data.
+	key := strconv.FormatInt(int64(tr.Start), 10) + ":" + strconv.FormatInt(int64(tr.End), 10)
 	result, err, _ := r.rebuilds.Do(key, func() (any, error) {
 		// Re-check the cache: the leader of a prior call may have populated it
 		// while this goroutine was waiting on the singleflight entry.
@@ -214,11 +220,11 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*
 	return result.(*offsetTable), nil
 }
 
-// newTracker returns a per-writer offsetTracker bound to this resolver, anchored to
-// the start timestamp of the writer's first domain. Fixed-density trackers carry the
-// resolver's density and use it to convert per-write byte counts to sample counts;
-// cache-backed trackers also track per-sample offsets within the current domain so
-// they can publish them to the cache on commit.
+// newTracker returns an offsetTracker bound to this resolver, anchored to the start
+// timestamp of its first domain. Fixed-density trackers carry the resolver's density
+// and use it to convert per-write byte counts to sample counts; cache-backed trackers
+// also track per-sample offsets within the current domain so they can publish them to
+// the cache on commit.
 func (r *offsetResolver) newTracker(start telem.TimeStamp) *offsetTracker {
 	t := &offsetTracker{resolver: r, currentStart: start}
 	if r.cache == nil {
@@ -227,12 +233,15 @@ func (r *offsetResolver) newTracker(start telem.TimeStamp) *offsetTracker {
 	return t
 }
 
-// offsetTracker tracks state for a single unary writer session. Fixed-density and
-// variable-length channels share the cumulative-count behavior at the alignment math
-// site by deriving it from the underlying domain.Writer, which is safe across control
-// handoffs that reuse the same domain.Writer. Variable-length channels additionally
-// track per-domain offsets and sample counts so they can publish them to the offset
-// cache on commit.
+// offsetTracker tracks per-domain offset state for a unary writer chain. The tracker
+// is owned by the controlledWriter, so all Writers that share that resource (i.e. that
+// take control of the same region across handoffs) observe the same tracker state.
+// Fixed-density and variable-length channels share the cumulative-count behavior at
+// the alignment math site by deriving it from the underlying domain.Writer for
+// fixed-density and from the tracker's running counter for variable-length, both of
+// which advance monotonically across handoff. Variable-length channels additionally
+// track per-domain byte offsets so they can publish them to the offset cache on
+// commit.
 type offsetTracker struct {
 	// resolver is the offsetResolver this tracker was created from. Used by publish to
 	// install committed offsets into the resolver's cache.
@@ -253,16 +262,18 @@ type offsetTracker struct {
 	// domain for variable-length trackers; nil for fixed-density. Reset on rollover.
 	domainOffsets []uint32
 	// sessionSamples is the cumulative sample count for variable-length trackers
-	// across every domain in this writer's session. Used for alignment math and the
-	// end-timestamp lookup at commit time. Does not transfer on control handoff.
-	// Unused for fixed-density (count derives from dw.Len() instead).
+	// across every domain in the controlled resource's lifetime. Used for alignment
+	// math and the end-timestamp lookup at commit time. Survives control handoff
+	// because the tracker is shared across Writers via controlledWriter. Unused for
+	// fixed-density (count derives from dw.Len() instead).
 	sessionSamples int64
 }
 
-// count returns the cumulative sample count for the current writer. For fixed-density
-// trackers it derives from dw.Len(), which is shared across control handoff that
-// reuses the same domain.Writer. For variable-length trackers it returns the
-// tracker's internal session count, which does not transfer on control handoff.
+// count returns the cumulative sample count visible to the current writer. For
+// fixed-density trackers it derives from dw.Len(); for variable-length trackers it
+// returns the tracker's running session count. Both transfer across control handoff
+// because the underlying domain.Writer and the offsetTracker are shared by every
+// Writer that controls the same region.
 func (t *offsetTracker) count(dw *domain.Writer) int64 {
 	if t.density != 0 {
 		return t.density.SampleCount(telem.Size(dw.Len()))
