@@ -209,6 +209,93 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(lengthPrefixReads).To(BeZero())
 				})
 
+				It("Should rebuild a cold cache without per-sample length-prefix reads", func(ctx SpecContext) {
+					// Write data through one DB instance and close it, then reopen
+					// against the same FS so the second DB starts with an empty
+					// cache. Reads must rebuild the cache by scanning the file,
+					// which is the path the buffered scan optimizes.
+					subFS := MustSucceed(fs.Sub("cold-rebuild"))
+					seedIdx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "cold-rebuild-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					seedData := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("data")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "cold-rebuild-data",
+							DataType: telem.StringT,
+							Index:    seedIdx.Channel().Key,
+						},
+					}))
+					seedData.SetIndex(seedIdx.Index())
+
+					const sampleCount = 200
+					indexSeries := make([]telem.TimeStamp, sampleCount)
+					values := make([]string, sampleCount)
+					for i := range sampleCount {
+						indexSeries[i] = telem.TimeStamp(900+i) * telem.SecondTS
+						values[i] = "rebuild-sample"
+					}
+					Expect(unary.Write(ctx, seedIdx, indexSeries[0],
+						telem.NewSeriesV(indexSeries...),
+					)).To(Succeed())
+					Expect(unary.Write(ctx, seedData, indexSeries[0],
+						telem.NewSeriesV(values...),
+					)).To(Succeed())
+					Expect(seedData.Close()).To(Succeed())
+					Expect(seedIdx.Close()).To(Succeed())
+
+					// Reopen against the same FS. Cache is empty.
+					reopenIdx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      seedIdx.Channel().Key,
+							Name:     "cold-rebuild-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(reopenIdx.Close()).To(Succeed()) }()
+					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+					reopenData := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        rec,
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      seedData.Channel().Key,
+							Name:     "cold-rebuild-data",
+							DataType: telem.StringT,
+							Index:    reopenIdx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(reopenData.Close()).To(Succeed()) }()
+					reopenData.SetIndex(reopenIdx.Index())
+
+					rec.Reset()
+					readEnd := indexSeries[sampleCount-1] + telem.SecondTS
+					frame := MustSucceed(reopenData.Read(ctx, indexSeries[0].Range(readEnd)))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).To(HaveLen(sampleCount))
+
+					// The rebuild walks length prefixes via a buffered scan, so
+					// the recorder should see no 4-byte ReadAts even though the
+					// cache started empty.
+					var lengthPrefixReads int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpReadAt && e.Length == 4 {
+							lengthPrefixReads++
+						}
+					}
+					Expect(lengthPrefixReads).To(BeZero())
+				})
+
 				It("Should populate the cache for both domains across a writer file rollover", func(ctx SpecContext) {
 					subFS := MustSucceed(fs.Sub("rollover-flush"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{

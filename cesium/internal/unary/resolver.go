@@ -10,16 +10,25 @@
 package unary
 
 import (
+	"bufio"
 	"context"
-	"encoding/binary"
 	"io"
 	"slices"
+	"strconv"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"golang.org/x/sync/singleflight"
 )
+
+// scanBufferSize is the buffer size used by buildOffsetTable when scanning
+// length prefixes during a cache miss. Sized so that a single buffered read
+// covers thousands of samples for typical event-rate workloads, amortizing
+// syscall overhead without holding more memory than necessary while concurrent
+// rebuilds run.
+const scanBufferSize = 64 * telem.Kilobyte
 
 // offsetTable stores byte offsets for each sample in a single variable-length
 // domain. Offsets are uint32, matching domain.pointer.size; domains larger than
@@ -70,19 +79,33 @@ func (c *offsetCache) invalidateAll() {
 }
 
 func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeStamp) (*offsetTable, error) {
-	t := &offsetTable{end: end}
-	buf := make([]byte, 4)
-	var pos int64
+	var (
+		t       = &offsetTable{end: end}
+		bufSize = min(scanBufferSize, domainSize)
+		br      = bufio.NewReaderSize(
+			io.NewSectionReader(r, 0, int64(domainSize)),
+			int(bufSize),
+		)
+		lenBuf = make([]byte, 4)
+		pos    int64
+	)
 	for pos+4 <= int64(domainSize) {
-		t.offsets = append(t.offsets, uint32(pos))
-		n, err := r.ReadAt(buf, pos)
-		if err != nil && err != io.EOF {
+		if _, err := io.ReadFull(br, lenBuf); err != nil {
+			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				break
+			}
 			return nil, err
 		}
-		if n < 4 {
-			break
+		t.offsets = append(t.offsets, uint32(pos))
+		length := int64(telem.ByteOrder.Uint32(lenBuf))
+		if length > 0 {
+			if _, err := br.Discard(int(length)); err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return nil, err
+			}
 		}
-		length := int64(binary.LittleEndian.Uint32(buf))
 		pos += 4 + length
 		t.sampleCount++
 	}
@@ -96,6 +119,11 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeSta
 type offsetResolver struct {
 	density telem.Density
 	cache   *offsetCache // nil for fixed-density channels
+	// rebuilds collapses concurrent rebuilds of the same domain into a single
+	// scan. Callers that miss on the same start timestamp wait for the leader
+	// to finish and share its result rather than each opening their own reader
+	// and walking the same length prefixes. Unused for fixed-density channels.
+	rebuilds singleflight.Group
 }
 
 func newOffsetResolver(dt telem.DataType) *offsetResolver {
@@ -114,9 +142,9 @@ func (r *offsetResolver) byteOffset(
 	sampleIdx int64,
 ) (telem.Size, error) {
 	if r.cache == nil {
-		total := r.density.SampleCount(telem.Size(iter.Size()))
+		total := r.density.SampleCount(iter.Size())
 		if sampleIdx >= total {
-			return telem.Size(iter.Size()), nil
+			return iter.Size(), nil
 		}
 		return r.density.Size(sampleIdx), nil
 	}
@@ -125,7 +153,7 @@ func (r *offsetResolver) byteOffset(
 		return 0, err
 	}
 	if sampleIdx >= t.sampleCount {
-		return telem.Size(iter.Size()), nil
+		return iter.Size(), nil
 	}
 	return t.byteOffsetAt(sampleIdx), nil
 }
@@ -135,7 +163,7 @@ func (r *offsetResolver) domainSampleCount(
 	iter *domain.Iterator,
 ) (int64, error) {
 	if r.cache == nil {
-		return r.density.SampleCount(telem.Size(iter.Size())), nil
+		return r.density.SampleCount(iter.Size()), nil
 	}
 	t, err := r.tableFor(ctx, iter)
 	if err != nil {
@@ -150,7 +178,7 @@ func (r *offsetResolver) invalidate() {
 	}
 }
 
-func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t *offsetTable, err error) {
+func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
 	tr := iter.TimeRange()
 	// A pointer's Start is immutable but its End advances as the writer commits more
 	// samples to the same domain. Gate the cache hit on the cached End matching the
@@ -159,17 +187,31 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t
 	if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
 		return cached, nil
 	}
-	rd, err := iter.OpenReader(ctx)
+	// Concurrent callers missing on the same domain collapse into one scan via
+	// singleflight; the leader rebuilds and the waiters share its result.
+	key := strconv.FormatInt(int64(tr.Start), 10)
+	result, err, _ := r.rebuilds.Do(key, func() (any, error) {
+		// Re-check the cache: the leader of a prior call may have populated it
+		// while this goroutine was waiting on the singleflight entry.
+		if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
+			return cached, nil
+		}
+		rd, err := iter.OpenReader(ctx)
+		if err != nil {
+			return nil, err
+		}
+		defer func() { err = errors.Combine(err, rd.Close()) }()
+		t, err := buildOffsetTable(rd, iter.Size(), tr.End)
+		if err != nil {
+			return nil, err
+		}
+		r.cache.set(tr.Start, t)
+		return t, nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errors.Combine(err, rd.Close()) }()
-	t, err = buildOffsetTable(rd, telem.Size(iter.Size()), tr.End)
-	if err != nil {
-		return nil, err
-	}
-	r.cache.set(tr.Start, t)
-	return t, nil
+	return result.(*offsetTable), nil
 }
 
 // newTracker returns a per-writer offsetTracker bound to this resolver, anchored to
@@ -241,7 +283,7 @@ func (t *offsetTracker) record(data []byte, baseByteOffset uint32) {
 	offset := 0
 	for offset+4 <= len(data) {
 		t.domainOffsets = append(t.domainOffsets, baseByteOffset+uint32(offset))
-		length := int(binary.LittleEndian.Uint32(data[offset:]))
+		length := int(telem.ByteOrder.Uint32(data[offset:]))
 		offset += 4 + length
 		t.sessionSamples++
 	}

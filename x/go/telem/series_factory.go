@@ -129,7 +129,7 @@ const variableLengthPrefixSize = 4
 // incrementally rather than using NewSeriesV.
 func MarshalVariableSample(sample []byte) []byte {
 	b := make([]byte, variableLengthPrefixSize+len(sample))
-	binary.LittleEndian.PutUint32(b, uint32(len(sample)))
+	ByteOrder.PutUint32(b, uint32(len(sample)))
 	copy(b[variableLengthPrefixSize:], sample)
 	return b
 }
@@ -139,7 +139,7 @@ func marshalVariable[T VariableSample](data []T) []byte {
 	b := make([]byte, total)
 	offset := 0
 	for _, d := range data {
-		binary.LittleEndian.PutUint32(b[offset:], uint32(len(d)))
+		ByteOrder.PutUint32(b[offset:], uint32(len(d)))
 		offset += variableLengthPrefixSize
 		copy(b[offset:], d)
 		offset += len(d)
@@ -200,7 +200,7 @@ func unmarshalVariable[T VariableSample](b []byte) []T {
 	var data []T
 	offset := 0
 	for offset+variableLengthPrefixSize <= len(b) {
-		length := int(binary.LittleEndian.Uint32(b[offset:]))
+		length := int(ByteOrder.Uint32(b[offset:]))
 		offset += variableLengthPrefixSize
 		if offset+length > len(b) {
 			break
