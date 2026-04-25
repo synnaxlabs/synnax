@@ -58,7 +58,13 @@ type Event struct {
 // behavior of a component without introducing test-only hooks into production
 // code. It is safe for concurrent use.
 type Recorder struct {
+	// FS is the underlying filesystem the Recorder delegates to. Methods that
+	// the Recorder does not need to instrument (Sub aside, all non-Open methods)
+	// pass through to this FS unchanged via promoted embedding.
 	FS
+	// log is the shared append-only event log this Recorder writes to. The same
+	// log pointer is shared across the parent Recorder and every sub-FS derived
+	// from it via Sub, so events from every branch appear in a single timeline.
 	log *eventLog
 }
 
@@ -88,6 +94,10 @@ func (r *Recorder) EventsFor(name string) []Event {
 // derived from it.
 func (r *Recorder) Reset() { r.log.reset() }
 
+// Open opens name on the underlying FS. On success it records an OpOpen event
+// for name and returns a File that records every Read, ReadAt, Write, and
+// WriteAt performed against it into this Recorder's event log. Failed opens
+// return the inner error and are not recorded.
 func (r *Recorder) Open(name string, flag int) (File, error) {
 	f, err := r.FS.Open(name, flag)
 	if err != nil {
@@ -97,6 +107,9 @@ func (r *Recorder) Open(name string, flag int) (File, error) {
 	return &recordingFile{File: f, name: name, log: r.log}, nil
 }
 
+// Sub returns a Recorder rooted at name within the underlying FS. The returned
+// Recorder shares this Recorder's event log, so events generated through it
+// appear in the same timeline as events generated directly through the parent.
 func (r *Recorder) Sub(name string) (FS, error) {
 	inner, err := r.FS.Sub(name)
 	if err != nil {
@@ -105,8 +118,14 @@ func (r *Recorder) Sub(name string) (FS, error) {
 	return &Recorder{FS: inner, log: r.log}, nil
 }
 
+// eventLog is the shared append-only event store backing one or more
+// Recorders. A single log is shared by a parent Recorder and every sub-FS
+// derived from it via Sub.
 type eventLog struct {
-	mu     sync.Mutex
+	// mu guards buffer; held briefly during record, events, and reset so the
+	// log is safe to use from concurrent readers, writers, and observers.
+	mu sync.Mutex
+	// buffer is the recorded events in insertion order.
 	buffer []Event
 }
 
@@ -130,10 +149,19 @@ func (l *eventLog) reset() {
 	l.buffer = nil
 }
 
+// recordingFile wraps a File returned by Recorder.Open so that every read or
+// write performed against it is recorded into the Recorder's event log.
+// Methods the Recorder does not instrument (Close, Truncate, Stat, Sync) pass
+// through to the embedded File unchanged.
 type recordingFile struct {
+	// File is the underlying file the recordingFile delegates to.
 	File
+	// name is the path the file was opened with, used as the Name on every
+	// recorded Event so callers can scope queries to a single file.
 	name string
-	log  *eventLog
+	// log is the shared event log this file records into; the same pointer
+	// held by the Recorder that produced this file.
+	log *eventLog
 }
 
 func (f *recordingFile) ReadAt(p []byte, off int64) (int, error) {
