@@ -427,33 +427,48 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("AutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func(ctx SpecContext) {
+					By("Replacing the DB with a recorder-wrapped FS")
+					Expect(db.Close()).To(Succeed())
+					rec := xfs.NewRecorder(fs)
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              rec,
+						Instrumentation: PanicLogger(),
+					}))
+
 					By("Opening a writer")
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 50 * telem.Millisecond}))
 
-					modTime := MustSucceed(fs.Stat("index.domain")).ModTime()
-
 					By("Writing some data and committing it right after")
+					rec.Reset()
 					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the previous commits have not been persisted")
-					s := MustSucceed(fs.Stat("index.domain"))
-					Expect(s.Size()).To(Equal(int64(0)))
+					By("Asserting the in-interval commits did not write the index file")
+					for _, e := range rec.Events() {
+						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
+							Fail("expected no commits to write index.domain within the persist interval")
+						}
+					}
 
 					By("Sleeping for some time")
 					time.Sleep(time.Duration(50 * telem.Millisecond))
+					rec.Reset()
 					MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
 					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the commits will be persisted the next time we use the method after the set time interval")
-					Eventually(func() time.Time {
-						return MustSucceed(fs.Stat("index.domain")).ModTime()
-					}).ShouldNot(Equal(modTime))
+					By("Asserting the post-interval commit wrote the index file")
+					var indexWrites int
+					for _, e := range rec.Events() {
+						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
+							indexWrites++
+						}
+					}
+					Expect(indexWrites).To(BeNumerically(">", 0))
 
-					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(rec.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
