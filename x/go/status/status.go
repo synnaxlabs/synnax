@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // String returns a formatted string representation of the Status.
@@ -68,6 +69,15 @@ func (s Status[D]) String() string {
 	}
 
 	return b.String()
+}
+
+// Validate checks that the Status has all required fields populated.
+func (s Status[D]) Validate() error {
+	v := validate.New("status.Status")
+	validate.NotEmptyString(v, "key", s.Key)
+	validate.Positive(v, "time", s.Time)
+	validate.NotEmptyString(v, "variant", s.Variant)
+	return v.Error()
 }
 
 var _ gorp.Entry[string] = (*Status[any])(nil)

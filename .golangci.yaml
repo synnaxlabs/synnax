@@ -1,6 +1,7 @@
 version: "2"
 linters:
   enable:
+    - arangolint
     - exptostd
     - modernize
     - perfsprint

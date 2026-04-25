@@ -18,7 +18,6 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/validate"
 )
 
 // Writer is used to create and update statuses within the DB.
@@ -49,7 +48,7 @@ func (w Writer[D]) SetWithParent(
 	if !hasParent {
 		parent = w.group.OntologyID()
 	}
-	if err := w.validate(*s); err != nil {
+	if err := s.Validate(); err != nil {
 		return err
 	}
 	exists, err := gorp.NewRetrieve[string, status.Status[D]]().WhereKeys(s.Key).Exists(ctx, w.tx)
@@ -142,10 +141,3 @@ func (w Writer[D]) DeleteMany(ctx context.Context, keys ...string) error {
 	return nil
 }
 
-func (w Writer[D]) validate(s Status[D]) error {
-	v := validate.New("status.status")
-	validate.NotEmptyString(v, "key", s.Key)
-	validate.Positive(v, "time", s.Time)
-	validate.NotEmptyString(v, "variant", s.Variant)
-	return v.Error()
-}

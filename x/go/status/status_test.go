@@ -28,6 +28,45 @@ func (d CustomDetails) String() string {
 }
 
 var _ = Describe("Status", func() {
+	Describe("Validate", func() {
+		It("Should accept a valid status", func() {
+			s := status.Status[any]{
+				Key:     "test-key",
+				Variant: status.VariantSuccess,
+				Time:    telem.Now(),
+			}
+			Expect(s.Validate()).To(Succeed())
+		})
+
+		DescribeTable("Should reject an invalid status",
+			func(s status.Status[any], expectedMsg string) {
+				Expect(s.Validate()).Error().
+					To(MatchError(ContainSubstring(expectedMsg)))
+			},
+			Entry("missing key",
+				status.Status[any]{Variant: status.VariantSuccess, Time: telem.Now()},
+				"key",
+			),
+			Entry("missing variant",
+				status.Status[any]{Key: "test-key", Time: telem.Now()}, "variant"),
+			Entry("missing time",
+				status.Status[any]{Key: "test-key", Variant: status.VariantSuccess},
+				"time",
+			),
+			Entry("all fields missing", status.Status[any]{}, "key"),
+		)
+
+		It("Should work with typed details", func() {
+			s := status.Status[CustomDetails]{
+				Key:     "test-key",
+				Variant: status.VariantError,
+				Time:    telem.Now(),
+				Details: CustomDetails{Code: 500, Context: "internal"},
+			}
+			Expect(s.Validate()).To(Succeed())
+		})
+	})
+
 	Describe("String", func() {
 		Context("Basic status formatting", func() {
 			It("Should format a basic info status", func() {
