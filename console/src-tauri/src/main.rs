@@ -17,10 +17,29 @@ use std::time::Duration;
 #[cfg(target_os = "macos")]
 use tauri::Emitter;
 
-use tauri::Window;
+use tauri::{AppHandle, Window};
+use tauri::utils::config::WindowConfig;
+use tauri::webview::NewWindowResponse;
+use tauri::WebviewWindowBuilder;
 
 use tauri_plugin_prevent_default::KeyboardShortcut;
 use tauri_plugin_prevent_default::ModifierKey::MetaKey;
+
+#[allow(deprecated)]
+#[tauri::command]
+fn create_webview_window(app: AppHandle, options: WindowConfig) -> Result<(), String> {
+    let app_handle = app.clone();
+    WebviewWindowBuilder::from_config(&app, &options)
+        .map_err(|e| e.to_string())?
+        .on_new_window(move |url, _features| {
+            let _ = tauri_plugin_shell::ShellExt::shell(&app_handle)
+                .open(url.to_string(), None::<tauri_plugin_shell::open::Program>);
+            NewWindowResponse::Deny
+        })
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
+}
 
 #[cfg(target_os = "macos")]
 fn set_transparent_titlebar(win: &Window, transparent: bool) {
@@ -67,6 +86,7 @@ fn main() {
         .shortcut(KeyboardShortcut::with_modifiers("W", &[MetaKey]))
         .build();
     tauri::Builder::default()
+        .invoke_handler(tauri::generate_handler![create_webview_window])
         .on_page_load(|window, _| {
             set_transparent_titlebar(&window.window(), true);
         })
@@ -100,6 +120,21 @@ fn main() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_process::init())
         .setup(|app| {
+            // Create the main window manually so we can attach on_new_window handler
+            let main_window_config = app.config().app.windows.first().cloned()
+                .expect("No window config found");
+            let app_handle_for_main = app.handle().clone();
+            WebviewWindowBuilder::from_config(app.handle(), &main_window_config)
+                .expect("Failed to create main window builder")
+                .on_new_window(move |url, _features| {
+                    #[allow(deprecated)]
+                    let _ = tauri_plugin_shell::ShellExt::shell(&app_handle_for_main)
+                        .open(url.to_string(), None::<tauri_plugin_shell::open::Program>);
+                    NewWindowResponse::Deny
+                })
+                .build()
+                .expect("Failed to build main window");
+
             #[cfg(desktop)]
             app.handle()
                 .plugin(tauri_plugin_updater::Builder::new().build())?;

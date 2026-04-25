@@ -17,6 +17,7 @@ import {
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
+import { invoke } from "@tauri-apps/api/core";
 import {
   emit,
   type Event as TauriEvent,
@@ -47,8 +48,6 @@ import {
 import { MAIN_WINDOW, type WindowProps } from "@/window";
 
 const actionEvent = "drift://action";
-const tauriError = "tauri://error";
-const tauriCreated = "tauri://created";
 const notFound = (key: string): Error => new Error(`Window not found: ${key}`);
 
 //  Prevent the user or a programming error from creating a tiny window.
@@ -76,6 +75,46 @@ const capWindowDimensions = (
 ): Omit<WindowProps, "key"> => {
   const { size, maxSize } = props;
   return { ...props, maxSize: clampDims(maxSize), size: clampDims(size) };
+};
+
+export interface WindowOptions {
+  label: string;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  minWidth?: number;
+  minHeight?: number;
+  maxWidth?: number;
+  maxHeight?: number;
+  titleBarStyle: string;
+  dragDropEnabled: boolean;
+  [key: string]: unknown;
+}
+
+export const buildWindowOptions = (
+  label: string,
+  props: Omit<WindowProps, "key">,
+): WindowOptions => {
+  const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
+  if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
+  if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
+  if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
+  if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
+  return {
+    label,
+    x: position?.x,
+    y: position?.y,
+    width: size?.width,
+    height: size?.height,
+    minWidth: minSize?.width,
+    minHeight: minSize?.height,
+    maxWidth: maxSize?.width,
+    maxHeight: maxSize?.height,
+    titleBarStyle: "overlay",
+    dragDropEnabled: false,
+    ...rest,
+  };
 };
 
 /** @returns the bounding boxes for all available monitors. */
@@ -230,36 +269,16 @@ export class TauriRuntime<
 
   async create(label: string, props: Omit<WindowProps, "key">): Promise<void> {
     props = deep.copy(props);
-    const { size, minSize, maxSize, position, ...rest } = capWindowDimensions(props);
-    if (size?.width != null) size.width = Math.max(size.width, MIN_DIM);
-    if (size?.height != null) size.height = Math.max(size.height, MIN_DIM);
-    if (maxSize?.width != null) maxSize.width = Math.max(maxSize.width, MIN_DIM);
-    if (maxSize?.height != null) maxSize.height = Math.max(maxSize.height, MIN_DIM);
-    if (position != null) {
-      const isVisible = await isPositionVisible(position);
+    if (props.position != null) {
+      const isVisible = await isPositionVisible(props.position);
       if (!isVisible) {
-        position.x = 0;
-        position.y = 0;
+        props.position.x = 0;
+        props.position.y = 0;
       }
     }
     try {
-      const w = new WebviewWindow(label, {
-        x: position?.x,
-        y: position?.y,
-        width: size?.width,
-        height: size?.height,
-        minWidth: minSize?.width,
-        minHeight: minSize?.height,
-        maxWidth: maxSize?.width,
-        maxHeight: maxSize?.height,
-        titleBarStyle: "overlay",
-        dragDropEnabled: false,
-        ...rest,
-      });
-      return await new Promise<void>((resolve, reject) => {
-        void w.once(tauriError, (e) => reject(new Error(JSON.stringify(e.payload))));
-        void w.once(tauriCreated, () => resolve());
-      });
+      const options = buildWindowOptions(label, props);
+      await invoke("create_webview_window", { options });
     } catch (e) {
       console.error(e);
     }
