@@ -17,51 +17,43 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Retrieve is used to retrieve Role records from the database using a
+// builder pattern for constructing queries.
+type Retrieve struct {
+	baseTX gorp.Tx
+	gorp   gorp.Retrieve[Key, Role]
+}
+
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
 // construct one from a closure.
-type Filter func(r Retrieve) gorp.Filter[Key, Role]
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
+// composition helpers (Match / And / Or / Not) can be one-line wrappers
+// around their gorp.*Bound counterparts instead of re-emitting closure
+// plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, Key, Role]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
-func Match(
-	f func(ctx gorp.Context, r Retrieve, e *Role) (bool, error),
-) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
-		return gorp.Match(func(ctx gorp.Context, e *Role) (bool, error) {
-			return f(ctx, r, e)
-		})
-	}
+func Match(f func(ctx gorp.Context, r Retrieve, e *Role) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, Key, Role](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
-		inner := make([]gorp.Filter[Key, Role], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
+	return gorp.AndBound[Retrieve, Key, Role](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
-		inner := make([]gorp.Filter[Key, Role], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
+	return gorp.OrBound[Retrieve, Key, Role](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Role] {
-		return gorp.Not(f(r))
-	}
+	return gorp.NotBound[Retrieve, Key, Role](f)
 }
 
 // WhereKeys filters for roles whose key matches any of the provided keys.

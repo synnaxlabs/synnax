@@ -21,47 +21,32 @@ import (
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
 // from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
 // construct one from a closure.
-type Filter func(r Retrieve) gorp.Filter[Key, Policy]
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
+// composition helpers (Match / And / Or / Not) can be one-line wrappers
+// around their gorp.*Bound counterparts instead of re-emitting closure
+// plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, Key, Policy]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
-func Match(
-	f func(ctx gorp.Context, r Retrieve, e *Policy) (bool, error),
-) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
-		return gorp.Match(func(ctx gorp.Context, e *Policy) (bool, error) {
-			return f(ctx, r, e)
-		})
-	}
+func Match(f func(ctx gorp.Context, r Retrieve, e *Policy) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, Key, Policy](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
-		inner := make([]gorp.Filter[Key, Policy], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
+	return gorp.AndBound[Retrieve, Key, Policy](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
-		inner := make([]gorp.Filter[Key, Policy], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
+	return gorp.OrBound[Retrieve, Key, Policy](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return func(r Retrieve) gorp.Filter[Key, Policy] {
-		return gorp.Not(f(r))
-	}
+	return gorp.NotBound[Retrieve, Key, Policy](f)
 }
 
 // WhereKeys filters for policies whose key matches any of the provided keys.

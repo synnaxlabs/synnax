@@ -157,7 +157,7 @@ func newLazyMembership[K Key](
 // (and And/Or composition) can wrap them in a lazyMembership whose
 // first-probe build produces a typed O(1) membership predicate.
 func indexedKeyMembership[K IndexKey](keys []K) keyMembership[K] {
-	return set.FromSlice(keys)
+	return set.New(keys...)
 }
 
 // bytesIndexedKeyMembership is the build function counterpart to
