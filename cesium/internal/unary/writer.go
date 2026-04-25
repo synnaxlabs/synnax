@@ -190,9 +190,11 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		cfg:       cfg,
 		Channel:   db.cfg.Channel,
 		idx:       db.index(),
-		tracker:   db.resolver.newTracker(),
+		tracker:   db.resolver.newTracker(cfg.Start),
 		wrapError: db.wrapError,
 	}
+	domainCfg := cfg.domain()
+	domainCfg.OnRollover = w.tracker.rollover
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
 		ErrIfControlled:       new(false),
 		ErrOnUnauthorizedOpen: cfg.ErrOnUnauthorizedOpen,
@@ -200,7 +202,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
 		OpenResource: func() (*controlledWriter, error) {
-			dw, err := db.domain.OpenWriter(ctx, cfg.domain())
+			dw, err := db.domain.OpenWriter(ctx, domainCfg)
 			cw := &controlledWriter{
 				Writer:     dw,
 				channelKey: db.cfg.Channel.Key,
@@ -259,7 +261,7 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		baseOffset := uint32(dw.Len())
+		baseOffset := uint32(w.tracker.domainBytes)
 		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.tracker.count(dw.Writer)))
 		dw.storeAlignment(a)
 		w.tracker.record(series.Data, baseOffset)
@@ -320,6 +322,10 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 	if end.IsZero() {
 		// Subtract 1 because we want the timestamp of the last written sample.
+		// Anchor on cfg.Start (the writer's session start, always a real index
+		// timestamp) and use the cumulative session sample count, since after a
+		// rollover the per-domain start is "previous commit end + 1ns" which is
+		// not a sample boundary in the index.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,
@@ -344,7 +350,7 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	if err := dw.Commit(ctx, end); err != nil {
 		return 0, err
 	}
-	w.tracker.publish(w.cfg.Start, end)
+	w.tracker.publish(end)
 	return end, nil
 }
 

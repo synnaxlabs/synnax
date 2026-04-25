@@ -209,6 +209,80 @@ var _ = Describe("Variable-length channel", func() {
 					Expect(lengthPrefixReads).To(BeZero())
 				})
 
+				It("Should populate the cache for both domains across a writer file rollover", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("rollover-flush"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "rollover-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+						FileSize: 40 * telem.Byte,
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        rec,
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "rollover-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+						FileSize: 40 * telem.Byte,
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					// Seed the index with enough timestamps to back two data domains.
+					Expect(unary.Write(ctx, idx, 800*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(800, 801, 802, 803, 804, 805),
+					)).To(Succeed())
+
+					// Open one data writer session that crosses a rollover.
+					iw, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:   800 * telem.SecondTS,
+						Subject: xcontrol.Subject{Key: "rollover-flush"},
+					}))
+					// First batch: enough length-prefixed bytes to push the data file
+					// past the 40-byte rollover threshold on the next commit.
+					MustSucceed(iw.Write(telem.NewSeriesV(
+						"sampleA", "sampleB", "sampleC", "sampleD", "sampleE",
+					)))
+					MustSucceed(iw.Commit(ctx))
+					// Second batch lands in the second domain.
+					MustSucceed(iw.Write(telem.NewSeriesV("sampleF")))
+					MustSucceed(iw.Commit(ctx))
+					MustSucceed(iw.Close())
+
+					rec.Reset()
+					frame := MustSucceed(data.Read(ctx,
+						(800 * telem.SecondTS).Range(806*telem.SecondTS),
+					))
+					var got []string
+					for i := 0; i < frame.Count(); i++ {
+						got = append(got, telem.UnmarshalSeries[string](frame.SeriesAt(i))...)
+					}
+					Expect(got).To(Equal([]string{
+						"sampleA", "sampleB", "sampleC", "sampleD", "sampleE", "sampleF",
+					}))
+
+					// Both domains' caches should have been published on commit /
+					// rollover, so the read should not perform any length-prefix
+					// scans on either data file.
+					var lengthPrefixReads int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpReadAt && e.Length == 4 {
+							lengthPrefixReads++
+						}
+					}
+					Expect(lengthPrefixReads).To(BeZero())
+				})
+
 				It("Should rebuild the cached offset table after the domain grows", func(ctx SpecContext) {
 					subFS := MustSucceed(fs.Sub("cache-refresh"))
 					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
