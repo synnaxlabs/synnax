@@ -898,10 +898,9 @@ using NowFunc = std::function<TimeStamp()>;
 /// timestamp than the previous one by bumping by 1 nanosecond when necessary.
 class MonoClock {
 public:
-    /// @brief constructs a MonoClock with an optional custom time source.
-    /// If source is null, defaults to TimeStamp::now.
-    explicit MonoClock(NowFunc source = nullptr):
-        source(source ? std::move(source) : NowFunc([] { return TimeStamp::now(); })) {}
+    /// @brief constructs a MonoClock with an optional custom time source,
+    /// defaulting to TimeStamp::now.
+    explicit MonoClock(NowFunc source = TimeStamp::now): source(std::move(source)) {}
 
     /// @brief returns a timestamp strictly greater than any previous call.
     TimeStamp now() {
