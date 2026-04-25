@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp, zod } from "@synnaxlabs/x";
+import { id, TimeStamp, zod } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type rack } from "@/rack";
@@ -76,6 +76,15 @@ describe("Rack", () => {
       const retrieved = await client.racks.retrieve({ name });
       expect(retrieved.key).toBe(r.key);
       expect(retrieved.name).toEqual(name);
+    });
+    it("should retrieve racks by search term", async () => {
+      const prefix = `searchable-rack-${id.create()}`;
+      await client.racks.create([{ name: `${prefix}-1` }, { name: `${prefix}-2` }]);
+      await expect
+        .poll(async () => (await client.racks.retrieve({ searchTerm: prefix })).length)
+        .toBeGreaterThanOrEqual(2);
+      const results = await client.racks.retrieve({ searchTerm: prefix });
+      expect(results.every((r) => r.name.includes(prefix))).toBe(true);
     });
   });
   describe("integrations", () => {
