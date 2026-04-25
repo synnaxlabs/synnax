@@ -898,9 +898,14 @@ using NowFunc = std::function<TimeStamp()>;
 /// timestamp than the previous one by bumping by 1 nanosecond when necessary.
 class MonoClock {
 public:
-    /// @brief constructs a MonoClock with an optional custom time source,
-    /// defaulting to TimeStamp::now.
-    explicit MonoClock(NowFunc source = TimeStamp::now): source(std::move(source)) {}
+    /// @brief constructs a MonoClock with an optional custom time source.
+    /// If source is null or empty, defaults to TimeStamp::now. The runtime
+    /// nullptr guard (rather than a default argument) mirrors Go's
+    /// MonoClock.Now nil check, so callers that forward an explicit
+    /// NowFunc{nullptr} (e.g. via their own defaulted parameter) still get
+    /// a valid clock instead of std::bad_function_call on the first now().
+    explicit MonoClock(NowFunc source = nullptr):
+        source(source ? std::move(source) : NowFunc(TimeStamp::now)) {}
 
     /// @brief returns a timestamp strictly greater than any previous call.
     TimeStamp now() {
