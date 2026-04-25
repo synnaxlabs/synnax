@@ -500,6 +500,47 @@ var _ = Describe("File Controller", Ordered, func() {
 					Expect(r2.Close()).To(Succeed())
 					Expect(i.Close()).To(Succeed())
 				})
+
+				It("Should reuse reader file handles across sequential acquires of the same file", func(ctx SpecContext) {
+					rec := xfs.NewRecorder(fs)
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              rec,
+						FileSize:        1 * telem.Megabyte,
+						Instrumentation: PanicLogger(),
+					}))
+
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start: 10 * telem.SecondTS,
+						End:   20 * telem.SecondTS,
+					}))
+					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
+					Expect(w.Close()).To(Succeed())
+
+					// Reset after writes to scope the assertion to reader I/O.
+					rec.Reset()
+
+					// Acquire-and-release sequentially: each iteration releases
+					// its reader before the next acquire, so the file
+					// controller's pool should hand back the same underlying
+					// handle every time.
+					const acquires = 8
+					for range acquires {
+						i := db.OpenIterator(domain.IteratorConfig{Bounds: telem.TimeRangeMax})
+						Expect(i.SeekFirst(ctx)).To(BeTrue())
+						r := MustSucceed(i.OpenReader(ctx))
+						Expect(r.Close()).To(Succeed())
+						Expect(i.Close()).To(Succeed())
+					}
+
+					var dataFileOpens int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpOpen && e.Name == "1.domain" {
+							dataFileOpens++
+						}
+					}
+					Expect(dataFileOpens).To(Equal(1))
+				})
 			})
 		})
 	}

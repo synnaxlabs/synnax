@@ -19,13 +19,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/x/io/fs"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-func extractPointer(f fs.File) (p struct {
+func extractPointer(f xfs.File) (p struct {
 	telem.TimeRange
 	fileKey uint16
 	offset  uint32
@@ -57,7 +57,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 		Context("FS: "+fsName, func() {
 			var (
 				db      *domain.DB
-				fs      fs.FS
+				fs      xfs.FS
 				cleanUp func() error
 			)
 			BeforeEach(func() {
@@ -552,6 +552,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Closing the writer")
 					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should not write the index file on commits within the persist interval", func(ctx SpecContext) {
+					rec := xfs.NewRecorder(fs)
+					recDB := MustSucceed(domain.Open(domain.Config{FS: rec, FileSize: 1 * telem.Megabyte, Instrumentation: PanicLogger()}))
+					defer func() { Expect(recDB.Close()).To(Succeed()) }()
+
+					w := MustSucceed(recDB.OpenWriter(ctx, domain.WriterConfig{
+						Start:                    100 * telem.SecondTS,
+						AutoIndexPersistInterval: 1 * telem.Hour,
+					}))
+					rec.Reset()
+
+					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					Expect(w.Commit(ctx, 110*telem.SecondTS+1)).To(Succeed())
+					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					Expect(w.Commit(ctx, 120*telem.SecondTS+1)).To(Succeed())
+					// Within the persist interval, the index file should not be
+					// touched by commits. Capture the event log before Close
+					// since Close itself flushes any unpersisted state.
+					events := rec.Events()
+					Expect(w.Close()).To(Succeed())
+					for _, e := range events {
+						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
+							Fail("expected no commits to write index.domain within the persist interval")
+						}
+					}
 				})
 			})
 			Describe("Close", func() {

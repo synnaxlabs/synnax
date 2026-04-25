@@ -131,6 +131,43 @@ var _ = Describe("Write", func() {
 
 		})
 
+		Describe("FS Interaction", func() {
+			It("Should not produce any data writes to the underlying FS", func(ctx SpecContext) {
+				// Virtual channels are defined as not persisting data; this
+				// test pins that contract directly by recording every Open,
+				// Read, ReadAt, Write, and WriteAt against the underlying FS
+				// and asserting that nothing is written during the writer's
+				// session.
+				rec := fs.NewRecorder(fs.NewMem())
+				virtualDB := MustSucceed(virtual.Open(ctx, virtual.Config{
+					MetaCodec: codec,
+					Channel: channel.Channel{
+						Name:     "virtual-fs-check",
+						Key:      99,
+						DataType: telem.TimeStampT,
+						Virtual:  true,
+					},
+					FS: rec,
+				}))
+				rec.Reset()
+
+				w, _ := MustSucceed2(virtualDB.OpenWriter(ctx, virtual.WriterConfig{
+					Start:     10 * telem.SecondTS,
+					Authority: control.AuthorityAbsolute,
+					Subject:   control.Subject{Key: "fs-check"},
+				}))
+				MustSucceed(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14)))
+				MustSucceed(w.Close())
+				Expect(virtualDB.Close()).To(Succeed())
+
+				for _, e := range rec.Events() {
+					Expect(e.Op).ToNot(BeElementOf(fs.OpWrite, fs.OpWriteAt),
+						"virtual channel produced a write to %q at offset %d length %d",
+						e.Name, e.Offset, e.Length)
+				}
+			})
+		})
+
 		Describe("SetAuthority", func() {
 			It("Should correctly set the authority of the writer", func(ctx SpecContext) {
 				w1, t := MustSucceed2(db.OpenWriter(ctx, virtual.WriterConfig{
