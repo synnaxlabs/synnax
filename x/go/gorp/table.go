@@ -22,6 +22,8 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
@@ -83,7 +85,11 @@ func OpenTable[K Key, E Entry[K]](
 		if err = populateIndexes[K, E](ctx, cfg.DB, cfg.Indexes); err != nil {
 			return nil, err
 		}
-		t.disconnectObserver = attachIndexObserver[K, E](cfg.DB, cfg.Indexes)
+		t.disconnectObserver = attachIndexObserver[K, E](
+			override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.options.IndexObservable),
+			cfg.DB,
+			cfg.Indexes,
+		)
 	}
 	return t, nil
 }
@@ -129,25 +135,29 @@ func populateIndexes[K Key, E Entry[K]](
 	return nil
 }
 
-// attachIndexObserver wires a single observer onto the table's underlying KV
-// store that fans every set/delete into every registered index. The returned
-// disconnect function unregisters the observer; it is invoked by Table.Close.
-func attachIndexObserver[K Key, E Entry[K]](db *DB, indexes []Index[K, E]) func() {
-	observable := newObservable[K, E](db)
-	return observable.OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
-		for ch := range changes {
-			switch ch.Variant {
-			case change.VariantSet:
-				for _, idx := range indexes {
-					idx.set(ch.Key, ch.Value)
-				}
-			case change.VariantDelete:
-				for _, idx := range indexes {
-					idx.delete(ch.Key)
+// attachIndexObserver subscribes to src and fans every set/delete into every
+// registered index. db is used only for entry decoding. The returned disconnect
+// function unregisters the observer; it is invoked by Table.Close.
+func attachIndexObserver[K Key, E Entry[K]](
+	src observe.Observable[kv.TxReader],
+	db *DB,
+	indexes []Index[K, E],
+) func() {
+	return newObservable[K, E](src, db).
+		OnChange(func(_ context.Context, changes iter.Seq[change.Change[K, E]]) {
+			for ch := range changes {
+				switch ch.Variant {
+				case change.VariantSet:
+					for _, idx := range indexes {
+						idx.set(ch.Key, ch.Value)
+					}
+				case change.VariantDelete:
+					for _, idx := range indexes {
+						idx.delete(ch.Key)
+					}
 				}
 			}
-		}
-	})
+		})
 }
 
 // NewCreate returns a Create query builder bound to this Table's
