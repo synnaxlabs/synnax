@@ -15,6 +15,7 @@ import {
   reducer,
   SLICE_NAME,
   type StoreState,
+  ZERO_ANNOTATIONS_STATE,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/lineplot/slice";
@@ -29,6 +30,20 @@ describe("Lineplot Slice", () => {
       preloadedState: { [SLICE_NAME]: ZERO_SLICE_STATE },
     });
     store.dispatch(actions.create({ ...ZERO_STATE, key: plotKey }));
+  });
+
+  describe("create", () => {
+    it("should fill annotations with the default when absent from a v4 payload", () => {
+      const { annotations: _omit, ...withoutAnnotations } = ZERO_STATE;
+      const key = "plot-without-annotations";
+      // @ts-expect-error: simulate a persisted/imported v4 payload that predates
+      // the annotations field. The type forbids this shape, but the runtime
+      // reducer must defensively fill in defaults via the zod schema.
+      store.dispatch(actions.create({ ...withoutAnnotations, key }));
+      expect(store.getState()[SLICE_NAME].plots[key].annotations).toEqual(
+        ZERO_ANNOTATIONS_STATE,
+      );
+    });
   });
 
   describe("setRangeAnnotationsVisible", () => {
