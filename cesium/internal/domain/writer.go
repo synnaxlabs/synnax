@@ -89,9 +89,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.End = override.Zero(w.End, other.End)
 	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
 	w.AutoIndexPersistInterval = override.Zero(w.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
-	if other.OnRollover != nil {
-		w.OnRollover = other.OnRollover
-	}
+	w.OnRollover = override.Nil(w.OnRollover, other.OnRollover)
 	return w
 }
 
