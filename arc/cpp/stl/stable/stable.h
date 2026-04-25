@@ -66,9 +66,7 @@ public:
         runtime::state::Node &&state,
         x::telem::NowFunc now = nullptr
     ):
-        state(std::move(state)),
-        cfg(cfg),
-        clock(std::move(now)) {}
+        state(std::move(state)), cfg(cfg), clock(std::move(now)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
