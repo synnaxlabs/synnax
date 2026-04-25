@@ -14,15 +14,18 @@ from framework.utils import create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_BANG_BANG_SOURCE = """
-authority (press_vlv_cmd 210 vent_vlv_cmd 210)
+authority (
+    press_vlv_cmd 210
+    vent_vlv_cmd 210
+)
 
 func high_bang{
     sensor chan f32,
     set_point f32,
     lower_deadband f32,
     upper_deadband f32,
-    abort_threshold f32
-}() u8 {
+    abort_threshold f32,
+} () u8 {
     state u8 $= 0
     if sensor > (set_point + upper_deadband) {
         state = 0
@@ -40,8 +43,8 @@ func low_bang{
     set_point f32,
     lower_deadband f32,
     upper_deadband f32,
-    abort_threshold f32
-}() u8 {
+    abort_threshold f32,
+} () u8 {
     state u8 $= 0
     if sensor < (set_point - lower_deadband) {
         state = 1
@@ -56,32 +59,32 @@ func low_bang{
 
 sequence bang_bang_controller {
     stage start {
-        set_authority{value=220, channel=press_vlv_cmd},
-        set_authority{value=220, channel=vent_vlv_cmd},
+        set_authority{value=220, channel=press_vlv_cmd}
+        set_authority{value=220, channel=vent_vlv_cmd}
         interval{200ms} -> high_bang{
             sensor=press_pt,
             set_point=50,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
-        } -> press_vlv_cmd,
+        } -> press_vlv_cmd
         interval{200ms} -> low_bang{
             sensor=press_pt,
             set_point=10,
             lower_deadband=5,
             upper_deadband=5,
             abort_threshold=100
-        } -> vent_vlv_cmd,
+        } -> vent_vlv_cmd
         bb_stop_cmd => stop
     }
     stage stop {
-        0 -> press_vlv_cmd,
-        0 -> vent_vlv_cmd,
+        0 -> press_vlv_cmd
+        0 -> vent_vlv_cmd
         wait{250ms} => yield
     }
     stage yield {
-        set_authority{value=0, channel=press_vlv_cmd},
-        set_authority{value=0, channel=vent_vlv_cmd},
+        set_authority{value=0, channel=press_vlv_cmd}
+        set_authority{value=0, channel=vent_vlv_cmd}
         bb_start_cmd => start
     }
 }

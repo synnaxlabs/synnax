@@ -27,6 +27,20 @@ inline bool operator==(const Handle &lhs, const Handle &rhs) {
 inline bool operator==(const Edge &lhs, const Edge &rhs) {
     return lhs.source == rhs.source && lhs.target == rhs.target && lhs.kind == rhs.kind;
 }
+
+/// @brief builds a leaf Member referencing the node with the given key.
+inline Member node_member(std::string key) {
+    Member m;
+    m.node_key = std::move(key);
+    return m;
+}
+
+/// @brief builds a Member wrapping the given nested Scope.
+inline Member scope_member(Scope s) {
+    Member m;
+    m.scope = x::mem::indirect<Scope>(std::move(s));
+    return m;
+}
 }
 
 template<>

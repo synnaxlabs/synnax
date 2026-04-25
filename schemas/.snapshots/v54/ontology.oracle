@@ -86,11 +86,11 @@ Resource struct {
     }
     name string  {
         @doc value  "is a human-readable name for the resource."
-        @go marshal skip
+        @go marshal omit
     }
     data record? {
         @doc value  "is optional metadata associated with the resource."
-        @go marshal skip
+        @go marshal omit
     }
 
     @doc value  """

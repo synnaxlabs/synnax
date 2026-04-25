@@ -63,7 +63,7 @@ func (c *constant) Next(ctx node.Context) {
 	*d = telem.NewSeriesFromAny(c.value, d.DataType)
 	t := c.OutputTime(0)
 	*t = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (c *constant) Reset() { c.initialized = false }

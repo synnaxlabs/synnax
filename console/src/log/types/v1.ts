@@ -24,6 +24,7 @@ export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
   notation: "standard",
   precision: -1,
   alias: "",
+  timestamp: { format: "preciseDate", tz: "local" },
 };
 
 export const channelEntryZ = channelConfigZ.extend({
@@ -36,6 +37,16 @@ export const ZERO_CHANNEL_ENTRY: ChannelEntry = {
   channel: 0,
 };
 
+export const toolbarTabZ = z.enum(["channels", "properties"]);
+export type ToolbarTab = z.infer<typeof toolbarTabZ>;
+
+export const toolbarStateZ = z.object({
+  activeTab: toolbarTabZ.default("channels"),
+});
+export type ToolbarState = z.infer<typeof toolbarStateZ>;
+
+export const ZERO_TOOLBAR_STATE: ToolbarState = { activeTab: "channels" };
+
 export const stateZ = z.object({
   key: z.string(),
   version: z.literal(VERSION),
@@ -44,6 +55,7 @@ export const stateZ = z.object({
   timestampPrecision: z.number().min(0).max(3).default(0),
   showChannelNames: z.boolean().default(true),
   showReceiptTimestamp: z.boolean().default(true),
+  toolbar: toolbarStateZ.default(ZERO_TOOLBAR_STATE),
 });
 export type State = z.infer<typeof stateZ>;
 
@@ -55,6 +67,7 @@ export const ZERO_STATE: State = {
   timestampPrecision: 0,
   showChannelNames: true,
   showReceiptTimestamp: true,
+  toolbar: ZERO_TOOLBAR_STATE,
 };
 
 export const sliceStateZ = z.object({
@@ -76,6 +89,7 @@ export const stateMigration = migrate.createMigration<v0.State, State>({
     timestampPrecision: 0,
     showChannelNames: true,
     showReceiptTimestamp: true,
+    toolbar: ZERO_TOOLBAR_STATE,
     channels: state.channels.map((key) => ({
       channel: key,
       ...ZERO_CHANNEL_CONFIG,

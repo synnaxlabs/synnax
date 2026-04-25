@@ -522,7 +522,7 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
 	total, err := i.resolver.domainSampleCount(ctx, i.internal)
 	if err != nil {
-		return endApprox, err
+		return index.DistanceApproximation{}, err
 	}
 	endApprox.Approximation = index.Exactly(total)
 	if i.internal.TimeRange().End.After(i.view.End) {

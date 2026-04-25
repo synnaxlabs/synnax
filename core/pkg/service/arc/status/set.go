@@ -64,57 +64,15 @@ func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, erro
 }
 
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
-	f := &statusFactory{stat: m.stat}
-	return f.Create(ctx, cfg)
-}
-
-type setStatus struct {
-	statusSvc *status.Service
-	ins       alamos.Instrumentation
-	stat      status.Status[any]
-}
-
-func (s *setStatus) Init(node.Context) {}
-
-func (s *setStatus) Reset() {}
-
-func (s *setStatus) IsOutputTruthy(output string) bool {
-	return false
-}
-
-func (s *setStatus) Next(ctx node.Context) {
-	s.stat.Time = telem.Now()
-	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
-		s.ins.L.Error("error setting status", zap.Error(err))
-	}
-}
-
-type statusFactory struct {
-	stat *status.Service
-}
-
-var schema = zyn.Object(map[string]zyn.Schema{
-	"status_key": zyn.String(),
-	"message":    zyn.String(),
-	"variant":    zyn.String(),
-})
-
-type nodeConfig struct {
-	StatusKey string `json:"status_key"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-}
-
-func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {
 		return nil, query.ErrNotFound
 	}
-	var nodeCfg nodeConfig
-	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
+	var nodeCfg setNodeConfig
+	if err := setNodeConfigSchema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
 		return nil, err
 	}
 	var stat status.Status[any]
-	if err := s.stat.NewRetrieve().
+	if err := m.stat.NewRetrieve().
 		WhereKeys(nodeCfg.StatusKey).
 		Entry(&stat).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
@@ -123,5 +81,36 @@ func (s *statusFactory) Create(ctx context.Context, cfg node.Config) (node.Node,
 	stat.Key = nodeCfg.StatusKey
 	stat.Message = nodeCfg.Message
 	stat.Variant = xstatus.Variant(nodeCfg.Variant)
-	return &setStatus{ins: cfg.Instrumentation, stat: stat, statusSvc: s.stat}, nil
+	return &setNode{ins: cfg.Instrumentation, stat: stat, statusSvc: m.stat}, nil
+}
+
+type setNodeConfig struct {
+	StatusKey string `json:"status_key"`
+	Message   string `json:"message"`
+	Variant   string `json:"variant"`
+}
+
+var setNodeConfigSchema = zyn.Object(map[string]zyn.Schema{
+	"status_key": zyn.String(),
+	"message":    zyn.String(),
+	"variant":    zyn.String(),
+})
+
+type setNode struct {
+	statusSvc *status.Service
+	ins       alamos.Instrumentation
+	stat      status.Status[any]
+}
+
+func (s *setNode) Init(node.Context) {}
+
+func (s *setNode) Reset() {}
+
+func (s *setNode) IsOutputTruthy(int) bool { return false }
+
+func (s *setNode) Next(ctx node.Context) {
+	s.stat.Time = telem.Now()
+	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
+		s.ins.L.Error("error setting status", zap.Error(err))
+	}
 }

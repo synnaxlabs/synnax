@@ -62,7 +62,7 @@ jobs:
 
       - name: Force Quit Existing Synnax Processes
         continue-on-error: true
-        run: integration/scripts/kill_synnax_processes_unix.sh
+        run: integration/scripts/kill_synnax_processes.sh
 
       - name: Login to GitHub Container Registry
         run:
@@ -100,24 +100,20 @@ jobs:
           fi
 
       - name: Install Rust
-        run: rustup update
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Update Submodules
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: false
           disk-cache: false
           repository-cache: false
 
       - name: Install Clang Format
-        run: |
-          sudo bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
-          sudo apt-get install -y clang-format-20
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-20 100
-          sudo update-alternatives --set clang-format /usr/bin/clang-format-20
+        run: scripts/install_clang_format.sh
 
       - name: Check Formatting
         run: scripts/check_clang_format.sh arc/cpp
@@ -149,7 +145,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Setup Bazel
-        uses: bazel-contrib/setup-bazel@0.18.0
+        uses: bazel-contrib/setup-bazel@0.19.0
         with:
           bazelisk-cache: false
           disk-cache: false

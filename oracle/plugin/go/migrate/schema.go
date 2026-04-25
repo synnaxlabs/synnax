@@ -10,6 +10,7 @@
 package migrate
 
 import (
+	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/output"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/set"
@@ -52,6 +53,10 @@ func typesEqual(
 				return false
 			}
 			if !refsEqual(of.Type, nf.Type, oldTable, newTable, visiting) {
+				return false
+			}
+			if domain.GetStringFromField(of, "go", "marshal") !=
+				domain.GetStringFromField(nf, "go", "marshal") {
 				return false
 			}
 		}
@@ -270,6 +275,10 @@ func diffStructFields(
 			diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindTypeChanged, OldField: &of, NewField: &nf})
 			selfChanged = true
 			continue
+		}
+		if domain.GetStringFromField(of, "go", "marshal") !=
+			domain.GetStringFromField(nf, "go", "marshal") {
+			selfChanged = true
 		}
 		diffs = append(diffs, FieldDiff{Name: of.Name, Kind: FieldKindUnchanged, OldField: &of, NewField: &nf})
 	}

@@ -59,7 +59,8 @@ Status struct<Details?, V extends Variant = Variant> {
         @go marshal json_only
     }
     labels      label.Label[]?  {
-        @doc value "contains optional labels for categorization and filtering."
+        @doc value  "contains optional labels for categorization and filtering."
+        @go marshal omit
     }
 
     @doc value         """
@@ -68,6 +69,7 @@ Status struct<Details?, V extends Variant = Variant> {
         and can carry component-specific details.
     """
     @ts concrete_types
+    @go migrate
 }
 
 GoSVCStatus<Details?> = Status<Details?> {

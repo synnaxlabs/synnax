@@ -415,11 +415,7 @@ func processStruct(
 		sd.IsGeneric = true
 		data.imports.addTyping("Generic")
 		data.imports.addTyping("TypeVar")
-		for _, tp := range form.TypeParams {
-			// Type params with defaults are skipped (they get substituted with default value)
-			if tp.HasDefault() {
-				continue
-			}
+		for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 			tpd := processTypeParam(tp, table, data)
 			sd.TypeParams = append(sd.TypeParams, tpd)
 

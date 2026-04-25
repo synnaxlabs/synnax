@@ -253,11 +253,16 @@ func BootupCore(ctx context.Context, onServerStarted chan struct{}, cfgs ...Core
 	grpcAPI, grpcAPITrans := grpcapi.NewTransport(distributionLayer.Channel)
 	apiLayer.BindTo(grpcAPI)
 
+	var embeddedConsole *console.Console
+	if embeddedConsole, err = console.New(); !ok(err, nil) {
+		return err
+	}
+
 	if rootServer, err = server.Serve(
 		server.Config{
 			Branches: []server.Branch{
 				&server.SecureHTTPBranch{
-					Transports: []http.BindableTransport{r, console.NewService()},
+					Transports: []http.BindableTransport{r, embeddedConsole},
 				},
 				&server.GRPCBranch{Transports: slices.Concat(
 					grpcAPITrans,

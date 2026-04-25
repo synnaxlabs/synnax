@@ -66,6 +66,7 @@ class LinePlot(ConsoleCase):
         self.test_drag_channel_to_toolbar(plot)
         self.test_download_csv(plot, data_name)
         self.test_create_range_from_selection(plot, suffix)
+        self.test_toggle_range_annotation_visibility(plot)
         self.test_export_json(plot, data_name)
 
         plot_link = self.test_copy_link(plot)
@@ -204,6 +205,21 @@ class LinePlot(ConsoleCase):
         assert created_range.name == range_name, (
             f"Range name mismatch: {created_range.name}"
         )
+
+    def test_toggle_range_annotation_visibility(self, plot: Plot) -> None:
+        """Test toggling range annotation visibility from the plot controls."""
+        self.log("Testing toggle range annotation visibility")
+
+        # test_create_range_from_selection left a range within the plot viewport,
+        # so the annotation toggle should be present and on by default.
+        plot.wait_for_annotation_toggle()
+        plot.expect_annotations_visible(True)
+
+        plot.toggle_annotation_visibility()
+        plot.expect_annotations_visible(False)
+
+        plot.toggle_annotation_visibility()
+        plot.expect_annotations_visible(True)
 
     def test_copy_link(self, plot: Plot) -> str:
         """Test copying a link to the line plot via toolbar button.

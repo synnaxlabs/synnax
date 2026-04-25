@@ -13,11 +13,17 @@ import { Access, Icon, Log as Base, usePrevious } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 
-import { EmptyAction } from "@/components";
+import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
 import { select, useSelect, useSelectVersion } from "@/log/selectors";
-import { internalCreate, setRemoteCreated, type State, ZERO_STATE } from "@/log/slice";
+import {
+  internalCreate,
+  setActiveToolbarTab,
+  setRemoteCreated,
+  type State,
+  ZERO_STATE,
+} from "@/log/slice";
 import { Selector } from "@/selector";
 import { Workspace } from "@/workspace";
 
@@ -45,6 +51,7 @@ export const useSyncComponent = Workspace.createSyncComponent(
 
 const DEFAULT_RETENTION = TimeSpan.days(1);
 const PRELOAD = TimeSpan.seconds(30);
+const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
@@ -77,6 +84,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [winKey, dispatch]);
 
+  const handleConfigureChannels = useCallback(() => {
+    dispatch(setActiveToolbarTab({ key: layoutKey, tab: "channels" }));
+    handleDoubleClick();
+  }, [dispatch, layoutKey, handleDoubleClick]);
+
   return (
     <Base.Log
       telem={t}
@@ -85,6 +97,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       showReceiptTimestamp={log.showReceiptTimestamp}
       timestampPrecision={log.timestampPrecision}
       onDoubleClick={handleDoubleClick}
+      extraContextMenuItems={EXTRA_CONTEXT_MENU_ITEMS}
       emptyContent={
         <EmptyAction
           message={
@@ -93,7 +106,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               : "No data received yet."
           }
           action={!hasChannels ? "Configure channels" : ""}
-          onClick={handleDoubleClick}
+          onClick={hasChannels ? handleDoubleClick : handleConfigureChannels}
         />
       }
       visible={visible}

@@ -74,6 +74,7 @@ import {
   IoTvOutline,
 } from "react-icons/io5";
 import {
+  MdAccessTime,
   MdAlignHorizontalCenter,
   MdAlignHorizontalLeft,
   MdAlignHorizontalRight,
@@ -134,6 +135,7 @@ import {
   MdOutlineMotionPhotosOff,
   MdOutlineMotionPhotosOn,
   MdOutlineOpenInNew,
+  MdOutlineScience,
   MdOutlineTableRows,
   MdOutlineTimelapse,
   MdOutlineVisibility,
@@ -210,6 +212,7 @@ import {
   TbCircleLetterVFilled,
   TbCircuitResistor,
   TbDecimal,
+  TbLetterE,
   TbLivePhoto,
   TbMathFunction,
   TbPlugConnected,
@@ -255,6 +258,7 @@ export const Refresh = wrapSVGIcon(IoMdRefresh, "refresh");
 export const View = wrapSVGIcon(IoTvOutline, "view");
 export const Delete = wrapSVGIcon(AiFillDelete, "delete");
 export const Time = wrapSVGIcon(IoTime, "time");
+export const TimeOutline = wrapSVGIcon(MdAccessTime, "time-outline");
 export const Acquire = wrapSVGIcon(FaStream, "acquire");
 export const Analyze = wrapSVGIcon(FaBezierCurve, "analyze");
 export const Concepts = wrapSVGIcon(BsLightbulbFill, "concepts");
@@ -425,6 +429,8 @@ export const Feedback = wrapSVGIcon(MdFeedback, "feedback");
 export const Calculation = wrapSVGIcon(MdCalculate, "calculation");
 export const Binary = wrapSVGIcon(PiBinary, "binary");
 export const Decimal = wrapSVGIcon(TbDecimal, "decimal");
+export const Scientific = wrapSVGIcon(MdOutlineScience, "scientific");
+export const Engineering = wrapSVGIcon(TbLetterE, "engineering");
 export const String = wrapSVGIcon(VscSymbolString, "string");
 export const Control = wrapSVGIcon(MdOutlineControlCamera, "control");
 export const Rack = wrapSVGIcon(MdHive, "rack");
@@ -508,6 +514,7 @@ const icons = {
   Refresh,
   Delete,
   Time,
+  TimeOutline,
   Acquire,
   Analyze,
   Concepts,
@@ -603,6 +610,8 @@ const icons = {
   Calculation,
   Binary,
   Decimal,
+  Scientific,
+  Engineering,
   String,
   Control,
   Rack,

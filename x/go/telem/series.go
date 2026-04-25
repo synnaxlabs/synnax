@@ -11,16 +11,20 @@ package telem
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"iter"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/bounds"
+	"github.com/synnaxlabs/x/errors"
 	xslices "github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/stringer"
 	xunsafe "github.com/synnaxlabs/x/unsafe"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Len returns the number of samples currently in the Series.
@@ -45,6 +49,77 @@ func (s Series) Len() int64 {
 		return *s.cachedLength
 	}
 	return s.DataType.Density().SampleCount(s.Size())
+}
+
+// Validate checks that the series data buffer is structurally valid for its declared
+// DataType. For fixed-density types, it verifies that the buffer length is an exact
+// multiple of the sample size. For variable-density types, it verifies that the
+// length-prefix chain exactly consumes the buffer. For JSONT, it additionally verifies
+// that each sample is valid JSON. For StringT, it verifies that each sample is valid
+// UTF-8.
+func (s *Series) Validate() error {
+	if len(s.Data) == 0 {
+		return nil
+	}
+	if s.DataType.IsVariable() {
+		return s.validateVariable()
+	}
+	d := s.DataType.Density()
+	if d == UnknownDensity {
+		return nil
+	}
+	if len(s.Data)%int(d) != 0 {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"expected data length to be a multiple of %d for data type %s, but got %d",
+			d, s.DataType, len(s.Data),
+		)
+	}
+	return nil
+}
+
+func (s *Series) validateVariable() error {
+	var (
+		offset int
+		count  int64
+	)
+	for offset+variableLengthPrefixSize <= len(s.Data) {
+		length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+		offset += variableLengthPrefixSize
+		if offset+length > len(s.Data) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"variable-density length prefix at byte %d claims %d bytes, but only %d remain",
+				offset-variableLengthPrefixSize, length, len(s.Data)-offset,
+			)
+		}
+		sample := s.Data[offset : offset+length]
+		if s.DataType == JSONT && !json.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid JSON",
+				sample,
+			)
+		}
+		if s.DataType == StringT && !utf8.Valid(sample) {
+			return errors.Wrapf(
+				validate.ErrValidation,
+				"sample %q is not valid UTF-8",
+				sample,
+			)
+		}
+		offset += length
+		count++
+	}
+	if offset != len(s.Data) {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"variable-density buffer has %d trailing bytes after last complete sample",
+			len(s.Data)-offset,
+		)
+	}
+	s.cachedLength = &count
+	return nil
 }
 
 // Size returns the number of bytes in the Series.

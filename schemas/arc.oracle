@@ -66,12 +66,14 @@ Arc struct {
         @doc value "is the text-based Arc source code."
     }
     program program.Program?? {
-        @doc value """
+        @doc value  """
             is the compiled module output including IR and WebAssembly bytecode.
         """
+        @go marshal omit
     }
     status  Status??          {
-        @doc value "is the current execution status of the module."
+        @doc value  "is the current execution status of the module."
+        @go marshal omit
     }
 
     @doc value     """
