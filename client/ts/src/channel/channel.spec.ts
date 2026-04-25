@@ -79,6 +79,22 @@ describe("Channel", () => {
       expect(two.key).not.toEqual(0);
     });
 
+    test("create bool channel", async () => {
+      const idx = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+      });
+      const ch = await client.channels.create({
+        name: id.create(),
+        index: idx.key,
+        dataType: DataType.BOOLEAN,
+      });
+      expect(ch.dataType.equals(DataType.BOOLEAN)).toBe(true);
+      const retrieved = await client.channels.retrieve(ch.key);
+      expect(retrieved.dataType.equals(DataType.BOOLEAN)).toBe(true);
+    });
+
     test("create many", async () => {
       const names = [id.create(), id.create()];
       const channels = await client.channels.create([

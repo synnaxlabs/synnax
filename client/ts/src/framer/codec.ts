@@ -24,8 +24,36 @@ import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
+const BITS_PER_BYTE = 8;
+
+const bitPackedByteCount = (nSamples: number): number =>
+  Math.ceil(nSamples / BITS_PER_BYTE);
+
 const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
+
+const seriesWireByteLength = (series: SeriesPayload): number => {
+  if (series.dataType.equals(DataType.BOOLEAN))
+    return bitPackedByteCount(seriesPldLength(series));
+  return series.data.byteLength;
+};
+
+const packBoolBits = (src: ArrayBuffer | Uint8Array): Uint8Array => {
+  const srcBytes = src instanceof Uint8Array ? src : new Uint8Array(src);
+  const dst = new Uint8Array(bitPackedByteCount(srcBytes.length));
+  for (let i = 0; i < srcBytes.length; i++)
+    if (srcBytes[i] !== 0)
+      dst[Math.floor(i / BITS_PER_BYTE)] |= 1 << (i % BITS_PER_BYTE);
+  return dst;
+};
+
+const unpackBoolBits = (src: Uint8Array, sampleCount: number): ArrayBuffer => {
+  const buf = new ArrayBuffer(sampleCount);
+  const dst = new Uint8Array(buf);
+  for (let i = 0; i < sampleCount; i++)
+    dst[i] = (src[Math.floor(i / BITS_PER_BYTE)] >> (i % BITS_PER_BYTE)) & 1;
+  return buf;
+};
 
 interface KeyedSeries extends SeriesPayload {
   key: number;
@@ -133,7 +161,7 @@ export class Codec {
           `Series data type of ${series.dataType.toString()} does not match the data type of ${dt.toString()} for channel ${key}`,
         );
 
-      byteArraySize += series.data.byteLength;
+      byteArraySize += seriesWireByteLength(series);
       if (currDataSize === -1) {
         currDataSize = pldLength;
         startTime = series.timeRange?.start;
@@ -208,8 +236,11 @@ export class Codec {
         view.setUint32(offset, seriesLengthOrSize, true);
         offset += DATA_LENGTH_SIZE;
       }
-      buffer.set(new Uint8Array(series.data), offset);
-      offset += series.data.byteLength;
+      const bytes = series.dataType.equals(DataType.BOOLEAN)
+        ? packBoolBits(series.data)
+        : new Uint8Array(series.data);
+      buffer.set(bytes, offset);
+      offset += bytes.byteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         view.setBigUint64(offset, series.timeRange?.start.valueOf() ?? 0n, true);
         offset += TIMESTAMP_SIZE;
@@ -288,15 +319,18 @@ export class Codec {
 
       let dataByteLength = currSize;
       if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
-      if (index + dataByteLength > view.byteLength) {
+      const isBool = dataType.equals(DataType.BOOLEAN);
+      const wireByteLength = isBool ? bitPackedByteCount(currSize) : dataByteLength;
+      if (index + wireByteLength > view.byteLength) {
         returnFrame.keys.splice(i, 1);
         return;
       }
+      const wireBytes = src.slice(index, index + wireByteLength);
       const currSeries: SeriesPayload = {
         dataType,
-        data: src.slice(index, index + dataByteLength).buffer,
+        data: isBool ? unpackBoolBits(wireBytes, currSize) : wireBytes.buffer,
       };
-      index += dataByteLength;
+      index += wireByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
         if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
         const start = view.getBigUint64(index, true);

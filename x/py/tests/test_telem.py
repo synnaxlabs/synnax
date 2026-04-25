@@ -434,11 +434,20 @@ class TestDataType:
         [
             (sy.DataType.INT8, np.dtype(np.int8)),
             (sy.DataType.FLOAT32, np.dtype(np.float32)),
+            (sy.DataType.BOOL, np.dtype(np.bool_)),
         ],
     )
     def test_np(self, value: sy.DataType, expected: np.dtype[np.generic]) -> None:
         """Should return the correct numpy representation of the data type"""
         assert value.np == expected
+
+    def test_bool_density(self) -> None:
+        """Should report BIT8 density for BOOL"""
+        assert sy.DataType.BOOL.density == sy.Density.BIT8
+
+    def test_bool_is_not_variable(self) -> None:
+        """Should report is_variable=False for BOOL"""
+        assert not sy.DataType.BOOL.is_variable
 
 
 @pytest.mark.telem

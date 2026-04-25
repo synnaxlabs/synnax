@@ -35,6 +35,47 @@ type state struct {
 	hasVariableDataTypes bool
 }
 
+const bitsPerByte = 8
+
+// bitPackedByteCount returns the number of wire bytes needed to bit-pack nSamples
+// boolean samples (one bit each, LSB-first).
+func bitPackedByteCount[T int | int64 | uint32](nSamples T) T {
+	return (nSamples + bitsPerByte - 1) / bitsPerByte
+}
+
+// wireSize returns the number of bytes a series occupies on the wire after
+// per-type encoding. BoolT samples are bit-packed at one bit each; variable-length
+// types carry their length-prefixed in-memory representation directly; other fixed
+// types use their in-memory byte count.
+func wireSize(s telem.Series) int {
+	if s.DataType == telem.BoolT {
+		return int(bitPackedByteCount(s.Len()))
+	}
+	return int(s.Size())
+}
+
+// packBoolBits packs byte-packed canonical bool data (one sample per byte) into
+// bit-packed wire bytes (LSB-first within each byte).
+func packBoolBits(src []byte) []byte {
+	dst := make([]byte, bitPackedByteCount(len(src)))
+	for i, b := range src {
+		if b != 0 {
+			dst[i/bitsPerByte] |= 1 << (i % bitsPerByte)
+		}
+	}
+	return dst
+}
+
+// unpackBoolBits unpacks bit-packed wire bytes into byte-packed canonical bool
+// data. n is the number of samples (not bytes).
+func unpackBoolBits(src []byte, n int) []byte {
+	dst := make([]byte, n)
+	for i := range n {
+		dst[i] = (src[i/bitsPerByte] >> (i % bitsPerByte)) & 1
+	}
+	return dst
+}
+
 func writeTimeRange(w *binary.Writer, tr telem.TimeRange) {
 	w.Uint64(uint64(tr.Start))
 	w.Uint64(uint64(tr.End))
@@ -567,7 +608,7 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 	for _, msi := range mergedSeries {
 		s := msi.series
 		sLen := int(s.Len())
-		byteArraySize += int(s.Size())
+		byteArraySize += wireSize(s)
 
 		if curDataSize == -1 {
 			curDataSize = sLen
@@ -638,7 +679,11 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				c.buf.Uint32(uint32(s.Len()))
 			}
 		}
-		c.buf.Write(s.Data)
+		if s.DataType == telem.BoolT {
+			c.buf.Write(packBoolBits(s.Data))
+		} else {
+			c.buf.Write(s.Data)
+		}
 		if !fgs.equalTimeRanges {
 			writeTimeRange(c.buf, s.TimeRange)
 		}
@@ -715,13 +760,21 @@ func (c *Codec) DecodeStream(reader io.Reader) (framer.Frame, error) {
 			return errors.Newf("unknown channel key: %v", key)
 		}
 		s.DataType = dataType
-		if dataType.IsVariable() {
-			s.Data = make([]byte, dataLenOrSize)
+		if dataType == telem.BoolT {
+			packed := make([]byte, bitPackedByteCount(dataLenOrSize))
+			if _, err = c.reader.Read(packed); err != nil {
+				return err
+			}
+			s.Data = unpackBoolBits(packed, int(dataLenOrSize))
 		} else {
-			s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
-		}
-		if _, err = c.reader.Read(s.Data); err != nil {
-			return err
+			if dataType.IsVariable() {
+				s.Data = make([]byte, dataLenOrSize)
+			} else {
+				s.Data = make([]byte, dataType.Density().Size(int64(dataLenOrSize)))
+			}
+			if _, err = c.reader.Read(s.Data); err != nil {
+				return err
+			}
 		}
 		if !fgs.equalTimeRanges {
 			if s.TimeRange, err = c.readTimeRange(); err != nil {

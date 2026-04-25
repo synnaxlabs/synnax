@@ -249,6 +249,77 @@ class TestCodec:
                     ],
                 ),
             ),
+            Spec(
+                name="Bool Single Sample",
+                channels=[1],
+                data_types=[sy.DataType.BOOL],
+                frame=sy.Frame(
+                    channels=[1],
+                    series=[sy.Series([True], data_type=sy.DataType.BOOL)],
+                ),
+            ),
+            Spec(
+                name="Bool Exact Byte Boundary",
+                channels=[1],
+                data_types=[sy.DataType.BOOL],
+                frame=sy.Frame(
+                    channels=[1],
+                    series=[
+                        sy.Series(
+                            [True, False, True, False, True, False, True, False],
+                            data_type=sy.DataType.BOOL,
+                        )
+                    ],
+                ),
+            ),
+            Spec(
+                name="Bool One Past Byte Boundary",
+                channels=[1],
+                data_types=[sy.DataType.BOOL],
+                frame=sy.Frame(
+                    channels=[1],
+                    series=[
+                        sy.Series(
+                            [True, False, True, False, True, False, True, False, True],
+                            data_type=sy.DataType.BOOL,
+                        )
+                    ],
+                ),
+            ),
+            Spec(
+                name="Bool Seven Samples Partial Last Byte",
+                channels=[1],
+                data_types=[sy.DataType.BOOL],
+                frame=sy.Frame(
+                    channels=[1],
+                    series=[
+                        sy.Series(
+                            [True, False, True, True, False, False, True],
+                            data_type=sy.DataType.BOOL,
+                        )
+                    ],
+                ),
+            ),
+            Spec(
+                name="Bool Mixed With Other Types",
+                channels=[1, 2, 3],
+                data_types=[
+                    sy.DataType.BOOL,
+                    sy.DataType.FLOAT32,
+                    sy.DataType.UINT8,
+                ],
+                frame=sy.Frame(
+                    channels=[1, 2, 3],
+                    series=[
+                        sy.Series(
+                            [True, False, True],
+                            data_type=sy.DataType.BOOL,
+                        ),
+                        sy.Series(np.array([1.5, 2.5, 3.5], dtype=np.float32)),
+                        sy.Series(np.array([7, 8, 9], dtype=np.uint8)),
+                    ],
+                ),
+            ),
         ],
     )
     def test_encoder_decoder(self, spec: Spec):
@@ -265,6 +336,19 @@ class TestCodec:
             else:
                 assert dec_ser.time_range == or_ser.time_range
             assert dec_ser.alignment == or_ser.alignment
+
+    def test_bool_reference_vector(self):
+        """The reference vector [1,0,1,1,0,0,0,1,1] must pack to bytes [0x8D, 0x01]
+        LSB-first across all language codecs. Any divergence here is a cross-language
+        wire-format bug.
+        """
+        from synnax.framer.codec import _pack_bool_bits, _unpack_bool_bits
+
+        samples = bytes([1, 0, 1, 1, 0, 0, 0, 1, 1])
+        packed = _pack_bool_bits(samples)
+        assert packed == bytes([0x8D, 0x01])
+        unpacked = _unpack_bool_bits(memoryview(packed), len(samples))
+        assert unpacked == samples
 
     def test_dynamic_codec_update(self):
         """Tests that the codec can be updated with new channels and correctly encode/decode after update"""
