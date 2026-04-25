@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/binary"
 	"io"
+	"slices"
 	"sync"
 
 	"github.com/synnaxlabs/cesium/internal/domain"
@@ -22,11 +23,11 @@ import (
 
 // offsetTable stores byte offsets for each sample in a single variable-length
 // domain. Offsets are uint32, matching domain.pointer.size; domains larger than
-// ~4GB are unsupported at the storage layer. domainSize is the byte length of
-// the domain at the time the table was built, used to invalidate the cache when
-// a subsequent write appends more data to the same domain index.
+// ~4GB are unsupported at the storage layer. end is the End timestamp of the
+// pointer at the time the table was built, used to invalidate the cache when a
+// subsequent write appends more data and extends the pointer's End.
 type offsetTable struct {
-	domainSize  telem.Size
+	end         telem.TimeStamp
 	offsets     []uint32
 	sampleCount int64
 }
@@ -36,26 +37,30 @@ func (t *offsetTable) byteOffsetAt(sampleIdx int64) telem.Size {
 }
 
 // offsetCache memoizes per-domain offset tables for variable-length channels.
+// Tables are keyed by the Start timestamp of the domain pointer they describe.
+// Pointer Starts are unique within a DB (non-overlapping ranges) and immutable
+// once set, so they are stable cache keys even when other pointers are
+// inserted or removed before this one.
 type offsetCache struct {
 	mu     sync.RWMutex
-	tables map[uint32]*offsetTable
+	tables map[telem.TimeStamp]*offsetTable
 }
 
 func newOffsetCache() *offsetCache {
-	return &offsetCache{tables: make(map[uint32]*offsetTable)}
+	return &offsetCache{tables: make(map[telem.TimeStamp]*offsetTable)}
 }
 
-func (c *offsetCache) get(domainIdx uint32) (*offsetTable, bool) {
+func (c *offsetCache) get(start telem.TimeStamp) (*offsetTable, bool) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
-	t, ok := c.tables[domainIdx]
+	t, ok := c.tables[start]
 	return t, ok
 }
 
-func (c *offsetCache) set(domainIdx uint32, t *offsetTable) {
+func (c *offsetCache) set(start telem.TimeStamp, t *offsetTable) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.tables[domainIdx] = t
+	c.tables[start] = t
 }
 
 func (c *offsetCache) invalidateAll() {
@@ -64,8 +69,8 @@ func (c *offsetCache) invalidateAll() {
 	clear(c.tables)
 }
 
-func buildOffsetTable(r *domain.Reader, domainSize telem.Size) (*offsetTable, error) {
-	t := &offsetTable{}
+func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeStamp) (*offsetTable, error) {
+	t := &offsetTable{end: end}
 	buf := make([]byte, 4)
 	var pos int64
 	for pos+4 <= int64(domainSize) {
@@ -146,13 +151,12 @@ func (r *offsetResolver) invalidate() {
 }
 
 func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t *offsetTable, err error) {
-	domainIdx := iter.Position()
-	size := telem.Size(iter.Size())
-	// A domain index is stable across an entire writer session, so a table
-	// cached after commit N will have a stale sampleCount if the writer
-	// appends more data in commit N+1 against the same domain index. Gate the
-	// cache hit on the domain size matching what the table was built from.
-	if cached, ok := r.cache.get(domainIdx); ok && cached.domainSize == size {
+	tr := iter.TimeRange()
+	// A pointer's Start is immutable but its End advances as the writer commits more
+	// samples to the same domain. Gate the cache hit on the cached End matching the
+	// pointer's current End so a cached table from before a later commit cannot
+	// answer queries against the extended range.
+	if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
 		return cached, nil
 	}
 	rd, err := iter.OpenReader(ctx)
@@ -160,31 +164,42 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (t
 		return nil, err
 	}
 	defer func() { err = errors.Combine(err, rd.Close()) }()
-	t, err = buildOffsetTable(rd, size)
+	t, err = buildOffsetTable(rd, telem.Size(iter.Size()), tr.End)
 	if err != nil {
 		return nil, err
 	}
-	t.domainSize = size
-	r.cache.set(domainIdx, t)
+	r.cache.set(tr.Start, t)
 	return t, nil
 }
 
-// newTracker returns a per-writer offsetTracker bound to this resolver's
-// density or cache mode. Fixed-density trackers are stateless; cache-backed
-// trackers accumulate sample counts and offsets as writes are recorded.
+// newTracker returns a per-writer offsetTracker bound to this resolver. Fixed-density
+// trackers carry the resolver's density and ignore record/publish calls. Cache-backed
+// trackers accumulate sample counts and offsets as writes are recorded and publish a
+// snapshot to the cache on commit.
 func (r *offsetResolver) newTracker() *offsetTracker {
+	t := &offsetTracker{resolver: r}
 	if r.cache == nil {
-		return &offsetTracker{density: r.density}
+		t.density = r.density
 	}
-	return &offsetTracker{}
+	return t
 }
 
-// offsetTracker tracks sample counts (and, for variable-length channels, byte
-// offsets) during a single writer session. The zero value is a variable-length
-// tracker; setting density makes it a stateless fixed-density tracker.
+// offsetTracker tracks sample counts (and, for variable-length channels, byte offsets)
+// during a single writer session. Fixed-density trackers carry a non-zero density and
+// ignore record/publish; variable-length trackers accumulate offsets in record and snap
+// them into the resolver's cache in publish.
 type offsetTracker struct {
-	density     telem.Density
-	offsets     []uint32
+	// resolver is the offsetResolver this tracker was created from. Used by publish to
+	// install committed offsets into the resolver's cache.
+	resolver *offsetResolver
+	// density is the sample density of the channel for fixed-density trackers; zero
+	// for variable-length trackers.
+	density telem.Density
+	// offsets is the running list of per-sample byte offsets for variable-length
+	// trackers; nil for fixed-density.
+	offsets []uint32
+	// sampleCount is the running sample count for variable-length trackers; zero for
+	// fixed-density.
 	sampleCount int64
 }
 
@@ -206,4 +221,27 @@ func (t *offsetTracker) record(data []byte, baseByteOffset uint32) {
 		offset += 4 + length
 		t.sampleCount++
 	}
+}
+
+// publish snaps the tracker's current offsets and sample count into the resolver's
+// cache, keyed by the start timestamp of the domain that was just committed and gated
+// on its end timestamp. It is a no-op for fixed-density trackers. The published
+// offsets are cloned so subsequent appends to the tracker cannot mutate the cache
+// entry.
+//
+// publish assumes the tracker's accumulated state corresponds to the domain identified
+// by start. This holds when a writer's session writes to a single domain, including
+// the multi-commit case where End advances. It does not hold when the underlying
+// domain.Writer rolls over to a new file mid-session, since the tracker's offsets are
+// cumulative across the session; the same limitation applies to the alignment math at
+// the Write call site.
+func (t *offsetTracker) publish(start, end telem.TimeStamp) {
+	if t.density != 0 || t.resolver.cache == nil {
+		return
+	}
+	t.resolver.cache.set(start, &offsetTable{
+		end:         end,
+		offsets:     slices.Clone(t.offsets),
+		sampleCount: t.sampleCount,
+	})
 }

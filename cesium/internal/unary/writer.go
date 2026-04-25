@@ -341,7 +341,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 
-	return end, dw.Commit(ctx, end)
+	if err := dw.Commit(ctx, end); err != nil {
+		return 0, err
+	}
+	w.tracker.publish(w.cfg.Start, end)
+	return end, nil
 }
 
 func (w *Writer) Close() (control.Transfer, error) {

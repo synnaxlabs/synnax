@@ -152,6 +152,63 @@ var _ = Describe("Variable-length channel", func() {
 			})
 
 			Describe("Offset cache", func() {
+				It("Should serve reads from cache after commit without scanning length prefixes", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("flush-on-commit"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "flush-on-commit-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        rec,
+						MetaCodec: codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "flush-on-commit-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					const sampleCount = 100
+					indexSeries := make([]telem.TimeStamp, sampleCount)
+					values := make([]string, sampleCount)
+					for i := range sampleCount {
+						indexSeries[i] = telem.TimeStamp(700+i) * telem.SecondTS
+						values[i] = "sample"
+					}
+					Expect(unary.Write(ctx, idx, indexSeries[0],
+						telem.NewSeriesV(indexSeries...),
+					)).To(Succeed())
+					Expect(unary.Write(ctx, data, indexSeries[0],
+						telem.NewSeriesV(values...),
+					)).To(Succeed())
+
+					rec.Reset()
+					readEnd := indexSeries[sampleCount-1] + telem.SecondTS
+					frame := MustSucceed(data.Read(ctx, indexSeries[0].Range(readEnd)))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).To(HaveLen(sampleCount))
+
+					// A cache miss does one 4-byte ReadAt per sample to walk length
+					// prefixes, so the cache-hit path must do zero of them.
+					var lengthPrefixReads int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpReadAt && e.Length == 4 {
+							lengthPrefixReads++
+						}
+					}
+					Expect(lengthPrefixReads).To(BeZero())
+				})
+
 				It("Should rebuild the cached offset table after the domain grows", func(ctx SpecContext) {
 					subFS := MustSucceed(fs.Sub("cache-refresh"))
 					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
