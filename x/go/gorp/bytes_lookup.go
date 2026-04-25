@@ -43,12 +43,14 @@ func NewBytesLookup[E Entry[[]byte], V comparable](
 	name string,
 	extract func(e *E) V,
 ) *BytesLookup[E, V] {
-	return &BytesLookup[E, V]{
+	l := &BytesLookup[E, V]{
 		name:    name,
 		extract: extract,
 		storage: newBytesLookupStorage[V](),
 		reverse: make(map[string]V),
 	}
+	l.overlay.flush = l.flushTx
+	return l
 }
 
 // Name implements Index.
@@ -97,12 +99,46 @@ func (l *BytesLookup[E, V]) delete(key []byte) {
 
 //nolint:unused
 func (l *BytesLookup[E, V]) stageSet(tx Tx, key []byte, entry E) {
+	if tx.txIdentity() == nil {
+		l.set(key, entry)
+		return
+	}
 	l.overlay.stage(tx, string(key), l.extract(&entry))
 }
 
 //nolint:unused
 func (l *BytesLookup[E, V]) stageDelete(tx Tx, key []byte) {
+	if tx.txIdentity() == nil {
+		l.delete(key)
+		return
+	}
 	l.overlay.unstage(tx, string(key))
+}
+
+// flushTx promotes the staged tx delta into committed index state on
+// successful commit. See Lookup.flushTx for semantics.
+func (l *BytesLookup[E, V]) flushTx(d *delta[string, V]) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for skey, entry := range d.state {
+		bkey := []byte(skey)
+		oldValue, existed := l.reverse[skey]
+		if entry.deleted {
+			if existed {
+				l.storage.remove(bkey, oldValue)
+				delete(l.reverse, skey)
+			}
+			continue
+		}
+		if existed {
+			if oldValue == entry.value {
+				continue
+			}
+			l.storage.remove(bkey, oldValue)
+		}
+		l.storage.put(bkey, entry.value)
+		l.reverse[skey] = entry.value
+	}
 }
 
 func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {

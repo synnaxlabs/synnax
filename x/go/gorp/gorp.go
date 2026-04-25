@@ -114,35 +114,37 @@ type Context struct {
 // The pointer returned from Tx.txIdentity is used as a concrete map key by
 // those subsystems, so its lifetime must span from OpenTx through Commit
 // or Close. runCleanups is invoked from *tx.Commit and *tx.Close after
-// delegating to the underlying kv.Tx, giving commit-time observers (like
-// the index observer wired in attachIndexObserver) a chance to fire
-// against the global state before the per-tx overlay is dropped.
+// delegating to the underlying kv.Tx, with committed=true only on a
+// successful commit so subsystems can promote staged state to global
+// state on commit and discard it on rollback.
 type txState struct {
 	mu       sync.Mutex
-	cleanups []func()
+	cleanups []func(committed bool)
 }
 
 // onCleanup registers a hook to run when the owning transaction commits
-// or closes. Safe to call from any goroutine that holds a reference to
-// the state handle.
+// or closes. The hook is invoked with committed=true if the owning tx
+// reached a successful Commit, and committed=false otherwise (Close
+// without prior Commit, or a failed Commit). Safe to call from any
+// goroutine that holds a reference to the state handle.
 //
 //nolint:unused
-func (s *txState) onCleanup(fn func()) {
+func (s *txState) onCleanup(fn func(committed bool)) {
 	s.mu.Lock()
 	s.cleanups = append(s.cleanups, fn)
 	s.mu.Unlock()
 }
 
 // runCleanups invokes every registered hook exactly once in registration
-// order and then clears the list. Hooks themselves must not re-enter
-// runCleanups on the same state.
-func (s *txState) runCleanups() {
+// order, passing committed through to each, and then clears the list.
+// Hooks themselves must not re-enter runCleanups on the same state.
+func (s *txState) runCleanups(committed bool) {
 	s.mu.Lock()
 	hooks := s.cleanups
 	s.cleanups = nil
 	s.mu.Unlock()
 	for _, h := range hooks {
-		h()
+		h(committed)
 	}
 }
 
@@ -160,22 +162,21 @@ var _ Tx = (*tx)(nil)
 func (t *tx) txIdentity() *txState { return &t.state }
 
 // Commit delegates to the embedded kv.Tx and then runs any cleanup hooks
-// registered via state.onCleanup. Cleanups fire after the underlying
-// commit so that commit-time observers on the DB (like the secondary
-// index observer) have already updated global state before per-tx
-// overlays are dropped.
+// registered via state.onCleanup with committed = (commit succeeded).
+// Cleanups fire after the underlying commit so subsystems can promote
+// staged state to global state knowing the tx is durable.
 func (t *tx) Commit(ctx context.Context, opts ...any) error {
 	err := t.Tx.Commit(ctx, opts...)
-	t.state.runCleanups()
+	t.state.runCleanups(err == nil)
 	return err
 }
 
-// Close delegates to the embedded kv.Tx and then runs cleanups. For an
-// uncommitted tx this discards the per-tx overlay without ever touching
-// the global state.
+// Close delegates to the embedded kv.Tx and then runs cleanups with
+// committed=false. For an uncommitted tx this discards any per-tx
+// overlay without ever touching the global state.
 func (t *tx) Close() error {
 	err := t.Tx.Close()
-	t.state.runCleanups()
+	t.state.runCleanups(false)
 	return err
 }
 

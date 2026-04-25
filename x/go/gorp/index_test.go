@@ -15,7 +15,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/observe"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -745,6 +747,66 @@ var _ = Describe("Index", func() {
 			for _, e := range res {
 				Expect(e.Name).To(Equal("a"))
 			}
+		})
+	})
+
+	Describe("WithIndexObservable", func() {
+		// These tests prove that the index stays consistent even when the
+		// observer that would otherwise feed it never fires. This is the
+		// configuration used in multi-node Aspen deployments where the
+		// observer is filtered to remote-only writes via
+		// IgnoreHostLeaseholder, leaving local writes to be applied via
+		// the per-tx delta flush (real tx) or the inline path (DB-as-tx).
+		var (
+			noopDB  *gorp.DB
+			nameIdx *gorp.Lookup[int32, indexedEntry, string]
+			table   *gorp.Table[int32, indexedEntry]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			noopDB = gorp.Wrap(
+				memkv.New(),
+				gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
+			)
+			nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
+				DB:      noopDB,
+				Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+			}))
+		})
+		AfterEach(func() {
+			Expect(table.Close()).To(Succeed())
+			Expect(noopDB.Close()).To(Succeed())
+		})
+
+		It("Should update the index via per-tx delta flush on commit", func(ctx SpecContext) {
+			tx := noopDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			Expect(nameIdx.Get("alpha")).To(ConsistOf(int32(1)))
+		})
+
+		It("Should leave the index untouched when the tx is closed without commit", func(ctx SpecContext) {
+			tx := noopDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 2, Name: "beta"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			Expect(nameIdx.Get("beta")).To(BeEmpty())
+		})
+
+		It("Should update the index inline for DB-as-tx writes", func(ctx SpecContext) {
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 3, Name: "gamma"}).
+				Exec(ctx, noopDB)).To(Succeed())
+
+			Expect(nameIdx.Get("gamma")).To(ConsistOf(int32(3)))
 		})
 	})
 })

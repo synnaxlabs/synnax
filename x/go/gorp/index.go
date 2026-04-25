@@ -66,12 +66,14 @@ func NewLookup[K IndexKey, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
 ) *Lookup[K, E, V] {
-	return &Lookup[K, E, V]{
+	l := &Lookup[K, E, V]{
 		name:    name,
 		extract: extract,
 		storage: newLookupStorage[K, V](),
 		reverse: make(map[K]V),
 	}
+	l.overlay.flush = l.flushTx
+	return l
 }
 
 // Name implements Index.
@@ -119,12 +121,46 @@ func (l *Lookup[K, E, V]) delete(key K) {
 
 //nolint:unused
 func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
+	if tx.txIdentity() == nil {
+		l.set(key, entry)
+		return
+	}
 	l.overlay.stage(tx, key, l.extract(&entry))
 }
 
 //nolint:unused
 func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
+	if tx.txIdentity() == nil {
+		l.delete(key)
+		return
+	}
 	l.overlay.unstage(tx, key)
+}
+
+// flushTx promotes the staged tx delta into committed index state on
+// successful commit. The staged value is used directly, avoiding the
+// extract round-trip the observer's set path performs after decoding.
+func (l *Lookup[K, E, V]) flushTx(d *delta[K, V]) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	for k, entry := range d.state {
+		oldValue, existed := l.reverse[k]
+		if entry.deleted {
+			if existed {
+				l.storage.remove(k, oldValue)
+				delete(l.reverse, k)
+			}
+			continue
+		}
+		if existed {
+			if oldValue == entry.value {
+				continue
+			}
+			l.storage.remove(k, oldValue)
+		}
+		l.storage.put(k, entry.value)
+		l.reverse[k] = entry.value
+	}
 }
 
 func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
@@ -220,12 +256,14 @@ func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
 	name string,
 	extract func(e *E) V,
 ) *Sorted[K, E, V] {
-	return &Sorted[K, E, V]{
+	s := &Sorted[K, E, V]{
 		name:    name,
 		extract: extract,
 		storage: newSortedStorage[K, V](),
 		reverse: make(map[K]V),
 	}
+	s.overlay.flush = s.flushTx
+	return s
 }
 
 // Name implements Index.
@@ -284,12 +322,45 @@ func (s *Sorted[K, E, V]) delete(key K) {
 
 //nolint:unused
 func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
+	if tx.txIdentity() == nil {
+		s.set(key, entry)
+		return
+	}
 	s.overlay.stage(tx, key, s.extract(&entry))
 }
 
 //nolint:unused
 func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
+	if tx.txIdentity() == nil {
+		s.delete(key)
+		return
+	}
 	s.overlay.unstage(tx, key)
+}
+
+// flushTx promotes the staged tx delta into committed index state on
+// successful commit. See Lookup.flushTx for semantics.
+func (s *Sorted[K, E, V]) flushTx(d *delta[K, V]) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for k, entry := range d.state {
+		oldValue, existed := s.reverse[k]
+		if entry.deleted {
+			if existed {
+				s.storage.remove(k, oldValue)
+				delete(s.reverse, k)
+			}
+			continue
+		}
+		if existed {
+			if cmp.Compare(oldValue, entry.value) == 0 {
+				continue
+			}
+			s.storage.remove(k, oldValue)
+		}
+		s.storage.put(k, entry.value)
+		s.reverse[k] = entry.value
+	}
 }
 
 func (s *Sorted[K, E, V]) resolveTx(tx Tx, values []V) []K {

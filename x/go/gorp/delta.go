@@ -123,9 +123,15 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 // index. It owns the txDeltas map and mutex, the loadOrCreate
 // lifecycle, and the resolve merge. Embedded in Lookup, Sorted, and
 // BytesLookup so the staging pattern is written once.
+//
+// flush, when non-nil, is called from the per-tx cleanup hook on
+// successful commit with the final delta state. The owning index
+// uses it to promote staged mutations into committed storage with
+// no decode round-trip, since the indexed value is already in hand.
 type deltaOverlay[SK comparable, V comparable] struct {
 	deltaMu  sync.Mutex
 	txDeltas map[*txState]*delta[SK, V]
+	flush    func(*delta[SK, V])
 }
 
 //nolint:unused
@@ -182,10 +188,14 @@ func (o *deltaOverlay[SK, V]) loadOrCreate(state *txState) *delta[SK, V] {
 	}
 	d := newDelta[SK, V]()
 	o.txDeltas[state] = d
-	state.onCleanup(func() {
+	state.onCleanup(func(committed bool) {
 		o.deltaMu.Lock()
+		d := o.txDeltas[state]
 		delete(o.txDeltas, state)
 		o.deltaMu.Unlock()
+		if committed && d != nil && !d.isEmpty() && o.flush != nil {
+			o.flush(d)
+		}
 	})
 	return d
 }
