@@ -173,7 +173,7 @@ func (p *Plugin) generateFile(
 }
 
 func derivePackageName(outputPath string, structs []resolution.Type) string {
-	namespace := ""
+	var namespace string
 	if len(structs) > 0 {
 		namespace = structs[0].Namespace
 	} else {

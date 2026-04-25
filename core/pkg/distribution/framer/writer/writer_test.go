@@ -42,9 +42,8 @@ var _ = Describe("Writer", func() {
 			freeWriterScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
+			BeforeAll(func(ctx SpecContext) { s = sF(ctx) })
 			AfterAll(func() { Expect(s.closer.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				writer := MustSucceed(s.dist.Framer.OpenWriter(ctx, writer.Config{

@@ -310,10 +310,7 @@ func (w *streamWriter) close(ctx context.Context) error {
 	}
 
 	if digestWriter, ok := w.virtual.internal[w.virtual.digestKey]; ok {
-		// When digest writer closes, we do not (and cannot) send an update.
-		if _, digestErr := digestWriter.Close(); digestErr != nil {
-			return digestErr
-		}
+		digestWriter.Close()
 	}
 
 	return err
@@ -638,10 +635,7 @@ func (w virtualWriter) Close() (ControlUpdate, error) {
 		// We do not want to clean up the digest channel since we want to use it to send
 		// updates for closures.
 		if chW.Channel.Key != w.digestKey {
-			transfer, closeErr := chW.Close()
-			if closeErr != nil {
-				err = errors.Join(err, closeErr)
-			} else if transfer.Occurred() {
+			if transfer := chW.Close(); transfer.Occurred() {
 				update.Transfers = append(update.Transfers, transfer)
 			}
 		}

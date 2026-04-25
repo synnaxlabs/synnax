@@ -20,7 +20,7 @@ import (
 var ErrNotFound = errors.Wrap(query.ErrNotFound, "channel not found")
 
 // NewNotFoundError returns a wrapper around ErrNotFound that includes the key of the
-// the missing channel.
+// missing channel.
 func NewNotFoundError(ch Key) error {
 	return errors.Wrapf(ErrNotFound, "channel with key %d not found", ch)
 }

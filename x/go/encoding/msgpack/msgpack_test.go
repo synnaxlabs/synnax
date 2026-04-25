@@ -241,7 +241,7 @@ var _ = Describe("Codec", func() {
 			var result msgpack.EncodedJSON
 			Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
 			Expect(result).ToNot(BeNil())
-			Expect(result).To(HaveLen(0))
+			Expect(result).To(BeEmpty())
 		})
 		It("Should decode an empty string struct field to an empty map", func() {
 			type OldConfig struct {
@@ -258,7 +258,7 @@ var _ = Describe("Codec", func() {
 			Expect(vmsgpack.Unmarshal(b, &result)).To(Succeed())
 			Expect(result.Name).To(Equal("test"))
 			Expect(result.Schema).ToNot(BeNil())
-			Expect(result.Schema).To(HaveLen(0))
+			Expect(result.Schema).To(BeEmpty())
 		})
 		It("Should return an error for an invalid JSON string", func() {
 			b := MustSucceed(vmsgpack.Marshal("not valid json"))

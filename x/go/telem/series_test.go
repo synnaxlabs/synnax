@@ -175,7 +175,7 @@ var _ = Describe("Series", func() {
 
 	Describe("At", func() {
 		Context("Fixed Density", func() {
-			It("Should return the the value at the given index", func() {
+			It("Should return the value at the given index", func() {
 				s := telem.NewSeriesV[uint8](1, 2, 3)
 				Expect(s.At(0)).To(Equal([]byte{1}))
 				Expect(s.At(1)).To(Equal([]byte{2}))
@@ -639,7 +639,7 @@ var _ = Describe("Series", func() {
 				s := telem.NewSeriesV[int64](1, 2, 3, 4, 5)
 				s.Resize(0)
 				Expect(s.Len()).To(Equal(int64(0)))
-				Expect(len(s.Data)).To(Equal(0))
+				Expect(s.Data).To(BeEmpty())
 			})
 
 			It("Should handle resizing an empty series", func() {
@@ -868,7 +868,7 @@ var _ = Describe("Series", func() {
 
 			It("Should return an empty byte array if there are no series in the frame", func() {
 				ts := telem.NewMultiSeriesV()
-				Expect(ts.Data()).To(HaveLen(0))
+				Expect(ts.Data()).To(BeEmpty())
 			})
 		})
 
@@ -1075,7 +1075,7 @@ var _ = Describe("Series", func() {
 
 			Expect(copied.Len()).To(Equal(int64(0)))
 			Expect(copied.DataType).To(Equal(telem.Int64T))
-			Expect(copied.Data).To(HaveLen(0))
+			Expect(copied.Data).To(BeEmpty())
 		})
 
 		It("Should preserve all fields correctly", func() {

@@ -27,7 +27,7 @@ type clause struct {
 }
 
 // Retrieve implements a set of methods for retrieving resources and traversing their
-// relationships in teh ontology.
+// relationships in the ontology.
 type Retrieve struct {
 	clauses           []clause
 	registrar         serviceRegistrar

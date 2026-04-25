@@ -2,17 +2,34 @@ version: "2"
 linters:
   enable:
     - arangolint
+    - asasalint
+    - asciicheck
+    - bidichk
+    - canonicalheader
+    - copyloopvar
+    - durationcheck
     - exptostd
+    - ginkgolinter
+    - intrange
+    - mirror
+    - misspell
     - modernize
+    - noctx
+    - nosprintfhostport
     - perfsprint
     - protogetter
     - revive
+    - sqlclosecheck
     - usestdlibvars
     - unconvert
     - unparam
+    - wastedassign
     - mustsucceedlint
     - setlint
+    - zerologlint
   settings:
+    copyloopvar:
+      check-alias: true
     govet:
       enable-all: true
       disable:

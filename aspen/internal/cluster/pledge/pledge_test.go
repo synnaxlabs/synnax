@@ -105,7 +105,7 @@ var _ = Describe("PledgeServer", func() {
 				for i, entry := range entries {
 					Expect(entry.Target).To(Equal(peers[i%4]))
 				}
-				Expect(entries).ToNot(HaveLen(0))
+				Expect(entries).ToNot(BeEmpty())
 			})
 		})
 	})
@@ -123,7 +123,7 @@ var _ = Describe("PledgeServer", func() {
 					Peers:           nodes.Addresses(),
 					Candidates:      candidates,
 				}, pledge.BlazingFastConfig)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Key).To(Equal(node.Key(10)))
 			})
 		})
@@ -154,7 +154,7 @@ var _ = Describe("PledgeServer", func() {
 					},
 					pledge.BlazingFastConfig,
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Key).To(Equal(node.Key(10)))
 			})
 		})
@@ -185,7 +185,7 @@ var _ = Describe("PledgeServer", func() {
 					},
 					pledge.BlazingFastConfig,
 				)
-				Expect(err).To(BeNil())
+				Expect(err).ToNot(HaveOccurred())
 				Expect(res.Key).To(BeNumerically(">=", node.Key(11)))
 			})
 		})
@@ -269,7 +269,7 @@ var _ = Describe("PledgeServer", func() {
 					}(i)
 				}
 				wg.Wait()
-				Expect(len(lo.Uniq(ids))).To(Equal(numPledges))
+				Expect(lo.Uniq(ids)).To(HaveLen(numPledges))
 			})
 
 		})

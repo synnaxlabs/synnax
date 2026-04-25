@@ -77,7 +77,7 @@ var _ = Describe("FoldingRange", func() {
 				},
 			}))
 
-			Expect(len(ranges)).To(BeNumerically(">=", 1))
+			Expect(ranges).ToNot(BeEmpty())
 			hasSequenceRange := false
 			for _, r := range ranges {
 				if r.StartLine == 0 && r.EndLine == 3 {

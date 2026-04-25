@@ -267,7 +267,7 @@ var _ = Describe("Signal", func() {
 				return immediatelyPanic(ctx)
 			}, signal.RecoverWithoutErrOnPanic())
 
-			Expect(ctx.Wait()).To(BeNil())
+			Expect(ctx.Wait()).To(Succeed())
 		})
 
 		It("Should wrap an error panic with routine key", func() {
@@ -417,8 +417,7 @@ var _ = Describe("Signal", func() {
 				return ctx.Err()
 			})
 			closer := signal.NewHardShutdown(ctx, cancel)
-			err := closer.Close()
-			Expect(err).To(BeNil()) // context.Canceled should be skipped
+			Expect(closer.Close()).To(Succeed()) // context.Canceled should be skipped
 			Eventually(done).Should(BeClosed())
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
@@ -440,7 +439,7 @@ var _ = Describe("Signal", func() {
 			close(release)
 			err := closer.Close()
 			Eventually(exit).Should(BeClosed())
-			Expect(err).To(BeNil())
+			Expect(err).ToNot(HaveOccurred())
 			Eventually(ctx.Stopped()).Should(BeClosed())
 		})
 	})

@@ -80,7 +80,7 @@ var _ = Describe("Garbage Collection", func() {
 						var data []int64
 						var index []telem.TimeStamp
 
-						for j := 0; j <= 9; j++ {
+						for j := range 10 {
 							data = append(data, int64(i*10+j))
 							index = append(index, telem.TimeStamp(i*10+j))
 						}

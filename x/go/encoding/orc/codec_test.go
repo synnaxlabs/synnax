@@ -25,6 +25,8 @@ type testRecord struct {
 	Name string
 }
 
+var _ orc.SelfCodec = (*testRecord)(nil)
+
 func (t *testRecord) EncodeOrc(w *orc.Writer) error {
 	w.Uint32(t.ID)
 	w.String(t.Name)

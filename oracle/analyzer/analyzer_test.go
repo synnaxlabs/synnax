@@ -299,7 +299,7 @@ var _ = Describe("Analyzer", func() {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -437,7 +437,7 @@ var _ = Describe("Analyzer", func() {
 				Range struct {}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "ranger", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})
@@ -452,7 +452,7 @@ var _ = Describe("Analyzer", func() {
 				}
 			`
 			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 			Expect(table).To(BeNil())
 		})

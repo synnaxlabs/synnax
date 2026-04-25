@@ -189,7 +189,7 @@ func BenchmarkWASMNodeSimpleArithmetic(b *testing.B) {
 	*bNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		*xNode.OutputTime(0) = telem.NewSeriesSecondsTSV(telem.TimeStamp(i))
 		n.Next(nodeCtx)
 	}
@@ -351,8 +351,7 @@ func BenchmarkWASMNodeZeroAlloc(b *testing.B) {
 	n.Next(nodeCtx)
 
 	b.ReportAllocs()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		n.Next(nodeCtx)
 	}
 	b.StopTimer()

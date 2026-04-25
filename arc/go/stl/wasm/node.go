@@ -152,7 +152,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	if n.nodeKeySetter != nil {
 		n.nodeKeySetter.SetNodeKey(n.ir.Key)
 	}
-	for i := int64(0); i < maxLength; i++ {
+	for i := range maxLength {
 		for j := range n.ir.Inputs {
 			inputLen := n.Input(j).Len()
 			idx := int(i % inputLen)

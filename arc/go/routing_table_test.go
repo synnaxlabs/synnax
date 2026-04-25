@@ -65,7 +65,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float64](out.Get(200).Series[0])).To(Equal([]float64{75.0}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 		})
 
 		It("Should route to low output and produce empty high output", func(ctx SpecContext) {
@@ -102,7 +102,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out, changed := h.Flush()
 			Expect(changed).To(BeTrue())
-			Expect(out.Get(200).Series).To(HaveLen(0))
+			Expect(out.Get(200).Series).To(BeEmpty())
 			Expect(out.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[float64](out.Get(300).Series[0])).To(Equal([]float64{25.0}))
 		})
@@ -439,7 +439,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 
 			// Tick 2: below threshold. log_event activates. open_valve
 			// constant already fired so it doesn't re-emit.
@@ -449,7 +449,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out2, changed2 := h.Flush()
 			Expect(changed2).To(BeTrue())
-			Expect(out2.Get(200).Series).To(HaveLen(0))
+			Expect(out2.Get(200).Series).To(BeEmpty())
 			Expect(out2.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out2.Get(300).Series[0])).To(Equal([]uint8{1}))
 		})
@@ -569,7 +569,7 @@ var _ = Describe("Routing Table Runtime", func() {
 			Expect(changed).To(BeTrue())
 			Expect(out.Get(200).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
-			Expect(out.Get(300).Series).To(HaveLen(0))
+			Expect(out.Get(300).Series).To(BeEmpty())
 
 			// Tick 2: flag=0 (falsy). select routes to "false" output,
 			// activating shut_valve.
@@ -584,7 +584,7 @@ var _ = Describe("Routing Table Runtime", func() {
 
 			out2, changed2 := h.Flush()
 			Expect(changed2).To(BeTrue())
-			Expect(out2.Get(200).Series).To(HaveLen(0))
+			Expect(out2.Get(200).Series).To(BeEmpty())
 			Expect(out2.Get(300).Series).To(HaveLen(1))
 			Expect(telem.UnmarshalSeries[uint8](out2.Get(300).Series[0])).To(Equal([]uint8{1}))
 		})

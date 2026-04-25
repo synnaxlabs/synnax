@@ -482,7 +482,7 @@ func compileOutputAssignment(
 
 	// Step 3: Calculate memory offset for this output
 	offset := ctx.OutputMemoryBase + 8 // Skip dirty flags
-	for i := 0; i < outputIndex; i++ {
+	for i := range outputIndex {
 		if ctx.Outputs[i].Type.Kind == types.KindString {
 			offset += 4
 		} else {

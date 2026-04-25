@@ -175,7 +175,7 @@ var _ = Describe("Text", func() {
 
 			n1 := findNodeByKey(inter.Nodes, "adder_0")
 			Expect(n1.Type).To(Equal("adder"))
-			Expect(n1.Config).To(HaveLen(0))
+			Expect(n1.Config).To(BeEmpty())
 			Expect(n1.Channels.Read).ToNot(BeNil())
 			Expect(n1.Channels.Read).To(BeEmpty())
 			Expect(n1.Channels.Write).ToNot(BeNil())
@@ -1185,7 +1185,7 @@ var _ = Describe("Text", func() {
 			DescribeTable("Should reject single-node flows at parse time",
 				func(source string) {
 					_, diagnostics := text.Parse(text.Text{Raw: source})
-					Expect(diagnostics).ToNot(BeNil())
+					Expect(diagnostics).To(HaveOccurred())
 					Expect(diagnostics.Ok()).To(BeFalse())
 				},
 				Entry("single function node", `
@@ -1831,7 +1831,7 @@ var _ = Describe("Text", func() {
 				func(ctx SpecContext, source string, resolver symbol.MapResolver, expectedError string) {
 					parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 					_, diag := text.Analyze(ctx, parsedText, resolver)
-					Expect(diag).ToNot(BeNil())
+					Expect(diag).To(HaveOccurred())
 					Expect(diag.Ok()).To(BeFalse())
 					Expect(diag.String()).To(ContainSubstring(expectedError))
 				},

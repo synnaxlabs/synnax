@@ -523,7 +523,7 @@ int_chan -> consumer{}`))
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Complete analysis reports all type mismatches
-			Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
+			Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("type mismatch"))
 		})
 

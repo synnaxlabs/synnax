@@ -82,7 +82,7 @@ var _ = Describe("Statement Compiler", func() {
 				{Name: "label", Type: types.String()},
 			}
 			bytecode := compileWithOutputs(bCtx, `label = "hello"`, outputs, 0x100)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("Should compute correct offset when a preceding output is a string", func(bCtx SpecContext) {
@@ -94,7 +94,7 @@ var _ = Describe("Statement Compiler", func() {
 				label = "ok"
 				value = 42
 			`, outputs, 0x100)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 
 		It("Should compute correct offset with mixed string and numeric outputs", func(bCtx SpecContext) {
@@ -108,7 +108,7 @@ var _ = Describe("Statement Compiler", func() {
 				second = "b"
 				count = 10
 			`, outputs, 0x200)
-			Expect(len(bytecode)).To(BeNumerically(">", 0))
+			Expect(bytecode).ToNot(BeEmpty())
 		})
 	})
 
@@ -2264,7 +2264,7 @@ var _ = Describe("Statement Compiler", func() {
 			ctx := context.CreateRoot(bCtx, aCtx.Scope, aCtx.TypeMap, nil)
 			diverged := MustSucceed(statement.CompileBlock(context.Child(ctx, block)))
 			Expect(diverged).To(BeFalse())
-			Expect(len(ctx.Writer.Bytes())).To(BeNumerically(">", 0))
+			Expect(ctx.Writer.Bytes()).ToNot(BeEmpty())
 		})
 	})
 })

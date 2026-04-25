@@ -10,6 +10,7 @@
 package exec
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,7 +28,7 @@ func OnFiles(
 ) error {
 	output.PostWriteStep(strings.Join(command, " "), len(files), "running")
 	eslintArgs := append(command[1:], files...)
-	eslintCmd := exec.Command(command[0], eslintArgs...)
+	eslintCmd := exec.CommandContext(context.TODO(), command[0], eslintArgs...)
 	eslintCmd.Dir = dir
 	cmdOutput, err := eslintCmd.CombinedOutput()
 	if err != nil {

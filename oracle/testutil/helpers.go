@@ -49,7 +49,7 @@ func MustGenerateRequest(
 ) *plugin.Request {
 	ginkgo.GinkgoHelper()
 	req, err := generateRequest(ctx, source, namespace, loader)
-	gomega.Expect(err).To(gomega.BeNil(), "failed to analyze source")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to analyze source")
 	return req
 }
 
@@ -65,7 +65,7 @@ func MustGenerate(
 	ginkgo.GinkgoHelper()
 	req := MustGenerateRequest(ctx, source, namespace, loader)
 	resp, err := p.Generate(req)
-	gomega.Expect(err).To(gomega.BeNil(), "failed to generate")
+	gomega.Expect(err).ToNot(gomega.HaveOccurred(), "failed to generate")
 	return resp
 }
 

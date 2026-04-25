@@ -254,7 +254,7 @@ func (k *keyCodec[K, E]) matchPrefix(prefix []byte, key K) bool {
 			return false
 		}
 		src := unsafe.Slice((*byte)(unsafe.Pointer(&key)), k.keySize)
-		for i := range len(prefix) {
+		for i := range prefix {
 			if src[k.keySize-1-i] != prefix[i] {
 				return false
 			}

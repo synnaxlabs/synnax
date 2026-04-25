@@ -243,7 +243,7 @@ var _ = Describe("Raw", func() {
 			Expect(string(val)).To(Equal("hello"))
 			val, rest = rest.ReadString()
 			Expect(string(val)).To(Equal("world"))
-			Expect(rest).To(HaveLen(0))
+			Expect(rest).To(BeEmpty())
 		})
 	})
 
@@ -360,7 +360,7 @@ var _ = Describe("Raw", func() {
 			r = r.SkipBool()
 			val, rest := r.ReadString()
 			Expect(string(val)).To(Equal("target"))
-			Expect(rest).To(HaveLen(0))
+			Expect(rest).To(BeEmpty())
 		})
 	})
 })

@@ -58,7 +58,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual.Approximation).To(Equal(expected))
 						},
@@ -310,19 +310,19 @@ var _ = Describe("Domain", func() {
 							Expect(e).To(MatchError(err))
 						}
 					},
-						Entry("exact exact",
+						Entry("exact",
 							(19*telem.SecondTS).Range(22*telem.SecondTS),
 							index.Exactly[int64](2),
 							telem.NewAlignment(1, 3),
 							nil,
 						),
-						Entry("exact exact - between effectively continuous domains",
+						Entry("exact - between effectively continuous domains",
 							(16*telem.SecondTS).Range(26*telem.SecondTS),
 							index.Exactly[int64](7),
 							telem.NewAlignment(2, 1),
 							nil,
 						),
-						Entry("exact exact - out of domain",
+						Entry("exact - out of domain",
 							(16*telem.SecondTS).Range(32*telem.SecondTS),
 							index.Exactly[int64](0),
 							telem.NewAlignment(0, 0),
@@ -360,7 +360,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -455,7 +455,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -614,7 +614,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -672,7 +672,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -749,7 +749,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},
@@ -877,7 +877,7 @@ var _ = Describe("Domain", func() {
 							if expectedErr != nil {
 								Expect(err).To(MatchError(expectedErr))
 							} else {
-								Expect(err).To(BeNil())
+								Expect(err).ToNot(HaveOccurred())
 							}
 							Expect(actual).To(Equal(expected))
 						},

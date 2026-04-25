@@ -51,9 +51,8 @@ var _ = Describe("Relay", func() {
 			freeScenario,
 		}
 		for i, sF := range scenarios {
-			_sF := sF
 			var s scenario
-			BeforeAll(func(ctx SpecContext) { s = _sF(ctx) })
+			BeforeAll(func(ctx SpecContext) { s = sF(ctx) })
 			AfterAll(func() { Expect(s.close.Close()).To(Succeed()) })
 			Specify(fmt.Sprintf("Scenario: %v - Happy Path", i), func(ctx SpecContext) {
 				keys := channel.KeysFromChannels(s.channels)

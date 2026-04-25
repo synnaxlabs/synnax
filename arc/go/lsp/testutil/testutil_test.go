@@ -150,7 +150,7 @@ var _ = Describe("Completion", func() {
 		OpenArcDocument(server, ctx, uri, "func test() {\n    i\n}")
 		completions := Completion(server, ctx, uri, 1, 5)
 		Expect(completions).ToNot(BeNil())
-		Expect(len(completions.Items)).To(BeNumerically(">", 0))
+		Expect(completions.Items).ToNot(BeEmpty())
 	})
 
 	It("should return completions including global resolver symbols", func(ctx SpecContext) {

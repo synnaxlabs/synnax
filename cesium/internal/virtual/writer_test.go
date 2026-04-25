@@ -57,7 +57,7 @@ var _ = Describe("Write", func() {
 				Expect(err).To(MatchError(control.ErrUnauthorized))
 				Expect(t.Occurred()).To(BeFalse())
 				Expect(w2).To(BeNil())
-				t = MustSucceed(w1.Close())
+				t = w1.Close()
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(t.IsRelease()).To(BeTrue())
 			})
@@ -81,9 +81,9 @@ var _ = Describe("Write", func() {
 				Expect(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
 					Error().To(MatchError(control.ErrUnauthorized))
 				MustSucceed(w1.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
-				t = MustSucceed(w1.Close())
+				t = w1.Close()
 				Expect(t.Occurred()).To(BeTrue())
-				t = MustSucceed(w2.Close())
+				t = w2.Close()
 				Expect(t.Occurred()).To(BeTrue())
 			})
 
@@ -96,7 +96,7 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(w.Write(telem.NewSeriesV[uint8](1, 2, 3))).
 					Error().To(MatchError(validate.ErrValidation))
-				t = MustSucceed(w.Close())
+				t = w.Close()
 				Expect(t.Occurred()).To(BeTrue())
 			})
 
@@ -110,9 +110,9 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				t = MustSucceed(w.Close())
+				t = w.Close()
 				Expect(t.Occurred()).To(BeTrue())
-				t = MustSucceed(w.Close())
+				t = w.Close()
 				Expect(t.Occurred()).To(BeFalse())
 			})
 
@@ -123,7 +123,7 @@ var _ = Describe("Write", func() {
 					Subject:   control.Subject{Key: "foo"},
 				}))
 				Expect(t.Occurred()).To(BeTrue())
-				t = MustSucceed(w.Close())
+				t = w.Close()
 				Expect(t.Occurred()).To(BeTrue())
 				Expect(w.Write(telem.NewSeriesSecondsTSV(10, 11, 12))).
 					Error().To(MatchError(virtual.ErrWriterClosed))
@@ -154,10 +154,10 @@ var _ = Describe("Write", func() {
 				Expect(t.Occurred()).To(BeTrue())
 
 				MustSucceed(w2.Write(telem.NewSeriesSecondsTSV(10, 11, 12)))
-				t = MustSucceed(w1.Close())
+				t = w1.Close()
 				Expect(t.Occurred()).To(BeFalse())
 
-				t = MustSucceed(w2.Close())
+				t = w2.Close()
 				Expect(t.Occurred()).To(BeTrue())
 			})
 		})

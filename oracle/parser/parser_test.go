@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/parser"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // Helper to get StructFullContext from a struct definition
@@ -28,47 +29,42 @@ func asTypeRefNormal(typeRef parser.ITypeRefContext) *parser.TypeRefNormalContex
 var _ = Describe("Parser", func() {
 	Describe("Schema Parsing", func() {
 		It("Should parse an empty schema", func() {
-			schema, diag := parser.Parse(``)
-			Expect(diag).To(BeNil())
+			schema := MustSucceed(parser.Parse(``))
 			Expect(schema).NotTo(BeNil())
 			Expect(schema.AllDefinition()).To(BeEmpty())
 			Expect(schema.AllImportStmt()).To(BeEmpty())
 		})
 
 		It("Should parse a schema with comments only", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				// This is a comment
 				/* This is a
 				   multi-line comment */
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			Expect(schema).NotTo(BeNil())
 		})
 	})
 
 	Describe("Import Statements", func() {
 		It("Should parse a single import", func() {
-			schema, diag := parser.Parse(`import "schema/core/label"`)
-			Expect(diag).To(BeNil())
+			schema := MustSucceed(parser.Parse(`import "schema/core/label"`))
 			Expect(schema.AllImportStmt()).To(HaveLen(1))
 			Expect(schema.ImportStmt(0).STRING_LIT().GetText()).To(Equal(`"schema/core/label"`))
 		})
 
 		It("Should parse multiple imports", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				import "schema/core/label"
 				import "schema/core/channel"
 				import "schema/visualization/schematic"
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			Expect(schema.AllImportStmt()).To(HaveLen(3))
 		})
 	})
 
 	Describe("File-Level Domains", func() {
 		It("Should parse a file-level domain with string output", func() {
-			schema, diag := parser.Parse(`@ts output "client/ts/src/rack"`)
-			Expect(diag).To(BeNil())
+			schema := MustSucceed(parser.Parse(`@ts output "client/ts/src/rack"`))
 			Expect(schema.AllFileDomain()).To(HaveLen(1))
 			fd := schema.FileDomain(0)
 			Expect(fd.IDENT().GetText()).To(Equal("ts"))
@@ -81,19 +77,17 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse multiple file-level domains", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				@ts output "client/ts/src/rack"
 				@py output "client/py/synnax/rack"
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			Expect(schema.AllFileDomain()).To(HaveLen(2))
 		})
 	})
 
 	Describe("Struct Definitions", func() {
 		It("Should parse a simple struct with no fields", func() {
-			schema, diag := parser.Parse(`Empty struct {}`)
-			Expect(diag).To(BeNil())
+			schema := MustSucceed(parser.Parse(`Empty struct {}`))
 			Expect(schema.AllDefinition()).To(HaveLen(1))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			Expect(structDef).NotTo(BeNil())
@@ -101,14 +95,13 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse a struct with simple fields", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					key uuid
 					name string
 					description string?
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(3))
@@ -129,13 +122,12 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse array type fields", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					labels uuid[]
 					tags string[]?
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(2))
@@ -151,13 +143,12 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse qualified type references", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					channel channel.Channel
 					labels label.Label[]
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			fields := structDef.StructBody().AllFieldDef()
 
@@ -174,13 +165,12 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse map type fields", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Config struct {
 					settings map<string, string>
 					counts map<string, uint32>?
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			fields := structDef.StructBody().AllFieldDef()
 			Expect(fields).To(HaveLen(2))
@@ -205,12 +195,11 @@ var _ = Describe("Parser", func() {
 
 	Describe("Inline Field Domains", func() {
 		It("Should parse a field with an inline domain", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					key uuid @key
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
@@ -220,12 +209,11 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse a field with inline domain with value", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					name string @validate required
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
@@ -240,12 +228,11 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse a field with multiple inline domains", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					name string @validate required @query eq
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
@@ -255,7 +242,7 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse an inline domain with a block", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					name string @validate {
 						required
@@ -263,8 +250,7 @@ var _ = Describe("Parser", func() {
 						min_length 1
 					}
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
@@ -288,15 +274,14 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse domain expressions with string literals", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				User struct {
 					name string @validate {
 						default "untitled"
 						pattern "[a-z]+"
 					}
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			content := field.InlineDomain(0).DomainContent()
@@ -311,15 +296,14 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse domain expressions with identifier values", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					labels uuid[] @relation {
 						target label.Label
 						cardinality many_to_many
 					}
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			content := field.InlineDomain(0).DomainContent()
@@ -334,15 +318,14 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse domain expressions with triple-quoted strings", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					name string @doc value """
 						This is a multi-line
 						documentation string.
 					"""
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			inlineDomains := field.AllInlineDomain()
@@ -357,12 +340,11 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse a simple triple-quoted string", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Test struct {
 					@doc value """Hello, world!"""
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			domains := structDef.StructBody().AllDomain()
 			Expect(domains).To(HaveLen(1))
@@ -379,7 +361,7 @@ var _ = Describe("Parser", func() {
 
 	Describe("Field Body Domains", func() {
 		It("Should parse a field with a body containing domains", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					name string {
 						@validate {
@@ -388,8 +370,7 @@ var _ = Describe("Parser", func() {
 						@query eq
 					}
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			field := structDef.StructBody().FieldDef(0)
 			fieldBody := field.FieldBody()
@@ -403,7 +384,7 @@ var _ = Describe("Parser", func() {
 
 	Describe("Struct-Level Domains", func() {
 		It("Should parse struct-level domains", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				Range struct {
 					key uuid
 					name string
@@ -413,8 +394,7 @@ var _ = Describe("Parser", func() {
 						unique name workspace
 					}
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			structDef := asStructFull(schema.Definition(0).StructDef())
 			structBody := structDef.StructBody()
 
@@ -430,15 +410,14 @@ var _ = Describe("Parser", func() {
 
 	Describe("Enum Definitions", func() {
 		It("Should parse an enum with integer values", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				TaskState enum {
 					pending = 0
 					running = 1
 					completed = 2
 					failed = 3
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			Expect(schema.AllDefinition()).To(HaveLen(1))
 			enumDef := schema.Definition(0).EnumDef()
 			Expect(enumDef).NotTo(BeNil())
@@ -453,14 +432,13 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse an enum with string values", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				DataType enum {
 					float32 = "float32"
 					float64 = "float64"
 					int32 = "int32"
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			enumDef := schema.Definition(0).EnumDef()
 			values := enumDef.EnumBody().AllEnumValue()
 			Expect(values).To(HaveLen(3))
@@ -469,7 +447,7 @@ var _ = Describe("Parser", func() {
 		})
 
 		It("Should parse an enum value with a body block containing domains", func() {
-			schema, diag := parser.Parse(`
+			schema := MustSucceed(parser.Parse(`
 				TaskState enum {
 					pending = 0 {
 						@doc description "The task is waiting to be executed"
@@ -479,8 +457,7 @@ var _ = Describe("Parser", func() {
 					}
 					completed = 2
 				}
-			`)
-			Expect(diag).To(BeNil())
+			`))
 			enumDef := schema.Definition(0).EnumDef()
 			values := enumDef.EnumBody().AllEnumValue()
 			Expect(values).To(HaveLen(3))
@@ -504,8 +481,7 @@ var _ = Describe("Parser", func() {
 
 	Describe("Struct Aliases", func() {
 		It("Should parse a simple struct alias", func() {
-			schema, diag := parser.Parse(`Status = status.Status<Details>`)
-			Expect(diag).To(BeNil())
+			schema := MustSucceed(parser.Parse(`Status = status.Status<Details>`))
 			Expect(schema.AllDefinition()).To(HaveLen(1))
 			structDef := schema.Definition(0).StructDef()
 			alias, ok := structDef.(*parser.StructAliasContext)
@@ -564,13 +540,13 @@ var _ = Describe("Parser", func() {
 	Describe("Error Handling", func() {
 		It("Should report syntax errors", func() {
 			_, diag := parser.Parse(`struct { }`) // name should be before struct
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
 		It("Should report errors for missing braces", func() {
 			_, diag := parser.Parse(`Range struct key uuid`)
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 		})
 
@@ -580,7 +556,7 @@ var _ = Describe("Parser", func() {
 					pending
 				}
 			`) // missing = value
-			Expect(diag).NotTo(BeNil())
+			Expect(diag).To(HaveOccurred())
 			Expect(diag.Ok()).To(BeFalse())
 		})
 	})

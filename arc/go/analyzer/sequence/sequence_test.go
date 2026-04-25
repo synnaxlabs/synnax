@@ -71,7 +71,7 @@ func analyzeAndExpectError(bCtx SpecContext, source string) string {
 	ctx := context.CreateRoot(bCtx, ast, resolver)
 	analyzer.AnalyzeProgram(ctx)
 	Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-	Expect(len(*ctx.Diagnostics)).To(BeNumerically(">=", 1))
+	Expect(*ctx.Diagnostics).ToNot(BeEmpty())
 	return (*ctx.Diagnostics)[0].Message
 }
 

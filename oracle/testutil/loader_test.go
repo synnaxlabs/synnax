@@ -13,6 +13,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/oracle/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("MockFileLoader", func() {
@@ -55,15 +56,13 @@ var _ = Describe("MockFileLoader", func() {
 		})
 
 		It("should load file by exact path", func() {
-			content, path, err := loader.Load("schema/user")
-			Expect(err).To(BeNil())
+			content, path := MustSucceed2(loader.Load("schema/user"))
 			Expect(content).To(Equal("struct User { field key uuid }"))
 			Expect(path).To(Equal("schema/user.oracle"))
 		})
 
 		It("should load file with .oracle extension", func() {
-			content, path, err := loader.Load("schema/range")
-			Expect(err).To(BeNil())
+			content, path := MustSucceed2(loader.Load("schema/range"))
 			Expect(content).To(Equal("struct Range { field key uuid }"))
 			Expect(path).To(Equal("schema/range.oracle"))
 		})

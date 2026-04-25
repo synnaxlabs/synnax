@@ -246,7 +246,7 @@ var _ = Describe("Codec", func() {
 			)
 			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
 			encoded, err := c.Encode(ctx, fr)
-			Expect(encoded).To(HaveLen(0))
+			Expect(encoded).To(BeEmpty())
 			Expect(err).To(MatchError(validate.ErrValidation))
 		})
 	})
@@ -349,7 +349,7 @@ var _ = Describe("Codec", func() {
 			Expect(encoder.Update(ctx, []channel.Key{dataCh.Key()})).To(Succeed())
 			encoded = MustSucceed(encoder.Encode(ctx, frame1))
 			decoded = MustSucceed(decoder.Decode(encoded))
-			Expect(decoded.Frame.SeriesSlice()).To(HaveLen(0))
+			Expect(decoded.Frame.SeriesSlice()).To(BeEmpty())
 
 			frame2 := frame.NewUnary(dataCh.Key(), telem.NewSeriesV[float32](1, 2, 3, 4))
 			encoded = MustSucceed(encoder.Encode(ctx, frame2))
@@ -387,7 +387,7 @@ var _ = Describe("Codec", func() {
 					)
 					encoded = MustSucceed(encoder.Encode(ctx, delayedFrame1))
 					decoded = MustSucceed(decoder.Decode(encoded))
-					Expect(decoded.Frame.KeysSlice()).To(HaveLen(0))
+					Expect(decoded.Frame.KeysSlice()).To(BeEmpty())
 				})
 			})
 
@@ -505,11 +505,11 @@ var _ = Describe("Codec", func() {
 			Expect(decoded.Count()).To(Equal(7))
 
 			ch10Series := decoded.Get(10)
-			Expect(len(ch10Series.Series)).To(Equal(3))
+			Expect(ch10Series.Series).To(HaveLen(3))
 			ch20Series := decoded.Get(20)
-			Expect(len(ch20Series.Series)).To(Equal(2))
+			Expect(ch20Series.Series).To(HaveLen(2))
 			ch30Series := decoded.Get(30)
-			Expect(len(ch30Series.Series)).To(Equal(2))
+			Expect(ch30Series.Series).To(HaveLen(2))
 
 			Expect(frame.Frame).To(telem.MatchFrame(decoded.Frame))
 		})
@@ -621,7 +621,7 @@ var _ = Describe("Codec", func() {
 
 			// Verify the data is correct (concatenated)
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 			mergedData := telem.UnmarshalSeries[int32](series.Series[0])
 			Expect(mergedData).To(Equal([]int32{1, 2, 3, 4, 5}))
 
@@ -651,7 +651,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 			mergedData := telem.UnmarshalSeries[uint8](series.Series[0])
 			Expect(mergedData).To(Equal([]uint8{1, 2, 3, 4, 5, 6}))
 		})
@@ -678,7 +678,7 @@ var _ = Describe("Codec", func() {
 			// Should have two separate series
 			Expect(decoded.Count()).To(Equal(2))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(2))
+			Expect(series.Series).To(HaveLen(2))
 		})
 
 		It("Should handle mixed contiguous and non-contiguous series", func(ctx SpecContext) {
@@ -709,7 +709,7 @@ var _ = Describe("Codec", func() {
 			// Should have 2 merged series: [s1+s2] and [s3+s4]
 			Expect(decoded.Count()).To(Equal(2))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(2))
+			Expect(series.Series).To(HaveLen(2))
 
 			// First merged series should be [1, 2, 3, 4]
 			firstData := telem.UnmarshalSeries[int32](series.Series[0])
@@ -750,13 +750,13 @@ var _ = Describe("Codec", func() {
 
 			// Channel 1 should have merged series
 			ch1Series := decoded.Get(1)
-			Expect(len(ch1Series.Series)).To(Equal(1))
+			Expect(ch1Series.Series).To(HaveLen(1))
 			ch1Data := telem.UnmarshalSeries[int32](ch1Series.Series[0])
 			Expect(ch1Data).To(Equal([]int32{1, 2, 3, 4}))
 
 			// Channel 2 should have merged series
 			ch2Series := decoded.Get(2)
-			Expect(len(ch2Series.Series)).To(Equal(1))
+			Expect(ch2Series.Series).To(HaveLen(1))
 			ch2Data := telem.UnmarshalSeries[float32](ch2Series.Series[0])
 			Expect(ch2Data).To(Equal([]float32{1.1, 2.2, 3.3, 4.4}))
 		})
@@ -815,7 +815,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 
 			// Time range should span both series
 			mergedSeries := series.Series[0]
@@ -844,7 +844,7 @@ var _ = Describe("Codec", func() {
 
 			Expect(decoded.Count()).To(Equal(1))
 			series := decoded.Get(1)
-			Expect(len(series.Series)).To(Equal(1))
+			Expect(series.Series).To(HaveLen(1))
 
 			// Data should be concatenated correctly
 			mergedStrings := telem.UnmarshalSeries[string](series.Series[0])

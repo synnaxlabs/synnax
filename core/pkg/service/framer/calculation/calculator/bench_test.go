@@ -114,7 +114,7 @@ func BenchmarkCalculator_SingleInput(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
 	}
 	b.StopTimer()
@@ -154,7 +154,7 @@ func BenchmarkCalculator_TwoInputs_Add(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
 	}
 	b.StopTimer()
@@ -198,7 +198,7 @@ func BenchmarkCalculator_MultipleInputs(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
 	}
 	b.StopTimer()
@@ -237,7 +237,7 @@ func BenchmarkCalculator_NestedTwoLevel(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = group.Next(env.ctx, inputFrame)
 	}
 	b.StopTimer()
@@ -283,7 +283,7 @@ func BenchmarkCalculator_SampleCount(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
 			}
 			b.StopTimer()
@@ -325,7 +325,7 @@ func BenchmarkCalculator_ComplexExpression(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		_, _, _ = c.Next(env.ctx, inputFrame, outputFrame)
 	}
 	b.StopTimer()
@@ -367,7 +367,7 @@ func BenchmarkCalculator_GroupScaling(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, _, _ = group.Next(env.ctx, inputFrame)
 			}
 			b.StopTimer()

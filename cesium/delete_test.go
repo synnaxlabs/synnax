@@ -107,7 +107,7 @@ var _ = Describe("Delete", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, vChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannelKey}}))
+							s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: []cesium.ChannelKey{vChannelKey}}))
 							sCtx, cancel := signal.WithCancel(ctx)
 
 							By("Start streaming")
@@ -126,7 +126,7 @@ var _ = Describe("Delete", func() {
 							By("Creating a channel")
 							Expect(db.CreateChannel(ctx, uChannel)).To(Succeed())
 							By("Opening a streamer on the channel")
-							s := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannelKey}}))
+							s := MustSucceed(db.NewStreamer(cesium.StreamerConfig{Channels: []cesium.ChannelKey{uChannelKey}}))
 							sCtx, cancel := signal.WithCancel(ctx)
 
 							By("Start streaming")
@@ -384,7 +384,7 @@ var _ = Describe("Delete", func() {
 					for _, c := range channels {
 						Expect(fs.Exists(channelKeyToPath(c.Key))).To(BeFalse())
 						for _, f := range MustSucceed(fs.List("")) {
-							Eventually(f.Name()).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
+							Eventually(f.Name).ShouldNot(HavePrefix(strconv.Itoa(int(c.Key)) + "-DELETE-"))
 						}
 					}
 				})
@@ -438,7 +438,7 @@ var _ = Describe("Delete", func() {
 						_, err := db.RetrieveChannel(ctx, data1)
 						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 						_, err = db.RetrieveChannel(ctx, data2)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						Expect(db.DeleteChannels([]cesium.ChannelKey{data1, data3})).To(Succeed())
 						Expect(w2.Close()).To(Succeed())
 
@@ -459,9 +459,9 @@ var _ = Describe("Delete", func() {
 						Expect(fs.Exists(channelKeyToPath(index1))).To(BeTrue())
 						Expect(fs.Exists(channelKeyToPath(index2))).To(BeTrue())
 						_, err = db.RetrieveChannel(ctx, index1)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						_, err = db.RetrieveChannel(ctx, index2)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 					})
 					It("Should be interrupted when there is an error in deleting index channels", func(ctx SpecContext) {
 						i := MustSucceed(db.OpenIterator(cesium.IteratorConfig{Bounds: telem.TimeRangeMax, Channels: []channel.Key{index1}}))
@@ -527,7 +527,7 @@ var _ = Describe("Delete", func() {
 						//  0  1                 7  8  9
 
 						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic1)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						Expect(frame.Count()).To(Equal(2))
 						Expect(frame.SeriesAt(0).TimeRange.End).To(Equal(12 * telem.SecondTS))
 
@@ -582,7 +582,7 @@ var _ = Describe("Delete", func() {
 						// 10 11                17 18 19
 
 						frame, err := db.Read(ctx, telem.TimeRange{Start: 10 * telem.SecondTS, End: 20 * telem.SecondTS}, basic2Index)
-						Expect(err).To(BeNil())
+						Expect(err).ToNot(HaveOccurred())
 						Expect(frame.Count()).To(Equal(2))
 
 						series0Data := telem.UnmarshalSeries[telem.TimeStamp](frame.SeriesAt(0))

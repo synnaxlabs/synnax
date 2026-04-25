@@ -132,7 +132,7 @@ var _ = Describe("Migrate", func() {
 
 		It("Should handle an empty migrations list", func() {
 			applied := MustSucceed(migrate.Migrate(ctx, cfg()))
-			Expect(applied).To(HaveLen(0))
+			Expect(applied).To(BeEmpty())
 		})
 
 		It("Should handle a nil applied set", func() {
@@ -209,13 +209,13 @@ var _ = Describe("Migrate", func() {
 	Describe("WithAddedDeps", func() {
 		It("Should add dependencies to a migration without mutating the original", func() {
 			original := noop("a")
-			Expect(original.Dependencies()).To(HaveLen(0))
+			Expect(original.Dependencies()).To(BeEmpty())
 			wrapped := migrate.WithAddedDeps(original, "x", "y")
 			Expect(wrapped.Key()).To(Equal("a"))
 			Expect(wrapped.Dependencies()).To(HaveLen(2))
 			Expect(wrapped.Dependencies().Contains("x")).To(BeTrue())
 			Expect(wrapped.Dependencies().Contains("y")).To(BeTrue())
-			Expect(original.Dependencies()).To(HaveLen(0))
+			Expect(original.Dependencies()).To(BeEmpty())
 		})
 
 		It("Should merge added deps with existing deps", func() {
@@ -242,8 +242,8 @@ var _ = Describe("Migrate", func() {
 			m2 := noop("b")
 			originals := []migrate.Migration{m1, m2}
 			migrate.AllWithAddedDeps(originals, "root")
-			Expect(m1.Dependencies()).To(HaveLen(0))
-			Expect(m2.Dependencies()).To(HaveLen(0))
+			Expect(m1.Dependencies()).To(BeEmpty())
+			Expect(m2.Dependencies()).To(BeEmpty())
 		})
 	})
 

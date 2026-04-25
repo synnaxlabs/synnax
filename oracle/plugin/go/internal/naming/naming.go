@@ -104,7 +104,7 @@ func LowerFirst(s string) string {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	} else {
-		for j := 0; j < i-1; j++ {
+		for j := range i - 1 {
 			runes[j] = unicode.ToLower(runes[j])
 		}
 	}

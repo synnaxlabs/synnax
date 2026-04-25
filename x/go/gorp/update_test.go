@@ -52,7 +52,7 @@ var _ = Describe("update", func() {
 			Exec(ctx, tx)).To(MatchError(query.ErrInvalidParameters))
 	})
 
-	It("Should return an error if the the key cannot be found", func(ctx SpecContext) {
+	It("Should return an error if the key cannot be found", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().
 			WhereKeys(999).
 			Change(func(_ gorp.Context, e entry) entry {

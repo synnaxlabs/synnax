@@ -616,7 +616,7 @@ var _ = Describe("Migration", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		svc := openService(ctx)
-		Expect(svc.EmbeddedKey).ToNot(Equal(mismatchedRack.Key))
+		Expect(svc.EmbeddedKey).ToNot(BeEquivalentTo(mismatchedRack.Key))
 
 		var embeddedRack rack.Rack
 		Expect(svc.NewRetrieve().

@@ -192,8 +192,7 @@ func (db *DB) newStreamWriter(ctx context.Context, cfgs ...WriterConfig) (w *str
 			err = errors.Combine(errClose, err)
 		}
 		for _, vw := range virtualWriters {
-			_, errClose := vw.Close()
-			err = errors.Combine(errClose, err)
+			vw.Close()
 		}
 	}()
 

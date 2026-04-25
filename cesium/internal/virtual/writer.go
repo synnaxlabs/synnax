@@ -134,12 +134,12 @@ func (w *Writer) SetAuthority(a xcontrol.Authority) control.Transfer {
 	return w.control.SetAuthority(a)
 }
 
-func (w *Writer) Close() (control.Transfer, error) {
+func (w *Writer) Close() control.Transfer {
 	if w.closed {
-		return control.Transfer{}, nil
+		return control.Transfer{}
 	}
 	w.closed = true
 	_, t := w.control.Release()
 	w.onClose()
-	return t, nil
+	return t
 }

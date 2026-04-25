@@ -57,7 +57,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			Entry("completely different", "abc", "xyz", 3),
 			Entry("typo - missing letter", "temperatur", "temperature", 1),
 			Entry("typo - extra letter", "temperaturee", "temperature", 1),
-			Entry("typo - swapped letters", "teh", "the", 2),
+			Entry("typo - swapped letters", "the", "the", 2),
 			Entry("case sensitive", "Hello", "hello", 1),
 		)
 	})
@@ -109,7 +109,7 @@ var _ = Describe("Symbol Suggestions", func() {
 			MustSucceed(root.Add(bCtx, symbol.Symbol{Name: "testing", Kind: symbol.KindVariable}))
 
 			suggestions := root.SuggestSimilar(bCtx, "tset", 3)
-			Expect(len(suggestions)).To(BeNumerically(">=", 1))
+			Expect(suggestions).ToNot(BeEmpty())
 			Expect(suggestions[0]).To(Equal("test"))
 		})
 

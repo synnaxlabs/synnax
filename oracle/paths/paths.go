@@ -12,6 +12,7 @@
 package paths
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -26,7 +27,7 @@ import (
 // Returns an error if not within a git repository.
 func RepoRoot() (string, error) {
 	// Try git rev-parse first (most reliable)
-	cmd := exec.Command("git", "rev-parse", "--show-toplevel")
+	cmd := exec.CommandContext(context.TODO(), "git", "rev-parse", "--show-toplevel")
 	output, err := cmd.Output()
 	if err == nil {
 		return strings.TrimSpace(string(output)), nil

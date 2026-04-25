@@ -61,7 +61,7 @@ var _ = Describe("Pipeline", func() {
 			Expect(UnaryRouter[int]{
 				SourceTarget: "t1",
 				SinkTarget:   "t2",
-			}.Route(pipe))
+			}.Route(pipe)).To(Succeed())
 
 			seg := &Segment[int, int]{Pipeline: pipe}
 			Expect(seg.RouteInletTo("t1")).To(Succeed())

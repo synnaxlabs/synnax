@@ -140,7 +140,7 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: new(false),
 							Sync:              new(true),
 						}))
-						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						streamer := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))
@@ -213,7 +213,7 @@ var _ = Describe("Control", func() {
 						)).To(Succeed())
 						start := telem.SecondTS * 10
 
-						streamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						streamer := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))
@@ -358,7 +358,7 @@ var _ = Describe("Control", func() {
 							ErrOnUnauthorized: new(false),
 							Sync:              new(true),
 						}))
-						dataStreamer := MustSucceed(db.NewStreamer(ctx, cesium.StreamerConfig{
+						dataStreamer := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{virtualChKey, indexChKey, dataChKey},
 							SendOpenAck: true,
 						}))
@@ -368,7 +368,7 @@ var _ = Describe("Control", func() {
 						dataStreamer.Flow(sCtx, confluence.CloseOutputInletsOnExit())
 						Eventually(dataStreamerOut.Outlet()).Should(Receive())
 
-						controlStateStreamer := MustSucceed(db.NewStreamer(sCtx, cesium.StreamerConfig{
+						controlStateStreamer := MustSucceed(db.NewStreamer(cesium.StreamerConfig{
 							Channels:    []cesium.ChannelKey{math.MaxUint32},
 							SendOpenAck: true,
 						}))

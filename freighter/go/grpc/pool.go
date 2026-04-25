@@ -25,16 +25,13 @@ type ClientConn struct {
 	demand *pool.Demand
 }
 
+var _ pool.Adapter = (*ClientConn)(nil)
+
 // Acquire implements pool.Adapter.
-func (c *ClientConn) Acquire() error {
-	c.demand.Increase(1)
-	return nil
-}
+func (c *ClientConn) Acquire() error { c.demand.Increase(1); return nil }
 
 // Release implements pool.Adapter.
-func (c *ClientConn) Release() {
-	c.demand.Decrease(1)
-}
+func (c *ClientConn) Release() { c.demand.Decrease(1) }
 
 // Close implements pool.Adapter.
 func (c *ClientConn) Close() error { return c.ClientConn.Close() }

@@ -154,7 +154,7 @@ func BenchmarkRetrieveByID(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().WhereIDs(queryIDs...).Entries(&res).Exec(env.ctx, nil)
 				}
@@ -176,7 +176,7 @@ func BenchmarkTraverseChildren(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().WhereIDs(root).TraverseTo(ontology.ChildrenTraverser).Entries(&res).Exec(env.ctx, nil)
 				}
@@ -198,7 +198,7 @@ func BenchmarkTraverseParents(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			var err error
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var res []ontology.Resource
 				err = env.otg.NewRetrieve().WhereIDs(leaf).TraverseTo(ontology.ParentsTraverser).Entries(&res).Exec(env.ctx, nil)
 			}
@@ -219,7 +219,7 @@ func BenchmarkPagination(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().Offset(offset).Limit(50).Entries(&res).Exec(env.ctx, nil)
 				}
@@ -243,7 +243,7 @@ func BenchmarkSearch(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			var err error
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_, err = env.searchIdx.Search(env.ctx, search.Request{Term: "500"})
 			}
 			if err != nil {
@@ -262,7 +262,7 @@ func BenchmarkRetrieveByType(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			var err error
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var res []ontology.Resource
 				err = env.otg.NewRetrieve().WhereTypes(benchOntologyType).Entries(&res).Exec(env.ctx, nil)
 			}
@@ -286,7 +286,7 @@ func BenchmarkMultiHopTraversal(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					q := env.otg.NewRetrieve().WhereIDs(root)
 					for range hops {
 						q = q.TraverseTo(ontology.ChildrenTraverser)
@@ -311,7 +311,7 @@ func BenchmarkIntermediateTraversalOverhead(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			var err error
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				var res []ontology.Resource
 				err = env.otg.NewRetrieve().
 					WhereIDs(root).
@@ -366,7 +366,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).
@@ -385,7 +385,7 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 				b.ReportAllocs()
 				b.ResetTimer()
 				var err error
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					var res []ontology.Resource
 					err = env.otg.NewRetrieve().
 						WhereIDs(parents...).

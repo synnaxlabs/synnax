@@ -71,9 +71,9 @@ var _ = Describe("Frame Translator", func() {
 
 		It("Should handle an empty slice", func() {
 			pb := MustSucceed(telempb.ManySeriesToPB(nil))
-			Expect(pb).To(HaveLen(0))
+			Expect(pb).To(BeEmpty())
 			result := MustSucceed(telempb.ManySeriesFromPB(nil))
-			Expect(result).To(HaveLen(0))
+			Expect(result).To(BeEmpty())
 		})
 	})
 

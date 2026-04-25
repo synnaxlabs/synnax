@@ -349,12 +349,12 @@ var _ = Describe("PebbleKV", func() {
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber1Called = true
-					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
+					Expect(slices.Collect(reader)).ToNot(BeEmpty())
 				})
 
 				db.OnChange(func(ctx context.Context, reader kv.TxReader) {
 					subscriber2Called = true
-					Expect(len(slices.Collect(reader))).To(BeNumerically(">", 0))
+					Expect(slices.Collect(reader)).ToNot(BeEmpty())
 				})
 
 				key := []byte("multi-subscriber-key")

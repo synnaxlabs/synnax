@@ -10,6 +10,7 @@
 package git
 
 import (
+	"context"
 	"os/exec"
 	"strings"
 )
@@ -20,7 +21,7 @@ func CurrentCommit(short ...bool) (string, error) {
 		args = append(args, "--short")
 	}
 	args = append(args, "HEAD")
-	cmd := exec.Command("git", args...)
+	cmd := exec.CommandContext(context.TODO(), "git", args...)
 	out, err := cmd.Output()
 	if err != nil {
 		return "", err

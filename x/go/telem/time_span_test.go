@@ -162,15 +162,13 @@ var _ = Describe("TimeSpan", func() {
 	Describe("UnmarshalJSON", func() {
 		It("Should unmarshal a time span from a number", func() {
 			var ts telem.TimeSpan
-			err := json.Unmarshal([]byte("1000000000"), &ts)
-			Expect(err).To(BeNil())
+			Expect(json.Unmarshal([]byte("1000000000"), &ts)).To(Succeed())
 			Expect(ts).To(Equal(telem.Second))
 		})
 
 		It("Should unmarshal a time span from a string", func() {
 			var ts telem.TimeSpan
-			err := json.Unmarshal([]byte("1000000000"), &ts)
-			Expect(err).To(BeNil())
+			Expect(json.Unmarshal([]byte("1000000000"), &ts)).To(Succeed())
 			Expect(ts).To(Equal(telem.Second))
 		})
 	})

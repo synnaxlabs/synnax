@@ -124,7 +124,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	s.L.Info("hydrating calculated channel graph", zap.Int("count", len(channels)))
 	repairs := make([]channel.Channel, 0)
 	pass := 0
-	invalidCount := 0
+	var invalidCount int
 	var (
 		nextNodes      map[channel.Key]node
 		nextDependents map[channel.Key]set.Set[channel.Key]
@@ -133,7 +133,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	analyzer := s.newAnalyzer(nil)
 	statuses := make(map[channel.Key]*calculation.Status)
 	for {
-		changed := false
+		var changed bool
 		nextNodes = make(map[channel.Key]node)
 		nextDependents = make(map[channel.Key]set.Set[channel.Key])
 		nextUnresolved = make(map[string]set.Set[channel.Key])

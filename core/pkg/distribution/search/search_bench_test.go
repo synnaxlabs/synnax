@@ -69,7 +69,7 @@ func BenchmarkIndex(b *testing.B) {
 			resources := makeResources(count)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				idx := newBenchIndex(b)
 				if err := idx.IndexResources(resources); err != nil {
 					b.Fatal(err)
@@ -90,7 +90,7 @@ func BenchmarkReindex(b *testing.B) {
 	}
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		r.Name = fmt.Sprintf("gse_ai_%d", i)
 		if err := idx.IndexResources([]ontology.Resource{r}); err != nil {
 			b.Fatal(err)
@@ -117,7 +117,7 @@ func BenchmarkSearch(b *testing.B) {
 				req := search.Request{Term: queryType.term}
 				b.ReportAllocs()
 				b.ResetTimer()
-				for i := 0; i < b.N; i++ {
+				for range b.N {
 					if _, err := idx.Search(ctx, req); err != nil {
 						b.Fatal(err)
 					}
@@ -138,7 +138,7 @@ func BenchmarkSearchMiss(b *testing.B) {
 			req := search.Request{Term: "xyznonexistent qqq"}
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := idx.Search(ctx, req); err != nil {
 					b.Fatal(err)
 				}

@@ -64,7 +64,7 @@ var _ = Describe("Color", func() {
 			c := color.Color{R: 255, G: 0, B: 0, A: 0.5}
 			hex := c.Hex()
 			Expect(hex).To(HavePrefix("#ff0000"))
-			Expect(len(hex)).To(Equal(9))
+			Expect(hex).To(HaveLen(9))
 		})
 	})
 

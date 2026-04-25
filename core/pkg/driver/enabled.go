@@ -313,7 +313,7 @@ func (d *Driver) setupCmd(
 		flags = append(flags, debugFlag)
 	}
 	flags = append(flags, configFlag, cfgFile)
-	d.cmd = exec.Command(driverPath, flags...)
+	d.cmd = exec.CommandContext(context.TODO(), driverPath, flags...)
 	configureSysProcAttr(d.cmd)
 	return cfgFile, extractedBinary, nil
 }

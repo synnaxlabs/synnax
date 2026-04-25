@@ -42,7 +42,7 @@ func main() {
 			return app.Listen(":8080", fiber.ListenConfig{DisableStartupMessage: true})
 		})
 
-		lis, err := net.Listen("tcp", ":8081")
+		lis, err := new(net.ListenConfig{}).Listen(context.TODO(), "tcp", ":8081")
 		if err != nil {
 			return err
 		}

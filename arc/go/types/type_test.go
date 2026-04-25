@@ -651,7 +651,7 @@ var _ = Describe("Types", func() {
 				Inputs: types.Params{{Name: "x", Type: types.I32()}},
 			}
 			fn := types.Function(props)
-			Expect(len(fn.Inputs)).To(Equal(1))
+			Expect(fn.Inputs).To(HaveLen(1))
 		})
 	})
 
@@ -884,7 +884,7 @@ var _ = Describe("Types", func() {
 			It("Should return empty map for empty params", func() {
 				empty := types.Params{}
 				valueMap := empty.ValueMap()
-				Expect(valueMap).To(HaveLen(0))
+				Expect(valueMap).To(BeEmpty())
 			})
 			It("Should handle nil values", func() {
 				paramsWithNil := types.Params{

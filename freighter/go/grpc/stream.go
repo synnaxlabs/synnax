@@ -95,7 +95,7 @@ func (s *StreamServerCore[RQ, RQT, RS, RST]) Handler(
 		return nil
 	}
 	oCtx = attachContext(oCtx)
-	return errors.Encode(ctx, err, s.Internal)
+	return errors.Encode(oCtx, err, s.Internal)
 }
 
 func (s *StreamClient[RQ, RQT, RS, RST]) Stream(

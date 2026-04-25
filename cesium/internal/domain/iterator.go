@@ -223,8 +223,8 @@ func (i *Iterator) reload() bool {
 	ptr, ok := i.idx.get(i.position)
 	if !ok || !ptr.OverlapsWith(i.Bounds) {
 		i.valid = false
-		// it's important that we return here, so we don't clear the current current
-		// value of the iterator.
+		// it's important that we return here, so we don't clear the current value of
+		// the iterator.
 		return i.valid
 	}
 	i.currPtr = ptr

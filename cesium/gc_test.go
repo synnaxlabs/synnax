@@ -64,7 +64,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					for i := 1; i <= 9; i++ {
 						var data []int64
 						var timestamps []telem.TimeStamp
-						for j := 0; j <= 9; j++ {
+						for j := range 10 {
 							data = append(data, int64(i*100+j*10))
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
@@ -132,7 +132,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					for i := 1; i <= 9; i++ {
 						var data []int64
 						var timestamps []telem.TimeStamp
-						for j := 0; j <= 9; j++ {
+						for j := range 10 {
 							data = append(data, int64(i*100+j*10))
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}
@@ -209,7 +209,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 					for i := 1; i <= 9; i++ {
 						var data []int64
 						var timestamps []telem.TimeStamp
-						for j := 0; j <= 9; j++ {
+						for j := range 10 {
 							data = append(data, int64(i*100+j*10))
 							timestamps = append(timestamps, telem.TimeStamp(i*10+j))
 						}

@@ -41,7 +41,7 @@ var _ = Describe("Completion", func() {
 
 			completions := Completion(server, ctx, uri, 1, 5)
 			Expect(completions).ToNot(BeNil())
-			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+			Expect(completions.Items).ToNot(BeEmpty())
 		})
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("Completion", func() {
 
 			completions := Completion(server, ctx, uri, 0, 11)
 			Expect(completions).ToNot(BeNil())
-			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+			Expect(completions.Items).ToNot(BeEmpty())
 
 			for _, item := range completions.Items {
 				Expect(item.Kind).To(Equal(protocol.CompletionItemKindClass),
@@ -90,7 +90,7 @@ var _ = Describe("Completion", func() {
 
 			completions := Completion(server, ctx, uri, 0, 12)
 			Expect(completions).ToNot(BeNil())
-			Expect(len(completions.Items)).To(BeNumerically(">", 0))
+			Expect(completions.Items).ToNot(BeEmpty())
 
 			for _, item := range completions.Items {
 				Expect(item.Label).To(HavePrefix("i"), "Expected items with 'i' prefix, got: %s", item.Label)

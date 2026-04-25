@@ -144,7 +144,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 			return
 		}
 		den := int64(s.DataType.Density())
-		for i := int64(0); i < s.Len(); i++ {
+		for i := range s.Len() {
 			b := s.Data[i*den : (i+1)*den]
 			if !yield(b) {
 				return

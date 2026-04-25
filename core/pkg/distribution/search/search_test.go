@@ -177,7 +177,7 @@ var _ = Describe("Search", func() {
 				Expect(idx.Search(ctx, search.Request{
 					Type: "test",
 					Term: term,
-				})).To(HaveLen(0))
+				})).To(BeEmpty())
 			},
 			Entry("No Match", ontology.Resource{
 				ID:   ontology.ID{Type: "test", Key: "1"},

@@ -268,9 +268,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads).To(HaveLen(0))
-			Expect(cfg.Writes).To(HaveLen(0))
-			Expect(cfg.ChannelDigests).To(HaveLen(0))
+			Expect(cfg.Reads).To(BeEmpty())
+			Expect(cfg.Writes).To(BeEmpty())
+			Expect(cfg.ChannelDigests).To(BeEmpty())
 		})
 
 		It("Should handle module with nodes that have no channels", func(ctx SpecContext) {
@@ -287,9 +287,9 @@ var _ = Describe("StateConfig", Ordered, func() {
 			}
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, prog))
-			Expect(cfg.Reads).To(HaveLen(0))
-			Expect(cfg.Writes).To(HaveLen(0))
-			Expect(cfg.ChannelDigests).To(HaveLen(0))
+			Expect(cfg.Reads).To(BeEmpty())
+			Expect(cfg.Writes).To(BeEmpty())
+			Expect(cfg.ChannelDigests).To(BeEmpty())
 		})
 
 		It("Should return error when channel retrieval fails", func(ctx SpecContext) {
@@ -362,7 +362,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 			compiled := MustSucceed(arc.CompileText(ctx, prog, arc.WithResolver(resolver)))
 
 			cfg := MustSucceed(runtime.NewStateConfig(ctx, dist.Channel, compiled))
-			Expect(cfg.Reads).To(HaveLen(0))
+			Expect(cfg.Reads).To(BeEmpty())
 			Expect(cfg.Writes.Contains(virtCh.Key())).To(BeTrue())
 			Expect(cfg.Writes).To(HaveLen(1))
 			Expect(cfg.ChannelDigests).To(HaveLen(1))

@@ -59,7 +59,7 @@ var _ = Describe("Freshen", func() {
 		fresh := types.Freshen(fnType, "node5")
 		Expect(fresh.Kind).To(Equal(types.KindFunction))
 		Expect(fresh.Inputs).ToNot(BeNil())
-		Expect(len(fresh.Inputs)).To(Equal(1))
+		Expect(fresh.Inputs).To(HaveLen(1))
 	})
 
 	It("Should return primitive types unchanged", func() {

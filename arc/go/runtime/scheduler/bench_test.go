@@ -159,7 +159,7 @@ func runTickBench(b *testing.B, prog ir.IR, nodes map[string]node.Node) {
 	ctx := context.Background()
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		s.Next(ctx, telem.Microsecond, node.ReasonTimerTick)
 	}
 }
@@ -206,7 +206,7 @@ func BenchmarkConstruction(b *testing.B) {
 			prog, nodes := buildFanoutChain(n)
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				_ = scheduler.New(prog, nodes, 0)
 			}
 		})

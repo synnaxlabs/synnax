@@ -39,8 +39,7 @@ var _ = Describe("Check Utilities", func() {
 	Describe("FileModTime", func() {
 		It("Should return modification time for existing file", func() {
 			filePath := filepath.Join(tempDir, "test.txt")
-			err := os.WriteFile(filePath, []byte("test"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(filePath, []byte("test"), 0644)).To(Succeed())
 
 			modTime := plugin.FileModTime(filePath)
 			Expect(modTime.IsZero()).To(BeFalse())
@@ -57,39 +56,34 @@ var _ = Describe("Check Utilities", func() {
 		It("Should return nil when all files are fresh", func() {
 			// Create schema file
 			schemaPath := filepath.Join(tempDir, "schema.oracle")
-			err := os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)).To(Succeed())
 
 			// Wait a bit, then create generated file (newer)
 			time.Sleep(10 * time.Millisecond)
 			genPath := filepath.Join(tempDir, "test.gen.go")
-			err = os.WriteFile(genPath, []byte("package test"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(genPath, []byte("package test"), 0644)).To(Succeed())
 
 			genFiles := map[string][]string{
 				genPath: {schemaPath},
 			}
-			result := plugin.CheckFreshness("test", genFiles)
-			Expect(result).To(BeNil())
+			Expect(plugin.CheckFreshness("test", genFiles)).To(Succeed())
 		})
 
 		It("Should return StaleError when generated file is older than schema", func() {
 			// Create generated file first
 			genPath := filepath.Join(tempDir, "test.gen.go")
-			err := os.WriteFile(genPath, []byte("package test"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(genPath, []byte("package test"), 0644)).To(Succeed())
 
 			// Wait a bit, then create schema file (newer)
 			time.Sleep(10 * time.Millisecond)
 			schemaPath := filepath.Join(tempDir, "schema.oracle")
-			err = os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)).To(Succeed())
 
 			genFiles := map[string][]string{
 				genPath: {schemaPath},
 			}
 			result := plugin.CheckFreshness("test", genFiles)
-			Expect(result).NotTo(BeNil())
+			Expect(result).To(HaveOccurred())
 
 			staleErr, ok := result.(*plugin.StaleError)
 			Expect(ok).To(BeTrue())
@@ -101,8 +95,7 @@ var _ = Describe("Check Utilities", func() {
 
 		It("Should return StaleError when generated file is missing", func() {
 			schemaPath := filepath.Join(tempDir, "schema.oracle")
-			err := os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)).To(Succeed())
 
 			genPath := filepath.Join(tempDir, "test.gen.go") // Does not exist
 
@@ -110,7 +103,7 @@ var _ = Describe("Check Utilities", func() {
 				genPath: {schemaPath},
 			}
 			result := plugin.CheckFreshness("test", genFiles)
-			Expect(result).NotTo(BeNil())
+			Expect(result).To(HaveOccurred())
 
 			staleErr, ok := result.(*plugin.StaleError)
 			Expect(ok).To(BeTrue())
@@ -120,15 +113,13 @@ var _ = Describe("Check Utilities", func() {
 
 		It("Should handle multiple generated files", func() {
 			schemaPath := filepath.Join(tempDir, "schema.oracle")
-			err := os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(schemaPath, []byte("struct Test {}"), 0644)).To(Succeed())
 
 			time.Sleep(10 * time.Millisecond)
 
 			// One fresh, one stale
 			freshPath := filepath.Join(tempDir, "fresh.gen.go")
-			err = os.WriteFile(freshPath, []byte("package test"), 0644)
-			Expect(err).To(BeNil())
+			Expect(os.WriteFile(freshPath, []byte("package test"), 0644)).To(Succeed())
 
 			stalePath := filepath.Join(tempDir, "stale.gen.go") // Missing
 
@@ -137,7 +128,7 @@ var _ = Describe("Check Utilities", func() {
 				stalePath: {schemaPath},
 			}
 			result := plugin.CheckFreshness("test", genFiles)
-			Expect(result).NotTo(BeNil())
+			Expect(result).To(HaveOccurred())
 
 			staleErr, ok := result.(*plugin.StaleError)
 			Expect(ok).To(BeTrue())

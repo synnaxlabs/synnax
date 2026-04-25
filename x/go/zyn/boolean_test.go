@@ -173,53 +173,53 @@ var _ = Describe("Bool", func() {
 			type MyBool bool
 			var dest *MyBool
 			Expect(zyn.Bool().Optional().Parse(true, &dest)).To(Succeed())
-			Expect(*dest).To(Equal(MyBool(true)))
+			Expect(bool(*dest)).To(BeTrue())
 		})
 	})
 
 	Describe("Dump", func() {
 		Specify("boolean value", func() {
-			Expect(zyn.Bool().Dump(true)).To(Equal(true))
+			Expect(zyn.Bool().Dump(true)).To(BeTrue())
 		})
 
 		Specify("string 'true'", func() {
 			result := MustSucceed(zyn.Bool().Dump("true"))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string '1'", func() {
 			result := MustSucceed(zyn.Bool().Dump("1"))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("string 'false'", func() {
 			result := MustSucceed(zyn.Bool().Dump("false"))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("string '0'", func() {
 			result := MustSucceed(zyn.Bool().Dump("0"))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("integer 1", func() {
 			result := MustSucceed(zyn.Bool().Dump(1))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("integer 0", func() {
 			result := MustSucceed(zyn.Bool().Dump(0))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("float 1.0", func() {
 			result := MustSucceed(zyn.Bool().Dump(1.0))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 
 		Specify("float 0.0", func() {
 			result := MustSucceed(zyn.Bool().Dump(0.0))
-			Expect(result).To(Equal(false))
+			Expect(result).To(BeFalse())
 		})
 
 		Specify("invalid string", func() {
@@ -257,7 +257,7 @@ var _ = Describe("Bool", func() {
 		Specify("custom type", func() {
 			type MyBool bool
 			result := MustSucceed(zyn.Bool().Dump(MyBool(true)))
-			Expect(result).To(Equal(true))
+			Expect(result).To(BeTrue())
 		})
 	})
 })

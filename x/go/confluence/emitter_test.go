@@ -37,7 +37,7 @@ var _ = Describe("Emitter", func() {
 			received = append(received, v)
 			runtime.Gosched()
 		}
-		Expect(len(received)).To(BeNumerically(">", 0))
+		Expect(received).ToNot(BeEmpty())
 	})
 	It("Should exit if the emitter returns an error", func(specCtx SpecContext) {
 		exitedErr := errors.New("exited")

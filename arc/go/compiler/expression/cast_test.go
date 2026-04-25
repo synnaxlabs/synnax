@@ -116,7 +116,7 @@ var _ = Describe("Type Cast Compilation", func() {
 	It("Should propagate literal parsing errors", func(bCtx SpecContext) {
 		// Test that non-exact float-to-int conversions are rejected
 		expr, diag := parser.ParseExpression("i32(3.14)")
-		Expect(diag).To(BeNil())
+		Expect(diag).ToNot(HaveOccurred())
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("cannot convert non-integer float")))
@@ -125,7 +125,7 @@ var _ = Describe("Type Cast Compilation", func() {
 	It("Should propagate overflow errors from literals", func(bCtx SpecContext) {
 		// Test that overflow validation is enforced
 		expr, diag := parser.ParseExpression("i8(128)")
-		Expect(diag).To(BeNil())
+		Expect(diag).ToNot(HaveOccurred())
 		ctx := NewContext(bCtx)
 		_, err := expression.Compile(ccontext.Child(ctx, expr))
 		Expect(err).To(MatchError(ContainSubstring("out of range for i8")))

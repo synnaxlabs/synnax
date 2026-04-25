@@ -57,7 +57,7 @@ func (a *Alignment) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON implements json.Marshaler.
 func (a Alignment) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringUint64(uint64(a))
+	return xjson.MarshalStringUint64(uint64(a)), nil
 }
 
 // AddSamples increments the sample index of the alignment.

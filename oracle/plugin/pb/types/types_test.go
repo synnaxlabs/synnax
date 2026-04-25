@@ -115,7 +115,7 @@ var _ = Describe("Plugin", func() {
 
 	Describe("Check", func() {
 		It("Should return nil (no validation required)", func() {
-			Expect(p.Check(&plugin.Request{})).To(BeNil())
+			Expect(p.Check(&plugin.Request{})).To(Succeed())
 		})
 	})
 

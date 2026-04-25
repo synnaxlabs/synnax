@@ -214,7 +214,7 @@ func BenchmarkStreamerCalc_Throughput(b *testing.B) {
 
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for range b.N {
 		if _, err := w.Write(fr); err != nil {
 			b.Fatalf("failed to write: %v", err)
 		}
@@ -271,7 +271,7 @@ func BenchmarkStreamerCalc_WithDownsample(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := w.Write(fr); err != nil {
 					b.Fatalf("failed to write: %v", err)
 				}
@@ -324,7 +324,7 @@ func BenchmarkStreamerCalc_WithCalculation(b *testing.B) {
 	timeout := 500 * time.Millisecond
 	b.ReportAllocs()
 	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+	for i := range b.N {
 		baseTS := telem.TimeStamp(i*samplesPerFrame+1) * telem.SecondTS
 		timestamps := make([]telem.TimeStamp, samplesPerFrame)
 		data1 := make([]float32, samplesPerFrame)
@@ -398,7 +398,7 @@ func BenchmarkStreamerCalc_FrameSize(b *testing.B) {
 
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for range b.N {
 				if _, err := w.Write(fr); err != nil {
 					b.Fatalf("failed to write: %v", err)
 				}
@@ -461,7 +461,7 @@ func BenchmarkStreamerCalc_CalculationChain(b *testing.B) {
 			timeout := 500 * time.Millisecond
 			b.ReportAllocs()
 			b.ResetTimer()
-			for i := 0; i < b.N; i++ {
+			for i := range b.N {
 				baseTS := telem.TimeStamp(i*samplesPerFrame+1) * telem.SecondTS
 				timestamps := make([]telem.TimeStamp, samplesPerFrame)
 				data := make([]float32, samplesPerFrame)

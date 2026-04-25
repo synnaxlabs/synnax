@@ -312,7 +312,7 @@ var _ = Describe("Delete", func() {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var data []telem.TimeStamp
-								for j := 0; j <= 9; j++ {
+								for j := range 10 {
 									data = append(data, telem.TimeStamp(i*10+j))
 								}
 								Expect(unary.Write(ctx, indexDB, telem.TimeStamp(i*10)*telem.SecondTS, telem.NewSeriesSecondsTSV(data...))).To(Succeed())
@@ -342,7 +342,7 @@ var _ = Describe("Delete", func() {
 							By("Writing data to the channel")
 							for i := 1; i <= 9; i++ {
 								var data []telem.TimeStamp
-								for j := 0; j <= 9; j++ {
+								for j := range 10 {
 									data = append(data, telem.TimeStamp(i*10+j))
 								}
 								Expect(unary.Write(ctx, indexDB, telem.TimeStamp(10*i)*telem.SecondTS, telem.NewSeriesSecondsTSV(data...))).To(Succeed())
@@ -372,7 +372,7 @@ var _ = Describe("Delete", func() {
 							for i := 1; i <= 9; i++ {
 								var index []telem.TimeStamp
 								var content []int64
-								for j := 0; j <= 9; j++ {
+								for j := range 10 {
 									index = append(index, telem.TimeStamp(i*10+j))
 									content = append(content, int64(i*100+j*10))
 								}
@@ -405,7 +405,7 @@ var _ = Describe("Delete", func() {
 							for i := 1; i <= 9; i++ {
 								var index []telem.TimeStamp
 								var content []int64
-								for j := 0; j <= 9; j++ {
+								for j := range 10 {
 									index = append(index, telem.TimeStamp(i*10+j))
 									content = append(content, int64(i*100+j*10))
 								}
