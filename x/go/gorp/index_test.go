@@ -808,5 +808,41 @@ var _ = Describe("Index", func() {
 
 			Expect(nameIdx.Get("gamma")).To(ConsistOf(int32(3)))
 		})
+
+		It("Should remove deleted entries from the index on commit", func(ctx SpecContext) {
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 4, Name: "delta"}).
+				Exec(ctx, noopDB)).To(Succeed())
+			Expect(nameIdx.Get("delta")).To(ConsistOf(int32(4)))
+
+			tx := noopDB.OpenTx()
+			Expect(table.NewDelete().WhereKeys(4).Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			Expect(nameIdx.Get("delta")).To(BeEmpty())
+		})
+
+		It("Should preserve committed entries when a delete is rolled back", func(ctx SpecContext) {
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 5, Name: "epsilon"}).
+				Exec(ctx, noopDB)).To(Succeed())
+
+			tx := noopDB.OpenTx()
+			Expect(table.NewDelete().WhereKeys(5).Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			Expect(nameIdx.Get("epsilon")).To(ConsistOf(int32(5)))
+		})
+
+		It("Should remove deleted entries inline for DB-as-tx deletes", func(ctx SpecContext) {
+			Expect(table.NewCreate().
+				Entry(&indexedEntry{ID: 6, Name: "zeta"}).
+				Exec(ctx, noopDB)).To(Succeed())
+			Expect(nameIdx.Get("zeta")).To(ConsistOf(int32(6)))
+
+			Expect(table.NewDelete().WhereKeys(6).Exec(ctx, noopDB)).To(Succeed())
+			Expect(nameIdx.Get("zeta")).To(BeEmpty())
+		})
 	})
 })
