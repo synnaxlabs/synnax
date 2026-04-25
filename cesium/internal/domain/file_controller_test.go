@@ -505,13 +505,8 @@ var _ = Describe("File Controller", Ordered, func() {
 					// Two simultaneously held readers cannot share a handle, so
 					// each acquire that finds every existing handle busy must
 					// open a fresh one.
-					var dataFileOpens int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpOpen && e.Name == "1.domain" {
-							dataFileOpens++
-						}
-					}
-					Expect(dataFileOpens).To(Equal(2))
+					Expect(rec.Count(xfs.MatchOp(xfs.OpOpen), xfs.MatchName("1.domain"))).
+						To(Equal(2))
 				})
 
 				It("Should reuse reader file handles across sequential acquires of the same file", func(ctx SpecContext) {
@@ -546,13 +541,8 @@ var _ = Describe("File Controller", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 					}
 
-					var dataFileOpens int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpOpen && e.Name == "1.domain" {
-							dataFileOpens++
-						}
-					}
-					Expect(dataFileOpens).To(Equal(1))
+					Expect(rec.Count(xfs.MatchOp(xfs.OpOpen), xfs.MatchName("1.domain"))).
+						To(Equal(1))
 				})
 			})
 		})

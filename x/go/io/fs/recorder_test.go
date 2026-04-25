@@ -27,7 +27,7 @@ var _ = Describe("Recorder", func() {
 		It("Should record a successful open", func() {
 			f := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(f)
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpOpen, Name: "a.bin"},
 			))
 		})
@@ -48,14 +48,14 @@ var _ = Describe("Recorder", func() {
 
 		It("Should record Write with the requested length", func() {
 			MustSucceed(f.Write([]byte("hello")))
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpWrite, Name: "a.bin", Length: 5},
 			))
 		})
 
 		It("Should record WriteAt with offset and length", func() {
 			MustSucceed(f.WriteAt([]byte("hi"), 7))
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpWriteAt, Name: "a.bin", Offset: 7, Length: 2},
 			))
 		})
@@ -65,7 +65,7 @@ var _ = Describe("Recorder", func() {
 			rec.Reset()
 			buf := make([]byte, 5)
 			MustSucceed(f.Read(buf))
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpRead, Name: "a.bin", Length: 5},
 			))
 		})
@@ -75,7 +75,7 @@ var _ = Describe("Recorder", func() {
 			rec.Reset()
 			buf := make([]byte, 4)
 			MustSucceed(f.ReadAt(buf, 1))
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 1, Length: 4},
 			))
 		})
@@ -84,7 +84,7 @@ var _ = Describe("Recorder", func() {
 			MustSucceed(f.Write([]byte("ab")))
 			MustSucceed(f.WriteAt([]byte("cd"), 4))
 			MustSucceed(f.ReadAt(make([]byte, 1), 0))
-			Expect(rec.EventsFor("a.bin")).To(Equal([]xfs.Event{
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(Equal([]xfs.Event{
 				{Op: xfs.OpWrite, Name: "a.bin", Length: 2},
 				{Op: xfs.OpWriteAt, Name: "a.bin", Offset: 4, Length: 2},
 				{Op: xfs.OpReadAt, Name: "a.bin", Offset: 0, Length: 1},
@@ -109,7 +109,7 @@ var _ = Describe("Recorder", func() {
 			subB := MustSucceed(subA.Sub("b"))
 			f := MustSucceed(subB.Open("file.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(f)
-			Expect(rec.EventsFor("file.bin")).To(HaveLen(1))
+			Expect(rec.Filter(xfs.MatchName("file.bin"))).To(HaveLen(1))
 		})
 
 		It("Should reflect Reset across the parent and every sub", func() {
@@ -121,26 +121,53 @@ var _ = Describe("Recorder", func() {
 		})
 	})
 
-	Describe("EventsFor", func() {
-		It("Should return only events targeting the named file", func() {
+	Describe("Filter", func() {
+		It("Should return only events satisfying every filter", func() {
 			a := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(a)
 			b := MustSucceed(rec.Open("b.bin", os.O_CREATE|os.O_RDWR))
 			DeferClose(b)
 			MustSucceed(a.Write([]byte("a")))
 			MustSucceed(b.Write([]byte("bb")))
-			Expect(rec.EventsFor("a.bin")).To(Equal([]xfs.Event{
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(Equal([]xfs.Event{
 				{Op: xfs.OpOpen, Name: "a.bin"},
 				{Op: xfs.OpWrite, Name: "a.bin", Length: 1},
 			}))
-			Expect(rec.EventsFor("b.bin")).To(Equal([]xfs.Event{
-				{Op: xfs.OpOpen, Name: "b.bin"},
-				{Op: xfs.OpWrite, Name: "b.bin", Length: 2},
-			}))
+			Expect(rec.Filter(xfs.MatchName("b.bin"), xfs.MatchOp(xfs.OpWrite))).
+				To(Equal([]xfs.Event{
+					{Op: xfs.OpWrite, Name: "b.bin", Length: 2},
+				}))
 		})
 
 		It("Should return an empty slice for an unknown file", func() {
-			Expect(rec.EventsFor("missing.bin")).To(BeEmpty())
+			Expect(rec.Filter(xfs.MatchName("missing.bin"))).To(BeEmpty())
+		})
+
+		It("Should return all events with no filters", func() {
+			a := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(a)
+			MustSucceed(a.Write([]byte("hi")))
+			Expect(rec.Filter()).To(Equal(rec.Events()))
+		})
+	})
+
+	Describe("Count", func() {
+		It("Should count events satisfying every filter", func() {
+			a := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(a)
+			MustSucceed(a.WriteAt([]byte("xy"), 0))
+			MustSucceed(a.WriteAt([]byte("zw"), 4))
+			MustSucceed(a.ReadAt(make([]byte, 1), 0))
+			Expect(rec.Count(xfs.MatchOp(xfs.OpWriteAt))).To(Equal(2))
+			Expect(rec.Count(xfs.MatchOp(xfs.OpWriteAt), xfs.MatchLength(2))).To(Equal(2))
+			Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt))).To(Equal(1))
+		})
+
+		It("Should return the total count with no filters", func() {
+			a := MustSucceed(rec.Open("a.bin", os.O_CREATE|os.O_RDWR))
+			DeferClose(a)
+			MustSucceed(a.Write([]byte("hi")))
+			Expect(rec.Count()).To(Equal(2))
 		})
 	})
 
@@ -191,7 +218,7 @@ var _ = Describe("Recorder", func() {
 			// returned length.
 			buf := make([]byte, 16)
 			_, _ = f.ReadAt(buf, 0)
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 0, Length: 16},
 			))
 		})
@@ -206,7 +233,7 @@ var _ = Describe("Recorder", func() {
 			// still capture the attempt with the caller-requested length.
 			buf := make([]byte, 4)
 			_, _ = f.ReadAt(buf, 100)
-			Expect(rec.EventsFor("a.bin")).To(ConsistOf(
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(ConsistOf(
 				xfs.Event{Op: xfs.OpReadAt, Name: "a.bin", Offset: 100, Length: 4},
 			))
 		})
@@ -233,7 +260,7 @@ var _ = Describe("Recorder", func() {
 			}
 			wg.Wait()
 
-			Expect(rec.EventsFor("a.bin")).To(HaveLen(writers * writesPerWriter))
+			Expect(rec.Filter(xfs.MatchName("a.bin"))).To(HaveLen(writers * writesPerWriter))
 		})
 	})
 })

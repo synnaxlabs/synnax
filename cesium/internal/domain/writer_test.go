@@ -447,11 +447,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting the in-interval commits did not write the index file")
-					for _, e := range rec.Events() {
-						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
-							Fail("expected no commits to write index.domain within the persist interval")
-						}
-					}
+					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
+						To(BeZero())
 
 					By("Sleeping for some time")
 					time.Sleep(time.Duration(50 * telem.Millisecond))
@@ -460,13 +457,8 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
 					By("Asserting the post-interval commit wrote the index file")
-					var indexWrites int
-					for _, e := range rec.Events() {
-						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
-							indexWrites++
-						}
-					}
-					Expect(indexWrites).To(BeNumerically(">", 0))
+					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
+						To(BeNumerically(">", 0))
 
 					f := MustSucceed(rec.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
@@ -585,15 +577,11 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
 					Expect(w.Commit(ctx, 120*telem.SecondTS+1)).To(Succeed())
 					// Within the persist interval, the index file should not be
-					// touched by commits. Capture the event log before Close
-					// since Close itself flushes any unpersisted state.
-					events := rec.Events()
+					// touched by commits. Snapshot the count before Close since
+					// Close itself flushes any unpersisted state.
+					indexWrites := rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))
 					Expect(w.Close()).To(Succeed())
-					for _, e := range events {
-						if (e.Op == xfs.OpWrite || e.Op == xfs.OpWriteAt) && e.Name == "index.domain" {
-							Fail("expected no commits to write index.domain within the persist interval")
-						}
-					}
+					Expect(indexWrites).To(BeZero())
 				})
 			})
 			Describe("Close", func() {

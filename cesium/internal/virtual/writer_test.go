@@ -160,11 +160,7 @@ var _ = Describe("Write", func() {
 				MustSucceed(w.Close())
 				Expect(virtualDB.Close()).To(Succeed())
 
-				for _, e := range rec.Events() {
-					Expect(e.Op).ToNot(BeElementOf(fs.OpWrite, fs.OpWriteAt),
-						"virtual channel produced a write to %q at offset %d length %d",
-						e.Name, e.Offset, e.Length)
-				}
+				Expect(rec.Count(fs.MatchOp(fs.OpWrite, fs.OpWriteAt))).To(BeZero())
 			})
 		})
 
