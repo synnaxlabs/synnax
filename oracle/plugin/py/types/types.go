@@ -18,7 +18,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/key"
-	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
 	"github.com/synnaxlabs/oracle/exec"
@@ -116,9 +115,6 @@ func generatePyFile(
 		data.imports.addPydantic("BaseModel")
 	}
 
-	skip := func(typ resolution.Type) bool { return omit.IsType(typ, "py") }
-	rawKeyFields := key.Collect(structs, table, skip)
-	keyFields := convertKeyFields(rawKeyFields, data)
 	allStructs := lo.Filter(table.StructTypes(), func(typ resolution.Type, _ int) bool {
 		return output.GetPath(typ, "py") == outputPath
 	})
@@ -181,7 +177,7 @@ func generatePyFile(
 				TypeDef:   processTypeDef(typ, table, data),
 			})
 		case resolution.StructForm:
-			sd := processStruct(typ, table, data, keyFields)
+			sd := processStruct(typ, table, data)
 			for _, f := range sd.Fields {
 				if f.Alias != "" {
 					sd.HasKeywordAlias = true
@@ -386,7 +382,6 @@ func processStruct(
 	entry resolution.Type,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 ) structData {
 	sd := structData{
 		Name:   entry.Name,
@@ -504,13 +499,13 @@ func processStruct(
 						continue
 					}
 					if childField, ok := childFieldsByName[pf.Name]; ok {
-						fd := processField(childField, table, data, keyFields, form.OmittedFields)
+						fd := processField(childField, table, data, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
 						if key.HasKey(childField) {
 							sd.KeyField = childField.Name
 						}
 					} else {
-						fd := processField(pf, table, data, keyFields, form.OmittedFields)
+						fd := processField(pf, table, data, form.OmittedFields)
 						sd.Fields = append(sd.Fields, fd)
 						if key.HasKey(pf) {
 							sd.KeyField = pf.Name
@@ -523,7 +518,7 @@ func processStruct(
 					if addedFields.Contains(field.Name) {
 						continue
 					}
-					fd := processField(field, table, data, keyFields, form.OmittedFields)
+					fd := processField(field, table, data, form.OmittedFields)
 					sd.Fields = append(sd.Fields, fd)
 					if key.HasKey(field) {
 						sd.KeyField = field.Name
@@ -539,7 +534,7 @@ func processStruct(
 			redefinedFields := make(set.Set[string])
 			for _, field := range form.Fields {
 				redefinedFields.Add(field.Name)
-				fd := processField(field, table, data, keyFields, form.OmittedFields)
+				fd := processField(field, table, data, form.OmittedFields)
 				sd.Fields = append(sd.Fields, fd)
 				// Check if this field has @key annotation for __hash__ generation
 				if key.HasKey(field) {
@@ -586,7 +581,7 @@ func processStruct(
 	allFields := resolution.UnifiedFields(entry, table)
 	sd.Fields = make([]fieldData, 0, len(allFields))
 	for _, field := range allFields {
-		sd.Fields = append(sd.Fields, processField(field, table, data, keyFields, nil))
+		sd.Fields = append(sd.Fields, processField(field, table, data, nil))
 		// Check if this field has @key annotation for __hash__ generation
 		if key.HasKey(field) {
 			sd.KeyField = field.Name
@@ -643,7 +638,6 @@ func processField(
 	field resolution.Field,
 	table *resolution.Table,
 	data *templateData,
-	keyFields []keyFieldData,
 	excludedFields []string,
 ) fieldData {
 	escapedName := keywords.Escape(field.Name)

@@ -229,7 +229,7 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 
 	if body := def.StructBody(); body != nil {
 		for _, f := range body.AllFieldDef() {
-			field := collectField(c, f, form.TypeParams, &form.HasKeyDomain)
+			field := collectField(f, form.TypeParams, &form.HasKeyDomain)
 			form.Fields = append(form.Fields, field)
 		}
 		for _, fo := range body.AllFieldOmit() {
@@ -383,7 +383,11 @@ func collectMapTypeRef(mapCtx *parser.TypeRefMapContext, typeParams []resolution
 	return ref
 }
 
-func collectField(c *analysisCtx, def parser.IFieldDefContext, typeParams []resolution.TypeParam, hasKeyDomain *bool) resolution.Field {
+func collectField(
+	def parser.IFieldDefContext,
+	typeParams []resolution.TypeParam,
+	hasKeyDomain *bool,
+) resolution.Field {
 	name := def.IDENT().GetText()
 	tr := def.TypeRef()
 

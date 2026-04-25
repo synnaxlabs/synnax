@@ -219,7 +219,7 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), false, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(dom.DomainContent(), maxPrefixLen, 1+len(dom.IDENT().GetText()))
 		}
 		f.newline()
 		f.lastTokenIdx = dom.GetStop().GetTokenIndex()
@@ -228,7 +228,11 @@ func (f *formatter) formatFileDomains(domains []parser.IFileDomainContext) {
 
 // formatDomainContentAligned formats domain content with alignment padding.
 // currentPrefixLen is the length of "@domain" so far, maxPrefixLen is the target.
-func (f *formatter) formatDomainContentAligned(ctx parser.IDomainContentContext, allowBlock bool, maxPrefixLen, currentPrefixLen int) {
+func (f *formatter) formatDomainContentAligned(
+	ctx parser.IDomainContentContext,
+	maxPrefixLen,
+	currentPrefixLen int,
+) {
 	if ctx.Expression() != nil {
 		f.formatExpressionAligned(ctx.Expression(), maxPrefixLen, currentPrefixLen)
 	} else if ctx.DomainBlock() != nil {
@@ -684,7 +688,7 @@ func (f *formatter) formatFieldWithBraces(
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(dom.DomainContent(), maxPrefixLen, 1+len(dom.IDENT().GetText()))
 		}
 		f.newline()
 	}
@@ -698,7 +702,7 @@ func (f *formatter) formatFieldWithBraces(
 			f.write(dom.IDENT().GetText())
 			if dom.DomainContent() != nil {
 				f.write(" ")
-				f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+				f.formatDomainContentAligned(dom.DomainContent(), maxPrefixLen, 1+len(dom.IDENT().GetText()))
 			}
 			f.newline()
 			f.lastTokenIdx = dom.GetStop().GetTokenIndex()
@@ -735,7 +739,7 @@ func (f *formatter) formatDomains(domains []parser.IDomainContext) {
 		f.write(dom.IDENT().GetText())
 		if dom.DomainContent() != nil {
 			f.write(" ")
-			f.formatDomainContentAligned(dom.DomainContent(), true, maxPrefixLen, 1+len(dom.IDENT().GetText()))
+			f.formatDomainContentAligned(dom.DomainContent(), maxPrefixLen, 1+len(dom.IDENT().GetText()))
 		}
 		f.newline()
 		f.lastTokenIdx = dom.GetStop().GetTokenIndex()

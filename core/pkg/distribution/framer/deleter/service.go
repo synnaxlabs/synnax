@@ -60,10 +60,7 @@ func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	proxy, err := newLeaseProxy(cfg)
-	if err != nil {
-		return nil, err
-	}
+	proxy := newLeaseProxy(cfg)
 	cfg.Transport.Server().BindHandler(func(ctx context.Context, req Request) (types.Nil, error) {
 		return types.Nil{}, cfg.TSChannel.DeleteTimeRange(ctx, req.Keys.Storage(), req.Bounds)
 	})

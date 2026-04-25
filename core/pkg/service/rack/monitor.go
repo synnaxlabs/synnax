@@ -153,10 +153,7 @@ func parseKeyFromOntologyIDString(s string) (Key, error) {
 	return KeyFromOntologyID(id)
 }
 
-func openMonitor(
-	ins alamos.Instrumentation,
-	svc *Service,
-) (*monitor, error) {
+func openMonitor(ins alamos.Instrumentation, svc *Service) *monitor {
 	obs := svc.Status.Observe()
 	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(ins))
 	s := &monitor{
@@ -173,5 +170,5 @@ func openMonitor(
 		}
 		return nil
 	})
-	return s, nil
+	return s
 }

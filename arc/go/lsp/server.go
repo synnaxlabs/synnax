@@ -380,9 +380,7 @@ func (s *Server) analyze(
 		if err != nil {
 			pDiagnostics = lsp.TranslateDiagnostics(*err, translateCfg)
 		} else {
-			aCtx := acontext.CreateRoot[parser.IBlockContext](
-				ctx, t, s.cfg.GlobalResolver,
-			)
+			aCtx := acontext.CreateRoot(ctx, t, s.cfg.GlobalResolver)
 			statement.AnalyzeFunctionBody(aCtx)
 			docIR = ir.IR{Symbols: aCtx.Scope}
 			docDiag = *aCtx.Diagnostics

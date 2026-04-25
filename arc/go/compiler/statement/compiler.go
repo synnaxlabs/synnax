@@ -39,8 +39,7 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 		return true, compileReturnStatement(context.Child(ctx, retStmt))
 	}
 	if expr := ctx.AST.Expression(); expr != nil {
-		_, err = compileExpressionStatement(context.Child(ctx, expr))
-		return false, err
+		return false, compileExpressionStatement(context.Child(ctx, expr))
 	}
 	return false, errors.New("unknown statement type")
 }

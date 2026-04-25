@@ -27,14 +27,11 @@ type leaseProxy struct {
 	keyRouter proxy.BatchFactory[channel.Key]
 }
 
-func newLeaseProxy(
-	cfg ServiceConfig,
-) (*leaseProxy, error) {
-	p := &leaseProxy{
+func newLeaseProxy(cfg ServiceConfig) *leaseProxy {
+	return &leaseProxy{
 		ServiceConfig: cfg,
 		keyRouter:     proxy.BatchFactory[channel.Key]{Host: cfg.HostResolver.HostKey()},
 	}
-	return p, nil
 }
 
 func (lp *leaseProxy) deleteTimeRange(

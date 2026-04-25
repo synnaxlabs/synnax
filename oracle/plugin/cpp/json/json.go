@@ -139,10 +139,7 @@ func (p *Plugin) generateFile(
 		if omit.IsType(s, "cpp") {
 			continue
 		}
-		serializer, err := p.processStruct(s, data, req)
-		if err != nil {
-			return nil, err
-		}
+		serializer := p.processStruct(s, data)
 		if serializer != nil {
 			data.Serializers = append(data.Serializers, *serializer)
 		}
@@ -225,14 +222,10 @@ func (p *Plugin) resolveExtendsType(extendsRef resolution.TypeRef, parent resolu
 	return name
 }
 
-func (p *Plugin) processStruct(
-	s resolution.Type,
-	data *templateData,
-	req *plugin.Request,
-) (*serializerData, error) {
+func (p *Plugin) processStruct(s resolution.Type, data *templateData) *serializerData {
 	form, ok := s.Form.(resolution.StructForm)
 	if !ok {
-		return nil, nil
+		return nil
 	}
 
 	cppName := domain.GetName(s, "cpp")
@@ -282,7 +275,7 @@ func (p *Plugin) processStruct(
 		}
 	}
 
-	return serializer, nil
+	return serializer
 }
 
 // isSelfReference reports whether t directly or transitively references parent.
@@ -335,12 +328,12 @@ func (p *Plugin) processField(field resolution.Field, parent resolution.Type, da
 
 	isSelfRef := field.IsHardOptional && isSelfReference(field.Type, parent, data.table)
 
-	parseExpr := p.parseExprForField(field, parent, cppType, data, isSelfRef)
-	toJSONExpr := p.toJSONExprForField(field, parent, data, isSelfRef)
+	parseExpr := p.parseExprForField(field, cppType, data, isSelfRef)
+	toJSONExpr := p.toJSONExprForField(field, data, isSelfRef)
 
 	var jsonParseExpr, structParseExpr string
 	if isGenericField {
-		jsonParseExpr, structParseExpr = p.genericParseExprsForField(field, data)
+		jsonParseExpr, structParseExpr = p.genericParseExprsForField(field)
 	}
 
 	return fieldData{
@@ -450,7 +443,12 @@ func (p *Plugin) typeRefToCpp(typeRef resolution.TypeRef, data *templateData) st
 	return name
 }
 
-func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Type, cppType string, data *templateData, isSelfRef bool) string {
+func (p *Plugin) parseExprForField(
+	field resolution.Field,
+	cppType string,
+	data *templateData,
+	isSelfRef bool,
+) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 	hasDefault := field.IsOptional
@@ -608,7 +606,9 @@ func (p *Plugin) parseExprForField(field resolution.Field, parent resolution.Typ
 	return fmt.Sprintf(`parser.field<%s>("%s")`, cppType, jsonName)
 }
 
-func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templateData) (jsonParseExpr, structParseExpr string) {
+func (p *Plugin) genericParseExprsForField(
+	field resolution.Field,
+) (jsonParseExpr, structParseExpr string) {
 	jsonName := toSnakeCase(field.Name)
 	typeParamName := field.Type.TypeParam.Name
 
@@ -623,7 +623,11 @@ func (p *Plugin) genericParseExprsForField(field resolution.Field, data *templat
 	return jsonParseExpr, structParseExpr
 }
 
-func (p *Plugin) toJSONExprForField(field resolution.Field, parent resolution.Type, data *templateData, isSelfRef bool) string {
+func (p *Plugin) toJSONExprForField(
+	field resolution.Field,
+	data *templateData,
+	isSelfRef bool,
+) string {
 	typeRef := field.Type
 	jsonName := toSnakeCase(field.Name)
 

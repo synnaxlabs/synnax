@@ -909,10 +909,7 @@ func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if goPath == "" || goPath == b.parentPath {
 		return goName, nil
 	}
-	importPath, err := resolveGoImportPath(goPath, b.repoRoot)
-	if err != nil {
-		return "", err
-	}
+	importPath := resolveGoImportPath(goPath, b.repoRoot)
 	if existingAlias, ok := b.imports[importPath]; ok {
 		qualifier := existingAlias
 		if qualifier == "" {

@@ -53,7 +53,7 @@ func CollectDeclarations(ctx acontext.Context[parser.IProgramContext]) {
 			var config, inputs, outputs types.Params
 			collectConfig(ctx, fn.ConfigBlock(), &config)
 			collectInputs(acontext.Child(ctx, fn.InputList()), &inputs)
-			collectOutputs(ctx, fn.OutputType(), &outputs)
+			collectOutputs(fn.OutputType(), &outputs)
 
 			if _, err := ctx.Scope.Add(ctx, symbol.Symbol{
 				Name: name,
@@ -159,11 +159,7 @@ func collectInputs(
 }
 
 // collectOutputs extracts output types without adding them to scope.
-func collectOutputs[T antlr.ParserRuleContext](
-	ctx acontext.Context[T],
-	outputType parser.IOutputTypeContext,
-	outputs *types.Params,
-) {
+func collectOutputs(outputType parser.IOutputTypeContext, outputs *types.Params) {
 	if outputType == nil {
 		return
 	}

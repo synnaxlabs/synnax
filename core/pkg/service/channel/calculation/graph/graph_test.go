@@ -53,11 +53,8 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	}))
 })
 
-func openGraph(ctx context.Context) *graph.Graph {
-	return MustOpen(graph.Open(ctx, graph.Config{
-		Channel: dist.Channel,
-		Status:  statusSvc,
-	}))
+func openGraph(ctx context.Context) {
+	MustOpen(graph.Open(ctx, graph.Config{Channel: dist.Channel, Status: statusSvc}))
 }
 
 func fetchStatus(ctx context.Context, key channel.Key) (status.Status[types.Nil], bool) {

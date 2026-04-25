@@ -166,7 +166,7 @@ func (t *tapper) tapInto(
 		tapKey string
 	)
 	if nodeKey.IsFree() {
-		tp, err = t.tapIntoFreeWrites()
+		tp = t.tapIntoFreeWrites()
 		tapKey = "free_write_tap"
 	} else if nodeKey == t.HostResolver.HostKey() {
 		tp, err = t.tapIntoGateway(keys)
@@ -218,8 +218,8 @@ func (t *tapper) tapIntoPeer(ctx context.Context, nodeKey cluster.NodeKey) (tap,
 	return seg, nil
 }
 
-func (t *tapper) tapIntoFreeWrites() (tap, error) {
-	return &freeWriteTap{freeWrites: t.freeWrites}, nil
+func (t *tapper) tapIntoFreeWrites() tap {
+	return &freeWriteTap{freeWrites: t.freeWrites}
 }
 
 type freeWriteTap struct {

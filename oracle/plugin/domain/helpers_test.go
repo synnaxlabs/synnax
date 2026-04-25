@@ -30,9 +30,9 @@ func makeDomains(entries ...struct {
 	return result
 }
 
-func makeType(name string, domains map[string]resolution.Domain) resolution.Type {
+func makeType(domains map[string]resolution.Domain) resolution.Type {
 	return resolution.Type{
-		Name:    name,
+		Name:    "User",
 		Domains: domains,
 		Form:    resolution.StructForm{},
 	}
@@ -47,7 +47,7 @@ func makeField(name string, domains map[string]resolution.Domain) resolution.Fie
 
 var _ = Describe("GetString", func() {
 	It("should return the string value from a domain expression", func() {
-		t := makeType("User", makeDomains(struct {
+		t := makeType(makeDomains(struct {
 			domain string
 			exprs  []resolution.Expression
 		}{
@@ -62,7 +62,7 @@ var _ = Describe("GetString", func() {
 	})
 
 	It("should return ident value when string value is empty", func() {
-		t := makeType("User", makeDomains(struct {
+		t := makeType(makeDomains(struct {
 			domain string
 			exprs  []resolution.Expression
 		}{
@@ -77,29 +77,23 @@ var _ = Describe("GetString", func() {
 	})
 
 	It("should return empty string for missing domain", func() {
-		t := makeType("User", map[string]resolution.Domain{})
+		t := makeType(map[string]resolution.Domain{})
 		Expect(domain.GetStringFromType(t, "go", "output")).To(BeEmpty())
 	})
 
 	It("should return empty string for missing expression", func() {
-		t := makeType("User", makeDomains(struct {
+		t := makeType(makeDomains(struct {
 			domain string
 			exprs  []resolution.Expression
-		}{
-			domain: "go",
-			exprs:  []resolution.Expression{{Name: "other"}},
-		}))
+		}{domain: "go", exprs: []resolution.Expression{{Name: "other"}}}))
 		Expect(domain.GetStringFromType(t, "go", "output")).To(BeEmpty())
 	})
 
 	It("should return empty string when expression has no values", func() {
-		t := makeType("User", makeDomains(struct {
+		t := makeType(makeDomains(struct {
 			domain string
 			exprs  []resolution.Expression
-		}{
-			domain: "go",
-			exprs:  []resolution.Expression{{Name: "output", Values: nil}},
-		}))
+		}{domain: "go", exprs: []resolution.Expression{{Name: "output", Values: nil}}}))
 		Expect(domain.GetStringFromType(t, "go", "output")).To(BeEmpty())
 	})
 })
@@ -123,7 +117,7 @@ var _ = Describe("GetStringFromField", func() {
 
 var _ = Describe("GetAllStrings", func() {
 	It("should collect values from all expressions with the same name", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"go": {
 				Name: "go",
 				Expressions: resolution.Expressions{
@@ -142,12 +136,12 @@ var _ = Describe("GetAllStrings", func() {
 	})
 
 	It("should return nil for missing domain", func() {
-		t := makeType("User", map[string]resolution.Domain{})
+		t := makeType(map[string]resolution.Domain{})
 		Expect(domain.GetAllStringsFromType(t, "go", "field")).To(BeNil())
 	})
 
 	It("should skip expressions with different names", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"go": {
 				Name: "go",
 				Expressions: resolution.Expressions{
@@ -164,7 +158,7 @@ var _ = Describe("GetAllStrings", func() {
 	})
 
 	It("should collect ident values when string values are empty", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"go": {
 				Name: "go",
 				Expressions: resolution.Expressions{
@@ -180,7 +174,7 @@ var _ = Describe("GetAllStrings", func() {
 
 var _ = Describe("HasExpr", func() {
 	It("should return true when expression exists", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"validate": {
 				Name: "validate",
 				Expressions: resolution.Expressions{
@@ -192,12 +186,12 @@ var _ = Describe("HasExpr", func() {
 	})
 
 	It("should return false when domain is missing", func() {
-		t := makeType("User", map[string]resolution.Domain{})
+		t := makeType(map[string]resolution.Domain{})
 		Expect(domain.HasExprFromType(t, "validate", "required")).To(BeFalse())
 	})
 
 	It("should return false when expression is missing", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"validate": {
 				Name:        "validate",
 				Expressions: resolution.Expressions{{Name: "min"}},
@@ -209,7 +203,7 @@ var _ = Describe("HasExpr", func() {
 
 var _ = Describe("GetName", func() {
 	It("should return domain name override when present", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"go": {
 				Name: "go",
 				Expressions: resolution.Expressions{
@@ -223,14 +217,14 @@ var _ = Describe("GetName", func() {
 	})
 
 	It("should fall back to type name when no override", func() {
-		t := makeType("User", map[string]resolution.Domain{})
+		t := makeType(map[string]resolution.Domain{})
 		Expect(domain.GetName(t, "go")).To(Equal("User"))
 	})
 })
 
 var _ = Describe("GetType", func() {
 	It("should return type override from domain", func() {
-		t := makeType("User", map[string]resolution.Domain{
+		t := makeType(map[string]resolution.Domain{
 			"go": {
 				Name: "go",
 				Expressions: resolution.Expressions{

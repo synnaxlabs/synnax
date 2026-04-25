@@ -90,10 +90,7 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		}
 		mEntry.ExistingVersions = filterSchemaChangeVersions(goPath, existingVersions, req.RepoRoot)
 		if req.OldResolutions != nil {
-			change, err := detectSchemaChange(entry, req)
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to detect schema change for %s", mEntry.GoName)
-			}
+			change := detectSchemaChange(entry, req)
 			mEntry.SchemaChange = change
 		}
 		if _, exists := outputEntries[goPath]; !exists {
@@ -434,18 +431,15 @@ func (p *Plugin) generateRetargetAutoCopy(
 	return nil
 }
 
-func detectSchemaChange(
-	newType resolution.Type,
-	req *plugin.Request,
-) (*schemaChange, error) {
+func detectSchemaChange(newType resolution.Type, req *plugin.Request) *schemaChange {
 	oldType, found := req.OldResolutions.Get(newType.QualifiedName)
 	if !found {
-		return nil, nil
+		return nil
 	}
 	if schemasEqual(oldType, newType, req.OldResolutions, req.Resolutions) {
-		return nil, nil
+		return nil
 	}
-	return &schemaChange{Version: req.SnapshotVersion, OldType: oldType}, nil
+	return &schemaChange{Version: req.SnapshotVersion, OldType: oldType}
 }
 
 // collectPackageTypes walks the entry type's dependency tree and groups all

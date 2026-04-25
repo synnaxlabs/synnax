@@ -38,36 +38,29 @@ func analyzeProgram(
 func analyzeExpectSuccess(
 	specCtx context.Context,
 	src string,
-	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
-	ctx := analyzeProgram(specCtx, src, resolver)
+	ctx := analyzeProgram(specCtx, src, nil)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(BeEmpty(), ctx.Diagnostics.String())
 	return ctx
 }
 
-func analyzeExpectError(
-	specCtx context.Context,
-	src string,
-	resolver symbol.Resolver,
-	msgMatcher OmegaMatcher,
-) acontext.Context[parser.IProgramContext] {
-	ctx := analyzeProgram(specCtx, src, resolver)
+func analyzeExpectError(specCtx context.Context, src string, msgMatcher OmegaMatcher) {
+	ctx := analyzeProgram(specCtx, src, nil)
 	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
 	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
-	return ctx
 }
 
 var _ = Describe("Global Constant Analyzer", func() {
 	Describe("CollectDeclarations", func() {
 		Describe("basic declaration collection", func() {
 			It("should handle empty program", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, ``, nil)
+				ctx := analyzeExpectSuccess(specCtx, ``)
 				Expect(ctx.Scope.Children).To(BeEmpty())
 			})
 
 			It("should parse global constant with explicit type", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `MAX_PRESSURE f64 := 500.0`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `MAX_PRESSURE f64 := 500.0`)
 				Expect(ctx.Scope.Children).To(HaveLen(1))
 				c := ctx.Scope.Children[0]
 				Expect(c.Name).To(Equal("MAX_PRESSURE"))
@@ -77,7 +70,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 			})
 
 			It("should infer i64 from integer literal", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `COUNT := 42`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `COUNT := 42`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Name).To(Equal("COUNT"))
 				Expect(c.Kind).To(Equal(symbol.KindGlobalConstant))
@@ -86,28 +79,28 @@ var _ = Describe("Global Constant Analyzer", func() {
 			})
 
 			It("should infer f64 from float literal", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `PI := 3.14159`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `PI := 3.14159`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type).To(Equal(types.F64()))
 				Expect(c.DefaultValue).To(Equal(3.14159))
 			})
 
 			It("should support unit literals", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `TIMEOUT := 100ms`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `TIMEOUT := 100ms`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type.Kind).To(Equal(types.KindI64))
 				Expect(c.DefaultValue).To(BeNumerically("==", int64(100*telem.Millisecond)))
 			})
 
 			It("should support explicit type with unit literal", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `DELAY i64 := 500ms`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `DELAY i64 := 500ms`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type.Kind).To(Equal(types.KindI64))
 				Expect(c.DefaultValue).To(BeNumerically("==", int64(500*telem.Millisecond)))
 			})
 
 			It("should parse string constant", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `MESSAGE := "hello"`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `MESSAGE := "hello"`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type).To(Equal(types.String()))
 				Expect(c.DefaultValue).To(Equal("hello"))
@@ -118,7 +111,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 					MAX := 100
 					MIN := 0
 					PI := 3.14
-				`, nil)
+				`)
 				consts := ctx.Scope.FilterChildrenByKind(symbol.KindGlobalConstant)
 				Expect(consts).To(HaveLen(3))
 			})
@@ -127,7 +120,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 				ctx := analyzeExpectSuccess(specCtx, `
 					MAX := 100
 					func foo() {}
-				`, nil)
+				`)
 				Expect(ctx.Scope.Children).To(HaveLen(2))
 				consts := ctx.Scope.FilterChildrenByKind(symbol.KindGlobalConstant)
 				funcs := ctx.Scope.FilterChildrenByKind(symbol.KindFunction)
@@ -138,14 +131,14 @@ var _ = Describe("Global Constant Analyzer", func() {
 
 		Describe("type coercion", func() {
 			It("should coerce integer to explicit f64", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `VALUE f64 := 42`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `VALUE f64 := 42`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type).To(Equal(types.F64()))
 				Expect(c.DefaultValue).To(Equal(float64(42)))
 			})
 
 			It("should coerce integer to explicit i32", func(specCtx SpecContext) {
-				ctx := analyzeExpectSuccess(specCtx, `VALUE i32 := 42`, nil)
+				ctx := analyzeExpectSuccess(specCtx, `VALUE i32 := 42`)
 				c := ctx.Scope.Children[0]
 				Expect(c.Type).To(Equal(types.I32()))
 				Expect(c.DefaultValue).To(Equal(int32(42)))
@@ -159,21 +152,20 @@ var _ = Describe("Global Constant Analyzer", func() {
 					`
 					X := 1
 					X := 2
-				`, nil, ContainSubstring("conflicts with existing symbol"))
+				`, ContainSubstring("conflicts with existing symbol"))
 			})
 
 			It("should reject shadowing function names", func(ctx SpecContext) {
 				analyzeExpectError(ctx, `
 					foo := 1
 					func foo() {}
-				`, nil, ContainSubstring("conflicts with existing symbol"))
+				`, ContainSubstring("conflicts with existing symbol"))
 			})
 
 			It("should reject overflow in explicit type", func(ctx SpecContext) {
 				analyzeExpectError(
 					ctx,
 					`VALUE i8 := 128`,
-					nil,
 					ContainSubstring("out of range for i8"),
 				)
 			})
@@ -182,7 +174,6 @@ var _ = Describe("Global Constant Analyzer", func() {
 				analyzeExpectError(
 					ctx,
 					`VALUE i32 := 3.14`,
-					nil,
 					ContainSubstring("cannot convert non-integer float"),
 				)
 			})
@@ -196,7 +187,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 				func check(x i64) i64 {
 					return x + MAX
 				}
-			`, nil)
+			`)
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
@@ -207,7 +198,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 				func area(r f64) f64 {
 					return r * r * PI
 				}
-			`, nil)
+			`)
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "area"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
@@ -221,7 +212,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 					}
 					return 0
 				}
-			`, nil)
+			`)
 			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})

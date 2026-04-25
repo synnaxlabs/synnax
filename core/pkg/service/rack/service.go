@@ -163,7 +163,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	if s.monitor, err = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
+	if s.monitor = openMonitor(s.Child("monitor"), s); !ok(err, s.monitor) {
 		return nil, err
 	}
 	if cfg.Signals != nil {

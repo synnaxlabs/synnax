@@ -90,12 +90,7 @@ func openStat(
 	return statSetup{state: s, inputNode: inputNode, n: n}
 }
 
-func openStatWithReset(
-	ctx SpecContext,
-	nodeType string,
-	dt types.Type,
-	config types.Params,
-) statSetup {
+func openStatWithReset(ctx SpecContext, nodeType string, dt types.Type) statSetup {
 	g := makeStatGraphWithReset(nodeType, dt)
 	analyzed, diagnostics := graph.Analyze(ctx, g, stat.SymbolResolver)
 	Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
@@ -103,7 +98,7 @@ func openStatWithReset(
 	inputNode := s.Node("input")
 	m := &stat.Module{}
 	n := MustSucceed(m.Create(ctx, node.Config{
-		Node:    ir.Node{Key: "stat", Type: nodeType, Config: config},
+		Node:    ir.Node{Key: "stat", Type: nodeType},
 		State:   s.Node("stat"),
 		Program: program.Program{IR: analyzed},
 	}))
@@ -141,7 +136,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
-		expectOutput[float64](s.state, 20.0)
+		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
@@ -155,7 +150,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3)
 		nextChanged(ctx, s.n)
 		// weighted: (15*2 + 40) / 3 = 23.33
-		expectOutput[float64](s.state, 23.333)
+		expectOutput(s.state, 23.333)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
@@ -166,13 +161,13 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 20.0)
+		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(40.0, 50.0, 60.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
@@ -183,26 +178,26 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 20.0)
+		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		// 6s - 1s = 5s >= 5s, triggers reset
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 150.0)
+		expectOutput(s.state, 150.0)
 		expectOutputTime(s.state, 7*telem.SecondTS)
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openStatWithReset(ctx, "avg", types.F64(), nil)
+		s := openStatWithReset(ctx, "avg", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 20.0)
+		expectOutput(s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(100.0, 200.0)
@@ -210,7 +205,7 @@ var _ = Describe("Avg", func() {
 		*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 150.0)
+		expectOutput(s.state, 150.0)
 		expectOutputTime(s.state, 5*telem.SecondTS)
 	})
 
@@ -264,7 +259,7 @@ var _ = Describe("Min", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 5.0)
+		expectOutput(s.state, 5.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
@@ -293,18 +288,18 @@ var _ = Describe("Min", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0, 10.0, 15.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 5.0)
+		expectOutput(s.state, 5.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(50.0, 40.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 30.0)
+		expectOutput(s.state, 30.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openStatWithReset(ctx, "min", types.I32(), nil)
+		s := openStatWithReset(ctx, "min", types.I32())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
@@ -331,7 +326,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
@@ -344,7 +339,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(30.0, 20.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(3, 4)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 4*telem.SecondTS)
 	})
 
@@ -357,7 +352,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(50.0, 100.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 100.0)
+		expectOutput(s.state, 100.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
 
@@ -368,13 +363,13 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0, 15.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(6, 7)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 15.0)
+		expectOutput(s.state, 15.0)
 		expectOutputTime(s.state, 7*telem.SecondTS)
 	})
 
@@ -396,14 +391,14 @@ var _ = Describe("Max", func() {
 	})
 
 	It("Should reset on signal", func(ctx SpecContext) {
-		s := openStatWithReset(ctx, "max", types.F64(), nil)
+		s := openStatWithReset(ctx, "max", types.F64())
 		resetNode := s.state.Node("reset_signal")
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		*resetNode.Output(0) = telem.NewSeriesV[uint8](0)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(25.0, 15.0, 70.0)
@@ -411,7 +406,7 @@ var _ = Describe("Max", func() {
 		*resetNode.Output(0) = telem.NewSeriesV[uint8](1)
 		*resetNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 70.0)
+		expectOutput(s.state, 70.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
@@ -421,18 +416,18 @@ var _ = Describe("Max", func() {
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
 		Expect(changed.Contains(0)).To(BeTrue())
-		expectOutput[float64](s.state, 50.0)
+		expectOutput(s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
 		*s.inputNode.Output(0) = telem.NewSeriesV(25.0, 80.0, 40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(4, 5, 6)
 		nextChanged(ctx, s.n)
-		expectOutput[float64](s.state, 80.0)
+		expectOutput(s.state, 80.0)
 		expectOutputTime(s.state, 6*telem.SecondTS)
 	})
 
 	It("Should catch fast reset pulses (1->0 transition)", func(ctx SpecContext) {
-		s := openStatWithReset(ctx, "avg", types.I64(), nil)
+		s := openStatWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		*s.inputNode.Output(0) = telem.NewSeriesV[int64](10, 20, 30)
@@ -474,7 +469,7 @@ var _ = Describe("Alignment", func() {
 	})
 
 	It("Should sum alignments when reset signal is connected", func(ctx SpecContext) {
-		s := openStatWithReset(ctx, "avg", types.I64(), nil)
+		s := openStatWithReset(ctx, "avg", types.I64())
 		resetNode := s.state.Node("reset_signal")
 
 		inputSeries := telem.NewSeriesV[int64](10, 20, 30)

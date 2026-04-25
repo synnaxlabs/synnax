@@ -37,13 +37,12 @@ func collectFoldingRanges(scope *symbol.Scope, ranges *[]protocol.FoldingRange) 
 			startLine := start.GetLine() - 1
 			endLine := stop.GetLine() - 1
 			if endLine > startLine {
-				kind := foldingRangeKind(scope.Kind)
 				*ranges = append(*ranges, protocol.FoldingRange{
 					StartLine:      uint32(startLine),
 					StartCharacter: uint32(start.GetColumn()),
 					EndLine:        uint32(endLine),
 					EndCharacter:   uint32(stop.GetColumn() + len(stop.GetText())),
-					Kind:           kind,
+					Kind:           protocol.RegionFoldingRange,
 				})
 			}
 		}
@@ -59,14 +58,5 @@ func isFoldableKind(kind symbol.Kind) bool {
 		return true
 	default:
 		return false
-	}
-}
-
-func foldingRangeKind(kind symbol.Kind) protocol.FoldingRangeKind {
-	switch kind {
-	case symbol.KindFunction, symbol.KindSequence, symbol.KindStage, symbol.KindLoop:
-		return protocol.RegionFoldingRange
-	default:
-		return protocol.RegionFoldingRange
 	}
 }

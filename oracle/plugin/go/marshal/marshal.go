@@ -243,6 +243,6 @@ func GenerateCodecFile(
 	return generateEncoderCodecFile(packageName, parentPath, entries, flex, table, repoRoot)
 }
 
-func resolveGoImportPath(outputPath, repoRoot string) (string, error) {
-	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix), nil
+func resolveGoImportPath(outputPath, repoRoot string) string {
+	return gomod.ResolveImportPath(outputPath, repoRoot, gomod.DefaultModulePrefix)
 }

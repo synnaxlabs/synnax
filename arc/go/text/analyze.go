@@ -132,9 +132,9 @@ func (s *shellBuilder) addTransitionTo(f *seqFrame, t ir.Transition) {
 // implements the lexical-scope rule for `=> X`: innermost enclosing sequence
 // that has X as a member wins (so local names shadow outer ones).
 func (s *shellBuilder) resolveTargetFrame(name string) *seqFrame {
-	for i := len(s.stack) - 1; i >= 0; i-- {
-		if slices.Contains(s.stack[i].memberKeys, name) {
-			return s.stack[i]
+	for _, v := range slices.Backward(s.stack) {
+		if slices.Contains(v.memberKeys, name) {
+			return v
 		}
 	}
 	return nil
