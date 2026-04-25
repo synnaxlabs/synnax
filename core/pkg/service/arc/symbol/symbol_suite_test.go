@@ -10,12 +10,12 @@
 package symbol_test
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestSymbol(t *testing.T) {
@@ -23,15 +23,10 @@ func TestSymbol(t *testing.T) {
 	RunSpecs(t, "Symbol Suite")
 }
 
-var (
-	dist mock.Node
-)
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var dist mock.Node
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	distB := mock.NewCluster()
-	dist = distB.Provision(context.Background())
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(dist.Close()).To(Succeed())
+	dist = DeferClose(mock.NewCluster().Provision(ctx))
 })

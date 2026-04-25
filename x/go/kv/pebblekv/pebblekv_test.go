@@ -87,7 +87,7 @@ var _ = Describe("PebbleKV", func() {
 			key := []byte("abc-tx-key")
 			value := []byte("abc-tx-value")
 			Expect(tx.Set(ctx, key, value)).To(Succeed())
-			Expect(db.Get(ctx, key)).Error().To(HaveOccurredAs(query.ErrNotFound))
+			Expect(db.Get(ctx, key)).Error().To(MatchError(query.ErrNotFound))
 		})
 
 		It("Should iterate over values correctly", func(ctx SpecContext) {
@@ -252,7 +252,7 @@ var _ = Describe("PebbleKV", func() {
 		var db kv.DB
 
 		open := func(disableObserver bool) {
-			path := filepath.Join(os.TempDir(), "pebblekv-observer-test")
+			path := GinkgoT().TempDir()
 			pdb := MustSucceed(pebble.Open(path, &pebble.Options{
 				Logger: pebblekv.NewNoopLogger(),
 			}))
@@ -260,11 +260,7 @@ var _ = Describe("PebbleKV", func() {
 			if disableObserver {
 				opts = append(opts, pebblekv.DisableObservation())
 			}
-			db = pebblekv.Wrap(pdb, opts...) // Default: observation enabled
-			DeferCleanup(func() {
-				Expect(db.Close()).To(Succeed())
-				Expect(os.RemoveAll(path)).To(Succeed())
-			})
+			db = DeferClose(pebblekv.Wrap(pdb, opts...))
 		}
 
 		Context("With observation enabled (default)", Ordered, func() {
@@ -371,7 +367,7 @@ var _ = Describe("PebbleKV", func() {
 
 		Context("With observation disabled", Ordered, func() {
 			BeforeAll(func() {
-				open(false)
+				open(true)
 			})
 
 			It("Should not panic when using Set without an observer", func(ctx SpecContext) {
@@ -447,6 +443,25 @@ var _ = Describe("PebbleKV", func() {
 					Expect(got).To(Equal(expectedValue))
 					Expect(closer.Close()).To(Succeed())
 				}
+			})
+
+			It("Should never invoke handlers registered via OnChange", func(ctx SpecContext) {
+				handlerCalled := false
+				disconnect := db.OnChange(func(context.Context, kv.TxReader) {
+					handlerCalled = true
+				})
+				Expect(disconnect).NotTo(BeNil())
+
+				Expect(db.Set(ctx, []byte("disabled-notify-set"), []byte("v"))).To(Succeed())
+				Expect(db.Delete(ctx, []byte("disabled-notify-set"))).To(Succeed())
+
+				tx := db.OpenTx()
+				Expect(tx.Set(ctx, []byte("disabled-notify-tx"), []byte("v"))).To(Succeed())
+				Expect(tx.Commit(ctx)).To(Succeed())
+				Expect(tx.Close()).To(Succeed())
+
+				Expect(handlerCalled).To(BeFalse())
+				disconnect()
 			})
 		})
 	})

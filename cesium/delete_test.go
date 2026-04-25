@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/io/fs"
@@ -63,7 +62,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannel(key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -423,7 +422,7 @@ var _ = Describe("Delete", func() {
 						Expect(subDB.Close()).To(Succeed())
 
 						err := subDB.DeleteChannels([]cesium.ChannelKey{key})
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -470,7 +469,7 @@ var _ = Describe("Delete", func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(fs.Exists(channelKeyToPath(data1))).To(BeFalse())
 						_, err := db.RetrieveChannels(ctx, data1)
-						Expect(err).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+						Expect(err).To(MatchError(cesium.ErrChannelNotFound))
 					})
 				})
 			})

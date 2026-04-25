@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	arcv54 "github.com/synnaxlabs/synnax/pkg/service/arc/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/config"
@@ -154,9 +155,18 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[uuid.UUID, Arc]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Arc]("msgpack_to_orc")},
+	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Key, Arc]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[uuid.UUID, arcv54.Arc]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
+					"v54_drop_program_status",
+					MigrateArc,
+				),
+				"msgpack_to_orc",
+			),
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err

@@ -143,10 +143,10 @@ var _ = Describe("Table", func() {
 				DB:         testDB,
 				Migrations: []migrate.Migration{migration},
 			}
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, cfg))
+			MustSucceed(gorp.OpenTable(ctx, cfg))
 			w := gorp.WrapWriter[int32, entry](testDB)
 			Expect(w.Set(ctx, entry{ID: 5, Data: "post_migration"})).To(Succeed())
-			MustSucceed(gorp.OpenTable[int32, entry](ctx, cfg))
+			MustSucceed(gorp.OpenTable(ctx, cfg))
 			r := gorp.WrapReader[int32, entry](testDB)
 			Expect(MustSucceed(r.Get(ctx, 5)).Data).To(Equal("post_migration"))
 		})
@@ -296,7 +296,6 @@ var _ = Describe("Table", func() {
 				DB: db,
 			}))
 		})
-		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
 
 		Describe("NewCreate + NewRetrieve", func() {
 			It("Should create and retrieve an entry using the custom codec", func(ctx SpecContext) {

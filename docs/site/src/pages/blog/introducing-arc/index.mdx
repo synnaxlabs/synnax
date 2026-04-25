@@ -676,23 +676,23 @@ Here is a simple pressurization sequence expressed as an Arc program:
 
 ```arc
 sequence main {
-  stage pressurizing {
-    1 -> press_valve_cmd,
-    0 -> vent_valve_cmd,
-    pressure > 100psi => next,
-  }
-  stage waiting {
-    0 -> press_valve_cmd,
-    wait{duration=5s} => next,
-  }
-  stage venting {
-    1 -> vent_valve_cmd,
-    pressure < 5psi => next,
-  }
-  stage complete {
-    0 -> press_valve_cmd,
-    0 -> vent_valve_cmd,
-  }
+    stage pressurizing {
+        1 -> press_valve_cmd
+        0 -> vent_valve_cmd
+        pressure > 100psi => next
+    }
+    stage waiting {
+        0 -> press_valve_cmd
+        wait{duration=5s} => next
+    }
+    stage venting {
+        1 -> vent_valve_cmd
+        pressure < 5psi => next
+    }
+    stage complete {
+        0 -> press_valve_cmd
+        0 -> vent_valve_cmd
+    }
 }
 ```
 
@@ -725,28 +725,28 @@ Now here's the Arc code for this sequence:
 
 ```arc
 sequence main {
-  stage pressurizing {
-    1 -> press_valve_cmd,
-    0 -> vent_valve_cmd,
-    temp > 35C => abort,
-    pressure > 100psi => next,
-  }
-  stage waiting {
-    0 -> press_valve_cmd,
-    wait{duration=5s} => next,
-  }
-  stage venting {
-    1 -> vent_valve_cmd,
-    pressure < 5psi => next,
-  }
-  stage complete {
-    0 -> press_valve_cmd,
-    0 -> vent_valve_cmd,
-  }
-  stage abort {
-    0 -> press_valve_cmd,
-    0 -> vent_valve_cmd,
-  }
+    stage pressurizing {
+        1 -> press_valve_cmd
+        0 -> vent_valve_cmd
+        temp > 35C => abort
+        pressure > 100psi => next
+    }
+    stage waiting {
+        0 -> press_valve_cmd
+        wait{duration=5s} => next
+    }
+    stage venting {
+        1 -> vent_valve_cmd
+        pressure < 5psi => next
+    }
+    stage complete {
+        0 -> press_valve_cmd
+        0 -> vent_valve_cmd
+    }
+    stage abort {
+        0 -> press_valve_cmd
+        0 -> vent_valve_cmd
+    }
 }
 ```
 

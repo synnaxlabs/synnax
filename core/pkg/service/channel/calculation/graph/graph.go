@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
@@ -48,8 +49,8 @@ type Graph struct {
 	disconnect   observe.Disconnect
 	mu           struct {
 		nodes            map[channel.Key]node
-		dependents       map[channel.Key]map[channel.Key]struct{}
-		unresolvedByName map[string]map[channel.Key]struct{}
+		dependents       map[channel.Key]set.Set[channel.Key]
+		unresolvedByName map[string]set.Set[channel.Key]
 		sync.RWMutex
 	}
 }
@@ -99,8 +100,8 @@ func Open(
 		status:          status.NewWriter[types.Nil](cfg.Status, nil),
 	}
 	s.mu.nodes = make(map[channel.Key]node)
-	s.mu.dependents = make(map[channel.Key]map[channel.Key]struct{})
-	s.mu.unresolvedByName = make(map[string]map[channel.Key]struct{})
+	s.mu.dependents = make(map[channel.Key]set.Set[channel.Key])
+	s.mu.unresolvedByName = make(map[string]set.Set[channel.Key])
 	if err = s.hydrate(ctx); err != nil {
 		return nil, err
 	}
@@ -127,16 +128,16 @@ func (s *Graph) hydrate(ctx context.Context) error {
 	invalidCount := 0
 	var (
 		nextNodes      map[channel.Key]node
-		nextDependents map[channel.Key]map[channel.Key]struct{}
-		nextUnresolved map[string]map[channel.Key]struct{}
+		nextDependents map[channel.Key]set.Set[channel.Key]
+		nextUnresolved map[string]set.Set[channel.Key]
 	)
 	analyzer := s.newAnalyzer(nil)
 	statuses := make(map[channel.Key]*calculation.Status)
 	for {
 		changed := false
 		nextNodes = make(map[channel.Key]node)
-		nextDependents = make(map[channel.Key]map[channel.Key]struct{})
-		nextUnresolved = make(map[string]map[channel.Key]struct{})
+		nextDependents = make(map[channel.Key]set.Set[channel.Key])
+		nextUnresolved = make(map[string]set.Set[channel.Key])
 		invalidCount = 0
 		for i, ch := range channels {
 			nd, err := s.inspectNode(ctx, nil, ch, analyzer)
@@ -210,7 +211,7 @@ func (s *Graph) hydrate(ctx context.Context) error {
 func (s *Graph) handleChanges(ctx context.Context, reader gorp.TxReader[channel.Key, channel.Channel]) {
 	s.mu.Lock()
 	analyzer := s.newAnalyzer(nil)
-	queued := make(map[channel.Key]struct{})
+	queued := make(set.Set[channel.Key])
 	var unresolvedNames []string
 	var updates []channel.Channel
 	for chg := range reader {
@@ -317,7 +318,7 @@ func (s *Graph) inspectNode(
 func (s *Graph) reconcileQueued(
 	ctx context.Context,
 	tx gorp.Tx,
-	queued map[channel.Key]struct{},
+	queued set.Set[channel.Key],
 	unresolvedNames []string,
 	overlayMap map[channel.Key]channel.Channel,
 	analyzer *channelanalyzer.Analyzer,
@@ -331,7 +332,7 @@ func (s *Graph) reconcileQueued(
 	}
 	updates := make([]channel.Channel, 0)
 	for len(queued) > 0 {
-		next := make(map[channel.Key]struct{})
+		next := make(set.Set[channel.Key])
 		for key := range queued {
 			nd, ok := s.mu.nodes[key]
 			if !ok {
@@ -384,13 +385,13 @@ func (s *Graph) removeNode(key channel.Key) {
 		return
 	}
 	for _, dep := range nd.deps {
-		delete(s.mu.dependents[dep], key)
+		s.mu.dependents[dep].Remove(key)
 		if len(s.mu.dependents[dep]) == 0 {
 			delete(s.mu.dependents, dep)
 		}
 	}
 	for _, name := range nd.unresolved {
-		delete(s.mu.unresolvedByName[name], key)
+		s.mu.unresolvedByName[name].Remove(key)
 		if len(s.mu.unresolvedByName[name]) == 0 {
 			delete(s.mu.unresolvedByName, name)
 		}
@@ -405,35 +406,35 @@ func (s *Graph) upsertNode(node node) {
 
 func upsertNode(
 	nodes map[channel.Key]node,
-	dependents map[channel.Key]map[channel.Key]struct{},
-	unresolvedByName map[string]map[channel.Key]struct{},
+	dependents map[channel.Key]set.Set[channel.Key],
+	unresolvedByName map[string]set.Set[channel.Key],
 	nd node,
 ) {
 	nodes[nd.Key()] = nd
 	for _, dep := range nd.deps {
 		if dependents[dep] == nil {
-			dependents[dep] = make(map[channel.Key]struct{})
+			dependents[dep] = make(set.Set[channel.Key])
 		}
-		dependents[dep][nd.Key()] = struct{}{}
+		dependents[dep].Add(nd.Key())
 	}
 	for _, name := range nd.unresolved {
 		if unresolvedByName[name] == nil {
-			unresolvedByName[name] = make(map[channel.Key]struct{})
+			unresolvedByName[name] = make(set.Set[channel.Key])
 		}
-		unresolvedByName[name][nd.Key()] = struct{}{}
+		unresolvedByName[name].Add(nd.Key())
 	}
 }
 
-func (s *Graph) enqueueDependents(key channel.Key, queued map[channel.Key]struct{}) {
+func (s *Graph) enqueueDependents(key channel.Key, queued set.Set[channel.Key]) {
 	for dep := range s.mu.dependents[key] {
-		queued[dep] = struct{}{}
+		queued.Add(dep)
 	}
 }
 
-func (s *Graph) enqueueUnresolved(names []string, queued map[channel.Key]struct{}) {
+func (s *Graph) enqueueUnresolved(names []string, queued set.Set[channel.Key]) {
 	for _, name := range names {
 		for key := range s.mu.unresolvedByName[name] {
-			queued[key] = struct{}{}
+			queued.Add(key)
 		}
 	}
 }

@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/zyn"
 )
 
@@ -163,19 +164,19 @@ func Analyze(
 	}
 
 	// Step 5A: Check for Duplicate Edge Targets and Build Connected Inputs Map
-	connectedInputs := make(map[string]map[string]bool)
+	connectedInputs := make(map[string]set.Set[string])
 	for _, edge := range g.Edges {
 		if connectedInputs[edge.Target.Node] == nil {
-			connectedInputs[edge.Target.Node] = make(map[string]bool)
+			connectedInputs[edge.Target.Node] = make(set.Set[string])
 		}
-		if connectedInputs[edge.Target.Node][edge.Target.Param] {
+		if connectedInputs[edge.Target.Node].Contains(edge.Target.Param) {
 			aCtx.Diagnostics.Add(diagnostics.Errorf(nil,
 				"multiple edges target node '%s' parameter '%s'",
 				edge.Target.Node,
 				edge.Target.Param,
 			))
 		}
-		connectedInputs[edge.Target.Node][edge.Target.Param] = true
+		connectedInputs[edge.Target.Node].Add(edge.Target.Param)
 	}
 	if !aCtx.Diagnostics.Ok() {
 		return ir.IR{}, aCtx.Diagnostics
@@ -189,7 +190,7 @@ func Analyze(
 		}
 		connected := connectedInputs[n.Key]
 		for _, inputParam := range freshType.Inputs {
-			if !connected[inputParam.Name] {
+			if !connected.Contains(inputParam.Name) {
 				// Check if this parameter has a default value (is optional)
 				if inputParam.Value == nil {
 					// Required parameter is missing
@@ -208,27 +209,40 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 6: Build Stratified Execution Plan
-	// Graph-based compilation doesn't support sequences, so pass nil
-	strata, err := stratifier.Stratify(aCtx, irNodes, g.Edges, nil, aCtx.Diagnostics)
-	if err != nil {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 7: Substitute TypeMap after unification
+	// Step 6: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
 	}
 
-	// Step 8: Return IR
-	return ir.IR{
+	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
+	// sequence constructs, so every node becomes a member of the root
+	// scope's catch-all phase; the stratifier rewrites the phase layout
+	// based on the edge set.
+	root := ir.Scope{
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+	}
+	if len(irNodes) > 0 {
+		members := make(ir.Members, 0, len(irNodes))
+		for _, n := range irNodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		root.Strata = []ir.Members{members}
+	}
+	out := ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
-		Strata:    strata,
+		Root:      root,
 		TypeMap:   aCtx.TypeMap,
-	}, aCtx.Diagnostics
+	}
+	if len(irNodes) > 0 {
+		if d := stratifier.Stratify(aCtx, &out, aCtx.Diagnostics); d != nil && !d.Ok() {
+			return ir.IR{}, d
+		}
+	}
+	return out, aCtx.Diagnostics
 }
 
 // bindParams adds function parameters to the symbol scope with the specified kind.

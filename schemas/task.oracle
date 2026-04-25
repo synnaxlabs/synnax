@@ -114,7 +114,8 @@ Task struct<
         @filter
     }
     status   Status<StatusData>?? {
-        @doc value "is the current execution status of the task."
+        @doc value  "is the current execution status of the task."
+        @go marshal omit
     }
 
     @doc value     """

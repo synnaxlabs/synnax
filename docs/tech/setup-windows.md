@@ -72,8 +72,8 @@ output and no red output.**
 
 Getting Python setup correctly can be tricky, but luckily you'll only need to do it
 once. To get started, use the installer available
-[here](https://www.python.org/downloads/release/python-3114/). Make sure to check the
-box that says "Add Python 3.11 to PATH". After installing, run
+[here](https://www.python.org/downloads/release/python-31213/). Make sure to check the
+box that says "Add Python 3.12 to PATH". After installing, run
 
 ```bash
 python --version
@@ -82,7 +82,7 @@ python --version
 You should see something like
 
 ```bash
-Python 3.11.x
+Python 3.12.x
 ```
 
 ## 4.0 - Install uv

@@ -56,7 +56,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, _, err := idx.Distance(ctx, tr /*continuous*/, true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -358,7 +358,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -453,7 +453,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -612,7 +612,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), false)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -670,7 +670,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -747,7 +747,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), true)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}
@@ -875,7 +875,7 @@ var _ = Describe("Domain", func() {
 						) {
 							actual, err := idx.Stamp(ctx, start, int64(distance), false)
 							if expectedErr != nil {
-								Expect(err).To(HaveOccurredAs(expectedErr))
+								Expect(err).To(MatchError(expectedErr))
 							} else {
 								Expect(err).To(BeNil())
 							}

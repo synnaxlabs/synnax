@@ -10,8 +10,6 @@
 package view_test
 
 import (
-	"io"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -20,36 +18,30 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("View", func() {
 	var (
-		otg    *ontology.Ontology
-		svc    *view.Service
-		w      view.Writer
-		tx     gorp.Tx
-		closer io.Closer
+		otg *ontology.Ontology
+		svc *view.Service
+		w   view.Writer
+		tx  gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustSucceed(search.Open())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
-		svc = MustSucceed(view.OpenService(ctx, view.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
+		svc = MustOpen(view.OpenService(ctx, view.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
-		closer = xio.MultiCloser{otg, g, svc}
-	})
-	AfterEach(func() {
-		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func() {
 		tx = db.OpenTx()
@@ -119,7 +111,7 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func(ctx SpecContext) {
@@ -144,7 +136,7 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 		})
 	})

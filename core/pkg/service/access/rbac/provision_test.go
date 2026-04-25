@@ -55,14 +55,13 @@ var _ = Describe("Provision", func() {
 			var ownerBefore role.Role
 			Expect(svc.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerBefore).Exec(ctx, tx)).To(Succeed())
 
-			svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
 				Search:   searchIdx,
 				User:     userSvc,
 			}))
-			defer func() { Expect(svc2.Close()).To(Succeed()) }()
 
 			var ownerAfter role.Role
 			Expect(svc2.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerAfter).Exec(ctx, tx)).To(Succeed())
@@ -91,14 +90,13 @@ var _ = Describe("Provision", func() {
 			Expect(staleTx.Commit(ctx)).To(Succeed())
 
 			// Re-open service, which re-provisions
-			svc2 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
 				Search:   searchIdx,
 				User:     userSvc,
 			}))
-			defer func() { Expect(svc2.Close()).To(Succeed()) }()
 
 			var updated policy.Policy
 			Expect(svc2.Policy.NewRetrieve().

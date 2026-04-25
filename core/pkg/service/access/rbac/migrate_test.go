@@ -55,25 +55,20 @@ func userHasSpecificRole(
 var _ = Describe("Legacy Permission Migration", func() {
 	It("Should migrate users with legacy policies to correct roles", func(ctx SpecContext) {
 		// Set up a fresh DB with legacy data pre-seeded
-		testDB := gorp.Wrap(memkv.New())
-		defer func() { Expect(testDB.Close()).To(Succeed()) }()
-		testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		defer func() { Expect(testOtg.Close()).To(Succeed()) }()
-		testSearch := MustSucceed(search.Open())
-		defer func() { Expect(testSearch.Close()).To(Succeed()) }()
-		testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		testDB := DeferClose(gorp.Wrap(memkv.New()))
+		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+		testSearch := MustOpen(search.Open())
+		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       testDB,
 			Ontology: testOtg,
 			Search:   testSearch,
 		}))
-		defer func() { Expect(testGroup.Close()).To(Succeed()) }()
-		testUserSvc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		testUserSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       testDB,
 			Ontology: testOtg,
 			Group:    testGroup,
 			Search:   testSearch,
 		}))
-		defer func() { Expect(testUserSvc.Close()).To(Succeed()) }()
 
 		// Create test users
 		tx := testDB.OpenTx()
@@ -108,14 +103,13 @@ var _ = Describe("Legacy Permission Migration", func() {
 		Expect(tx.Commit(ctx)).To(Succeed())
 
 		// Open RBAC service, which runs Phase 1 (extraction) and Phase 2 (assignment)
-		testRBAC := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{
+		testRBAC := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 			DB:       testDB,
 			Ontology: testOtg,
 			Group:    testGroup,
 			Search:   testSearch,
 			User:     testUserSvc,
 		}))
-		defer func() { Expect(testRBAC.Close()).To(Succeed()) }()
 
 		// Look up the built-in role keys
 		tx2 := testDB.OpenTx()
@@ -139,8 +133,7 @@ var _ = Describe("Legacy Permission Migration", func() {
 
 		// Legacy policies should be deleted
 		reader := gorp.WrapReader[uuid.UUID, v0.Policy](tx2)
-		iter := MustSucceed(reader.OpenIterator(gorp.IterOptions{}))
-		defer func() { Expect(iter.Close()).To(Succeed()) }()
+		iter := MustOpen(reader.OpenIterator(gorp.IterOptions{}))
 		legacyCount := 0
 		for iter.First(); iter.Valid(); iter.Next() {
 			v := iter.Value(ctx)
@@ -152,25 +145,20 @@ var _ = Describe("Legacy Permission Migration", func() {
 	})
 
 	It("Should be idempotent across multiple service opens", func(ctx SpecContext) {
-		testDB := gorp.Wrap(memkv.New())
-		defer func() { Expect(testDB.Close()).To(Succeed()) }()
-		testOtg := MustSucceed(ontology.Open(ctx, ontology.Config{DB: testDB}))
-		defer func() { Expect(testOtg.Close()).To(Succeed()) }()
-		testSearch := MustSucceed(search.Open())
-		defer func() { Expect(testSearch.Close()).To(Succeed()) }()
-		testGroup := MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+		testDB := DeferClose(gorp.Wrap(memkv.New()))
+		testOtg := MustOpen(ontology.Open(ctx, ontology.Config{DB: testDB}))
+		testSearch := MustOpen(search.Open())
+		testGroup := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 			DB:       testDB,
 			Ontology: testOtg,
 			Search:   testSearch,
 		}))
-		defer func() { Expect(testGroup.Close()).To(Succeed()) }()
-		testUserSvc := MustSucceed(user.OpenService(ctx, user.ServiceConfig{
+		testUserSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 			DB:       testDB,
 			Ontology: testOtg,
 			Group:    testGroup,
 			Search:   testSearch,
 		}))
-		defer func() { Expect(testUserSvc.Close()).To(Succeed()) }()
 
 		// First open
 		svc1 := MustSucceed(rbac.OpenService(ctx, rbac.ServiceConfig{

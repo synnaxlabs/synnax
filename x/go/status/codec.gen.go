@@ -15,7 +15,6 @@ import (
 	"encoding/json"
 
 	"github.com/synnaxlabs/x/encoding/orc"
-	"github.com/synnaxlabs/x/label"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -32,17 +31,6 @@ func (s Status[Details]) EncodeOrc(w *orc.Writer) error {
 			return err
 		}
 		w.WriteWithLen(b)
-	}
-	if s.Labels != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(s.Labels)))
-		for j := range s.Labels {
-			if err := s.Labels[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -82,24 +70,6 @@ func (s *Status[Details]) DecodeOrc(r *orc.Reader) error {
 		}
 		if err = json.Unmarshal(b, &s.Details); err != nil {
 			return err
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			s.Labels = make([]label.Label, n)
-			for j := range s.Labels {
-				if err = s.Labels[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
 		}
 	}
 	return nil

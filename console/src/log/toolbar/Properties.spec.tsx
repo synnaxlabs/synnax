@@ -37,6 +37,7 @@ const LOG_STATE: State = {
   timestampPrecision: 0,
   showChannelNames: true,
   showReceiptTimestamp: true,
+  toolbar: { activeTab: "channels" },
 };
 
 const LAYOUT_STATE: Layout.State = {

@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // CreateRootScope creates a new scope representing the root scope of a program.
@@ -230,21 +231,21 @@ func (s *Scope) Resolve(ctx context.Context, name string) (*Scope, error) {
 }
 
 func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
-	seen := make(map[string]bool)
+	seen := make(set.Set[string])
 	var scopes []*Scope
 	for _, child := range s.Children {
-		if matchesSearch(child.Name, term) && !seen[child.Name] {
+		if matchesSearch(child.Name, term) && !seen.Contains(child.Name) {
 			scopes = append(scopes, child)
-			seen[child.Name] = true
+			seen.Add(child.Name)
 		}
 	}
 	if s.GlobalResolver != nil {
 		symbols, err := s.GlobalResolver.Search(ctx, term)
 		if err == nil {
 			for _, sym := range symbols {
-				if !seen[sym.Name] && !sym.Internal {
+				if !seen.Contains(sym.Name) && !sym.Internal {
 					scopes = append(scopes, &Scope{Symbol: sym})
-					seen[sym.Name] = true
+					seen.Add(sym.Name)
 				}
 			}
 		}
@@ -253,9 +254,9 @@ func (s *Scope) Search(ctx context.Context, term string) ([]*Scope, error) {
 		parentScopes, err := s.Parent.Search(ctx, term)
 		if err == nil {
 			for _, scope := range parentScopes {
-				if !seen[scope.Name] {
+				if !seen.Contains(scope.Name) {
 					scopes = append(scopes, scope)
-					seen[scope.Name] = true
+					seen.Add(scope.Name)
 				}
 			}
 		}

@@ -16,6 +16,7 @@
 #include "arc/cpp/ir/ir.h"
 
 namespace arc::ir {
+
 /// @brief it should correctly round-trip Handle through protobuf
 TEST(IRTest, testHandleProtobufRoundTrip) {
     const Handle original("node1", "param1");
@@ -66,7 +67,8 @@ TEST(IRTest, testParamProtobufRoundTrip) {
     ASSERT_DOUBLE_EQ(reconstructed.value.get<double>(), 42.5);
 }
 
-/// @brief it should correctly round-trip IR through protobuf
+/// @brief it should round-trip a complete IR (including a sequential Scope
+/// with transitions) through protobuf
 TEST(IRTest, testIRProtobufRoundTrip) {
     IR original;
 
@@ -76,28 +78,49 @@ TEST(IRTest, testIRProtobufRoundTrip) {
     original.functions.push_back(fn);
 
     Node node;
-    node.key = "test_node";
+    node.key = "init";
     node.type = "add";
     original.nodes.push_back(node);
+    Node node2;
+    node2.key = "run";
+    node2.type = "add";
+    original.nodes.push_back(node2);
 
-    Edge edge(Handle("node1", "out"), Handle("node2", "in"));
+    Edge edge(Handle("init", "out"), Handle("run", "in"));
     original.edges.push_back(edge);
 
-    original.strata.push_back({"a"});
-    original.strata.push_back({"b", "c"});
+    // Build a parallel+always root whose stratum 0 contains a sequential
+    // gated child scope with two steps and an exit transition.
+    Scope main;
+    main.key = "main";
+    main.mode = ScopeMode::Sequential;
+    main.liveness = Liveness::Gated;
+    main.steps.push_back(node_member("init"));
+    main.steps.push_back(node_member("run"));
+    Transition t;
+    t.on = Handle("run", "done");
+    main.transitions.push_back(t);
+
+    original.root.mode = ScopeMode::Parallel;
+    original.root.liveness = Liveness::Always;
+    original.root.strata.push_back(Members{scope_member(std::move(main))});
 
     const auto pb = ASSERT_NIL_P(original.to_proto());
     const auto reconstructed = ASSERT_NIL_P(IR::from_proto(pb));
     ASSERT_EQ(reconstructed.functions.size(), 1);
     ASSERT_EQ(reconstructed.functions[0].key, "test_func");
-    ASSERT_EQ(reconstructed.nodes.size(), 1);
-    ASSERT_EQ(reconstructed.nodes[0].key, "test_node");
+    ASSERT_EQ(reconstructed.nodes.size(), 2);
     ASSERT_EQ(reconstructed.edges.size(), 1);
-    ASSERT_EQ(reconstructed.edges[0].source.node, "node1");
-    ASSERT_EQ(reconstructed.strata.size(), 2);
-    ASSERT_EQ(reconstructed.strata[0][0], "a");
-    ASSERT_EQ(reconstructed.strata[1][0], "b");
-    ASSERT_EQ(reconstructed.strata[1][1], "c");
+    ASSERT_EQ(reconstructed.root.mode, ScopeMode::Parallel);
+    ASSERT_EQ(reconstructed.root.liveness, Liveness::Always);
+    ASSERT_EQ(reconstructed.root.strata.size(), 1);
+    const auto &m = reconstructed.root.strata[0][0];
+    ASSERT_NE(m.scope, nullptr);
+    ASSERT_EQ(m.scope->mode, ScopeMode::Sequential);
+    ASSERT_EQ(m.scope->steps.size(), 2);
+    ASSERT_EQ(m.scope->transitions.size(), 1);
+    // An exit transition leaves target_key unset (nullopt).
+    ASSERT_FALSE(m.scope->transitions[0].target_key.has_value());
 }
 
 /// @brief it should access nodes by key using node()
@@ -150,7 +173,7 @@ TEST(IRTest, testEdgeTo) {
     ASSERT_EQ(edge2->source.node, "node_c");
 
     Handle missing("missing", "input");
-    auto no_edge = ir.edge_to(missing);
+    const auto no_edge = ir.edge_to(missing);
     ASSERT_FALSE(no_edge.has_value());
 }
 
@@ -187,113 +210,140 @@ TEST(IRTest, testEdgesTo) {
 
 /// @brief it should format a Handle as "node.param"
 TEST(IRTest, testHandleToString) {
-    Handle h("node_a", "output");
+    const Handle h("node_a", "output");
     ASSERT_EQ(h.to_string(), "node_a.output");
 }
 
 /// @brief it should format a continuous Edge
 TEST(IRTest, testEdgeToStringContinuous) {
-    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
+    const Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
     const auto str = e.to_string();
     ASSERT_EQ(str, "a.out -> b.in (continuous)");
 }
 
 /// @brief it should format a conditional Edge
 TEST(IRTest, testEdgeToStringConditional) {
-    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Conditional);
+    const Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Conditional);
     const auto str = e.to_string();
     ASSERT_EQ(str, "a.out => b.in (conditional)");
 }
 
-/// @brief it should format a Stage with nodes as "key: [nodes]"
-TEST(IRTest, testStageToString) {
-    Stage stage;
-    stage.key = "stage_1";
-    stage.nodes = {"node_a", "node_b"};
-    const auto str = stage.to_string();
-    ASSERT_EQ(str, "stage_1: [node_a, node_b]");
+/// @brief it should format a Transition with a step-key target
+TEST(IRTest, testTransitionToStringStepKey) {
+    Transition t;
+    t.on = Handle("n", "out");
+    t.target_key = "next";
+    const auto str = t.to_string();
+    ASSERT_NE(str.find("on n/out"), std::string::npos);
+    ASSERT_NE(str.find("=> next"), std::string::npos);
 }
 
-/// @brief it should format a Stage with strata
-TEST(IRTest, testStageToStringWithStrata) {
-    Stage stage;
-    stage.key = "run";
-    stage.nodes = {"a", "b"};
-    stage.strata.push_back({"a"});
-    stage.strata.push_back({"b"});
-    const auto str = stage.to_string();
-    ASSERT_NE(str.find("run: [a, b]"), std::string::npos);
-    ASSERT_NE(str.find("[0]: a"), std::string::npos);
-    ASSERT_NE(str.find("[1]: b"), std::string::npos);
+/// @brief it should format a Transition with an exit (unset) target
+TEST(IRTest, testTransitionToStringExit) {
+    Transition t;
+    t.on = Handle("n", "out");
+    // target_key left unset signals exit.
+    ASSERT_NE(t.to_string().find("=> exit"), std::string::npos);
 }
 
-/// @brief it should format a Stage with empty nodes
-TEST(IRTest, testStageToStringEmptyNodes) {
-    Stage stage;
-    stage.key = "terminal";
-    const auto str = stage.to_string();
-    ASSERT_EQ(str, "terminal: []");
+/// @brief it should format a Member wrapping a leaf node-key
+TEST(IRTest, testMemberToStringLeafNode) {
+    const auto m = node_member("A");
+    ASSERT_EQ(m.to_string(), "A");
 }
 
-/// @brief it should format Strata with tree prefixes
-TEST(IRTest, testStrataToString) {
-    Strata strata;
-    strata.push_back({"a", "b"});
-    strata.push_back({"c"});
-    const auto str = strata.to_string();
-    ASSERT_NE(str.find("[0]: a, b"), std::string::npos);
-    ASSERT_NE(str.find("[1]: c"), std::string::npos);
+/// @brief it should format a Member wrapping a nested Scope
+TEST(IRTest, testMemberToStringScopeBacked) {
+    Scope s;
+    s.key = "sub";
+    s.mode = ScopeMode::Parallel;
+    s.liveness = Liveness::Always;
+    const auto m = scope_member(std::move(s));
+    ASSERT_NE(m.to_string().find("sub"), std::string::npos);
 }
 
-/// @brief it should access sequence stages by index
-TEST(IRTest, testSequenceOperatorBracket) {
-    Sequence seq;
-    seq.key = "seq_1";
-    Stage s0;
-    s0.key = "init";
-    Stage s1;
-    s1.key = "run";
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
-    ASSERT_EQ(seq[0].key, "init");
-    ASSERT_EQ(seq[1].key, "run");
+/// @brief it should format an unset Member as the empty-member placeholder
+TEST(IRTest, testMemberToStringEmpty) {
+    const Member m{};
+    ASSERT_EQ(m.to_string(), "(empty member)");
 }
 
-/// @brief it should get the next stage in a sequence
-TEST(IRTest, testSequenceNext) {
-    Sequence seq;
-    seq.key = "seq_1";
-    Stage s0;
-    s0.key = "init";
-    Stage s1;
-    s1.key = "run";
-    Stage s2;
-    s2.key = "stop";
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
-    seq.stages.push_back(s2);
-    ASSERT_EQ(seq.next("init").key, "run");
-    ASSERT_EQ(seq.next("run").key, "stop");
-    ASSERT_THROW((void) seq.next("stop"), std::runtime_error);
-    ASSERT_THROW((void) seq.next("nonexistent"), std::runtime_error);
+/// @brief it should derive Member::key from the set variant
+TEST(IRTest, testMemberKey) {
+    ASSERT_EQ(node_member("n1").key(), "n1");
+    Scope s;
+    s.key = "sub";
+    ASSERT_EQ(scope_member(std::move(s)).key(), "sub");
+    const Member empty{};
+    ASSERT_TRUE(empty.key().empty());
 }
 
-/// @brief it should format a Sequence as a tree with stages
-TEST(IRTest, testSequenceToString) {
-    Sequence seq;
-    seq.key = "seq_1";
-    Stage s0;
-    s0.key = "init";
-    s0.nodes = {"a"};
-    Stage s1;
-    s1.key = "run";
-    s1.nodes = {"b", "c"};
-    seq.stages.push_back(s0);
-    seq.stages.push_back(s1);
-    const auto str = seq.to_string();
-    ASSERT_NE(str.find("seq_1"), std::string::npos);
-    ASSERT_NE(str.find("init: [a]"), std::string::npos);
-    ASSERT_NE(str.find("run: [b, c]"), std::string::npos);
+/// @brief it should format a parallel Scope with strata
+TEST(IRTest, testScopeToStringParallel) {
+    Scope s;
+    s.key = "stage_1";
+    s.mode = ScopeMode::Parallel;
+    s.liveness = Liveness::Gated;
+    Members stratum;
+    stratum.push_back(node_member("A"));
+    s.strata.push_back(std::move(stratum));
+    const auto str = s.to_string();
+    ASSERT_NE(str.find("stage_1"), std::string::npos);
+    ASSERT_NE(str.find("parallel"), std::string::npos);
+    ASSERT_NE(str.find("gated"), std::string::npos);
+    ASSERT_NE(str.find("stratum 0"), std::string::npos);
+    ASSERT_NE(str.find("A"), std::string::npos);
+}
+
+/// @brief it should format a sequential Scope with steps and a transition
+TEST(IRTest, testScopeToStringSequentialWithTransitions) {
+    Scope s;
+    s.key = "main";
+    s.mode = ScopeMode::Sequential;
+    s.liveness = Liveness::Gated;
+    s.steps.push_back(node_member("first"));
+    s.steps.push_back(node_member("second"));
+    Transition t;
+    t.on = Handle("first", "done");
+    t.target_key = "second";
+    s.transitions.push_back(t);
+    const auto str = s.to_string();
+    ASSERT_NE(str.find("main"), std::string::npos);
+    ASSERT_NE(str.find("sequential"), std::string::npos);
+    ASSERT_NE(str.find("first"), std::string::npos);
+    ASSERT_NE(str.find("second"), std::string::npos);
+    ASSERT_NE(str.find("=> second"), std::string::npos);
+}
+
+/// @brief it should use the (scope) placeholder when a Scope has no key
+TEST(IRTest, testScopeToStringEmptyKeyPlaceholder) {
+    Scope s;
+    s.mode = ScopeMode::Parallel;
+    s.liveness = Liveness::Always;
+    Members stratum;
+    stratum.push_back(node_member("x"));
+    s.strata.push_back(std::move(stratum));
+    ASSERT_NE(s.to_string().find("(scope)"), std::string::npos);
+}
+
+/// @brief it should recurse into nested Scopes via scope_member
+TEST(IRTest, testScopeToStringNestedScopeMember) {
+    Scope inner;
+    inner.key = "inner";
+    inner.mode = ScopeMode::Sequential;
+    inner.liveness = Liveness::Gated;
+    inner.steps.push_back(node_member("step1"));
+    Scope outer;
+    outer.key = "outer";
+    outer.mode = ScopeMode::Parallel;
+    outer.liveness = Liveness::Always;
+    Members stratum;
+    stratum.push_back(scope_member(std::move(inner)));
+    outer.strata.push_back(std::move(stratum));
+    const auto str = outer.to_string();
+    ASSERT_NE(str.find("outer"), std::string::npos);
+    ASSERT_NE(str.find("inner"), std::string::npos);
+    ASSERT_NE(str.find("step1"), std::string::npos);
 }
 
 /// @brief it should access params by name using operator[]
@@ -326,20 +376,6 @@ TEST(IRTest, testParamsOperatorBracketByIndex) {
     ASSERT_EQ(params[0].value.get<int>(), 100);
     ASSERT_EQ(params[1].name, "second");
     ASSERT_EQ(params[1].value.get<int>(), 200);
-}
-
-/// @brief it should access sequences by key from IR
-TEST(IRTest, testIRSequenceAccess) {
-    IR ir;
-    Sequence s1;
-    s1.key = "main";
-    Sequence s2;
-    s2.key = "cleanup";
-    ir.sequences.push_back(s1);
-    ir.sequences.push_back(s2);
-    ASSERT_EQ(ir.sequence("main").key, "main");
-    ASSERT_EQ(ir.sequence("cleanup").key, "cleanup");
-    ASSERT_THROW((void) ir.sequence("nonexistent"), std::runtime_error);
 }
 
 /// @brief it should format a Param without a value
@@ -375,7 +411,7 @@ TEST(IRTest, testParamsToString) {
 
 /// @brief it should format empty Params as "(none)"
 TEST(IRTest, testParamsToStringEmpty) {
-    types::Params params;
+    const types::Params params;
     ASSERT_EQ(params.to_string(), "(none)");
 }
 
@@ -391,7 +427,7 @@ TEST(IRTest, testChannelsToString) {
 
 /// @brief it should format empty Channels as "(none)"
 TEST(IRTest, testChannelsToStringEmpty) {
-    types::Channels ch;
+    const types::Channels ch;
     ASSERT_EQ(ch.to_string(), "(none)");
 }
 
@@ -430,7 +466,7 @@ TEST(IRTest, testFunctionToString) {
     ASSERT_NE(str.find("outputs: result (f64)"), std::string::npos);
 }
 
-/// @brief it should format a full IR tree
+/// @brief it should format a full IR tree rooted at a Scope
 TEST(IRTest, testIRToString) {
     IR ir;
 
@@ -449,15 +485,12 @@ TEST(IRTest, testIRToString) {
 
     ir.edges.emplace_back(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
 
-    ir.strata.push_back({"add_1"});
-
-    Sequence seq;
-    seq.key = "main";
-    Stage s;
-    s.key = "run";
-    s.nodes = {"add_1"};
-    seq.stages.push_back(s);
-    ir.sequences.push_back(seq);
+    ir.root.key = "";
+    ir.root.mode = ScopeMode::Parallel;
+    ir.root.liveness = Liveness::Always;
+    Members stratum;
+    stratum.push_back(node_member("add_1"));
+    ir.root.strata.push_back(std::move(stratum));
 
     const auto str = ir.to_string();
     ASSERT_NE(str.find("IR"), std::string::npos);
@@ -467,15 +500,69 @@ TEST(IRTest, testIRToString) {
     ASSERT_NE(str.find("add_1 (type: add)"), std::string::npos);
     ASSERT_NE(str.find("Edges"), std::string::npos);
     ASSERT_NE(str.find("a.out -> b.in (continuous)"), std::string::npos);
-    ASSERT_NE(str.find("Strata"), std::string::npos);
-    ASSERT_NE(str.find("[0]: add_1"), std::string::npos);
-    ASSERT_NE(str.find("Sequences"), std::string::npos);
-    ASSERT_NE(str.find("main"), std::string::npos);
+    ASSERT_NE(str.find("Root"), std::string::npos);
+    ASSERT_NE(str.find("parallel"), std::string::npos);
+    ASSERT_NE(str.find("always"), std::string::npos);
+}
+
+/// @brief it should render an empty IR as the bare "IR" root label
+TEST(IRTest, testIRToStringEmpty) {
+    const IR ir{};
+    ASSERT_EQ(ir.to_string(), "IR");
+}
+
+/// @brief it should omit sections that carry no entries
+TEST(IRTest, testIRToStringOnlyNodes) {
+    IR ir{};
+    Node n;
+    n.key = "only";
+    n.type = "input";
+    ir.nodes.push_back(n);
+    const auto str = ir.to_string();
+    ASSERT_NE(str.find("Nodes"), std::string::npos);
+    ASSERT_EQ(str.find("Functions"), std::string::npos);
+    ASSERT_EQ(str.find("Edges"), std::string::npos);
+    ASSERT_EQ(str.find("Root"), std::string::npos);
+}
+
+/// @brief it should render multi-entry sections with both branching
+/// ("├── ") and terminal ("└── ") tree prefixes
+TEST(IRTest, testIRToStringMultipleEntriesTreeIndentation) {
+    IR ir{};
+    Function f1;
+    f1.key = "f1";
+    ir.functions.push_back(f1);
+    Function f2;
+    f2.key = "f2";
+    ir.functions.push_back(f2);
+    Node n1;
+    n1.key = "n1";
+    n1.type = "f1";
+    ir.nodes.push_back(n1);
+    Node n2;
+    n2.key = "n2";
+    n2.type = "f2";
+    ir.nodes.push_back(n2);
+    ir.edges.emplace_back(
+        Handle("n1", "output"),
+        Handle("n2", "input"),
+        EdgeKind::Continuous
+    );
+    ir.edges.emplace_back(
+        Handle("n2", "output"),
+        Handle("n1", "input"),
+        EdgeKind::Conditional
+    );
+    const auto str = ir.to_string();
+    ASSERT_NE(str.find("├── "), std::string::npos);
+    ASSERT_NE(str.find("└── "), std::string::npos);
+    ASSERT_NE(str.find("n1.output -> n2.input"), std::string::npos);
+    ASSERT_NE(str.find("n2.output => n1.input"), std::string::npos);
 }
 
 /// @brief it should stream Handle via operator<<
 TEST(IRTest, testHandleStreamOperator) {
-    Handle h("node_a", "output");
+    const Handle h("node_a", "output");
     std::ostringstream ss;
     ss << h;
     ASSERT_EQ(ss.str(), "node_a.output");
@@ -483,9 +570,10 @@ TEST(IRTest, testHandleStreamOperator) {
 
 /// @brief it should stream Edge via operator<<
 TEST(IRTest, testEdgeStreamOperator) {
-    Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
+    const Edge e(Handle("a", "out"), Handle("b", "in"), EdgeKind::Continuous);
     std::ostringstream ss;
     ss << e;
     ASSERT_EQ(ss.str(), "a.out -> b.in (continuous)");
 }
+
 }

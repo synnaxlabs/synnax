@@ -31,7 +31,7 @@ Group struct {
         provide hierarchical organization through the ontology system.
     """
     @ontology type   "group"
-    @retrieve custom
+    @retrieve
     @go marshal
     @go migrate
 }

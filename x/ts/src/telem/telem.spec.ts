@@ -1057,6 +1057,25 @@ describe("TimeSpan", () => {
       expect(result.valueOf()).toBe(700n);
     });
 
+    test("abs of positive value", () => {
+      const ts = new TimeSpan(1000);
+      expect(ts.abs().valueOf()).toBe(1000n);
+    });
+
+    test("abs of negative value", () => {
+      const ts = new TimeSpan(-500);
+      expect(ts.abs().valueOf()).toBe(500n);
+    });
+
+    test("abs of zero", () => {
+      expect(TimeSpan.ZERO.abs().valueOf()).toBe(0n);
+    });
+
+    test("abs returns TimeSpan instance", () => {
+      const ts = new TimeSpan(-1000);
+      expect(ts.abs()).toBeInstanceOf(TimeSpan);
+    });
+
     test("mult", () => {
       const ts = new TimeSpan(1000);
       const result = ts.mult(2);

@@ -46,7 +46,7 @@ Role struct {
         perform on resources.
     """
     @ontology type   "role"
-    @retrieve custom
+    @retrieve
     @go marshal
     @go migrate
     @py name         "Base"

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { DataType, id, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import { DataType, id, Series, TimeRange, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test } from "vitest";
 
 import { UnauthorizedError, ValidationError } from "@/errors";
@@ -261,6 +261,149 @@ describe("Writer", () => {
       await w2.close();
       f = await index.read(TimeRange.MAX);
       expect(f.length).toEqual(10);
+    });
+  });
+
+  describe("Variable Channels", () => {
+    test("write and read string data", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+        leaseholder: 1,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        index: index.key,
+        dataType: DataType.STRING,
+        leaseholder: 1,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index, data],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [data.key]: new Series({
+            data: ["hello", "world", "foo"],
+            dataType: DataType.STRING,
+          }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const f = await data.read(TimeRange.MAX);
+      expect(f.toStrings()).toEqual(["hello", "world", "foo"]);
+    });
+
+    test("write and read JSON data", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+        leaseholder: 1,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        index: index.key,
+        dataType: DataType.JSON,
+        leaseholder: 1,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index, data],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 2),
+          [data.key]: new Series({
+            data: [{ key: "value" }, { num: 42 }],
+            dataType: DataType.JSON,
+          }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const f = await data.read(TimeRange.MAX);
+      expect(f.length).toEqual(2);
+    });
+
+    test("write mixed fixed and variable channels", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+        leaseholder: 1,
+      });
+      const floatCh = await client.channels.create({
+        name: id.create(),
+        index: index.key,
+        dataType: DataType.FLOAT64,
+        leaseholder: 1,
+      });
+      const strCh = await client.channels.create({
+        name: id.create(),
+        index: index.key,
+        dataType: DataType.STRING,
+        leaseholder: 1,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index, floatCh, strCh],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 3),
+          [floatCh.key]: new Float64Array([1.1, 2.2, 3.3]),
+          [strCh.key]: new Series({
+            data: ["a", "b", "c"],
+            dataType: DataType.STRING,
+          }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const floatData = await floatCh.read(TimeRange.MAX);
+      expect(floatData.length).toEqual(3);
+      const strData = await strCh.read(TimeRange.MAX);
+      expect(strData.toStrings()).toEqual(["a", "b", "c"]);
+    });
+
+    test("write strings with embedded newlines", async () => {
+      const index = await client.channels.create({
+        name: id.create(),
+        isIndex: true,
+        dataType: DataType.TIMESTAMP,
+        leaseholder: 1,
+      });
+      const data = await client.channels.create({
+        name: id.create(),
+        index: index.key,
+        dataType: DataType.STRING,
+        leaseholder: 1,
+      });
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(1),
+        channels: [index, data],
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(1, 2),
+          [data.key]: new Series({
+            data: ["line1\nline2", "no newline"],
+            dataType: DataType.STRING,
+          }),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const f = await data.read(TimeRange.MAX);
+      expect(f.toStrings()).toEqual(["line1\nline2", "no newline"]);
     });
   });
 });

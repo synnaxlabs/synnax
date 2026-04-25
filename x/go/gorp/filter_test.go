@@ -15,36 +15,39 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
 
+var errFilter = errors.New("filter error")
+
 func idLT(v int32) gorp.Filter[int32, entry] {
-	return gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
 		return e.ID < v, nil
 	})
 }
 
 func idGT(v int32) gorp.Filter[int32, entry] {
-	return gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
 		return e.ID > v, nil
 	})
 }
 
 func idEQ(v int32) gorp.Filter[int32, entry] {
-	return gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
 		return e.ID == v, nil
 	})
 }
 
 func dataEQ(v string) gorp.Filter[int32, entry] {
-	return gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
 		return e.Data == v, nil
 	})
 }
 
-func errFilter() gorp.Filter[int32, entry] {
-	return gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
-		return false, fmt.Errorf("filter error")
+func errFilterFn() gorp.Filter[int32, entry] {
+	return gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
+		return false, errFilter
 	})
 }
 
@@ -103,15 +106,14 @@ var _ = Describe("Filter Combinators", func() {
 		It("Should short-circuit on error", func(ctx SpecContext) {
 			var res []entry
 			callCount := 0
-			second := gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+			second := gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
 				callCount++
 				return true, nil
 			})
-			err := gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				Where(gorp.And(errFilter(), second)).
-				Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
+				Where(gorp.And(errFilterFn(), second)).
+				Exec(ctx, tx)).To(MatchError(errFilter))
 			Expect(callCount).To(Equal(0))
 		})
 
@@ -164,11 +166,11 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should short-circuit on first match", func(ctx SpecContext) {
 			callCount := 0
-			second := gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+			second := gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
 				callCount++
 				return true, nil
 			})
-			alwaysTrue := gorp.Match[int32, entry](func(_ gorp.Context, e *entry) (bool, error) {
+			alwaysTrue := gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
 				return true, nil
 			})
 			var res []entry
@@ -181,11 +183,10 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should short-circuit on error", func(ctx SpecContext) {
 			var res []entry
-			err := gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				Where(gorp.Or(errFilter(), idEQ(1))).
-				Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
+				Where(gorp.Or(errFilterFn(), idEQ(1))).
+				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
 	})
 
@@ -204,11 +205,10 @@ var _ = Describe("Filter Combinators", func() {
 
 		It("Should propagate errors", func(ctx SpecContext) {
 			var res []entry
-			err := gorp.NewRetrieve[int32, entry]().
+			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				Where(gorp.Not(errFilter())).
-				Exec(ctx, tx)
-			Expect(err).To(HaveOccurred())
+				Where(gorp.Not(errFilterFn())).
+				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
 
 		It("Should double-negate to the original", func(ctx SpecContext) {

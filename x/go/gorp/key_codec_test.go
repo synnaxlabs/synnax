@@ -96,10 +96,7 @@ func (namedStringEntry) SetOptions() []any         { return nil }
 var _ = Describe("KeyCodec", func() {
 	var tx gorp.Tx
 	BeforeEach(func() {
-		tx = db.OpenTx()
-	})
-	AfterEach(func() {
-		Expect(tx.Close()).To(Succeed())
+		tx = DeferClose(db.OpenTx())
 	})
 
 	Describe("Encode/Decode Roundtrip", func() {

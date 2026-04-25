@@ -117,9 +117,8 @@ var _ = Describe("Writer", func() {
 				Actions:  []access.Action{access.ActionRetrieve},
 				Internal: true,
 			}
-			err := w.Create(ctx, p)
-			Expect(err).To(HaveOccurred())
-			Expect(err.Error()).To(ContainSubstring("cannot create internal policy"))
+			Expect(w.Create(ctx, p)).
+				Error().To(MatchError(ContainSubstring("cannot create internal policy")))
 		})
 	})
 

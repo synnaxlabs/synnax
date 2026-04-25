@@ -44,7 +44,7 @@ var userSymbols = symbol.MapResolver{
 }
 
 func hostSym(name string, t types.Type) symbol.Symbol {
-	return symbol.Symbol{Name: name, Internal: true, Type: t}
+	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Internal: true, Type: t}
 }
 
 var hostSymbols = symbol.MapResolver{

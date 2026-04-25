@@ -218,10 +218,10 @@ var _ = Describe("Module", func() {
 				n = createNode(ctx, "truthy_test", "info", "msg")
 			})
 
-			It("Should return false for any output name", func(ctx SpecContext) {
-				Expect(n.IsOutputTruthy("")).To(BeFalse())
-				Expect(n.IsOutputTruthy("output")).To(BeFalse())
-				Expect(n.IsOutputTruthy(ir.DefaultOutputParam)).To(BeFalse())
+			It("Should return false for any output index", func(ctx SpecContext) {
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
+				Expect(n.IsOutputTruthy(1)).To(BeFalse())
+				Expect(n.IsOutputTruthy(-1)).To(BeFalse())
 			})
 		})
 

@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var (
@@ -28,3 +29,5 @@ func TestUnary(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Unary Suite")
 }
+
+var _ = ShouldNotLeakGoroutinesPerSpec()

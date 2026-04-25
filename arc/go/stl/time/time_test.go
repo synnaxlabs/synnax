@@ -35,10 +35,10 @@ var _ = Describe("Time", func() {
 	Describe("Interval", func() {
 		var factory *time.Module
 		var s *node.ProgramState
-		var changedOutputs []string
+		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
-			changedOutputs = []string{}
+			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
 					Key:  "interval_1",
@@ -65,6 +65,19 @@ var _ = Describe("Time", func() {
 			cfg := node.Config{
 				Node: ir.Node{
 					Type: "interval",
+					Config: types.Params{
+						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("interval_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
+		It("Should create node for qualified time.interval type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "time.interval",
 					Config: types.Params{
 						{Name: "period", Type: types.TimeSpan(), Value: telem.Second},
 					},
@@ -101,15 +114,15 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
 			})
 
 			Expect(changedOutputs).To(HaveLen(1))
-			Expect(changedOutputs[0]).To(Equal(ir.DefaultOutputParam))
+			Expect(changedOutputs[0]).To(Equal(0))
 		})
 		It("Should not fire before period elapses", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -131,8 +144,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -140,13 +153,13 @@ var _ = Describe("Time", func() {
 			Expect(changedOutputs).To(HaveLen(1))
 
 			// Second tick at 500ms - should not fire (period is 1s)
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 500 * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -173,8 +186,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -182,13 +195,13 @@ var _ = Describe("Time", func() {
 			Expect(changedOutputs).To(HaveLen(1))
 
 			// Second tick at 1s - should fire
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -227,8 +240,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 2 * telem.Second,
 				Reason:  node.ReasonChannelInput,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -255,8 +268,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -264,13 +277,13 @@ var _ = Describe("Time", func() {
 			Expect(changedOutputs).To(HaveLen(1))
 
 			// Second tick at 1s - fires
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -281,13 +294,13 @@ var _ = Describe("Time", func() {
 			n.Reset()
 
 			// Third tick at 1.5s - should fire because Reset set lastFired = -period
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: telem.TimeSpan(1500) * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -298,10 +311,10 @@ var _ = Describe("Time", func() {
 	Describe("Wait", func() {
 		var factory *time.Module
 		var s *node.ProgramState
-		var changedOutputs []string
+		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
-			changedOutputs = []string{}
+			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
 					Key:  "wait_1",
@@ -337,6 +350,19 @@ var _ = Describe("Time", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 		})
+		It("Should create node for qualified time.wait type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "time.wait",
+					Config: types.Params{
+						{Name: "duration", Type: types.TimeSpan(), Value: telem.Second},
+					},
+				},
+				State: s.Node("wait_1"),
+			}
+			n := MustSucceed(factory.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
+		})
 		It("Should not fire before duration elapses", func(ctx SpecContext) {
 			cfg := node.Config{
 				Node: ir.Node{
@@ -357,8 +383,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 500 * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -385,8 +411,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -398,14 +424,14 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
 			})
 			Expect(changedOutputs).To(HaveLen(1))
-			Expect(changedOutputs[0]).To(Equal(ir.DefaultOutputParam))
+			Expect(changedOutputs[0]).To(Equal(0))
 		})
 		It("Should only fire once", func(ctx SpecContext) {
 			cfg := node.Config{
@@ -427,8 +453,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -439,8 +465,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -448,13 +474,13 @@ var _ = Describe("Time", func() {
 			Expect(changedOutputs).To(HaveLen(1))
 
 			// Tick at 2s - should not fire again
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 2 * telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -481,8 +507,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -493,8 +519,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -505,13 +531,13 @@ var _ = Describe("Time", func() {
 			n.Reset()
 
 			// Tick at 1.5s - should not fire (reset at 1s, duration is 1s)
-			changedOutputs = []string{}
+			changedOutputs = nil
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 1500 * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -523,8 +549,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 2500 * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -553,8 +579,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 5 * telem.Second,
 				Reason:  node.ReasonChannelInput,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -567,8 +593,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 6 * telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -595,8 +621,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -605,8 +631,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -615,15 +641,15 @@ var _ = Describe("Time", func() {
 
 			// Reset simulates re-entering a stage
 			n.Reset()
-			changedOutputs = []string{}
+			changedOutputs = nil
 
 			// Channel input at elapsed=2s sets the new start time
 			n.Next(node.Context{
 				Context: ctx,
 				Elapsed: 2 * telem.Second,
 				Reason:  node.ReasonChannelInput,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -635,8 +661,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 3 * telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -664,8 +690,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -681,8 +707,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 500 * telem.Millisecond,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -698,8 +724,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -730,8 +756,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -746,8 +772,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 200 * telem.Millisecond,
 				Reason:  node.ReasonChannelInput,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -763,8 +789,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: telem.Second,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {
 					selfChangedCalls++
@@ -794,8 +820,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 0,
 				Reason:  node.ReasonTimerTick,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -806,8 +832,8 @@ var _ = Describe("Time", func() {
 				Context: ctx,
 				Elapsed: 2 * telem.Second,
 				Reason:  node.ReasonChannelInput,
-				MarkChanged: func(output string) {
-					changedOutputs = append(changedOutputs, output)
+				MarkChanged: func(i int) {
+					changedOutputs = append(changedOutputs, i)
 				},
 				MarkSelfChanged: func() {},
 				SetDeadline:     func(_ telem.TimeSpan) {},
@@ -908,10 +934,10 @@ var _ = Describe("Time", func() {
 	Describe("Tolerance Behavior", func() {
 		var factory *time.Module
 		var s *node.ProgramState
-		var changedOutputs []string
+		var changedOutputs []int
 		BeforeEach(func(ctx SpecContext) {
 			factory = MustSucceed(time.NewModule(ctx, wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigInterpreter())))
-			changedOutputs = []string{}
+			changedOutputs = nil
 			g := graph.Graph{
 				Nodes: []graph.Node{{
 					Key:  "interval_1",
@@ -956,22 +982,22 @@ var _ = Describe("Time", func() {
 					Elapsed:   0,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
-				changedOutputs = []string{}
+				changedOutputs = nil
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -999,22 +1025,22 @@ var _ = Describe("Time", func() {
 					Elapsed:   0,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
-				changedOutputs = []string{}
+				changedOutputs = nil
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   40 * telem.Millisecond,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1052,7 +1078,7 @@ var _ = Describe("Time", func() {
 						Elapsed:   elapsed,
 						Tolerance: tolerance,
 						Reason:    node.ReasonTimerTick,
-						MarkChanged: func(output string) {
+						MarkChanged: func(int) {
 							fireCount++
 						},
 						MarkSelfChanged: func() {},
@@ -1082,22 +1108,22 @@ var _ = Describe("Time", func() {
 					Elapsed:   0,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
 				Expect(changedOutputs).To(HaveLen(1))
 
-				changedOutputs = []string{}
+				changedOutputs = nil
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   96 * telem.Millisecond,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						changedOutputs = append(changedOutputs, output)
+					MarkChanged: func(i int) {
+						changedOutputs = append(changedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1145,15 +1171,15 @@ var _ = Describe("Time", func() {
 				*waitNode.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp]()
 
 				tolerance := telem.TimeSpan(50 * telem.Millisecond)
-				var waitChangedOutputs []string
+				var waitChangedOutputs []int
 
 				n.Next(node.Context{
 					Context:   ctx,
 					Elapsed:   0,
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						waitChangedOutputs = append(waitChangedOutputs, output)
+					MarkChanged: func(i int) {
+						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1165,8 +1191,8 @@ var _ = Describe("Time", func() {
 					Elapsed:   telem.TimeSpan(99500 * telem.Microsecond),
 					Tolerance: tolerance,
 					Reason:    node.ReasonTimerTick,
-					MarkChanged: func(output string) {
-						waitChangedOutputs = append(waitChangedOutputs, output)
+					MarkChanged: func(i int) {
+						waitChangedOutputs = append(waitChangedOutputs, i)
 					},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
@@ -1223,7 +1249,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         0,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})
@@ -1248,7 +1274,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         0,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
@@ -1258,7 +1284,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         500 * telem.Millisecond,
 					Reason:          node.ReasonChannelInput,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})
@@ -1312,7 +1338,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         5 * telem.Second,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})
@@ -1337,7 +1363,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         0,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
@@ -1345,7 +1371,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         telem.Second,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
@@ -1355,7 +1381,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         5 * telem.Second,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadlineCalled = true },
 				})
@@ -1380,7 +1406,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         0,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
@@ -1388,7 +1414,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         telem.Second,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(_ telem.TimeSpan) {},
 				})
@@ -1399,7 +1425,7 @@ var _ = Describe("Time", func() {
 					Context:         ctx,
 					Elapsed:         10 * telem.Second,
 					Reason:          node.ReasonTimerTick,
-					MarkChanged:     func(output string) {},
+					MarkChanged:     func(int) {},
 					MarkSelfChanged: func() {},
 					SetDeadline:     func(d telem.TimeSpan) { deadline = d },
 				})

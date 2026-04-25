@@ -19,7 +19,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -91,7 +90,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				It("Should not allow opening a writer on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
+					Expect(err).To(MatchError(domain.ErrDBClosed))
 				})
 			})
 			Describe("Start Validation", func() {
@@ -116,7 +115,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						_, err := db.OpenWriter(ctx, domain.WriterConfig{
 							Start: 10 * telem.SecondTS,
 						})
-						Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
+						Expect(err).To(MatchError(domain.ErrWriteConflict))
 					})
 				})
 			})
@@ -298,7 +297,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 4 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(MatchError(domain.ErrWriteConflict))
 						Expect(w.Close()).To(Succeed())
 					})
 					It("Should fail to commit an update to a writer", func(ctx SpecContext) {
@@ -313,7 +312,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4}))
 						Expect(w.Commit(ctx, 8*telem.SecondTS)).To(Succeed())
-						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(HaveOccurredAs(domain.ErrWriteConflict))
+						Expect(w.Commit(ctx, 15*telem.SecondTS)).To(MatchError(domain.ErrWriteConflict))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -334,7 +333,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
+						Expect(w.Commit(ctx, 10*telem.SecondTS)).To(MatchError(validate.ErrValidation))
 						Expect(w.Close()).To(Succeed())
 					})
 					It("Should not fail to commit if no data was written", func(ctx SpecContext) {
@@ -351,7 +350,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							Start: 10 * telem.SecondTS,
 						}))
 						MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
-						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
+						Expect(w.Commit(ctx, 5*telem.SecondTS)).To(MatchError(validate.ErrValidation))
 						Expect(w.Close()).To(Succeed())
 					})
 				})
@@ -389,7 +388,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 							}))
 							MustSucceed(w.Write([]byte{1, 2, 3, 4, 5, 6}))
 							Expect(w.Commit(ctx, 15*telem.SecondTS)).To(Succeed())
-							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(HaveOccurredAs(validate.ErrValidation))
+							Expect(w.Commit(ctx, 14*telem.SecondTS)).To(MatchError(validate.ErrValidation))
 							Expect(w.Close()).To(Succeed())
 						})
 					})
@@ -421,7 +420,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						})
 						Expect(occurred).To(HaveLen(writerCount - 1))
 						for _, err := range occurred {
-							Expect(err).To(HaveOccurredAs(domain.ErrWriteConflict))
+							Expect(err).To(MatchError(domain.ErrWriteConflict))
 						}
 					})
 				})
@@ -557,27 +556,22 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("Close", func() {
 				It("Should not allow operations on a closed writer", func(ctx SpecContext) {
-					var (
-						w = MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
-						e = resource.NewClosedError("domain.writer")
-					)
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS}))
 					Expect(w.Close()).To(Succeed())
-					err := w.Commit(ctx, telem.TimeStampMax)
-					Expect(err).To(HaveOccurredAs(e))
-					_, err = w.Write([]byte{1, 2, 3})
-					Expect(err).To(HaveOccurredAs(e))
+					Expect(w.Commit(ctx, telem.TimeStampMax)).Error().To(MatchError(domain.ErrWriterClosed))
+					Expect(w.Write([]byte{1, 2, 3})).Error().To(MatchError(domain.ErrWriterClosed))
 					Expect(w.Close()).To(Succeed())
 				})
 
 				It("Should not open a writer on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
 					_, err := db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS})
-					Expect(err).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
+					Expect(err).To(MatchError(domain.ErrDBClosed))
 				})
 
 				It("Should not write on a closed database", func(ctx SpecContext) {
 					Expect(db.Close()).To(Succeed())
-					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(HaveOccurredAs(resource.NewClosedError("domain.db")))
+					Expect(domain.Write(ctx, db, telem.TimeStamp(0).Range(telem.TimeStamp(1)), []byte{1, 2, 3})).To(MatchError(domain.ErrDBClosed))
 				})
 			})
 		})
