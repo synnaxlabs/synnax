@@ -88,3 +88,6 @@ export const selectPendingUpload = (
   state: StoreState,
   key: string,
 ): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
+
+export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
+  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);

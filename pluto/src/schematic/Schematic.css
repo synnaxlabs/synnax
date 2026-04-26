@@ -96,3 +96,9 @@
         }
     }
 }
+
+.pluto-schematic__container {
+    width: inherit;
+    height: inherit;
+    position: relative;
+}

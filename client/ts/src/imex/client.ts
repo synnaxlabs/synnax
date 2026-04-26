@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { ontology } from "@/ontology";
@@ -38,12 +39,12 @@ export class Client {
 
   async import_(
     parent: ontology.ID | null,
-    resources: Envelope[],
+    resources: Envelope | Envelope[],
   ): Promise<void> {
     await sendRequired(
       this.client,
       "/import",
-      { parent: parent ?? undefined, resources },
+      { parent: parent ?? undefined, resources: array.toArray(resources) },
       importReqZ,
       importResZ,
     );

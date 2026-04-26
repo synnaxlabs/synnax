@@ -48,7 +48,6 @@ import {
   useImport as useImportSymbol,
   useImportGroup,
 } from "@/schematic/symbols/import";
-import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
@@ -592,7 +591,7 @@ export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
-  const addElement = useAddSymbol(layoutKey);
+  const addElement = Schematic.useAddNode(layoutKey);
   const handleAddElement = useCallback(
     (key: string) => addElement(key, undefined, { specKey: key }),
     [addElement],

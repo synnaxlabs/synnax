@@ -10,15 +10,17 @@
 import "@/schematic/Schematic.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { color, TimeSpan } from "@synnaxlabs/x";
-import { type ReactElement, useCallback } from "react";
+import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useRef } from "react";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
+import { useSyncedRef } from "@/hooks";
 import { Provider } from "@/schematic/Context";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
-import { useDispatch, useRetrieve } from "@/schematic/queries";
+import { useAddNode, useDispatch, useRetrieve } from "@/schematic/queries";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { Theming } from "@/theming";
 import { Diagram } from "@/vis/diagram";
@@ -39,6 +41,7 @@ export interface SchematicProps extends Omit<
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
+export const HAUL_TYPE = "schematic-element";
 
 const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null => {
   switch (change.type) {
@@ -85,6 +88,9 @@ const SchematicDiagram = Diagram.create({
 export const Schematic = ({
   className,
   resourceKey,
+  viewport,
+  onDoubleClick,
+  onSelectionChange,
   ...props
 }: SchematicProps): ReactElement => {
   const { data: doc } = useRetrieve({ key: resourceKey });
@@ -111,18 +117,73 @@ export const Schematic = ({
     [resourceKey, dispatch, theme.colors.gray.l10],
   );
 
+  const handleAddNode = useAddNode(resourceKey);
+  const ref = useRef<HTMLDivElement>(null);
+  const viewportRef = useSyncedRef(viewport);
+  const calculateCursorPosition = useCallback(
+    (cursor: xy.Crude) =>
+      Diagram.calculateCursorPosition(
+        box.construct(ref.current ?? box.ZERO),
+        cursor,
+        viewportRef.current,
+      ),
+    [],
+  );
+
+  const handleDrop = useCallback(
+    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
+      const valid = Haul.filterByType(HAUL_TYPE, items);
+      if (event == null) return valid;
+      valid.forEach(({ key, data }) => {
+        const pos = xy.truncate(calculateCursorPosition(event), 0);
+        handleAddNode(key.toString(), pos, data);
+      });
+      return valid;
+    },
+    [handleAddNode, calculateCursorPosition],
+  );
+
+  const dropProps = Haul.useDrop({
+    type: "Schematic",
+    key: resourceKey,
+    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    onDrop: handleDrop,
+  });
+
+  const handleClearSelection = useCallback(() => onSelectionChange?.([]), []);
+
+  Diagram.useTriggers({
+    onCopy: () => {},
+    onPaste: () => {},
+    onSelectAll: () => {},
+    onClear: handleClearSelection,
+    onUndo: () => {},
+    onRedo: () => {},
+    region: ref,
+  });
+
   return (
-    <Provider value={resourceKey}>
-      <SchematicDiagram
-        className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
-        autoRenderInterval={AUTO_RENDER_INTERVAL}
-        nodes={doc?.nodes ?? []}
-        edges={doc?.edges ?? []}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        {...props}
-      />
-    </Provider>
+    <div
+      ref={ref}
+      onDoubleClick={onDoubleClick}
+      className={CSS(CSS.BE("schematic", "container"))}
+    >
+      <Provider value={resourceKey}>
+        <SchematicDiagram
+          className={CSS(CSS.B("schematic"), className)}
+          dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+          autoRenderInterval={AUTO_RENDER_INTERVAL}
+          nodes={doc?.nodes ?? []}
+          edges={doc?.edges ?? []}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          viewport={viewport}
+          onSelectionChange={onSelectionChange}
+          onDoubleClick={onDoubleClick}
+          {...dropProps}
+          {...props}
+        />
+      </Provider>
+    </div>
   );
 };

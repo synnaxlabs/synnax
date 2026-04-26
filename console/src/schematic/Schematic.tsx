@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -15,30 +15,18 @@ import {
   Control,
   Diagram,
   Flex,
-  Haul,
   Icon,
   Schematic as Base,
-  Synnax,
-  User,
-  useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, location, uuid, xy } from "@synnaxlabs/x";
-import {
-  memo,
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { location, uuid } from "@synnaxlabs/x";
+import { memo, type ReactElement, useCallback, useMemo, useState } from "react";
+import { useDispatch } from "react-redux";
 
 import { ContextMenu as CMenu, Controls as BaseControls } from "@/components";
 import { Layout } from "@/layout";
+import { Controller } from "@/schematic/Controller";
 import {
-  selectPendingUpload,
   useSelectControlStatus,
   useSelectEditable,
   useSelectFitViewOnResize,
@@ -47,20 +35,14 @@ import {
   useSelectViewport,
 } from "@/schematic/selectors";
 import {
-  clearPendingUpload,
   internalCreate,
-  setControlStatus,
   setEditable,
   setFitViewOnResize,
   setSelected,
   setViewport,
-  type StoreState,
 } from "@/schematic/slice";
-import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
+import { useAutoUpload } from "@/schematic/useUpload";
 import { Selector } from "@/selector";
-import { Workspace } from "@/workspace";
-
-export const HAUL_TYPE = "schematic-element";
 
 interface ControlToggleButtonProps {
   control: Control.Status;
@@ -116,34 +98,10 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const username = user?.username ?? "";
-  const controlName = username.length > 0 ? `${name} (${username})` : name;
 
   const { data: doc } = Base.useRetrieve({ key: layoutKey });
   const dispatch = useDispatch();
-
-  const client = Synnax.use();
-  const workspaceKey = Workspace.useSelectActiveKey();
-  const pendingUpload = useSelector((state: StoreState) =>
-    selectPendingUpload(state, layoutKey),
-  );
-  useEffect(() => {
-    console.log(pendingUpload, client);
-    if (pendingUpload == null || client == null) return;
-    const parent: ontology.ID | null =
-      workspaceKey != null ? { type: "workspace", key: workspaceKey } : null;
-    const envelope = {
-      ...pendingUpload,
-      type: "schematic",
-      key: layoutKey,
-      name,
-    };
-    void client.imex
-      .import_(parent, [envelope])
-      .then(() => dispatch(clearPendingUpload({ key: layoutKey })))
-      .catch((err) => console.error("[schematic] upload failed", err));
-  }, [pendingUpload, client, workspaceKey, layoutKey, name, dispatch]);
+  useAutoUpload(layoutKey, name);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
@@ -155,16 +113,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const control = useSelectControlStatus(layoutKey);
   const legend = useSelectLegend(layoutKey);
   const viewport = useSelectViewport(layoutKey);
-  const viewportRef = useSyncedRef(viewport);
 
   const handleSelectionChange = useCallback(
     (next: string[]) => dispatch(setSelected({ key: layoutKey, selected: next })),
-    [dispatch, layoutKey],
-  );
-
-  const handleControlStatusChange = useCallback(
-    (next: Control.Status) =>
-      dispatch(setControlStatus({ key: layoutKey, control: next })),
     [dispatch, layoutKey],
   );
 
@@ -185,44 +136,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const [mode, setMode] = useState<Viewport.Mode>("select");
-
-  const ref = useRef<HTMLDivElement>(null);
-  const handleAddElement = useAddSymbol(layoutKey);
-
-  const calculateCursorPosition = useCallback(
-    (cursor: xy.Crude) =>
-      Diagram.calculateCursorPosition(
-        box.construct(ref.current ?? box.ZERO),
-        cursor,
-        viewportRef.current,
-      ),
-    [],
-  );
-
-  const handleDrop = useCallback(
-    ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType(HAUL_TYPE, items);
-      if (event == null) return valid;
-      valid.forEach(({ key, data }) => {
-        const spec = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
-        if (spec == null) return;
-        const pos = xy.truncate(calculateCursorPosition(event), 0);
-        handleAddElement(key.toString(), pos, data);
-      });
-      return valid;
-    },
-    [handleAddElement, calculateCursorPosition],
-  );
-
-  const dropProps = Haul.useDrop({
-    type: "Schematic",
-    key: layoutKey,
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
-    onDrop: handleDrop,
-  });
-
   const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
-
   const handleDoubleClick = useCallback(() => {
     if (!editable) return;
     dispatch(
@@ -230,67 +144,41 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, editable, dispatch]);
 
-  const handleClearSelection = useCallback(
-    () => dispatch(setSelected({ key: layoutKey, selected: [] })),
-    [dispatch, layoutKey],
-  );
-
-  Diagram.useTriggers({
-    onCopy: () => {},
-    onPaste: () => {},
-    onSelectAll: () => {},
-    onClear: handleClearSelection,
-    onUndo: () => {},
-    onRedo: () => {},
-    region: ref,
-  });
-
   const snapshot = doc?.snapshot ?? false;
 
   return (
-    <div
-      ref={ref}
-      onDoubleClick={handleDoubleClick}
-      style={{ width: "inherit", height: "inherit", position: "relative" }}
-    >
-      <Control.Controller
-        name={controlName}
-        authority={doc?.authority ?? 1}
-        onStatusChange={handleControlStatusChange}
+    <Controller resourceKey={layoutKey} authority={doc?.authority ?? 1}>
+      <Base.Schematic
+        resourceKey={layoutKey}
+        selected={selected}
+        onSelectionChange={handleSelectionChange}
+        viewportMode={mode}
+        onViewportModeChange={setMode}
+        viewport={viewport}
+        onViewportChange={handleViewportChange}
+        editable={editable}
+        onEditableChange={handleEditableChange}
+        setFitViewOnResize={handleFitViewOnResizeChange}
+        triggers={triggers}
+        onDoubleClick={handleDoubleClick}
+        fitViewOnResize={fitViewOnResize}
+        visible={visible}
       >
-        <Base.Schematic
-          resourceKey={layoutKey}
-          selected={selected}
-          onSelectionChange={handleSelectionChange}
-          viewportMode={mode}
-          onViewportModeChange={setMode}
-          viewport={viewport}
-          onViewportChange={handleViewportChange}
-          editable={editable}
-          onEditableChange={handleEditableChange}
-          setFitViewOnResize={handleFitViewOnResizeChange}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          fitViewOnResize={fitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.Background />
-          <Controls
-            hasUpdatePermission={hasUpdatePermission}
-            control={control}
-            snapshot={snapshot}
-          />
-        </Base.Schematic>
-        {legend.visible && (
-          <Control.Legend
-            position={legend.position}
-            colors={doc?.legend?.colors ?? {}}
-            allowVisibleChange={false}
-          />
-        )}
-      </Control.Controller>
-    </div>
+        <Diagram.Background />
+        <Controls
+          hasUpdatePermission={hasUpdatePermission}
+          control={control}
+          snapshot={snapshot}
+        />
+      </Base.Schematic>
+      {legend.visible && (
+        <Control.Legend
+          position={legend.position}
+          colors={doc?.legend?.colors ?? {}}
+          allowVisibleChange={false}
+        />
+      )}
+    </Controller>
   );
 };
 

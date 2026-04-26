@@ -8,11 +8,15 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { array, caseconv } from "@synnaxlabs/x";
+import { array, caseconv, id, type record, xy } from "@synnaxlabs/x";
+import { useCallback } from "react";
+import z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { connector } from "@/schematic/edge/connector";
+import { Symbol } from "@/schematic/symbol";
+import { Theming } from "@/theming";
 import { type Diagram } from "@/vis/diagram";
 
 export const FLUX_STORE_KEY = "schematics";
@@ -351,7 +355,7 @@ const augmentWithEdgeSegments = (
   });
   if (updates.length === 0) return actions;
   const extra = updates.map((u) => {
-    const edgeProps = current.props[u.key] as schematic.EdgeProps | undefined;
+    const edgeProps = current.props[u.key];
     return schematic.setProps({
       key: u.key,
       props: {
@@ -397,3 +401,50 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
     return data;
   },
 });
+
+const dropDataZ = z.object({
+  nodeKey: schematic.symbol.keyZ,
+});
+
+export const useAddNode = (resourceKey: string) => {
+  const store = Flux.useStore<Symbol.FluxSubStore>();
+  const theme = Theming.use();
+  const { update: dispatch } = useDispatch();
+
+  return useCallback(
+    (key: string, position?: xy.XY, data?: unknown) => {
+      let variant: Symbol.Variant;
+      let initialName: string | undefined;
+      let symbol: schematic.symbol.Symbol | undefined;
+      const parsedData = dropDataZ.safeParse(data);
+      if (parsedData.success)
+        symbol = store.schematicSymbols.get(parsedData.data.nodeKey);
+      if (symbol != null) {
+        variant = symbol.data.states.length === 1 ? "customStatic" : "customActuator";
+        initialName = symbol.name;
+      } else variant = key as Symbol.Variant;
+      const spec = Symbol.REGISTRY[variant];
+      const initialProps = spec.defaultProps(theme);
+      if (symbol != null) {
+        initialProps.specKey = key;
+        initialProps.label.label = initialName;
+      }
+      const nodeKey = id.create();
+      const node: schematic.Node = {
+        key: nodeKey,
+        position: position ?? xy.ZERO,
+        measured: { width: 0, height: 0 },
+      };
+      const props: record.Unknown = {
+        variant,
+        ...initialProps,
+        ...parsedData.data,
+      };
+      dispatch({
+        key: resourceKey,
+        actions: [schematic.addNode({ node, props })],
+      });
+    },
+    [dispatch, resourceKey, theme, store],
+  );
+};

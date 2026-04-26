@@ -34,6 +34,7 @@ export { Haul } from "@/haul";
 export { Header } from "@/header";
 export * from "@/hooks";
 export { Icon } from "@/icon";
+export { imex } from "@/imex";
 export { Input } from "@/input";
 export { JSON } from "@/json";
 export { Label } from "@/label";
