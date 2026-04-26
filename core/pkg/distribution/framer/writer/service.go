@@ -27,7 +27,6 @@ import (
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -338,7 +337,11 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		routeValidatorTo  address.Address
 	)
 
-	v := &validator{keys: cfg.Keys}
+	channelMap := make(map[channel.Key]channel.Channel, len(channels))
+	for _, ch := range channels {
+		channelMap[ch.Key()] = ch
+	}
+	v := &validator{keys: cfg.Keys, channels: channelMap}
 	plumber.SetSegment(pipe, validatorAddr, v)
 	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
 	plumber.SetSegment(

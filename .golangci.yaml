@@ -3,6 +3,7 @@ linters:
   enable:
     - revive
     - mustsucceedlint
+    - setlint
   settings:
     govet:
       enable-all: true
@@ -24,6 +25,10 @@ linters:
         description: >
           Detects Expect(err).ToNot(HaveOccurred()) patterns that can be replaced with
           MustSucceed.
+      setlint:
+        type: "module"
+        description: >
+          Detects map[T]struct{} and map[T]bool patterns that should use set.Set[T].
 
 run:
   build-tags:

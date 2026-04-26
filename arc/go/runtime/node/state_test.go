@@ -1158,7 +1158,7 @@ var _ = Describe("ProgramState", func() {
 				n := s.Node("test")
 				// Output is initialized but empty
 				*n.Output(0) = telem.Series{DataType: telem.Float32T}
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
 			It("Should return false for series with last element 0 (float64)", func(ctx SpecContext) {
@@ -1176,7 +1176,7 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](1.0, 2.0, 0.0)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
 			It("Should return true for series with last element non-zero (float64)", func(ctx SpecContext) {
@@ -1194,7 +1194,7 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float64](0.0, 0.0, 3.14)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
 			It("Should return false for series with last element 0 (uint8)", func(ctx SpecContext) {
@@ -1212,7 +1212,7 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](1, 1, 0)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
 			It("Should return true for series with last element non-zero (uint8)", func(ctx SpecContext) {
@@ -1230,7 +1230,7 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[uint8](0, 0, 1)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
 			It("Should return false for series with last element 0 (int32)", func(ctx SpecContext) {
@@ -1248,7 +1248,7 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](42, -10, 0)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 			})
 
 			It("Should return true for series with last element non-zero (int32)", func(ctx SpecContext) {
@@ -1266,10 +1266,10 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[int32](0, 0, -42)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
-			It("Should return false for non-existent param name", func(ctx SpecContext) {
+			It("Should return false for out-of-range output ordinal", func(ctx SpecContext) {
 				g := graph.Graph{
 					Nodes: []graph.Node{{Key: "test", Type: "test"}},
 					Functions: []graph.Function{{
@@ -1284,7 +1284,8 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[float32](1.0)
-				Expect(n.IsOutputTruthy("nonexistent")).To(BeFalse())
+				Expect(n.IsOutputTruthy(-1)).To(BeFalse())
+				Expect(n.IsOutputTruthy(7)).To(BeFalse())
 			})
 
 			It("Should check the last element only", func(ctx SpecContext) {
@@ -1303,10 +1304,10 @@ var _ = Describe("ProgramState", func() {
 				n := s.Node("test")
 				// Many truthy values followed by falsy
 				*n.Output(0) = telem.NewSeriesV[int64](100, 200, 300, 0)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 				// Many falsy values followed by truthy
 				*n.Output(0) = telem.NewSeriesV[int64](0, 0, 0, 42)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 
 			It("Should handle timestamp type", func(ctx SpecContext) {
@@ -1324,9 +1325,9 @@ var _ = Describe("ProgramState", func() {
 				s := node.New(prog)
 				n := s.Node("test")
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](0)
-				Expect(n.IsOutputTruthy(outputParam)).To(BeFalse())
+				Expect(n.IsOutputTruthy(0)).To(BeFalse())
 				*n.Output(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
-				Expect(n.IsOutputTruthy(outputParam)).To(BeTrue())
+				Expect(n.IsOutputTruthy(0)).To(BeTrue())
 			})
 		})
 	})

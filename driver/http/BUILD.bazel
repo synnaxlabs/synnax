@@ -26,6 +26,7 @@ cc_library(
         "//x/cpp/json",
         "//x/cpp/json:convert",
         "//x/cpp/loop",
+        "//x/cpp/strings",
         "//x/cpp/uuid",
         "@glog",
         "@nlohmann_json//:json",

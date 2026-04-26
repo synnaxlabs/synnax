@@ -69,9 +69,9 @@ var _ = Describe("OP", func() {
 			Node:  ir.Node{Type: t},
 			State: s.Node("op"),
 		}))
-		changed := make(set.Set[string])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		changed := make(set.Set[int])
+		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+		Expect(changed.Contains(0)).To(BeTrue())
 		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
@@ -156,9 +156,9 @@ var _ = Describe("OP", func() {
 			Node:  ir.Node{Type: t},
 			State: s.Node("op"),
 		}))
-		changed := make(set.Set[string])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		changed := make(set.Set[int])
+		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+		Expect(changed.Contains(0)).To(BeTrue())
 		Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("op").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
@@ -221,9 +221,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
@@ -272,9 +272,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			resultTime := *s.Node("op").OutputTime(0)
 			Expect(resultTime).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 200, 300)))
 		})
@@ -323,12 +323,12 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			changed = make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
+			changed = make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeFalse())
 		})
 
 		It("Should handle repeated calls to Next with input changes", func(ctx SpecContext) {
@@ -376,17 +376,17 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "subtract"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
 			*lhsNode.Output(0) = telem.NewSeriesV[int64](200)
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](50)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			changed = make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed = make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
 		})
 
@@ -435,9 +435,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
 		It("Should handle lhs longer than rhs", func(ctx SpecContext) {
@@ -485,9 +485,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "ge"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(7)))
 		})
@@ -536,9 +536,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "eq"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
@@ -588,9 +588,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
@@ -640,9 +640,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("op").Output(0)
 			Expect(result.Len()).To(Equal(int64(5)))
 		})
@@ -692,9 +692,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "or"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 
@@ -743,9 +743,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "and"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("op").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint8](1)))
 		})
 	})
@@ -804,9 +804,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 
 			result := *s.Node("op").Output(0)
 			Expect(result.Alignment).To(Equal(telem.Alignment(150)))
@@ -854,9 +854,9 @@ var _ = Describe("OP", func() {
 				Node:  ir.Node{Type: "neg"},
 				State: s.Node("op"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 
 			result := *s.Node("op").Output(0)
 			Expect(result.Alignment).To(Equal(telem.Alignment(200)))

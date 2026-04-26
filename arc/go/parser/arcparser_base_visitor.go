@@ -72,6 +72,10 @@ func (v *BaseArcParserVisitor) VisitSequenceDeclaration(ctx *SequenceDeclaration
 	return v.VisitChildren(ctx)
 }
 
+func (v *BaseArcParserVisitor) VisitSequenceItem(ctx *SequenceItemContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
 func (v *BaseArcParserVisitor) VisitStageDeclaration(ctx *StageDeclarationContext) interface{} {
 	return v.VisitChildren(ctx)
 }
@@ -117,6 +121,10 @@ func (v *BaseArcParserVisitor) VisitIdentifier(ctx *IdentifierContext) interface
 }
 
 func (v *BaseArcParserVisitor) VisitFunction(ctx *FunctionContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 
@@ -181,6 +189,22 @@ func (v *BaseArcParserVisitor) VisitElseIfClause(ctx *ElseIfClauseContext) inter
 }
 
 func (v *BaseArcParserVisitor) VisitElseClause(ctx *ElseClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitForStatement(ctx *ForStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitForClause(ctx *ForClauseContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitBreakStatement(ctx *BreakStatementContext) interface{} {
+	return v.VisitChildren(ctx)
+}
+
+func (v *BaseArcParserVisitor) VisitContinueStatement(ctx *ContinueStatementContext) interface{} {
 	return v.VisitChildren(ctx)
 }
 

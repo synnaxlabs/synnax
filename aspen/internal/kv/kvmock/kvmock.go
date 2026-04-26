@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/freighter/mock"
+	"github.com/synnaxlabs/x/errors"
 	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
 )
@@ -29,7 +30,11 @@ type Builder struct {
 	LeaseNet    *mock.Network[kv.TxRequest, types.Nil]
 	RecoveryNet *mock.Network[kv.RecoveryRequest, kv.RecoveryResponse]
 	KVs         map[node.Key]xkv.DB
-	BaseCfg     kv.Config
+	// engines holds memkv.New() backing stores keyed by node so Close can
+	// shut them down. The kv.DB does not own its Engine, so the Builder
+	// has to keep references to close them.
+	engines map[node.Key]xkv.DB
+	BaseCfg kv.Config
 }
 
 func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
@@ -41,6 +46,7 @@ func NewBuilder(baseKVCfg kv.Config, baseClusterCfg cluster.Config) *Builder {
 		LeaseNet:    mock.NewNetwork[kv.TxRequest, types.Nil](),
 		RecoveryNet: mock.NewNetwork[kv.RecoveryRequest, kv.RecoveryResponse](),
 		KVs:         make(map[node.Key]xkv.DB),
+		engines:     make(map[node.Key]xkv.DB),
 	}
 }
 
@@ -50,7 +56,8 @@ func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.C
 		return nil, err
 	}
 	kvCfg = b.BaseCfg.Override(kvCfg)
-	if kvCfg.Engine == nil {
+	ownsEngine := kvCfg.Engine == nil
+	if ownsEngine {
 		kvCfg.Engine = memkv.New()
 	}
 	kvCfg.Cluster = c
@@ -68,20 +75,27 @@ func (b *Builder) New(ctx context.Context, kvCfg kv.Config, clusterCfg cluster.C
 		return nil, err
 	}
 	b.KVs[c.Host().Key] = kve
+	if ownsEngine {
+		b.engines[c.Host().Key] = kvCfg.Engine
+	}
 	return kve, nil
 }
 
 func (b *Builder) Close() error {
+	var err error
+	// Close cluster gossip first so it can no longer issue background reads
+	// or writes against the kv layer.
+	err = errors.Combine(err, b.Builder.Close())
+	// Then close the kv DBs themselves so any in-flight operations complete.
 	for _, db := range b.KVs {
-		if err := db.Close(); err != nil {
-			return err
-		}
+		err = errors.Combine(err, db.Close())
 	}
-
-	for _, n := range b.ClusterAPIs {
-		if err := n.Close(); err != nil {
-			return err
-		}
+	// Finally close any engines we own; everything above must be quiet by now
+	// or pebble will complain about leaked iterators.
+	for _, e := range b.engines {
+		err = errors.Combine(err, e.Close())
 	}
-	return nil
+	b.KVs = make(map[node.Key]xkv.DB)
+	b.engines = make(map[node.Key]xkv.DB)
+	return err
 }

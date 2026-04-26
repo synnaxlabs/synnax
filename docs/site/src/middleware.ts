@@ -11,6 +11,7 @@ import type { MiddlewareHandler } from "astro";
 
 export const onRequest: MiddlewareHandler = async (_, next) => {
   const response = await next();
+  if (import.meta.env.DEV) return response;
 
   response.headers.set(
     "Content-Security-Policy",

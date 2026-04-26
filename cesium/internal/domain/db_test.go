@@ -14,22 +14,22 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/cesium/internal/resource"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("DB", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			Describe("HasDataFor", func() {
 				var (
-					db      *domain.DB
-					fs      fs.FS
-					cleanUp func() error
+					db *domain.DB
+					fs fs.FS
 				)
 				BeforeEach(func() {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
@@ -37,7 +37,6 @@ var _ = Describe("DB", func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				It("Should return true if the domain DB has data for particular time range", func(ctx SpecContext) {
@@ -60,7 +59,7 @@ var _ = Describe("DB", func() {
 
 			Describe("Close", func() {
 				It("Should return an error if there are open writers on the DB", func(ctx SpecContext) {
-					fs, cleanUp := makeFS()
+					fs := openFS()
 					db := MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
@@ -69,19 +68,17 @@ var _ = Describe("DB", func() {
 					Expect(db.Close()).To(MatchError(resource.ErrOpen))
 					Expect(w.Close()).To(Succeed())
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 
 				})
 			})
 
 			Describe("Size", func() {
 				var (
-					db      *domain.DB
-					fs      fs.FS
-					cleanUp func() error
+					db *domain.DB
+					fs fs.FS
 				)
 				BeforeEach(func() {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(domain.Open(domain.Config{
 						FS:              fs,
 						Instrumentation: PanicLogger(),
@@ -89,7 +86,6 @@ var _ = Describe("DB", func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				It("Should return zero for an empty database", func() {
@@ -128,7 +124,7 @@ var _ = Describe("DB", func() {
 				}))
 				Expect(db.Close()).To(Succeed())
 				_, err := db.HasDataFor(ctx, telem.TimeRange{})
-				Expect(err).To(HaveOccurredAs(domain.ErrDBClosed))
+				Expect(err).To(MatchError(domain.ErrDBClosed))
 			})
 		})
 	})

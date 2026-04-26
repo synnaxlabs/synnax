@@ -58,6 +58,9 @@ type ArcParserVisitor interface {
 	// Visit a parse tree produced by ArcParser#sequenceDeclaration.
 	VisitSequenceDeclaration(ctx *SequenceDeclarationContext) interface{}
 
+	// Visit a parse tree produced by ArcParser#sequenceItem.
+	VisitSequenceItem(ctx *SequenceItemContext) interface{}
+
 	// Visit a parse tree produced by ArcParser#stageDeclaration.
 	VisitStageDeclaration(ctx *StageDeclarationContext) interface{}
 
@@ -93,6 +96,9 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#function.
 	VisitFunction(ctx *FunctionContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#qualifiedIdentifier.
+	VisitQualifiedIdentifier(ctx *QualifiedIdentifierContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#configValues.
 	VisitConfigValues(ctx *ConfigValuesContext) interface{}
@@ -141,6 +147,18 @@ type ArcParserVisitor interface {
 
 	// Visit a parse tree produced by ArcParser#elseClause.
 	VisitElseClause(ctx *ElseClauseContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#forStatement.
+	VisitForStatement(ctx *ForStatementContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#forClause.
+	VisitForClause(ctx *ForClauseContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#breakStatement.
+	VisitBreakStatement(ctx *BreakStatementContext) interface{}
+
+	// Visit a parse tree produced by ArcParser#continueStatement.
+	VisitContinueStatement(ctx *ContinueStatementContext) interface{}
 
 	// Visit a parse tree produced by ArcParser#returnStatement.
 	VisitReturnStatement(ctx *ReturnStatementContext) interface{}

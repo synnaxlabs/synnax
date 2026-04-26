@@ -26,11 +26,11 @@ that persist:
 
 ```arc
 func example() {
-    local := 0      // resets to 0 every execution
-    state $= 0      // persists across executions
+    local := 0 // resets to 0 every execution
+    state $= 0 // persists across executions
 
-    local = local + 1   // always becomes 1
-    state = state + 1   // increments: 1, 2, 3, ...
+    local = local + 1 // always becomes 1
+    state = state + 1 // increments: 1, 2, 3, ...
 }
 ```
 
@@ -114,22 +114,26 @@ func toggle(trigger u8) u8 {
 
 <Divider.Divider x />
 
-## Stateful Variables Replace Loops
+## Loops vs. Stateful Variables
 
-Since Arc doesn't have loops, stateful variables are how you implement iterative
-algorithms. Instead of looping until a condition is met, you update state each execution
-and let the reactive model handle the iteration.
+Arc gives you two tools for repeated work, and they serve different purposes.
 
-Traditional approach (not Arc):
+**[`for` loops](/reference/control/arc/reference/loops)** do work within a single
+function call, iterating over a series, counting through a range, or repeating until a
+condition is met:
 
-```python
-total = 0
-for reading in readings:
-    total += reading
-average = total / len(readings)
+```arc
+func apply_calibration(raw f64) f64 {
+    offsets := [0.1, -0.05, 0.03]
+    correction f64 := 0.0
+    for x := offsets{correction=correction + x}
+    return raw + correction
+}
 ```
 
-Arc approach:
+**Stateful variables** accumulate data across executions. The reactive model calls your
+function once per incoming value, and stateful variables carry the running totals
+between calls:
 
 ```arc
 func running_average(value f64) f64 {
@@ -141,8 +145,8 @@ func running_average(value f64) f64 {
 }
 ```
 
-The function executes once per incoming value, accumulating the total and count across
-executions.
+Use `for` loops for computation within a single call. Use stateful variables for
+streaming computations that build up over time.
 
 <Divider.Divider x />
 
@@ -162,7 +166,7 @@ sequence main {
 
     stage alert {
         // handle alert...
-        acknowledged => monitoring  // re-entering resets count
+        acknowledged => monitoring // re-entering resets count
     }
 }
 ```
@@ -180,11 +184,10 @@ You can also specify the type explicitly:
 ```arc
 func example() {
     // Type inferred from initial value
-    count $= 0           // i64 (integer literal default)
-    total $= 0.0         // f64 (float literal default)
-
+    count $= 0 // i64 (integer literal default)
+    total $= 0.0 // f64 (float literal default)
     // Explicit type annotation
-    precise f32 $= 0.0   // f32 instead of f64
+    precise f32 $= 0.0 // f32 instead of f64
 }
 ```
 

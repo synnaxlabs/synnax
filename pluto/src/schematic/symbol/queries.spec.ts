@@ -160,12 +160,10 @@ describe("Symbol queries", () => {
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
         expect(result.current.data.length).toBeGreaterThanOrEqual(2);
+        const names = result.current.getItem(result.current.data).map((s) => s.name);
+        expect(names).toContain("valve red");
+        expect(names).toContain("valve purple");
       });
-
-      const symbolItems = result.current.getItem(result.current.data);
-      const names = symbolItems.map((s) => s.name);
-      expect(names).toContain("valve red");
-      expect(names).toContain("valve purple");
     });
 
     it("should update when a new symbol is added", async () => {

@@ -5,6 +5,7 @@ title: "Version 0.32 Release Notes"
 import { Image } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 export const components = mdxOverrides;
 
@@ -15,6 +16,8 @@ title="Multi-Device NI Analog Read Tasks"
 >
 
 <Image client:only="react" id="releases/0-32-0/thumbnail" />
+
+<Divider.Divider x />
 
 ### Summary
 
@@ -30,6 +33,8 @@ scenarios:
 
 Instead of choosing the device at the top level of the task, you can now specify the
 device for each channel.
+
+<Divider.Divider x />
 
 ### Breaking Changes
 

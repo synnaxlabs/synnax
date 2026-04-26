@@ -10,8 +10,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  anyStateZ,
   migrateSlice,
   migrateState,
+  stateZ,
+  ZERO_ANNOTATIONS_STATE,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/lineplot/types";
@@ -40,6 +43,16 @@ describe("migrations", () => {
       it(`should migrate slice from ${state.version} to latest`, () => {
         expect(migrateSlice(state)).toEqual(ZERO_SLICE_STATE);
       });
+    });
+  });
+  describe("v4 annotations backward compatibility", () => {
+    it("should fill annotations with default when absent from a persisted v4 state", () => {
+      const { annotations: _omit, ...persisted } = ZERO_STATE;
+      expect(stateZ.parse(persisted).annotations).toEqual(ZERO_ANNOTATIONS_STATE);
+    });
+    it("should load a persisted v4 state without annotations via anyStateZ", () => {
+      const { annotations: _omit, ...persisted } = ZERO_STATE;
+      expect(anyStateZ.parse(persisted)).toEqual(ZERO_STATE);
     });
   });
 });

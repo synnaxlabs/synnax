@@ -27,6 +27,10 @@ export interface NumericProps
   bounds?: bounds.Crude;
   onBlur?: () => void;
   units?: string;
+  /// When set, a value equal to emptyValue renders as an empty input (showing the
+  /// placeholder) and clearing the input on blur emits emptyValue via onChange. Useful
+  /// for representing a sentinel "unset"/"auto" state without showing the raw number.
+  emptyValue?: number;
 }
 
 /**
@@ -68,13 +72,15 @@ export const Numeric = ({
   size,
   color,
   contrast,
+  emptyValue,
   ...rest
 }: NumericProps): ReactElement => {
+  const isEmpty = emptyValue != null && value === emptyValue;
   // We need to keep the actual value as a valid number, but we need to let the user
   // input an invalid value that may eventually be valid, so we need to keep the
   // internal value as a string in state.
   const [internalValue, setInternalValue, internalValueRef] = useCombinedStateAndRef(
-    value.toString(),
+    isEmpty ? "" : value.toString(),
   );
   const [isValueValid, setIsValueValid, isValueValidRef] =
     useCombinedStateAndRef<boolean>(true);
@@ -84,6 +90,11 @@ export const Numeric = ({
     // This just means we never actually modified the input
     if (isValueValidRef.current) return;
     setIsValueValid(true);
+    const raw = internalValueRef.current.trim();
+    if (raw === "" && emptyValue != null) {
+      onChange?.(emptyValue);
+      return;
+    }
     let v = null;
     try {
       const ev = evaluate(internalValueRef.current);
@@ -94,8 +105,13 @@ export const Numeric = ({
       v = null;
     }
     if (v != null) onChange?.(bounds.clamp(propsBounds, v));
-    else setInternalValue(valueRef.current.toString());
-  }, [onChange, setInternalValue]);
+    else
+      setInternalValue(
+        emptyValue != null && valueRef.current === emptyValue
+          ? ""
+          : valueRef.current.toString(),
+      );
+  }, [onChange, setInternalValue, emptyValue]);
 
   const updateActualValueRef = useSyncedRef(updateActualValue);
 
@@ -117,7 +133,9 @@ export const Numeric = ({
   );
 
   // If the value is valid, use the actual value, otherwise use the internal value.
-  const value_ = isValueValid ? value : internalValue;
+  // When the value matches emptyValue, render as an empty string so the placeholder
+  // shows through.
+  const value_ = isValueValid ? (isEmpty ? "" : value.toString()) : internalValue;
 
   const onDragChange = useCallback(
     (value: number) => {
@@ -134,7 +152,7 @@ export const Numeric = ({
       y: bounds.span(propsBounds) * 0.02,
     };
 
-  if (disabled || variant === "preview") showDragHandle = false;
+  if (variant === "preview") showDragHandle = false;
 
   return (
     <Text
@@ -142,7 +160,7 @@ export const Numeric = ({
       type="text"
       variant={variant}
       className={className}
-      value={value_.toString()}
+      value={value_}
       onChange={handleChange}
       disabled={disabled}
       selectOnFocus={selectOnFocus}
@@ -170,6 +188,7 @@ export const Numeric = ({
           size={size}
           color={color}
           contrast={contrast}
+          disabled={disabled}
         />
       )}
       {children}

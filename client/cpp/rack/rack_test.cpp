@@ -84,8 +84,30 @@ TEST(RackTests, testCreateTaskOnRetrieveRack) {
     ASSERT_EQ(task::rack_key_from_task_key(t.key), retrieved.key);
 }
 
-/// @brief it should correctly create and retrieve a rack with a status.
-TEST(RackTests, testCreateRackWithStatus) {
+/// @brief retrieving a rack without include_status should not populate the
+/// status field. Status is persisted separately by the Status service, so it
+/// is only joined onto the rack when the caller opts in.
+TEST(RackTests, testCreateRackWithStatusNotIncludedByDefault) {
+    const auto client = new_test_client();
+    auto r = Rack{
+        .name = "test_rack_status_default",
+        .status = Status{
+            .key = "rack-status-default-key",
+            .variant = x::status::VARIANT_SUCCESS,
+            .message = "Rack is healthy",
+            .time = x::telem::TimeStamp::now(),
+            .details = StatusDetails{.rack = 123}
+        }
+    };
+    ASSERT_NIL(client.racks.create(r));
+    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    ASSERT_EQ(r2.name, "test_rack_status_default");
+    ASSERT_FALSE(r2.status.has_value());
+}
+
+/// @brief retrieving a rack with include_status=true should join the rack's
+/// current operational status from the Status service onto the response.
+TEST(RackTests, testCreateRackWithStatusIncluded) {
     const auto client = new_test_client();
     auto r = Rack{
         .name = "test_rack_with_status",
@@ -98,10 +120,11 @@ TEST(RackTests, testCreateRackWithStatus) {
         }
     };
     ASSERT_NIL(client.racks.create(r));
-    const auto r2 = ASSERT_NIL_P(client.racks.retrieve(r.key));
+    const auto r2 = ASSERT_NIL_P(
+        client.racks.retrieve(r.key, {.include_status = true})
+    );
     ASSERT_EQ(r2.name, "test_rack_with_status");
     ASSERT_TRUE(r2.status.has_value());
-    ASSERT_EQ(r2.status->key, "rack-status-key");
     ASSERT_EQ(r2.status->variant, x::status::VARIANT_SUCCESS);
     ASSERT_EQ(r2.status->message, "Rack is healthy");
 }

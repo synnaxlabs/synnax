@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/signal"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -26,8 +27,9 @@ type validator struct {
 		confluence.NopFlow
 		confluence.AbstractUnarySource[Response]
 	}
-	keys   channel.Keys
-	seqNum int
+	keys     channel.Keys
+	channels map[channel.Key]channel.Channel
+	seqNum   int
 }
 
 // Flow implements the confluence.Flow interface.
@@ -70,7 +72,31 @@ func (v *validator) validate(req Request) error {
 			if !lo.Contains(v.keys, k) {
 				return errors.Wrapf(validate.ErrValidation, "invalid key: %s", k)
 			}
+			s := req.Frame.RawSeriesAt(rawI)
+			if ch, ok := v.channels[k]; ok {
+				if err := s.Validate(); err != nil {
+					return errors.Wrapf(err, "channel %s", ch)
+				}
+				if err := validateSeriesDataType(ch, s); err != nil {
+					return err
+				}
+			}
 		}
+	}
+	return nil
+}
+
+func validateSeriesDataType(ch channel.Channel, s telem.Series) error {
+	sDt := s.DataType
+	cDt := ch.DataType
+	isEquivalent := (sDt == telem.Int64T || sDt == telem.TimeStampT) &&
+		(cDt == telem.Int64T || cDt == telem.TimeStampT)
+	if cDt != sDt && !isEquivalent {
+		return errors.Wrapf(
+			validate.ErrValidation,
+			"channel %s: expected data type %s, got %s",
+			ch, cDt, sDt,
+		)
 	}
 	return nil
 }

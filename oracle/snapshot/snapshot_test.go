@@ -26,10 +26,9 @@ var _ = Describe("Create", func() {
 		schemasDir = MustSucceed(os.MkdirTemp("", "schemas"))
 		snapshotsDir = filepath.Join(schemasDir, ".snapshots")
 		Expect(os.MkdirAll(snapshotsDir, 0755)).To(Succeed())
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(schemasDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(schemasDir)).To(Succeed())
+		})
 	})
 
 	It("should copy oracle files into the versioned snapshot directory", func() {
@@ -102,10 +101,9 @@ var _ = Describe("LatestVersion", func() {
 
 	BeforeEach(func() {
 		snapshotsDir = MustSucceed(os.MkdirTemp("", "snapshots"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(snapshotsDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(snapshotsDir)).To(Succeed())
+		})
 	})
 
 	It("should return 0 when no snapshots exist", func() {
@@ -145,10 +143,9 @@ var _ = Describe("Files", func() {
 
 	BeforeEach(func() {
 		snapshotDir = MustSucceed(os.MkdirTemp("", "snapshot"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(snapshotDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(snapshotDir)).To(Succeed())
+		})
 	})
 
 	It("should return sorted oracle files", func() {
@@ -191,10 +188,9 @@ var _ = Describe("FileLoader", func() {
 		snapshotDir = MustSucceed(os.MkdirTemp("", "snapshot"))
 		repoRoot = "/fake/repo"
 		loader = snapshot.NewFileLoader(snapshotDir, repoRoot)
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(snapshotDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(snapshotDir)).To(Succeed())
+		})
 	})
 
 	It("should load a file from the snapshot directory", func() {
