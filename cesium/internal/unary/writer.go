@@ -135,6 +135,13 @@ type controlledWriter struct {
 	// one goroutine may write alignment through Authorize while another reads it through
 	// PeekResource concurrently.
 	alignment atomic.Uint64
+	// tracker holds per-domain offset state shared across every Writer that takes
+	// control of this resource. It is created once when the resource is opened and
+	// survives control handoffs (where a higher-authority Writer joins an existing
+	// region) so that per-sample byte offsets, the cumulative session sample count,
+	// and the current domain start remain consistent across owners. Reset on rollover
+	// via the domain.Writer's OnRollover hook.
+	tracker *offsetTracker
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -155,9 +162,6 @@ type Writer struct {
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
-	// tracker holds per-writer offset state (sample count and, for variable-length
-	// channels, the incremental offset table built as bytes are appended).
-	tracker *offsetTracker
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -190,7 +194,6 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		cfg:       cfg,
 		Channel:   db.cfg.Channel,
 		idx:       db.index(),
-		tracker:   db.resolver.newTracker(),
 		wrapError: db.wrapError,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
@@ -200,11 +203,14 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
 		OpenResource: func() (*controlledWriter, error) {
-			dw, err := db.domain.OpenWriter(ctx, cfg.domain())
 			cw := &controlledWriter{
-				Writer:     dw,
 				channelKey: db.cfg.Channel.Key,
+				tracker:    db.resolver.newTracker(cfg.Start),
 			}
+			domainCfg := cfg.domain()
+			domainCfg.OnRollover = cw.tracker.rollover
+			dw, err := db.domain.OpenWriter(ctx, domainCfg)
+			cw.Writer = dw
 			a := telem.NewAlignment(cfg.AlignmentDomainIndex, 0)
 			if cfg.AlignmentDomainIndex == 0 {
 				a = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
@@ -259,10 +265,10 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		baseOffset := uint32(dw.Len())
-		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.tracker.count(dw.Writer)))
+		baseOffset := uint32(dw.tracker.domainBytes)
+		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(dw.tracker.count(dw.Writer)))
 		dw.storeAlignment(a)
-		w.tracker.record(series.Data, baseOffset)
+		dw.tracker.record(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
@@ -320,10 +326,14 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 
 	if end.IsZero() {
 		// Subtract 1 because we want the timestamp of the last written sample.
+		// Anchor on cfg.Start (the writer's session start, always a real index
+		// timestamp) and use the cumulative session sample count, since after a
+		// rollover the per-domain start is "previous commit end + 1ns" which is
+		// not a sample boundary in the index.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,
-			w.tracker.count(dw.Writer)-1,
+			dw.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
 		if err != nil {
@@ -341,7 +351,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 
-	return end, dw.Commit(ctx, end)
+	if err := dw.Commit(ctx, end); err != nil {
+		return 0, err
+	}
+	dw.tracker.publish(end)
+	return end, nil
 }
 
 func (w *Writer) Close() (control.Transfer, error) {

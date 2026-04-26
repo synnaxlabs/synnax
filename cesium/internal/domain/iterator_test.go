@@ -13,21 +13,21 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Iterator Behavior", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db      *domain.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *domain.DB
+				fs fs.FS
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = MustSucceed(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
@@ -35,7 +35,6 @@ var _ = Describe("Iterator Behavior", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Valid", func() {
 				It("Should return false on an iterator with zero span bounds", func() {

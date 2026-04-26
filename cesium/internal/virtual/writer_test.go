@@ -15,6 +15,7 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/cesium/internal/virtual"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -25,7 +26,7 @@ var _ = Describe("Write", func() {
 	var db *virtual.DB
 	BeforeEach(func(ctx SpecContext) {
 		db = MustSucceed(virtual.Open(ctx, virtual.Config{
-			MetaCodec: codec,
+			MetaCodec: json.Codec,
 			Channel: channel.Channel{
 				Name:     "Ray",
 				Key:      2,

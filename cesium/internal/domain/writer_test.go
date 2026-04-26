@@ -19,6 +19,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/domain"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -53,15 +54,14 @@ func filterDataFiles(info []os.FileInfo) []os.FileInfo {
 }
 
 var _ = Describe("Writer Behavior", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				db      *domain.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *domain.DB
+				fs fs.FS
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = MustSucceed(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
@@ -69,7 +69,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
@@ -122,7 +121,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
 					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        10 * telem.Byte,
@@ -175,11 +174,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 
 					It("Should work when the file size exceeds the limit by just 1", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        5 * telem.Byte,
@@ -221,13 +219,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 
 				Context("With preset end", func() {
 					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        10 * telem.Byte,
@@ -270,7 +267,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 			})

@@ -17,28 +17,15 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	xfs "github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Counter", func() {
-	fileSystems := map[string]func() xfs.FS{
-		"memFS": func() xfs.FS {
-			return xfs.NewMem()
-		},
-		"osFS": func() xfs.FS { return MustSucceed(xfs.Default.Sub("./testdata")) },
-	}
-
-	for fsName, makeFS := range fileSystems {
-		var fsRoot, fs xfs.FS
-
-		Context("FS:"+fsName, Ordered, func() {
-			BeforeEach(func() {
-				fsRoot = makeFS()
-				fs = MustSucceed(fsRoot.Sub("test-spec"))
-			})
-			AfterEach(func() {
-				Expect(fsRoot.Remove("test-spec")).To(Succeed())
-			})
+	for fsName, openFS := range FileSystems {
+		var fs xfs.FS
+		Context("FS: "+fsName, Ordered, func() {
+			BeforeEach(func() { fs = openFS() })
 			It("Should create a new counter when the file does not exist", func() {
 				f := MustSucceed(fs.Open("counterfile", os.O_CREATE|os.O_EXCL|os.O_RDWR))
 
