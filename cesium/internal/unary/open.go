@@ -124,7 +124,7 @@ func Open(ctx context.Context, configs ...Config) (*DB, error) {
 		wrapError:        wrapError,
 		closed:           &atomic.Bool{},
 		leadingAlignment: &atomic.Uint32{},
-		resolver:         newOffsetResolver(cfg.Channel.DataType),
+		resolver:         newOffsetResolver(cfg.Channel.DataType, cfg.Instrumentation),
 	}
 	db.leadingAlignment.Store(alignment.ZeroLeading)
 	if cfg.Channel.IsIndex {

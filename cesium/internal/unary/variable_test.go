@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,19 +24,18 @@ import (
 )
 
 var _ = Describe("Variable-length channel", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				fs      xfs.FS
-				cleanUp func() error
 				indexDB *unary.DB
 				dataDB  *unary.DB
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "index",
@@ -45,7 +45,7 @@ var _ = Describe("Variable-length channel", func() {
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "strings",
@@ -58,7 +58,6 @@ var _ = Describe("Variable-length channel", func() {
 			AfterAll(func() {
 				Expect(dataDB.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Write + Read", func() {
@@ -76,7 +75,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should write and read JSON data", func(ctx SpecContext) {
 					jsonDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("json-data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "json",
@@ -105,7 +104,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should write and read bytes data", func(ctx SpecContext) {
 					bytesDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("bytes-data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "bytes",
@@ -156,7 +155,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("flush-on-commit"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "flush-on-commit-idx",
@@ -168,7 +167,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "flush-on-commit-data",
@@ -211,7 +210,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("cold-rebuild"))
 					seedIdx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "cold-rebuild-idx",
@@ -221,7 +220,7 @@ var _ = Describe("Variable-length channel", func() {
 					}))
 					seedData := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "cold-rebuild-data",
@@ -250,7 +249,7 @@ var _ = Describe("Variable-length channel", func() {
 					// Reopen against the same FS. Cache is empty.
 					reopenIdx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      seedIdx.Channel().Key,
 							Name:     "cold-rebuild-idx",
@@ -262,7 +261,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					reopenData := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      seedData.Channel().Key,
 							Name:     "cold-rebuild-data",
@@ -288,7 +287,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("rollover-flush"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "rollover-idx",
@@ -301,7 +300,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "rollover-data",
@@ -356,7 +355,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("multi-commit-flush"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "multi-commit-idx",
@@ -368,7 +367,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "multi-commit-data",
@@ -413,7 +412,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("cache-refresh"))
 					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "idx2",
@@ -424,7 +423,7 @@ var _ = Describe("Variable-length channel", func() {
 					defer func() { Expect(idx2.Close()).To(Succeed()) }()
 					data2 := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "data2",
@@ -495,6 +494,206 @@ var _ = Describe("Variable-length channel", func() {
 					}))
 					Expect(w.Write(telem.NewSeriesV[int64](1, 2, 3))).Error().To(MatchError(validate.ErrValidation))
 					MustSucceed(w.Close())
+				})
+			})
+
+			Describe("Control Handoff", func() {
+				It("Should preserve byte offsets, alignment, and cached offsets when a higher-authority writer takes control", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("handoff-basic"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        rec,
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					Expect(unary.Write(ctx, idx, 700*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(700, 701, 702, 703, 704),
+					)).To(Succeed())
+
+					// Lower-authority writer takes initial control and commits
+					// three samples, populating the cache for this domain.
+					w1, t1 := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     700 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute - 1,
+						Subject:   xcontrol.Subject{Key: "w1"},
+					}))
+					Expect(t1.Occurred()).To(BeTrue())
+					a1 := MustSucceed(w1.Write(telem.NewSeriesV("a", "b", "c")))
+					Expect(a1.SampleIndex()).To(Equal(uint32(0)))
+					MustSucceed(w1.Commit(ctx))
+
+					// Higher-authority writer joins the same region and takes
+					// control. With shared tracker state, its first write must
+					// see the prior cumulative sample count and its writes must
+					// be addressed at the correct domain byte offsets.
+					w2, t2 := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     700 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute,
+						Subject:   xcontrol.Subject{Key: "w2"},
+					}))
+					Expect(t2.Occurred()).To(BeTrue())
+					a2 := MustSucceed(w2.Write(telem.NewSeriesV("d", "e")))
+					Expect(a2.SampleIndex()).To(Equal(uint32(3)))
+					MustSucceed(w2.Commit(ctx))
+					MustSucceed(w2.Close())
+					MustSucceed(w1.Close())
+
+					rec.Reset()
+					frame := MustSucceed(data.Read(ctx,
+						(700 * telem.SecondTS).Range(705*telem.SecondTS),
+					))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c", "d", "e"}))
+
+					// w2's commit must publish a complete table for this
+					// domain (covering w1's samples too), so the read above
+					// is served entirely from cache.
+					var lengthPrefixReads int
+					for _, e := range rec.Events() {
+						if e.Op == xfs.OpReadAt && e.Length == 4 {
+							lengthPrefixReads++
+						}
+					}
+					Expect(lengthPrefixReads).To(BeZero())
+				})
+
+				It("Should pick up the prior writer's uncommitted bytes when a higher-authority writer takes control", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("handoff-uncommitted"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-uncommitted-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("data")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-uncommitted-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					Expect(unary.Write(ctx, idx, 800*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(800, 801, 802, 803),
+					)).To(Succeed())
+
+					w1, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     800 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute - 1,
+						Subject:   xcontrol.Subject{Key: "w1"},
+					}))
+					MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
+
+					// Handoff happens before w1 commits. w2's first write must
+					// continue from w1's cumulative byte position so the on-
+					// disk records remain addressable.
+					w2, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     800 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute,
+						Subject:   xcontrol.Subject{Key: "w2"},
+					}))
+					a := MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
+					Expect(a.SampleIndex()).To(Equal(uint32(2)))
+					MustSucceed(w2.Commit(ctx))
+					MustSucceed(w2.Close())
+					MustSucceed(w1.Close())
+
+					frame := MustSucceed(data.Read(ctx,
+						(800 * telem.SecondTS).Range(804*telem.SecondTS),
+					))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c", "d"}))
+				})
+
+				It("Should preserve tracker state when control returns to the original writer", func(ctx SpecContext) {
+					subFS := MustSucceed(fs.Sub("handoff-roundtrip"))
+					idx := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("idx")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-roundtrip-idx",
+							DataType: telem.TimeStampT,
+							IsIndex:  true,
+						},
+					}))
+					defer func() { Expect(idx.Close()).To(Succeed()) }()
+					data := MustSucceed(unary.Open(ctx, unary.Config{
+						FS:        MustSucceed(subFS.Sub("data")),
+						MetaCodec: json.Codec,
+						Channel: channel.Channel{
+							Key:      GenerateChannelKey(),
+							Name:     "handoff-roundtrip-data",
+							DataType: telem.StringT,
+							Index:    idx.Channel().Key,
+						},
+					}))
+					defer func() { Expect(data.Close()).To(Succeed()) }()
+					data.SetIndex(idx.Index())
+
+					Expect(unary.Write(ctx, idx, 900*telem.SecondTS,
+						telem.NewSeriesSecondsTSV(900, 901, 902, 903, 904, 905),
+					)).To(Succeed())
+
+					w1, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     900 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute - 1,
+						Subject:   xcontrol.Subject{Key: "w1"},
+					}))
+					MustSucceed(w1.Write(telem.NewSeriesV("a", "b")))
+					MustSucceed(w1.Commit(ctx))
+
+					w2, _ := MustSucceed2(data.OpenWriter(ctx, unary.WriterConfig{
+						Start:     900 * telem.SecondTS,
+						Authority: xcontrol.AuthorityAbsolute,
+						Subject:   xcontrol.Subject{Key: "w2"},
+					}))
+					MustSucceed(w2.Write(telem.NewSeriesV("c", "d")))
+					MustSucceed(w2.Commit(ctx))
+					MustSucceed(w2.Close())
+
+					// w1 regains control. Its next write must continue from
+					// the post-handoff cumulative count, not reset back to its
+					// own pre-handoff position.
+					a := MustSucceed(w1.Write(telem.NewSeriesV("e", "f")))
+					Expect(a.SampleIndex()).To(Equal(uint32(4)))
+					MustSucceed(w1.Commit(ctx))
+					MustSucceed(w1.Close())
+
+					frame := MustSucceed(data.Read(ctx,
+						(900 * telem.SecondTS).Range(906*telem.SecondTS),
+					))
+					Expect(telem.UnmarshalSeries[string](frame.SeriesAt(0))).
+						To(Equal([]string{"a", "b", "c", "d", "e", "f"}))
 				})
 			})
 
@@ -591,7 +790,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should garbage collect after deletion", func(ctx SpecContext) {
 					gcDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:          MustSucceed(fs.Sub("gc")),
-						MetaCodec:   codec,
+						MetaCodec:   json.Codec,
 						GCThreshold: 0.01,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
