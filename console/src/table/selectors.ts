@@ -33,6 +33,14 @@ export const selectOptional = select as (
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
+export const selectIsRemoteCreated = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+
+export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
+  useMemoSelect((state: StoreState) => selectIsRemoteCreated(state, key), [key]);
+
 export const selectCell = <
   V extends TableCells.Variant = TableCells.Variant,
   P extends object = record.Unknown,

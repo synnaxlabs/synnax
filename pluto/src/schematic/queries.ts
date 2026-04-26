@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
+import { ontology, schematic, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
@@ -56,8 +59,31 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.schematics.onSet(onChange, key),
+    store.resources.onSet(
+      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
+      ontology.idToString(schematic.ontologyID(key)),
+    ),
   ],
 });
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<
+  Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,
+  "onChange"
+> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success") return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
 export type DeleteParams = schematic.Key | schematic.Key[];
 

@@ -9,7 +9,7 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Ranger } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -17,6 +17,7 @@ import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
+import { createFluxUseName } from "@/layout/useFluxName";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Flex.Box
@@ -30,4 +31,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     <MetaData rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
+);
+
+Overview.useName = createFluxUseName(
+  Ranger.useRename,
+  Ranger.useRetrieveObservableName,
 );

@@ -37,14 +37,7 @@ import {
   TimeRange,
   unique,
 } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
@@ -63,6 +56,7 @@ import {
   select,
   useSelect,
   useSelectControlState,
+  useSelectIsRemoteCreated,
   useSelectRanges,
   useSelectSelection,
   useSelectVersion,
@@ -93,6 +87,7 @@ import {
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
@@ -157,12 +152,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const dispatch = useDispatch();
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
-  const prevName = usePrevious(name);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
-
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [syncDispatch, name, prevName]);
+  const isRemote = useSelectIsRemoteCreated(layoutKey);
+  const { update: renameRemote } = Base.useRename({
+    beforeUpdate: useCallback(() => isRemote === true, [isRemote]),
+  });
 
   useAsyncEffect(
     async (signal) => {
@@ -185,7 +179,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleTitleChange = (name: string): void => {
-    syncDispatch(Layout.rename({ key: layoutKey, name }));
+    dispatch(Layout.rename({ key: layoutKey, name }));
+    renameRemote({ key: layoutKey, name });
   };
 
   const handleLineChange = useCallback<
@@ -531,3 +526,9 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+LinePlot.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);

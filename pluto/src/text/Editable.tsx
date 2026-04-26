@@ -89,6 +89,7 @@ const compareStylesToTriggerReflow = (
 };
 
 export const Editable = ({
+  ref: propsRef,
   onChange,
   value,
   className,
@@ -183,7 +184,7 @@ export const Editable = ({
     el.addEventListener(START_EDITING_EVENT_NAME, () => setEditable(true));
   }, []);
 
-  const combinedRef = useCombinedRefs(ref, refCallback);
+  const combinedRef = useCombinedRefs(propsRef, ref, refCallback);
 
   return (
     <Text

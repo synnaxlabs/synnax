@@ -20,29 +20,23 @@ import {
   Icon,
   Schematic as Base,
   Theming,
-  usePrevious,
   User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
 import { box, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import {
   selectOptional,
   selectRequired,
+  useSelectIsRemoteCreated,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -108,11 +102,8 @@ const useSyncComponent = Workspace.createSyncComponent(
       return;
     const data = selectOptional(storeState, key);
     if (data == null) return;
+    if (data.snapshot) return;
     const layout = Layout.selectRequired(storeState, key);
-    if (data.snapshot) {
-      await client.schematics.rename(key, layout.name);
-      return;
-    }
     const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.schematics.create(workspace, {
@@ -203,11 +194,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.viewport);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, syncDispatch]);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
@@ -448,6 +434,12 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Schematic.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;

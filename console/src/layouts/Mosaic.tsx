@@ -28,13 +28,20 @@ import {
   Portal,
   Status,
   Synnax,
-  type Tabs,
+  Tabs,
   Text,
   Triggers,
   useDebouncedCallback,
 } from "@synnaxlabs/pluto";
 import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
+import {
+  type ComponentType,
+  memo,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+} from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu as CMenu } from "@/components";
@@ -170,6 +177,53 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
 };
 
 const contextMenu = Component.renderProp(ContextMenu);
+
+interface CustomTabNameProps extends Tabs.NameProps {
+  useName: Layout.NameHook;
+}
+
+const CustomTabName = ({
+  useName,
+  tabKey,
+  level,
+  editable,
+  name,
+  onRename: fallbackOnRename,
+}: CustomTabNameProps): ReactElement => {
+  const dispatch = useDispatch();
+  const handleNameChange = useCallback(
+    (next: string) => dispatch(Layout.rename({ key: tabKey, name: next })),
+    [dispatch, tabKey],
+  );
+  const { onRename: hookOnRename, retrieve } = useName(tabKey, handleNameChange);
+  useEffect(() => {
+    retrieve();
+  }, [retrieve]);
+  const handleRename = useCallback(
+    (_: string, next: string) => {
+      dispatch(Layout.rename({ key: tabKey, name: next }));
+      hookOnRename?.(next);
+    },
+    [hookOnRename, dispatch, tabKey],
+  );
+  return (
+    <Tabs.DefaultName
+      tabKey={tabKey}
+      name={name}
+      level={level}
+      editable={editable}
+      onRename={hookOnRename != null ? handleRename : fallbackOnRename}
+    />
+  );
+};
+
+const TabName: ComponentType<Tabs.NameProps> = (props) => {
+  const type = Layout.useSelectType(props.tabKey);
+  const renderer = Layout.useOptionalRenderer(type ?? "");
+  if (renderer?.useName != null)
+    return <CustomTabName key={type} useName={renderer.useName} {...props} />;
+  return <Tabs.DefaultName {...props} />;
+};
 
 interface MosaicProps {
   windowKey: string;
@@ -342,6 +396,7 @@ const Internal = ({ windowKey, mosaic }: MosaicProps): ReactElement => {
         onFileDrop={handleFileDrop}
         addTooltip="Create component"
         className={CSS.B("mosaic")}
+        Name={TabName}
       >
         {renderProp}
       </Base.Mosaic>

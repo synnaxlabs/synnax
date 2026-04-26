@@ -9,14 +9,19 @@
 
 import { log } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Access, Icon, Log as Base, usePrevious } from "@synnaxlabs/pluto";
+import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
-import { useCallback, useEffect } from "react";
+import { useCallback } from "react";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { select, useSelect, useSelectVersion } from "@/log/selectors";
+import {
+  select,
+  useSelect,
+  useSelectIsRemoteCreated,
+  useSelectVersion,
+} from "@/log/selectors";
 import {
   internalCreate,
   setActiveToolbarTab,
@@ -25,6 +30,7 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { Selector } from "@/selector";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -57,13 +63,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
-
-  const { name } = Layout.useSelectRequired(layoutKey);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey]);
 
   const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
@@ -122,10 +121,16 @@ const useLoadRemote = createLoadRemote<log.Log>({
 });
 
 export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const log = useLoadRemote(layoutKey);
-  if (log == null) return null;
+  const l = useLoadRemote(layoutKey);
+  if (l == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Log.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

@@ -19,10 +19,9 @@ import {
   Table as Base,
   TableCells,
   Triggers,
-  usePrevious,
 } from "@synnaxlabs/pluto";
 import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
+import { memo, type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
@@ -34,6 +33,7 @@ import {
   select,
   useSelectCell,
   useSelectEditable,
+  useSelectIsRemoteCreated,
   useSelectLayout,
   useSelectSelectedColumns,
   useSelectVersion,
@@ -60,6 +60,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/table/slice";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";
@@ -104,7 +105,6 @@ export const useSyncComponent = Workspace.createSyncComponent(
 );
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
   const editMode = useSelectEditable(layoutKey);
@@ -118,12 +118,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleAddCol = () => {
     syncDispatch(addCol({ key: layoutKey }));
   };
-
-  const prevName = usePrevious(name);
-
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [syncDispatch, name, prevName]);
 
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
     <ContextMenu.Menu>
@@ -484,7 +478,13 @@ const useLoadRemote = createLoadRemote<table.Table>({
 });
 
 export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
-  const table = useLoadRemote(layoutKey);
-  if (table == null) return null;
+  const t = useLoadRemote(layoutKey);
+  if (t == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Table.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);

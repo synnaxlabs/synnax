@@ -9,9 +9,11 @@
 
 import { arc, ontology, type rack, task } from "@synnaxlabs/client";
 import { primitive, status } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import z from "zod";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { type List } from "@/list";
 import { state } from "@/state";
 import { type Status } from "@/status";
@@ -229,6 +231,22 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
     return [store.arcs.onSet(onChange, query.key)];
   },
 });
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, arc.Arc>, "onChange"> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success") return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
 export interface RenameParams extends Pick<arc.Arc, "key" | "name"> {}
 

@@ -250,6 +250,14 @@ export const selectIsSnapshot = (state: StoreState, key: string): boolean | unde
 export const useSelectIsSnapshot = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectIsSnapshot(state, key), [key]);
 
+export const selectIsRemoteCreated = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+
+export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
+  useMemoSelect((state: StoreState) => selectIsRemoteCreated(state, key), [key]);
+
 export const selectAuthority = (state: StoreState, key: string): number | undefined =>
   selectOptional(state, key)?.authority;
 

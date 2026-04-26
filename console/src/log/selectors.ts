@@ -30,3 +30,11 @@ export const selectVersion = (state: StoreState, key: string): string | undefine
 
 export const useSelectVersion = (key: string): string | undefined =>
   useMemoSelect((s: StoreState) => selectVersion(s, key), [key]);
+
+export const selectIsRemoteCreated = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+
+export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
+  useMemoSelect((s: StoreState) => selectIsRemoteCreated(s, key), [key]);

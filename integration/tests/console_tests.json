@@ -28,6 +28,7 @@
       "pool_size": 3,
       "tests": [
         { "case": "console/log/log_lifecycle" },
+        { "case": "console/pages/arc_rename" },
         { "case": "console/pages/open_close" },
         { "case": "console/pages/rename_synchronization" },
         { "case": "console/plot/line_plot" },

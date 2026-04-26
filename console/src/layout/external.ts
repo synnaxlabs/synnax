@@ -21,6 +21,5 @@ export * from "@/layout/useNavDrawer";
 export * from "@/layout/useOpenInNewWindow";
 export * from "@/layout/usePlacer";
 export * from "@/layout/useRemover";
-export * from "@/layout/useSyncName";
 export * from "@/layout/useThemeProvider";
 export * from "@/layout/Window";

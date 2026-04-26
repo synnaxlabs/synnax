@@ -21,6 +21,7 @@ import { TYPE } from "@/arc/types";
 import { translateGraphToConsole } from "@/arc/types/translate";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { type Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Selector } from "@/selector";
 
 export const useLoadRemote = createLoadRemote<arc.Arc>({
@@ -46,10 +47,13 @@ const Loaded: Layout.Renderer = (props) => {
 };
 
 export const Editor: Layout.Renderer = (props) => {
-  const arc = useLoadRemote(props.layoutKey);
-  if (arc == null) return null;
+  const a = useLoadRemote(props.layoutKey);
+  if (a == null) return null;
   return <Loaded {...props} />;
 };
+
+Editor.useName = createFluxUseName(Arc.useRename, Arc.useRetrieveObservableName);
+
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =
