@@ -60,6 +60,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/table/slice";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";
@@ -482,23 +483,8 @@ export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | n
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-const useName: Layout.NameHook = (layoutKey, onChange) => {
-  const isRemote = useSelectIsRemoteCreated(layoutKey) === true;
-  const { retrieve: baseRetrieve } = Base.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = Base.useRename({
-    beforeUpdate: useCallback(() => isRemote, [isRemote]),
-  });
-  const onRename = useCallback(
-    (name: string) => update({ key: layoutKey, name }),
-    [layoutKey, update],
-  );
-  const retrieve = useCallback(
-    () => baseRetrieve({ key: layoutKey }),
-    [layoutKey, baseRetrieve],
-  );
-  return { retrieve, onRename };
-};
-Table.useName = useName;
+Table.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);

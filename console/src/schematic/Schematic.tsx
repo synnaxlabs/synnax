@@ -32,6 +32,7 @@ import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import {
   selectOptional,
   selectRequired,
@@ -434,23 +435,11 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-Schematic.useName = (layoutKey, onChange) => {
-  const isRemote = useSelectIsRemoteCreated(layoutKey) === true;
-  const { retrieve: baseRetrieve } = Base.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = Base.useRename();
-  const onRename = useCallback(
-    (name: string) => isRemote && update({ key: layoutKey, name }),
-    [layoutKey, update, isRemote],
-  );
-  const retrieve = useCallback(
-    () => baseRetrieve({ key: layoutKey }),
-    [layoutKey, baseRetrieve],
-  );
-  return { retrieve, onRename };
-};
+Schematic.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;

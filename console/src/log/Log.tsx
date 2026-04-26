@@ -30,6 +30,7 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { Selector } from "@/selector";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";
@@ -125,26 +126,11 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-const useName: Layout.NameHook = (layoutKey, onChange) => {
-  const isRemote = useSelectIsRemoteCreated(layoutKey) === true;
-  const { retrieve: baseRetrieve } = Base.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = Base.useRename({
-    beforeUpdate: useCallback(() => isRemote, [isRemote]),
-  });
-  const onRename = useCallback(
-    (name: string) => update({ key: layoutKey, name }),
-    [layoutKey, update],
-  );
-  const retrieve = useCallback(
-    () => baseRetrieve({ key: layoutKey }),
-    [layoutKey, baseRetrieve],
-  );
-  return { retrieve, onRename };
-};
-Log.useName = useName;
+Log.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

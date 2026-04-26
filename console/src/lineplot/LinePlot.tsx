@@ -87,6 +87,7 @@ import {
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(
@@ -526,23 +527,8 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-const useName: Layout.NameHook = (layoutKey, onChange) => {
-  const isRemote = useSelectIsRemoteCreated(layoutKey) === true;
-  const { retrieve: baseRetrieve } = Base.useRetrieveObservableName({
-    onChange,
-    addStatusOnFailure: false,
-  });
-  const { update } = Base.useRename({
-    beforeUpdate: useCallback(() => isRemote, [isRemote]),
-  });
-  const onRename = useCallback(
-    (name: string) => update({ key: layoutKey, name }),
-    [layoutKey, update],
-  );
-  const retrieve = useCallback(
-    () => baseRetrieve({ key: layoutKey }),
-    [layoutKey, baseRetrieve],
-  );
-  return { retrieve, onRename };
-};
-LinePlot.useName = useName;
+LinePlot.useName = createFluxUseName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
