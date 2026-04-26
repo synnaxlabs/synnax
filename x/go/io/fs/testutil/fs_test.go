@@ -25,8 +25,7 @@ import (
 // starts with the given prefix. Used to observe whether OpenOS leaves a
 // directory behind after its enclosing scope exits.
 func matchingTempDirs(prefix string) []string {
-	entries, err := os.ReadDir(os.TempDir())
-	Expect(err).ToNot(HaveOccurred())
+	entries := MustSucceed(os.ReadDir(os.TempDir()))
 	var out []string
 	for _, e := range entries {
 		if strings.HasPrefix(e.Name(), prefix) {

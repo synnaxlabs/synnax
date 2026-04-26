@@ -93,8 +93,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					data    = GenerateChannelKey()
 				)
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs = openFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,

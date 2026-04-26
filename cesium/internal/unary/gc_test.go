@@ -36,8 +36,7 @@ var _ = Describe("Garbage Collection", func() {
 			)
 			Describe("Garbage collection without threshold", func() {
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs = openFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
@@ -120,8 +119,7 @@ var _ = Describe("Garbage Collection", func() {
 
 			Describe("GC with threshold and many files", func() {
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs = openFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
