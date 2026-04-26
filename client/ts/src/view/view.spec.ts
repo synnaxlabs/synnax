@@ -118,8 +118,13 @@ describe("View", () => {
         type: "lineplot",
         query: { channels: ["search"] },
       });
+      await expect
+        .poll(
+          async () =>
+            (await client.views.retrieve({ searchTerm: "Searchable" })).length,
+        )
+        .toBeGreaterThan(0);
       const results = await client.views.retrieve({ searchTerm: "Searchable" });
-      expect(results.length).toBeGreaterThan(0);
       expect(results[0].name).toContain("Searchable");
       expect(results[0].query).toEqual({ channels: ["search"] });
     });
