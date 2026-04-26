@@ -9,7 +9,8 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Ranger } from "@synnaxlabs/pluto";
+import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -31,3 +32,21 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
 );
+
+const useName: Layout.NameHook = (layoutKey, onChange) => {
+  const { retrieve: baseRetrieve } = Ranger.useRetrieveObservableName({
+    onChange,
+    addStatusOnFailure: false,
+  });
+  const { update } = Ranger.useRename();
+  const onRename = useCallback(
+    (name: string) => update({ key: layoutKey, name }),
+    [layoutKey, update],
+  );
+  const retrieve = useCallback(
+    () => baseRetrieve({ key: layoutKey }),
+    [layoutKey, baseRetrieve],
+  );
+  return { retrieve, onRename };
+};
+Overview.useName = useName;

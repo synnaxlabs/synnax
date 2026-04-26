@@ -46,10 +46,28 @@ const Loaded: Layout.Renderer = (props) => {
 };
 
 export const Editor: Layout.Renderer = (props) => {
-  const arc = useLoadRemote(props.layoutKey);
-  if (arc == null) return null;
+  const a = useLoadRemote(props.layoutKey);
+  if (a == null) return null;
   return <Loaded {...props} />;
 };
+
+const useName: Layout.NameHook = (layoutKey, onChange) => {
+  const { retrieve: baseRetrieve } = Arc.useRetrieveObservableName({
+    onChange,
+    addStatusOnFailure: false,
+  });
+  const { update } = Arc.useRename();
+  const onRename = useCallback(
+    (name: string) => update({ key: layoutKey, name }),
+    [layoutKey, update],
+  );
+  const retrieve = useCallback(
+    () => baseRetrieve({ key: layoutKey }),
+    [layoutKey, baseRetrieve],
+  );
+  return { retrieve, onRename };
+};
+Editor.useName = useName;
 export type CreateArg = Partial<State> & Partial<Layout.BaseState>;
 
 export const create =

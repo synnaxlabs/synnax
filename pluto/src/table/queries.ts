@@ -7,11 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { table, type workspace } from "@synnaxlabs/client";
+import { ontology, table, type workspace } from "@synnaxlabs/client";
 import { array } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
+import { state } from "@/state";
 
 export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
   FluxSubStore,
@@ -53,8 +56,28 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.tables.onSet(onChange, key),
+    store.resources.onSet(
+      (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
+      ontology.idToString(table.ontologyID(key)),
+    ),
   ],
 });
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, table.Table>, "onChange"> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success") return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
 export type DeleteParams = table.Key | table.Key[];
 

@@ -9,10 +9,12 @@
 
 import { ontology, type rack, task } from "@synnaxlabs/client";
 import { array, type optional, TimeStamp } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
 import { type Form } from "@/form";
+import { useSyncedRef } from "@/hooks/ref";
 import { type Label } from "@/label";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
@@ -132,7 +134,26 @@ export const createRetrieve = <S extends task.Schemas = task.Schemas>(schemas?: 
     },
   });
 
-export const { useRetrieve } = createRetrieve();
+export const { useRetrieve, useRetrieveObservable } = createRetrieve();
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<
+  Flux.UseRetrieveObservableParams<RetrieveQuery, task.Task | null>,
+  "onChange"
+> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success" || result.data == null) return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
 export interface ListQuery extends task.RetrieveMultipleParams {}
 

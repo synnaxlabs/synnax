@@ -19,10 +19,9 @@ import {
   Table as Base,
   TableCells,
   Triggers,
-  usePrevious,
 } from "@synnaxlabs/pluto";
 import { box, clamp, dimensions, location, type record, uuid, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, useCallback, useEffect, useRef } from "react";
+import { memo, type ReactElement, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu, Controls } from "@/components";
@@ -34,6 +33,7 @@ import {
   select,
   useSelectCell,
   useSelectEditable,
+  useSelectIsRemoteCreated,
   useSelectLayout,
   useSelectSelectedColumns,
   useSelectVersion,
@@ -104,7 +104,6 @@ export const useSyncComponent = Workspace.createSyncComponent(
 );
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const { name } = Layout.useSelectRequired(layoutKey);
   const layout = useSelectLayout(layoutKey);
   const syncDispatch = useSyncComponent(layoutKey);
   const editMode = useSelectEditable(layoutKey);
@@ -118,12 +117,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleAddCol = () => {
     syncDispatch(addCol({ key: layoutKey }));
   };
-
-  const prevName = usePrevious(name);
-
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [syncDispatch, name, prevName]);
 
   const contextMenu = ({ keys }: Menu.ContextMenuMenuProps) => (
     <ContextMenu.Menu>
@@ -484,7 +477,28 @@ const useLoadRemote = createLoadRemote<table.Table>({
 });
 
 export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
-  const table = useLoadRemote(layoutKey);
-  if (table == null) return null;
+  const t = useLoadRemote(layoutKey);
+  if (t == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+const useName: Layout.NameHook = (layoutKey, onChange) => {
+  const isRemote = useSelectIsRemoteCreated(layoutKey) === true;
+  const { retrieve: baseRetrieve } = Base.useRetrieveObservableName({
+    onChange,
+    addStatusOnFailure: false,
+  });
+  const { update } = Base.useRename({
+    beforeUpdate: useCallback(() => isRemote, [isRemote]),
+  });
+  const onRename = useCallback(
+    (name: string) => update({ key: layoutKey, name }),
+    [layoutKey, update],
+  );
+  const retrieve = useCallback(
+    () => baseRetrieve({ key: layoutKey }),
+    [layoutKey, baseRetrieve],
+  );
+  return { retrieve, onRename };
+};
+Table.useName = useName;
