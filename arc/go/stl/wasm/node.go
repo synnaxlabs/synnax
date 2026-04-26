@@ -51,6 +51,7 @@ type nodeImpl struct {
 	offsets       []int
 	initialized   bool
 	isEntryNode   bool
+	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
 	strings       *stlstrings.ProgramState
@@ -181,7 +182,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		if len(n.ir.Inputs) > 0 {
 			ts = valueAt(longestInputTime, int(i))
 		} else {
-			ts = uint64(telem.Now())
+			ts = uint64(n.clock.Now())
 		}
 		for j, value := range res {
 			if value.Changed {
