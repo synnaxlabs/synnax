@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
@@ -161,7 +160,6 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
-		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlcontrol.NewModule(drt.state.control),
@@ -214,7 +212,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	}))
 
 	drt.startTime = telem.Now()
-	drt.writeKeys = stateCfg.Writes.ToSlice()
+	drt.writeKeys = stateCfg.Writes.Slice()
 
 	pipeline := plumber.New()
 
@@ -232,7 +230,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		var streamer framer.Streamer
 		streamer, err = t.factoryCfg.Framer.NewStreamer(
 			ctx,
-			framer.StreamerConfig{Keys: stateCfg.Reads.ToSlice()},
+			framer.StreamerConfig{Keys: stateCfg.Reads.Slice()},
 		)
 		if err != nil {
 			t.setStatus(ctx, status.VariantError, false, err.Error())
@@ -251,7 +249,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	if len(stateCfg.Writes) > 0 {
 		// Critical: ToSlice is extracted from a map, so we need to convert it to a
 		// slice ONCE in order go guarantee stable order.
-		writeKeys := stateCfg.Writes.ToSlice()
+		writeKeys := stateCfg.Writes.Slice()
 		writerCfg := framer.WriterConfig{
 			ControlSubject: control.Subject{
 				Name: t.prog.Name,

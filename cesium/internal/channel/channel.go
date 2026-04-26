@@ -103,7 +103,6 @@ func (c Channel) Validate() error {
 	if c.Virtual {
 		v.Ternaryf("index", c.Index != 0, "virtual channel cannot be indexed")
 	} else {
-		v.Ternary("data_type", c.DataType.IsVariable(), "persisted channels cannot have variable density data types")
 		if c.IsIndex {
 			v.Ternary("data_type", c.DataType != telem.TimeStampT, "index channel must be of type timestamp")
 			v.Ternaryf("index", c.Index != 0 && c.Index != c.Key, "index channel cannot be indexed by another channel")

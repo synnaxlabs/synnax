@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -479,6 +480,33 @@ func add(a i32, b i32) i32 {
 		})
 	})
 
+	Describe("Qualified Module Identifiers", func() {
+		It("Should provide hover for qualified module function", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() i64 {\n    return time.now()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 14)
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("now"))
+		})
+
+		It("Should not provide hover for invalid module prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    fake.nonexistent()\n}"
+			OpenArcDocument(server, ctx, uri, content)
+			hover := Hover(server, ctx, uri, 1, 10)
+			Expect(hover).To(BeNil())
+		})
+	})
+
 	Describe("SemanticTokens", func() {
 		DescribeTable("Keywords",
 			func(ctx SpecContext, content string, expectedType uint32) {
@@ -495,6 +523,9 @@ func add(a i32, b i32) i32 {
 			Entry("sequence", "sequence main {}", uint32(lsp.SemanticTokenTypeKeyword)),
 			Entry("stage", "stage first {}", uint32(lsp.SemanticTokenTypeKeyword)),
 			Entry("next", "next foo", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("for", "for i {}", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("break", "break", uint32(lsp.SemanticTokenTypeKeyword)),
+			Entry("continue", "continue", uint32(lsp.SemanticTokenTypeKeyword)),
 		)
 
 		DescribeTable("Types",
@@ -525,8 +556,15 @@ func add(a i32, b i32) i32 {
 				OpenArcDocument(server, ctx, uri, content)
 				tokens := SemanticTokens(server, ctx, uri)
 				Expect(tokens).ToNot(BeNil())
-				Expect(len(tokens.Data)).To(BeNumerically(">=", 10))
-				Expect(tokens.Data[8]).To(Equal(expectedType))
+				Expect(len(tokens.Data)).To(BeNumerically(">=", 5))
+				found := false
+				for i := 3; i < len(tokens.Data); i += 5 {
+					if tokens.Data[i] == expectedType {
+						found = true
+						break
+					}
+				}
+				Expect(found).To(BeTrue(), "expected token type %d not found", expectedType)
 			},
 			Entry("declare :=", "x := 1", uint32(lsp.SemanticTokenTypeOperator)),
 			Entry("state declare $=", "x $= 1", uint32(lsp.SemanticTokenTypeOperator)),

@@ -70,15 +70,15 @@ Arc uses `u8` for boolean values. There is no separate boolean type.
 Logical operators normalize results to `0` or `1`:
 
 ```arc
-result := 2 and 3       // 1 (both truthy)
-result := 5 or 0        // 1 (short-circuits)
-negated := not 5        // 0
+result := 2 and 3 // 1 (both truthy)
+result := 5 or 0 // 1 (short-circuits)
+negated := not 5 // 0
 ```
 
 Comparison operators return `u8`:
 
 ```arc
-is_high := pressure > 500    // 0 or 1
+is_high := pressure > 500 // 0 or 1
 ```
 
 <Divider.Divider x />
@@ -88,16 +88,15 @@ is_high := pressure > 500    // 0 or 1
 Channels connect Arc to Synnax telemetry data. Declare channel types with `chan`:
 
 ```arc
-chan f64           // channel of float64
-chan i32           // channel of int32
-chan series f64    // channel of float64 series
+chan f64 // channel of float64
+chan i32 // channel of int32
 ```
 
 Channel names reference channels that exist in your Synnax cluster:
 
 ```arc
-value := ox_pt_1       // read from channel
-ox_pt_cmd = value      // write to channel
+value := ox_pt_1 // read from channel
+ox_pt_cmd = value // write to channel
 ```
 
 Reading from a channel that has no data returns the zero value for that type.
@@ -109,23 +108,23 @@ Reading from a channel that has no data returns the zero value for that type.
 Series are homogeneous arrays. Declare series types with `series`:
 
 ```arc
-series f64         // array of float64
-series i32         // array of int32
+series f64 // array of float64
+series i32 // array of int32
 ```
 
 ### Series Literals
 
 ```arc
-data := [1.0, 2.0, 3.0]     // series f64
-empty series f64 := []      // empty series (type required)
+data := [1.0, 2.0, 3.0] // series f64
+empty series f64 := [] // empty series (type required)
 ```
 
 ### Series Operations
 
 ```arc
-length := len(data)          // i64: number of elements
-first := data[0]             // indexing (0-based)
-subset := data[1:3]          // slicing [start:end)
+length := len(data) // i64: number of elements
+first := data[0] // indexing (0-based)
+subset := data[1: 3] // slicing [start:end)
 ```
 
 ### Element-wise Operations
@@ -134,16 +133,13 @@ Arithmetic and comparison operators work element-wise on series:
 
 ```arc
 data := [1.0, 2.0, 3.0]
-
 // Scalar operations
-scaled := data * 2.0         // [2.0, 4.0, 6.0]
-offset := data + 10.0        // [11.0, 12.0, 13.0]
-
+scaled := data * 2.0 // [2.0, 4.0, 6.0]
+offset := data + 10.0 // [11.0, 12.0, 13.0]
 // Series-to-series (must be equal length)
-sum := data + [4.0, 5.0, 6.0]    // [5.0, 7.0, 9.0]
-
+sum := data + [4.0, 5.0, 6.0] // [5.0, 7.0, 9.0]
 // Comparisons return series u8
-mask := data > 2.0           // [0, 0, 1]
+mask := data > 2.0 // [0, 0, 1]
 ```
 
 <Note.Note variant="warning">
@@ -155,28 +151,39 @@ mask := data > 2.0           // [0, 0, 1]
 
 ## Unit Annotations
 
-Types can have unit suffixes for dimensional tracking:
+Types can carry a single unit suffix for dimensional tracking. The suffix is one
+identifier drawn from the built-in registry (length, time, mass, pressure, frequency,
+voltage, current, temperature, angle, data, count):
 
 ```arc
-velocity f64 m/s := 10.0
 distance f64 m := 50.0
 duration i64 ns := 1000000000
+pressure f64 psi := 14.7
 ```
+
+Only single-identifier units are accepted in source syntax. Compound units like `m/s` or
+`m^2` are not spelled directly in declarations. They arise implicitly from arithmetic
+(see below).
 
 ### Dimensional Compatibility
 
 The compiler enforces dimensional compatibility:
 
 - **Addition/Subtraction**: Operands must have compatible dimensions
-- **Multiplication/Division**: Always valid; dimensions combine
-- **Exponentiation**: Base with dimensions requires literal integer exponent
+- **Multiplication/Division**: Always valid; the result's dimensions combine
+- **Exponentiation**: A dimensioned base requires a literal integer exponent
 
 ```arc
 distance f64 m := 10.0
 time f64 s := 2.0
-speed := distance / time     // f64 m/s
-area := distance ^ 2         // f64 m^2
+// Division produces a length/time quantity (a velocity)
+speed := distance / time
+// Exponentiation produces a length^2 quantity (an area)
+area := distance ^ 2
 ```
+
+The dimensions of `speed` and `area` are tracked by the compiler and checked against any
+further use, but they are not spelled in source code.
 
 <Divider.Divider x />
 
@@ -186,10 +193,10 @@ Explicit casting converts between numeric types:
 
 ```arc
 x i32 := 42
-y f64 := f64(x)              // int to float
+y f64 := f64(x) // int to float
 
 a f64 := 3.7
-b i64 := i64(a)              // truncates to 3
+b i64 := i64(a) // truncates to 3
 ```
 
 ### Casting Rules
@@ -210,7 +217,6 @@ b i64 := i64(a)              // truncates to 3
 // Wrong: type error
 x i32 := 42
 y f64 := x + 1.0
-
 // Right: explicit cast
 x i32 := 42
 y f64 := f64(x) + 1.0
@@ -238,11 +244,11 @@ Strings support the following operations:
 
 ```arc
 msg := "Hello"
-greeting := msg + " World"   // concatenation
-first := msg[0]              // indexing (returns u8)
-sub := msg[1:4]              // slicing
-length := len(msg)           // length in bytes
-equal := msg == "Hello"      // equality (returns u8: 1 or 0)
+greeting := msg + " World" // concatenation
+first := msg[0] // indexing (returns u8)
+sub := msg[1: 4] // slicing
+length := len(msg) // length in bytes
+equal := msg == "Hello" // equality (returns u8: 1 or 0)
 ```
 
 | Operation             | Supported |

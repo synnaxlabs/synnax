@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -52,13 +53,11 @@ var _ = Describe("Create", Ordered, func() {
 		tx gorp.Tx
 	)
 	BeforeAll(func() {
-		db = gorp.Wrap(memkv.New())
+		db = DeferClose(gorp.Wrap(memkv.New()))
 	})
-	AfterAll(func() { Expect(db.Close()).To(Succeed()) })
 	BeforeEach(func() {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 	Context("Single entry", func() {
 		It("Should create the entry in the db", func(ctx SpecContext) {
 			e := &entry{

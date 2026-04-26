@@ -18,6 +18,7 @@ import { lineplot } from "@/lineplot/aether";
 import { range } from "@/lineplot/range/aether";
 import { tooltip } from "@/lineplot/tooltip/aether";
 import { log } from "@/log/aether";
+import { LogFactory } from "@/log/aether/telem/factory";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
 import { status } from "@/status/aether";
@@ -78,7 +79,7 @@ export const render = (): void => {
     ...stateIndicator.REGISTRY,
     ...status.REGISTRY,
     ...synnax.REGISTRY,
-    ...telem.REGISTRY,
+    ...telem.createRegistry((client) => new LogFactory(client)),
     ...theming.REGISTRY,
     ...toggle.REGISTRY,
     ...tooltip.REGISTRY,

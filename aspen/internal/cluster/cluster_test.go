@@ -11,6 +11,8 @@ package cluster_test
 
 import (
 	"context"
+	"time"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/aspen/internal/cluster"
@@ -21,7 +23,6 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/signal"
 	. "github.com/synnaxlabs/x/testutil"
-	"time"
 )
 
 var _ = Describe("Cluster", func() {
@@ -38,11 +39,14 @@ var _ = Describe("Cluster", func() {
 			Gossip: gossip.Config{Interval: 5 * time.Millisecond},
 			Pledge: pledge.Config{RetryInterval: 1 * time.Millisecond},
 		})
-	})
-
-	AfterEach(func() {
-		shutdown()
-		Expect(clusterCtx.Err()).To(HaveOccurredAs(context.Canceled))
+		// Tear down in explicit order: clusters first (so their internal
+		// signal contexts cancel and drain), then cancel the test's
+		// clusterCtx and verify the cancellation took effect.
+		DeferCleanup(func() {
+			Expect(builder.Close()).To(Succeed())
+			shutdown()
+			Expect(clusterCtx.Err()).To(MatchError(context.Canceled))
+		})
 	})
 
 	Describe("Node", func() {

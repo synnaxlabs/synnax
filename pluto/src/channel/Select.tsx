@@ -57,6 +57,7 @@ export const SelectMultiple = ({
       onSearch={search}
       status={status}
       icon={<Icon.Channel />}
+      triggerProps={{ renderIcon: renderTriggerIcon }}
       {...rest}
       resourceName="channel"
       data={data}
@@ -66,6 +67,14 @@ export const SelectMultiple = ({
       {listItemRenderProp}
     </Select.Multiple>
   );
+};
+
+const isChannel = (entry: unknown): entry is channel.Channel =>
+  entry != null && typeof entry === "object" && "payload" in entry;
+
+const renderTriggerIcon = (entry: unknown): Icon.ReactElement | undefined => {
+  const Resolved = resolveIcon(isChannel(entry) ? entry.payload : undefined);
+  return <Resolved />;
 };
 
 export interface SelectSingleProps
@@ -93,6 +102,7 @@ export const SelectSingle = ({
       status={status}
       haulType={HAUL_TYPE}
       icon={<Icon.Channel />}
+      triggerProps={{ renderIcon: renderTriggerIcon }}
       {...rest}
       data={data}
       getItem={getItem}

@@ -11,7 +11,6 @@ package status_test
 
 import (
 	"context"
-	"io"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv/memkv"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
@@ -37,22 +35,21 @@ var _ = Describe("Status", Ordered, func() {
 		labelSvc *label.Service
 		otg      *ontology.Ontology
 		tx       gorp.Tx
-		closer   io.Closer
 	)
 	BeforeAll(func(ctx SpecContext) {
-		db = gorp.Wrap(memkv.New())
-		otg = MustSucceed(ontology.Open(ctx, ontology.Config{
+		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{
 			DB: db,
 		}))
-		searchIdx := MustSucceed(search.Open())
-		g := MustSucceed(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
-		labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+		searchIdx := MustOpen(search.Open())
+		g := MustOpen(group.OpenService(ctx, group.ServiceConfig{DB: db, Ontology: otg, Search: searchIdx}))
+		labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		svc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+		svc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Label:    labelSvc,
@@ -60,13 +57,6 @@ var _ = Describe("Status", Ordered, func() {
 			Search:   searchIdx,
 		}))
 		Expect(searchIdx.Initialize(ctx)).To(Succeed())
-
-		closer = xio.MultiCloser{db, otg, g, svc}
-	})
-	AfterAll(func(ctx SpecContext) {
-		Expect(labelSvc.Close()).To(Succeed())
-		Expect(svc.Close()).To(Succeed())
-		Expect(closer.Close()).To(Succeed())
 	})
 	BeforeEach(func(ctx SpecContext) {
 		tx = db.OpenTx()
@@ -204,7 +194,7 @@ var _ = Describe("Status", Ordered, func() {
 				Expect(w.SetMany(ctx, &statuses)).To(Succeed())
 				Expect(w.DeleteMany(ctx, "del1", "del2")).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(HaveOccurredAs(query.ErrNotFound))
+				Expect(svc.NewRetrieve().WhereKeys("del1", "del2").Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 		})
 	})

@@ -131,7 +131,7 @@ const retrieveMultiple = async ({
     }
   }
 
-  return ranges;
+  return Flux.orderByKeys(keys, ranges, (r) => r.key);
 };
 
 export const useSetSynchronizer = (onSet: (range: ranger.Payload) => void): void => {

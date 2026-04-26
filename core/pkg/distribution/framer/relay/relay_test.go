@@ -282,7 +282,7 @@ var _ = Describe("Relay", func() {
 			_, err := svc.Framer.NewStreamer(ctx, relay.StreamerConfig{
 				Keys: []channel.Key{12345},
 			})
-			Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 	})
 })
@@ -317,7 +317,7 @@ func gatewayOnlyScenario(ctx context.Context) scenario {
 		name:     "Gateway Only",
 		channels: channels,
 		dist:     svc,
-		close:    svc,
+		close:    builder,
 	}
 }
 
@@ -341,7 +341,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		name:     "Peer Only",
 		channels: channels,
 		dist:     dist,
-		close:    dist,
+		close:    builder,
 	}
 }
 func mixedScenario(ctx context.Context) scenario {

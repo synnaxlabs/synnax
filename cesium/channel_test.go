@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/resource"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -28,21 +27,19 @@ import (
 )
 
 var _ = Describe("Channel", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
-		ShouldNotLeakRoutinesJustBeforeEach()
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
+			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db      *cesium.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Create", func() {
@@ -90,7 +87,7 @@ var _ = Describe("Channel", Ordered, func() {
 						subDB := openDBOnFS(ctx, sub)
 						Expect(subDB.Close()).To(Succeed())
 						err := subDB.CreateChannel(ctx, cesium.Channel{Key: key, DataType: telem.TimeStampT, IsIndex: true})
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
+						Expect(err).To(MatchError(cesium.ErrDBClosed))
 
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
@@ -106,11 +103,10 @@ var _ = Describe("Channel", Ordered, func() {
 						})).To(Succeed())
 						Expect(subDB.Close()).To(Succeed())
 
-						_, err := subDB.RetrieveChannel(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
-						_, err = subDB.RetrieveChannels(ctx, key)
-						Expect(err).To(HaveOccurredAs(resource.NewClosedError("cesium.db")))
-
+						Expect(subDB.RetrieveChannel(ctx, key)).Error().
+							To(MatchError(cesium.ErrDBClosed))
+						Expect(subDB.RetrieveChannels(ctx, key)).
+							Error().To(MatchError(cesium.ErrDBClosed))
 						Expect(fs.Remove("closed-fs")).To(Succeed())
 					})
 				})
@@ -137,6 +133,47 @@ var _ = Describe("Channel", Ordered, func() {
 					chs, err := db.RetrieveChannels(ctx, k1, k2, math.MaxUint32)
 					Expect(chs).To(HaveLen(0))
 					Expect(err).To(MatchError(cesium.ErrChannelNotFound))
+				})
+			})
+
+			Describe("Variable Channel Lifecycle", func() {
+				It("Should create and retrieve a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-lc-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-lc-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					ch := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(ch.DataType).To(Equal(telem.StringT))
+					Expect(ch.Name).To(Equal("var-lc-str"))
+				})
+				It("Should rename a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-rn-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-rn-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.RenameChannel(ctx, data, "renamed")).To(Succeed())
+					ch := MustSucceed(db.RetrieveChannel(ctx, data))
+					Expect(ch.Name).To(Equal("renamed"))
+				})
+				It("Should delete a variable channel", func(ctx SpecContext) {
+					var (
+						idx  = GenerateChannelKey()
+						data = GenerateChannelKey()
+					)
+					Expect(db.CreateChannel(ctx,
+						cesium.Channel{Key: idx, Name: "var-del-idx", IsIndex: true, DataType: telem.TimeStampT},
+						cesium.Channel{Key: data, Name: "var-del-str", Index: idx, DataType: telem.StringT},
+					)).To(Succeed())
+					Expect(db.DeleteChannel(data)).To(Succeed())
+					Expect(db.RetrieveChannel(ctx, data)).Error().To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 
@@ -345,10 +382,18 @@ var _ = Describe("Channel", Ordered, func() {
 
 					Specify("Virtual", func(ctx SpecContext) {
 						By("Opening writers")
-						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{Start: 0, Channels: []cesium.ChannelKey{errorKey2}, ControlSubject: control.Subject{Key: "rekey writer"}}))
+						w := MustSucceed(db.OpenWriter(
+							ctx,
+							cesium.WriterConfig{
+								Start:          0,
+								Channels:       []cesium.ChannelKey{errorKey2},
+								ControlSubject: control.Subject{Key: "rekey writer"},
+							},
+						))
 
 						By("Trying to rekey")
-						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).To(MatchError(ContainSubstring("1 unclosed writers")))
+						Expect(db.RekeyChannel(ctx, errorKey2, errorKey2New)).
+							To(MatchError(ContainSubstring("1 unclosed writers")))
 
 						By("Closing writer")
 						Expect(w.Close()).To(Succeed())
@@ -406,7 +451,6 @@ var _ = Describe("Channel", Ordered, func() {
 					var (
 						subFS = MustSucceed(fs.Sub(strconv.Itoa(int(key))))
 						meta  = MustSucceed(subFS.Open("meta.json", os.O_RDONLY))
-						codec = json.Codec
 						buf   = make([]byte, MustSucceed(meta.Stat()).Size())
 						newCh cesium.Channel
 					)
@@ -414,7 +458,7 @@ var _ = Describe("Channel", Ordered, func() {
 					MustSucceed(meta.Read(buf))
 					Expect(meta.Close()).To(Succeed())
 
-					Expect(codec.Decode(ctx, buf, &newCh)).To(Succeed())
+					Expect(json.Codec.Decode(ctx, buf, &newCh)).To(Succeed())
 					Expect(newCh.Name).To(Equal("laplace"))
 				})
 				It("Should correctly rename multiple channels", func(ctx SpecContext) {
@@ -454,7 +498,7 @@ var _ = Describe("Channel", Ordered, func() {
 				})
 				It("Should error if the channel is not found", func(ctx SpecContext) {
 					key := GenerateChannelKey()
-					Expect(db.RenameChannel(ctx, key, "new_name")).To(HaveOccurredAs(cesium.ErrChannelNotFound))
+					Expect(db.RenameChannel(ctx, key, "new_name")).To(MatchError(cesium.ErrChannelNotFound))
 				})
 			})
 		})

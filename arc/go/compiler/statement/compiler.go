@@ -26,6 +26,15 @@ func Compile(ctx context.Context[parser.IStatementContext]) (diverged bool, err 
 	if ifStmt := ctx.AST.IfStatement(); ifStmt != nil {
 		return compileIfStatement(context.Child(ctx, ifStmt))
 	}
+	if forStmt := ctx.AST.ForStatement(); forStmt != nil {
+		return compileForStatement(context.Child(ctx, forStmt))
+	}
+	if ctx.AST.BreakStatement() != nil {
+		return true, compileBreakStatement(context.Child(ctx, ctx.AST.BreakStatement()))
+	}
+	if ctx.AST.ContinueStatement() != nil {
+		return true, compileContinueStatement(context.Child(ctx, ctx.AST.ContinueStatement()))
+	}
 	if retStmt := ctx.AST.ReturnStatement(); retStmt != nil {
 		return true, compileReturnStatement(context.Child(ctx, retStmt))
 	}

@@ -13,16 +13,17 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Delete", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, func() {
 			var (
 				dataDB  *unary.DB
@@ -30,14 +31,13 @@ var _ = Describe("Delete", func() {
 				index   uint32 = 1
 				data    uint32 = 2
 				fs      fs.FS
-				cleanUp func() error
 			)
 			BeforeEach(func(ctx SpecContext) {
 				By("Creating channels")
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "John",
 						Key:      index,
@@ -49,7 +49,7 @@ var _ = Describe("Delete", func() {
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Wilkes",
 						Key:      data,
@@ -63,7 +63,6 @@ var _ = Describe("Delete", func() {
 			AfterEach(func() {
 				Expect(dataDB.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Single-domain deletion", func() {
@@ -686,11 +685,11 @@ var _ = Describe("Delete", func() {
 				// for one data domain.
 				It("Should work when the index is split into two domains", func(ctx SpecContext) {
 					var (
-						iKey     = testutil.GenerateChannelKey()
-						dbKey    = testutil.GenerateChannelKey()
+						iKey     = GenerateChannelKey()
+						dbKey    = GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -702,7 +701,7 @@ var _ = Describe("Delete", func() {
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
@@ -742,11 +741,11 @@ var _ = Describe("Delete", func() {
 				// as a result, the codebase DPanic'ed when it did not need to.
 				It("Should work when the index approximation is not exact", func(ctx SpecContext) {
 					var (
-						iKey     = testutil.GenerateChannelKey()
-						dbKey    = testutil.GenerateChannelKey()
+						iKey     = GenerateChannelKey()
+						dbKey    = GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -758,7 +757,7 @@ var _ = Describe("Delete", func() {
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
@@ -796,11 +795,11 @@ var _ = Describe("Delete", func() {
 				// to delete before the first element in a cut-off domain.
 				It("Should work when we delete before the first element in a cut-off domain", func(ctx SpecContext) {
 					var (
-						iKey     = testutil.GenerateChannelKey()
-						dbKey    = testutil.GenerateChannelKey()
+						iKey     = GenerateChannelKey()
+						dbKey    = GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -812,7 +811,7 @@ var _ = Describe("Delete", func() {
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,
@@ -847,11 +846,11 @@ var _ = Describe("Delete", func() {
 				})
 				It("Should work when we delete at the first element in a cut-off domain", func(ctx SpecContext) {
 					var (
-						iKey     = testutil.GenerateChannelKey()
-						dbKey    = testutil.GenerateChannelKey()
+						iKey     = GenerateChannelKey()
+						dbKey    = GenerateChannelKey()
 						indexDB2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("index")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      iKey,
 								DataType: telem.TimeStampT,
@@ -863,7 +862,7 @@ var _ = Describe("Delete", func() {
 						}))
 						db2 = MustSucceed(unary.Open(ctx, unary.Config{
 							FS:        MustSucceed(fs.Sub("data")),
-							MetaCodec: codec,
+							MetaCodec: json.Codec,
 							Channel: channel.Channel{
 								Key:      dbKey,
 								DataType: telem.Int64T,

@@ -58,6 +58,14 @@ const (
 	Float32T DataType = "float32"
 	// Float64T represents a float64 type in the schema.
 	Float64T DataType = "float64"
+	// ArrayT represents an array/slice type in the schema.
+	ArrayT DataType = "array"
+	// MapT represents a map type in the schema.
+	MapT DataType = "map"
+	// UnionT represents a union type in the schema.
+	UnionT DataType = "union"
+	// DiscriminatedUnionT represents a discriminated union type in the schema.
+	DiscriminatedUnionT DataType = "discriminated_union"
 )
 
 var (
@@ -78,6 +86,9 @@ var (
 	Uint64TypeSchema  = Literal(Uint64T)
 	Float32TypeSchema = Literal(Float32T)
 	Float64TypeSchema = Literal(Float64T)
+	ArrayTypeSchema   = Literal(ArrayT)
+	MapTypeSchema     = Literal(MapT)
+	UnionTypeSchema   = Literal(UnionT)
 	IntegerTypes      = []DataType{
 		IntT,
 		Int8T,
@@ -101,7 +112,7 @@ var (
 	NumericTypeSchema   = Enum(NumericTypes...)
 	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat([]DataType{ObjectT}, PrimitiveTypes)
+	DataTypes           = slices.Concat([]DataType{ObjectT, ArrayT, MapT, UnionT, DiscriminatedUnionT}, PrimitiveTypes)
 	AnyDataTypeSchema   = Enum(DataTypes...)
 )
 

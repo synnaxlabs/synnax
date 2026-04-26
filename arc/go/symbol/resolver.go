@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/x/compare"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Resolver provides pluggable symbol resolution for global or built-in symbols.
@@ -85,7 +86,7 @@ func (c CompoundResolver) Resolve(ctx context.Context, name string) (Symbol, err
 
 func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, error) {
 	var (
-		seen           = make(map[string]bool)
+		seen           = make(set.Set[string])
 		symbols        []Symbol
 		accumulatedErr error
 	)
@@ -96,9 +97,9 @@ func (c CompoundResolver) Search(ctx context.Context, term string) ([]Symbol, er
 			continue
 		}
 		for _, sym := range results {
-			if !seen[sym.Name] {
+			if !seen.Contains(sym.Name) {
 				symbols = append(symbols, sym)
-				seen[sym.Name] = true
+				seen.Add(sym.Name)
 			}
 		}
 	}

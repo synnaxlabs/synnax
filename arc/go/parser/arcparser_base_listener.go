@@ -113,6 +113,12 @@ func (s *BaseArcParserListener) EnterSequenceDeclaration(ctx *SequenceDeclaratio
 // ExitSequenceDeclaration is called when production sequenceDeclaration is exited.
 func (s *BaseArcParserListener) ExitSequenceDeclaration(ctx *SequenceDeclarationContext) {}
 
+// EnterSequenceItem is called when production sequenceItem is entered.
+func (s *BaseArcParserListener) EnterSequenceItem(ctx *SequenceItemContext) {}
+
+// ExitSequenceItem is called when production sequenceItem is exited.
+func (s *BaseArcParserListener) ExitSequenceItem(ctx *SequenceItemContext) {}
+
 // EnterStageDeclaration is called when production stageDeclaration is entered.
 func (s *BaseArcParserListener) EnterStageDeclaration(ctx *StageDeclarationContext) {}
 
@@ -184,6 +190,12 @@ func (s *BaseArcParserListener) EnterFunction(ctx *FunctionContext) {}
 
 // ExitFunction is called when production function is exited.
 func (s *BaseArcParserListener) ExitFunction(ctx *FunctionContext) {}
+
+// EnterQualifiedIdentifier is called when production qualifiedIdentifier is entered.
+func (s *BaseArcParserListener) EnterQualifiedIdentifier(ctx *QualifiedIdentifierContext) {}
+
+// ExitQualifiedIdentifier is called when production qualifiedIdentifier is exited.
+func (s *BaseArcParserListener) ExitQualifiedIdentifier(ctx *QualifiedIdentifierContext) {}
 
 // EnterConfigValues is called when production configValues is entered.
 func (s *BaseArcParserListener) EnterConfigValues(ctx *ConfigValuesContext) {}
@@ -280,6 +292,30 @@ func (s *BaseArcParserListener) EnterElseClause(ctx *ElseClauseContext) {}
 
 // ExitElseClause is called when production elseClause is exited.
 func (s *BaseArcParserListener) ExitElseClause(ctx *ElseClauseContext) {}
+
+// EnterForStatement is called when production forStatement is entered.
+func (s *BaseArcParserListener) EnterForStatement(ctx *ForStatementContext) {}
+
+// ExitForStatement is called when production forStatement is exited.
+func (s *BaseArcParserListener) ExitForStatement(ctx *ForStatementContext) {}
+
+// EnterForClause is called when production forClause is entered.
+func (s *BaseArcParserListener) EnterForClause(ctx *ForClauseContext) {}
+
+// ExitForClause is called when production forClause is exited.
+func (s *BaseArcParserListener) ExitForClause(ctx *ForClauseContext) {}
+
+// EnterBreakStatement is called when production breakStatement is entered.
+func (s *BaseArcParserListener) EnterBreakStatement(ctx *BreakStatementContext) {}
+
+// ExitBreakStatement is called when production breakStatement is exited.
+func (s *BaseArcParserListener) ExitBreakStatement(ctx *BreakStatementContext) {}
+
+// EnterContinueStatement is called when production continueStatement is entered.
+func (s *BaseArcParserListener) EnterContinueStatement(ctx *ContinueStatementContext) {}
+
+// ExitContinueStatement is called when production continueStatement is exited.
+func (s *BaseArcParserListener) ExitContinueStatement(ctx *ContinueStatementContext) {}
 
 // EnterReturnStatement is called when production returnStatement is entered.
 func (s *BaseArcParserListener) EnterReturnStatement(ctx *ReturnStatementContext) {}

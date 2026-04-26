@@ -112,10 +112,7 @@ func generateEncoderCodecFile(
 		// record) are substituted by the types plugin and the Go type is concrete.
 		var typeParams []typeParamData
 		if form.IsGeneric() {
-			for _, tp := range form.TypeParams {
-				if tp.HasDefault() {
-					continue
-				}
+			for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 				typeParams = append(typeParams, typeParamData{
 					Name:       tp.Name,
 					Constraint: typeParamConstraint(tp),
@@ -189,12 +186,12 @@ func typeParamConstraint(tp resolution.TypeParam) string {
 
 // reservedNames contains single-letter variable names used in generated method
 // bodies (parameters, loop vars, temporaries) that would conflict with a receiver.
-var reservedNames = map[string]bool{
-	"w": true, "r": true, // method parameters
-	"n": true, "b": true, "v": true, "m": true, // temporaries
-	"i": true, "j": true, "k": true, "l": true, // loop indices
-	"err": true, "ok": true, // error/bool variables in method bodies
-}
+var reservedNames = set.New(
+	"w", "r", // method parameters
+	"n", "b", "v", "m", // temporaries
+	"i", "j", "k", "l", // loop indices
+	"err", "ok", // error/bool variables in method bodies
+)
 
 // ReceiverName derives a Go-idiomatic short receiver name from a type name.
 // It takes the lowercase initials of each word in the PascalCase name
@@ -208,7 +205,7 @@ func ReceiverName(goName string) string {
 		}
 	}
 	name := string(initials)
-	if reservedNames[name] {
+	if reservedNames.Contains(name) {
 		return name + "v"
 	}
 	return name
@@ -273,7 +270,7 @@ func (b *encoderBuilder) processFields(
 			continue
 		}
 		marshalDirective := domain.GetStringFromField(f, "go", "marshal")
-		if marshalDirective == "skip" {
+		if marshalDirective == "omit" {
 			continue
 		}
 		goName := naming.GetFieldName(f)

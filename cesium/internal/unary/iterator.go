@@ -54,13 +54,14 @@ func IterRange(tr telem.TimeRange) IteratorConfig {
 	return IteratorConfig{Bounds: domain.IterRange(tr).Bounds, AutoChunkSize: 0}
 }
 
-var errIteratorClosed = resource.NewClosedError("unary.iterator")
+var ErrIteratorClosed = resource.NewClosedError("unary.iterator")
 
 type Iterator struct {
 	alamos.Instrumentation
 	err      error
 	internal *domain.Iterator
 	idx      *index.Domain
+	resolver *offsetResolver
 	Channel  channel.Channel
 	frame    channel.Frame
 	IteratorConfig
@@ -82,6 +83,7 @@ func (db *DB) OpenIterator(cfgs ...IteratorConfig) (*Iterator, error) {
 	i := &Iterator{
 		idx:            db.index(),
 		Channel:        db.cfg.Channel,
+		resolver:       db.resolver,
 		internal:       iter,
 		IteratorConfig: cfg,
 	}
@@ -107,7 +109,7 @@ func (i *Iterator) View() telem.TimeRange { return i.view }
 
 func (i *Iterator) SeekFirst(ctx context.Context) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekFirst(ctx)
@@ -118,7 +120,7 @@ func (i *Iterator) SeekFirst(ctx context.Context) bool {
 // SeekLast moves the iterator to the end of the last domain in its bounds.
 func (i *Iterator) SeekLast(ctx context.Context) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ok := i.internal.SeekLast(ctx)
@@ -128,7 +130,7 @@ func (i *Iterator) SeekLast(ctx context.Context) bool {
 
 func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 
@@ -147,7 +149,7 @@ func (i *Iterator) SeekLE(ctx context.Context, ts telem.TimeStamp) bool {
 
 func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 
@@ -170,7 +172,7 @@ func (i *Iterator) SeekGE(ctx context.Context, ts telem.TimeStamp) bool {
 // entire view is contained in the iterator's frame.
 func (i *Iterator) Next(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Next")
@@ -236,17 +238,21 @@ func (i *Iterator) autoNext(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
+		startSample := startApprox.Upper
 		if !startApprox.Exact() && !startApprox.StartExact {
-			// If we are starting from a cutoff dmn, use the lower offset.
-			startOffset = i.Channel.DataType.Density().Size(startApprox.Lower)
+			startSample = startApprox.Lower
 		}
-		series, err := i.read(
-			ctx,
-			dmn,
-			startOffset,
-			i.Channel.DataType.Density().Size(nRemaining),
-		)
+		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		endOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample+nRemaining)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		series, err := i.read(ctx, dmn, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
@@ -291,20 +297,25 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 			i.err = err
 			return false
 		}
-		endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
+		endSample := endApprox.Upper
 		if !startApprox.Exact() && !endApprox.StartExact {
-			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
+			endSample = endApprox.Lower
 		}
-		bytesToRead := i.Channel.DataType.Density().Size(nRemaining)
-		if (endOffset - bytesToRead) < 0 {
-			bytesToRead = endOffset
+		endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
+		if err != nil {
+			i.err = err
+			return false
 		}
-		series, err := i.read(
-			ctx,
-			0,
-			endOffset-bytesToRead,
-			bytesToRead,
-		)
+		startSample := endSample - nRemaining
+		if startSample < 0 {
+			startSample = 0
+		}
+		startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
+		if err != nil {
+			i.err = err
+			return false
+		}
+		series, err := i.read(ctx, 0, startOffset, endOffset-startOffset)
 		if err != nil && !errors.Is(err, io.EOF) {
 			i.err = err
 			return false
@@ -324,7 +335,7 @@ func (i *Iterator) autoPrev(ctx context.Context) bool {
 // until the entire view is contained in the iterator's frame.
 func (i *Iterator) Prev(ctx context.Context, span telem.TimeSpan) (ok bool) {
 	if i.closed {
-		i.err = errIteratorClosed
+		i.err = ErrIteratorClosed
 		return false
 	}
 	ctx, spn := i.T.Bench(ctx, "Prev")
@@ -434,11 +445,9 @@ func (i *Iterator) read(
 	if err != nil {
 		return series, err
 	}
+	defer func() { err = errors.Combine(err, r.Close()) }()
 	n, err := r.ReadAt(series.Data, int64(offset))
 	if err != nil && !errors.Is(err, io.EOF) {
-		return series, err
-	}
-	if err = r.Close(); err != nil {
 		return series, err
 	}
 	if n < len(series.Data) {
@@ -455,41 +464,39 @@ func (i *Iterator) sliceDomain(ctx context.Context) (
 ) {
 	startApprox, align, err := i.approximateStart(ctx)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
-	startOffset := i.Channel.DataType.Density().Size(startApprox.Upper)
-	// Split into cases to determine which offsets to use. See unary/delete.go's
-	// calculateStartOffset function for more detail.
-	if !startApprox.Exact() && !startApprox.StartExact {
-		if startApprox.EndExact {
-			// If the start of the domain is inexact due to cutoff, but the end
-			// approximation is exact, we want to use the lower approximation.
-			startOffset = i.Channel.DataType.Density().Size(startApprox.Lower)
-		} else {
-			off := (startApprox.Lower + startApprox.Upper) / 2
-			startOffset = i.Channel.DataType.Density().Size(off)
-		}
+	startSample := pickSampleOffset(startApprox)
+	startOffset, err := i.resolver.byteOffset(ctx, i.internal, startSample)
+	if err != nil {
+		return 0, 0, 0, err
 	}
 	endApprox, err := i.approximateEnd(ctx)
 	if err != nil {
-		return 0, align, 0, err
+		return 0, 0, 0, err
 	}
-	endOffset := i.Channel.DataType.Density().Size(endApprox.Upper)
-	// Split into cases to determine which offsets to use. See unary/delete.go's
-	// calculateEndOffset function for more detail.
-	if !endApprox.Exact() && !endApprox.StartExact {
-		if endApprox.EndExact {
-			// If the start of the domain is inexact due to cutoff, but the end
-			// approximation is exact, we want to use the lower approximation.
-			endOffset = i.Channel.DataType.Density().Size(endApprox.Lower)
-		} else {
-			off := (endApprox.Lower + endApprox.Upper) / 2
-			endOffset = i.Channel.DataType.Density().Size(off)
-		}
+	endSample := pickSampleOffset(endApprox)
+	endOffset, err := i.resolver.byteOffset(ctx, i.internal, endSample)
+	if err != nil {
+		return 0, 0, 0, err
 	}
+	return startOffset, align, endOffset - startOffset, nil
+}
 
-	size := endOffset - startOffset
-	return startOffset, align, size, nil
+// pickSampleOffset selects the appropriate sample index from an approximation
+// based on which bounds are exact. Matches the case analysis used by both the
+// iterator and the delete code path.
+//
+// See unary/delete.go's calculateStartOffset / calculateEndOffset for the full
+// case tree.
+func pickSampleOffset(approx index.DistanceApproximation) int64 {
+	if approx.Exact() || approx.StartExact {
+		return approx.Upper
+	}
+	if approx.EndExact {
+		return approx.Lower
+	}
+	return (approx.Lower + approx.Upper) / 2
 }
 
 // approximateStart approximates the number of samples between the start of the current
@@ -513,7 +520,11 @@ func (i *Iterator) approximateStart(ctx context.Context) (
 // after the end of the range, the returned value will be the number of samples in the
 // range.
 func (i *Iterator) approximateEnd(ctx context.Context) (endApprox index.DistanceApproximation, err error) {
-	endApprox.Approximation = index.Exactly(i.Channel.DataType.Density().SampleCount(telem.Size(i.internal.Size())))
+	total, err := i.resolver.domainSampleCount(ctx, i.internal)
+	if err != nil {
+		return index.DistanceApproximation{}, err
+	}
+	endApprox.Approximation = index.Exactly(total)
 	if i.internal.TimeRange().End.After(i.view.End) {
 		target := i.internal.TimeRange().Start.Range(i.view.End)
 		endApprox, _, err = i.idx.Distance(ctx, target, index.MustBeContinuous)

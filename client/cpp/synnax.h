@@ -15,6 +15,7 @@
 
 #include "client/cpp/arc/arc.h"
 #include "client/cpp/channel/channel.h"
+#include "client/cpp/connection/checker.h"
 #include "client/cpp/device/device.h"
 #include "client/cpp/framer/framer.h"
 #include "client/cpp/rack/rack.h"
@@ -25,6 +26,8 @@
 #include "x/cpp/json/json.h"
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
+
+#include "core/pkg/version/version.h"
 
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
@@ -138,6 +141,8 @@ public:
     /// @brief Client for creating and retrieving channels in a cluster.
     channel::Client channels;
     std::shared_ptr<auth::Middleware> auth;
+    /// @brief Connectivity checker that polls the cluster for health and clock skew.
+    std::shared_ptr<connection::Checker> connectivity;
     /// @brief Client for creating, retrieving, and performing operations on ranges
     /// in a cluster.
     ranger::Client ranges;
@@ -167,12 +172,20 @@ public:
             auto mw = std::make_shared<auth::Middleware>(
                 std::move(this->t.auth_login),
                 cfg.username,
-                cfg.password,
-                cfg.clock_skew_threshold
+                cfg.password
             );
             this->t.use(mw);
             return mw;
         }()),
+        connectivity(
+            std::make_shared<connection::Checker>(
+                std::move(this->t.connectivity_check),
+                30 * x::telem::SECOND,
+                SYNNAX_VERSION,
+                cfg.host,
+                cfg.clock_skew_threshold
+            )
+        ),
         ranges(
             std::move(this->t.range_retrieve),
             std::move(this->t.range_create),
@@ -207,6 +220,13 @@ public:
             std::move(this->t.view_delete)
         ) {
         details::check_little_endian();
+    }
+
+    Synnax(Synnax &&) = default;
+    Synnax &operator=(Synnax &&) = default;
+
+    ~Synnax() {
+        if (this->connectivity) this->connectivity->stop();
     }
 };
 }

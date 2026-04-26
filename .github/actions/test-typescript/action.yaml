@@ -34,7 +34,7 @@ runs:
   using: composite
   steps:
     - name: Set up pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v5
 
     - name: Set up Node.js
       uses: actions/setup-node@v6
@@ -73,7 +73,7 @@ runs:
 
     - name: Upload coverage
       if: inputs.test == 'true'
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v6
       with:
         fail_ci_if_error: true
         flags: ${{ inputs.coverage_flag }}

@@ -103,3 +103,22 @@ describe("trimPrefix", () => {
   it("should handle numbers in prefix", () =>
     expect(strings.trimPrefix("123abc", "123")).toBe("abc"));
 });
+
+describe("escapeHTML", () => {
+  it("should escape ampersands", () =>
+    expect(strings.escapeHTML("a&b")).toBe("a&amp;b"));
+
+  it("should escape angle brackets", () =>
+    expect(strings.escapeHTML("<div>")).toBe("&lt;div&gt;"));
+
+  it("should escape quotes", () =>
+    expect(strings.escapeHTML(`"it's"`)).toBe("&quot;it&#39;s&quot;"));
+
+  it("should return the original string when no special characters", () =>
+    expect(strings.escapeHTML("hello")).toBe("hello"));
+
+  it("should escape all special characters together", () =>
+    expect(strings.escapeHTML(`<a href="x">&`)).toBe(
+      "&lt;a href=&quot;x&quot;&gt;&amp;",
+    ));
+});

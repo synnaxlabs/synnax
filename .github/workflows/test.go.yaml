@@ -18,6 +18,13 @@ on:
         description: The codecov flag for this module
         required: true
         type: string
+      prepare_assets:
+        description:
+          Whether to create placeholder assets (driver binaries) before lint and test.
+          Required for modules compiled with -tags driver.
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   test:
@@ -53,6 +60,11 @@ jobs:
         if: matrix.fmt
         run: scripts/check_gofmt.sh ${{ inputs.directory }}
 
+      - name: Prepare asset placeholders
+        if: inputs.prepare_assets
+        run: core/scripts/setup_assets.sh
+        shell: bash
+
       - name: Lint
         uses: golangci/golangci-lint-action@v9
         with:
@@ -66,7 +78,7 @@ jobs:
         working-directory: ${{ inputs.directory }}
 
       - name: Upload coverage
-        uses: codecov/codecov-action@v5
+        uses: codecov/codecov-action@v6
         with:
           fail_ci_if_error: true
           token: ${{ secrets.CODECOV_TOKEN }}

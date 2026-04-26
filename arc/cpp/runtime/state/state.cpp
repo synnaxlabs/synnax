@@ -166,13 +166,10 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
 
     std::vector<ir::Handle> output_handles;
     std::vector<size_t> output_idx;
-    std::unordered_map<std::string, size_t> output_name_idx;
-    for (size_t i = 0; i < ir_node.outputs.size(); i++) {
-        const auto &output_param = ir_node.outputs[i];
+    for (const auto &output_param: ir_node.outputs) {
         ir::Handle handle(key, output_param.name);
         output_handles.push_back(handle);
         output_idx.push_back(this->value_index[handle]);
-        output_name_idx[output_param.name] = i;
     }
 
     return {
@@ -182,7 +179,6 @@ std::pair<Node, x::errors::Error> State::node(const std::string &key) {
             std::move(output_handles),
             std::move(input_source_idx),
             std::move(output_idx),
-            std::move(output_name_idx),
             std::move(accumulated),
             std::move(aligned_data),
             std::move(aligned_time)
@@ -286,11 +282,10 @@ Series &Node::output_time(const size_t param_index) const {
     return this->state.values[this->output_idx[param_index]].time;
 }
 
-bool Node::is_output_truthy(const std::string &param_name) const {
-    const auto it = this->output_name_idx.find(param_name);
-    if (it == this->output_name_idx.end()) return false;
-    const auto *s = this->state.values[this->output_idx[it->second]].data.get();
-    return s != nullptr && this->is_series_truthy(*s);
+bool Node::is_output_truthy(size_t output_idx) const {
+    if (output_idx >= this->output_idx.size()) return false;
+    const auto *s = this->state.values[this->output_idx[output_idx]].data.get();
+    return s != nullptr && Node::is_series_truthy(*s);
 }
 
 void Node::set_current_node_key(const std::string &key) {
