@@ -17,9 +17,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/cesium/internal/domain"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
+	"go.uber.org/zap"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -78,9 +80,14 @@ func (c *offsetCache) invalidateAll() {
 	clear(c.tables)
 }
 
-func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeStamp) (*offsetTable, error) {
+func buildOffsetTable(
+	ins alamos.Instrumentation,
+	r *domain.Reader,
+	domainSize telem.Size,
+	tr telem.TimeRange,
+) (*offsetTable, error) {
 	var (
-		t       = &offsetTable{end: end}
+		t       = &offsetTable{end: tr.End}
 		bufSize = min(scanBufferSize, domainSize)
 		br      = bufio.NewReaderSize(
 			io.NewSectionReader(r, 0, int64(domainSize)),
@@ -90,8 +97,17 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeSta
 		pos    int64
 	)
 	for pos+4 <= int64(domainSize) {
+		// The loop guard guarantees the SectionReader still has 4 bytes of
+		// advertised range left, so a short read here means the on-disk file is
+		// shorter than the domain pointer's recorded size — i.e. truncation or
+		// corruption. Surface it as a warning, then return the recoverable
+		// prefix so reads of the intact head still serve correct offsets;
+		// queries past the truncation point fall through to iter.Size() and a
+		// short sampleCount, which is preferable to failing the whole table
+		// rebuild and breaking every read on this domain.
 		if _, err := io.ReadFull(br, lenBuf); err != nil {
 			if errors.IsAny(err, io.EOF, io.ErrUnexpectedEOF) {
+				logTruncation(ins, tr, domainSize, pos, err)
 				break
 			}
 			return nil, err
@@ -99,8 +115,13 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeSta
 		t.offsets = append(t.offsets, uint32(pos))
 		length := int64(telem.ByteOrder.Uint32(lenBuf))
 		if length > 0 {
+			// Discard signals "fewer bytes than requested" with io.EOF (not
+			// ErrUnexpectedEOF, per bufio's contract), so the EOF-only check
+			// here mirrors the ReadFull branch above for the same truncation
+			// scenario.
 			if _, err := br.Discard(int(length)); err != nil {
 				if errors.Is(err, io.EOF) {
+					logTruncation(ins, tr, domainSize, pos, err)
 					break
 				}
 				return nil, err
@@ -112,11 +133,34 @@ func buildOffsetTable(r *domain.Reader, domainSize telem.Size, end telem.TimeSta
 	return t, nil
 }
 
+// logTruncation records a warning when the on-disk file underlying a domain
+// pointer is shorter than the pointer's recorded size, surfacing a class of
+// corruption that buildOffsetTable would otherwise silently absorb by serving
+// a partial offset table.
+func logTruncation(
+	ins alamos.Instrumentation,
+	tr telem.TimeRange,
+	domainSize telem.Size,
+	pos int64,
+	cause error,
+) {
+	ins.L.Error(
+		"variable-density domain truncated below recorded size",
+		zap.Stringer("range", tr),
+		zap.Int64("recorded_size", int64(domainSize)),
+		zap.Int64("recovered_bytes", pos),
+		zap.Error(cause),
+	)
+}
+
 // offsetResolver translates sample indices to byte offsets within domain files.
 // Fixed-density channels have a zero cache and rely on density arithmetic;
 // variable-length channels carry a per-domain offset cache that is built on
 // first access by scanning the length-prefixed records.
 type offsetResolver struct {
+	// ins is the resolver's instrumentation handle. Used by tableFor's scan
+	// path to surface on-disk truncation warnings; otherwise unused.
+	ins     alamos.Instrumentation
 	density telem.Density
 	cache   *offsetCache // nil for fixed-density channels
 	// rebuilds collapses concurrent rebuilds of the same domain into a single
@@ -126,11 +170,11 @@ type offsetResolver struct {
 	rebuilds singleflight.Group
 }
 
-func newOffsetResolver(dt telem.DataType) *offsetResolver {
+func newOffsetResolver(dt telem.DataType, ins alamos.Instrumentation) *offsetResolver {
 	if dt.IsVariable() {
-		return &offsetResolver{cache: newOffsetCache()}
+		return &offsetResolver{ins: ins, cache: newOffsetCache()}
 	}
-	return &offsetResolver{density: dt.Density()}
+	return &offsetResolver{ins: ins, density: dt.Density()}
 }
 
 // byteOffset returns the byte offset of sampleIdx within iter's current domain.
@@ -207,7 +251,7 @@ func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*
 			return nil, err
 		}
 		defer func() { err = errors.Combine(err, rd.Close()) }()
-		t, err := buildOffsetTable(rd, iter.Size(), tr.End)
+		t, err := buildOffsetTable(r.ins, rd, iter.Size(), tr)
 		if err != nil {
 			return nil, err
 		}
