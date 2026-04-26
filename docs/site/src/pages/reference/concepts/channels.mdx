@@ -80,8 +80,9 @@ Data channels are the primary method for storing telemetry samples in Synnax. Da
 channels can store sensor readings, actuator commands, calculated values, or any other
 time-ordered points.
 
-Every sample in a data channel must have the same, fixed size data type. This means that
-data channels cannot store variable length values, such as strings or JSON objects.
+Every sample in a data channel has a single declared data type. Most data channels store
+fixed-width samples, such as floating point numbers or integers. Data channels can also
+store variable-length values such as strings, JSON objects, and raw bytes.
 
 Every data channel must have an associated index channel, which is used to look up
 samples at a particular time. It's common to have multiple data channels associated with
@@ -90,11 +91,12 @@ a single index channel.
 ### Virtual Channels
 
 Virtual channels are only used for real-time data streaming. Their values are not
-persisted to disk. Virtual channels do not have an associated index channel, and have
-the benefit of being able to support variable length data types.
+persisted to disk, and they do not have an associated index channel. Virtual channels
+are useful when a value only needs to be observed by live consumers and does not need to
+be queried by time range later.
 
-It's common to send strings, logs, JSON values, or other complex data types over virtual
-channels.
+If you need to persist strings, logs, JSON values, or arbitrary binary data, use a data
+channel with a `string`, `json`, or `bytes` data type instead.
 
 <Divider.Divider x />
 
@@ -118,32 +120,29 @@ recommended that you keep them unique.
 
 #### Data Type
 
-All channel's must have a consistent data type. Index channels must always have a data
-type of `timestamp`, while data channels can have any of the following types:
+All channels must have a consistent data type. Index channels must always have a data
+type of `timestamp`. Data channels can have any of the following types:
 
-| Data Type   | Description                   | Size    |
-| ----------- | ----------------------------- | ------- |
-| `bool`      | Boolean value                 | 1 byte  |
-| `int8`      | Signed 8-bit integer          | 1 byte  |
-| `int16`     | Signed 16-bit integer         | 2 bytes |
-| `int32`     | Signed 32-bit integer         | 4 bytes |
-| `int64`     | Signed 64-bit integer         | 8 bytes |
-| `uint8`     | Unsigned 8-bit integer        | 1 byte  |
-| `uint16`    | Unsigned 16-bit integer       | 2 bytes |
-| `uint32`    | Unsigned 32-bit integer       | 4 bytes |
-| `uint64`    | Unsigned 64-bit integer       | 8 bytes |
-| `timestamp` | 64-bit nanosecond UTC integer | 8 bytes |
-| `float32`   | 32-bit floating point         | 4 bytes |
-| `float64`   | 64-bit floating point         | 8 bytes |
+| Data Type   | Description                                                                  | Size     |
+| ----------- | ---------------------------------------------------------------------------- | -------- |
+| `bool`      | Boolean value                                                                | 1 byte   |
+| `int8`      | Signed 8-bit integer                                                         | 1 byte   |
+| `int16`     | Signed 16-bit integer                                                        | 2 bytes  |
+| `int32`     | Signed 32-bit integer                                                        | 4 bytes  |
+| `int64`     | Signed 64-bit integer                                                        | 8 bytes  |
+| `uint8`     | Unsigned 8-bit integer                                                       | 1 byte   |
+| `uint16`    | Unsigned 16-bit integer                                                      | 2 bytes  |
+| `uint32`    | Unsigned 32-bit integer                                                      | 4 bytes  |
+| `uint64`    | Unsigned 64-bit integer                                                      | 8 bytes  |
+| `timestamp` | 64-bit nanosecond UTC integer                                                | 8 bytes  |
+| `float32`   | 32-bit floating point                                                        | 4 bytes  |
+| `float64`   | 64-bit floating point                                                        | 8 bytes  |
+| `uuid`      | [Universally Unique IDentifier](https://www.rfc-editor.org/rfc/rfc9562.html) | 16 bytes |
+| `string`    | UTF-8 string                                                                 | variable |
+| `json`      | JSON object                                                                  | variable |
+| `bytes`     | Raw byte sequence                                                            | variable |
 
-In addition to these basic types, virtual channels also support the following variable
-length data types:
-
-| Data Type | Description                                                                   |
-| --------- | ----------------------------------------------------------------------------- |
-| `string`  | UTF-8 string                                                                  |
-| `json`    | JSON object                                                                   |
-| `uuid`    | [Universally Unique IDentifiers](https://www.rfc-editor.org/rfc/rfc9562.html) |
+Virtual channels can use any type in the table above, since they do not store samples.
 
 #### Is Index
 
