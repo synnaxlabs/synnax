@@ -224,10 +224,10 @@ func (r *offsetResolver) invalidate() {
 
 func (r *offsetResolver) tableFor(ctx context.Context, iter *domain.Iterator) (*offsetTable, error) {
 	tr := iter.TimeRange()
-	// A pointer's Start is immutable but its End advances as the writer commits more
-	// samples to the same domain. Gate the cache hit on the cached End matching the
-	// pointer's current End so a cached table from before a later commit cannot
-	// answer queries against the extended range.
+	// A pointer's Start is immutable; its End advances on commit. Match End
+	// exactly: a stale-behind cache (cached.end < tr.End) misses tail samples,
+	// and a stale-ahead cache (cached.end > tr.End, published by a concurrent
+	// commit) inflates sampleCount and yields offsets past iter.Size().
 	if cached, ok := r.cache.get(tr.Start); ok && cached.end == tr.End {
 		return cached, nil
 	}
