@@ -199,13 +199,7 @@ var _ = Describe("Variable-length channel", func() {
 
 					// A cache miss does one 4-byte ReadAt per sample to walk length
 					// prefixes, so the cache-hit path must do zero of them.
-					var lengthPrefixReads int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpReadAt && e.Length == 4 {
-							lengthPrefixReads++
-						}
-					}
-					Expect(lengthPrefixReads).To(BeZero())
+					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4))).To(BeZero())
 				})
 
 				It("Should rebuild a cold cache without per-sample length-prefix reads", func(ctx SpecContext) {
@@ -286,13 +280,7 @@ var _ = Describe("Variable-length channel", func() {
 					// The rebuild walks length prefixes via a buffered scan, so
 					// the recorder should see no 4-byte ReadAts even though the
 					// cache started empty.
-					var lengthPrefixReads int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpReadAt && e.Length == 4 {
-							lengthPrefixReads++
-						}
-					}
-					Expect(lengthPrefixReads).To(BeZero())
+					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4))).To(BeZero())
 				})
 
 				It("Should populate the cache for both domains across a writer file rollover", func(ctx SpecContext) {
@@ -360,13 +348,7 @@ var _ = Describe("Variable-length channel", func() {
 					// Both domains' caches should have been published on commit /
 					// rollover, so the read should not perform any length-prefix
 					// scans on either data file.
-					var lengthPrefixReads int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpReadAt && e.Length == 4 {
-							lengthPrefixReads++
-						}
-					}
-					Expect(lengthPrefixReads).To(BeZero())
+					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4))).To(BeZero())
 				})
 
 				It("Should serve reads from cache after a second commit on the same domain without rebuilding", func(ctx SpecContext) {
@@ -423,13 +405,7 @@ var _ = Describe("Variable-length channel", func() {
 					// The post-commit-2 cache entry should serve the read
 					// directly. A rebuild scan would emit one 4-byte ReadAt
 					// per sample.
-					var lengthPrefixReads int
-					for _, e := range rec.Events() {
-						if e.Op == xfs.OpReadAt && e.Length == 4 {
-							lengthPrefixReads++
-						}
-					}
-					Expect(lengthPrefixReads).To(BeZero())
+					Expect(rec.Count(xfs.MatchOp(xfs.OpReadAt), xfs.MatchLength(4))).To(BeZero())
 				})
 
 				It("Should rebuild the cached offset table after the domain grows", func(ctx SpecContext) {

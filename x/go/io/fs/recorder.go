@@ -9,7 +9,11 @@
 
 package fs
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/samber/lo"
+)
 
 // Op categorizes a recorded filesystem event.
 type Op string
@@ -78,16 +82,40 @@ func NewRecorder(inner FS) *Recorder {
 // occurred.
 func (r *Recorder) Events() []Event { return r.log.events() }
 
-// EventsFor returns a copy of every event recorded for the given file name,
-// in the order they occurred.
-func (r *Recorder) EventsFor(name string) []Event {
-	out := make([]Event, 0)
-	for _, e := range r.log.events() {
-		if e.Name == name {
-			out = append(out, e)
-		}
-	}
-	return out
+// EventFilter reports whether an event should be included in a filtered result.
+// Filters compose by AND when multiple are passed to Filter or Count.
+type EventFilter func(Event) bool
+
+// MatchOp returns an EventFilter that matches events whose Op is any of ops.
+func MatchOp(ops ...Op) EventFilter {
+	return func(e Event) bool { return lo.Contains(ops, e.Op) }
+}
+
+// MatchName returns an EventFilter that matches events whose Name equals name.
+func MatchName(name string) EventFilter {
+	return func(e Event) bool { return e.Name == name }
+}
+
+// MatchLength returns an EventFilter that matches events whose Length equals
+// length.
+func MatchLength(length int) EventFilter {
+	return func(e Event) bool { return e.Length == length }
+}
+
+// Filter returns a copy of every event satisfying every filter, in the order
+// they occurred. With no filters Filter is equivalent to Events.
+func (r *Recorder) Filter(filters ...EventFilter) []Event {
+	return lo.Filter(r.log.events(), func(e Event, _ int) bool {
+		return lo.EveryBy(filters, func(f EventFilter) bool { return f(e) })
+	})
+}
+
+// Count returns the number of events satisfying every filter. With no filters
+// Count returns the total number of recorded events.
+func (r *Recorder) Count(filters ...EventFilter) int {
+	return lo.CountBy(r.log.events(), func(e Event) bool {
+		return lo.EveryBy(filters, func(f EventFilter) bool { return f(e) })
+	})
 }
 
 // Reset clears every event recorded by this Recorder and by every sub-FS
