@@ -34,6 +34,7 @@ class Node : public node::Node {
     std::shared_ptr<stl::str::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
+    x::telem::MonoClock clock;
 
 public:
     Node(
@@ -125,7 +126,7 @@ public:
             if (!this->ir.inputs.empty() && longest_input_time)
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
-                ts = x::telem::TimeStamp::now();
+                ts = this->clock.now();
 
             for (size_t j = 0; j < results.size(); j++) {
                 auto [value, changed] = results[j];

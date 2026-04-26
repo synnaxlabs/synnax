@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { label } from "@/label";
@@ -33,6 +34,18 @@ describe("Label", () => {
       });
       const retrieved = await client.labels.retrieve({ key: v.key });
       expect(retrieved).toEqual(v);
+    });
+    it("should retrieve labels by search term", async () => {
+      const prefix = `searchable-label-${id.create()}`;
+      await client.labels.create([
+        { name: `${prefix}-1`, color: "#E774D0" },
+        { name: `${prefix}-2`, color: "#E774D0" },
+      ]);
+      await expect
+        .poll(async () => (await client.labels.retrieve({ searchTerm: prefix })).length)
+        .toBeGreaterThanOrEqual(2);
+      const results = await client.labels.retrieve({ searchTerm: prefix });
+      expect(results.every((l) => l.name.includes(prefix))).toBe(true);
     });
   });
 

@@ -106,8 +106,8 @@ void write_source(
     source.output_time(0) = x::mem::make_local_shared<x::telem::Series>(timestamps);
 }
 
-/// @brief Helper that returns a NowFn capturing a mutable time reference.
-NowFn make_now(x::telem::TimeStamp &current_time) {
+/// @brief Helper that returns a NowFunc capturing a mutable time reference.
+x::telem::NowFunc make_now(x::telem::TimeStamp &current_time) {
     return [&current_time]() { return current_time; };
 }
 }

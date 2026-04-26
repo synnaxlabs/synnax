@@ -173,6 +173,7 @@ public:
 
 class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
+    x::telem::MonoClock clock;
 
 public:
     /// @brief Returns the GCD of all interval/wait durations seen during node
@@ -217,7 +218,7 @@ public:
             .func_wrap(
                 "time",
                 "now",
-                []() -> int64_t { return x::telem::TimeStamp::now().nanoseconds(); }
+                [this]() -> int64_t { return this->clock.now().nanoseconds(); }
             )
             .unwrap();
     }
