@@ -12,6 +12,7 @@ import { z } from "zod";
 
 import { type RenderProp as BaseRenderProp } from "@/component/renderProp";
 import { type Icon } from "@/icon";
+import { type Text } from "@/text";
 
 export const specZ = z.object({
   tabKey: z.string(),
@@ -36,3 +37,16 @@ export interface Tab extends Spec {
 }
 
 export type RenderProp = BaseRenderProp<Tab>;
+
+/**
+ * Props passed to a tab name renderer. The default renderer shows static text or
+ * a Text.Editable depending on whether {@link onRename} and {@link editable} are
+ * set; consumers may override this via the `Name` prop on Tabs / Mosaic.
+ */
+export interface NameProps {
+  tabKey: string;
+  name: string;
+  level: Text.Level;
+  onRename?: (key: string, name: string) => void;
+  editable?: boolean;
+}

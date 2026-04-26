@@ -41,6 +41,7 @@ export interface MosaicProps
       | "onRename"
       | "onClose"
       | "addTooltip"
+      | "Name"
     >,
     Omit<
       Flex.BoxProps,
@@ -98,6 +99,7 @@ export const Mosaic = memo(
     contextMenu,
     addTooltip,
     className,
+    Name,
     ...rest
   }: MosaicProps): ReactElement | null => {
     const { tabs, direction, first, last, key, size } = root;
@@ -114,6 +116,7 @@ export const Mosaic = memo(
       onReorder,
       activeTab,
       addTooltip,
+      Name,
     };
 
     const handleResize = useCallback(

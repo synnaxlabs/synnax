@@ -647,11 +647,36 @@ export interface OnCloseProps {
   layoutKey: string;
 }
 
+/** The result returned by a layout's {@link NameHook}. */
+export interface NameHookResult {
+  retrieve: () => void;
+  /**
+   * Called when the user renames the layout from the UI (e.g., editing the tab
+   * in the mosaic). When undefined, the renderer falls back to dispatching
+   * {@link rename} against the layout slice.
+   */
+  onRename?: (name: string) => void;
+}
+
+/**
+ * A hook bound to a layout {@link Renderer} that owns the name read/write path
+ * for the layout. The hook is responsible for invoking {@link NameHookProps.onChange}
+ * whenever its source-of-truth name updates and for persisting user-initiated
+ * renames via {@link NameHookResult.onRename}. Display name is always read from
+ * the layout slice; the hook keeps the slice in sync via `onChange`.
+ */
+export type NameHook = (
+  layoutKey: string,
+  onChange: (name: string) => void,
+) => NameHookResult;
+
 /**
  * A React component that renders a layout for a given type. All layouts in state are
- * rendered by a layout renderer of a specific type.
+ * rendered by a layout renderer of a specific type. Renderers may optionally bind a
+ * {@link NameHook} via the `useName` property to take over the name read/write path
+ * for layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps>;
+export type Renderer = ComponentType<RendererProps> & { useName?: NameHook };
 
 export interface ContextMenuProps {
   layoutKey: string;
