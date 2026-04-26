@@ -37,15 +37,14 @@ describe("Label", () => {
     });
     it("should retrieve labels by search term", async () => {
       const prefix = `searchable-label-${id.create()}`;
-      await client.labels.create([
-        { name: `${prefix}-1`, color: "#E774D0" },
-        { name: `${prefix}-2`, color: "#E774D0" },
-      ]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.labels.create(names.map((name) => ({ name, color: "#E774D0" })));
       await expect
-        .poll(async () => (await client.labels.retrieve({ searchTerm: prefix })).length)
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.labels.retrieve({ searchTerm: prefix });
-      expect(results.every((l) => l.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.labels.retrieve({ searchTerm: prefix });
+          return results.map((l) => l.name).sort();
+        })
+        .toEqual(names);
     });
   });
 

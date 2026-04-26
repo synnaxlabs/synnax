@@ -79,12 +79,14 @@ describe("Rack", () => {
     });
     it("should retrieve racks by search term", async () => {
       const prefix = `searchable-rack-${id.create()}`;
-      await client.racks.create([{ name: `${prefix}-1` }, { name: `${prefix}-2` }]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.racks.create(names.map((name) => ({ name })));
       await expect
-        .poll(async () => (await client.racks.retrieve({ searchTerm: prefix })).length)
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.racks.retrieve({ searchTerm: prefix });
-      expect(results.every((r) => r.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.racks.retrieve({ searchTerm: prefix });
+          return results.map((r) => r.name).sort();
+        })
+        .toEqual(names);
     });
   });
   describe("integrations", () => {
