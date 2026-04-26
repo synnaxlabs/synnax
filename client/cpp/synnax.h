@@ -27,6 +27,8 @@
 #include "x/cpp/log/log.h"
 #include "x/cpp/path/path.h"
 
+#include "core/pkg/version/version.h"
+
 namespace synnax {
 ///// @brief Internal namespace. Do not use.
 namespace details {
@@ -179,7 +181,7 @@ public:
             std::make_shared<connection::Checker>(
                 std::move(this->t.connectivity_check),
                 30 * x::telem::SECOND,
-                "",
+                SYNNAX_VERSION,
                 cfg.host,
                 cfg.clock_skew_threshold
             )

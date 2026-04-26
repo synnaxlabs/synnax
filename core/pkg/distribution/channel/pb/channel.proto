@@ -49,7 +49,7 @@ message Channel {
   // local_key is the locally-unique portion of this channel's key.
   uint32 local_key = 5;
   // local_index is the channel used to index this channel's values, associating each
-  // value with a timestamp. If zero, the channel's data will be indexed using its rate.
+  // value with a timestamp.
   uint32 local_index = 6;
   // virtual is true if this channel does not persist data and is used only for streaming.
   bool virtual = 7;

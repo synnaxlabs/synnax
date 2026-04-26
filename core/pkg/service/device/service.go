@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
+	v54 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v54"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
@@ -118,7 +119,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[string, Device]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[string, v54.Device]("msgpack_to_orc", v0Mig.Key()),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[string, string, v54.Device, Device](
+					"v54_drop_status_parent",
+					MigrateDevice,
+				),
+				"msgpack_to_orc",
+			),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {

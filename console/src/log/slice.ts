@@ -16,11 +16,15 @@ export type State = latest.State;
 export type SliceState = latest.SliceState;
 export type ChannelConfig = latest.ChannelConfig;
 export type ChannelEntry = latest.ChannelEntry;
+export type ToolbarTab = latest.ToolbarTab;
+export type ToolbarState = latest.ToolbarState;
 export const ZERO_CHANNEL_CONFIG = latest.ZERO_CHANNEL_CONFIG;
 export const ZERO_CHANNEL_ENTRY = latest.ZERO_CHANNEL_ENTRY;
+export const ZERO_TOOLBAR_STATE = latest.ZERO_TOOLBAR_STATE;
 export const stateZ = latest.stateZ;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const ZERO_STATE = latest.ZERO_STATE;
+export const migrateSlice = latest.migrateSlice;
 
 export const SLICE_NAME = "log";
 
@@ -53,6 +57,11 @@ export interface SetShowChannelNamesPayload {
 export interface SetShowReceiptTimestampPayload {
   key: string;
   showReceiptTimestamp: boolean;
+}
+
+export interface SetActiveToolbarTabPayload {
+  key: string;
+  tab: ToolbarTab;
 }
 
 export interface AddChannelPayload {
@@ -106,6 +115,12 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.logs[payload.key].showReceiptTimestamp = payload.showReceiptTimestamp;
     },
+    setActiveToolbarTab: (
+      state,
+      { payload }: PayloadAction<SetActiveToolbarTabPayload>,
+    ) => {
+      state.logs[payload.key].toolbar.activeTab = payload.tab;
+    },
     addChannel: (state, { payload }: PayloadAction<AddChannelPayload>) => {
       state.logs[payload.key].channels.push({
         ...ZERO_CHANNEL_CONFIG,
@@ -140,6 +155,7 @@ export const {
   setChannelConfig,
   setShowChannelNames,
   setShowReceiptTimestamp,
+  setActiveToolbarTab,
   addChannel,
   removeChannelByIndex,
   setChannelAtIndex,

@@ -230,6 +230,275 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("marshal directive change", func() {
+			It("Should generate a migration when @go marshal omit is added to a field", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string {
+							@go marshal omit
+						}
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/codec.gen.go")
+				Expect(frozen).To(ContainSubstring("w.String(e.Transient)"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
+
+			It("Should generate a migration when @go marshal omit is removed", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string {
+							@go marshal omit
+						}
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct {
+						key Key {@key}
+						name string
+						transient string
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/codec.gen.go")
+				Expect(frozen).NotTo(ContainSubstring("e.Transient"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
+
+			It("Should generate a migration when @go marshal json_only is added to a type-param field", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct<Details? = record> {
+						key Key {@key}
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Entry struct<Details? = record> {
+						key Key {@key}
+						details Details? {
+							@go marshal json_only
+						}
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(fileContent(resp, "migrations/v1/codec.gen.go")).
+					To(ContainSubstring("package v1"))
+				Expect(fileContent(resp, "migrate_auto.gen.go")).
+					To(ContainSubstring("AutoMigrateEntry"))
+			})
+		})
+
+		Context("generic types", func() {
+			It("Should emit type-param decoration on AutoMigrate for a generic struct entry", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).To(ContainSubstring("old outv1.Entry[Details]"))
+				Expect(autoCopy).To(ContainSubstring(") (Entry[Details], error)"))
+				Expect(autoCopy).To(ContainSubstring("return Entry[Details]{"))
+			})
+
+			It("Should emit type-param decoration on the Migrate developer template", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				transform := fileContent(resp, "out/migrate.go")
+				Expect(transform).To(ContainSubstring("func MigrateEntry[Details any]"))
+				Expect(transform).To(ContainSubstring("old v1.Entry[Details]"))
+				Expect(transform).To(ContainSubstring(") (Entry[Details], error)"))
+				Expect(transform).To(ContainSubstring("AutoMigrateEntry[Details](ctx, old)"))
+			})
+
+			It("Should omit defaulted type params from the function signature", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						description string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("func AutoMigrateEntry[Details any]"))
+				Expect(autoCopy).NotTo(ContainSubstring("[Details any, M"))
+				Expect(autoCopy).NotTo(ContainSubstring("[Details, M]"))
+			})
+
+			It("Should substitute defaulted type params in field conversions", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Mode enum {a = "a"  b = "b"}
+					Entry struct<Details?, M extends Mode = Mode> {
+						key Key {@key}
+						name string
+						mode M
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				autoCopy := fileContent(resp, "migrate_auto.gen.go")
+				Expect(autoCopy).To(ContainSubstring("Mode: Mode(old.Mode)"))
+				Expect(autoCopy).NotTo(ContainSubstring("Mode: old.Mode"))
+			})
+
+			It("Should emit generic-decorated GorpKey on the frozen entry struct", func() {
+				oldSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = string
+					Entry struct<Details?> {
+						key Key {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/types.gen.go")
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) GorpKey() Key { return e.Key }"))
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) SetOptions() []any { return nil }"))
+			})
+
+			It("Should emit primitive return type in GorpKey when key field is a raw primitive", func() {
+				oldSchema := `
+					@go output "out"
+					Entry struct<Details?> {
+						key string {@key}
+						name string
+						details Details?
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Entry struct<Details?> {
+						key string {@key}
+						name string
+						description string
+						details Details?
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				frozen := fileContent(resp, "migrations/v1/types.gen.go")
+				Expect(frozen).To(ContainSubstring("func (e Entry[Details]) GorpKey() string { return e.Key }"))
+				Expect(frozen).NotTo(ContainSubstring("GorpKey() Key"))
+			})
+		})
+
 		Context("optional fields", func() {
 			It("Should generate nil-check preamble for hard optional", func() {
 				oldSchema := `

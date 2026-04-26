@@ -155,6 +155,9 @@ type Writer struct {
 	control *control.Gate[*controlledWriter]
 	// idx stores the index of the unaryDB (rate or domain).
 	idx *index.Domain
+	// tracker holds per-writer offset state (sample count and, for variable-length
+	// channels, the incremental offset table built as bytes are appended).
+	tracker *offsetTracker
 	// wrapError is a function that wraps any error originating from this writer to
 	// provide context including the writer's channel key and name.
 	wrapError func(error) error
@@ -187,6 +190,7 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		cfg:       cfg,
 		Channel:   db.cfg.Channel,
 		idx:       db.index(),
+		tracker:   db.resolver.newTracker(),
 		wrapError: db.wrapError,
 	}
 	if w.control, transfer, err = db.controller.OpenGate(control.GateConfig[*controlledWriter]{
@@ -239,10 +243,6 @@ func Write(
 	return err
 }
 
-func (w *Writer) len(dw *domain.Writer) int64 {
-	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
-}
-
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
@@ -259,8 +259,10 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.len(dw.Writer)))
+		baseOffset := uint32(dw.Len())
+		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.tracker.count(dw.Writer)))
 		dw.storeAlignment(a)
+		w.tracker.record(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
@@ -317,12 +319,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		// We're using w.len - 1 here because we want the timestamp of the last written
-		// frame.
+		// Subtract 1 because we want the timestamp of the last written sample.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,
-			w.len(dw.Writer)-1,
+			w.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
 		if err != nil {

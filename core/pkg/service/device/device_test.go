@@ -17,8 +17,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
+	devicev0 "github.com/synnaxlabs/synnax/pkg/service/device/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
+	rackv0 "github.com/synnaxlabs/synnax/pkg/service/rack/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -760,13 +762,13 @@ var _ = Describe("Device", func() {
 				Search:       searchIdx,
 			}))
 
-			d := device.Device{
+			d := devicev0.Device{
 				Key:      "migration-device",
-				Rack:     rackSvc.EmbeddedKey,
+				Rack:     rackv0.Key(rackSvc.EmbeddedKey),
 				Location: "loc",
 				Name:     "Migration Test Device",
 			}
-			Expect(gorp.NewCreate[string, device.Device]().
+			Expect(gorp.NewCreate[string, devicev0.Device]().
 				Entry(&d).
 				Exec(ctx, db)).To(Succeed())
 

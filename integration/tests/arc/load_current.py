@@ -13,7 +13,7 @@ import synnax as sy
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LOAD_CURRENT_SOURCE = """
-func count{c_chan chan u8}() {
+func count{c_chan chan u8} () {
     n u8 $= 0
     n = n + 1
     c_chan = n
@@ -23,12 +23,12 @@ start_load_current_cmd => main
 
 sequence main {
     stage first {
-        1 -> flag,
-        load_current > 50 => count{c_chan = lc_tick_count},
-        load_current > 50 => wait{2s} => next,
+        1 -> flag
+        load_current > 50 => count{c_chan=lc_tick_count}
+        load_current > 50 => wait{2s} => next
     }
     stage last {
-        0 -> flag,
+        0 -> flag
     }
 }
 """

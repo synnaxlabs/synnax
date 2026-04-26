@@ -210,6 +210,22 @@ func (tp TypeParam) HasDefault() bool {
 	return tp.Default != nil
 }
 
+// NonDefaultedTypeParams returns the subset of type params that do NOT have a
+// default value, preserving input order. Languages that can't express literal
+// narrowing or advanced generics (Go, Python, C++, Proto) substitute defaulted
+// params with their default value at codegen time and therefore must exclude
+// them from emitted signatures and instantiations.
+func NonDefaultedTypeParams(tps []TypeParam) []TypeParam {
+	out := make([]TypeParam, 0, len(tps))
+	for _, tp := range tps {
+		if tp.HasDefault() {
+			continue
+		}
+		out = append(out, tp)
+	}
+	return out
+}
+
 func UnifiedFields(typ Type, table *Table) []Field {
 	form, ok := typ.Form.(StructForm)
 	if !ok {

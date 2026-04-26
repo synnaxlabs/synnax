@@ -26,11 +26,11 @@ that persist:
 
 ```arc
 func example() {
-    local := 0      // resets to 0 every execution
-    state $= 0      // persists across executions
+    local := 0 // resets to 0 every execution
+    state $= 0 // persists across executions
 
-    local = local + 1   // always becomes 1
-    state = state + 1   // increments: 1, 2, 3, ...
+    local = local + 1 // always becomes 1
+    state = state + 1 // increments: 1, 2, 3, ...
 }
 ```
 
@@ -126,9 +126,7 @@ condition is met:
 func apply_calibration(raw f64) f64 {
     offsets := [0.1, -0.05, 0.03]
     correction f64 := 0.0
-    for x := offsets {
-        correction = correction + x
-    }
+    for x := offsets{correction=correction + x}
     return raw + correction
 }
 ```
@@ -168,7 +166,7 @@ sequence main {
 
     stage alert {
         // handle alert...
-        acknowledged => monitoring  // re-entering resets count
+        acknowledged => monitoring // re-entering resets count
     }
 }
 ```
@@ -186,11 +184,10 @@ You can also specify the type explicitly:
 ```arc
 func example() {
     // Type inferred from initial value
-    count $= 0           // i64 (integer literal default)
-    total $= 0.0         // f64 (float literal default)
-
+    count $= 0 // i64 (integer literal default)
+    total $= 0.0 // f64 (float literal default)
     // Explicit type annotation
-    precise f32 $= 0.0   // f32 instead of f64
+    precise f32 $= 0.0 // f32 instead of f64
 }
 ```
 

@@ -23,14 +23,6 @@ func (rv Rack) EncodeOrc(w *orc.Writer) error {
 	w.String(rv.Name)
 	w.Uint32(uint32(rv.TaskCounter))
 	w.Bool(rv.Embedded)
-	if rv.Status != nil {
-		w.Bool(true)
-		if err := (*rv.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
 	if rv.Integrations != nil {
 		w.Bool(true)
 		w.Uint32(uint32(len(rv.Integrations)))
@@ -60,19 +52,6 @@ func (rv *Rack) DecodeOrc(r *orc.Reader) error {
 	}
 	if rv.Embedded, err = r.Bool(); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			rv.Status = &v
-		}
 	}
 	{
 		present, err := r.Bool()

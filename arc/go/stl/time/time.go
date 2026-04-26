@@ -201,7 +201,7 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + i.period)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
@@ -249,7 +249,7 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (w *Wait) Reset() {

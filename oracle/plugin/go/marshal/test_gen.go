@@ -158,7 +158,7 @@ func generateTestCodecFile(
 					if f.Type.Name == "nil" {
 						continue
 					}
-					if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+					if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 						continue
 					}
 					r, ok := f.Type.Resolve(table)
@@ -327,7 +327,7 @@ func (b *testValueBuilder) buildFieldExprs(fields []resolution.Field) ([]string,
 		if f.Type.Name == "nil" {
 			continue
 		}
-		if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+		if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 			continue
 		}
 		resolved, ok := f.Type.Resolve(b.table)
@@ -470,7 +470,7 @@ func (b *testValueBuilder) valueExpr(
 				if f.Type.Name == "nil" {
 					continue
 				}
-				if domain.GetStringFromField(f, "go", "marshal") == "skip" {
+				if domain.GetStringFromField(f, "go", "marshal") == "omit" {
 					continue
 				}
 				r, ok := f.Type.Resolve(b.table)
@@ -767,7 +767,7 @@ const testCodecTemplate = `// Copyright 2026 Synnax Labs, Inc.
 package {{.Package}}_test
 
 import (
-	"bytes"
+	"reflect"
 	"testing"
 {{- if .NeedsUUID}}
 	"github.com/google/uuid"
@@ -873,8 +873,11 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }
@@ -928,8 +931,11 @@ func FuzzDecode{{.GoName}}(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }

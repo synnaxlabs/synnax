@@ -36,12 +36,12 @@ import {
   TextBoxForm,
   ValueForm,
 } from "@/schematic/symbol/Forms";
+import * as Primitives from "@/schematic/symbol/Primitives";
 import {
   type CylinderProps,
   DEFAULT_BORDER_RADIUS,
   DEFAULT_POLYGON_SIDE_LENGTH,
 } from "@/schematic/symbol/Primitives";
-import * as Primitives from "@/schematic/symbol/Primitives";
 import {
   Agitator,
   type AgitatorProps,

@@ -7,374 +7,280 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package stratifier computes per-scope execution strata for an Arc IR. For
+// every parallel scope in the program's Scope tree, the stratifier rewrites
+// the scope's Strata so that stratum N's members depend only on strata 0..N-1
+// under the scope's intra-scope dataflow edges. Sequential scopes carry no
+// strata; the stratifier only recurses into their nested scope members.
 package stratifier
 
 import (
 	"context"
-	"slices"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
 
-// stageEntryKey computes the entry node key for a stage using the established
-// naming convention. This must match the key generation in text.KeyGenerator.Entry.
-func stageEntryKey(seqName, stageName string) string {
-	return "entry_" + seqName + "_" + stageName
-}
-
-// Stratify computes execution strata for nodes in a dataflow graph using a two-tier
-// stratification model:
-//
-//  1. Global strata: Nodes outside any sequence stage (including entry nodes receiving
-//     initial activation signals)
-//  2. Per-stage strata: Each stage is stratified independently, with stage-local sources
-//     (constants, channel reads) at stratum 0
-//
-// This design eliminates implicit dependencies from entry nodes to stage-internal nodes,
-// allowing:
-//   - Stage-local source nodes to execute every cycle (stratum 0 within their stage)
-//   - Cyclic stage transitions (valid state machines) without false cycle detection
-//
-// The returned Strata contains global stratification. Per-stage strata are populated
-// directly into the sequences parameter (which is modified in place).
-//
-// Returns global strata and diagnostics. If a cycle is detected within any subgraph,
-// an error is added to diagnostics and empty strata is returned.
+// Stratify walks the Scope tree rooted at prog.Root and assigns strata to
+// every parallel scope in depth-first order. Any pre-existing strata layout
+// on a parallel scope is discarded in favor of the freshly-computed one.
+// The program is modified in place. Diagnostics are appended to diag; the
+// returned value is diag for convenient chaining.
 func Stratify(
-	ctx context.Context,
-	nodes []ir.Node,
-	edges []ir.Edge,
-	sequences []ir.Sequence,
+	_ context.Context,
+	prog *ir.IR,
 	diag *diagnostics.Diagnostics,
-) (ir.Strata, *diagnostics.Diagnostics) {
-	if len(nodes) == 0 {
-		return ir.Strata{}, nil
+) *diagnostics.Diagnostics {
+	if prog == nil || prog.Root.IsZero() {
+		return diag
 	}
-
-	// Build lookup structures
-	nodeByKey := make(map[string]ir.Node)
-	for _, node := range nodes {
-		nodeByKey[node.Key] = node
-	}
-
-	// Build set of all staged node keys and entry node keys
-	stagedNodes := make(set.Set[string])
-	entryNodes := make(set.Set[string])
-	for _, seq := range sequences {
-		for _, stage := range seq.Stages {
-			for _, nodeKey := range stage.Nodes {
-				stagedNodes.Add(nodeKey)
-			}
-			entryNodes.Add(stageEntryKey(seq.Key, stage.Key))
-		}
-	}
-
-	// Step 1: Stratify global nodes (nodes not in any stage)
-	// Entry nodes are only included in global strata if they receive activation from
-	// global sources (e.g., start_cmd => main). Entry nodes with no global incoming
-	// edges are excluded to prevent them from being placed at stratum 0 and firing
-	// every cycle.
-
-	// First, collect all non-staged nodes
-	var globalNodes []ir.Node
-	globalNodeSet := make(set.Set[string])
-	for _, node := range nodes {
-		if !stagedNodes.Contains(node.Key) {
-			globalNodes = append(globalNodes, node)
-			globalNodeSet.Add(node.Key)
-		}
-	}
-
-	// Build set of entry nodes that have incoming edges from global sources
-	entryNodesWithGlobalInput := make(set.Set[string])
-	for _, edge := range edges {
-		if globalNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
-			entryNodesWithGlobalInput.Add(edge.Target.Node)
-		}
-	}
-
-	// Filter global nodes: exclude entry nodes that don't have global incoming edges
-	var filteredGlobalNodes []ir.Node
-	filteredGlobalNodeSet := make(set.Set[string])
-	for _, node := range globalNodes {
-		if entryNodes.Contains(node.Key) && !entryNodesWithGlobalInput.Contains(node.Key) {
-			// Entry node with no global incoming edges - exclude from global strata
-			continue
-		}
-		filteredGlobalNodes = append(filteredGlobalNodes, node)
-		filteredGlobalNodeSet.Add(node.Key)
-	}
-
-	// Filter edges for global subgraph: edges where source is a global node
-	// (target can be global node or entry node of a stage)
-	var globalEdges []ir.Edge
-	for _, edge := range edges {
-		if filteredGlobalNodeSet.Contains(edge.Source.Node) {
-			// Source is global - include this edge
-			// Target can be global or an entry node
-			globalEdges = append(globalEdges, edge)
-		}
-	}
-
-	globalStrata, cycleDiag := stratifySubgraph(filteredGlobalNodes, globalEdges, diag)
-	if cycleDiag != nil && !cycleDiag.Ok() {
-		return ir.Strata{}, cycleDiag
-	}
-
-	// Step 2: Stratify each stage independently
-	// Entry nodes that receive edges from a stage are included in that stage's
-	// stratification so they fire after their source nodes within the stage.
-	for i, seq := range sequences {
-		for j, stage := range seq.Stages {
-			stageNodeSet := make(set.Set[string])
-			for _, nodeKey := range stage.Nodes {
-				stageNodeSet.Add(nodeKey)
-			}
-
-			orderedStageKeys := append([]string(nil), stage.Nodes...)
-			orderedStageSet := make(set.Set[string])
-			for _, key := range orderedStageKeys {
-				orderedStageSet.Add(key)
-			}
-			entryInsertAnchor := make(map[string]string)
-
-			// Find entry nodes that receive edges from this stage
-			// These need to be included in the stage's strata so they can fire
-			// when their source nodes output truthy values
-			entryNodesForStage := make(set.Set[string])
-			for _, edge := range edges {
-				if stageNodeSet.Contains(edge.Source.Node) && entryNodes.Contains(edge.Target.Node) {
-					entryNodesForStage.Add(edge.Target.Node)
-					if !orderedStageSet.Contains(edge.Target.Node) {
-						anchor := edge.Source.Node
-						if last, ok := entryInsertAnchor[edge.Source.Node]; ok {
-							anchor = last
-						}
-						idx := slices.Index(orderedStageKeys, anchor)
-						if idx == -1 {
-							orderedStageKeys = append(orderedStageKeys, edge.Target.Node)
-						} else {
-							orderedStageKeys = slices.Insert(orderedStageKeys, idx+1, edge.Target.Node)
-						}
-						orderedStageSet.Add(edge.Target.Node)
-						entryInsertAnchor[edge.Source.Node] = edge.Target.Node
-					}
-				}
-			}
-
-			// Add entry nodes to stage node set for stratification
-			for entryKey := range entryNodesForStage {
-				stageNodeSet.Add(entryKey)
-			}
-
-			// Collect nodes for this stage (including entry nodes that receive edges)
-			var stageNodes []ir.Node
-			for _, nodeKey := range orderedStageKeys {
-				if node, ok := nodeByKey[nodeKey]; ok {
-					stageNodes = append(stageNodes, node)
-				}
-			}
-
-			// Filter edges for this stage:
-			// - Edges where source is in this stage (including edges to entry nodes)
-			// - Target can be in this stage OR an entry node of another stage
-			var stageEdges []ir.Edge
-			for _, edge := range edges {
-				if stageNodeSet.Contains(edge.Source.Node) {
-					stageEdges = append(stageEdges, edge)
-				}
-			}
-
-			stageStrata, cycleDiag := stratifySubgraph(stageNodes, stageEdges, diag)
-			if cycleDiag != nil && !cycleDiag.Ok() {
-				return ir.Strata{}, cycleDiag
-			}
-
-			stageStrata = flattenEntryNodes(stageStrata, entryNodesForStage, orderedStageKeys)
-
-			sequences[i].Stages[j].Strata = stageStrata
-		}
-	}
-
-	return globalStrata, nil
+	return stratifyScope(&prog.Root, prog.Edges, diag)
 }
 
-// stratifySubgraph computes strata for a subgraph of nodes.
-// This is the core stratification algorithm without any implicit dependencies.
-func stratifySubgraph(
-	nodes []ir.Node,
+// stratifyScope dispatches on a scope's mode: parallel scopes are re-stratified
+// from the dataflow edges among their members; sequential scopes pass
+// through, recursing into nested scope members.
+func stratifyScope(
+	s *ir.Scope,
 	edges []ir.Edge,
 	diag *diagnostics.Diagnostics,
-) (ir.Strata, *diagnostics.Diagnostics) {
-	if len(nodes) == 0 {
-		return ir.Strata{}, nil
-	}
-
-	var (
-		nodeStrata    = make(map[string]int)
-		iterations    = 0
-		maxIterations = len(nodes) // Upper bound for DAG
-		changed       = true
-		maxStratum    = 0
-	)
-
-	// Build set of nodes in this subgraph for filtering
-	nodeSet := make(set.Set[string])
-	for _, node := range nodes {
-		nodeSet.Add(node.Key)
-	}
-
-	// Step 1: Initialize ALL nodes to stratum 0
-	for _, node := range nodes {
-		nodeStrata[node.Key] = 0
-	}
-
-	// Step 2: Iterative deepening based on dependencies
-	// If a node depends on another (within this subgraph), it must be in a higher stratum
-	for changed {
-		changed = false
-		iterations++
-
-		if iterations > maxIterations {
-			// Cycle detected - find and report it
-			cycle := findCycle(nodes, edges)
-			diag.Add(diagnostics.Errorf(nil, "cycle detected in dataflow graph: %v", cycle))
-			return ir.Strata{}, diag
+) *diagnostics.Diagnostics {
+	switch s.Mode {
+	case ir.ScopeModeParallel:
+		return stratifyParallel(s, edges, diag)
+	case ir.ScopeModeSequential:
+		for i := range s.Steps {
+			if s.Steps[i].Scope != nil {
+				if d := stratifyScope(s.Steps[i].Scope, edges, diag); d != nil && !d.Ok() {
+					return d
+				}
+			}
 		}
+	}
+	return diag
+}
 
-		// Process explicit edge dependencies
-		for _, edge := range edges {
-			// Only consider edges where both source and target are in this subgraph
-			if !nodeSet.Contains(edge.Source.Node) || !nodeSet.Contains(edge.Target.Node) {
+// stratifyParallel assigns members of a parallel scope to strata using a
+// longest-path relaxation over the scope's intra-scope dataflow edges. Any
+// previous stratification of the scope is discarded and rebuilt.
+func stratifyParallel(
+	s *ir.Scope,
+	edges []ir.Edge,
+	diag *diagnostics.Diagnostics,
+) *diagnostics.Diagnostics {
+	// Flatten the pre-existing membership. The analyzer populates a single
+	// catch-all stratum; older constructions may have split their members
+	// across strata that no longer reflect dependency order.
+	members := make(ir.Members, 0)
+	for _, stratum := range s.Strata {
+		members = append(members, stratum...)
+	}
+	members = append(members, s.Steps...)
+	s.Steps = nil
+	if len(members) == 0 {
+		s.Strata = nil
+		return diag
+	}
+
+	// ownership maps every node key reachable through the scope's members to
+	// the index of the owning member. Nested scopes are treated as atomic:
+	// any node they contain (directly or transitively) is owned by the
+	// member that wraps them at this level.
+	ownership := collectOwnership(members)
+
+	// Longest-path stratum assignment. Each member starts at stratum 0; for
+	// each cross-member edge, push the target's stratum past the source's.
+	// Activation handles on nested gated scopes count as implicit
+	// dependencies: the handle's source must run before the scope can
+	// activate, so the scope lands after its source. Converges in at most
+	// len(members) passes over the constraint set; a failure to converge
+	// indicates a cycle.
+	stratum := make([]int, len(members))
+	maxPasses := len(members) + 1
+	for pass := 0; pass <= maxPasses; pass++ {
+		changed := false
+		for _, e := range edges {
+			src, srcOK := ownership[e.Source.Node]
+			tgt, tgtOK := ownership[e.Target.Node]
+			if !srcOK || !tgtOK || src == tgt {
 				continue
 			}
-
-			sourceStratum := nodeStrata[edge.Source.Node]
-			targetStratum := nodeStrata[edge.Target.Node]
-			if sourceStratum >= targetStratum {
-				newStratum := sourceStratum + 1
-				nodeStrata[edge.Target.Node] = newStratum
-				if newStratum > maxStratum {
-					maxStratum = newStratum
-				}
+			if stratum[src] >= stratum[tgt] {
+				stratum[tgt] = stratum[src] + 1
 				changed = true
 			}
 		}
+		for i, m := range members {
+			if m.Scope == nil || m.Scope.Activation == nil {
+				continue
+			}
+			src, ok := ownership[m.Scope.Activation.Node]
+			if !ok || src == i {
+				continue
+			}
+			if stratum[src] >= stratum[i] {
+				stratum[i] = stratum[src] + 1
+				changed = true
+			}
+		}
+		if !changed {
+			break
+		}
+		if pass == maxPasses {
+			cycle := findCycle(members, edges, ownership)
+			diag.Add(diagnostics.Errorf(
+				nil,
+				"cycle detected in dataflow graph within scope '%s': %v",
+				s.Key, cycle,
+			))
+			return diag
+		}
 	}
 
-	// Step 3: Convert map to [][]string structure
-	strata := make(ir.Strata, maxStratum+1)
-	for _, node := range nodes {
-		stratum := nodeStrata[node.Key]
-		strata[stratum] = append(strata[stratum], node.Key)
+	// Bucket members by computed stratum, preserving source order within
+	// each stratum. Empty strata are dropped so the resulting slice is dense.
+	maxStratum := 0
+	for _, p := range stratum {
+		if p > maxStratum {
+			maxStratum = p
+		}
 	}
+	buckets := make([]ir.Members, maxStratum+1)
+	for i, m := range members {
+		buckets[stratum[i]] = append(buckets[stratum[i]], m)
+	}
+	dense := buckets[:0]
+	for _, b := range buckets {
+		if len(b) > 0 {
+			dense = append(dense, b)
+		}
+	}
+	s.Strata = dense
 
-	return strata, nil
+	// Recurse into nested scope members. Transitions and activations are
+	// not dataflow edges and do not participate in stratification; they are
+	// handled at runtime by the scheduler.
+	for si := range s.Strata {
+		for mi := range s.Strata[si] {
+			if s.Strata[si][mi].Scope != nil {
+				if d := stratifyScope(s.Strata[si][mi].Scope, edges, diag); d != nil && !d.Ok() {
+					return d
+				}
+			}
+		}
+	}
+	return diag
 }
 
-// findCycle attempts to find a cycle in the graph for better error reporting
-func findCycle(nodes []ir.Node, edges []ir.Edge) []string {
-	var (
-		graph    = make(map[string][]string)
-		visited  = make(set.Set[string])
-		recStack = make(set.Set[string])
-		path     []string
-		dfs      func(node string) bool
-	)
-	// Build adjacency list
-	for _, edge := range edges {
-		graph[edge.Source.Node] = append(graph[edge.Source.Node], edge.Target.Node)
+// collectOwnership builds a map from every node key reachable through the
+// given members (directly or through nested scopes) to the index of the
+// member that owns it.
+func collectOwnership(members []ir.Member) map[string]int {
+	own := make(map[string]int)
+	for i, m := range members {
+		collectMemberOwnership(m, i, own)
 	}
-	dfs = func(node string) bool {
-		visited.Add(node)
-		recStack.Add(node)
-		path = append(path, node)
+	return own
+}
 
-		for _, neighbor := range graph[node] {
-			if !visited.Contains(neighbor) {
-				if dfs(neighbor) {
+func collectMemberOwnership(m ir.Member, idx int, own map[string]int) {
+	if m.NodeKey != nil {
+		own[*m.NodeKey] = idx
+		return
+	}
+	if m.Scope != nil {
+		collectScopeOwnership(*m.Scope, idx, own)
+	}
+}
+
+// collectScopeOwnership walks a nested scope and attributes every node key
+// it contains to the outer owner idx. The nested scope's own stratification
+// does not matter at this level of recursion.
+func collectScopeOwnership(s ir.Scope, idx int, own map[string]int) {
+	for _, stratum := range s.Strata {
+		for _, m := range stratum {
+			if m.NodeKey != nil {
+				own[*m.NodeKey] = idx
+			} else if m.Scope != nil {
+				collectScopeOwnership(*m.Scope, idx, own)
+			}
+		}
+	}
+	for _, m := range s.Steps {
+		if m.NodeKey != nil {
+			own[*m.NodeKey] = idx
+		} else if m.Scope != nil {
+			collectScopeOwnership(*m.Scope, idx, own)
+		}
+	}
+}
+
+// findCycle returns a list of member keys that form a cycle among the
+// given members under the ownership-projected edge set. Used only to
+// produce a human-readable diagnostic after the relaxation loop fails to
+// converge.
+func findCycle(members []ir.Member, edges []ir.Edge, ownership map[string]int) []string {
+	graph := make(map[int][]int, len(members))
+	for _, e := range edges {
+		src, srcOK := ownership[e.Source.Node]
+		tgt, tgtOK := ownership[e.Target.Node]
+		if !srcOK || !tgtOK || src == tgt {
+			continue
+		}
+		graph[src] = append(graph[src], tgt)
+	}
+	var (
+		visited  = make(set.Set[int])
+		recStack = make(set.Set[int])
+		path     []int
+		cycle    []int
+	)
+	var dfs func(int) bool
+	dfs = func(n int) bool {
+		visited.Add(n)
+		recStack.Add(n)
+		path = append(path, n)
+		for _, nb := range graph[n] {
+			if !visited.Contains(nb) {
+				if dfs(nb) {
 					return true
 				}
-			} else if recStack.Contains(neighbor) {
-				// Found cycle - extract it from path
-				cycleStart := -1
-				for i, n := range path {
-					if n == neighbor {
-						cycleStart = i
+			} else if recStack.Contains(nb) {
+				start := -1
+				for i, v := range path {
+					if v == nb {
+						start = i
 						break
 					}
 				}
-				if cycleStart >= 0 {
-					path = append(path[cycleStart:], neighbor)
+				if start >= 0 {
+					cycle = append(append(cycle[:0], path[start:]...), nb)
 					return true
 				}
 			}
 		}
-
-		recStack.Remove(node)
+		recStack.Remove(n)
 		path = path[:len(path)-1]
 		return false
 	}
-
-	for _, node := range nodes {
-		if !visited.Contains(node.Key) {
-			if dfs(node.Key) {
-				return path
+	for i := range members {
+		if !visited.Contains(i) {
+			if dfs(i) {
+				break
 			}
 		}
 	}
-
-	return []string{"unknown cycle"}
+	labels := make([]string, 0, len(cycle))
+	for _, idx := range cycle {
+		labels = append(labels, memberLabel(members[idx]))
+	}
+	return labels
 }
 
-// flattenEntryNodes moves all entry nodes within a stage's strata to the deepest
-// stratum occupied by any entry node. This ensures that competing transitions are
-// resolved by source order (position within the stratum) rather than by chain length
-// (which determines natural stratum depth). Entry nodes are inserted into the target
-// stratum in the order they appear in orderedKeys, preserving source order.
-func flattenEntryNodes(
-	strata ir.Strata,
-	entryNodes set.Set[string],
-	orderedKeys []string,
-) ir.Strata {
-	if len(entryNodes) <= 1 {
-		return strata
+func memberLabel(m ir.Member) string {
+	if k := m.Key(); k != "" {
+		return k
 	}
-	maxStratum := -1
-	for i, stratum := range strata {
-		for _, key := range stratum {
-			if entryNodes.Contains(key) && i > maxStratum {
-				maxStratum = i
-			}
-		}
-	}
-	if maxStratum == -1 {
-		return strata
-	}
-	// Remove entry nodes from all strata
-	for i, stratum := range strata {
-		filtered := stratum[:0]
-		for _, key := range stratum {
-			if !entryNodes.Contains(key) {
-				filtered = append(filtered, key)
-			}
-		}
-		strata[i] = filtered
-	}
-	// Insert entry nodes into the max stratum in source order
-	for _, key := range orderedKeys {
-		if entryNodes.Contains(key) {
-			strata[maxStratum] = append(strata[maxStratum], key)
-		}
-	}
-	// Remove empty strata
-	result := strata[:0]
-	for _, stratum := range strata {
-		if len(stratum) > 0 {
-			result = append(result, stratum)
-		}
-	}
-	return result
+	return "(unknown)"
 }
