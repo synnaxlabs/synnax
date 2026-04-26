@@ -39,6 +39,7 @@ import {
   memo,
   type ReactElement,
   useCallback,
+  useEffect,
   useLayoutEffect,
 } from "react";
 import { useDispatch, useStore } from "react-redux";
@@ -195,6 +196,9 @@ const CustomTabName = ({
     [dispatch, tabKey],
   );
   const { onRename: hookOnRename, retrieve } = useName(tabKey, handleNameChange);
+  useEffect(() => {
+    retrieve();
+  }, [retrieve]);
   const handleRename = useCallback(
     (_: string, next: string) => {
       dispatch(Layout.rename({ key: tabKey, name: next }));
@@ -204,7 +208,6 @@ const CustomTabName = ({
   );
   return (
     <Tabs.DefaultName
-      ref={() => retrieve()}
       tabKey={tabKey}
       name={name}
       level={level}
