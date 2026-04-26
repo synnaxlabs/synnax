@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { TimeStamp } from "@synnaxlabs/x";
+import { id, TimeStamp } from "@synnaxlabs/x";
 import { beforeAll, describe, expect, it } from "vitest";
 import { z } from "zod";
 
@@ -112,6 +112,19 @@ describe("Task", async () => {
       const m = await testRack.createTask({ name, config: { a: "dog" }, type: "ni" });
       const retrieved = await client.tasks.retrieve({ name });
       expect(retrieved.key).toBe(m.key);
+    });
+
+    it("should retrieve tasks by search term", async () => {
+      const prefix = `searchable-task-${id.create()}`;
+      await Promise.all([
+        testRack.createTask({ name: `${prefix}-1`, config: {}, type: "ni" }),
+        testRack.createTask({ name: `${prefix}-2`, config: {}, type: "ni" }),
+      ]);
+      await expect
+        .poll(async () => (await client.tasks.retrieve({ searchTerm: prefix })).length)
+        .toBeGreaterThanOrEqual(2);
+      const results = await client.tasks.retrieve({ searchTerm: prefix });
+      expect(results.every((t) => t.name.includes(prefix))).toBe(true);
     });
 
     describe("status", () => {

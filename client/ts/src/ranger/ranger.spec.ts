@@ -185,6 +185,19 @@ describe("range", () => {
       expect(retrieved.length).toBeGreaterThan(0);
       expect(retrieved.map((r) => r.key)).toContain(range.key);
     });
+    it("should retrieve ranges by search term", async () => {
+      const prefix = `searchable-range-${id.create()}`;
+      const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
+      await client.ranges.create([
+        { name: `${prefix}-1`, timeRange },
+        { name: `${prefix}-2`, timeRange },
+      ]);
+      await expect
+        .poll(async () => (await client.ranges.retrieve({ searchTerm: prefix })).length)
+        .toBeGreaterThanOrEqual(2);
+      const results = await client.ranges.retrieve({ searchTerm: prefix });
+      expect(results.every((r) => r.name.includes(prefix))).toBe(true);
+    });
   });
 
   describe("retrieveParent", () => {

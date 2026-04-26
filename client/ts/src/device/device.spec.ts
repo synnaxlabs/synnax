@@ -312,10 +312,13 @@ describe("Device", async () => {
       });
 
       it("should retrieve devices by search term", async () => {
-        const result = await client.devices.retrieve({
-          searchTerm: "sensor1",
-        });
-        expect(result.length).toBeGreaterThanOrEqual(2);
+        await expect
+          .poll(
+            async () =>
+              (await client.devices.retrieve({ searchTerm: "sensor1" })).length,
+          )
+          .toBeGreaterThanOrEqual(2);
+        const result = await client.devices.retrieve({ searchTerm: "sensor1" });
         expect(result.every((d) => d.name.includes("sensor"))).toBe(true);
       });
 

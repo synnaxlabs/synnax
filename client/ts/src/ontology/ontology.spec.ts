@@ -154,6 +154,15 @@ describe("Ontology", () => {
       expect(parents.length).toEqual(1);
       expect(parents[0].name).toEqual(name);
     });
+    test("retrieve by search term", async () => {
+      const name = randomName();
+      await client.groups.create({ parent: ontology.ROOT_ID, name });
+      await expect
+        .poll(async () => (await client.ontology.retrieve({ searchTerm: name })).length)
+        .toBeGreaterThanOrEqual(1);
+      const results = await client.ontology.retrieve({ searchTerm: name });
+      expect(results.some((r) => r.name === name)).toBe(true);
+    });
   });
 
   describe("write", () => {
