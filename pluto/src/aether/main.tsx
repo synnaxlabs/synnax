@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { compare, deep, type errors, type SenderHandler } from "@synnaxlabs/x";
+import { compare, deep, type errors, type SenderHandler, zod } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
@@ -33,7 +33,6 @@ import { context } from "@/context";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoCompare } from "@/memo";
 import { type state } from "@/state";
-import { prettyParse } from "@/util/zod";
 import { Worker } from "@/worker";
 
 export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
@@ -393,8 +392,8 @@ export const useLifecycle = <
 
   const setState = useCallback(
     (state: z.input<S>, transfer: Transferable[] = []) =>
-      comms.current?.setState(prettyParse(schema, state), transfer),
-    [schema],
+      comms.current?.setState(zod.parse(schema, state, { label: type }), transfer),
+    [schema, type],
   );
 
   const methods = useMemo(() => {
@@ -412,7 +411,10 @@ export const useLifecycle = <
   // before their children. This is impossible to do with effect hooks.
   if (comms.current == null) {
     comms.current = ctx.create(type, path, onReceive as StateHandler<unknown>);
-    comms.current.setState(prettyParse(schema, initialState), initialTransfer);
+    comms.current.setState(
+      zod.parse(schema, initialState, { label: type }),
+      initialTransfer,
+    );
   }
 
   // We run this effect whenever the identity of the aether component
@@ -559,7 +561,7 @@ export const use = <
 ): UseReturn<S, M> => {
   const { type, schema, initialState, onAetherChange } = props;
   const [internalState, setInternalState] = useState<z.infer<S>>(() =>
-    prettyParse(schema, initialState),
+    zod.parse(schema, initialState, { label: type }),
   );
   const onAetherChangeRef = useRef(onAetherChange);
 
@@ -567,11 +569,11 @@ export const use = <
   // aether.
   const handleReceive = useCallback(
     (rawState: z.infer<S>) => {
-      const state = prettyParse(schema, rawState);
+      const state = zod.parse(schema, rawState, { label: type });
       setInternalState(state);
       onAetherChangeRef.current?.(state);
     },
-    [schema],
+    [schema, type],
   );
 
   const {
@@ -594,7 +596,7 @@ export const use = <
           return nextS;
         });
       else {
-        setInternalState(prettyParse(schema, next));
+        setInternalState(zod.parse(schema, next, { label: type }));
         setAetherState(next, transfer);
       }
     },

@@ -25,14 +25,26 @@ Client::Client(
     tasks(std::move(tasks)) {}
 
 std::pair<Rack, x::errors::Error> Client::retrieve(const Key key) const {
+    return retrieve(key, RetrieveOptions{});
+}
+
+std::pair<Rack, x::errors::Error>
+Client::retrieve(const Key key, const RetrieveOptions &options) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_keys(key);
+    req.set_include_status(options.include_status);
     return this->retrieve(req, "key " + std::to_string(key));
 }
 
 std::pair<Rack, x::errors::Error> Client::retrieve(const std::string &name) const {
+    return retrieve(name, RetrieveOptions{});
+}
+
+std::pair<Rack, x::errors::Error>
+Client::retrieve(const std::string &name, const RetrieveOptions &options) const {
     auto req = grpc::rack::RetrieveRequest();
     req.add_names(name);
+    req.set_include_status(options.include_status);
     return this->retrieve(req, "name " + name);
 }
 

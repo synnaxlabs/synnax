@@ -10,7 +10,7 @@
 import "@/status/base/Notification.css";
 
 import { array, primitive, status } from "@synnaxlabs/x";
-import { isValidElement, type ReactElement, useCallback, useRef } from "react";
+import { isValidElement, type ReactElement, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";

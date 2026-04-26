@@ -152,6 +152,9 @@ sample_from_bits(const uint64_t bits, const types::Type &type) {
             memcpy(&d, &bits, sizeof(double));
             return x::telem::SampleValue(d);
         }
+        case types::Kind::String:
+            // String outputs are i32 handles in WASM
+            return x::telem::SampleValue(static_cast<int32_t>(bits));
         default:
             return x::telem::SampleValue(static_cast<int32_t>(0));
     }
@@ -333,7 +336,10 @@ public:
             uint32_t offset = base + 8;
             for (const auto &param: outputs) {
                 this->offsets.push_back(offset);
-                offset += static_cast<uint32_t>(param.type.density());
+                if (param.type.kind == types::Kind::String)
+                    offset += 4; // strings are i32 handles in WASM
+                else
+                    offset += static_cast<uint32_t>(param.type.density());
             }
         }
 
@@ -377,9 +383,12 @@ public:
                 if ((dirty_flags & 1ULL << i) == 0) continue;
                 const auto output = this->outputs[i];
                 const uint32_t offset = this->offsets[i];
-                if (offset + output.type.density() > mem_size) continue;
+                const size_t byte_size = output.type.kind == types::Kind::String
+                                           ? 4
+                                           : output.type.density();
+                if (offset + byte_size > mem_size) continue;
                 uint64_t raw_value = 0;
-                memcpy(&raw_value, mem_data + offset, output.type.density());
+                memcpy(&raw_value, mem_data + offset, byte_size);
                 output_vals[i] = Result{
                     .value = sample_from_bits(raw_value, output.type),
                     .changed = true
@@ -389,6 +398,10 @@ public:
             return x::errors::NIL;
         }
     };
+
+    [[nodiscard]] std::shared_ptr<stl::str::State> strings() const {
+        return this->cfg.strings;
+    }
 
     [[nodiscard]] bool has_func(const std::string &name) {
         const auto export_opt = this->instance.get(this->store, name);
@@ -419,6 +432,18 @@ public:
         if (const auto base_it = this->cfg.program.output_memory_bases.find(name);
             base_it != this->cfg.program.output_memory_bases.end()) {
             base = base_it->second;
+        }
+
+        for (const auto &output: func.outputs) {
+            if (!output.type.is_valid())
+                return {
+                    zero_func,
+                    x::errors::Error(
+                        x::errors::VALIDATION,
+                        "function '" + name + "' has output '" + output.name +
+                            "' with unresolved type"
+                    )
+                };
         }
 
         const auto &config_to_use = node_config.empty() ? func.config : node_config;

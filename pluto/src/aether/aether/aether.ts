@@ -16,6 +16,7 @@ import {
   type Sender,
   type SenderHandler,
   shallow,
+  zod,
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -26,7 +27,6 @@ import {
   type MainUpdateRequest,
 } from "@/aether/message";
 import { state } from "@/state";
-import { prettyParse } from "@/util/zod";
 
 const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   if (e instanceof Error) {
@@ -335,7 +335,7 @@ export abstract class Leaf<
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState = state.executeSetter(next, this.state);
     this._prevState = shallow.copy(this._state);
-    this._state = prettyParse(this._schema, nextState, `${this.toString()}`);
+    this._state = zod.parse(this._schema, nextState, { label: this.toString() });
     this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
 
@@ -396,7 +396,7 @@ export abstract class Leaf<
       this.initializeMethods();
       const endSpan = this.instrumentation.T.debug(`${this.toString()}:updateState`);
       this.validatePath(path);
-      const state_ = prettyParse(this._schema, state, `${this.toString()}`);
+      const state_ = zod.parse(this._schema, state, { label: this.toString() });
       if (this._state != null)
         this.instrumentation.L.debug("updating state", () => ({
           diff: deep.difference(this.state as record.Unknown, state_ as record.Unknown),

@@ -112,7 +112,7 @@ var (
 	NumericTypeSchema   = Enum(NumericTypes...)
 	PrimitiveTypes      = slices.Concat([]DataType{StringT, BoolT, UUIDT}, NumericTypes)
 	PrimitiveTypeSchema = Enum(PrimitiveTypes...)
-	DataTypes           = slices.Concat([]DataType{ObjectT, ArrayT, MapT, UnionT}, PrimitiveTypes)
+	DataTypes           = slices.Concat([]DataType{ObjectT, ArrayT, MapT, UnionT, DiscriminatedUnionT}, PrimitiveTypes)
 	AnyDataTypeSchema   = Enum(DataTypes...)
 )
 

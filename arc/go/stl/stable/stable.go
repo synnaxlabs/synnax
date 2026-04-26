@@ -119,7 +119,7 @@ func (s *forNode) Next(ctx node.Context) {
 			*s.Output(0) = telem.NewSeriesV[uint8](currentValue)
 			*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](s.now())
 			s.lastSent = &currentValue
-			ctx.MarkChanged(ir.DefaultOutputParam)
+			ctx.MarkChanged(0)
 		}
 	}
 }

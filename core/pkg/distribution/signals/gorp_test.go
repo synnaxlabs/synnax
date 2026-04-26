@@ -70,14 +70,15 @@ var _ = Describe("GorpPublisherConfig", func() {
 	})
 
 	Describe("MarshalJSON", func() {
-		It("Should marshal an entry to JSON with newline suffix", func() {
+		It("Should marshal an entry to JSON with uint32 length prefix", func() {
 			entry := testUUIDEntry{
 				Key:  uuid.MustParse("12345678-1234-1234-1234-123456789012"),
 				Name: "test",
 			}
 			b := MustSucceed(signals.MarshalJSON(entry))
-			Expect(b).To(HaveSuffix("\n"))
-			Expect(string(b)).To(ContainSubstring(`"name":"test"`))
+			Expect(len(b)).To(BeNumerically(">=", 4))
+			s := telem.Series{DataType: telem.JSONT, Data: b}
+			Expect(s.Len()).To(Equal(int64(1)))
 		})
 	})
 
@@ -167,10 +168,12 @@ var _ = Describe("GorpPublisherConfig", func() {
 			Expect(cfg.MarshalSet).ToNot(BeNil())
 		})
 
-		It("Should correctly marshal string key for delete with newline", func() {
+		It("Should correctly marshal string key for delete with length prefix", func() {
 			cfg := signals.GorpPublisherConfigString[testStringEntry](stringTable.Observe())
 			b := MustSucceed(cfg.MarshalDelete("my-key"))
-			Expect(string(b)).To(Equal("my-key\n"))
+			s := telem.Series{DataType: telem.StringT, Data: b}
+			Expect(s.Len()).To(Equal(int64(1)))
+			Expect(string(s.At(0))).To(Equal("my-key"))
 		})
 
 		It("Should correctly marshal entry for set as JSON", func() {

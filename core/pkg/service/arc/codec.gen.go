@@ -12,7 +12,6 @@
 package arc
 
 import (
-	"github.com/synnaxlabs/arc/program"
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
@@ -25,22 +24,6 @@ func (a Arc) EncodeOrc(w *orc.Writer) error {
 	}
 	if err := a.Text.EncodeOrc(w); err != nil {
 		return err
-	}
-	if a.Program != nil {
-		w.Bool(true)
-		if err := (*a.Program).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
-	}
-	if a.Status != nil {
-		w.Bool(true)
-		if err := (*a.Status).EncodeOrc(w); err != nil {
-			return err
-		}
-	} else {
-		w.Bool(false)
 	}
 	return nil
 }
@@ -65,32 +48,6 @@ func (a *Arc) DecodeOrc(r *orc.Reader) error {
 	}
 	if err = a.Text.DecodeOrc(r); err != nil {
 		return err
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v program.Program
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			a.Program = &v
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			var v Status
-			if err = v.DecodeOrc(r); err != nil {
-				return err
-			}
-			a.Status = &v
-		}
 	}
 	return nil
 }

@@ -24,10 +24,9 @@ var _ = Describe("GroupByConfigDir", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "exec-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should group files by the nearest directory containing the config file", func() {
@@ -67,10 +66,9 @@ var _ = Describe("FindConfigDir", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "exec-test"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should find the nearest ancestor directory with the config file", func() {

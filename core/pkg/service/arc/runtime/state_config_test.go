@@ -10,7 +10,6 @@
 package runtime_test
 
 import (
-	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -30,12 +29,7 @@ var _ = Describe("StateConfig", Ordered, func() {
 	var dist mock.Node
 
 	BeforeAll(func(ctx SpecContext) {
-		distB := mock.NewCluster()
-		dist = distB.Provision(context.Background())
-	})
-
-	AfterAll(func(ctx SpecContext) {
-		Expect(dist.Close()).To(Succeed())
+		dist = DeferClose(mock.NewCluster()).Provision(ctx)
 	})
 
 	Describe("NewStateConfig", func() {

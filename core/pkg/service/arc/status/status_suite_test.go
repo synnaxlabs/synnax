@@ -29,6 +29,8 @@ func TestStatus(t *testing.T) {
 	RunSpecs(t, "Status Suite")
 }
 
+var _ = ShouldNotLeakGoroutinesPerSpec()
+
 var (
 	db       *gorp.DB
 	otg      *ontology.Ontology
@@ -38,35 +40,25 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	otg = MustSucceed(ontology.Open(ctx, ontology.Config{
-		DB: db,
-	}))
-	searchIdx := MustSucceed(search.Open())
-	groupSvc = MustSucceed(group.OpenService(ctx, group.ServiceConfig{
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx := MustOpen(search.Open())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	labelSvc = MustSucceed(label.OpenService(ctx, label.ServiceConfig{
+	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	statSvc = MustSucceed(status.OpenService(ctx, status.ServiceConfig{
+	statSvc = MustOpen(status.OpenService(ctx, status.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    groupSvc,
 		Label:    labelSvc,
 		Search:   searchIdx,
 	}))
-})
-
-var _ = AfterSuite(func(ctx SpecContext) {
-	Expect(statSvc.Close()).To(Succeed())
-	Expect(labelSvc.Close()).To(Succeed())
-	Expect(groupSvc.Close()).To(Succeed())
-	Expect(otg.Close()).To(Succeed())
-	Expect(db.Close()).To(Succeed())
 })

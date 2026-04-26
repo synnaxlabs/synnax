@@ -59,6 +59,7 @@ export const CONNECTION_STATE_VARIANTS: Record<connection.Status, status.Variant
 };
 
 export const SERVER_VERSION_MISMATCH = "serverVersionMismatch";
+export const CLOCK_SKEW_EXCEEDED = "clockSkewExceeded";
 
 export const statusDetailsSchema = z.object({
   type: z.string(),
@@ -67,7 +68,29 @@ export const statusDetailsSchema = z.object({
   clientVersion: z.string(),
 });
 
+export const clockSkewDetailsSchema = z.object({
+  type: z.string(),
+  clockSkew: z.number(),
+});
+
 export interface StatusDetails extends z.infer<typeof statusDetailsSchema> {}
+
+const addClockSkewStatus = (addStatus: Status.Adder, state: connection.State): void => {
+  const skew = state.clockSkew;
+  const direction = skew.valueOf() > 0n ? "ahead of" : "behind";
+  addStatus<typeof clockSkewDetailsSchema>({
+    variant: "warning",
+    message: "Clock skew detected",
+    description:
+      `This machine's clock is ${direction} the Synnax core ` +
+      `by approximately ${skew.abs().toString()}. This may cause ` +
+      `issues with time-series data. Synchronize your system clock.`,
+    details: {
+      type: CLOCK_SKEW_EXCEEDED,
+      clockSkew: Number(skew.valueOf()),
+    },
+  });
+};
 
 const createErrorDescription = (
   oldServer: boolean,
@@ -113,6 +136,8 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
           variant: CONNECTION_STATE_VARIANTS[state.status],
           message: state.message ?? caseconv.capitalize(state.status),
         });
+      if (state.status === "connected" && state.clockSkewExceeded)
+        addClockSkewStatus(addStatus, state);
       setState((prev) => ({ ...prev, state }));
     },
     [addStatus],
@@ -132,10 +157,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
       setState({
         client,
         state: {
-          clusterKey: "",
+          ...Synnax.connectivity.DEFAULT,
           status: "connecting",
           message: "Connecting...",
-          clientServerCompatible: false,
           clientVersion: client.clientVersion,
         },
       });
@@ -148,6 +172,9 @@ export const Provider = ({ children, connParams }: ProviderProps): ReactElement 
         variant: CONNECTION_STATE_VARIANTS[connectivity.status],
         message: connectivity.message ?? connectivity.status.toUpperCase(),
       });
+
+      if (connectivity.status === "connected" && connectivity.clockSkewExceeded)
+        addClockSkewStatus(addStatus, connectivity);
 
       if (connectivity.status === "connected" && !connectivity.clientServerCompatible) {
         const oldServer =

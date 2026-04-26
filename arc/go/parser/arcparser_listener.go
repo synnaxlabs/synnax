@@ -58,6 +58,9 @@ type ArcParserListener interface {
 	// EnterSequenceDeclaration is called when entering the sequenceDeclaration production.
 	EnterSequenceDeclaration(c *SequenceDeclarationContext)
 
+	// EnterSequenceItem is called when entering the sequenceItem production.
+	EnterSequenceItem(c *SequenceItemContext)
+
 	// EnterStageDeclaration is called when entering the stageDeclaration production.
 	EnterStageDeclaration(c *StageDeclarationContext)
 
@@ -93,6 +96,9 @@ type ArcParserListener interface {
 
 	// EnterFunction is called when entering the function production.
 	EnterFunction(c *FunctionContext)
+
+	// EnterQualifiedIdentifier is called when entering the qualifiedIdentifier production.
+	EnterQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// EnterConfigValues is called when entering the configValues production.
 	EnterConfigValues(c *ConfigValuesContext)
@@ -277,6 +283,9 @@ type ArcParserListener interface {
 	// ExitSequenceDeclaration is called when exiting the sequenceDeclaration production.
 	ExitSequenceDeclaration(c *SequenceDeclarationContext)
 
+	// ExitSequenceItem is called when exiting the sequenceItem production.
+	ExitSequenceItem(c *SequenceItemContext)
+
 	// ExitStageDeclaration is called when exiting the stageDeclaration production.
 	ExitStageDeclaration(c *StageDeclarationContext)
 
@@ -312,6 +321,9 @@ type ArcParserListener interface {
 
 	// ExitFunction is called when exiting the function production.
 	ExitFunction(c *FunctionContext)
+
+	// ExitQualifiedIdentifier is called when exiting the qualifiedIdentifier production.
+	ExitQualifiedIdentifier(c *QualifiedIdentifierContext)
 
 	// ExitConfigValues is called when exiting the configValues production.
 	ExitConfigValues(c *ConfigValuesContext)

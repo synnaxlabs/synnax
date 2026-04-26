@@ -25,7 +25,7 @@
 
 #include "x/cpp/date/date.h"
 #include "x/cpp/json/json.h"
-#include "x/cpp/strings/put.h"
+#include "x/cpp/strings/strings.h"
 
 #include "x/go/telem/pb/telem.pb.h"
 
@@ -757,8 +757,9 @@ template<typename T>
     }
     return std::visit(
         []<typename IT>(IT &&arg) -> T {
-            if constexpr (std::is_arithmetic_v<T> &&
-                          std::is_arithmetic_v<std::decay_t<IT>>)
+            if constexpr (
+                std::is_arithmetic_v<T> && std::is_arithmetic_v<std::decay_t<IT>>
+            )
                 return static_cast<T>(arg);
             throw std::runtime_error("invalid type conversion");
         },
@@ -1202,16 +1203,16 @@ const DataType UINT64_T(details::UINT64_T);
 /// @brief identifier for a fixed-size UUID data type in a Synnax cluster (16
 /// bytes).
 const DataType UUID_T(details::UUID_T);
-/// @brief identifier for a newline separated, variable-length string data type in a
-/// Synnax cluster. Note that variable-length data types have reduced performance
+/// @brief identifier for a uint32-length-prefixed, variable-length string data type
+/// in a Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType STRING_T(details::STRING_T);
-/// @brief identifier for a newline separated, stringified JSON data type in a
+/// @brief identifier for a uint32-length-prefixed, stringified JSON data type in a
 /// Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType JSON_T(details::JSON_T);
-/// @brief identifier for a newline separated, variable-length bytes data type in a
-/// Synnax cluster. Note that variable-length data types have reduced performance
+/// @brief identifier for a uint32-length-prefixed, variable-length bytes data type
+/// in a Synnax cluster. Note that variable-length data types have reduced performance
 /// and restricted use within a Synnax cluster.
 const DataType BYTES_T(details::BYTES_T);
 }

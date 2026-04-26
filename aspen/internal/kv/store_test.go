@@ -30,15 +30,11 @@ var _ = Describe("kvStore", func() {
 	)
 
 	BeforeEach(func() {
-		builder = kvmock.NewBuilder(
+		builder = DeferClose(kvmock.NewBuilder(
 			kv.Config{GossipInterval: 10 * time.Millisecond},
 			cluster.Config{},
-		)
-		db = MustSucceed(builder.New(context.Background(), kv.Config{}, cluster.Config{}))
-	})
-
-	AfterEach(func() {
-		Expect(builder.Close()).To(Succeed())
+		))
+		db = MustOpen(builder.New(context.Background(), kv.Config{}, cluster.Config{}))
 	})
 
 	It("should write and retrieve values", func(ctx SpecContext) {

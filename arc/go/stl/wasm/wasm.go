@@ -16,6 +16,7 @@ import (
 
 	"github.com/synnaxlabs/arc/runtime/node"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/telem"
@@ -64,8 +65,23 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	memOffsets := make([]uint32, len(irFn.Outputs))
 	offset := base + 8
 	for i, t := range irFn.Outputs {
+		if !t.Type.IsValid() {
+			return nil, errors.Newf(
+				"node %s has output %q with unresolved type",
+				cfg.Node.Key, t.Name,
+			)
+		}
 		memOffsets[i] = offset
-		offset += uint32(t.Type.Density())
+		if t.Type.Kind == types.KindString {
+			offset += 4 // strings are i32 handles in WASM
+		} else {
+			offset += uint32(t.Type.Density())
+		}
+	}
+
+	stringInputs := make([]bool, len(irFn.Inputs))
+	for i, inp := range irFn.Inputs {
+		stringInputs[i] = inp.Type.Kind == types.KindString
 	}
 
 	n := &nodeImpl{
@@ -82,6 +98,8 @@ func (w *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		offsets:       make([]int, len(irFn.Outputs)),
 		isEntryNode:   isEntryNode,
 		nodeKeySetter: w.NodeKeySetter,
+		stringInputs:  stringInputs,
+		strings:       w.Strings,
 	}
 	return n, nil
 }

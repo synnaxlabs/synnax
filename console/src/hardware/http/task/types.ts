@@ -103,7 +103,7 @@ const ZERO_READ_CONFIG = {
 
 const readStatusDataZ = z
   .object({ running: z.boolean(), message: z.string() })
-  .or(z.null());
+  .nullish();
 
 export const READ_SCHEMAS = {
   type: z.literal(READ_TYPE),
@@ -284,6 +284,6 @@ export const TEST_CONNECTION_COMMAND_TYPE = "test_connection";
 
 export const SCAN_SCHEMAS = {
   type: z.literal(SCAN_TYPE),
-  config: record.unknownZ(),
-  statusData: z.null(),
+  config: record.nullishToEmpty(),
+  statusData: z.null().optional(),
 } as const satisfies task.Schemas;

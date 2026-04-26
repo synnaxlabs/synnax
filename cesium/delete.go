@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/synnaxlabs/cesium/internal/channel"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
@@ -78,7 +79,7 @@ func keyToDirName(ch ChannelKey) string {
 // DeleteChannel is idempotent.
 func (db *DB) DeleteChannel(ch ChannelKey) error {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	// Rename the file first, so we can avoid hogging the mutex while deleting the
 	// directory, which may take a longer time. Rename the file to have a random suffix
@@ -106,7 +107,7 @@ func (db *DB) DeleteChannel(ch ChannelKey) error {
 // to be atomic: it is possible some channels in chs are deleted and some are not.
 func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	if db.closed.Load() {
-		return errDBClosed
+		return ErrDBClosed
 	}
 	var (
 		indexChannels       = make([]ChannelKey, 0, len(chs))
@@ -114,7 +115,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	)
 	db.mu.Lock()
 	// This 'defer' statement does a best-effort removal of all renamed directories to
-	// ensure that all DBs deleted from db.mu.unaryDBs and db.mu.virtualDBs are also
+	// ensure that all DBs deleted from db.mu.dbs.unary and db.mu.dbs.virtual are also
 	// deleted on FS.
 	defer func() {
 		db.mu.Unlock()
@@ -127,7 +128,7 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 
 	// Do a pass first to remove all non-index channels
 	for _, ch := range chs {
-		udb, uok := db.mu.unaryDBs[ch]
+		udb, uok := db.mu.dbs.unary[ch]
 
 		if !uok || udb.Channel().IsIndex {
 			if udb.Channel().IsIndex {
@@ -173,13 +174,12 @@ func (db *DB) DeleteChannels(chs []ChannelKey) (err error) {
 	return
 }
 
-// removeChannel removes ch from db.mu.unaryDBs or db.mu.virtualDBs. If the channel or
-// if there is an open resource on the specified database.
+// removeChannel removes ch from db.mu.dbs.unary or db.mu.dbs.virtual. Returns an
+// error if there is an open resource on the database.
 func (db *DB) removeChannel(ch ChannelKey) error {
-	uDB, uOk := db.mu.unaryDBs[ch]
-	if uOk {
+	if uDB, ok := db.mu.dbs.unary[ch]; ok {
 		if uDB.Channel().IsIndex {
-			for otherDBKey, otherDB := range db.mu.unaryDBs {
+			for otherDBKey, otherDB := range db.mu.dbs.unary {
 				if otherDBKey != ch && otherDB.Channel().Index == uDB.Channel().Key {
 					return errors.Newf(
 						"cannot delete channel %v "+
@@ -190,22 +190,19 @@ func (db *DB) removeChannel(ch ChannelKey) error {
 				}
 			}
 		}
-
 		if err := uDB.Close(); err != nil {
 			return err
 		}
-		delete(db.mu.unaryDBs, ch)
+		delete(db.mu.dbs.unary, ch)
 		return nil
 	}
-	vDB, vOk := db.mu.virtualDBs[ch]
-	if vOk {
+	if vDB, ok := db.mu.dbs.virtual[ch]; ok {
 		if err := vDB.Close(); err != nil {
 			return err
 		}
-		delete(db.mu.virtualDBs, ch)
+		delete(db.mu.dbs.virtual, ch)
 		return nil
 	}
-
 	return nil
 }
 
@@ -226,36 +223,31 @@ func (db *DB) DeleteTimeRange(
 	)
 
 	for _, ch := range chs {
-		uDB, uOk := db.mu.unaryDBs[ch]
-		if !uOk {
-			// If the channel is virtual, delete is a no-op but we don't return an
-			// error.
-			if _, vOk := db.mu.virtualDBs[ch]; vOk {
-				continue
+		if uDB, ok := db.mu.dbs.unary[ch]; ok {
+			if uDB.Channel().IsIndex {
+				indexChannels = append(indexChannels, ch)
+			} else {
+				dataChannels = append(dataChannels, ch)
 			}
-			return errors.Wrapf(ErrChannelNotFound, "channel key %d not found", ch)
-		}
-
-		// Cannot delete an index channel that other channels rely on.
-		if uDB.Channel().IsIndex {
-			indexChannels = append(indexChannels, ch)
 			continue
 		}
-
-		dataChannels = append(dataChannels, ch)
+		if _, ok := db.mu.dbs.virtual[ch]; ok {
+			continue
+		}
+		return channel.NewNotFoundError(ch)
 	}
 
 	for _, ch := range dataChannels {
-		udb := db.mu.unaryDBs[ch]
-		if err := udb.Delete(ctx, tr); err != nil {
-			return err
+		if udb, ok := db.mu.dbs.unary[ch]; ok {
+			if err := udb.Delete(ctx, tr); err != nil {
+				return err
+			}
 		}
 	}
 
 	for _, ch := range indexChannels {
-		udb := db.mu.unaryDBs[ch]
-		// Cannot delete an index channel that other channels rely on.
-		for otherDBKey, otherDB := range db.mu.unaryDBs {
+		idxDB := db.mu.dbs.unary[ch]
+		for otherDBKey, otherDB := range db.mu.dbs.unary {
 			if otherDBKey == ch || otherDB.Channel().Index != ch {
 				continue
 			}
@@ -264,14 +256,13 @@ func (db *DB) DeleteTimeRange(
 				return errors.Newf(
 					"cannot delete index channel %v "+
 						"with channel %v depending on it on the time range %s",
-					udb.Channel(),
+					idxDB.Channel(),
 					otherDB.Channel(),
 					tr,
 				)
 			}
 		}
-
-		if err := udb.Delete(ctx, tr); err != nil {
+		if err := idxDB.Delete(ctx, tr); err != nil {
 			return err
 		}
 	}
@@ -288,12 +279,11 @@ func (db *DB) garbageCollect(ctx context.Context, maxGoRoutine uint) error {
 		sCtx, cancel = signal.WithCancel(ctx)
 	)
 	defer cancel()
-	for _, uDB := range db.mu.unaryDBs {
+	for _, uDB := range db.mu.dbs.unary {
 		if err := sem.Acquire(ctx, 1); err != nil {
 			db.mu.RUnlock()
 			return err
 		}
-		uDB := uDB
 		sCtx.Go(func(_ctx context.Context) error {
 			defer sem.Release(1)
 			return uDB.GarbageCollect(_ctx)

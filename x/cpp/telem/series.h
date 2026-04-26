@@ -25,8 +25,17 @@
 #include "x/go/telem/pb/frame.pb.h"
 #include "x/go/telem/pb/telem.pb.h"
 
-constexpr char NEWLINE_CHAR = '\n';
-constexpr auto NEWLINE_TERMINATOR = static_cast<std::byte>(NEWLINE_CHAR);
+constexpr size_t VARIABLE_LENGTH_PREFIX_SIZE = sizeof(uint32_t);
+
+static inline uint32_t read_u32_le(const std::byte *ptr) {
+    uint32_t v;
+    memcpy(&v, ptr, VARIABLE_LENGTH_PREFIX_SIZE);
+    return v;
+}
+
+static inline void write_u32_le(std::byte *ptr, uint32_t v) {
+    memcpy(ptr, &v, VARIABLE_LENGTH_PREFIX_SIZE);
+}
 
 namespace x::telem {
 template<typename DestType, typename SrcType>
@@ -167,8 +176,7 @@ private:
 #ifdef _MSC_VER
     __declspec(noinline)
 #endif
-    void
-    apply_numeric_op(const TargetType &rhs, Op op) const {
+    void apply_numeric_op(const TargetType &rhs, Op op) const {
         this->ensure_exclusive();
         auto *data_ptr = reinterpret_cast<SourceType *>(this->data_.get());
         const auto size = this->size();
@@ -181,8 +189,7 @@ private:
 #ifdef _MSC_VER
     __declspec(noinline)
 #endif
-    void
-    cast_and_apply_numeric_op(const T &rhs, Op op) const {
+    void cast_and_apply_numeric_op(const T &rhs, Op op) const {
         const auto dt = this->data_type();
         if (dt == FLOAT64_T)
             apply_numeric_op<double, T>(rhs, op);
@@ -583,14 +590,14 @@ public:
             throw std::runtime_error("expected data type to be STRING or JSON");
         this->cached_byte_size = 0;
         for (const auto &s: d)
-            this->cached_byte_size += s.size() + 1;
+            this->cached_byte_size += s.size() + VARIABLE_LENGTH_PREFIX_SIZE;
         this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &s: d) {
+            write_u32_le(this->data_.get() + offset, static_cast<uint32_t>(s.size()));
+            offset += 4;
             memcpy(this->data_.get() + offset, s.data(), s.size());
             offset += s.size();
-            this->data_[offset] = NEWLINE_TERMINATOR;
-            offset++;
         }
     }
 
@@ -602,15 +609,15 @@ public:
     explicit Series(const std::string &data, DataType data_type_ = STRING_T):
         data_type_(std::move(data_type_)),
         cap_(1),
-        cached_byte_size(data.size() + 1),
+        cached_byte_size(data.size() + VARIABLE_LENGTH_PREFIX_SIZE),
         size_(1),
         data_(alloc(this->byte_size())) {
         if (!this->data_type().matches({STRING_T, JSON_T}))
             throw std::runtime_error(
                 "cannot set a string value on a non-string or JSON series"
             );
-        memcpy(this->data_.get(), data.data(), data.size());
-        this->data_[byte_size() - 1] = NEWLINE_TERMINATOR;
+        write_u32_le(this->data_.get(), static_cast<uint32_t>(data.size()));
+        memcpy(this->data_.get() + 4, data.data(), data.size());
     }
 
     /// @brief constructs a series from its protobuf representation.
@@ -627,10 +634,10 @@ public:
         data_type_(DataType::infer(v)), cap_(1), size_(1) {
         if (this->data_type().is_variable()) {
             const auto &str = std::get<std::string>(v);
-            cached_byte_size = str.size() + 1;
+            cached_byte_size = str.size() + VARIABLE_LENGTH_PREFIX_SIZE;
             this->data_ = alloc(this->byte_size());
-            memcpy(this->data_.get(), str.data(), str.size());
-            this->data_[this->byte_size() - 1] = NEWLINE_TERMINATOR;
+            write_u32_le(this->data_.get(), static_cast<uint32_t>(str.size()));
+            memcpy(this->data_.get() + 4, str.data(), str.size());
             return;
         }
         std::visit(
@@ -646,19 +653,18 @@ public:
     /// @param values the vector of JSON values to be used.
     explicit Series(const std::vector<json::json> &values):
         data_type_(JSON_T), cap_(values.size()), size_(values.size()) {
-        // Calculate the total byte size needed (including newline terminators)
         this->cached_byte_size = 0;
         for (const auto &value: values)
-            this->cached_byte_size += value.dump().size() + 1;
+            this->cached_byte_size += value.dump().size() + VARIABLE_LENGTH_PREFIX_SIZE;
 
         this->data_ = alloc(this->byte_size());
         size_t offset = 0;
         for (const auto &value: values) {
             const auto str = value.dump();
+            write_u32_le(this->data_.get() + offset, static_cast<uint32_t>(str.size()));
+            offset += 4;
             memcpy(this->data_.get() + offset, str.data(), str.size());
             offset += str.size();
-            this->data_[offset] = NEWLINE_TERMINATOR;
-            offset++;
         }
     }
 
@@ -675,8 +681,13 @@ private:
         if (!this->data_type_.is_variable()) {
             this->size_ = pb.data().size() / this->data_type_.density();
         } else {
-            for (const char &v: pb.data())
-                if (v == NEWLINE_CHAR) ++this->size_;
+            const auto *ptr = reinterpret_cast<const std::byte *>(pb.data().data());
+            const auto *end = ptr + pb.data().size();
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
+                const uint32_t len = read_u32_le(ptr);
+                ptr += 4 + len;
+                ++this->size_;
+            }
         }
         this->cap_ = this->size_;
 
@@ -753,8 +764,9 @@ public:
         }
         std::visit(
             [this, index]<typename T>(const T &v) {
-                if constexpr (!std::is_same_v<T, std::string> &&
-                              !std::is_same_v<T, TimeStamp>) {
+                if constexpr (
+                    !std::is_same_v<T, std::string> && !std::is_same_v<T, TimeStamp>
+                ) {
                     this->set(index, v);
                 }
             },
@@ -809,13 +821,16 @@ public:
                 );
             const size_t count = std::min(d.size(), this->cap() - this->size());
             if (count == 0) return 0;
-            size_t offset = 0;
+            size_t offset = this->cached_byte_size;
             for (size_t i = 0; i < count; i++) {
                 const auto &s = d[i];
-                memcpy(this->data_.get() + offset, s.data_(), s.size());
+                write_u32_le(
+                    this->data_.get() + offset,
+                    static_cast<uint32_t>(s.size())
+                );
+                offset += 4;
+                memcpy(this->data_.get() + offset, s.data(), s.size());
                 offset += s.size();
-                this->data_.get()[offset] = NEWLINE_TERMINATOR;
-                offset++;
             }
             this->cached_byte_size = offset;
             this->size_ += count;
@@ -850,8 +865,10 @@ public:
     template<typename T>
     size_t write(const T &d) {
         this->ensure_exclusive();
-        if constexpr (std::is_same_v<T, std::string> ||
-                      std::is_same_v<T, const char *> || std::is_same_v<T, char *>) {
+        if constexpr (
+            std::is_same_v<T, std::string> || std::is_same_v<T, const char *> ||
+            std::is_same_v<T, char *>
+        ) {
             if (!this->data_type().matches({STRING_T, JSON_T}))
                 throw std::runtime_error(
                     "cannot write string to non-string/JSON series"
@@ -868,9 +885,12 @@ public:
                 str_len = strlen(d);
             }
 
-            memcpy(this->data_.get() + cached_byte_size, str_data, str_len);
-            this->data_.get()[cached_byte_size + str_len] = NEWLINE_TERMINATOR;
-            this->cached_byte_size += str_len + 1;
+            write_u32_le(
+                this->data_.get() + this->cached_byte_size,
+                static_cast<uint32_t>(str_len)
+            );
+            memcpy(this->data_.get() + this->cached_byte_size + 4, str_data, str_len);
+            this->cached_byte_size += str_len + VARIABLE_LENGTH_PREFIX_SIZE;
             this->size_++;
             return 1;
         } else if constexpr (std::is_same_v<T, TimeStamp>) {
@@ -931,14 +951,14 @@ public:
                 "cannot convert a non-JSON or non-string series to strings"
             );
         std::vector<std::string> v;
-        std::string buf;
-        for (size_t i = 0; i < this->byte_size(); i++) {
-            if (this->data_[i] == NEWLINE_TERMINATOR) {
-                v.push_back(buf);
-                buf.clear();
-                // WARNING: This might be very slow due to copying.
-            } else
-                buf += static_cast<char>(this->data_[i]);
+        v.reserve(this->size());
+        const auto *ptr = this->data_.get();
+        const auto *end = ptr + this->byte_size();
+        while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
+            const uint32_t len = read_u32_le(ptr);
+            ptr += 4;
+            v.emplace_back(reinterpret_cast<const char *>(ptr), len);
+            ptr += len;
         }
         return v;
     }
@@ -982,15 +1002,17 @@ public:
                     "cannot bind a string value on a non-string or JSON series"
                 );
             const auto adjusted = this->validate_bounds(index);
-            // iterate through the data byte by byte, incrementing the index every
-            // time we hit a newline character until we reach the desired index.
-            for (size_t i = 0, j = 0; i < this->byte_size(); i++)
-                if (this->data_[i] == NEWLINE_TERMINATOR) {
-                    if (j == adjusted) return value;
-                    value.clear();
-                    j++;
-                } else
-                    value += static_cast<char>(this->data_[i]);
+            const auto *ptr = this->data_.get();
+            const auto *end = ptr + this->byte_size();
+            size_t j = 0;
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
+                const uint32_t len = read_u32_le(ptr);
+                ptr += 4;
+                if (j == static_cast<size_t>(adjusted))
+                    return std::string(reinterpret_cast<const char *>(ptr), len);
+                ptr += len;
+                ++j;
+            }
             return value;
         } else if constexpr (std::is_same_v<T, TimeStamp>)
             return TimeStamp(this->at<int64_t>(index));
@@ -1637,8 +1659,13 @@ public:
         this->cached_byte_size += n_read;
         if (this->data_type().is_variable()) {
             this->size_ = 0;
-            for (size_t i = 0; i < this->byte_size(); i++)
-                if (this->data_[i] == NEWLINE_TERMINATOR) ++this->size_;
+            const auto *ptr = this->data_.get();
+            const auto *end = ptr + this->byte_size();
+            while (ptr + VARIABLE_LENGTH_PREFIX_SIZE <= end) {
+                const uint32_t len = read_u32_le(ptr);
+                ptr += 4 + len;
+                ++this->size_;
+            }
         } else
             this->size_ += n_read / this->data_type().density();
         return n_read;

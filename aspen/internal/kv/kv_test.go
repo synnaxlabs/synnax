@@ -36,7 +36,7 @@ var _ = Describe("txn", func() {
 	var builder *kvmock.Builder
 
 	BeforeEach(func() {
-		builder = kvmock.NewBuilder(
+		builder = DeferClose(kvmock.NewBuilder(
 			kv.Config{
 				RecoveryThreshold: 12,
 				GossipInterval:    10 * time.Millisecond,
@@ -45,17 +45,13 @@ var _ = Describe("txn", func() {
 				Gossip: gossip.Config{Interval: 10 * time.Millisecond},
 				Pledge: pledge.Config{RetryInterval: 10 * time.Millisecond},
 			},
-		)
-	})
-
-	AfterEach(func() {
-		Expect(builder.Close()).To(Succeed())
+		))
 	})
 
 	Describe("StreamServer", func() {
 
 		It("Should open a new database without error", func(ctx SpecContext) {
-			kv := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			kv := MustOpen(builder.New(ctx, kv.Config{}, cluster.Config{}))
 			Expect(kv).ToNot(BeNil())
 		})
 
@@ -175,7 +171,7 @@ var _ = Describe("txn", func() {
 		})
 
 		It("Should delete a key written directly to the engine without a digest", func(ctx SpecContext) {
-			engine := memkv.New()
+			engine := DeferClose(memkv.New())
 			kv := MustSucceed(
 				builder.New(ctx, kv.Config{Engine: engine}, cluster.Config{}),
 			)
@@ -317,8 +313,11 @@ var _ = Describe("txn", func() {
 			}).Should(Succeed())
 			Expect(kv1.Delete(ctx, []byte("key"))).To(Succeed())
 			Eventually(func(g Gomega) {
-				g.Expect(kv2.Get(ctx, []byte("key"))).Error().
-					To(MatchError(query.ErrNotFound))
+				_, closer, err := kv2.Get(ctx, []byte("key"))
+				if closer != nil {
+					Expect(closer.Close()).To(Succeed())
+				}
+				g.Expect(err).To(MatchError(query.ErrNotFound))
 			}).Should(Succeed())
 		})
 

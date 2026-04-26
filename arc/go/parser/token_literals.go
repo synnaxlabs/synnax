@@ -67,4 +67,5 @@ const (
 	LiteralRBRACKET      = "]"
 	LiteralCOMMA         = ","
 	LiteralCOLON         = ":"
+	LiteralDOT           = "."
 )

@@ -48,6 +48,24 @@ var _ = Describe("Number", func() {
 		It("Should return nil if the value is not a valid number", func() {
 			Expect(zyn.Number().Validate("not a number")).To(HaveOccurred())
 		})
+		It("Should succeed when an optional number receives nil", func() {
+			Expect(zyn.Number().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required number receives nil", func() {
+			Expect(zyn.Number().Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
+		It("Should succeed when an optional typed number receives nil", func() {
+			Expect(zyn.Number().Float64().Optional().Validate(nil)).To(Succeed())
+		})
+		It("Should fail when a required typed number receives nil", func() {
+			Expect(zyn.Number().Float64().Validate(nil)).To(MatchError(validate.ErrRequired))
+		})
+		It("Should validate a typed number with the correct type", func() {
+			Expect(zyn.Number().Uint32().Validate(uint32(42))).To(Succeed())
+		})
+		It("Should reject a typed number with an incorrect type", func() {
+			Expect(zyn.Number().Uint32().Validate("hello")).To(HaveOccurred())
+		})
 	})
 
 	Describe("DataType Validation", func() {
@@ -365,47 +383,47 @@ var _ = Describe("Number", func() {
 		Describe("Invalid Destination", func() {
 			Specify("non-numeric type", func() {
 				var dest string
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("nil pointer", func() {
 				var dest *int
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("non-pointer destination", func() {
 				var dest int
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("nil interface", func() {
 				var dest any
-				Expect(zyn.Number().Parse(12, dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("channel destination", func() {
 				var dest chan int
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("slice destination", func() {
 				var dest []int
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("map destination", func() {
 				var dest map[string]int
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("struct destination", func() {
 				var dest struct{ Value int }
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 
 			Specify("bool destination", func() {
 				var dest bool
-				Expect(zyn.Number().Parse(12, &dest)).To(HaveOccurredAs(zyn.ErrInvalidDestinationType))
+				Expect(zyn.Number().Parse(12, &dest)).To(MatchError(zyn.ErrInvalidDestinationType))
 			})
 		})
 	})
@@ -419,7 +437,7 @@ var _ = Describe("Number", func() {
 
 		Specify("required field with nil value", func() {
 			var dest int
-			Expect(zyn.Number().Parse(nil, &dest)).To(HaveOccurredAs(validate.ErrRequired))
+			Expect(zyn.Number().Parse(nil, &dest)).To(MatchError(validate.ErrRequired))
 		})
 
 		Specify("optional field with value", func() {
@@ -582,13 +600,13 @@ var _ = Describe("Number", func() {
 
 			Specify("nil value", func() {
 				_, err := zyn.Number().Dump(nil)
-				Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(err).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("nil pointer", func() {
 				var n *int
 				_, err := zyn.Number().Dump(n)
-				Expect(err).To(HaveOccurredAs(validate.ErrRequired))
+				Expect(err).To(MatchError(validate.ErrRequired))
 			})
 
 			Specify("optional nil value", func() {

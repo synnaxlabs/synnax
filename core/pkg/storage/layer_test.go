@@ -24,6 +24,7 @@ import (
 
 var _ = Describe("storage", func() {
 	Describe("Open", func() {
+		ShouldNotLeakGoroutinesPerSpec()
 		var (
 			tempDir string
 			cfg     storage.LayerConfig
@@ -31,7 +32,6 @@ var _ = Describe("storage", func() {
 		BeforeEach(func() {
 			tempDir = MustSucceed(os.MkdirTemp("", "synnax-test"))
 			cfg = storage.LayerConfig{Dirname: filepath.Join(tempDir, "storage")}
-			ShouldNotLeakGoroutines()
 		})
 		AfterEach(func() { Expect(os.RemoveAll(tempDir)).ToNot(HaveOccurred()) })
 		Describe("Acquiring a lock", func() {
@@ -91,8 +91,7 @@ var _ = Describe("storage", func() {
 			if contains == "" {
 				Expect(err).ToNot(HaveOccurred())
 			} else {
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring(contains))
+				Expect(err).To(MatchError(ContainSubstring(contains)))
 			}
 		},
 			Entry("Directory not set",

@@ -12,8 +12,7 @@
 package task_test
 
 import (
-	"bytes"
-	"github.com/google/uuid"
+	"reflect"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -21,10 +20,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/task"
-	"github.com/synnaxlabs/x/color"
-	"github.com/synnaxlabs/x/label"
-	"github.com/synnaxlabs/x/status"
-	"github.com/synnaxlabs/x/telem"
 )
 
 var _ = Describe("Codec", func() {
@@ -67,41 +62,12 @@ var _ = Describe("Codec", func() {
 				Name:     "test_2",
 				Internal: true,
 				Snapshot: false,
-				Status: func() *status.Status[task.StatusDetails] {
-					v := status.Status[task.StatusDetails]{
-						Key:         "test_6",
-						Name:        "test_7",
-						Variant:     status.Variant("success"),
-						Message:     "test_9",
-						Description: "test_10",
-						Time:        telem.TimeStamp(12),
-						Details: task.StatusDetails{
-							Task:    task.Key(14),
-							Running: false,
-							Cmd:     "test_15",
-						},
-						Labels: []label.Label{
-							{
-								Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
-								Name: "test_18",
-								Color: color.Color{
-									R: 21,
-									G: 22,
-									B: 23,
-									A: 23.5,
-								},
-							},
-						},
-					}
-					return &v
-				}(),
 			}),
 			Entry("zero values", task.Task{
 				Key:      task.Key(0),
 				Name:     "",
 				Internal: false,
 				Snapshot: false,
-				Status:   nil,
 			}),
 		)
 	})
@@ -134,34 +100,6 @@ func BenchmarkEncodeDecodeTask(b *testing.B) {
 		Name:     "test_2",
 		Internal: true,
 		Snapshot: false,
-		Status: func() *status.Status[task.StatusDetails] {
-			v := status.Status[task.StatusDetails]{
-				Key:         "test_6",
-				Name:        "test_7",
-				Variant:     status.Variant("success"),
-				Message:     "test_9",
-				Description: "test_10",
-				Time:        telem.TimeStamp(12),
-				Details: task.StatusDetails{
-					Task:    task.Key(14),
-					Running: false,
-					Cmd:     "test_15",
-				},
-				Labels: []label.Label{
-					{
-						Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
-						Name: "test_18",
-						Color: color.Color{
-							R: 21,
-							G: 22,
-							B: 23,
-							A: 23.5,
-						},
-					},
-				},
-			}
-			return &v
-		}(),
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -223,8 +161,11 @@ func FuzzDecodeStatusDetails(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }
@@ -236,34 +177,6 @@ func FuzzDecodeTask(f *testing.F) {
 			Name:     "test_2",
 			Internal: true,
 			Snapshot: false,
-			Status: func() *status.Status[task.StatusDetails] {
-				v := status.Status[task.StatusDetails]{
-					Key:         "test_6",
-					Name:        "test_7",
-					Variant:     status.Variant("success"),
-					Message:     "test_9",
-					Description: "test_10",
-					Time:        telem.TimeStamp(12),
-					Details: task.StatusDetails{
-						Task:    task.Key(14),
-						Running: false,
-						Cmd:     "test_15",
-					},
-					Labels: []label.Label{
-						{
-							Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567811"),
-							Name: "test_18",
-							Color: color.Color{
-								R: 21,
-								G: 22,
-								B: 23,
-								A: 23.5,
-							},
-						},
-					},
-				}
-				return &v
-			}(),
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -277,7 +190,6 @@ func FuzzDecodeTask(f *testing.F) {
 			Name:     "",
 			Internal: false,
 			Snapshot: false,
-			Status:   nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -305,8 +217,11 @@ func FuzzDecodeTask(f *testing.F) {
 		if err := redecoded.EncodeOrc(w2); err != nil {
 			t.Fatalf("re-encode failed: %v", err)
 		}
-		if !bytes.Equal(w1.Bytes(), w2.Bytes()) {
-			t.Fatal("round-trip mismatch: encoded bytes differ after decode-encode cycle")
+		if w1.Len() != w2.Len() {
+			t.Fatalf("encoded length differs between cycles: w1=%d w2=%d", w1.Len(), w2.Len())
+		}
+		if !reflect.DeepEqual(decoded, redecoded) {
+			t.Fatal("round-trip mismatch: decoded values differ after re-encode/re-decode cycle")
 		}
 	})
 }

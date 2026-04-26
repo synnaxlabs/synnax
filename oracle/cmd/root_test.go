@@ -411,10 +411,9 @@ var _ = Describe("generateResult.syncFiles", func() {
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "sync"))
-	})
-
-	AfterEach(func() {
-		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		DeferCleanup(func() {
+			Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		})
 	})
 
 	It("should write new files and report them", func() {

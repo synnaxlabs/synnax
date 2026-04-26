@@ -202,18 +202,30 @@ export const PORTS: Ports = {
 };
 
 export const propertiesZ = z.object({
-  identifier: Common.Device.identifierZ,
-  readIndex: channel.keyZ,
-  thermocoupleIndex: channel.keyZ,
-  writeStateIndex: channel.keyZ,
-  [AI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
-  [AO_PORT_TYPE]: z.object({
-    channels: z.record(z.string(), Common.Device.commandStatePairZ),
-  }),
-  [DI_PORT_TYPE]: z.object({ channels: z.record(z.string(), channel.keyZ) }),
-  [DO_PORT_TYPE]: z.object({
-    channels: z.record(z.string(), Common.Device.commandStatePairZ),
-  }),
+  identifier: Common.Device.identifierZ.catch(""),
+  readIndex: channel.keyZ.catch(0),
+  thermocoupleIndex: channel.keyZ.catch(0),
+  writeStateIndex: channel.keyZ.catch(0),
+  [AI_PORT_TYPE]: z
+    .object({ channels: z.record(z.string(), channel.keyZ).default(() => ({})) })
+    .default(() => ({ channels: {} })),
+  [AO_PORT_TYPE]: z
+    .object({
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
+    })
+    .default(() => ({ channels: {} })),
+  [DI_PORT_TYPE]: z
+    .object({ channels: z.record(z.string(), channel.keyZ).default(() => ({})) })
+    .default(() => ({ channels: {} })),
+  [DO_PORT_TYPE]: z
+    .object({
+      channels: z
+        .record(z.string(), Common.Device.commandStatePairZ)
+        .default(() => ({})),
+    })
+    .default(() => ({ channels: {} })),
 });
 export type Properties = z.infer<typeof propertiesZ>;
 

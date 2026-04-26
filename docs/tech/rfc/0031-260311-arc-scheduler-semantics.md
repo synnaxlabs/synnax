@@ -50,25 +50,25 @@ The `arc_short_circuit` integration test uses the following program:
 ```arc
 sequence main {
     stage on {
-        "on" -> ss_stage_str,
-        count{c_chan = ss_count_on},
-        0 -> ss_sim_stage,
-        1 -> ss_heater_cmd,
-        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) => off,
-        interval{period=1s} -> ss_temp_b > 300 => pause,
+        "on" -> ss_stage_str
+        count{c_chan=ss_count_on}
+        0 -> ss_sim_stage
+        1 -> ss_heater_cmd
+        interval{period=1s} -> (ss_temp_a > 290 and ss_temp_b > 290) => off
+        interval{period=1s} -> ss_temp_b > 300 => pause
     }
     stage pause {
-        "pause" -> ss_stage_str,
-        count{c_chan = ss_count_pause},
-        2 -> ss_sim_stage,
-        0 -> ss_heater_cmd,
-        wait{duration=1s} => on,
+        "pause" -> ss_stage_str
+        count{c_chan=ss_count_pause}
+        2 -> ss_sim_stage
+        0 -> ss_heater_cmd
+        wait{duration=1s} => on
     }
     stage off {
-        "off" -> ss_stage_str,
-        3 -> ss_sim_stage,
-        0 -> ss_heater_cmd,
-        ss_start_cmd => on,
+        "off" -> ss_stage_str
+        3 -> ss_sim_stage
+        0 -> ss_heater_cmd
+        ss_start_cmd => on
     }
 }
 ```

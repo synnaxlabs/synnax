@@ -1190,6 +1190,11 @@ export class TimeSpan
     return new TimeSpan(this.valueOf() - new TimeSpan(other).valueOf());
   }
 
+  abs(): TimeSpan {
+    const v = this.valueOf();
+    return new TimeSpan(v < 0n ? -v : v);
+  }
+
   /**
    * Creates a TimeSpan representing the given number of nanoseconds.
    *
@@ -2014,14 +2019,14 @@ export class DataType
   static readonly TIMESTAMP = new DataType("timestamp");
   /** Represents a UUID data type. */
   static readonly UUID = new DataType("uuid");
-  /** Represents a string data type. Strings have an unknown density, and are separate
-   * by a newline character. */
+  /** Represents a string data type. Strings have an unknown density and are encoded
+   * as uint32-length-prefixed samples. */
   static readonly STRING = new DataType("string");
-  /** Represents a JSON data type. JSON has an unknown density, and is separated by a
-   * newline character. */
+  /** Represents a JSON data type. JSON has an unknown density and is encoded as
+   * uint32-length-prefixed samples. */
   static readonly JSON = new DataType("json");
   /** Represents a bytes data type for arbitrary byte arrays. Bytes have an unknown
-   * density, and are separated by a newline character. */
+   * density and are encoded as uint32-length-prefixed samples. */
   static readonly BYTES = new DataType("bytes");
 
   private static readonly ARRAY_CONSTRUCTORS: Map<string, TypedArrayConstructor> =

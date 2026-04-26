@@ -89,8 +89,8 @@ type setAuthority struct {
 	initialized bool
 }
 
-func (s *setAuthority) Reset()                     { s.initialized = false }
-func (s *setAuthority) IsOutputTruthy(string) bool { return false }
+func (s *setAuthority) Reset()                  { s.initialized = false }
+func (s *setAuthority) IsOutputTruthy(int) bool { return false }
 
 func (s *setAuthority) Next(node.Context) {
 	if s.initialized {

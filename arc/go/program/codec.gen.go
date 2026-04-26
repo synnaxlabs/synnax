@@ -17,63 +17,37 @@ import (
 )
 
 func (p Program) EncodeOrc(w *orc.Writer) error {
+	w.Bool(p.Functions != nil)
 	if p.Functions != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Functions)))
-		for j := range p.Functions {
-			if err := p.Functions[j].EncodeOrc(w); err != nil {
+		for i := range p.Functions {
+			if err := p.Functions[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(p.Nodes != nil)
 	if p.Nodes != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Nodes)))
-		for j := range p.Nodes {
-			if err := p.Nodes[j].EncodeOrc(w); err != nil {
+		for i := range p.Nodes {
+			if err := p.Nodes[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
 	}
+	w.Bool(p.Edges != nil)
 	if p.Edges != nil {
-		w.Bool(true)
 		w.Uint32(uint32(len(p.Edges)))
-		for j := range p.Edges {
-			if err := p.Edges[j].EncodeOrc(w); err != nil {
+		for i := range p.Edges {
+			if err := p.Edges[i].EncodeOrc(w); err != nil {
 				return err
 			}
 		}
-	} else {
-		w.Bool(false)
-	}
-	if p.Strata != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(p.Strata)))
-		for j := range p.Strata {
-			w.Uint32(uint32(len(p.Strata[j])))
-			for k := range p.Strata[j] {
-				w.String(p.Strata[j][k])
-			}
-		}
-	} else {
-		w.Bool(false)
-	}
-	if p.Sequences != nil {
-		w.Bool(true)
-		w.Uint32(uint32(len(p.Sequences)))
-		for j := range p.Sequences {
-			if err := p.Sequences[j].EncodeOrc(w); err != nil {
-				return err
-			}
-		}
-	} else {
-		w.Bool(false)
 	}
 	if err := p.Authorities.EncodeOrc(w); err != nil {
+		return err
+	}
+	if err := p.Root.EncodeOrc(w); err != nil {
 		return err
 	}
 	w.Bool(p.WASM != nil)
@@ -104,8 +78,8 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Functions = make([]ir.Function, n)
-			for j := range p.Functions {
-				if err = p.Functions[j].DecodeOrc(r); err != nil {
+			for i := range p.Functions {
+				if err = p.Functions[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -122,8 +96,8 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Nodes = make([]ir.Node, n)
-			for j := range p.Nodes {
-				if err = p.Nodes[j].DecodeOrc(r); err != nil {
+			for i := range p.Nodes {
+				if err = p.Nodes[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
@@ -140,57 +114,17 @@ func (p *Program) DecodeOrc(r *orc.Reader) error {
 				return err
 			}
 			p.Edges = make([]ir.Edge, n)
-			for j := range p.Edges {
-				if err = p.Edges[j].DecodeOrc(r); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			p.Strata = make([][]string, n)
-			for j := range p.Strata {
-				n, err := r.CollectionLen()
-				if err != nil {
-					return err
-				}
-				p.Strata[j] = make([]string, n)
-				for k := range p.Strata[j] {
-					if p.Strata[j][k], err = r.String(); err != nil {
-						return err
-					}
-				}
-			}
-		}
-	}
-	{
-		present, err := r.Bool()
-		if err != nil {
-			return err
-		}
-		if present {
-			n, err := r.CollectionLen()
-			if err != nil {
-				return err
-			}
-			p.Sequences = make([]ir.Sequence, n)
-			for j := range p.Sequences {
-				if err = p.Sequences[j].DecodeOrc(r); err != nil {
+			for i := range p.Edges {
+				if err = p.Edges[i].DecodeOrc(r); err != nil {
 					return err
 				}
 			}
 		}
 	}
 	if err = p.Authorities.DecodeOrc(r); err != nil {
+		return err
+	}
+	if err = p.Root.DecodeOrc(r); err != nil {
 		return err
 	}
 	{

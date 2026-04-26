@@ -449,6 +449,51 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		Context("nested array of struct", func() {
+			It("Should delegate to generated helpers via IIFE when inner element is a struct", func(ctx SpecContext) {
+				source := `
+					@go output "arc/go/ir"
+					@pb
+
+					Member struct {
+						key string
+						value int32
+					}
+
+					Members = Member[]
+
+					Strata Members[]
+
+					Stage struct {
+						key string
+						strata Strata
+					}
+				`
+				resp := MustGenerate(ctx, source, "ir", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// Outer type matches the distinct named wrapper
+						"func() (ir.Strata, error) {",
+						"result := make(ir.Strata, len(pb.Strata))",
+						// Forward IIFE delegates to MembersToPB per inner slice
+						"func() ([]*MembersWrapper, error) {",
+						"result := make([]*MembersWrapper, len(r.Strata))",
+						"for i, inner := range r.Strata {",
+						"vals, err := MembersToPB(inner)",
+						"result[i] = &MembersWrapper{Values: vals}",
+						// Backward IIFE delegates to MembersFromPB
+						"for i, w := range pb.Strata {",
+						"vals, err := MembersFromPB(w.Values)",
+					).
+					ToNotContain(
+						// Must not fall back to the broken primitive lo.Map form
+						"lo.Map(r.Strata, func(inner []string",
+						"lo.Map(pb.Strata, func(w *MembersWrapper",
+					)
+			})
+		})
+
 		Context("generic struct translation", func() {
 			It("Should generate generic translator functions", func(ctx SpecContext) {
 				source := `
@@ -1288,6 +1333,200 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("StatusToPB(r.Status)")
+			})
+		})
+
+		Context("distinct type wrapping a primitive", func() {
+			It("Should cast in and out of the distinct Go type via protoType", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+					@pb
+
+					Priority uint16
+
+					Task struct {
+						key uuid
+						priority Priority
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// uint16 → uint32 on the wire, same-package alias prefix.
+						"uint32(r.Priority)",
+						"task.Priority(pb.Priority)",
+					)
+			})
+
+			It("Should use uuid.Parse when distinct wraps a uuid", func(ctx SpecContext) {
+				source := `
+					@go output "core/task"
+					@pb
+
+					TaskID uuid
+
+					Task struct {
+						id TaskID
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "task", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// Forward calls .String(); backward parses and casts to the
+						// distinct wrapper.
+						"r.ID.String()",
+						"uuid.Parse(pb.Id)",
+						"task.TaskID",
+					)
+			})
+		})
+
+		Context("fixed-size uint8 array", func() {
+			It("Should delegate to the distinct type's Bytes/FromBytes helpers", func(ctx SpecContext) {
+				source := `
+					@go output "core/crypto"
+					@pb
+
+					Hash uint8[32]
+
+					Digest struct {
+						hash Hash
+					}
+				`
+				resp := MustGenerate(ctx, source, "crypto", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"r.Hash.Bytes()",
+						".FromBytes(pb.Hash)",
+					)
+			})
+		})
+
+		Context("delegation translator (distinct wrapping a struct)", func() {
+			It("Should generate a delegating translator that calls the base type's ToPB/FromPB", func(ctx SpecContext) {
+				loader.Add("schemas/ranger", `
+					@go output "core/ranger"
+					@pb output "core/ranger/pb"
+
+					Range struct {
+						key  uuid
+						name string
+					}
+				`)
+
+				source := `
+					import "schemas/ranger"
+
+					@go output "core/ranger/ts"
+					@pb output "core/ranger/ts/pb"
+
+					TSRange ranger.Range
+				`
+				resp := MustGenerate(ctx, source, "tsranger", loader, pbPlugin)
+
+				// Delegation translator lives in the TSRange output path and
+				// calls through to the base ranger.Range translator.
+				ExpectContent(resp, "core/ranger/ts/pb/translator.gen.go").
+					ToContain(
+						"ranger_pb.RangeToPB(ranger.Range(r))",
+						"ranger_pb.RangeFromPB",
+						"ts.TsRange(result)",
+					)
+			})
+		})
+
+		Context("struct with @key numeric field", func() {
+			It("Should cast through the Key type via protoType and namespace alias", func(ctx SpecContext) {
+				loader.Add("schemas/ids", `
+					@go output "core/ids"
+					@pb
+
+					Key uint32 {
+						@doc value "is an identifier"
+					}
+				`)
+
+				source := `
+					import "schemas/ids"
+
+					@go output "core/node"
+					@pb
+
+					Node struct {
+						id ids.Key {
+							@key
+						}
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "node", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"uint32(r.ID)",
+						"ids.Key(pb.Id)",
+					)
+			})
+
+			It("Should cast a bare numeric primitive @key field through the parent package alias", func(ctx SpecContext) {
+				source := `
+					@go output "core/node"
+					@pb
+
+					Node struct {
+						id uint32 {
+							@key
+						}
+						name string
+					}
+				`
+				resp := MustGenerate(ctx, source, "node", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// isNumericPrimitive branch: forward is protoType(goField),
+						// backward casts the pb value through <pkg>.Key(...).
+						"uint32(r.ID)",
+						"node.Key(pb.Id)",
+					)
+			})
+		})
+
+		Context("generic struct instantiated with a struct type arg", func() {
+			It("Should emit ToPBAny/FromPBAny helpers for the struct-typed instantiation", func(ctx SpecContext) {
+				source := `
+					@go output "core/control"
+					@pb
+
+					Details struct {
+						label string
+					}
+
+					Status struct<D> {
+						key     string
+						details D
+					}
+
+					Channel struct {
+						status Status<Details>
+					}
+				`
+				resp := MustGenerate(ctx, source, "control", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						// ensureAnyHelper appends a ToPBAny/FromPBAny helper pair
+						// for each struct-typed generic instantiation.
+						"DetailsToPBAny",
+						"DetailsFromPBAny",
+						// Generic struct conversion forwards the typed converters.
+						"StatusToPB[control.Details]",
+						"StatusFromPB[control.Details]",
+					)
 			})
 		})
 	})

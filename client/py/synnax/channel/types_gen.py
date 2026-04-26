@@ -76,8 +76,7 @@ class Payload(BaseModel):
             values (TIMESTAMP data type) written in ascending order, and are
             most commonly unix nanosecond timestamps.
         index: Is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         alias: Is an optional alternate name for the channel within a specific context.
         virtual: Is true if this channel does not store data in the database but can
             still be used for streaming purposes.
@@ -124,8 +123,7 @@ class New(BaseModel):
             must have int64 values (TIMESTAMP data type) written in ascending
             order.
         index: Is the channel used to index this channel's values, associating
-            each value with a timestamp. If zero, the channel's data will be
-            indexed using its rate.
+            each value with a timestamp.
         alias: Is an optional alternate name for the channel within a specific context.
         virtual: Should be set to true to create a streaming-only channel that does
             not persist data.

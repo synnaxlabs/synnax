@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -1553,5 +1554,38 @@ var _ = Describe("Expressions", func() {
 			Expect(*ctx.Diagnostics).To(HaveLen(1))
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("dimensionless"))
 		})
+	})
+
+	Describe("Qualified Identifier Analysis", func() {
+		DescribeTable("valid qualified function calls",
+			func(ctx SpecContext, code string) { expectSuccess(ctx, code, stl.SymbolResolver) },
+			Entry("time.now()", `
+				func testFunc() i64 { return time.now() }
+			`),
+			Entry("math.pow()", `
+				func testFunc() i64 { return math.pow(2, 3) }
+			`),
+			Entry("string.len()", `
+				func testFunc() i64 { return string.len("hello") }
+			`),
+			Entry("string.concat()", `
+				func testFunc() str { return string.concat("a", "b") }
+			`),
+			Entry("string.equal()", `
+				func testFunc() i32 { return string.equal("a", "b") }
+			`),
+		)
+
+		DescribeTable("invalid qualified calls",
+			func(ctx SpecContext, code string, expectedMsg string) {
+				expectFailure(ctx, code, stl.SymbolResolver, expectedMsg)
+			},
+			Entry("undefined module", `
+				func testFunc() { x := fake.thing() }
+			`, "undefined symbol"),
+			Entry("undefined member", `
+				func testFunc() { x := time.nonexistent() }
+			`, "undefined symbol"),
+		)
 	})
 })

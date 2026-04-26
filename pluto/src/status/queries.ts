@@ -241,7 +241,7 @@ export const retrieveMultiple = async ({
   if (missing.length === 0) return cached;
   const retrieved = await client.statuses.retrieve({ keys: missing });
   store.statuses.set(retrieved);
-  return [...cached, ...retrieved];
+  return Flux.orderByKeys(keys, [...cached, ...retrieved], (s) => s.key);
 };
 
 export const { useRetrieve: useRetrieveMultiple } = Flux.createRetrieve<

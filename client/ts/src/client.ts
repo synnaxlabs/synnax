@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { breaker, TimeSpan, TimeStamp, URL } from "@synnaxlabs/x";
+import { breaker, TimeSpan, TimeStamp, URL, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { access } from "@/access";
@@ -45,6 +45,7 @@ export const synnaxParamsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
+  clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
@@ -109,13 +110,14 @@ export default class Synnax extends framer.Client {
    * the client from polling the cluster for connectivity information.
    */
   constructor(params: SynnaxParams) {
-    const parsedParams = synnaxParamsZ.parse(params);
+    const parsedParams = zod.parse(synnaxParamsZ, params);
     const {
       host,
       port,
       username,
       password,
       connectivityPollFrequency,
+      clockSkewThreshold,
       secure,
       retry: breaker,
     } = parsedParams;
@@ -141,6 +143,7 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       this.clientVersion,
       parsedParams.name,
+      clockSkewThreshold,
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(this.transport.unary);
@@ -196,7 +199,7 @@ export const checkConnection = async (params: CheckConnectionParams) =>
 
 export const newConnectionChecker = (params: CheckConnectionParams) => {
   const { host, port, secure, name, retry } = params;
-  const retryConfig = breaker.breakerConfigZ.optional().parse(retry);
+  const retryConfig = zod.parse(breaker.breakerConfigZ.optional(), retry);
   const url = new URL({ host, port: Number(port) });
   const transport = new Transport(url, retryConfig, secure);
   return new connection.Checker(transport.unary, undefined, __VERSION__, name);
