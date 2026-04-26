@@ -16,6 +16,7 @@ import (
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	xcontrol "github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,19 +24,18 @@ import (
 )
 
 var _ = Describe("Variable-length channel", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
 				fs      xfs.FS
-				cleanUp func() error
 				indexDB *unary.DB
 				dataDB  *unary.DB
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("index")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "index",
@@ -45,7 +45,7 @@ var _ = Describe("Variable-length channel", func() {
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        MustSucceed(fs.Sub("data")),
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Key:      GenerateChannelKey(),
 						Name:     "strings",
@@ -58,7 +58,6 @@ var _ = Describe("Variable-length channel", func() {
 			AfterAll(func() {
 				Expect(dataDB.Close()).To(Succeed())
 				Expect(indexDB.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Write + Read", func() {
@@ -76,7 +75,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should write and read JSON data", func(ctx SpecContext) {
 					jsonDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("json-data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "json",
@@ -105,7 +104,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should write and read bytes data", func(ctx SpecContext) {
 					bytesDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(fs.Sub("bytes-data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "bytes",
@@ -156,7 +155,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("flush-on-commit"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "flush-on-commit-idx",
@@ -168,7 +167,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "flush-on-commit-data",
@@ -217,7 +216,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("cold-rebuild"))
 					seedIdx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "cold-rebuild-idx",
@@ -227,7 +226,7 @@ var _ = Describe("Variable-length channel", func() {
 					}))
 					seedData := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "cold-rebuild-data",
@@ -256,7 +255,7 @@ var _ = Describe("Variable-length channel", func() {
 					// Reopen against the same FS. Cache is empty.
 					reopenIdx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      seedIdx.Channel().Key,
 							Name:     "cold-rebuild-idx",
@@ -268,7 +267,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					reopenData := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      seedData.Channel().Key,
 							Name:     "cold-rebuild-data",
@@ -300,7 +299,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("rollover-flush"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "rollover-idx",
@@ -313,7 +312,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "rollover-data",
@@ -374,7 +373,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("multi-commit-flush"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "multi-commit-idx",
@@ -386,7 +385,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "multi-commit-data",
@@ -437,7 +436,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("cache-refresh"))
 					idx2 := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "idx2",
@@ -448,7 +447,7 @@ var _ = Describe("Variable-length channel", func() {
 					defer func() { Expect(idx2.Close()).To(Succeed()) }()
 					data2 := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "data2",
@@ -527,7 +526,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("handoff-basic"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-idx",
@@ -539,7 +538,7 @@ var _ = Describe("Variable-length channel", func() {
 					rec := xfs.NewRecorder(MustSucceed(subFS.Sub("data")))
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        rec,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-data",
@@ -605,7 +604,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("handoff-uncommitted"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-uncommitted-idx",
@@ -616,7 +615,7 @@ var _ = Describe("Variable-length channel", func() {
 					defer func() { Expect(idx.Close()).To(Succeed()) }()
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-uncommitted-data",
@@ -663,7 +662,7 @@ var _ = Describe("Variable-length channel", func() {
 					subFS := MustSucceed(fs.Sub("handoff-roundtrip"))
 					idx := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("idx")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-roundtrip-idx",
@@ -674,7 +673,7 @@ var _ = Describe("Variable-length channel", func() {
 					defer func() { Expect(idx.Close()).To(Succeed()) }()
 					data := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        MustSucceed(subFS.Sub("data")),
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
 							Name:     "handoff-roundtrip-data",
@@ -815,7 +814,7 @@ var _ = Describe("Variable-length channel", func() {
 				It("Should garbage collect after deletion", func(ctx SpecContext) {
 					gcDB := MustSucceed(unary.Open(ctx, unary.Config{
 						FS:          MustSucceed(fs.Sub("gc")),
-						MetaCodec:   codec,
+						MetaCodec:   json.Codec,
 						GCThreshold: 0.01,
 						Channel: channel.Channel{
 							Key:      GenerateChannelKey(),
