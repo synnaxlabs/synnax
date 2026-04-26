@@ -106,12 +106,12 @@ class ChannelClient:
         if virtual:
             self.layout.click_checkbox("Virtual")
         if is_index:
-            self.layout.click_checkbox("Is Index")
+            self.layout.click_checkbox("Is index")
         else:
             if index == 0:
                 raise ValueError("Index must be provided if is_index is False")
             data_type_str = str(sy.DataType(data_type))
-            self.layout.click_btn("Data Type")
+            self.layout.click_btn("Data type")
             self.layout.select_from_dropdown(data_type_str, "Search Data Types")
             self.layout.click_btn("Index")
             self.layout.select_from_dropdown(str(index), "Search Channels")
@@ -172,14 +172,14 @@ class ChannelClient:
             if virtual:
                 self.layout.click_checkbox("Virtual")
             if is_index:
-                self.layout.click_checkbox("Is Index")
+                self.layout.click_checkbox("Is index")
             else:
                 if index == 0:
                     raise ValueError(
                         f"Index must be provided for non-index channel: {name}"
                     )
                 data_type_str = str(sy.DataType(data_type))
-                self.layout.click_btn("Data Type")
+                self.layout.click_btn("Data type")
                 self.layout.select_from_dropdown(data_type_str, "Search Data Types")
                 self.layout.click_btn("Index")
                 self.layout.select_from_dropdown(index_str, "Search Channels")

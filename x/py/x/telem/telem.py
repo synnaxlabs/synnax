@@ -1014,9 +1014,7 @@ class DataType(str):
     @property
     def is_variable(self) -> bool:
         return (
-            self == DataType.STRING
-            or self == DataType.JSON
-            or self == DataType.BYTES
+            self == DataType.STRING or self == DataType.JSON or self == DataType.BYTES
         )
 
     @property
