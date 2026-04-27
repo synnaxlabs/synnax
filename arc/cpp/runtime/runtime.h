@@ -54,9 +54,9 @@ struct Output {
 struct Config {
     program::Program program;
     x::breaker::Config breaker;
-    std::function<std::pair<
-        std::vector<state::ChannelDigest>,
-        x::errors::Error>(const std::vector<types::ChannelKey> &)>
+    std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
+        const std::vector<types::ChannelKey> &
+    )>
         retrieve_channels;
     size_t input_queue_capacity = 256;
     size_t output_queue_capacity = 1024;

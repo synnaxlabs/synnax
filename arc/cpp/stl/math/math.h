@@ -527,9 +527,7 @@ public:
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(size_t) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
 private:
     template<typename T>
@@ -621,9 +619,7 @@ public:
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(size_t) const override {
-        return false;
-    }
+    [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 
 private:
     template<typename T>

@@ -25,7 +25,8 @@ class WasmModule : public stl::Module {
     wasmtime::Memory *memory = nullptr;
 
 public:
-    explicit WasmModule(runtime::errors::Handler handler): handler(std::move(handler)) {}
+    explicit WasmModule(runtime::errors::Handler handler):
+        handler(std::move(handler)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         // SAFETY: raw `this` capture is safe because wasm::Module owns this

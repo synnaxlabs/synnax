@@ -1147,9 +1147,7 @@ TEST(NowTest, OutputsWallClockTimestamp) {
     const auto before = x::telem::TimeStamp::now().nanoseconds();
     auto ctx = make_context(x::telem::SECOND * 5);
     bool changed = false;
-    ctx.mark_changed = [&](size_t) {
-        changed = true;
-    };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     const auto after = x::telem::TimeStamp::now().nanoseconds();
 
