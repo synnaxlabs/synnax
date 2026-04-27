@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 	"go/types"
-	"sync"
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
@@ -30,108 +29,47 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-type leaseProxy struct {
-	cfg           ServiceConfig
-	leasedCounter *counter
-	freeCounter   *counter
-	group         group.Group
-	table         *gorp.Table[Key, Channel]
-	mu            struct {
-		externalNonVirtualSet *set.Integer[Key]
-		sync.RWMutex
-	}
-	createRouter proxy.BatchFactory[Channel]
-	renameRouter proxy.BatchFactory[renameBatchEntry]
-	keyRouter    proxy.BatchFactory[Key]
-}
-
 const calculatedIndexNameSuffix = "_time"
 
-func newLeaseProxy(
-	ctx context.Context,
-	cfg ServiceConfig,
-	group group.Group,
-	table *gorp.Table[Key, Channel],
-) (*leaseProxy, error) {
-	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
-	c, err := openCounter(ctx, cfg.ClusterDB, leasedCounterKey)
-	if err != nil {
-		return nil, err
-	}
-	keyRouter := proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()}
-	var externalNonVirtualChannels []Channel
-	if err := table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return !c.Internal && !c.Virtual, nil
-		})).
-		Entries(&externalNonVirtualChannels).
-		Exec(ctx, cfg.ClusterDB); err != nil {
-		return nil, err
-	}
-
-	p := &leaseProxy{
-		cfg:           cfg,
-		createRouter:  proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
-		keyRouter:     keyRouter,
-		renameRouter:  proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
-		leasedCounter: c,
-		group:         group,
-		table:         table,
-	}
-	p.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
-		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
-		c, err := openCounter(ctx, cfg.ClusterDB, freeCounterKey)
-		if err != nil {
-			return nil, err
-		}
-		p.freeCounter = c
-	}
-	p.cfg.Transport.CreateServer().BindHandler(p.createHandler)
-	p.cfg.Transport.DeleteServer().BindHandler(p.deleteHandler)
-	p.cfg.Transport.RenameServer().BindHandler(p.renameHandler)
-	return p, nil
-}
-
-func (lp *leaseProxy) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
-	txn := lp.cfg.ClusterDB.OpenTx()
-	err := lp.create(ctx, txn, &msg.Channels, msg.Opts)
+func (s *Service) createHandler(ctx context.Context, msg CreateMessage) (CreateMessage, error) {
+	txn := s.cfg.ClusterDB.OpenTx()
+	err := s.create(ctx, txn, &msg.Channels, msg.Opts)
 	if err != nil {
 		return CreateMessage{}, err
 	}
 	return CreateMessage{Channels: msg.Channels}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
-	txn := lp.cfg.ClusterDB.OpenTx()
-	err := lp.delete(ctx, txn, msg.Keys, false)
+func (s *Service) deleteHandler(ctx context.Context, msg DeleteRequest) (types.Nil, error) {
+	txn := s.cfg.ClusterDB.OpenTx()
+	err := s.delete(ctx, txn, msg.Keys, false)
 	if err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
-	txn := lp.cfg.ClusterDB.OpenTx()
-	err := lp.rename(ctx, txn, msg.Keys, msg.Names, false)
+func (s *Service) renameHandler(ctx context.Context, msg RenameRequest) (types.Nil, error) {
+	txn := s.cfg.ClusterDB.OpenTx()
+	err := s.rename(ctx, txn, msg.Keys, msg.Names, false)
 	if err != nil {
 		return types.Nil{}, err
 	}
 	return types.Nil{}, txn.Commit(ctx)
 }
 
-func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
+func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, opts CreateOptions) error {
 	channels := *_channels
-	if *lp.cfg.ValidateNames {
+	if *s.cfg.ValidateNames {
 		keys := KeysFromChannels(channels)
 		names := Names(channels)
-		if err := lp.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
+		if err := s.validateChannelNames(ctx, tx, keys, names, opts.RetrieveIfNameExists || opts.OverwriteIfNameExistsAndDifferentProperties); err != nil {
 			return err
 		}
 	}
 	for i, ch := range channels {
 		if ch.Leaseholder == 0 {
-			channels[i].Leaseholder = lp.cfg.HostResolver.HostKey()
+			channels[i].Leaseholder = s.cfg.HostResolver.HostKey()
 		}
 		if ch.IsCalculated() {
 			// Reject manually-specified indexes on calculated channels
@@ -167,47 +105,47 @@ func (lp *leaseProxy) create(ctx context.Context, tx gorp.Tx, _channels *[]Chann
 	// Append index channels to be created alongside calculated channels
 	channels = append(channels, indexChannels...)
 
-	batch := lp.createRouter.Batch(channels)
+	batch := s.createRouter.Batch(channels)
 	oChannels := make([]Channel, 0, len(channels))
 	for nodeKey, entries := range batch.Peers {
-		remoteChannels, err := lp.createRemote(ctx, nodeKey, entries, opts)
+		remoteChannels, err := s.createRemote(ctx, nodeKey, entries, opts)
 		if err != nil {
 			return err
 		}
 		oChannels = append(oChannels, remoteChannels...)
 	}
 	if len(batch.Free) > 0 {
-		if !lp.cfg.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := lp.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
+		if !s.cfg.HostResolver.HostKey().IsBootstrapper() {
+			remoteChannels, err := s.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
 			oChannels = append(oChannels, remoteChannels...)
 		} else {
-			if err := lp.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts); err != nil {
+			if err := s.createAndUpdateFreeVirtual(ctx, tx, &batch.Free, opts); err != nil {
 				return err
 			}
 			oChannels = append(oChannels, batch.Free...)
 		}
 	}
-	if err := lp.createGateway(ctx, tx, &batch.Gateway, opts); err != nil {
+	if err := s.createGateway(ctx, tx, &batch.Gateway, opts); err != nil {
 		return err
 	}
 	oChannels = append(oChannels, batch.Gateway...)
 	*_channels = oChannels
-	return lp.maybeSetResources(ctx, tx, oChannels, opts)
+	return s.maybeSetResources(ctx, tx, oChannels, opts)
 }
 
-func (lp *leaseProxy) createAndUpdateFreeVirtual(
+func (s *Service) createAndUpdateFreeVirtual(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
 	opts CreateOptions,
 ) error {
-	if lp.freeCounter == nil {
-		panic("[leaseProxy] - tried to assign virtual keys on non-bootstrapper")
+	if s.freeCounter == nil {
+		panic("[channel.Service] - tried to assign virtual keys on non-bootstrapper")
 	}
-	if err := lp.validateFreeVirtual(channels); err != nil {
+	if err := s.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
@@ -216,7 +154,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Filter out zero keys (channels that don't exist yet)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
-		if err := lp.table.NewUpdate().
+		if err := s.table.NewUpdate().
 			WhereKeys(existingKeys...).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
@@ -245,7 +183,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	}
 
 	if opts.OverwriteIfNameExistsAndDifferentProperties {
-		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+		if err := s.deleteOverwritten(ctx, tx, channels); err != nil {
 			return err
 		}
 	}
@@ -270,11 +208,11 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Add these index channels to the list to be created
 	*channels = append(*channels, indexChannelsForExisting...)
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(
+	toCreate, err := s.retrieveExistingAndAssignKeys(
 		ctx,
 		tx,
 		channels,
-		lp.freeCounter,
+		s.freeCounter,
 		opts.RetrieveIfNameExists,
 	)
 	if err != nil {
@@ -321,7 +259,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	if err := lp.table.NewCreate().Entries(&toCreate).Exec(ctx,
+	if err := s.table.NewCreate().Entries(&toCreate).Exec(ctx,
 		tx); err != nil {
 		return err
 	}
@@ -329,7 +267,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Update existing calculated channels with their new LocalIndex values
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
-			if err := lp.table.NewUpdate().
+			if err := s.table.NewUpdate().
 				WhereKeys(ch.Key()).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
@@ -341,10 +279,16 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 		}
 	}
 
-	return lp.maybeSetResources(ctx, tx, toCreate, opts)
+	return s.maybeSetResources(ctx, tx, toCreate, opts)
 }
 
-func (lp *leaseProxy) validateChannelNames(
+// validateChannelNames rejects a create/rename request whose proposed names
+// either duplicate each other or collide with an existing channel under a
+// different key. Conflict detection goes through the name index via
+// MatchNames, so the query is an O(1)-per-name set lookup instead of a full
+// table scan. Uses newRetrieve to skip the overflow validator, which would
+// otherwise deadlock against the write lock held by createGateway.
+func (s *Service) validateChannelNames(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys Keys,
@@ -370,11 +314,10 @@ func (lp *leaseProxy) validateChannelNames(
 		return nil
 	}
 	var conflictingChannels []Channel
-	if err := lp.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return namesSeen.Contains(c.Name), nil
-		})).
-		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&conflictingChannels).
+		Exec(ctx, tx); err != nil {
 		return errors.Skip(err, query.ErrNotFound)
 	}
 	nameConflicts := make(map[string]int, len(conflictingChannels))
@@ -398,7 +341,7 @@ func (lp *leaseProxy) validateChannelNames(
 	return nil
 }
 
-func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
+func (s *Service) validateFreeVirtual(channels *[]Channel) error {
 	for _, ch := range *channels {
 		if len(ch.Name) == 0 {
 			return validate.PathedError(validate.ErrRequired, "name")
@@ -407,32 +350,40 @@ func (lp *leaseProxy) validateFreeVirtual(channels *[]Channel) error {
 	return nil
 }
 
-func (lp *leaseProxy) retrieveExistingAndAssignKeys(
+// retrieveExistingAndAssignKeys looks up any existing channels whose names
+// match the input set and, when retrieveIfNameExists is true, replaces the
+// input channels in place with the existing DB records. Remaining slots get
+// fresh local keys allocated from the counter.
+//
+// Lookup goes through the name index via MatchNames, so it's O(1) per name
+// instead of a full table scan. Uses newRetrieve to skip the overflow
+// validator (see validateChannels for the deadlock reason).
+func (s *Service) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
 	counter *counter,
 	retrieveIfNameExists bool,
 ) (toCreate []Channel, err error) {
-	// This is the value we would increment by if RetrieveIfNameExists is false or
-	// if we don't find any names that already exist.
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = lp.table.NewRetrieve().Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			v := lo.IndexOf(names, c.Name)
-			exists := v != -1
-			if exists {
-				// If it exists, replace it with the existing channel and decrement the
-				// number of channels we need to create.
-				(*channels)[v] = *c
-				if incCounterBy != 0 {
-					incCounterBy--
-				}
+		var existing []Channel
+		if err = s.newRetrieve().
+			Where(MatchNames(names...)).
+			Entries(&existing).
+			Exec(ctx, tx); err != nil {
+			return nil, errors.Skip(err, query.ErrNotFound)
+		}
+		for _, e := range existing {
+			idx := lo.IndexOf(names, e.Name)
+			if idx < 0 {
+				continue
 			}
-			return exists, nil
-		})).Exec(ctx, tx); err != nil {
-			return
+			(*channels)[idx] = e
+			if incCounterBy != 0 {
+				incCounterBy--
+			}
 		}
 	}
 	nextCounterValue, err := counter.add(ctx, incCounterBy)
@@ -457,49 +408,73 @@ func (lp *leaseProxy) retrieveExistingAndAssignKeys(
 	return toCreate, nil
 }
 
-func (lp *leaseProxy) deleteOverwritten(
+// deleteOverwritten handles the OverwriteIfNameExistsAndDifferentProperties
+// create option: for each input channel whose name already exists in the DB
+// under a different key, either reuse the existing record (if the input is
+// property-equivalent modulo keys) or drop it so the create can proceed.
+//
+// Conflict lookup goes through the name index via MatchNames; the overwrite
+// vs reuse decision happens in a plain loop instead of inside a gorp.Match
+// predicate closure.
+func (s *Service) deleteOverwritten(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
 ) error {
-	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
-	if err := lp.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
-				return ch.Name == c.Name && ch.Key() != c.Key()
-			})
-			equal := ch.Equals(*c, "LocalKey", "LocalIndex", "Leaseholder")
-			shouldDelete := found && !equal
-			if shouldDelete {
-				storageToDelete = append(storageToDelete, c.Storage().Key)
-			}
-			if equal {
-				(*channels)[i] = *c
-			}
-			return shouldDelete, nil
-		})).Exec(ctx, tx); err != nil {
-		return err
+	names := Names(*channels)
+	if len(names) == 0 {
+		return nil
 	}
-	return lp.cfg.TSChannel.DeleteChannels(storageToDelete)
+	var existing []Channel
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&existing).
+		Exec(ctx, tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
+	}
+	keysToDelete := make(Keys, 0, len(existing))
+	storageToDelete := make([]ts.ChannelKey, 0, len(existing))
+	for _, ex := range existing {
+		ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
+			return ch.Name == ex.Name && ch.Key() != ex.Key()
+		})
+		if !found {
+			continue
+		}
+		if ch.Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
+			(*channels)[i] = ex
+			continue
+		}
+		keysToDelete = append(keysToDelete, ex.Key())
+		storageToDelete = append(storageToDelete, ex.Storage().Key)
+	}
+	if len(keysToDelete) > 0 {
+		if err := s.table.NewDelete().
+			WhereKeys(keysToDelete...).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
+	}
+	return s.cfg.TSChannel.DeleteChannels(storageToDelete)
 }
 
-func (lp *leaseProxy) createGateway(
+func (s *Service) createGateway(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
 	opts CreateOptions,
 ) error {
 	if opts.OverwriteIfNameExistsAndDifferentProperties {
-		if err := lp.deleteOverwritten(ctx, tx, channels); err != nil {
+		if err := s.deleteOverwritten(ctx, tx, channels); err != nil {
 			return err
 		}
 	}
 
-	if err := lp.validateFreeVirtual(channels); err != nil {
+	if err := s.validateFreeVirtual(channels); err != nil {
 		return err
 	}
 
-	toCreate, err := lp.retrieveExistingAndAssignKeys(ctx, tx, channels, lp.leasedCounter, opts.RetrieveIfNameExists)
+	toCreate, err := s.retrieveExistingAndAssignKeys(ctx, tx, channels, s.leasedCounter, opts.RetrieveIfNameExists)
 	if err != nil {
 		return err
 	}
@@ -510,39 +485,39 @@ func (lp *leaseProxy) createGateway(
 			externalCreatedKeys = append(externalCreatedKeys, ch.Key())
 		}
 	}
-	lp.mu.Lock()
-	defer lp.mu.Unlock()
-	count := lp.mu.externalNonVirtualSet.Size()
-	if err = lp.cfg.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	count := s.mu.externalNonVirtualSet.Size()
+	if err = s.cfg.IntOverflowCheck(xtypes.Uint20(int(count) + len(externalCreatedKeys))); err != nil {
 		return err
 	}
 	storageChannels := toStorage(toCreate)
-	if err = lp.cfg.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
+	if err = s.cfg.TSChannel.CreateChannel(ctx, storageChannels...); err != nil {
 		return err
 	}
-	if err = lp.table.NewCreate().
+	if err = s.table.NewCreate().
 		Entries(&toCreate).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	lp.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
+	s.mu.externalNonVirtualSet.Insert(externalCreatedKeys...)
 	return nil
 
 }
 
-func (lp *leaseProxy) maybeSetResources(
+func (s *Service) maybeSetResources(
 	ctx context.Context,
 	txn gorp.Tx,
 	channels []Channel,
 	opts CreateOptions,
 ) error {
-	if lp.cfg.Ontology == nil || lp.cfg.Group == nil {
+	if s.cfg.Ontology == nil || s.cfg.Group == nil {
 		return nil
 	}
 	externalIDs := lo.FilterMap(channels, func(ch Channel, _ int) (ontology.ID, bool) {
 		return OntologyID(ch.Key()), !ch.Internal
 	})
-	w := lp.cfg.Ontology.NewWriter(txn)
+	w := s.cfg.Ontology.NewWriter(txn)
 	if err := w.DefineManyResources(ctx, externalIDs); err != nil {
 		return err
 	}
@@ -551,52 +526,54 @@ func (lp *leaseProxy) maybeSetResources(
 	}
 	return w.DefineFromOneToManyRelationships(
 		ctx,
-		group.OntologyID(lp.group.Key),
+		group.OntologyID(s.group.Key),
 		ontology.RelationshipTypeParentOf,
 		externalIDs,
 	)
 }
 
-func (lp *leaseProxy) createRemote(
+func (s *Service) createRemote(
 	ctx context.Context,
 	target cluster.NodeKey,
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
-	addr, err := lp.cfg.HostResolver.Resolve(target)
+	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return nil, err
 	}
 	cm := CreateMessage{Channels: channels, Opts: opts}
-	res, err := lp.cfg.Transport.CreateClient().Send(ctx, addr, cm)
+	res, err := s.cfg.Transport.CreateClient().Send(ctx, addr, cm)
 	if err != nil {
 		return nil, err
 	}
 	return res.Channels, nil
 }
 
-func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
+// deleteByName resolves the provided names to keys via the name index and
+// delegates to delete. newRetrieve bypasses the overflow validator for the
+// same reason the rest of the internal path does.
+func (s *Service) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := lp.table.NewRetrieve().Entries(&res).Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
-		return lo.Contains(names, c.Name), nil
-	})).Exec(ctx, tx); err != nil {
-		return err
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&res).
+		Exec(ctx, tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
 	}
 	keys := KeysFromChannels(res)
-	return lp.delete(ctx, tx, keys, allowInternal)
+	return s.delete(ctx, tx, keys, allowInternal)
 }
 
-func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
+func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
-		if err := lp.table.NewRetrieve().
+		if err := s.newRetrieve().
 			WhereKeys(keys...).
-			Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
-				return c.Internal, nil
-			})).
+			Where(MatchInternal(true)).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
-			return err
+			return errors.Skip(err, query.ErrNotFound)
 		}
 		if len(internalChannels) > 0 {
 			names := make([]string, 0, len(internalChannels))
@@ -607,66 +584,66 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 		}
 	}
 
-	batch := lp.keyRouter.Batch(keys)
+	batch := s.keyRouter.Batch(keys)
 	for nodeKey, entries := range batch.Peers {
-		err := lp.deleteRemote(ctx, nodeKey, entries)
+		err := s.deleteRemote(ctx, nodeKey, entries)
 		if err != nil {
 			return err
 		}
 	}
 	if len(batch.Free) > 0 {
-		err := lp.deleteFreeVirtual(ctx, tx, batch.Free)
+		err := s.deleteFreeVirtual(ctx, tx, batch.Free)
 		if err != nil {
 			return err
 		}
 	}
-	if err := lp.deleteGateway(ctx, tx, batch.Gateway); err != nil {
+	if err := s.deleteGateway(ctx, tx, batch.Gateway); err != nil {
 		return err
 	}
-	return lp.maybeDeleteResources(ctx, tx, keys)
+	return s.maybeDeleteResources(ctx, tx, keys)
 }
 
-func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return lp.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
+func (s *Service) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
+	return s.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
 }
 
-func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := lp.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+func (s *Service) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
+	if err := s.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
 		return err
 	}
-	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
+	if err := s.maybeDeleteResources(ctx, tx, keys); err != nil {
 		return err
 	}
 	// It's very important that this goes last, as it's the only operation that can fail
 	// without an atomic guarantee.
-	if err := lp.cfg.TSChannel.DeleteChannels(keys.Storage()); err != nil {
+	if err := s.cfg.TSChannel.DeleteChannels(keys.Storage()); err != nil {
 		return err
 	}
-	lp.mu.Lock()
-	lp.mu.externalNonVirtualSet.Remove(keys...)
-	lp.mu.Unlock()
+	s.mu.Lock()
+	s.mu.externalNonVirtualSet.Remove(keys...)
+	s.mu.Unlock()
 	return nil
 }
 
-func (lp *leaseProxy) maybeDeleteResources(
+func (s *Service) maybeDeleteResources(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys Keys,
 ) error {
-	if lp.cfg.Ontology == nil {
+	if s.cfg.Ontology == nil {
 		return nil
 	}
 	ids := lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
-	w := lp.cfg.Ontology.NewWriter(tx)
+	w := s.cfg.Ontology.NewWriter(tx)
 	return w.DeleteManyResources(ctx, ids)
 }
 
-func (lp *leaseProxy) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
-	addr, err := lp.cfg.HostResolver.Resolve(target)
+func (s *Service) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
+	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
+	_, err = s.cfg.Transport.DeleteClient().Send(ctx, addr, DeleteRequest{Keys: keys})
 	return err
 }
 
@@ -691,7 +668,7 @@ func newRenameBatch(keys Keys, names []string) []renameBatchEntry {
 	})
 }
 
-func (lp *leaseProxy) rename(
+func (s *Service) rename(
 	ctx context.Context,
 	tx gorp.Tx,
 	keys Keys,
@@ -701,38 +678,38 @@ func (lp *leaseProxy) rename(
 	if len(keys) != len(names) {
 		return errors.Wrap(validate.ErrValidation, "keys and names must be the same length")
 	}
-	if *lp.cfg.ValidateNames {
-		if err := lp.validateChannelNames(ctx, tx, keys, names, false); err != nil {
+	if *s.cfg.ValidateNames {
+		if err := s.validateChannelNames(ctx, tx, keys, names, false); err != nil {
 			return err
 		}
 	}
 
-	batch := lp.renameRouter.Batch(newRenameBatch(keys, names))
+	batch := s.renameRouter.Batch(newRenameBatch(keys, names))
 	for nodeKey, entries := range batch.Peers {
 		keys, names := unzipRenameBatch(entries)
-		if err := lp.renameRemote(ctx, nodeKey, keys, names); err != nil {
+		if err := s.renameRemote(ctx, nodeKey, keys, names); err != nil {
 			return err
 		}
 	}
 	if len(batch.Free) > 0 {
 		keys, names := unzipRenameBatch(batch.Free)
-		if err := lp.renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
+		if err := s.renameFreeVirtual(ctx, tx, keys, names, allowInternal); err != nil {
 			return err
 		}
 	}
 	if len(batch.Gateway) > 0 {
 		keys, names := unzipRenameBatch(batch.Gateway)
-		return lp.renameGateway(ctx, tx, keys, names, allowInternal)
+		return s.renameGateway(ctx, tx, keys, names, allowInternal)
 	}
 	return nil
 }
 
-func (lp *leaseProxy) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
-	addr, err := lp.cfg.HostResolver.Resolve(target)
+func (s *Service) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
+	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
 	}
-	_, err = lp.cfg.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
+	_, err = s.cfg.Transport.RenameClient().Send(ctx, addr, RenameRequest{Keys: keys, Names: names})
 	return err
 }
 
@@ -746,19 +723,19 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 	}
 }
 
-func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return lp.table.NewUpdate().
+func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
+	return s.table.NewUpdate().
 		WhereKeys(channels...).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
-func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
-	if err := lp.table.NewUpdate().
+func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
+	if err := s.table.NewUpdate().
 		WhereKeys(keys...).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {
 		return err
 	}
-	return lp.cfg.TSChannel.RenameChannels(ctx, keys.Storage(), names)
+	return s.cfg.TSChannel.RenameChannels(ctx, keys.Storage(), names)
 }

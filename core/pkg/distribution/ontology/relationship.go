@@ -50,9 +50,14 @@ type Relationship struct {
 
 var _ gorp.Entry[[]byte] = Relationship{}
 
+// relationshipKeySep separates the From, Type, and To fields in an encoded
+// relationship gorp key. The four dagWriter delete helpers depend on this
+// layout to short-circuit scans without decoding the entry.
+const relationshipKeySep = "->"
+
 // GorpKey implements the gorp.Entry interface.
 func (r Relationship) GorpKey() []byte {
-	return []byte(r.From.String() + "->" + string(r.Type) + "->" + r.To.String())
+	return []byte(r.From.String() + relationshipKeySep + string(r.Type) + relationshipKeySep + r.To.String())
 }
 
 // SetOptions implements the gorp.Entry interface.

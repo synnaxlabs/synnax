@@ -62,7 +62,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchNames returns a filter for racks whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})
@@ -71,7 +71,7 @@ func MatchNames(vals ...string) Filter {
 
 // MatchEmbedded returns a filter for racks by their Embedded field.
 func MatchEmbedded(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+	return func(r Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return e.Embedded == v, nil
 		})

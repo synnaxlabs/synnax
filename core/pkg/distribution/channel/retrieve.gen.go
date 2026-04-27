@@ -28,6 +28,35 @@ type Retrieve struct {
 	gorp       gorp.Retrieve[Key, Channel]
 	search     *search.Index
 	searchTerm string
+	indexes    indexes
+}
+
+// indexes bundles the per-Service secondary indexes registered on the
+// Channel table. Each index is constructed via newIndexes and threaded
+// onto the Retrieve so filter functions can resolve them off r.indexes
+// instead of relying on package-level state.
+type indexes struct {
+	name *gorp.Lookup[Key, Channel, Name]
+}
+
+// newIndexes constructs a fresh indexes value, allocating one index instance
+// per registered field. Call once per Service in OpenService and store the
+// result on the Service struct.
+func newIndexes() indexes {
+	return indexes{
+		name: gorp.NewLookup[Key, Channel, Name](
+			"name",
+			func(e *Channel) Name { return e.Name },
+		),
+	}
+}
+
+// all returns the indexes packaged as a heterogeneous slice for registration
+// via gorp.TableConfig.Indexes when opening the underlying table.
+func (i indexes) all() []gorp.Index[Key, Channel] {
+	return []gorp.Index[Key, Channel]{
+		i.name,
+	}
 }
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -73,7 +102,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchLeaseholders returns a filter for channels whose Leaseholder matches any of the provided values.
 func MatchLeaseholders(vals ...cluster.NodeKey) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return lo.Contains(vals, e.Leaseholder), nil
 		})
@@ -82,7 +111,7 @@ func MatchLeaseholders(vals ...cluster.NodeKey) Filter {
 
 // MatchDataTypes returns a filter for channels whose DataType matches any of the provided values.
 func MatchDataTypes(vals ...telem.DataType) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return lo.Contains(vals, e.DataType), nil
 		})
@@ -91,7 +120,7 @@ func MatchDataTypes(vals ...telem.DataType) Filter {
 
 // MatchIsIndex returns a filter for channels by their IsIndex field.
 func MatchIsIndex(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.IsIndex == v, nil
 		})
@@ -100,7 +129,7 @@ func MatchIsIndex(v bool) Filter {
 
 // MatchInternal returns a filter for channels by their Internal field.
 func MatchInternal(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return e.Internal == v, nil
 		})

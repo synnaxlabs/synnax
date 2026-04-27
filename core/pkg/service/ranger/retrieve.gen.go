@@ -62,7 +62,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchNames returns a filter for ranges whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Range] {
+	return func(r Retrieve) gorp.Filter[Key, Range] {
 		return gorp.Match(func(_ gorp.Context, e *Range) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})

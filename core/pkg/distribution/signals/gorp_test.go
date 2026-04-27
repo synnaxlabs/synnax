@@ -57,9 +57,9 @@ var _ = Describe("GorpPublisherConfig", func() {
 
 	BeforeEach(func(ctx SpecContext) {
 		db = gorp.Wrap(memkv.New())
-		uuidTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testUUIDEntry]{DB: db}))
-		numTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testNumericEntry]{DB: db}))
-		stringTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testStringEntry]{DB: db}))
+		uuidTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, testUUIDEntry]{DB: db}))
+		numTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[uint32, testNumericEntry]{DB: db}))
+		stringTable = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[string, testStringEntry]{DB: db}))
 	})
 
 	AfterEach(func() {

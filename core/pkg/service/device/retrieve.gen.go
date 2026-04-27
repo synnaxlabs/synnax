@@ -72,7 +72,7 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 
 // MatchRacks returns a filter for devices whose Rack matches any of the provided values.
 func MatchRacks(vals ...rack.Key) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return lo.Contains(vals, e.Rack), nil
 		})
@@ -81,7 +81,7 @@ func MatchRacks(vals ...rack.Key) Filter {
 
 // MatchLocations returns a filter for devices whose Location matches any of the provided values.
 func MatchLocations(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return lo.Contains(vals, e.Location), nil
 		})
@@ -90,7 +90,7 @@ func MatchLocations(vals ...string) Filter {
 
 // MatchMakes returns a filter for devices whose Make matches any of the provided values.
 func MatchMakes(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return lo.Contains(vals, e.Make), nil
 		})
@@ -99,7 +99,7 @@ func MatchMakes(vals ...string) Filter {
 
 // MatchModels returns a filter for devices whose Model matches any of the provided values.
 func MatchModels(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return lo.Contains(vals, e.Model), nil
 		})
@@ -108,7 +108,7 @@ func MatchModels(vals ...string) Filter {
 
 // MatchNames returns a filter for devices whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Device] {
+	return func(r Retrieve) gorp.Filter[Key, Device] {
 		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})

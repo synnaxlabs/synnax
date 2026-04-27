@@ -1109,18 +1109,14 @@ describe("queries", () => {
       });
     });
 
-    it("should handle delete errors gracefully", async () => {
+    it("should silently succeed when deleting a non-existent key", async () => {
       const nonExistentKey = 999999999;
       const { result } = renderHook(() => Channel.useDelete(), { wrapper });
 
       await act(async () => {
-        try {
-          await result.current.updateAsync(nonExistentKey);
-        } catch (error) {
-          expect(error).toBeDefined();
-        }
+        await result.current.updateAsync(nonExistentKey);
       });
-      expect(result.current.variant).toEqual("error");
+      expect(result.current.variant).toEqual("success");
     });
   });
 
