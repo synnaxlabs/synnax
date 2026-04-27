@@ -5,15 +5,15 @@
 
 # 0 - Summary
 
-Move all metadata import/export logic from the Console to the server. Each Core service
+Move all metadata import/export logic from the Console to the Core. Each Core service
 owns its import and export logic, accepting arbitrary prior versions of its data
 structures and always exporting the current version. A single import endpoint and a
 single export endpoint route to the correct service via a type string. The portable
 format is flat JSON where every resource is self-describing.
 
-Historical TypeScript migrations are ported to Go as hand-written typed structs with
-hand-written zyn schemas for validation. Future versions use Oracle-generated frozen
-types, zyn schemas, and migration functions. Import validates untrusted JSON with zyn,
+Historical TypeScript migrations are ported to Go as handwritten typed structs with
+handwritten Zyn schemas for validation. Future versions use Oracle-generated frozen
+types, Zyn schemas, and migration functions. Import validates untrusted JSON with Zyn,
 parses into version-specific typed structs, runs the migration chain to the current
 version, and persists through the existing service `Writer` path. Export reads from the
 database and serializes the current version as flat JSON.
@@ -44,22 +44,22 @@ All import/export logic for metadata structures lives in the Console
 
 2. **Migration logic is duplicated.** The Console maintains TypeScript migration chains
    (`x/ts/src/migrate/`) with Zod schemas for every version of every data structure. The
-   server has its own migration infrastructure via Oracle and gorp. The two systems must
+   Core has its own migration infrastructure via Oracle and Gorp. The two systems must
    stay in sync manually.
 
-3. **The Console is the migration bottleneck.** When a user upgrades their server but
-   has not opened the Console, data structures remain at their old versions. Any client
-   that reads them gets unpredictable schemas.
+3. **The Console is the migration bottleneck.** When a user upgrades their Core but has
+   not opened the Console, data structures remain at their old versions. Any client that
+   reads them gets unpredictable schemas.
 
 ## 2.1 - No Standard Wire Format for Portable Metadata
 
-The Console's export format is an ad-hoc JSON structure per visualization type. Each
-feature defines its own extractor and ingester. No server-defined schema for what a
+The Console's export format is an ad hoc JSON structure per visualization type. Each
+feature defines its own extractor and ingester. No Core-defined schema for what a
 portable line plot or schematic looks like.
 
-1. **No contract between server and clients.** Clients must reverse-engineer the
-   Console's JSON format.
-2. **No validation on import.** The server stores whatever JSON blob the client sends in
+1. **No contract between Core and clients.** Clients must reverse-engineer the Console's
+   JSON format.
+2. **No validation on import.** The Core stores whatever JSON blob the client sends in
    the `Data` field.
 3. **Version detection is fragile.** The Console uses Zod union types to try parsing
    every known version in reverse order. A malformed file can silently match the wrong
@@ -67,39 +67,58 @@ portable line plot or schematic looks like.
 
 ## 2.2 - Relationship to RFC 0026 and RFC 0033
 
-RFC 0026 identifies client-side migrations (1.1.3), lack of server-side versioning
+RFC 0026 identifies client-side migrations (1.1.3), lack of Core-side versioning
 (1.1.3), and multiple sources of truth (1.1.8) as core problems. RFC 0033 establishes
-the Oracle migration system for evolving server-side schemas. This RFC adds the
+the Oracle migration system for evolving Core-side schemas. This RFC adds the
 import/export layer that exposes versioned migration capabilities to external clients
 via JSON.
 
 # 3 - Principles
 
-## 3.0 - The Server Is the Single Authority for Its Data Structures
+## 3.0 - The Core is the Single Authority for Data Structures
 
-The server defines, validates, migrates, and serializes its own data structures. Clients
-never perform migrations.
+The Core defines, validates, migrates, and serializes its data structures. Clients never
+perform migrations.
 
-## 3.1 - JSON Is the Portable Format
+## 3.1 - Three Formats for Three Purposes
 
-Import/export uses JSON. The internal ORC binary format is for storage performance, JSON
-is for portability.
+Synnax represents the same logical metadata in three formats:
 
-## 3.2 - Every Exported Resource Carries Its Version and Type
+- **ORC** is the on-disk storage format — columnar, compressed, used internally by the
+  storage layer and never exposed to clients.
+- **JSON** is the portable format for import/export and for any metadata that lives
+  outside Synnax — files on disk, configs in source control, payloads exchanged with
+  third-party tooling. It is the contract for "metadata leaving and entering Synnax." In
+  the future, imports and exports could also be expressed in YAML or TOML.
+- **MessagePack** is the over-the-wire format for backend↔client communication —
+  compact, fast, and supports binary types like UUIDs without the string-coercion of
+  JSON.
+
+Oracle is the single source of truth: schemas are defined once in `.oracle` files, and
+Oracle generates the typed Go structs, ORC codec, MessagePack codec, Zyn validation
+schema, and (per Section 4.8) JSON import/export helpers. A schema change propagates to
+all three encoders.
+
+In a v1 release we may replace MessagePack with Protocol Buffers for stronger versioning
+(explicit field numbers, wire-compatible additions, deprecation semantics). JSON remains
+the portable format regardless. Oracle is positioned to generate Protobuf descriptors
+alongside the existing codecs when that transition happens.
+
+## 3.2 - Every Exported Resource Carries its Version and Type
 
 Every exported JSON object includes a numeric `version` field and a `type` field. The
-server routes the payload to the correct service and migration chain without external
+Core routes the payload to the correct service and migration chain without external
 metadata.
 
 ## 3.3 - Untrusted Input Gets Full Validation
 
 Data stored in the database can generally be trusted. Data arriving via import cannot.
-Every historical version of every importable type has a zyn schema that validates the
+Every historical version of every importable type has a Zyn schema that validates the
 complete structure of incoming JSON before deserialization into a typed struct.
 
-## 3.4 - Export Dumps What Is Stored
+## 3.4 - Export Dumps What is Stored
 
-Export is a faithful serialization of what the server holds. No field stripping, no
+Export is a faithful serialization of what the Core holds. No field stripping, no
 separation of user state from configuration state. The schema defines what is stored,
 and export serializes it.
 
@@ -117,6 +136,13 @@ Single-resource import and export only. One JSON payload in, one resource out.
 Bundle/multi-resource export (workspaces with child visualizations), directory
 structures, and zip archives are out of scope.
 
+Workspace-level and project-level import/export — exporting a workspace with all its
+child visualizations as a unit, or importing a project that bundles multiple resources
+together — are explicitly out of scope for this iteration. Only individual components (a
+single log, a single schematic, a single task, etc.) are supported. The workspace
+concept will eventually be replaced by a separate "project" concept that owns
+multi-resource bundling, and that is the right time to design bundle import/export.
+
 Strongly typing the visualization `data` field (replacing `EncodedJSON` with
 Oracle-defined fields) is also out of scope. The import/export system works regardless
 of whether `data` is an opaque JSON blob or fully typed Oracle fields.
@@ -124,14 +150,13 @@ of whether `data` is an opaque JSON blob or fully typed Oracle fields.
 ## 4.1 - Flat JSON Format
 
 Every resource is a flat JSON object. There is no envelope wrapper or nested `data`
-field. `version`, `type`, `key`, `name`, and all resource-specific fields sit at the
-same level:
+field. `version`, `type`, `name`, and all resource-specific fields sit at the same
+level:
 
 ```json
 {
-  "version": 54,
+  "version": 1,
   "type": "log",
-  "key": "550e8400-e29b-41d4-a716-446655440000",
   "name": "Temperature Log",
   "channels": [
     {
@@ -150,23 +175,23 @@ same level:
 ```
 
 The `type` field is the resource type string (e.g., `"log"`, `"lineplot"`,
-`"modbus_read"`). The `version` field is a numeric schema version derived from the core
-version (see section 4.3). Handlers receive the complete flat map for zyn schema
-parsing. `key` and `name` are not stripped from the data before passing to the handler.
+`"modbus_read"`). The `version` field is a per-schema integer (see section 4.3).
+Handlers receive the complete flat map for Zyn schema parsing. `name` is not stripped
+from the data before passing to the handler.
 
 Old Console exports used semver strings for the version field (e.g., `"1.0.0"`). The
-server accepts both numeric and semver string versions on import, converting the latter
-to numeric form (see section 4.3).
+Core accepts both integer and semver string versions on import, converting the latter on
+the fly (see section 4.3).
 
 ## 4.2 - Two Independent Paths, Shared Migration Logic
 
 Import/export and storage migration are two independent pipelines that share migration
 functions as their core business logic.
 
-**Storage migration** (RFC 0033) runs at server startup. Reads entries from ORC/msgpack
-via gorp, transforms between frozen types, writes back.
+**Storage migration** (RFC 0033) runs at Core startup. Reads entries from
+ORC/MessagePack via Gorp, transforms between frozen types, writes back.
 
-**Import** runs on API request. Validates JSON with zyn, parses into a frozen typed
+**Import** runs on API request. Validates JSON with Zyn, parses into a frozen typed
 struct, transforms between frozen types using the same migration functions, persists
 through the service Writer.
 
@@ -174,42 +199,52 @@ through the service Writer.
 serializes to flat JSON.
 
 The migration functions (`func(old vN.Type) (vN+1.Type, error)`) operate on Go structs
-and do not care whether those structs came from ORC, msgpack, or JSON.
+and do not care whether those structs came from ORC, MessagePack, or JSON.
 
 ## 4.3 - Versioning
 
-### 4.3.0 - Numeric Versions
+### 4.3.0 - Per-Schema Incrementing Versions
 
-The version field is a numeric integer derived from the core semver version using the
-formula `major * 1000 + minor`. The `version` package exposes `Numeric()` which computes
-this from the embedded `VERSION` file. For core version `0.54.3`, `Numeric()` returns
-`54`.
+Each resource type carries its own integer version that increments only when _that_
+resource's schema changes. Schematic v5 = the 5th iteration of the schematic schema.
+Versions are dense: every step corresponds to a real migration. Schemas evolve
+independently of Core release cadence — a typo-fix Core release does not bump every
+schema's version with no actual migration.
 
-The export version is stamped by the central import/export service, not by individual
-handlers. All exports from a given server build carry the same version number.
+Each handler stamps its own latest version on export. The central `imex.Service` does
+not stamp version, because each resource type owns its own version sequence.
+
+If an import payload carries a version greater than the latest version known to the
+Core, the import is rejected with a clear error indicating the version is unsupported
+and that the Core needs to be upgraded. This prevents silent corruption from data shaped
+to a future schema the Core does not yet understand.
+
+If the version field is missing from an import payload, it is treated as `0` and the
+full migration chain runs from the beginning.
 
 ### 4.3.1 - Legacy Semver Conversion
 
-Old Console exports used semver strings like `"0.0.0"`, `"1.0.0"`, `"0.1.0"`. The
-Console inconsistently bumped major, minor, or patch to indicate new versions. On
-import, the `Envelope.UnmarshalJSON` method detects string-typed version fields and
-converts them to numeric using the formula `major * 5 + minor * 2 + patch`.
-
-This formula was chosen because it produces unique values for all existing Console
-version strings within each resource type, and all results are below 54 (the first
-Oracle-managed core version). The maximum legacy value is 45 (from layout version
-`"9.0.0"`).
+Old Console exports used semver strings like `"5.0.0"`. Each resource type's TypeScript
+migration history only ever bumped the major component to indicate a new schema version,
+so on import the major component maps directly to the per-schema integer version (e.g.
+`"5.0.0"` → `5`). Minor and patch are discarded. `Envelope.UnmarshalJSON` detects
+string-typed version fields and performs the conversion on the fly.
 
 ### 4.3.2 - Range-Based Version Dispatch
 
-Handlers use range-based version dispatch, not exact matching. Each frozen type defines
-a floor version. The current version handles everything from its floor upward. This
-means a log exported at core version 55 can be imported by a server at core version 57
-without modification, as long as the log schema did not change between those versions.
+Each frozen type defines a floor version. The dispatcher first guards against versions
+newer than the latest known schema (returning an unsupported-version error), then
+matches the highest floor that the incoming version satisfies, parses with that schema,
+and runs the migration chain up to the current version.
 
 ```go
 func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
     switch {
+    case version > v1.Version:
+        return v1.Data{}, errors.Newf(
+            "log version %d is newer than this Core supports (latest: %d)",
+            version, v1.Version,
+        )
     case version >= v1.Version:
         var d v1.Data
         if err := v1.Schema.Parse(data, &d); err != nil {
@@ -223,16 +258,15 @@ func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error)
         }
         return v1.Migrate(d)
     default:
-        return v1.Data{}, errors.Newf("unknown log data version %d", version)
+        return v1.Data{}, errors.Newf("unknown log version %d", version)
     }
 }
 ```
 
-The zyn `ObjectZ.Parse` validates the data payload and deserializes into the frozen
-struct in one pass. `ObjectZ.Parse` handles field name case conversion (camelCase,
-snake_case, and PascalCase) automatically and silently ignores extra fields not defined
-in the schema. This means `version`, `type`, and other envelope fields can remain in the
-data map without interfering with schema parsing.
+`ObjectZ.Parse` validates the data payload and deserializes into the frozen struct in
+one pass. It handles field name case conversion (camelCase, snake_case, PascalCase)
+automatically and silently ignores extra fields, so `version`, `type`, and other
+envelope fields can remain in the data map without interfering with schema parsing.
 
 ## 4.4 - Versioned Types and Zyn Schemas
 
@@ -327,14 +361,14 @@ type ImporterExporter interface {
 ```
 
 `Import` receives the full `Envelope` with the complete flat data map. The handler
-validates with the version-specific zyn schema, parses into the matched frozen type,
-runs the migration chain, and calls `Writer.Create`. The handler reads `key` and `name`
-from the envelope's promoted fields for identity, and also from the zyn-parsed struct
-(since `key` and `name` remain in the data map).
+validates with the version-specific Zyn schema, parses into the matched frozen type,
+runs the migration chain, and calls `Writer.Create`. The handler reads `name` from the
+envelope's promoted fields for identity, and also from the Zyn-parsed struct (since
+`name` remains in the data map).
 
-`Export` returns an `Envelope` with `Type`, `Key`, `Name`, and `Data` populated. The
-handler does not set `Version`. The central `imex.Service` stamps the export version
-(derived from `version.Numeric()`) on every envelope before returning it to the caller.
+`Export` returns an `Envelope` with `Type`, `Version`, `Name`, and `Data` populated.
+Each handler stamps its own latest schema version. The central `imex.Service` does not
+stamp version because each resource type owns its own version sequence.
 
 ## 4.6 - Central Registry and API Layer
 
@@ -345,14 +379,35 @@ POST /api/v1/import   - Import one or more resources
 POST /api/v1/export   - Export one or more resources by key and type
 ```
 
+**Encoding.** Every other endpoint in the Synnax HTTP API uses MessagePack symmetrically
+— a MessagePack request gets a MessagePack response. Import and export break that
+symmetry. The body carrying the envelope must be JSON: JSON is the portable format
+(Section 3.1), and clients writing exports to disk or reading them from a file expect
+the wire bytes to match the bytes-on-disk. Forcing a MessagePack↔JSON transcode would be
+wasteful and would mean the bytes-on-the-wire don't match what users see in the file.
+
+This requires extending Freighter's HTTP transport to support **asymmetric content type
+negotiation per endpoint** — each unary route can declare its request and response
+content types independently:
+
+- **Import** accepts a JSON request body (the envelope) and returns a MessagePack
+  response (a small payload with the new key, following the rest of the API's wire
+  convention).
+- **Export** accepts a MessagePack request body (a small `{type, key}` payload) and
+  returns a JSON response (the envelope).
+
+Freighter's HTTP unary server today resolves a single codec per exchange via
+content-type negotiation. The implementation must allow per-route override of accept and
+return codecs, so a single endpoint can pin the request side to JSON while leaving the
+response side as MessagePack (or vice versa).
+
 The central `imex.Service` is a registry mapping type strings to handlers:
 
 ```go
 type Service struct {
-    db            *gorp.DB
-    exportVersion int
-    importers     map[string]Importer
-    exporters     map[string]Exporter
+    db        *gorp.DB
+    importers map[string]Importer
+    exporters map[string]Exporter
 }
 ```
 
@@ -362,7 +417,7 @@ registration of importers and exporters via `Register`, `RegisterImporter`, and
 (see section 4.7).
 
 Import runs all envelopes within a single database transaction. If any import fails, the
-entire batch rolls back. Export stamps `exportVersion` on every returned envelope.
+entire batch rolls back.
 
 Authentication and authorization are enforced by the API layer's RBAC checks before
 delegating to the service.
@@ -399,7 +454,7 @@ A new `@go import_export` attribute generates:
 1. `ExportJSON(entity Type) ([]byte, error)` - wraps the entity in the flat JSON format
    and marshals.
 2. `ImportJSON(data []byte) (Type, error)` - unmarshals to `map[string]any`, reads the
-   version, dispatches to the correct frozen type and zyn schema using range-based
+   version, dispatches to the correct frozen type and Zyn schema using range-based
    version matching, validates, parses, and runs the migration chain. For pre-Oracle
    historical versions where frozen types and schemas are hand-written, Oracle detects
    their presence in `migrations/vN/` and includes them in the version switch.
@@ -439,22 +494,22 @@ are promoted to typed fields on the `Envelope` struct for routing and identity, 
 remain in the data map for schema parsing. `key` and `name` are also promoted for
 convenient access (file naming, identity checks) without being removed from the map.
 
-## 6.1 - Numeric Versions Tied to Core Version
+## 6.1 - Per-Schema Incrementing Integer Versions
 
-The version field is numeric, not semver. The export version is `major * 1000 + minor`
-of the core version, computed once by `version.Numeric()` and stamped by the central
-service on all exports. This ties resource schema versions to the core release cycle.
-Legacy semver strings from old Console exports are converted on import using
-`major * 5 + minor * 2 + patch`. All legacy values fall below 54 (the first
-Oracle-managed version).
+The version field is a per-schema incrementing integer. Each resource type owns its own
+version sequence that increments only when its schema changes (schematic at v5, log at
+v1, table at v0, matching what the existing TypeScript code does today). Each handler
+stamps its own version on export. Schema evolution is decoupled from Core release
+cadence. Imports carrying a version newer than the Core knows are rejected with an
+unsupported-version error. Imports with no version field are treated as version `0`.
 
 ## 6.2 - Range-Based Version Dispatch
 
 Handlers match version ranges, not exact values. Each frozen type defines a floor
-version. The current version handles all versions from its floor upward. This means a
-resource exported at core version 55 imports correctly at core version 58 as long as the
-schema did not change between those versions. No per-version registration is needed for
-unchanged schemas.
+version, and the current version handles everything from its floor upward. The
+dispatcher rejects versions newer than the latest schema with an unsupported-version
+error, then walks down the floors until it finds a match, parses with that schema, and
+runs the migration chain to the latest.
 
 ## 6.3 - Channel References Left Unresolved on Import
 
@@ -473,3 +528,17 @@ middleware. No special handling needed.
 Task subtypes (`modbus_read`, `opc_scan`, etc.) register directly in the central
 registry, not in a sub-registry owned by the task service. This eliminates two-level
 dispatch and makes every importable type a flat entry in a single map.
+
+## 6.6 - Imports Always Generate New Keys
+
+Import always generates a fresh UUID for the imported resource, regardless of whether
+the envelope contains a `key` field. The original key is ignored. This avoids collisions
+on same-cluster round trips, prevents silent overwrites of existing resources, and keeps
+the import path strictly additive. The tradeoff is that idempotent re-imports and
+cross-cluster identity preservation are not supported in this iteration. When
+workspace/project bundle import is added later, key remapping (rewriting internal
+cross-references between bundled resources to the new keys) will be designed at that
+point.
+
+Exports include the source `key` so that downstream tooling can correlate the export
+back to the original resource if needed.
