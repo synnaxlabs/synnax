@@ -14,7 +14,7 @@ import (
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
@@ -55,7 +55,7 @@ type ServiceConfig struct {
 	// HostResolved is used to resolve address information about hosts on the network.
 	//
 	// [REQUIRED]
-	HostResolver cluster.HostResolver
+	HostResolver node.HostResolver
 	// Channel is used to retrieve channel information.
 	//
 	// [REQUIRED]
