@@ -48,6 +48,29 @@ func errFilterFn() gorp.Filter[int32, entry] {
 	})
 }
 
+// bindCtx is a stand-in for a service-defined Retrieve type used to exercise
+// the BoundFilter machinery: bound filters close over the threshold and
+// compare each entry's ID against it.
+type bindCtx struct{ threshold int32 }
+
+func boundIDLT(v int32) gorp.BoundFilter[bindCtx, int32, entry] {
+	return gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+		return e.ID < (b.threshold + v), nil
+	})
+}
+
+func boundIDGT(v int32) gorp.BoundFilter[bindCtx, int32, entry] {
+	return gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+		return e.ID > (b.threshold + v), nil
+	})
+}
+
+func boundIDEQ(v int32) gorp.BoundFilter[bindCtx, int32, entry] {
+	return gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+		return e.ID == (b.threshold + v), nil
+	})
+}
+
 var _ = Describe("Filter Combinators", func() {
 	var (
 		entries []entry
@@ -62,6 +85,42 @@ var _ = Describe("Filter Combinators", func() {
 		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
 	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+
+	Describe("MatchBound", func() {
+		It("Should thread the bind value into the closure", func(ctx SpecContext) {
+			f := gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+				return e.ID == b.threshold, nil
+			})
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(f(bindCtx{threshold: 4})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[4]}))
+		})
+
+		It("Should re-evaluate against a different bind on each call", func(ctx SpecContext) {
+			f := gorp.MatchBound(func(_ gorp.Context, b bindCtx, e *entry) (bool, error) {
+				return e.ID < b.threshold, nil
+			})
+			var lo, hi []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&lo).
+				Where(f(bindCtx{threshold: 3})).Exec(ctx, tx)).To(Succeed())
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&hi).
+				Where(f(bindCtx{threshold: 8})).Exec(ctx, tx)).To(Succeed())
+			Expect(lo).To(HaveLen(3))
+			Expect(hi).To(HaveLen(8))
+		})
+
+		It("Should propagate errors from the closure", func(ctx SpecContext) {
+			f := gorp.MatchBound(func(_ gorp.Context, _ bindCtx, _ *entry) (bool, error) {
+				return false, errFilter
+			})
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+				Where(f(bindCtx{})).Exec(ctx, tx)).To(MatchError(errFilter))
+		})
+	})
 
 	Describe("And", func() {
 		It("Should match entries satisfying all filters", func(ctx SpecContext) {
@@ -121,6 +180,32 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.And(idGT(1), idLT(8), dataEQ("data"))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(6))
+		})
+
+		It("AndBound should bind every child to the same Retrieve", func(ctx SpecContext) {
+			combined := gorp.AndBound(boundIDGT(0), boundIDLT(5))
+			// threshold=2 → idGT(2) AND idLT(7)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+				Where(combined(bindCtx{threshold: 2})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[3], entries[4], entries[5], entries[6]}))
+		})
+
+		It("AndBound should re-thread the bind on each evaluation", func(ctx SpecContext) {
+			combined := gorp.AndBound(boundIDGT(0), boundIDLT(3))
+			// threshold=1 → idGT(1) AND idLT(4)
+			var first []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&first).
+				Where(combined(bindCtx{threshold: 1})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(first).To(Equal([]entry{entries[2], entries[3]}))
+			// threshold=5 → idGT(5) AND idLT(8)
+			var second []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&second).
+				Where(combined(bindCtx{threshold: 5})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(second).To(Equal([]entry{entries[6], entries[7]}))
 		})
 	})
 
@@ -185,6 +270,16 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.Or(errFilterFn(), idEQ(1))).
 				Exec(ctx, tx)).To(MatchError(errFilter))
 		})
+
+		It("OrBound should bind every child to the same Retrieve", func(ctx SpecContext) {
+			combined := gorp.OrBound(boundIDEQ(0), boundIDEQ(2), boundIDEQ(4))
+			// threshold=1 → idEQ(1) OR idEQ(3) OR idEQ(5)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+				Where(combined(bindCtx{threshold: 1})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[1], entries[3], entries[5]}))
+		})
 	})
 
 	Describe("Not", func() {
@@ -215,6 +310,16 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.Not(gorp.Not(idLT(3)))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[0], entries[1], entries[2]}))
+		})
+
+		It("NotBound should invert a bound child after binding", func(ctx SpecContext) {
+			inverted := gorp.NotBound(boundIDLT(3))
+			// threshold=2 → NOT idLT(5) → idGE(5)
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().Entries(&res).
+				Where(inverted(bindCtx{threshold: 2})).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(Equal([]entry{entries[5], entries[6], entries[7], entries[8], entries[9]}))
 		})
 	})
 

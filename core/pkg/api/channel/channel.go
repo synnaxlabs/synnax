@@ -202,7 +202,7 @@ func (s *Service) Retrieve(
 		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
 	}
 	if hasNotDataTypes {
-		q = q.Where(gorp.Not(channel.MatchDataTypes(req.NotDataTypes...)))
+		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

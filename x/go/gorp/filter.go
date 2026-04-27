@@ -104,3 +104,62 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 		},
 	}
 }
+
+// BoundFilter is a Filter parameterized over a service-defined Retrieve type
+// R. It's the underlying type behind the per-service Filter alias emitted by
+// the oracle query plugin: a closure that takes the caller's Retrieve and
+// produces a gorp.Filter[K, E] bound to it. Service code uses BoundFilter so
+// filter constructors can read from r.indexes / r.label / r.hostProvider when
+// evaluated by Retrieve.Where, while pure constructors can ignore r entirely.
+//
+// The MatchBound / AndBound / OrBound / NotBound helpers below let generated
+// code stay one-liner thin instead of re-emitting the same closure plumbing
+// per service.
+type BoundFilter[R any, K Key, E Entry[K]] func(r R) Filter[K, E]
+
+// MatchBound wraps a closure that needs the Retrieve R into a BoundFilter.
+// The Retrieve value is supplied by the per-service Where method when the
+// query is evaluated.
+func MatchBound[R any, K Key, E Entry[K]](
+	f func(ctx Context, r R, e *E) (bool, error),
+) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		return Filter[K, E]{Eval: func(ctx Context, e *E) (bool, error) {
+			return f(ctx, r, e)
+		}}
+	}
+}
+
+// AndBound returns a BoundFilter that matches when all provided filters
+// match. Each child is bound to the same Retrieve before being composed via
+// gorp.And, so the resulting filter inherits And's Eval/Raw composition
+// semantics.
+func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		inner := make([]Filter[K, E], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return And(inner...)
+	}
+}
+
+// OrBound returns a BoundFilter that matches when any provided filter
+// matches. Bound children are composed via gorp.Or.
+func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		inner := make([]Filter[K, E], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return Or(inner...)
+	}
+}
+
+// NotBound returns a BoundFilter that inverts the provided filter via
+// gorp.Not after binding it to the Retrieve.
+func NotBound[R any, K Key, E Entry[K]](f BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		return Not(f(r))
+	}
+}

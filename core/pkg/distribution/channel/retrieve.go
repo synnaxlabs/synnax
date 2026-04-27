@@ -20,8 +20,8 @@ import (
 // MatchVirtual returns a filter for channels that are virtual if virtual is true, or
 // are not virtual if virtual is false. Calculated channels are excluded from the
 // virtual bucket even though they are stored with Virtual=true.
-func MatchVirtual(virtual bool) gorp.Filter[Key, Channel] {
-	return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+func MatchVirtual(virtual bool) Filter {
+	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
 		isVirtual := ch.Virtual && !ch.IsCalculated()
 		return isVirtual == virtual, nil
 	})
@@ -29,8 +29,8 @@ func MatchVirtual(virtual bool) gorp.Filter[Key, Channel] {
 
 // MatchCalculated returns a filter for channels that have a non-empty Expression
 // field.
-func MatchCalculated() gorp.Filter[Key, Channel] {
-	return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+func MatchCalculated() Filter {
+	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
 		return ch.IsCalculated(), nil
 	})
 }
@@ -39,12 +39,12 @@ func MatchCalculated() gorp.Filter[Key, Channel] {
 // provided name patterns. Each pattern may be a literal name or a regular expression;
 // a pattern that is neither anchored with ^ nor $ is wrapped in ^...$ before
 // compilation.
-func MatchNames(names ...string) gorp.Filter[Key, Channel] {
+func MatchNames(names ...string) Filter {
 	matchers := make([]func(string) bool, len(names))
 	for i, name := range names {
 		matchers[i] = formatNameMatcher(name)
 	}
-	return gorp.Match(func(_ gorp.Context, ch *Channel) (bool, error) {
+	return Match(func(_ gorp.Context, _ Retrieve, ch *Channel) (bool, error) {
 		return lo.SomeBy(matchers, func(matcher func(string) bool) bool {
 			return matcher(ch.Name)
 		}), nil

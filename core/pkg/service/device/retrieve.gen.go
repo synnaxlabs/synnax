@@ -29,6 +29,38 @@ type Retrieve struct {
 	searchTerm string
 }
 
+// Filter is a per-service filter that is bound to the Retrieve when passed to
+// Where. Pure filters ignore the Retrieve argument; service-bound filters read
+// from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
+// construct one from a closure.
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
+// composition helpers (Match / And / Or / Not) can be one-line wrappers
+// around their gorp.*Bound counterparts instead of re-emitting closure
+// plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, Key, Device]
+
+// Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
+// value is supplied by Retrieve.Where at evaluation time.
+func Match(f func(ctx gorp.Context, r Retrieve, e *Device) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, Key, Device](f)
+}
+
+// And returns a filter that matches when all provided filters match.
+func And(fs ...Filter) Filter {
+	return gorp.AndBound[Retrieve, Key, Device](fs...)
+}
+
+// Or returns a filter that matches when any provided filter matches.
+func Or(fs ...Filter) Filter {
+	return gorp.OrBound[Retrieve, Key, Device](fs...)
+}
+
+// Not returns a filter that inverts the provided filter.
+func Not(f Filter) Filter {
+	return gorp.NotBound[Retrieve, Key, Device](f)
+}
+
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
@@ -39,43 +71,59 @@ func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 }
 
 // MatchRacks returns a filter for devices whose Rack matches any of the provided values.
-func MatchRacks(vals ...rack.Key) gorp.Filter[Key, Device] {
-	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-		return lo.Contains(vals, e.Rack), nil
-	})
+func MatchRacks(vals ...rack.Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Device] {
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return lo.Contains(vals, e.Rack), nil
+		})
+	}
 }
 
 // MatchLocations returns a filter for devices whose Location matches any of the provided values.
-func MatchLocations(vals ...string) gorp.Filter[Key, Device] {
-	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-		return lo.Contains(vals, e.Location), nil
-	})
+func MatchLocations(vals ...string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Device] {
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return lo.Contains(vals, e.Location), nil
+		})
+	}
 }
 
 // MatchMakes returns a filter for devices whose Make matches any of the provided values.
-func MatchMakes(vals ...string) gorp.Filter[Key, Device] {
-	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-		return lo.Contains(vals, e.Make), nil
-	})
+func MatchMakes(vals ...string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Device] {
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return lo.Contains(vals, e.Make), nil
+		})
+	}
 }
 
 // MatchModels returns a filter for devices whose Model matches any of the provided values.
-func MatchModels(vals ...string) gorp.Filter[Key, Device] {
-	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-		return lo.Contains(vals, e.Model), nil
-	})
+func MatchModels(vals ...string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Device] {
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return lo.Contains(vals, e.Model), nil
+		})
+	}
 }
 
 // MatchNames returns a filter for devices whose Name matches any of the provided values.
-func MatchNames(vals ...string) gorp.Filter[Key, Device] {
-	return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
-		return lo.Contains(vals, e.Name), nil
-	})
+func MatchNames(vals ...string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Device] {
+		return gorp.Match(func(_ gorp.Context, e *Device) (bool, error) {
+			return lo.Contains(vals, e.Name), nil
+		})
+	}
 }
 
-// Where applies the provided filters to the query.
-func (r Retrieve) Where(filters ...gorp.Filter[Key, Device]) Retrieve {
-	r.gorp = r.gorp.Where(filters...)
+// Where applies the provided filters to the query, binding each filter to the
+// Retrieve so service-bound filters can read from r.indexes, r.label,
+// r.hostProvider, etc.
+func (r Retrieve) Where(filters ...Filter) Retrieve {
+	bound := make([]gorp.Filter[Key, Device], len(filters))
+	for i, f := range filters {
+		bound[i] = f(r)
+	}
+	r.gorp = r.gorp.Where(bound...)
 	return r
 }
 

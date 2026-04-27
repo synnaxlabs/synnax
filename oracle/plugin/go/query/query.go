@@ -362,55 +362,38 @@ type Retrieve struct {
 {{- end}}
 }
 {{- end}}
-{{- if $ret.IsCustom}}
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
 // Where. Pure filters ignore the Retrieve argument; service-bound filters read
-// from it (e.g. r.label, r.hostProvider) to evaluate. Use Match to construct
-// one from a closure.
-type Filter func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}]
+// from it (e.g. r.indexes, r.label, r.hostProvider) to evaluate. Use Match to
+// construct one from a closure.
+//
+// Filter is a type alias for gorp.BoundFilter[Retrieve, K, E] so the
+// composition helpers (Match / And / Or / Not) can be one-line wrappers
+// around their gorp.*Bound counterparts instead of re-emitting closure
+// plumbing per service.
+type Filter = gorp.BoundFilter[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}]
 
 // Match wraps a closure that needs the Retrieve into a Filter. The Retrieve
 // value is supplied by Retrieve.Where at evaluation time.
-func Match(
-	f func(ctx gorp.Context, r Retrieve, e *{{$ret.GoName}}) (bool, error),
-) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		return gorp.Match(func(ctx gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-			return f(ctx, r, e)
-		})
-	}
+func Match(f func(ctx gorp.Context, r Retrieve, e *{{$ret.GoName}}) (bool, error)) Filter {
+	return gorp.MatchBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
 }
 
 // And returns a filter that matches when all provided filters match.
 func And(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		inner := make([]gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.And(inner...)
-	}
+	return gorp.AndBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](fs...)
 }
 
 // Or returns a filter that matches when any provided filter matches.
 func Or(fs ...Filter) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		inner := make([]gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return gorp.Or(inner...)
-	}
+	return gorp.OrBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](fs...)
 }
 
 // Not returns a filter that inverts the provided filter.
 func Not(f Filter) Filter {
-	return func(r Retrieve) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-		return gorp.Not(f(r))
-	}
+	return gorp.NotBound[Retrieve, {{$ret.KeyType}}, {{$ret.GoName}}](f)
 }
-{{- end}}
 {{if $ret.HasSearch}}
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
@@ -421,7 +404,6 @@ func (r Retrieve) WhereKeys(keys ...{{$ret.KeyType}}) Retrieve {
 	return r
 }
 {{range .Filters}}
-{{- if $ret.IsCustom}}
 {{- if .IsBool}}
 // Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
 func Match{{.GoName}}(v bool) Filter {
@@ -450,34 +432,11 @@ func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) Filter {
 	}
 }
 {{end}}
-{{- else}}
-{{- if .IsBool}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} by their {{.GoName}} field.
-func Match{{.GoName}}(v bool) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-		return e.{{.GoName}} == v, nil
-	})
-}
-{{else if .IsScalar}}
-// Match{{.GoName}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches the provided value.
-func Match{{.GoName}}(v {{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-		return e.{{.GoName}} == v, nil
-	})
-}
-{{else}}
-// Match{{.GoName | pluralize}} returns a filter for {{$ret.GoName | toLower | pluralize}} whose {{.GoName}} matches any of the provided values.
-func Match{{.GoName | pluralize}}(vals ...{{.GoType}}) gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}] {
-	return gorp.Match(func(_ gorp.Context, e *{{$ret.GoName}}) (bool, error) {
-		return lo.Contains(vals, e.{{.GoName}}), nil
-	})
-}
-{{end}}
 {{- end}}
-{{- end}}
-{{- if $ret.IsCustom}}
+
 // Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.label, r.hostProvider, etc.
+// Retrieve so service-bound filters can read from r.indexes, r.label,
+// r.hostProvider, etc.
 func (r Retrieve) Where(filters ...Filter) Retrieve {
 	bound := make([]gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}], len(filters))
 	for i, f := range filters {
@@ -486,13 +445,6 @@ func (r Retrieve) Where(filters ...Filter) Retrieve {
 	r.gorp = r.gorp.Where(bound...)
 	return r
 }
-{{- else}}
-// Where applies the provided filters to the query.
-func (r Retrieve) Where(filters ...gorp.Filter[{{$ret.KeyType}}, {{$ret.GoName}}]) Retrieve {
-	r.gorp = r.gorp.Where(filters...)
-	return r
-}
-{{- end}}
 
 // Entry binds the provided {{$ret.GoName | toLower}} as the result container for the query. If
 // multiple {{$ret.GoName | toLower | pluralize}} match, the first one is used.
