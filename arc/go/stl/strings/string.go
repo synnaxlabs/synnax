@@ -51,9 +51,10 @@ var SymbolResolver = &symbol.ModuleResolver{
 			}),
 		},
 		"len": {
-			Name: "len",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecWASM,
+			Name:     "len",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},

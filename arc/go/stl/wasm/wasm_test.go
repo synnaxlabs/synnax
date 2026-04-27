@@ -936,26 +936,26 @@ var _ = Describe("WASM", func() {
 		)
 	})
 
-	Describe("Qualified series.len() Calls", func() {
-		DescribeTable("series.len() function",
+	Describe("len() with series", func() {
+		DescribeTable("len() function",
 			expectOutput[int32],
 			Entry("empty series", "qslen_empty", types.I64(), `{
 				s series f64 := []
-				return series.len(s)
+				return len(s)
 			}`, stl.SymbolResolver, int32(0)),
 			Entry("single element", "qslen_one", types.I64(), `{
 				s series f64 := [1.0]
-				return series.len(s)
+				return len(s)
 			}`, stl.SymbolResolver, int32(1)),
 			Entry("five elements", "qslen_five", types.I64(), `{
 				s series f64 := [1.0, 2.0, 3.0, 4.0, 5.0]
-				return series.len(s)
+				return len(s)
 			}`, stl.SymbolResolver, int32(5)),
 			Entry("after operation", "qslen_after_op", types.I64(), `{
 				a series f64 := [1.0, 2.0, 3.0]
 				b series f64 := [4.0, 5.0, 6.0]
 				c series f64 := a + b
-				return series.len(c)
+				return len(c)
 			}`, stl.SymbolResolver, int32(3)),
 		)
 	})
@@ -982,20 +982,6 @@ var _ = Describe("WASM", func() {
 			}`, stl.SymbolResolver, int32(11)),
 		)
 
-		DescribeTable("qualified string.len() calls",
-			expectOutput[int32],
-			Entry("simple string", "qlen_str", types.I64(), `{
-				return string.len("hello")
-			}`, stl.SymbolResolver, int32(5)),
-			Entry("empty string", "qlen_empty", types.I64(), `{
-				return string.len("")
-			}`, stl.SymbolResolver, int32(0)),
-			Entry("string variable", "qlen_var", types.I64(), `{
-				s str := "world"
-				return string.len(s)
-			}`, stl.SymbolResolver, int32(5)),
-		)
-
 		DescribeTable("qualified string.concat() calls",
 			expectOutput[int32],
 			Entry("two literals", "qconcat_lit", types.I64(), `{
@@ -1004,7 +990,7 @@ var _ = Describe("WASM", func() {
 			Entry("variables", "qconcat_var", types.I64(), `{
 				a str := "hello"
 				b str := " world"
-				return string.len(string.concat(a, b))
+				return len(string.concat(a, b))
 			}`, stl.SymbolResolver, int32(11)),
 		)
 
@@ -1351,9 +1337,6 @@ var _ = Describe("WASM", func() {
 				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
 			},
-			Entry("string.len with integer", `
-				func bad() i64 { return string.len(123) }
-			`),
 			Entry("string.concat with integer", `
 				func bad() str { return string.concat(1, 2) }
 			`),
@@ -1361,31 +1344,6 @@ var _ = Describe("WASM", func() {
 				func bad() i32 { return string.equal(1, 2) }
 			`),
 		)
-	})
-
-	Describe("Qualified Len Type Safety", func() {
-		It("Should reject series.len with string argument", func(ctx SpecContext) {
-			source := `func bad() i64 { return series.len("hello") }`
-			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			analyzed, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
-			if !diagnostics.Ok() {
-				return // caught at analysis time
-			}
-			_, err := text.Compile(ctx, analyzed, compiler.WithHostSymbols(stl.SymbolResolver))
-			Expect(err).ToNot(BeNil())
-		})
-
-		It("Should reject string.len with series argument", func(ctx SpecContext) {
-			source := `
-				func bad() i64 {
-					s series f64 := [1.0, 2.0]
-					return string.len(s)
-				}
-			`
-			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-			_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
-			Expect(diagnostics.Ok()).To(BeFalse())
-		})
 	})
 
 	Describe("String Channel Input", func() {
@@ -1437,7 +1395,7 @@ var _ = Describe("WASM", func() {
 						Key:     "qstr_len",
 						Inputs:  types.Params{{Name: "s", Type: types.String()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return string.len(s) }`},
+						Body:    ir.Body{Raw: `{ return len(s) }`},
 					},
 					{
 						Key:     "source",
@@ -1481,7 +1439,7 @@ var _ = Describe("WASM", func() {
 							{Name: "b", Type: types.String()},
 						},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return string.len(string.concat(a, b)) }`},
+						Body:    ir.Body{Raw: `{ return len(string.concat(a, b)) }`},
 					},
 					{
 						Key:     "src_a",

@@ -170,13 +170,12 @@ function
     | IDENTIFIER configValues
     ;
 
-// AUTHORITY and SERIES are lexer keywords but also valid module names
-// (authority.set, series.len). Without these alternatives the lexer
-// tokenizes them as keywords and the IDENTIFIER-only rule rejects them.
+// AUTHORITY is a lexer keyword but also a valid module name
+// (authority.set). Without this alternative the lexer tokenizes it
+// as a keyword and the IDENTIFIER-only rule rejects it.
 qualifiedIdentifier
     : IDENTIFIER DOT IDENTIFIER
     | AUTHORITY DOT IDENTIFIER
-    | SERIES DOT IDENTIFIER
     ;
 
 configValues

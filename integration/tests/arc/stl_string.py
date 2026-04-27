@@ -15,33 +15,33 @@ ARC_STL_STRING_SOURCE = """
 // ──────────────────────────── string.len ─────────────────────────────
 // len(const)
 func len_cc(s str) i64 {
-    return string.len("hello")
+    return len("hello")
 }
 str_trigger -> len_cc{} -> len_cc_out
 // len(chan)
 func len_ch(s str) i64 {
-    return string.len(s)
+    return len(s)
 }
 str_trigger -> len_ch{} -> len_ch_out
 // ─────────────────────────── string.concat ───────────────────────────
 // concat(const, const)
 func concat_cc(s str) i64 {
-    return string.len(string.concat("ab", "cd"))
+    return len(string.concat("ab", "cd"))
 }
 str_trigger -> concat_cc{} -> concat_cc_out
 // concat(chan, const)
 func concat_xc(s str) i64 {
-    return string.len(string.concat(s, " world"))
+    return len(string.concat(s, " world"))
 }
 str_trigger -> concat_xc{} -> concat_xc_out
 // concat(const, chan)
 func concat_cx(s str) i64 {
-    return string.len(string.concat("prefix:", s))
+    return len(string.concat("prefix:", s))
 }
 str_trigger -> concat_cx{} -> concat_cx_out
 // concat(chan, chan)
 func concat_xx(s str) {
-    concat_xx_out = string.len(string.concat(s, str_second))
+    concat_xx_out = len(string.concat(s, str_second))
 }
 str_trigger -> concat_xx{}
 // ─────────────────────────── string.equal ────────────────────────────
@@ -78,12 +78,12 @@ str_trigger -> equal_xx_diff{}
 // ──────────────────────────────── misc ───────────────────────────────
 // nested concat
 func concat_nested(s str) {
-    concat_nested_out = string.len(string.concat(string.concat(s, "-"), str_second))
+    concat_nested_out = len(string.concat(string.concat(s, "-"), str_second))
 }
 str_trigger -> concat_nested{}
 // multi-string addition
 func multi_add(s str) {
-    multi_add_out = string.len(s + str_second + "_suffix" + str_third)
+    multi_add_out = len(s + str_second + "_suffix" + str_third)
 }
 str_trigger -> multi_add{}
 """
@@ -117,7 +117,7 @@ ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS] + [
 
 
 class StlString(ArcConsoleCase):
-    """Test string module with qualified syntax: string.len(),
+    """Test string module with qualified syntax: len(),
     string.concat(), string.equal().
 
     Primary axis: function (len, concat, equal).

@@ -3782,21 +3782,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(8)))
 		})
 
-		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
-				return string.len("hello")
-			}
-			`, stl.SymbolResolver))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
-		})
-
 		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
-				return string.len(string.concat("ab", "cd"))
+				return len(string.concat("ab", "cd"))
 			}
 			`, stl.SymbolResolver))
 

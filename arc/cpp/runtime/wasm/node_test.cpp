@@ -1687,7 +1687,7 @@ func labeler(x i64) (label str, value i64) {
     }
 }
 
-/// @brief Node converts string channel input to handles for qualified string.len().
+/// @brief Node converts string channel input to handles for len().
 TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     const auto client = new_test_client();
 
@@ -1723,10 +1723,9 @@ TEST(NodeTest, StringChannelInputWithQualifiedStringLen) {
     };
     ASSERT_NIL(client.channels.create(output_ch));
 
-    // Uses qualified string.len() instead of builtin len()
     const std::string source = R"(
 func qstr_len(s str) i64 {
-    return string.len(s)
+    return len(s)
 }
 )" + input_name + " -> qstr_len{} -> " +
                                output_name;
@@ -1846,7 +1845,7 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
 
     const std::string source = R"(
 func concat_len(a str, b str) i64 {
-    return string.len(string.concat(a, b))
+    return len(string.concat(a, b))
 }
 )" + input_a_name + ", " + input_b_name +
                                " -> concat_len{} -> " + output_name;
@@ -1930,19 +1929,19 @@ func concat_len(a str, b str) i64 {
     EXPECT_EQ(output->at<int64_t>(0), 11);
 }
 
-/// @brief string.len() with literal via qualified syntax.
+/// @brief len() with string literal.
 TEST(QualifiedCallTest, StringLenLiteral) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func str_len() i64 { return string.len("hello") })arc");
+func str_len() i64 { return len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
-/// @brief string.concat() with literals via qualified syntax.
+/// @brief string.concat() with len() via qualified syntax.
 TEST(QualifiedCallTest, StringConcatLiteral) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func concat_len() i64 { return string.len(string.concat("ab", "cd")) })arc");
+func concat_len() i64 { return len(string.concat("ab", "cd")) })arc");
     EXPECT_EQ(v, 4);
 }
 

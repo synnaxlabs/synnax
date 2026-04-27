@@ -1566,9 +1566,6 @@ var _ = Describe("Expressions", func() {
 			Entry("math.pow()", `
 				func testFunc() i64 { return math.pow(2, 3) }
 			`),
-			Entry("string.len()", `
-				func testFunc() i64 { return string.len("hello") }
-			`),
 			Entry("string.concat()", `
 				func testFunc() str { return string.concat("a", "b") }
 			`),

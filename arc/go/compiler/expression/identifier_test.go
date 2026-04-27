@@ -540,15 +540,6 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
-			_, exprType := compileWithAnalyzer(
-				ctx,
-				`string.len("hello")`,
-				stl.SymbolResolver,
-			)
-			Expect(exprType).To(Equal(types.I64()))
-		})
-
 		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
 			_, exprType := compileWithAnalyzer(
 				ctx,
