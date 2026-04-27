@@ -316,8 +316,15 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
+	gorpCtx := Context{Context: ctx, Tx: tx}
+	var matched []E
+	if len(r.validators) > 0 {
+		matched = make([]E, 0)
+	}
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, rErr := r.matchRaw(iter.Key(), iter.Iterator.Value())
+		rawKey := iter.Key()
+		rawValue := iter.Iterator.Value()
+		rawMatched, rErr := r.matchRaw(rawKey, rawValue)
 		if rErr != nil {
 			return 0, rErr
 		}
@@ -328,28 +335,39 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
-		match, fErr := r.match(Context{Context: ctx, Tx: tx}, v)
+		match, fErr := r.match(gorpCtx, v, rawKey, rawValue)
 		if fErr != nil {
 			return 0, fErr
 		}
 		if match {
 			count++
+			if matched != nil {
+				matched = append(matched, *v)
+			}
+		}
+	}
+	if matched != nil {
+		if vErr := r.runValidators(gorpCtx, matched); vErr != nil {
+			return 0, vErr
 		}
 	}
 	return count, err
 }
 
-func (r Retrieve[K, E]) match(ctx Context, e *E) (bool, error) {
+func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
 	if !r.hasFilter {
 		return true, nil
 	}
-	if r.filter.Eval == nil {
-		if r.filter.Keys != nil {
-			return r.filter.containsKey((*e).GorpKey()), nil
-		}
-		return true, nil
+	if r.filter.Keys != nil && !r.filter.containsKey((*e).GorpKey()) {
+		return false, nil
 	}
-	return r.filter.Eval(ctx, e)
+	if r.filter.Eval != nil {
+		return r.filter.Eval(ctx, e, key, value)
+	}
+	// No Eval. Raw was already enforced by matchRaw at the pre-decode
+	// pre-screen, so an entry that reached match() has passed it; just
+	// honor the Keys constraint above (already checked) and accept.
+	return true, nil
 }
 
 func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
@@ -395,10 +413,10 @@ func (r Retrieve[K, E]) effectiveKeys() []K {
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	keys := r.effectiveKeys()
 	var (
-		reader             = WrapReader[K, E](tx)
-		keysResult, getErr = reader.GetMany(ctx, keys)
-		validCount         int
-		gorpCtx            = Context{Context: ctx, Tx: tx}
+		reader                   = WrapReader[K, E](tx)
+		keysResult, raws, getErr = reader.getMany(ctx, keys)
+		validCount               int
+		gorpCtx                  = Context{Context: ctx, Tx: tx}
 	)
 	// We don't return early even if getErr fails with a not found result in
 	// order to do a best effort retrieval of available items. WhereKeys
@@ -410,11 +428,15 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 	// Filter in place by reusing keysResult's backing array. The kept-write
 	// index never overtakes the read index, so this is safe.
 	filtered := keysResult[:0]
-	for _, e := range keysResult {
+	for i, e := range keysResult {
 		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
 			continue
 		}
-		match, err := r.match(gorpCtx, &e)
+		var rawValue []byte
+		if i < len(raws) {
+			rawValue = raws[i]
+		}
+		match, err := r.match(gorpCtx, &e, nil, rawValue)
 		if err != nil {
 			return err
 		}
@@ -426,11 +448,15 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(filtered)
-	if err := r.runValidators(gorpCtx, filtered); err != nil {
-		return err
-	}
+	validatorErr := r.runValidators(gorpCtx, filtered)
 	if r.HasWhereKeys() {
-		return getErr
+		// WhereKeys callers expect query.ErrNotFound when ANY requested key
+		// was missing, plus any validator error. Join so callers can match
+		// against either.
+		return errors.Join(validatorErr, getErr)
+	}
+	if validatorErr != nil {
+		return validatorErr
 	}
 	// Indexed-filter-only path: an indexed filter matching no keys is an empty
 	// result, not an error, for multi-entry or unbound queries. Single-entry
@@ -464,7 +490,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, rErr := r.matchRaw(iter.Key(), iter.Iterator.Value())
+		rawKey := iter.Key()
+		rawValue := iter.Iterator.Value()
+		rawMatched, rErr := r.matchRaw(rawKey, rawValue)
 		if rErr != nil {
 			return rErr
 		}
@@ -475,7 +503,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		match, err = r.match(gorpCtx, v)
+		match, err = r.match(gorpCtx, v, rawKey, rawValue)
 		if err != nil {
 			return err
 		}
@@ -537,7 +565,7 @@ func (r Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	// entries is already in sorted-walk order.
 	filtered := make([]E, 0, len(entries))
 	for _, e := range entries {
-		match, err := r.match(Context{Context: ctx, Tx: tx}, &e)
+		match, err := r.match(Context{Context: ctx, Tx: tx}, &e, nil, nil)
 		if err != nil {
 			return err
 		}

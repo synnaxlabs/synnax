@@ -709,5 +709,47 @@ var _ = Describe("Retrieve", func() {
 			Expect(seen).To(BeEmpty())
 			Expect(res).To(BeEmpty())
 		})
+
+		It("Should receive the filtered result set on Count with Where", func(ctx SpecContext) {
+			var seen []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
+					return e.ID >= 2, nil
+				})).
+				Validate(func(_ gorp.Context, entries []entry) error {
+					seen = append([]entry(nil), entries...)
+					return nil
+				}).
+				Count(ctx, tx)).To(Equal(3))
+			Expect(seen).To(HaveLen(3))
+		})
+
+		It("Should short-circuit Count with Where on a validator error", func(ctx SpecContext) {
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
+					return true, nil
+				})).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					return errors.New("count validator rejected query")
+				}).
+				Count(ctx, tx)).
+				Error().
+				To(MatchError(ContainSubstring("count validator rejected query")))
+		})
+
+		It("Should preserve ErrNotFound when WhereKeys partial-match also triggers a validator error", func(ctx SpecContext) {
+			var res []entry
+			err := gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereKeys(0, 1, 999).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					return errors.New("partial validator failure")
+				}).
+				Exec(ctx, tx)
+			Expect(err).To(SatisfyAll(
+				MatchError(query.ErrNotFound),
+				MatchError(ContainSubstring("partial validator failure")),
+			))
+		})
 	})
 })

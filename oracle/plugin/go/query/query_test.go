@@ -153,6 +153,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
+						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, Task]",
 						"func MatchInternal(v bool) Filter",
 					).
 					ToNotContain(
@@ -181,6 +182,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
+						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, Workspace]",
 						"func MatchAuthor(v uuid.UUID) Filter",
 					).
 					ToNotContain(
@@ -208,6 +210,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
+						"type Filter = gorp.BoundFilter[Retrieve, uuid.UUID, User]",
 						"func MatchUsernames(vals ...string) Filter",
 						"lo.Contains(vals, e.Username)",
 					).
@@ -241,6 +244,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
+						"type Filter = gorp.BoundFilter[Retrieve, string, Device]",
 						"func MatchRacks(vals ...rack.Key) Filter",
 						"lo.Contains(vals, e.Rack)",
 					).
@@ -276,7 +280,7 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("type Retrieve struct")
 			})
 
-			It("Should emit a Filter function type and Match/And/Or/Not combinators", func(ctx SpecContext) {
+			It("Should emit a Filter alias and Match/And/Or/Not bound combinators", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -294,14 +298,14 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
-						"func Match(",
-						"gorp.MatchBound[Retrieve, uint32, Rack]",
+						"func Match(f func(ctx gorp.Context, r Retrieve, e *Rack) (bool, error)) Filter",
+						"return gorp.MatchBound[Retrieve, uint32, Rack](f)",
 						"func And(fs ...Filter) Filter",
-						"gorp.AndBound[Retrieve, uint32, Rack](fs...)",
+						"return gorp.AndBound[Retrieve, uint32, Rack](fs...)",
 						"func Or(fs ...Filter) Filter",
-						"gorp.OrBound[Retrieve, uint32, Rack](fs...)",
+						"return gorp.OrBound[Retrieve, uint32, Rack](fs...)",
 						"func Not(f Filter) Filter",
-						"gorp.NotBound[Retrieve, uint32, Rack](f)",
+						"return gorp.NotBound[Retrieve, uint32, Rack](f)",
 					)
 			})
 
@@ -353,7 +357,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should emit the Filter wrapper for plain @retrieve (non-custom)", func(ctx SpecContext) {
+			It("Should also emit Filter machinery under a plain @retrieve (non-custom)", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -372,6 +376,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
+						"type Retrieve struct",
 						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func And(fs ...Filter) Filter",
 						"gorp.AndBound[Retrieve, uint32, Rack](fs...)",

@@ -22,9 +22,19 @@ import (
 // plus an optional precomputed candidate-key set for filters backed by a
 // secondary index. Retrieve uses Keys to short-circuit into the execKeys fast
 // path; Eval and Raw run as post-checks against the fetched entries.
+//
+// A filter can carry any subset of (Keys, Raw, Eval); the three kinds are
+// independent dispatch paths and composition (And/Or/Not) handles each
+// correctly so that MatchRaw filters compose under Or/Not without losing the
+// raw-bytes path. Eval receives the pebble key and encoded value alongside
+// the decoded entry so dispatch helpers can invoke a child's Raw at decode
+// time when the child has no Eval of its own.
 type Filter[K Key, E Entry[K]] struct {
-	// Eval evaluates a decoded entry. Nil means no decoded-entry constraint.
-	Eval func(ctx Context, e *E) (bool, error)
+	// Eval evaluates a decoded entry. Receives both the pebble key and the
+	// raw encoded value so And/Or/Not composition can dispatch to a child's
+	// Raw at decode time when the child has no Eval. Nil means no
+	// decoded-entry constraint.
+	Eval func(ctx Context, e *E, key, value []byte) (bool, error)
 	// Raw evaluates the raw encoded bytes before decoding. The filter receives
 	// both the pebble key and the encoded value, so callers can short-circuit
 	// on key-shaped data without ever touching the value (or vice versa).
@@ -194,30 +204,54 @@ func (f Filter[K, E]) containsKey(k K) bool {
 	return f.membership.contains(k)
 }
 
-// Match wraps a bare closure as a Filter.
+// Match wraps a decoded-entry predicate as a Filter. The user closure is the
+// simple `(ctx, *E)` shape; Match wraps it into the internal 4-arg Eval that
+// ignores the raw key/value bytes.
 func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Eval: f}
+	return Filter[K, E]{
+		Eval: func(ctx Context, e *E, _, _ []byte) (bool, error) {
+			return f(ctx, e)
+		},
+	}
 }
 
 // MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs before
 // decoding and receives both the pebble key and the encoded value; returning
-// false skips the entry entirely.
+// false skips the entry entirely. Under And the raw pre-screen composes by
+// AND-short-circuit, under Or it survives only when every child is raw-only,
+// and under Not it inverts in place when the child is raw-only — preserving
+// the no-decode pre-screen path through composition wherever semantically
+// sound.
 func MatchRaw[K Key, E Entry[K]](f func(key, value []byte) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{Raw: f}
 }
 
-// And returns a filter that matches when ALL children match. Eval and Raw
-// stages compose by short-circuiting on the first false. Keys composes by
-// intersecting child key sets: a result Keys is set whenever at least one
-// child has Keys, and equals the intersection of all children's Keys
-// (children without Keys are unbounded and don't restrict the intersection).
+// And returns a filter that matches when ALL children match. Composes each
+// child's three dispatch paths independently:
 //
-// The Eval and Raw closure allocations are skipped entirely when no child
-// has them. For a common "all children are index-backed Keys-only filters"
-// composition this means And allocates nothing but the intersection slice
-// and a lazy membership wrapper — no closure capture, no heap dispatch.
+//   - Keys: intersected across children that have Keys; children without
+//     Keys are unbounded and don't restrict the intersection. See
+//     intersectKeys for the lazy-membership cost model.
+//   - Raw: AND-short-circuited across every child that has Raw, so the
+//     pre-decode pre-screen survives composition.
+//   - Eval: AND-composed at decode time, dispatching per child kind:
+//     Eval-set children run their Eval, Raw-only children invoke Raw
+//     against the raw bytes, Keys-only children are skipped (the Keys
+//     intersection above already guarantees the entry is in their set
+//     when execKeys fetched it).
+//
+// The Eval and Raw closures are skipped entirely when no child has them.
+// For an "all children are index-backed Keys-only filters" composition this
+// means And allocates nothing but the intersection slice and a lazy
+// membership wrapper — no closure capture, no heap dispatch.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
+
+	// Eval composition: AND of every Eval-set child at decode time. Raw
+	// children are handled by the f.Raw pre-screen below (running them again
+	// in Eval would double-evaluate every entry); Keys-only children are
+	// handled by the Keys intersection (entries reach decode only when in
+	// every child's Keys).
 	hasAnyEval := false
 	for _, child := range filters {
 		if child.Eval != nil {
@@ -226,17 +260,12 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		}
 	}
 	if hasAnyEval {
-		// Only build the iterating closure when at least one child has
-		// an Eval predicate. If every child is Keys-only, execKeys
-		// fetches exactly the intersection and match() is trivially
-		// true — so leaving f.Eval == nil is semantically correct and
-		// saves the closure + captured-filters allocation.
-		f.Eval = func(ctx Context, e *E) (bool, error) {
-			for _, f := range filters {
-				if f.Eval == nil {
+		f.Eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
+			for _, child := range filters {
+				if child.Eval == nil {
 					continue
 				}
-				ok, err := f.Eval(ctx, e)
+				ok, err := child.Eval(ctx, e, key, value)
 				if err != nil || !ok {
 					return false, err
 				}
@@ -244,6 +273,10 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
+
+	// Raw composition: pre-screen short-circuits AND across every child
+	// that has Raw. A single Raw child becomes f.Raw directly (no wrapper
+	// closure); 2+ get the iterating wrapper.
 	var firstRaw func(key, value []byte) (bool, error)
 	rawCount := 0
 	for _, child := range filters {
@@ -258,12 +291,8 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	case 0:
 		// No Raw at any child: leave f.Raw nil, no closure.
 	case 1:
-		// Exactly one Raw: assign directly, no wrapper closure.
 		f.Raw = firstRaw
 	default:
-		// 2+ Raw children: need the iterating wrapper. Rebuild the list
-		// here to avoid leaking every child (including Raw-less ones)
-		// into the captured environment.
 		raws := make([]func([]byte, []byte) (bool, error), 0, rawCount)
 		for _, child := range filters {
 			if child.Raw != nil {
@@ -280,15 +309,12 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
+
+	// Keys composition (resolver-aware). If any child carries a deferred
+	// resolver, defer the entire intersection: compose a resolver that
+	// fires each resolver-child against the open tx, materializes the
+	// resulting filter list, and intersects.
 	if anyHasResolver(filters) {
-		// At least one child carries a deferred resolver, which means
-		// its effective Keys depend on the open tx at Retrieve.Exec
-		// time. Defer the whole intersection: compose a resolver that
-		// fires each resolver-child, re-wraps the result in a
-		// materialized child filter (with a fresh lazy membership over
-		// the resolved keys), and passes every child — eager and
-		// resolved — into intersectKeys. The eager path below is
-		// skipped to avoid snapshotting stale Keys at compose time.
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
 			materialized, err := materializeFilters[K, E](ctx, tx, filters)
 			if err != nil {
@@ -307,42 +333,34 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return f
 }
 
-// Or returns a filter that matches when ANY child matches. Short-circuits on
-// the first true. Raw pre-screening is not composed for Or because a branch
-// without a Raw check may still match after decoding, so we must always
-// decode. Keys composes only when EVERY child has Keys (otherwise an
-// unbounded child means the result is unbounded), and equals the union of
-// all children's Keys.
+// Or returns a filter that matches when ANY child matches. Composes the
+// three dispatch paths so MatchRaw filters survive composition under Or:
 //
-// Eval handles index-backed children (Eval == nil, Keys != nil) by probing
-// the child's typed membership against the entry's key. This is required
-// because execKeys fetches the union of all children's Keys then runs each
-// fetched entry through Or.Eval; without the membership probe, no Keys-only
-// child would ever return true and the post-filter would drop every result.
+//   - Keys: union ONLY when every child has Keys. A single non-Keys child
+//     collapses the union to unbounded; the result has nil Keys and the
+//     fallback Eval composition runs over a full scan.
+//   - Raw: pre-screen survives ONLY when every child is raw-only (no Eval,
+//     no Keys). A single non-raw child forces decode of every entry; the
+//     raw children dispatch against raw bytes inside Eval at decode time.
+//   - Eval: OR-composed at decode time, dispatching per child kind via
+//     evalChild — checking Keys membership for Keys-set children, calling
+//     Raw for raw-only children, and Eval for Eval-set children. Each
+//     child's full predicate (Keys ∧ Eval/Raw) is evaluated and OR'd.
 //
-// If every child is Keys-only and every child has a full Keys set (so Or
-// could compose a complete union), f.Eval is left nil: execKeys fetches
-// exactly the union and match() is trivially true, so the closure is dead
-// weight. Mixed compositions still need the closure.
+// If every child is Keys-only and every child has a complete Keys set, both
+// f.Eval and f.Raw are left nil: execKeys fetches exactly the union and
+// match() short-circuits to true.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	var f Filter[K, E]
+
+	// Keys composition (resolver-aware).
 	if anyHasResolver(filters) {
 		// Any resolver-child means the union cannot be computed at
 		// compose time. Defer everything. Copy the filters slice
 		// first: the Or resolver mutates resolver-carrying children
 		// in place so the Eval closure (which captures the same
 		// slice) sees materialized Keys/membership when it probes
-		// them at match time. Copying protects callers from any
-		// surprise mutation of a slice they passed to Or(...).
-		//
-		// unionKeys already handles the "one child is unbounded"
-		// case by returning (nil, nil), which Retrieve.Exec treats
-		// as "no execKeys fast path; fall into execFilter full scan
-		// and run the composed Eval on every row". In that degraded
-		// mode, Eval-time containsKey probes on resolver children
-		// must see the materialized state — which is why the
-		// resolver mutates the slice instead of computing a local
-		// copy.
+		// them at match time.
 		filters = append([]Filter[K, E](nil), filters...)
 		f.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
 			if err := materializeFiltersMut[K, E](ctx, tx, filters); err != nil {
@@ -351,9 +369,6 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			keys, build := unionKeys[K, E](filters)
 			return keys, build, nil
 		}
-		// Fall through to the Eval composition below. f.Keys and
-		// f.membership stay nil at compose time: Retrieve.Exec will
-		// populate them from the resolver before match runs.
 	} else {
 		var build func([]K) keyMembership[K]
 		f.Keys, build = unionKeys[K, E](filters)
@@ -361,33 +376,47 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			f.membership = newLazyMembership(f.Keys, build)
 		}
 	}
+
+	// Raw composition: pre-screen survives only when every child is
+	// raw-only. In that case the Raw OR is the full predicate and we
+	// don't need an Eval closure.
+	if len(filters) > 0 && allRawOnly(filters) {
+		f.Raw = func(key, value []byte) (bool, error) {
+			for _, child := range filters {
+				ok, err := child.Raw(key, value)
+				if err != nil {
+					return false, err
+				}
+				if ok {
+					return true, nil
+				}
+			}
+			return false, nil
+		}
+		return f
+	}
+
 	// If the union composed successfully AND every child was Keys-only,
 	// we can skip the Eval closure: execKeys will fetch exactly the
 	// union and match() can short-circuit to true.
 	allKeysOnly := f.Keys != nil
 	if allKeysOnly {
 		for _, child := range filters {
-			if child.Eval != nil {
+			if child.Eval != nil || child.Raw != nil {
 				allKeysOnly = false
 				break
 			}
 		}
 	}
 	if !allKeysOnly {
-		f.Eval = func(ctx Context, e *E) (bool, error) {
-			key := (*e).GorpKey()
-			for _, f := range filters {
-				if f.Eval != nil {
-					ok, err := f.Eval(ctx, e)
-					if err != nil {
-						return false, err
-					}
-					if ok {
-						return true, nil
-					}
-					continue
+		f.Eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
+			for _, child := range filters {
+				ok, err := evalChild(ctx, child, e, entryKey, key, value)
+				if err != nil {
+					return false, err
 				}
-				if f.Keys != nil && f.containsKey(key) {
+				if ok {
 					return true, nil
 				}
 			}
@@ -397,33 +426,37 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return f
 }
 
-// Not returns a filter that inverts the child. Raw pre-screening is not
-// composed for Not because inverting a raw rejection requires decoding to
-// check the Eval stage. Keys are dropped for the same reason: inverting a
-// key set requires the universe of all keys, which the filter does not have.
-// Resolve is dropped for the same reason — if Keys can't survive inversion,
-// neither can their deferred computation.
+// Not returns a filter that inverts the child. Drops the child's Keys from
+// the result (inverting a key set requires the universe of all keys, which
+// the filter does not have) but forwards the child's resolver so deferred
+// Keys are still materialized into the captured child at exec time, where
+// the inverted dispatched predicate (via evalChild) reads them. When the
+// child is raw-only (Raw set, Eval nil, Keys nil, resolve nil), Not composes
+// an inverted Raw so the pre-decode pre-screen survives Not as well.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
-		Eval: func(ctx Context, e *E) (bool, error) {
-			if f.Eval != nil {
-				// f.Eval may be a partial predicate (And.Eval skips
-				// Keys-only children). If f also has a Keys constraint,
-				// an entry outside that set can never satisfy f, so
-				// Not(f) is trivially true.
-				if f.Keys != nil && !f.containsKey((*e).GorpKey()) {
-					return true, nil
-				}
-				ok, err := f.Eval(ctx, e)
-				return !ok, err
-			}
-			if f.Keys != nil {
-				return !f.containsKey((*e).GorpKey()), nil
-			}
-			return false, nil
+		Eval: func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
+			ok, err := evalChild(ctx, f, e, entryKey, key, value)
+			return !ok, err
 		},
 	}
+	if f.Raw != nil && f.Eval == nil && f.Keys == nil && f.resolve == nil {
+		// Pure raw child: the inverted Raw is the full predicate, no Eval
+		// closure needed. Preserves the no-decode pre-screen path through
+		// Not.
+		raw := f.Raw
+		out.Raw = func(key, value []byte) (bool, error) {
+			ok, err := raw(key, value)
+			return !ok, err
+		}
+		out.Eval = nil
+	}
 	if f.resolve != nil {
+		// Forward the child's resolver so that deferred Keys get
+		// materialized into the captured `f` value (which out.Eval reads via
+		// evalChild). out.resolve itself returns nil keys: inverting a
+		// candidate set requires the universe, so Not is always unbounded.
 		out.resolve = func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
 			keys, build, err := f.resolve(ctx, tx)
 			if err != nil {
@@ -432,11 +465,56 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 			f.Keys = keys
 			if build != nil && keys != nil {
 				f.membership = newLazyMembership(keys, build)
+			} else {
+				f.membership = nil
 			}
 			return nil, nil, nil
 		}
 	}
 	return out
+}
+
+// evalChild evaluates a child's full predicate at decode time, dispatching
+// across the (Keys, Raw, Eval) field combination the child carries. Used by
+// Or and Not where each child's full pass condition must be checked
+// independently against the decoded entry. Returns true if the entry passes
+// every constraint the child has set.
+//
+// Dispatch:
+//   - If Keys is set, the entry must be in Keys (containsKey probe).
+//   - If Eval is set, run Eval as the post-decode predicate.
+//   - Else if Raw is set, run Raw against the raw bytes.
+//   - Else (Keys-only) the Keys check above is the full predicate.
+//   - Else (vacuous match) return true.
+func evalChild[K Key, E Entry[K]](
+	ctx Context,
+	f Filter[K, E],
+	e *E,
+	entryKey K,
+	key, value []byte,
+) (bool, error) {
+	if f.Keys != nil && !f.containsKey(entryKey) {
+		return false, nil
+	}
+	if f.Eval != nil {
+		return f.Eval(ctx, e, key, value)
+	}
+	if f.Raw != nil {
+		return f.Raw(key, value)
+	}
+	return true, nil
+}
+
+// allRawOnly reports whether every filter has Raw set and no Eval, Keys, or
+// resolve. Used by Or to decide whether the raw-pre-screen path can survive
+// composition (it can only when every child is purely a raw filter).
+func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
+	for _, f := range filters {
+		if f.Raw == nil || f.Eval != nil || f.Keys != nil || f.resolve != nil {
+			return false
+		}
+	}
+	return true
 }
 
 // anyHasResolver reports whether any child filter carries a deferred
@@ -514,65 +592,6 @@ func materializeFiltersMut[K Key, E Entry[K]](
 	return nil
 }
 
-// BoundFilter is a Filter parameterized over a service-defined Retrieve type
-// R. It's the underlying type behind the per-service Filter alias emitted by
-// the oracle query plugin: a closure that takes the caller's Retrieve and
-// produces a gorp.Filter[K, E] bound to it. Service code uses BoundFilter so
-// filter constructors can read from r.indexes / r.label / r.hostProvider when
-// evaluated by Retrieve.Where, while pure constructors can ignore r entirely.
-//
-// The MatchBound / AndBound / OrBound / NotBound helpers below let generated
-// code stay one-liner thin instead of re-emitting the same closure plumbing
-// per service.
-type BoundFilter[R any, K Key, E Entry[K]] func(r R) Filter[K, E]
-
-// MatchBound wraps a closure that needs the Retrieve R into a BoundFilter.
-// The Retrieve value is supplied by the per-service Where method when the
-// query is evaluated.
-func MatchBound[R any, K Key, E Entry[K]](
-	f func(ctx Context, r R, e *E) (bool, error),
-) BoundFilter[R, K, E] {
-	return func(r R) Filter[K, E] {
-		return Filter[K, E]{Eval: func(ctx Context, e *E) (bool, error) {
-			return f(ctx, r, e)
-		}}
-	}
-}
-
-// AndBound returns a BoundFilter that matches when all provided filters
-// match. Each child is bound to the same Retrieve before being composed via
-// gorp.And, so the resulting filter inherits And's Eval/Raw/Keys composition
-// semantics.
-func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
-	return func(r R) Filter[K, E] {
-		inner := make([]Filter[K, E], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return And(inner...)
-	}
-}
-
-// OrBound returns a BoundFilter that matches when any provided filter
-// matches. Bound children are composed via gorp.Or.
-func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
-	return func(r R) Filter[K, E] {
-		inner := make([]Filter[K, E], len(fs))
-		for i, f := range fs {
-			inner[i] = f(r)
-		}
-		return Or(inner...)
-	}
-}
-
-// NotBound returns a BoundFilter that inverts the provided filter via
-// gorp.Not after binding it to the Retrieve.
-func NotBound[R any, K Key, E Entry[K]](f BoundFilter[R, K, E]) BoundFilter[R, K, E] {
-	return func(r R) Filter[K, E] {
-		return Not(f(r))
-	}
-}
-
 // intersectKeys returns the intersection of every child filter's Keys plus
 // the build function needed to construct a lazy membership over the result.
 // Children with nil Keys are treated as unbounded and do not restrict the
@@ -627,18 +646,8 @@ func intersectKeys[K Key, E Entry[K]](
 	slices.SortFunc(bounded, func(a, b Filter[K, E]) int {
 		return len(a.Keys) - len(b.Keys)
 	})
-	// Walk the LARGEST (last after ascending sort), probe the smaller
-	// siblings' lazily-built memberships. See the method comment for
-	// why this is the memory-optimal choice.
 	candidates := bounded[len(bounded)-1].Keys
 	rest := bounded[:len(bounded)-1]
-	// Pre-size the result to the SMALLEST side's length, not the walker's:
-	// the intersection can't be larger than any single child's key set, and
-	// bounded[0] is the smallest after the ascending sort. Sizing to the
-	// walker's length (which could be orders of magnitude larger) would
-	// allocate a result buffer wildly out of proportion to the actual
-	// intersection size — measured at ~50 KB per op on the composition
-	// benchmark before this fix.
 	out := make([]K, 0, len(bounded[0].Keys))
 	for _, c := range candidates {
 		inAll := true
@@ -706,4 +715,63 @@ func unionKeys[K Key, E Entry[K]](
 		}
 	}
 	return out, build
+}
+
+// BoundFilter is a Filter parameterized over a service-defined Retrieve type
+// R. It's the underlying type behind the per-service Filter alias emitted by
+// the oracle query plugin: a closure that takes the caller's Retrieve and
+// produces a gorp.Filter[K, E] bound to it. Service code uses BoundFilter so
+// filter constructors can read from r.indexes / r.label / r.hostProvider when
+// evaluated by Retrieve.Where, while pure constructors can ignore r entirely.
+//
+// The MatchBound / AndBound / OrBound / NotBound helpers below let generated
+// code stay one-liner thin instead of re-emitting the same closure plumbing
+// per service.
+type BoundFilter[R any, K Key, E Entry[K]] func(r R) Filter[K, E]
+
+// MatchBound wraps a closure that needs the Retrieve R into a BoundFilter.
+// The Retrieve value is supplied by the per-service Where method when the
+// query is evaluated.
+func MatchBound[R any, K Key, E Entry[K]](
+	f func(ctx Context, r R, e *E) (bool, error),
+) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		return Filter[K, E]{Eval: func(ctx Context, e *E, _, _ []byte) (bool, error) {
+			return f(ctx, r, e)
+		}}
+	}
+}
+
+// AndBound returns a BoundFilter that matches when all provided filters
+// match. Each child is bound to the same Retrieve before being composed via
+// gorp.And, so the resulting filter inherits And's Eval/Raw/Keys composition
+// semantics.
+func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		inner := make([]Filter[K, E], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return And(inner...)
+	}
+}
+
+// OrBound returns a BoundFilter that matches when any provided filter
+// matches. Bound children are composed via gorp.Or.
+func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		inner := make([]Filter[K, E], len(fs))
+		for i, f := range fs {
+			inner[i] = f(r)
+		}
+		return Or(inner...)
+	}
+}
+
+// NotBound returns a BoundFilter that inverts the provided filter via
+// gorp.Not after binding it to the Retrieve.
+func NotBound[R any, K Key, E Entry[K]](f BoundFilter[R, K, E]) BoundFilter[R, K, E] {
+	return func(r R) Filter[K, E] {
+		return Not(f(r))
+	}
 }

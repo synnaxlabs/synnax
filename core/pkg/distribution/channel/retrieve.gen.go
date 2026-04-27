@@ -13,10 +13,23 @@ package channel
 
 import (
 	"context"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/telem"
 )
+
+// Retrieve is used to retrieve Channel records from the database using a
+// builder pattern for constructing queries.
+type Retrieve struct {
+	baseTX     gorp.Tx
+	gorp       gorp.Retrieve[Key, Channel]
+	search     *search.Index
+	searchTerm string
+	indexes    indexes
+}
 
 // indexes bundles the per-Service secondary indexes registered on the
 // Channel table. Each index is constructed via newIndexes and threaded
@@ -85,6 +98,42 @@ func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
 	r.gorp = r.gorp.WhereKeys(keys...)
 	return r
+}
+
+// MatchLeaseholders returns a filter for channels whose Leaseholder matches any of the provided values.
+func MatchLeaseholders(vals ...cluster.NodeKey) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+			return lo.Contains(vals, e.Leaseholder), nil
+		})
+	}
+}
+
+// MatchDataTypes returns a filter for channels whose DataType matches any of the provided values.
+func MatchDataTypes(vals ...telem.DataType) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+			return lo.Contains(vals, e.DataType), nil
+		})
+	}
+}
+
+// MatchIsIndex returns a filter for channels by their IsIndex field.
+func MatchIsIndex(v bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+			return e.IsIndex == v, nil
+		})
+	}
+}
+
+// MatchInternal returns a filter for channels by their Internal field.
+func MatchInternal(v bool) Filter {
+	return func(r Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
+			return e.Internal == v, nil
+		})
+	}
 }
 
 // Where applies the provided filters to the query, binding each filter to the
