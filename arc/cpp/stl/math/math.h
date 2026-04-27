@@ -682,10 +682,7 @@ private:
     }
 
     template<typename T>
-    static void bind_signed_unary(
-        wasmtime::Linker &linker,
-        const std::string &suffix
-    ) {
+    static void bind_signed_unary(wasmtime::Linker &linker, const std::string &suffix) {
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(
@@ -697,10 +694,7 @@ private:
     }
 
     template<typename T>
-    static void bind_float_unary(
-        wasmtime::Linker &linker,
-        const std::string &suffix
-    ) {
+    static void bind_float_unary(wasmtime::Linker &linker, const std::string &suffix) {
         using W = typename WasmType<T>::type;
         linker
             .func_wrap(

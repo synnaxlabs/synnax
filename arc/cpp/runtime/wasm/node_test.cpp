@@ -85,7 +85,7 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
         std::make_shared<stl::stateful::WasmModule>(var_st, series_st, str_st),
         std::make_shared<stl::series::WasmModule>(series_st),
         std::make_shared<stl::str::WasmModule>(str_st),
-        std::make_shared<stl::math::WasmModule>(),
+        std::make_shared<stl::math::Module>(),
         std::make_shared<stl::time::WasmModule>(),
         std::make_shared<stl::error::WasmModule>(arc::runtime::errors::noop_handler),
     };
