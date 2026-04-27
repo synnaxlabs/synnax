@@ -138,14 +138,16 @@ func (t frameWriterRequestTranslator) Backward(
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
 		if err = t.codec.Update(ctx, keys); err != nil {
-			return r, err
+			return apifra.WriterRequest{}, err
 		}
 	}
 	r.Frame = frame.Frame{Frame: frm}
 	if t.codec != nil && len(msg.Buffer) > 0 {
-		r.Frame, err = t.codec.Decode(msg.Buffer)
+		if r.Frame, err = t.codec.Decode(msg.Buffer); err != nil {
+			return apifra.WriterRequest{}, err
+		}
 	}
-	return r, err
+	return r, nil
 }
 
 func (t frameWriterResponseTranslator) Forward(
@@ -323,7 +325,7 @@ func (t frameStreamerResponseTranslator) Backward(
 ) (apifra.StreamerResponse, error) {
 	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
-		return apifra.StreamerResponse{}, nil
+		return apifra.StreamerResponse{}, err
 	}
 	return apifra.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
 }
@@ -345,7 +347,7 @@ func (t frameDeleteRequestTranslator) Backward(
 ) (apifra.DeleteRequest, error) {
 	tr, err := telempb.TimeRangeFromPB(msg.Bounds)
 	if err != nil {
-		return apifra.DeleteRequest{}, nil
+		return apifra.DeleteRequest{}, err
 	}
 	return apifra.DeleteRequest{Keys: channel.KeysFromUint32(msg.Keys), Names: msg.Names, Bounds: tr}, nil
 }
