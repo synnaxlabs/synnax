@@ -557,9 +557,21 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 		fgs.equalLens = false
 	}
 
-	// Check if all original keys are present in merged series
-	if len(mergedSeries) != len(currState.keys) {
-		fgs.allChannelsPresent = false
+	// allChannelsPresent is true only when the merged series form a 1-to-1
+	// correspondence with currState.keys (each state key has exactly one series in the
+	// same order). Multi-domain frames that produce multiple series for the same key
+	// would otherwise be silently miscounted into a flag that tells the decoder to skip
+	// per-series keys on the wire.
+	fgs.allChannelsPresent = len(mergedSeries) == len(currState.keys)
+	if fgs.allChannelsPresent {
+		for i, msi := range mergedSeries {
+			if msi.key != currState.keys[i] {
+				fgs.allChannelsPresent = false
+				break
+			}
+		}
+	}
+	if !fgs.allChannelsPresent {
 		byteArraySize += len(mergedSeries) * 4
 	}
 

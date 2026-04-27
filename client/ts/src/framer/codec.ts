@@ -20,6 +20,7 @@ import { type z } from "zod";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
+import { type IteratorResponse, IteratorResponseVariant } from "@/framer/iterator";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
@@ -269,36 +270,26 @@ export class Codec {
       index += ALIGNMENT_SIZE;
     }
 
-    if (channelFlag) returnFrame.keys = [...state.keys];
-    state.keys.forEach((k, i) => {
-      if (!channelFlag) {
-        if (index >= view.byteLength) return;
-        const frameKey = view.getUint32(index, true);
-        if (frameKey !== k) return;
-        index += KEY_SIZE;
-        returnFrame.keys.push(k);
-      }
-      const dataType = state.keyDataTypes.get(k) as DataType;
+    const decodeSeries = (k: channel.Key): boolean => {
+      const dataType = state.keyDataTypes.get(k);
+      if (dataType == null) return false;
       currSize = 0;
       if (!sizeFlag) {
-        if (index + DATA_LENGTH_SIZE > view.byteLength) return;
+        if (index + DATA_LENGTH_SIZE > view.byteLength) return false;
         currSize = view.getUint32(index, true);
         index += DATA_LENGTH_SIZE;
       } else currSize = sizeRepresentation;
 
       let dataByteLength = currSize;
       if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
-      if (index + dataByteLength > view.byteLength) {
-        returnFrame.keys.splice(i, 1);
-        return;
-      }
+      if (index + dataByteLength > view.byteLength) return false;
       const currSeries: SeriesPayload = {
         dataType,
         data: src.slice(index, index + dataByteLength).buffer,
       };
       index += dataByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
-        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
+        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return false;
         const start = view.getBigUint64(index, true);
         index += TIMESTAMP_SIZE;
         const end = view.getBigUint64(index, true);
@@ -312,7 +303,7 @@ export class Codec {
       else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
 
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
-        if (index + ALIGNMENT_SIZE > view.byteLength) return;
+        if (index + ALIGNMENT_SIZE > view.byteLength) return false;
         currAlignment = view.getBigUint64(index, true);
         index += ALIGNMENT_SIZE;
         currSeries.alignment = currAlignment;
@@ -320,7 +311,18 @@ export class Codec {
       else currSeries.alignment = 0n;
 
       returnFrame.series.push(currSeries);
-    });
+      returnFrame.keys.push(k);
+      return true;
+    };
+
+    if (channelFlag) state.keys.forEach((k) => decodeSeries(k));
+    else
+      while (index < view.byteLength) {
+        if (index + KEY_SIZE > view.byteLength) break;
+        const frameKey = view.getUint32(index, true);
+        index += KEY_SIZE;
+        if (!decodeSeries(frameKey)) break;
+      }
     return returnFrame;
   }
 }
@@ -389,6 +391,38 @@ export class WSStreamerCodec implements binary.Codec {
     const v: WebsocketMessage<StreamerResponse> = {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
+    };
+    return v as z.infer<P>;
+  }
+}
+
+export class WSIteratorCodec implements binary.Codec {
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
+    return this.lowPerfCodec.encode(payload);
+  }
+
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PER_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<IteratorResponse> = {
+      type: "data",
+      payload: {
+        variant: IteratorResponseVariant.Data,
+        ack: false,
+        command: 0,
+        frame: this.base.decode(data, 1),
+      },
     };
     return v as z.infer<P>;
   }

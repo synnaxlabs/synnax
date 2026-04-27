@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
+import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
 
@@ -38,7 +39,7 @@ enum Command {
   Error = 8,
 }
 
-enum ResponseVariant {
+export enum IteratorResponseVariant {
   None = 0,
   Ack = 1,
   Data = 2,
@@ -53,15 +54,16 @@ const reqZ = z.object({
   chunkSize: z.number().optional(),
   downsampleFactor: z.int().optional(),
 });
-interface Request extends z.infer<typeof reqZ> {}
+export interface IteratorRequest extends z.infer<typeof reqZ> {}
 
-const resZ = z.object({
-  variant: z.enum(ResponseVariant),
+export const iteratorResZ = z.object({
+  variant: z.enum(IteratorResponseVariant),
   ack: z.boolean(),
   command: z.enum(Command),
   error: errors.payloadZ.optional().nullable(),
   frame: frameZ.optional(),
 });
+export interface IteratorResponse extends z.infer<typeof iteratorResZ> {}
 
 export interface IteratorConfig {
   /** chunkSize is the maximum number of samples contained per channel in the frame
@@ -84,11 +86,14 @@ export interface IteratorConfig {
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class Iterator {
-  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
+  private readonly stream: StreamProxy<typeof reqZ, typeof iteratorResZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
 
-  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: ReadAdapter) {
+  private constructor(
+    stream: Stream<typeof reqZ, typeof iteratorResZ>,
+    adapter: ReadAdapter,
+  ) {
     this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
     this.adapter = adapter;
@@ -109,11 +114,12 @@ export class Iterator {
     tr: CrudeTimeRange,
     channels: channel.Params,
     retriever: channel.Retriever,
-    client: StreamClient,
+    client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
     const adapter = await ReadAdapter.open(retriever, channels);
-    const stream = await client.stream("/frame/iterate", reqZ, resZ);
+    client = client.withCodec(new WSIteratorCodec(adapter.codec));
+    const stream = await client.stream("/frame/iterate", reqZ, iteratorResZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({
       command: Command.Open,
@@ -224,12 +230,12 @@ export class Iterator {
     return new IteratorIterator(this);
   }
 
-  private async execute(request: Request): Promise<boolean> {
+  private async execute(request: IteratorRequest): Promise<boolean> {
     this.stream.send(request);
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();
-      if (res.variant === ResponseVariant.Ack) return res.ack;
+      if (res.variant === IteratorResponseVariant.Ack) return res.ack;
       this.value.push(this.adapter.adapt(new Frame(res.frame)));
     }
   }

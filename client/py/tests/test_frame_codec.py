@@ -8,12 +8,22 @@
 #  included in the file licenses/APL.txt.
 
 
+import json as json_lib
+
 import numpy as np
 import pytest
 
 import synnax as sy
+from freighter.websocket import Message
 from synnax.channel.payload import Key
-from synnax.framer.codec import Codec
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, Codec
+from synnax.framer.frame import FramePayload
+from synnax.framer.iterator import (
+    WSIteratorCodec,
+    _Command,
+    _Response,
+    _ResponseVariant,
+)
 
 
 @pytest.mark.framer
@@ -299,6 +309,57 @@ class TestCodec:
         )
         with pytest.raises(ValueError):
             codec.encode(frame)
+
+    def test_iterator_ws_codec_data_response(self):
+        """Should binary-decode a data variant response and synthesize variant=Data"""
+        base = Codec([1], [sy.DataType.INT32])
+        codec = WSIteratorCodec(base)
+        frame = sy.Frame(
+            channels=[1],
+            series=[sy.Series(data=np.array([1, 2, 3], dtype=np.int32))],
+        )
+        encoded = bytearray(base.encode(frame, 1))
+        encoded[0] = 0xFF
+        msg = codec.decode(bytes(encoded), Message[_Response])
+        assert msg.payload is not None
+        assert msg.payload.variant == _ResponseVariant.DATA
+        assert msg.payload.frame.keys == [1]
+        assert np.array_equal(list(msg.payload.frame.series[0]), [1, 2, 3])
+
+    def test_iterator_ws_codec_ack_response(self):
+        """Should JSON-decode an ack variant response prefixed with the low-perf char"""
+        base = Codec([1], [sy.DataType.INT32])
+        codec = WSIteratorCodec(base)
+        ack = Message[_Response](
+            type="data",
+            payload=_Response(
+                variant=_ResponseVariant.ACK,
+                command=_Command.NEXT,
+                ack=True,
+                error=None,
+                frame=FramePayload(),
+            ),
+        )
+        body = json_lib.dumps(ack.model_dump(mode="json", by_alias=True)).encode()
+        encoded = bytes([LOW_PERF_SPECIAL_CHAR]) + body
+        decoded = codec.decode(encoded, Message[_Response])
+        assert decoded.payload is not None
+        assert decoded.payload.variant == _ResponseVariant.ACK
+        assert decoded.payload.ack is True
+
+    def test_iterator_ws_codec_request_is_json(self):
+        """Should JSON-encode an iterator request without a special-char prefix"""
+        base = Codec([1], [sy.DataType.INT32])
+        codec = WSIteratorCodec(base)
+
+        from synnax.framer.iterator import _Request
+
+        req = Message[_Request](
+            type="data",
+            payload=_Request(command=_Command.NEXT),
+        )
+        encoded = codec.encode(req)
+        assert encoded[0] in (ord("{"), ord("["))
 
     def test_out_of_sync_codecs(self):
         """Tests correct behavior when encoder and decoder are out of sync with different states"""

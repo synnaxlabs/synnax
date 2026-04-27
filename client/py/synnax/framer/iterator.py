@@ -10,14 +10,18 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import cast
 
 from pydantic import BaseModel
 
 import synnax.channel.payload as channel
 from alamos import NOOP, Instrumentation
-from freighter import EOF, Stream, StreamClient
+from freighter import EOF, ExceptionPayload, Stream, WebsocketClient
+from freighter.transport import P
+from freighter.websocket import Message
 from synnax.exceptions import UnexpectedError
 from synnax.framer.adapter import ReadFrameAdapter
+from synnax.framer.codec import LOW_PERF_SPECIAL_CHAR, WSFramerCodec
 from synnax.framer.frame import Frame, FramePayload
 from synnax.telem import TimeRange, TimeSpan, TimeStamp
 
@@ -56,8 +60,31 @@ class _Response(BaseModel):
     variant: _ResponseVariant
     command: _Command
     ack: bool
-    error: str | None
+    error: ExceptionPayload | None
     frame: FramePayload
+
+
+class WSIteratorCodec(WSFramerCodec):
+    def encode(self, data: BaseModel) -> bytes:
+        return self.lower_perf_codec.encode(data)
+
+    def decode(self, data: bytes, pld_t: type[P]) -> P:
+        if data[0] == LOW_PERF_SPECIAL_CHAR:
+            return self.lower_perf_codec.decode(data[1:], pld_t)
+        frame = self.codec.decode(data, 1)
+        return cast(
+            P,
+            Message(
+                type="data",
+                payload=_Response(
+                    variant=_ResponseVariant.DATA,
+                    command=_Command.OPEN,
+                    ack=False,
+                    error=None,
+                    frame=frame,
+                ),
+            ),
+        )
 
 
 class Iterator:
@@ -82,7 +109,7 @@ class Iterator:
     def __init__(
         self,
         tr: TimeRange,
-        client: StreamClient,
+        client: WebsocketClient,
         adapter: ReadFrameAdapter,
         chunk_size: int = 100000,
         downsample_factor: int = 1,
@@ -91,6 +118,7 @@ class Iterator:
         self.tr = tr
         self.instrumentation = instrumentation
         self.__adapter = adapter
+        client = client.with_codec(WSIteratorCodec(self.__adapter.codec))
         self.__stream = client.stream("/frame/iterate", _Request, _Response)
         self._chunk_size = chunk_size
         self._downsample_factor = downsample_factor
@@ -193,16 +221,20 @@ class Iterator:
         exc = self.__stream.close_send()
         if exc is not None:
             raise exc
-        r, exc = self.__stream.receive()
-        if exc is None:
-            raise UnexpectedError(
-                f"""Unexpected missing close acknowledgement from server.
-                Please report this issue to the Synnax team.
-                Response: {r}
-                """
-            )
-        elif not isinstance(exc, EOF):
-            raise exc
+        while True:
+            r, exc = self.__stream.receive()
+            if r is not None:
+                continue
+            if exc is None:
+                raise UnexpectedError(
+                    f"""Unexpected missing close acknowledgement from server.
+                    Please report this issue to the Synnax team.
+                    Response: {r}
+                    """
+                )
+            if not isinstance(exc, EOF):
+                raise exc
+            break
 
     def __iter__(self) -> Iterator:
         self.seek_first()

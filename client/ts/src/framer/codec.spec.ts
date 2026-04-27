@@ -18,9 +18,14 @@ import {
   Codec,
   HIGH_PERF_SPECIAL_CHAR,
   LOW_PER_SPECIAL_CHAR,
+  WSIteratorCodec,
   WSWriterCodec,
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
+import {
+  type IteratorResponse,
+  IteratorResponseVariant,
+} from "@/framer/iterator";
 import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
@@ -328,6 +333,54 @@ describe("encoder", () => {
       expect(encoded[0]).toEqual(LOW_PER_SPECIAL_CHAR);
       const decoded = codec.decode(encoded);
       expect(decoded).toEqual(msg);
+    });
+  });
+
+  describe("websocket iterator codec", () => {
+    it("should JSON-encode an iterator request without a special char prefix", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const msg: WebsocketMessage<unknown> = {
+        type: "data",
+        payload: { command: 1, span: 0 },
+      };
+      const encoded = codec.encode(msg);
+      // Iterator requests are sent as raw JSON; no special-char prefix.
+      // Confirm the first byte is JSON ('{' or '[').
+      expect([0x7b, 0x5b]).toContain(encoded[0]);
+    });
+
+    it("should binary-decode a data variant response and synthesize variant=Data", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const fr = new framer.Frame([1], [new Series(new Int32Array([1, 2, 3]))]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const encoded = new Uint8Array(baseCodec.encode(fr.toPayload(), 1));
+      encoded[0] = HIGH_PERF_SPECIAL_CHAR;
+      const decoded = codec.decode(encoded) as WebsocketMessage<IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(IteratorResponseVariant.Data);
+      const decodedFr = new Frame(decoded.payload?.frame);
+      expect(decodedFr.series[0].data).toEqual(fr.series[0].data);
+    });
+
+    it("should JSON-decode an ack variant response prefixed with the low-perf char", () => {
+      const baseCodec = new Codec([1], [DataType.INT32]);
+      const codec = new WSIteratorCodec(baseCodec);
+      const ackMsg: WebsocketMessage<IteratorResponse> = {
+        type: "data",
+        payload: {
+          variant: IteratorResponseVariant.Ack,
+          ack: true,
+          command: 1,
+        },
+      };
+      // Simulate what the server sends: LOW_PERF_SPECIAL_CHAR + JSON-encoded message.
+      const json = new TextEncoder().encode(JSON.stringify(ackMsg));
+      const encoded = new Uint8Array(json.byteLength + 1);
+      encoded[0] = LOW_PER_SPECIAL_CHAR;
+      encoded.set(json, 1);
+      const decoded = codec.decode(encoded) as WebsocketMessage<IteratorResponse>;
+      expect(decoded.payload?.variant).toEqual(IteratorResponseVariant.Ack);
+      expect(decoded.payload?.ack).toEqual(true);
     });
   });
 });
