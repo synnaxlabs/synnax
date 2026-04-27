@@ -255,7 +255,9 @@ func (t frameIteratorResponseTranslator) Backward(
 		NodeKey: cluster.NodeKey(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
-		Error:   fgrpc.DecodeError(ctx, msg.Error),
+	}
+	if msg.Error != nil {
+		res.Error = fgrpc.DecodeError(ctx, msg.Error)
 	}
 	if t.codec != nil && len(msg.Buffer) > 0 {
 		fr, err := t.codec.Decode(msg.Buffer)
@@ -323,6 +325,13 @@ func (t frameStreamerResponseTranslator) Backward(
 	_ context.Context,
 	msg *StreamerResponse,
 ) (apifra.StreamerResponse, error) {
+	if t.codec != nil && len(msg.Buffer) > 0 {
+		fr, err := t.codec.Decode(msg.Buffer)
+		if err != nil {
+			return apifra.StreamerResponse{}, err
+		}
+		return apifra.StreamerResponse{Frame: fr}, nil
+	}
 	tr, err := telempb.FrameFromPB[channel.Key](msg.Frame)
 	if err != nil {
 		return apifra.StreamerResponse{}, err

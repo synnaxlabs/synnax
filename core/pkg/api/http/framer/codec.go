@@ -13,14 +13,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
-	"fmt"
 	"io"
-	"reflect"
 
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
+	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
@@ -70,15 +69,21 @@ func (c *Codec) DecodeStream(
 		return c.decodeStreamRequest(ctx, r, v)
 	case *fhttp.WSMessage[framer.StreamerResponse]:
 		return c.decodeStreamResponse(ctx, r, v)
+	case *fhttp.WSMessage[framer.IteratorRequest]:
+		return c.decodeIteratorRequest(ctx, r, v)
+	case *fhttp.WSMessage[framer.IteratorResponse]:
+		return c.decodeIteratorResponse(ctx, r, v)
 	default:
-		panic(fmt.Sprintf("incompatible type %s provided to framer codec", reflect.TypeOf(value)))
+		return errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
 	}
 }
 
 func (c *Codec) Encode(ctx context.Context, value any) ([]byte, error) {
 	wr := &bytes.Buffer{}
-	err := c.EncodeStream(ctx, wr, value)
-	return wr.Bytes(), err
+	if err := c.EncodeStream(ctx, wr, value); err != nil {
+		return nil, err
+	}
+	return wr.Bytes(), nil
 }
 
 func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error {
@@ -91,8 +96,12 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 		return c.lowPerfEncode(ctx, false, w, v)
 	case fhttp.WSMessage[framer.StreamerResponse]:
 		return c.encodeStreamResponse(ctx, w, v)
+	case fhttp.WSMessage[framer.IteratorRequest]:
+		return c.lowPerfEncode(ctx, false, w, v)
+	case fhttp.WSMessage[framer.IteratorResponse]:
+		return c.encodeIteratorResponse(ctx, w, v)
 	default:
-		panic("incompatible type")
+		return errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
 	}
 }
 
@@ -237,9 +246,62 @@ func (c *Codec) decodeStreamRequest(
 	return c.Update(ctx, v.Payload.Keys)
 }
 
-func (c *Codec) ContentType() string {
-	return framerContentType
+func (c *Codec) decodeIteratorRequest(
+	ctx context.Context,
+	r io.Reader,
+	v *fhttp.WSMessage[framer.IteratorRequest],
+) error {
+	if err := c.lowPerfDecode(ctx, r, v); err != nil {
+		return err
+	}
+	if v.Type != fhttp.WSMessageTypeData {
+		return nil
+	}
+	if len(v.Payload.Keys) == 0 {
+		return nil
+	}
+	return c.Update(ctx, v.Payload.Keys)
 }
+
+func (c *Codec) decodeIteratorResponse(
+	ctx context.Context,
+	r io.Reader,
+	v *fhttp.WSMessage[framer.IteratorResponse],
+) error {
+	isLowPerf, err := c.decodeIsLowPerf(r)
+	if err != nil {
+		return err
+	}
+	if isLowPerf {
+		return c.lowPerfDecode(ctx, r, v)
+	}
+	v.Type = fhttp.WSMessageTypeData
+	fr, err := c.Codec.DecodeStream(r)
+	if err != nil {
+		return err
+	}
+	v.Payload.Frame = fr
+	v.Payload.Variant = iterator.ResponseVariantData
+	return nil
+}
+
+func (c *Codec) encodeIteratorResponse(
+	ctx context.Context,
+	w io.Writer,
+	v fhttp.WSMessage[framer.IteratorResponse],
+) error {
+	if v.Type != fhttp.WSMessageTypeData ||
+		v.Payload.Variant != iterator.ResponseVariantData ||
+		v.Payload.Frame.Empty() {
+		return c.lowPerfEncode(ctx, true, w, v)
+	}
+	if _, err := w.Write([]byte{highPerfSpecialChar}); err != nil {
+		return err
+	}
+	return c.Codec.EncodeStream(ctx, w, v.Payload.Frame)
+}
+
+func (c *Codec) ContentType() string { return framerContentType }
 
 const framerContentType = "application/sy-framer"
 

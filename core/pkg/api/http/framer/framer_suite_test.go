@@ -10,13 +10,31 @@
 package framer_test
 
 import (
+	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+)
+
+var (
+	mockCluster *mock.Cluster
+	dist        *distribution.Layer
 )
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Framer Suite")
 }
+
+var _ = BeforeSuite(func() {
+	mockCluster = mock.ProvisionCluster(context.Background(), 1)
+	dist = mockCluster.Nodes[1].Layer
+})
+
+var _ = AfterSuite(func() {
+	Expect(dist.Close()).To(Succeed())
+	Expect(mockCluster.Close()).To(Succeed())
+})

@@ -192,5 +192,129 @@ var _ = Describe("GRPC Framer Translators", func() {
 			out := MustSucceed(t.Backward(ctx, pb))
 			Expect(out.Frame.Empty()).To(BeTrue())
 		})
+
+		It("Should fall back to the protobuf frame when the codec is not initialized", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+			t := frameIteratorResponseTranslator{codec: cdec}
+			res := apifra.IteratorResponse{
+				Variant: iterator.ResponseVariantData,
+				Command: iterator.CommandNext,
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](1, 2, 3)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, res))
+			Expect(pb.Buffer).To(BeEmpty())
+			Expect(pb.Frame).ToNot(BeNil())
+
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
+			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+		})
+
+		It("Should fall back to the protobuf frame when the codec is nil", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			t := frameIteratorResponseTranslator{}
+			res := apifra.IteratorResponse{
+				Variant: iterator.ResponseVariantData,
+				Command: iterator.CommandNext,
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, res))
+			Expect(pb.Buffer).To(BeEmpty())
+			Expect(pb.Frame).ToNot(BeNil())
+
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
+		})
+
+		It("Should propagate the error when the buffer fails to decode", func(ctx SpecContext) {
+			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
+			t := frameIteratorResponseTranslator{codec: cdec}
+			pb := &IteratorResponse{
+				Variant: int32(iterator.ResponseVariantData),
+				Buffer:  []byte{0x01, 0x02, 0x03},
+			}
+			Expect(t.Backward(ctx, pb)).Error().To(HaveOccurred())
+		})
+
+		It("Should not panic when the proto Error field is nil", func(ctx SpecContext) {
+			t := frameIteratorResponseTranslator{}
+			pb := &IteratorResponse{
+				Variant: int32(iterator.ResponseVariantAck),
+				Ack:     true,
+			}
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(out.Error).To(BeNil())
+			Expect(out.Ack).To(BeTrue())
+		})
+	})
+
+	Describe("Frame Iterator Request Translator nil codec", func() {
+		It("Should not panic and not call Update when the codec is nil", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			t := frameIteratorRequestTranslator{}
+			pb := MustSucceed(t.Forward(ctx, apifra.IteratorRequest{
+				Command: iterator.CommandSeekFirst,
+				Keys:    keys,
+			}))
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(channel.Keys(out.Keys)).To(Equal(keys))
+		})
+	})
+
+	Describe("Frame Streamer Response Translator", func() {
+		It("Should round-trip a streamer response via the buffer", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+			Expect(cdec.Update(ctx, keys)).To(Succeed())
+
+			t := frameStreamerResponseTranslator{codec: cdec}
+			res := apifra.StreamerResponse{
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](100, 200)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, res))
+			Expect(pb.Buffer).ToNot(BeEmpty())
+
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
+			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int64](100, 200)))
+		})
+
+		It("Should propagate an error when the streamer buffer fails to decode", func(ctx SpecContext) {
+			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
+			t := frameStreamerResponseTranslator{codec: cdec}
+			Expect(t.Backward(ctx, &StreamerResponse{Buffer: []byte{0x01, 0x02}})).Error().To(HaveOccurred())
+		})
+	})
+
+	Describe("Frame Writer Request Translator", func() {
+		It("Should call Update on the Backward translation of an open command", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+			t := frameWriterRequestTranslator{codec: cdec}
+			pb := &WriterRequest{
+				Command: int32(writer.CommandOpen),
+				Config: &WriterConfig{
+					Keys:           keys.Uint32(),
+					ControlSubject: nil,
+				},
+			}
+			MustSucceed(t.Backward(ctx, pb))
+			Expect(cdec.Initialized()).To(BeTrue())
+		})
+
+		It("Should propagate an error when the writer buffer fails to decode", func(ctx SpecContext) {
+			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
+			t := frameWriterRequestTranslator{codec: cdec}
+			Expect(t.Backward(ctx, &WriterRequest{Buffer: []byte{0x01, 0x02}})).Error().To(HaveOccurred())
+		})
+
+		It("Should accept a nil request without panicking", func(ctx SpecContext) {
+			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
+			t := frameWriterRequestTranslator{codec: cdec}
+			out, err := t.Backward(ctx, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(out.Command).To(Equal(writer.Command(0)))
+		})
 	})
 })
