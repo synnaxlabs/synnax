@@ -46,10 +46,6 @@ struct StableForConfig {
     }
 };
 
-using NowFn = std::function<x::telem::TimeStamp()>;
-
-inline const NowFn default_now = [] { return x::telem::TimeStamp::now(); };
-
 /// @brief StableFor outputs a value only after the input has remained unchanged
 /// for a configured duration. Used to debounce noisy signals.
 ///
@@ -59,7 +55,7 @@ inline const NowFn default_now = [] { return x::telem::TimeStamp::now(); };
 class StableFor : public runtime::node::Node {
     runtime::state::Node state;
     StableForConfig cfg;
-    NowFn now;
+    x::telem::MonoClock clock;
     std::optional<uint8_t> value;
     std::optional<uint8_t> last_sent;
     x::telem::TimeStamp last_changed{0};
@@ -68,9 +64,9 @@ public:
     explicit StableFor(
         const StableForConfig &cfg,
         runtime::state::Node &&state,
-        NowFn now = default_now
+        x::telem::NowFunc now = nullptr
     ):
-        state(std::move(state)), cfg(cfg), now(std::move(now)) {}
+        state(std::move(state)), cfg(cfg), clock(std::move(now)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
         if (this->state.refresh_inputs()) {
@@ -91,7 +87,7 @@ public:
 
         if (!this->value.has_value()) return x::errors::NIL;
         const auto current_value = *this->value;
-        const auto current_time = this->now();
+        const auto current_time = this->clock.now();
         if (x::telem::TimeSpan(current_time - this->last_changed) >=
             this->cfg.duration) {
             if (!this->last_sent.has_value() || *this->last_sent != current_value) {
@@ -100,7 +96,7 @@ public:
                 *o = x::telem::Series(current_value);
                 *o_time = x::telem::Series(current_time.nanoseconds());
                 this->last_sent = current_value;
-                ctx.mark_changed(ir::default_output_param);
+                ctx.mark_changed(0);
             }
         }
         return x::errors::NIL;
@@ -112,8 +108,8 @@ public:
         this->last_changed = x::telem::TimeStamp(0);
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 

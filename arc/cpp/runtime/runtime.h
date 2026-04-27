@@ -37,7 +37,6 @@
 #include "arc/cpp/stl/selector/selector.h"
 #include "arc/cpp/stl/series/series.h"
 #include "arc/cpp/stl/stable/stable.h"
-#include "arc/cpp/stl/stage/stage.h"
 #include "arc/cpp/stl/stateful/stateful.h"
 #include "arc/cpp/stl/str/str.h"
 #include "arc/cpp/stl/time/time.h"
@@ -55,9 +54,9 @@ struct Output {
 struct Config {
     program::Program program;
     x::breaker::Config breaker;
-    std::function<std::pair<std::vector<state::ChannelDigest>, x::errors::Error>(
-        const std::vector<types::ChannelKey> &
-    )>
+    std::function<std::pair<
+        std::vector<state::ChannelDigest>,
+        x::errors::Error>(const std::vector<types::ChannelKey> &)>
         retrieve_channels;
     size_t input_queue_capacity = 256;
     size_t output_queue_capacity = 1024;
@@ -251,6 +250,7 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
     auto channel_st = std::make_shared<stl::channel::State>(digests);
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
+
     auto var_st = std::make_shared<stl::stateful::Variables>();
 
     state::Config state_cfg{
@@ -275,7 +275,6 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::math::WasmModule>(),
         time_module,
         std::make_shared<stl::error::WasmModule>(error_handler),
-        std::make_shared<stl::stage::WasmModule>(),
         std::make_shared<stl::constant::WasmModule>(),
         std::make_shared<stl::authority::WasmModule>(state),
         std::make_shared<stl::stable::WasmModule>(),
@@ -334,5 +333,4 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         x::errors::NIL
     };
 }
-
 }

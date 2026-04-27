@@ -270,7 +270,7 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
@@ -280,8 +280,8 @@ public:
         this->last_reset_time = x::telem::TimeStamp(0);
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 
 private:
@@ -408,8 +408,8 @@ public:
         this->prev_timestamp_ns = 0;
     }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 
 private:
@@ -451,7 +451,7 @@ private:
         output->time_range = input_data->time_range;
         output_time->alignment = input_data->alignment;
         output_time->time_range = input_data->time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
     }
 };
 
@@ -521,13 +521,13 @@ public:
         output->time_range = time_range;
         output_time->alignment = alignment;
         output_time->time_range = time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
+    [[nodiscard]] bool is_output_truthy(size_t) const override {
         return false;
     }
 
@@ -615,13 +615,13 @@ public:
         output->time_range = input->time_range;
         output_time->alignment = input->alignment;
         output_time->time_range = input->time_range;
-        ctx.mark_changed(ir::default_output_param);
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override {}
 
-    [[nodiscard]] bool is_output_truthy(const std::string &) const override {
+    [[nodiscard]] bool is_output_truthy(size_t) const override {
         return false;
     }
 

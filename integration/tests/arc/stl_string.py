@@ -13,67 +13,74 @@ from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_STRING_SOURCE = """
 // ──────────────────────────── string.len ─────────────────────────────
-
 // len(const)
-func len_cc(s str) i64 { return string.len("hello") }
+func len_cc(s str) i64 {
+    return string.len("hello")
+}
 str_trigger -> len_cc{} -> len_cc_out
-
 // len(chan)
-func len_ch(s str) i64 { return string.len(s) }
+func len_ch(s str) i64 {
+    return string.len(s)
+}
 str_trigger -> len_ch{} -> len_ch_out
-
 // ─────────────────────────── string.concat ───────────────────────────
-
 // concat(const, const)
-func concat_cc(s str) i64 { return string.len(string.concat("ab", "cd")) }
+func concat_cc(s str) i64 {
+    return string.len(string.concat("ab", "cd"))
+}
 str_trigger -> concat_cc{} -> concat_cc_out
-
 // concat(chan, const)
-func concat_xc(s str) i64 { return string.len(string.concat(s, " world")) }
+func concat_xc(s str) i64 {
+    return string.len(string.concat(s, " world"))
+}
 str_trigger -> concat_xc{} -> concat_xc_out
-
 // concat(const, chan)
-func concat_cx(s str) i64 { return string.len(string.concat("prefix:", s)) }
+func concat_cx(s str) i64 {
+    return string.len(string.concat("prefix:", s))
+}
 str_trigger -> concat_cx{} -> concat_cx_out
-
 // concat(chan, chan)
-func concat_xx(s str) { concat_xx_out = string.len(string.concat(s, str_second)) }
+func concat_xx(s str) {
+    concat_xx_out = string.len(string.concat(s, str_second))
+}
 str_trigger -> concat_xx{}
-
 // ─────────────────────────── string.equal ────────────────────────────
-
 // equal(const, const)
-func equal_cc(s str) i32 { return string.equal("abc", "abc") }
+func equal_cc(s str) i32 {
+    return string.equal("abc", "abc")
+}
 str_trigger -> equal_cc{} -> equal_cc_out
-
 // equal(chan, const) — match
-func equal_xc_match(s str) i32 { return string.equal(s, "hello") }
+func equal_xc_match(s str) i32 {
+    return string.equal(s, "hello")
+}
 str_trigger -> equal_xc_match{} -> equal_xc_match_out
-
 // equal(chan, const) — mismatch
-func equal_xc_mismatch(s str) i32 { return string.equal(s, "world") }
+func equal_xc_mismatch(s str) i32 {
+    return string.equal(s, "world")
+}
 str_trigger -> equal_xc_mismatch{} -> equal_xc_mismatch_out
-
 // equal(const, chan)
-func equal_cx(s str) i32 { return string.equal("hello", s) }
+func equal_cx(s str) i32 {
+    return string.equal("hello", s)
+}
 str_trigger -> equal_cx{} -> equal_cx_out
-
 // equal(chan, chan) — same
-func equal_xx_same(s str) i32 { return string.equal(s, s) }
+func equal_xx_same(s str) i32 {
+    return string.equal(s, s)
+}
 str_trigger -> equal_xx_same{} -> equal_xx_same_out
-
 // equal(chan, chan) — different
-func equal_xx_diff(s str) { equal_xx_diff_out = string.equal(s, str_second) }
+func equal_xx_diff(s str) {
+    equal_xx_diff_out = string.equal(s, str_second)
+}
 str_trigger -> equal_xx_diff{}
-
 // ──────────────────────────────── misc ───────────────────────────────
-
 // nested concat
 func concat_nested(s str) {
     concat_nested_out = string.len(string.concat(string.concat(s, "-"), str_second))
 }
 str_trigger -> concat_nested{}
-
 // multi-string addition
 func multi_add(s str) {
     multi_add_out = string.len(s + str_second + "_suffix" + str_third)

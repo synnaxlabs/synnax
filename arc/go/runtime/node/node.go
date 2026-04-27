@@ -34,9 +34,11 @@ type Node interface {
 	// one-shot state. Nodes with custom state should override and call the
 	// embedded Reset() first.
 	Reset()
-	// IsOutputTruthy checks if the output at the given param name is truthy.
-	// Used by the scheduler to evaluate one-shot edges - edges only fire
-	// when the source output is truthy (non-zero for numeric types).
-	// Nodes that embed *state.Node automatically inherit this implementation.
-	IsOutputTruthy(paramName string) bool
+	// IsOutputTruthy reports whether the output at the given 0-based
+	// ordinal is truthy. Used by the scheduler to evaluate one-shot edges
+	// and sequential-scope transitions — edges only fire when the source
+	// output is truthy (non-zero for numeric types). Nodes that embed
+	// *state.Node automatically inherit this implementation, which indexes
+	// into the output cache without any string lookup.
+	IsOutputTruthy(outputIdx int) bool
 }

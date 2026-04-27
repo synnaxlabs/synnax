@@ -209,27 +209,40 @@ func Analyze(
 		return ir.IR{}, aCtx.Diagnostics
 	}
 
-	// Step 6: Build Stratified Execution Plan
-	// Graph-based compilation doesn't support sequences, so pass nil
-	strata, err := stratifier.Stratify(aCtx, irNodes, g.Edges, nil, aCtx.Diagnostics)
-	if err != nil {
-		return ir.IR{}, aCtx.Diagnostics
-	}
-
-	// Step 7: Substitute TypeMap after unification
+	// Step 6: Substitute TypeMap after unification
 	for node, typ := range aCtx.TypeMap {
 		aCtx.TypeMap[node] = aCtx.Constraints.ApplySubstitutions(typ)
 	}
 
-	// Step 8: Return IR
-	return ir.IR{
+	// Step 7: Build the Layer-2 root scope. Graph-based compilation has no
+	// sequence constructs, so every node becomes a member of the root
+	// scope's catch-all phase; the stratifier rewrites the phase layout
+	// based on the edge set.
+	root := ir.Scope{
+		Mode:     ir.ScopeModeParallel,
+		Liveness: ir.LivenessAlways,
+	}
+	if len(irNodes) > 0 {
+		members := make(ir.Members, 0, len(irNodes))
+		for _, n := range irNodes {
+			members = append(members, ir.Member{NodeKey: new(n.Key)})
+		}
+		root.Strata = []ir.Members{members}
+	}
+	out := ir.IR{
 		Functions: g.Functions,
 		Edges:     g.Edges,
 		Nodes:     irNodes,
 		Symbols:   aCtx.Scope,
-		Strata:    strata,
+		Root:      root,
 		TypeMap:   aCtx.TypeMap,
-	}, aCtx.Diagnostics
+	}
+	if len(irNodes) > 0 {
+		if d := stratifier.Stratify(aCtx, &out, aCtx.Diagnostics); d != nil && !d.Ok() {
+			return ir.IR{}, d
+		}
+	}
+	return out, aCtx.Diagnostics
 }
 
 // bindParams adds function parameters to the symbol scope with the specified kind.

@@ -85,8 +85,7 @@ export const payloadZ = z.object({
   isIndex: z.boolean(),
   /**
    * index is the channel used to index this channel's values, associating
-   * each value with a timestamp. If zero, the channel's data will be
-   * indexed using its rate.
+   * each value with a timestamp.
    */
   index: keyZ,
   /** alias is an optional alternate name for the channel within a specific context. */

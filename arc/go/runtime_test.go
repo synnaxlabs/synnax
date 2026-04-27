@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -43,6 +42,7 @@ import (
 type runtimeHarness struct {
 	scheduler    *scheduler.Scheduler
 	channelState *channel.ProgramState
+	controlState *control.ProgramState
 	nodeState    *node.ProgramState
 	wasmRT       wazero.Runtime
 	closers      []func(context.Context) error
@@ -85,7 +85,6 @@ func newRuntimeHarness(
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
-		stage.NewModule(),
 		stable.NewModule(),
 		control.NewModule(controlState),
 		mathMod,
@@ -93,6 +92,7 @@ func newRuntimeHarness(
 
 	h := &runtimeHarness{
 		channelState: channelState,
+		controlState: controlState,
 		nodeState:    nodeState,
 		wasmRT:       wasmRT,
 	}
@@ -170,6 +170,13 @@ func (h *runtimeHarness) Output(nodeKey string, paramIdx int) telem.Series {
 
 func (h *runtimeHarness) OutputTime(nodeKey string, paramIdx int) telem.Series {
 	return *h.nodeState.Node(nodeKey).OutputTime(paramIdx)
+}
+
+// FlushAuthority drains and returns all authority changes buffered by
+// set_authority nodes this cycle. Tests assert on the returned slice to
+// verify authority semantics that aren't observable via channel writes.
+func (h *runtimeHarness) FlushAuthority() []control.AuthorityChange {
+	return h.controlState.Flush()
 }
 
 type channelDef struct {

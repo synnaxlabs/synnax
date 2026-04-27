@@ -103,7 +103,7 @@ func (s *setStatus) Init(node.Context) {}
 
 func (s *setStatus) Reset() {}
 
-func (s *setStatus) IsOutputTruthy(output string) bool {
+func (s *setStatus) IsOutputTruthy(int) bool {
 	return false
 }
 

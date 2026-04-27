@@ -28,7 +28,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stage"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -161,7 +160,6 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
-		stage.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlcontrol.NewModule(drt.state.control),

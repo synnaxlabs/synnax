@@ -37,13 +37,13 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 SHORT_CIRCUIT_SOURCE = """
-func count{c_chan chan u8}() {
+func count{c_chan chan u8} () {
     n u8 $= 0
     n = n + 1
     c_chan = n
 }
 
-func noop{}(input u8) u8 {
+func noop{} (input u8) u8 {
     return input
 }
 
@@ -51,26 +51,26 @@ ss_start_cmd => main
 
 sequence main {
     stage on {
-        "on" -> ss_stage_str,
-        count{c_chan = ss_count_on},
-        0 -> ss_sim_stage,
-        1 -> ss_heater_cmd,
+        "on" -> ss_stage_str
+        count{c_chan=ss_count_on}
+        0 -> ss_sim_stage
+        1 -> ss_heater_cmd
         // Priority is declaration order, not statement size.
-        interval{1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off,
-        interval{1s} -> ss_temp_b > 300 => pause,
+        interval{1s} -> (ss_temp_a > 290 and ss_temp_b > 290) -> noop{} -> noop{} -> noop{} => off
+        interval{1s} -> ss_temp_b > 300 => pause
     }
     stage pause {
-        "pause" -> ss_stage_str,
-        count{c_chan = ss_count_pause},
-        2 -> ss_sim_stage,
-        0 -> ss_heater_cmd,
-        wait{1s} => on,
+        "pause" -> ss_stage_str
+        count{c_chan=ss_count_pause}
+        2 -> ss_sim_stage
+        0 -> ss_heater_cmd
+        wait{1s} => on
     }
     stage off {
-        "off" -> ss_stage_str,
-        3 -> ss_sim_stage,
-        0 -> ss_heater_cmd,
-        ss_start_cmd => on,
+        "off" -> ss_stage_str
+        3 -> ss_sim_stage
+        0 -> ss_heater_cmd
+        ss_start_cmd => on
     }
 }
 """

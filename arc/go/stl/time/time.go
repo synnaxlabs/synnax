@@ -73,6 +73,9 @@ var baseSymbolResolver = symbol.MapResolver{
 type Module struct {
 	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
 	BaseInterval telem.TimeSpan
+	// clock provides monotonically increasing timestamps, avoiding
+	// duplicate values on platforms with coarse clock resolution.
+	clock telem.MonoClock
 }
 
 func NewModule(
@@ -82,15 +85,16 @@ func NewModule(
 	if rat == nil {
 		return &Module{BaseInterval: unsetBaseInterval}, nil
 	}
+	mod := &Module{BaseInterval: unsetBaseInterval}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, offset uint64) uint64 {
-			return uint64(telem.Now()) + offset
+			return uint64(mod.clock.Now()) + offset
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return &Module{BaseInterval: unsetBaseInterval}, nil
+	return mod, nil
 }
 
 var SymbolResolver = symbol.CompoundResolver{
@@ -212,7 +216,7 @@ func (i *Interval) Next(ctx node.Context) {
 	i.lastFired = ctx.Elapsed
 	ctx.MarkSelfChanged()
 	ctx.SetDeadline(i.lastFired + i.period)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 	output := i.Output(0)
 	outputTime := i.OutputTime(0)
 	output.Resize(1)
@@ -260,7 +264,7 @@ func (w *Wait) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[uint8](*output, 0, uint8(1))
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (w *Wait) Reset() {
@@ -285,7 +289,7 @@ func (n *Now) Next(ctx node.Context) {
 	outputTime.Resize(1)
 	telem.SetValueAt[telem.TimeStamp](*output, 0, ts)
 	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, ts)
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func (n *Now) Reset() { n.State.Reset() }

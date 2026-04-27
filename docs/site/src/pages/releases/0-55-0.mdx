@@ -1,0 +1,284 @@
+---
+title: "Version 0.55 Release Notes"
+---
+
+import { Fragment } from "react";
+import { Image } from "@/components/media/Media";
+import Release from "@/components/releases/Release.astro";
+import { Divider } from "@synnaxlabs/pluto";
+import { mdxOverrides } from "@/components/mdxOverrides";
+import { Client } from "@/components/client";
+import Diagram from "@/components/diagram/Diagram.astro";
+import ArcSequence from "@/components/releases/ArcSequence.astro";
+
+export const components = mdxOverrides;
+
+<Release
+    version="0.55.0"
+    date="Apr 18, 2026"
+    title="Flexible Arc Sequences and Persisted Variable-Length Channels"
+>
+
+<ArcSequence />
+
+Synnax v0.55 ships a redesigned sequence and stage model for Arc, support for persisting
+string, JSON, and binary data channels to disk, for loop support in the Arc language,
+clock skew detection in the Python and TypeScript clients, multi-channel support in the
+Log visualization, and a collection of smaller improvements across the Console and
+drivers.
+
+<Divider.Divider x />
+
+### Flexible Arc Sequences and Stages
+
+Arc's sequencing model has been redesigned around two clearly distinct constructs. A
+**sequence** runs its items in order, with each item completing before the next begins.
+A **stage** is one kind of item, and it runs all of its flow statements concurrently
+until a transition fires and control moves on. Items inside a sequence can be writes
+(`expr -> channel`), `wait{...}` calls, bare condition gates, stages, or nested
+sequences. See the
+[sequences and stages concepts guide](/reference/control/arc/concepts/sequences-and-stages)
+for the full model.
+
+This separation makes common control patterns easier to express. Pressurize, hold, and
+vent routines that previously required manual state tracking can now be written as a
+straight list of phases:
+
+```arc
+sequence main {
+    stage pressurize {
+        1 -> press_vlv_cmd
+        tank_pressure > 700 => abort    // safety
+        tank_pressure > 500 => next     // target reached
+    }
+    0 -> press_vlv_cmd
+    wait{10s}
+    stage vent {
+        1 -> vent_vlv_cmd
+        tank_pressure < 50 => next
+    }
+    0 -> vent_vlv_cmd
+}
+
+sequence abort {
+    stage safed {
+        0 -> press_vlv_cmd
+        1 -> vent_vlv_cmd
+    }
+}
+
+start_btn => main
+```
+
+The `=>` operator is now the single transition operator. It fires while its source
+expression is truthy, and its target may be `next` (advance to the next item in the
+enclosing sequence), a stage name (jump within the current sequence), or a sequence name
+(jump to another sequence or activate it from an entry point). Line order determines
+priority when multiple transitions become truthy in the same cycle, so safety edges go
+first and success edges go last.
+
+Anonymous top-level sequences start automatically when the program loads. Named
+sequences wait for an entry point like `start_btn => main`. Stages are stateless between
+entries, so stateful variables, timers, and inline sub-sequences all reset when a stage
+is re-activated.
+
+Commas are now optional between items in stage and sequence bodies. Newlines are
+sufficient separators, which removes a common source of parse errors when editing
+multi-line programs.
+
+<Divider.Divider x />
+
+### Other Arc Language Improvements
+
+Arc now supports [`for` loops](/reference/control/arc/reference/loops) inside function
+bodies, with range, series, and conditional forms:
+
+```arc
+for x := data {
+    sum = sum + x
+}
+
+for i, x := data {
+    if x > peak {
+        peak = x
+        peak_idx = i
+    }
+}
+
+for i := range(5) {}        // 0..4
+for i := range(5, 10) {}    // 5..9
+for i := range(0, 10, 2) {} // 0, 2, 4, 6, 8
+
+for n > 0 {
+    sum = sum + n
+    n = n - 1
+}
+
+for {
+    if val >= threshold {
+        break
+    }
+    val = val * 2
+}
+```
+
+The Arc formatter now collapses short anonymous config blocks onto a single line so
+routine node calls like `wait{duration=2ms}` or `filter{threshold=10}` stay readable.
+
+<Divider.Divider x />
+
+### Persisted Variable-Length Channels
+
+Channels with the `string`, `json`, and `bytes` data types can now be created as indexed
+data channels that persist to disk. Before v0.55, these data types were only available
+as virtual channels, which meant that samples were discarded when the server restarted.
+Event logs, JSON annotations, configuration snapshots, and arbitrary binary payloads can
+now be stored alongside fixed-width telemetry and retrieved by time range.
+
+Variable-length channels behave identically to fixed-width data channels. They require
+an index, accept writes through the standard writer API, and can be read back over any
+time range.
+
+<Client.Tabs client:load exclude={["cpp", "console"]}>
+
+  <Fragment slot="python">
+
+```python
+import synnax as sy
+
+client = sy.Synnax()
+
+idx = client.channels.create(
+    name="event_time",
+    is_index=True,
+    data_type=sy.DataType.TIMESTAMP,
+)
+log = client.channels.create(
+    name="event_log",
+    index=idx.key,
+    data_type=sy.DataType.STRING,
+)
+
+with client.open_writer(
+    start=1 * sy.TimeSpan.SECOND,
+    channels=[idx.key, log.key],
+) as w:
+    w.write({
+        idx.key: [1 * sy.TimeSpan.SECOND, 2 * sy.TimeSpan.SECOND],
+        log.key: ["startup complete", "tank pressurized"],
+    })
+    w.commit()
+
+for sample in client.read(sy.TimeRange.MAX, log.key):
+    print(sample)
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const index = await client.channels.create({
+  name: "event_time",
+  isIndex: true,
+  dataType: DataType.TIMESTAMP,
+});
+const log = await client.channels.create({
+  name: "event_log",
+  index: index.key,
+  dataType: DataType.STRING,
+});
+
+const writer = await client.openWriter({
+  start: TimeStamp.seconds(1),
+  channels: [index, log],
+});
+await writer.write({
+  [index.key]: secondsLinspace(1, 3),
+  [log.key]: new Series({
+    data: ["startup complete", "tank pressurized", "valve opened"],
+    dataType: DataType.STRING,
+  }),
+});
+await writer.commit();
+await writer.close();
+
+const frame = await log.read(TimeRange.MAX);
+console.log(frame.toStrings());
+```
+
+  </Fragment>
+
+</Client.Tabs>
+
+Fixed-width and variable-length channels can share the same writer and the same index,
+so a single call can commit timestamps, numeric samples, and string or JSON annotations
+together. JSON channels accept and return native objects on both the Python and
+TypeScript clients.
+
+As part of this work, the variable-length wire format now uses explicit length prefixes
+instead of newline delimiters. Strings and JSON values containing embedded newlines now
+round-trip through writes and reads correctly.
+
+<Divider.Divider x />
+
+### Multi-Channel Log Visualization
+
+The Console's Log visualization can now stream from multiple channels in the same view.
+Each channel is selectable from the toolbar, and a new Properties panel controls
+per-view configuration. Existing single-channel logs are migrated automatically.
+
+<Divider.Divider x />
+
+### Clock Skew Detection
+
+The Python, TypeScript, and C++ clients now measure the time offset between the client
+machine and the Synnax cluster during the connection check, and surface it alongside the
+rest of the connection diagnostics. This makes it easier to diagnose timestamp drift in
+deployments where machines are not synchronized with the same time source.
+
+<Divider.Divider x />
+
+### Schematic Control Chip
+
+The control chip on schematic elements now changes shape to signal state. It stays a
+circle when the element is uncontrolled, when the current user holds control, or when
+control authority is absolute. It becomes a square when another operator currently holds
+control or when the authority state is unexpected. The shape difference makes it
+immediately obvious when someone else is driving.
+
+<Divider.Divider x />
+
+### Minor Improvements and Bug Fixes
+
+#### Console
+
+- The Log page supports selecting and streaming multiple channels in a single view.
+- Schematic control chips render as squares when another operator holds control, making
+  contested authority visually distinct at a glance.
+
+#### Client
+
+- The Python and TypeScript clients now report the measured clock skew between the local
+  machine and the Synnax cluster during connection checks.
+- Docstrings and reference documentation for `read_latest()` now correctly describe the
+  return type and the behavior when fewer than `n` samples are available.
+
+#### Driver
+
+- EtherCAT PDO discovery, cycle-overrun, SDO-read, and virtual-interface-skip log
+  messages have been moved to more appropriate verbosity levels, significantly reducing
+  noise in standard driver logs during EtherCAT scans and steady-state operation.
+
+#### Core
+
+- Equal-length binary operations on series (arithmetic and comparison) now take a faster
+  branchless path, reducing CPU usage for calculated channels and client-side series
+  math.
+
+#### Docs Site
+
+- The sidebar now preserves its scroll position across page navigations, so clicking a
+  link no longer resets the navigation tree to the top.
+
+</Release>

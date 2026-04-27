@@ -46,7 +46,7 @@ func sum_step(n i64) i64 {
     return sum
 }
 
-func accumulate_until{limit i32}(n i32) i32 {
+func accumulate_until{limit i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         sum = sum + i
@@ -57,7 +57,7 @@ func accumulate_until{limit i32}(n i32) i32 {
     return sum
 }
 
-func sum_excluding{skip i32}(n i32) i32 {
+func sum_excluding{skip i32} (n i32) i32 {
     sum i32 := 0
     for i := range(1, n + 1) {
         if i == skip {
@@ -76,7 +76,7 @@ func countdown(n i64) i64 {
     return sum
 }
 
-func drain_until{limit i32}(start i32) i32 {
+func drain_until{limit i32} (start i32) i32 {
     sum i32 := 0
     for i := range(start, 0, -1) {
         sum = sum + i
@@ -154,7 +154,7 @@ func empty_range(n i32) i32 {
     for i := range(i32(10), i32(5)) {
         sum = sum + 1
     }
-    for i := range(i32(0), i32(10), i32(-1)) {
+    for i := range(i32(0), i32(10), i32( -1)) {
         sum = sum + 1
     }
     return sum

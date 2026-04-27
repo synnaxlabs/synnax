@@ -328,7 +328,7 @@ func (r *avgNode) Next(ctx node.Context) {
 	r.Output(0).TimeRange = timeRange
 	r.OutputTime(0).Alignment = alignment
 	r.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 var (
@@ -428,7 +428,7 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 func createArithmeticSymbol(name string) symbol.Symbol {
@@ -578,7 +578,7 @@ func (n *arithmeticBinary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = timeRange
 	n.OutputTime(0).Alignment = alignment
 	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type arithmeticUnary struct {
@@ -599,7 +599,7 @@ func (n *arithmeticUnary) Next(ctx node.Context) {
 	n.Output(0).TimeRange = input.TimeRange
 	n.OutputTime(0).Alignment = input.Alignment
 	n.OutputTime(0).TimeRange = input.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 type i32Powable interface {

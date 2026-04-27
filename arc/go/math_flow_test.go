@@ -90,6 +90,72 @@ var _ = Describe("Math Flow Chains", func() {
 			Expect(result.Len()).To(Equal(int64(1)))
 			Expect(telem.UnmarshalSeries[float64](result)[0]).To(BeNumerically("~", 20.0, 0.01))
 		})
+
+		It("avg{count=N} resets the window when sampleCount reaches N", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor":  {types.F64(), 100},
+				"avg_out": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `sensor -> avg{count=3} -> avg_out`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			readAvg := func() float64 {
+				out, _ := h.Flush()
+				series := out.Get(200).Series
+				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+			}
+
+			step := func(v float64) float64 {
+				h.Ingest(100, telem.NewSeriesV(v))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+				return readAvg()
+			}
+
+			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001), "first sample; window has 1 sample")
+			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001), "second sample; avg(10, 20)")
+			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001), "third sample; avg(10, 20, 30); sampleCount is now 3")
+			Expect(step(1000.0)).To(BeNumerically("~", 1000.0, 0.001),
+				"fourth sample should trigger reset (sampleCount>=3) and average only [1000]; "+
+					"a broken reset would give (10+20+30+1000)/4 = 265")
+		})
+
+		It("avg{} with no window config accumulates indefinitely", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor":  {types.F64(), 100},
+				"avg_out": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			readAvg := func() float64 {
+				out, _ := h.Flush()
+				series := out.Get(200).Series
+				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+			}
+
+			step := func(v float64) float64 {
+				h.Ingest(100, telem.NewSeriesV(v))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+				return readAvg()
+			}
+
+			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001))
+			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001))
+			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001))
+			Expect(step(1000.0)).To(BeNumerically("~", 265.0, 0.001),
+				"no config → no reset → running avg over all four samples = 265; "+
+					"a reset here would give 1000 (only the fresh sample)")
+		})
 	})
 
 	Describe("min", func() {

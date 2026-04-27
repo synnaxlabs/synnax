@@ -59,7 +59,9 @@ type openOptions struct {
 type OpenOption func(*openOptions)
 
 // DisableObservation disables the observer pattern, preventing change notifications.
-// This improves performance when observation is not needed.
+// This improves performance when observation is not needed. When observation is
+// disabled, OnChange is a safe no-op: registered handlers are never invoked and the
+// returned Disconnect is a no-op as well.
 func DisableObservation() OpenOption {
 	return func(o *openOptions) { o.enableObserver = false }
 }
@@ -75,6 +77,18 @@ func Wrap(base *pebble.DB, opts ...OpenOption) kv.DB {
 		wrapped.Observer = observe.New[kv.TxReader]()
 	}
 	return wrapped
+}
+
+// OnChange implements kv.Observable. When observation has been disabled via
+// DisableObservation, OnChange is a no-op: the supplied handler is never invoked,
+// and the returned Disconnect is itself a no-op.
+func (d db) OnChange(
+	handler func(context.Context, kv.TxReader),
+) observe.Disconnect {
+	if d.Observer == nil {
+		return func() {}
+	}
+	return d.Observer.OnChange(handler)
 }
 
 type logger struct{ alamos.Instrumentation }

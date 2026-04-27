@@ -106,7 +106,6 @@ for i := range(5, 10) {
 for i := range(0, 10, 2) {
     // ...
 }
-
 // Counting down: i takes values 5, 3, 1, -1, -3
 for i := range(5, -5, -2) {
     // ...
@@ -120,9 +119,9 @@ A negative step counts downward. The loop stops before reaching `end`.
 If the range is empty, the loop body never executes:
 
 ```arc
-for i := range(0) { }         // no iterations
-for i := range(10, 5) { }     // no iterations (start > end, step is positive)
-for i := range(0, 10, -1) { } // no iterations (start < end, step is negative)
+for i := range(0) {} // no iterations
+for i := range(10, 5) {} // no iterations (start > end, step is positive)
+for i := range(0, 10, -1) {} // no iterations (start < end, step is negative)
 ```
 
 <Note.Note variant="info">
@@ -189,7 +188,7 @@ func sum_until_negative() i32 {
         }
         sum = sum + x
     }
-    return sum  // 16 (5 + 3 + 8, stops before -1)
+    return sum // 16 (5 + 3 + 8, stops before -1)
 }
 ```
 
@@ -207,7 +206,7 @@ func sum_positive() i32 {
         }
         sum = sum + x
     }
-    return sum  // 23 (5 + 8 + 10, skips negatives)
+    return sum // 23 (5 + 8 + 10, skips negatives)
 }
 ```
 
@@ -221,13 +220,13 @@ func count_valid_pairs() i64 {
     for i := range(3) {
         for j := range(10) {
             if j >= 2 {
-                break       // exits inner loop only
+                break // exits inner loop only
             }
             count = count + 1
         }
         // outer loop continues normally
     }
-    return count            // 6 (3 outer * 2 inner)
+    return count // 6 (3 outer * 2 inner)
 }
 ```
 
@@ -239,7 +238,7 @@ Loop variables (`i`, `x`, etc.) are scoped to the loop body and cannot be reassi
 
 ```arc
 for i := range(5) {
-    i = 10     // Error: cannot assign to loop variable 'i'
+    i = 10 // Error: cannot assign to loop variable 'i'
 }
 ```
 

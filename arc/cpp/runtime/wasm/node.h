@@ -34,6 +34,7 @@ class Node : public node::Node {
     std::shared_ptr<stl::str::State> str_state;
     bool initialized = false;
     bool is_entry_node = false;
+    x::telem::MonoClock clock;
 
 public:
     Node(
@@ -125,7 +126,7 @@ public:
             if (!this->ir.inputs.empty() && longest_input_time)
                 ts = longest_input_time->at<x::telem::TimeStamp>(i);
             else
-                ts = x::telem::TimeStamp::now();
+                ts = this->clock.now();
 
             for (size_t j = 0; j < results.size(); j++) {
                 auto [value, changed] = results[j];
@@ -140,7 +141,7 @@ public:
             const auto off = this->offsets[j];
             this->state.output(j)->resize(off);
             this->state.output_time(j)->resize(off);
-            if (off > 0) ctx.mark_changed(this->ir.outputs[j].name);
+            if (off > 0) ctx.mark_changed(j);
         }
 
         return x::errors::NIL;
@@ -148,8 +149,8 @@ public:
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param_name) const override {
-        return state.is_output_truthy(param_name);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
     }
 };
 }

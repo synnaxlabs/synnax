@@ -27,11 +27,10 @@ runtime::node::Context make_context(
         .elapsed = elapsed,
         .tolerance = tolerance,
         .reason = reason,
-        .mark_changed = [](const std::string &) {},
+        .mark_changed = [](size_t) {},
         .mark_self_changed = [] {},
         .set_deadline = [](x::telem::TimeSpan) {},
         .report_error = [](const x::errors::Error &) {},
-        .activate_stage = [] {},
     };
 }
 
@@ -275,17 +274,13 @@ TEST(IntervalTest, CallsMarkChangedOnFire) {
     const auto cfg = ASSERT_NIL_P(IntervalConfig::create(setup.ir.nodes[0].config));
     Interval node(cfg, setup.make_node());
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx = make_context(x::telem::SECOND);
-    ctx.mark_changed = [&](const std::string &param) {
-        changed_called = true;
-        changed_param = param;
-    };
+    ctx.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     ASSERT_NIL(node.next(ctx));
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that Interval does not call mark_changed when not firing.
@@ -299,7 +294,7 @@ TEST(IntervalTest, DoesNotCallMarkChangedWhenNotFiring) {
 
     int call_count = 0;
     auto ctx2 = make_context(x::telem::SECOND + x::telem::MILLISECOND * 100);
-    ctx2.mark_changed = [&](const std::string &) { call_count++; };
+    ctx2.mark_changed = [&](size_t) { call_count++; };
     node.next(ctx2);
 
     EXPECT_EQ(call_count, 0);
@@ -314,7 +309,7 @@ TEST(IntervalTest, IsOutputTruthyDelegatesToState) {
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Interval is_output_truthy returns false before firing.
@@ -323,7 +318,7 @@ TEST(IntervalTest, IsOutputTruthyFalseBeforeFiring) {
     const auto cfg = ASSERT_NIL_P(IntervalConfig::create(setup.ir.nodes[0].config));
     Interval node(cfg, setup.make_node());
 
-    EXPECT_FALSE(node.is_output_truthy("output"));
+    EXPECT_FALSE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Interval is_output_truthy returns false for unknown param.
@@ -335,7 +330,7 @@ TEST(IntervalTest, IsOutputTruthyFalseForUnknownParam) {
     auto ctx = make_context(x::telem::SECOND);
     node.next(ctx);
 
-    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+    EXPECT_FALSE(node.is_output_truthy(7));
 }
 
 /// @brief Test that Interval reset allows it to fire immediately again.
@@ -372,13 +367,10 @@ TEST(IntervalTest, OnlyFiresOnTimerTick) {
     runtime::node::Context ctx;
     ctx.elapsed = x::telem::SECOND;
     ctx.tolerance = x::telem::TimeSpan(0);
-    ctx.mark_changed = [&changed_called](const std::string &) {
-        changed_called = true;
-    };
+    ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
-    ctx.activate_stage = []() {};
 
     ctx.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
@@ -491,13 +483,10 @@ TEST(WaitTest, OnlyFiresOnTimerTick) {
     runtime::node::Context ctx;
     ctx.elapsed = x::telem::TimeSpan(0);
     ctx.tolerance = x::telem::TimeSpan(0);
-    ctx.mark_changed = [&changed_called](const std::string &) {
-        changed_called = true;
-    };
+    ctx.mark_changed = [&changed_called](size_t) { changed_called = true; };
     ctx.mark_self_changed = [] {};
     ctx.set_deadline = [](x::telem::TimeSpan) {};
     ctx.report_error = [](const x::errors::Error &) {};
-    ctx.activate_stage = []() {};
 
     ctx.reason = runtime::node::RunReason::TimerTick;
     ASSERT_NIL(node.next(ctx));
@@ -609,7 +598,7 @@ TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
     // Tick at t=0: starts timer, should call mark_self_changed
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ctx1.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx1.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx1));
     EXPECT_EQ(self_changed_calls, 1);
     EXPECT_FALSE(changed_called);
@@ -618,7 +607,7 @@ TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
     self_changed_calls = 0;
     auto ctx2 = make_context(x::telem::MILLISECOND * 500);
     ctx2.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx2.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(self_changed_calls, 1);
     EXPECT_FALSE(changed_called);
@@ -627,7 +616,7 @@ TEST(WaitTest, CallsMarkSelfChangedWhenActiveButNotFired) {
     self_changed_calls = 0;
     auto ctx3 = make_context(x::telem::SECOND);
     ctx3.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx3.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(self_changed_calls, 0);
     EXPECT_TRUE(changed_called);
@@ -646,7 +635,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     // Tick at t=0: starts timer
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     ctx1.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx1.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx1.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx1));
     EXPECT_EQ(self_changed_calls, 1);
     EXPECT_FALSE(changed_called);
@@ -659,7 +648,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
         runtime::node::RunReason::ChannelInput
     );
     ctx2.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx2.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx2.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx2));
     EXPECT_EQ(self_changed_calls, 1);
     EXPECT_FALSE(changed_called);
@@ -668,7 +657,7 @@ TEST(WaitTest, CallsMarkSelfChangedOnChannelInputToSurvive) {
     self_changed_calls = 0;
     auto ctx3 = make_context(x::telem::SECOND);
     ctx3.mark_self_changed = [&]() { self_changed_calls++; };
-    ctx3.mark_changed = [&](const std::string &) { changed_called = true; };
+    ctx3.mark_changed = [&](size_t) { changed_called = true; };
     ASSERT_NIL(node.next(ctx3));
     EXPECT_EQ(self_changed_calls, 0);
     EXPECT_TRUE(changed_called);
@@ -701,17 +690,13 @@ TEST(WaitTest, CallsMarkChangedOnFire) {
     auto ctx1 = make_context(x::telem::TimeSpan(0));
     node.next(ctx1);
 
-    bool changed_called = false;
-    std::string changed_param;
+    std::vector<size_t> marked;
     auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &param) {
-        changed_called = true;
-        changed_param = param;
-    };
+    ctx2.mark_changed = [&](size_t i) { marked.push_back(i); };
 
     node.next(ctx2);
-    EXPECT_TRUE(changed_called);
-    EXPECT_EQ(changed_param, "output");
+    ASSERT_EQ(marked.size(), 1);
+    EXPECT_EQ(marked[0], 0);
 }
 
 /// @brief Test that Wait does not call mark_changed when not firing.
@@ -722,7 +707,7 @@ TEST(WaitTest, DoesNotCallMarkChangedWhenNotFiring) {
 
     int call_count = 0;
     auto ctx = make_context(x::telem::MILLISECOND * 100);
-    ctx.mark_changed = [&](const std::string &) { call_count++; };
+    ctx.mark_changed = [&](size_t) { call_count++; };
     node.next(ctx);
 
     EXPECT_EQ(call_count, 0);
@@ -740,7 +725,7 @@ TEST(WaitTest, IsOutputTruthyDelegatesToState) {
     auto ctx2 = make_context(x::telem::SECOND);
     node.next(ctx2);
 
-    EXPECT_TRUE(node.is_output_truthy("output"));
+    EXPECT_TRUE(node.is_output_truthy(0));
 }
 
 /// @brief Test that Wait reset restarts timing from zero.

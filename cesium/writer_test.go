@@ -34,21 +34,19 @@ import (
 )
 
 var _ = Describe("Writer Behavior", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db      *cesium.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *cesium.DB
+				fs fs.FS
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {
@@ -275,6 +273,151 @@ var _ = Describe("Writer Behavior", func() {
 						Expect(end).To(Equal(10 * telem.SecondTS))
 
 						Expect(w.Close()).To(Succeed())
+					})
+				})
+
+				Context("Variable Channels", func() {
+					Specify("Exclusively variable", func(ctx SpecContext) {
+						var (
+							idx     = GenerateChannelKey()
+							strChan = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "var-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: strChan, Name: "var-str", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 10*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, strChan},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(10, 11, 12),
+								telem.NewSeriesV("hello", "world", "foo"),
+							},
+						))).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (10 * telem.SecondTS).Range(13*telem.SecondTS), strChan))
+						Expect(telem.UnmarshalSeries[string](f.Get(strChan).Series[0])).To(Equal([]string{"hello", "world", "foo"}))
+					})
+					Specify("Mixed fixed and variable sharing an index", func(ctx SpecContext) {
+						var (
+							idx      = GenerateChannelKey()
+							fixed    = GenerateChannelKey()
+							variable = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "mixed-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: fixed, Name: "mixed-fixed", Index: idx, DataType: telem.Float64T},
+							cesium.Channel{Key: variable, Name: "mixed-var", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 20*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, fixed, variable},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(20, 21, 22, 23),
+								telem.NewSeriesV[float64](1.1, 2.2, 3.3, 4.4),
+								telem.NewSeriesV("a", "b", "c", "d"),
+							},
+						))).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (20 * telem.SecondTS).Range(24*telem.SecondTS), fixed, variable))
+						Expect(telem.UnmarshalSeries[float64](f.Get(fixed).Series[0])).To(Equal([]float64{1.1, 2.2, 3.3, 4.4}))
+						Expect(telem.UnmarshalSeries[string](f.Get(variable).Series[0])).To(Equal([]string{"a", "b", "c", "d"}))
+					})
+					Specify("Multiple variable channels sharing an index", func(ctx SpecContext) {
+						var (
+							idx    = GenerateChannelKey()
+							strCh  = GenerateChannelKey()
+							jsonCh = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "multi-var-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: strCh, Name: "multi-str", Index: idx, DataType: telem.StringT},
+							cesium.Channel{Key: jsonCh, Name: "multi-json", Index: idx, DataType: telem.JSONT},
+						)).To(Succeed())
+						jsonSeries := MustSucceed(telem.NewJSONSeriesV(
+							map[string]any{"id": float64(1)},
+							map[string]any{"id": float64(2)},
+						))
+						Expect(db.Write(ctx, 30*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, strCh, jsonCh},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(30, 31),
+								telem.NewSeriesV("alpha", "beta"),
+								jsonSeries,
+							},
+						))).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (30 * telem.SecondTS).Range(32*telem.SecondTS), strCh, jsonCh))
+						Expect(telem.UnmarshalSeries[string](f.Get(strCh).Series[0])).To(Equal([]string{"alpha", "beta"}))
+						Expect(f.Get(jsonCh).Series[0].Len()).To(Equal(int64(2)))
+					})
+					Specify("Strings with embedded newlines", func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "nl-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "nl-str", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 40*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(40, 41),
+								telem.NewSeriesV("line1\nline2\nline3", "no newline"),
+							},
+						))).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (40 * telem.SecondTS).Range(42*telem.SecondTS), data))
+						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal(
+							[]string{"line1\nline2\nline3", "no newline"},
+						))
+					})
+					Specify("Persistence across close and reopen", func(ctx SpecContext) {
+						subFS := MustSucceed(fs.Sub("var-persist"))
+						subDB := openDBOnFS(ctx, subFS)
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(subDB.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "persist-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "persist-str", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(subDB.Write(ctx, 50*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx, data},
+							[]telem.Series{
+								telem.NewSeriesSecondsTSV(50, 51, 52),
+								telem.NewSeriesV("p1", "p2", "p3"),
+							},
+						))).To(Succeed())
+						Expect(subDB.Close()).To(Succeed())
+
+						subDB = openDBOnFS(ctx, subFS)
+						f := MustSucceed(subDB.Read(ctx, (50 * telem.SecondTS).Range(53*telem.SecondTS), data))
+						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal([]string{"p1", "p2", "p3"}))
+						Expect(subDB.Close()).To(Succeed())
+					})
+					Specify("Commit without index in writer frame", func(ctx SpecContext) {
+						var (
+							idx  = GenerateChannelKey()
+							data = GenerateChannelKey()
+						)
+						Expect(db.CreateChannel(ctx,
+							cesium.Channel{Key: idx, Name: "no-idx-idx", IsIndex: true, DataType: telem.TimeStampT},
+							cesium.Channel{Key: data, Name: "no-idx-var", Index: idx, DataType: telem.StringT},
+						)).To(Succeed())
+						Expect(db.Write(ctx, 60*telem.SecondTS, telem.MultiFrame(
+							[]cesium.ChannelKey{idx},
+							[]telem.Series{telem.NewSeriesSecondsTSV(60, 61, 62, 63)},
+						))).To(Succeed())
+						w := MustSucceed(db.OpenWriter(ctx, cesium.WriterConfig{
+							Channels: []cesium.ChannelKey{data},
+							Start:    60 * telem.SecondTS,
+						}))
+						MustSucceed(w.Write(telem.MultiFrame(
+							[]cesium.ChannelKey{data},
+							[]telem.Series{telem.NewSeriesV("x", "y")},
+						)))
+						end := MustSucceed(w.Commit())
+						Expect(end).To(Equal(61*telem.SecondTS + 1))
+						Expect(w.Close()).To(Succeed())
+						f := MustSucceed(db.Read(ctx, (60 * telem.SecondTS).Range(62*telem.SecondTS), data))
+						Expect(telem.UnmarshalSeries[string](f.Get(data).Series[0])).To(Equal([]string{"x", "y"}))
 					})
 				})
 
@@ -1139,7 +1282,7 @@ var _ = Describe("Writer Behavior", func() {
 						authorized = MustSucceed(w1.Write(telem.MultiFrame(
 							[]cesium.ChannelKey{key2},
 							[]telem.Series{
-								{DataType: telem.StringT, Data: []byte("hehe")},
+								telem.NewSeriesV("hehe"),
 							},
 						)))
 						Expect(authorized).To(BeFalse())

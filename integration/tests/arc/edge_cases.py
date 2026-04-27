@@ -27,7 +27,6 @@ func test_same_channel_write() {
     set_to_one()
     set_to_two()
 }
-
 // Edge case 2: Diamond dependency (value through two paths).
 func diamond_leaf() {
     edge_diamond = 42.0
@@ -42,7 +41,6 @@ func test_diamond() {
     diamond_left()
     diamond_right()
 }
-
 // Edge case 3: Multiple callees write different channels.
 func write_a() {
     edge_multi_a = 10.0
@@ -54,7 +52,6 @@ func test_multi_callee() {
     write_a()
     write_b()
 }
-
 // Edge case 4: Multi-level chain (top -> mid -> leaf writes).
 func chain_leaf() {
     edge_chain = 99.0
@@ -65,7 +62,6 @@ func chain_mid() {
 func test_chain() {
     chain_mid()
 }
-
 // Edge case 5: Forward reference (caller declared before callee).
 func test_fwd_ref() {
     fwd_callee()
@@ -73,7 +69,6 @@ func test_fwd_ref() {
 func fwd_callee() {
     edge_fwd = 55.0
 }
-
 // Edge case 6: Basic write through chan input param.
 func chan_write(ch chan f32) {
     ch = 77.0
@@ -81,7 +76,6 @@ func chan_write(ch chan f32) {
 func test_chan_param_write() {
     chan_write(edge_chan_basic)
 }
-
 // Edge case 7: Multi-level chain through chan params.
 func chan_chain_leaf(ch chan f32) {
     ch = 88.0
@@ -92,7 +86,6 @@ func chan_chain_mid(ch chan f32) {
 func test_chan_chain() {
     chan_chain_mid(edge_chan_chain)
 }
-
 // Edge case 8: Same function called with different chan args.
 func chan_set(ch chan f32) {
     ch = 33.0
@@ -101,7 +94,6 @@ func test_chan_diff_args() {
     chan_set(edge_chan_arg_a)
     chan_set(edge_chan_arg_b)
 }
-
 // Edge case 9: Multiple chan params written in one function.
 func chan_multi_write(a chan f32, b chan f32) {
     a = 11.0
@@ -110,7 +102,6 @@ func chan_multi_write(a chan f32, b chan f32) {
 func test_chan_multi_param() {
     chan_multi_write(edge_chan_mp_a, edge_chan_mp_b)
 }
-
 // Edge case 10: Forward reference with chan param.
 func test_chan_fwd_ref() {
     chan_fwd_callee(edge_chan_fwd)
@@ -146,13 +137,13 @@ sequence main {
             name = "Press Monitor",
             variant = "warning",
             message = "Pressure high"
-        },
+        }
         edge_monitor_input < 30 => set_status{
             status_key = "press_monitor_status",
             name = "Press Monitor",
             variant = "success",
             message = "Pressure nominal"
-        },
+        }
     }
 }
 """
@@ -181,7 +172,9 @@ func ping() {
         pong()
     }
 }
-func pong() { ping() }
+func pong() {
+    ping()
+}
 interval{100ms} -> ping{}
 """
 

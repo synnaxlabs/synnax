@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/rack"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
+	taskv0 "github.com/synnaxlabs/synnax/pkg/service/task/migrations/v0"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -493,11 +494,11 @@ var _ = Describe("Task", Ordered, func() {
 			testRack := &rack.Rack{Name: "Migration Test Rack"}
 			Expect(rackSvc.NewWriter(nil).Create(ctx, testRack)).To(Succeed())
 
-			t := task.Task{
-				Key:  task.NewKey(testRack.Key, 99),
+			t := taskv0.Task{
+				Key:  taskv0.Key(task.NewKey(testRack.Key, 99)),
 				Name: "Migration Test Task",
 			}
-			Expect(gorp.NewCreate[task.Key, task.Task]().
+			Expect(gorp.NewCreate[taskv0.Key, taskv0.Task]().
 				Entry(&t).
 				Exec(ctx, db)).To(Succeed())
 
@@ -512,12 +513,12 @@ var _ = Describe("Task", Ordered, func() {
 
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(t.Key).String()).
+				WhereKeys(task.OntologyID(task.Key(t.Key)).String()).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
 			Expect(restoredStatus.Message).To(Equal("Migration Test Task status unknown"))
-			Expect(restoredStatus.Details.Task).To(Equal(t.Key))
+			Expect(restoredStatus.Details.Task).To(Equal(task.Key(t.Key)))
 		})
 
 		It("Should not create statuses for tasks that already have them", func(ctx SpecContext) {

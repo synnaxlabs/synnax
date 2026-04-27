@@ -44,7 +44,7 @@ func track_peak_temp(current f32) f32 {
     return peak
 }
 
-func calc_temp_error{setpoint f32}(measured f32) f32 {
+func calc_temp_error{setpoint f32} (measured f32) f32 {
     return measured - setpoint
 }
 
@@ -57,20 +57,20 @@ temp_sensor -> calc_temp_error{50.0} -> temp_error
 
 sequence monitor {
     stage heating {
-        1 -> heater_cmd,
-        temp_sensor > 80 => abort,
+        1 -> heater_cmd
+        temp_sensor > 80 => abort
         temp_sensor > 60 => cooling
     }
     stage cooling {
-        0 -> heater_cmd,
-        temp_sensor > 80 => abort,
+        0 -> heater_cmd
+        temp_sensor > 80 => abort
         temp_sensor < 40 => heating
     }
 }
 
 sequence abort {
     stage safed {
-        0 -> heater_cmd,
+        0 -> heater_cmd
         1 -> alarm_active
     }
 }

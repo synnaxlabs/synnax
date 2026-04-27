@@ -116,7 +116,7 @@ var _ = Describe("Authority", func() {
 			n := MustSucceed(factory.Create(ctx, cfg))
 			Expect(n).ToNot(BeNil())
 			// Verify by exercising the node and checking the authority change
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).ToNot(BeNil())
@@ -135,7 +135,7 @@ var _ = Describe("Authority", func() {
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
 			// Verify by exercising the node and checking the authority change
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Channel).To(BeNil())
@@ -174,7 +174,7 @@ var _ = Describe("Authority", func() {
 				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(200)))
@@ -194,7 +194,7 @@ var _ = Describe("Authority", func() {
 				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(string) {}})
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {}})
 			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
 			Expect(changes[0].Authority).To(Equal(uint8(150)))
@@ -213,7 +213,7 @@ var _ = Describe("Authority", func() {
 				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 			n.Next(nCtx)
 			n.Next(nCtx)
 			n.Next(nCtx)
@@ -233,8 +233,9 @@ var _ = Describe("Authority", func() {
 				State: progState.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			n.Next(node.Context{Context: ctx, MarkChanged: func(output string) {
-				outputs = append(outputs, output)
+			n.Next(node.Context{Context: ctx, MarkChanged: func(int) {
+				// setAuthority declares no outputs; MarkChanged should never fire.
+				outputs = append(outputs, "called")
 			}})
 			Expect(outputs).To(BeEmpty())
 		})
@@ -270,7 +271,7 @@ var _ = Describe("Authority", func() {
 				State: s.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 			n.Next(nCtx)
 			changes := controlState.Flush()
 			Expect(changes).To(HaveLen(1))
@@ -292,7 +293,7 @@ var _ = Describe("Authority", func() {
 				State: s.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			nCtx := node.Context{Context: ctx, MarkChanged: func(string) {}}
+			nCtx := node.Context{Context: ctx, MarkChanged: func(int) {}}
 			n.Next(nCtx)
 			first := controlState.Flush()
 			Expect(first).To(HaveLen(1))
@@ -326,9 +327,9 @@ var _ = Describe("Authority", func() {
 				State: s.Node("set_auth"),
 			}
 			n := MustSucceed(factory.Create(ctx, cfg))
-			Expect(n.IsOutputTruthy("")).To(BeFalse())
-			Expect(n.IsOutputTruthy("output")).To(BeFalse())
-			Expect(n.IsOutputTruthy("anything")).To(BeFalse())
+			Expect(n.IsOutputTruthy(0)).To(BeFalse())
+			Expect(n.IsOutputTruthy(1)).To(BeFalse())
+			Expect(n.IsOutputTruthy(-1)).To(BeFalse())
 		})
 	})
 

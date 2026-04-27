@@ -13,7 +13,6 @@
 #include "glog/logging.h"
 
 #include "x/cpp/json/json.h"
-#include "x/cpp/status/status.h"
 
 #include "driver/http/errors/errors.h"
 #include "driver/http/scan_task.h"

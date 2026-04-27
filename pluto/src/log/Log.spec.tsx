@@ -65,7 +65,6 @@ const DEFAULT_STATE = {
   selectedLines: [],
   computedLineHeight: 16,
   entryCount: 0,
-  copyFlash: false,
 };
 
 const setupAether = (overrides: Record<string, unknown> = {}) => {

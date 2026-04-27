@@ -81,6 +81,7 @@ PYTHON_DIRS=(
     "$ROOT_DIR/alamos/py"
     "$ROOT_DIR/freighter/py"
     "$ROOT_DIR/client/py"
+    "$ROOT_DIR/x/py"
 )
 for d in "${PYTHON_DIRS[@]}"; do
     update_python "$d/pyproject.toml"
