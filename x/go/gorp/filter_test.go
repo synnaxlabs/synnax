@@ -380,6 +380,36 @@ var _ = Describe("Filter Combinators", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(3))
 		})
+
+		It("Or of raw-only children should compose Raw to pre-screen", func() {
+			or := gorp.Or(
+				gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
+			)
+			Expect(or.Raw).NotTo(BeNil())
+			Expect(or.Eval).To(BeNil())
+		})
+
+		It("Or with a non-raw child should not compose Raw", func() {
+			or := gorp.Or(
+				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
+				neverMatch,
+			)
+			Expect(or.Raw).To(BeNil())
+			Expect(or.Eval).NotTo(BeNil())
+		})
+
+		It("Not of a raw-only child should compose Raw to pre-screen", func() {
+			not := gorp.Not(gorp.MatchRaw[int32, entry](alwaysFalseRaw))
+			Expect(not.Raw).NotTo(BeNil())
+			Expect(not.Eval).To(BeNil())
+		})
+
+		It("Not of a non-raw child should not compose Raw", func() {
+			not := gorp.Not(neverMatch)
+			Expect(not.Raw).To(BeNil())
+			Expect(not.Eval).NotTo(BeNil())
+		})
 	})
 
 	Describe("Nested Composition", func() {

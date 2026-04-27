@@ -45,9 +45,8 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	return e, err
 }
 
-// get retrieves a single entry along with a copy of its raw encoded
-// bytes. The returned raw slice is owned by the caller and outlives the
-// underlying transaction handle.
+// get returns an entry with a copy of its raw bytes that outlives the
+// transaction handle.
 func (r Reader[K, E]) get(ctx context.Context, key K) (E, []byte, error) {
 	var e E
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
@@ -66,9 +65,8 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	return entries, err
 }
 
-// getMany retrieves entries along with their raw encoded bytes.
-// entries[i] corresponds to raws[i]. Entries that are not found are omitted
-// from both slices.
+// getMany returns entries paired with their raw bytes (entries[i] with
+// raws[i]). Missing keys are omitted.
 func (r Reader[K, E]) getMany(ctx context.Context, keys []K) ([]E, [][]byte, error) {
 	var (
 		entries  = make([]E, 0, len(keys))

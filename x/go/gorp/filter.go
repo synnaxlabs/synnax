@@ -9,24 +9,17 @@
 
 package gorp
 
-// Filter is a composable query filter that evaluates entries. Eval is the
-// semantic predicate that decides whether an entry matches; it receives both
-// the decoded entry and the raw encoded bytes so filters constructed via
-// MatchRaw can run their predicate at composition time inside Or/Not. Raw is
-// an optional optimization hint that, when present, runs before decoding so
-// that entries the predicate rejects are skipped without ever being decoded.
-// Eval and Raw must agree: if Raw rejects, Eval would have rejected too.
+// Filter is a composable query filter. Eval matches against the decoded entry;
+// Raw, when set, pre-screens entries by raw bytes before decoding.
 type Filter[K Key, E Entry[K]] struct {
-	// Eval evaluates an entry by its decoded value and/or its raw encoded
-	// bytes. Filters constructed via Match ignore raw; filters constructed
-	// via MatchRaw ignore the decoded value.
+	// Eval matches against the decoded entry; raw bytes are passed too for
+	// filters that need them. Nil falls back to Raw in combinators.
 	Eval func(ctx Context, e *E, raw []byte) (bool, error)
-	// Raw evaluates the raw encoded bytes before decoding as a pre-screen
-	// optimization. Nil means no pre-screen; Eval is still authoritative.
+	// Raw pre-screens by raw bytes before decoding. Optional.
 	Raw func(data []byte) (bool, error)
 }
 
-// Match wraps a closure that operates on a decoded entry as a Filter.
+// Match wraps a decoded-entry predicate as a Filter.
 func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{
 		Eval: func(ctx Context, e *E, _ []byte) (bool, error) {
@@ -35,16 +28,11 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 	}
 }
 
-// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs as a
-// pre-decode pre-screen (skipping non-matching entries entirely) and again at
-// the Eval stage so the filter composes correctly inside Or and Not.
+// MatchRaw wraps a raw-byte predicate as a Filter. Under Where or And it
+// pre-screens before decoding; under Or or Not it is called at Eval time so
+// composition is correct, at the cost of decoding every entry.
 func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{
-		Raw: f,
-		Eval: func(_ Context, _ *E, raw []byte) (bool, error) {
-			return f(raw)
-		},
-	}
+	return Filter[K, E]{Raw: f}
 }
 
 // And returns a filter that matches when ALL children match. Short-circuits on the
@@ -84,17 +72,15 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return f
 }
 
-// Or returns a filter that matches when ANY child matches. Short-circuits on the
-// first true. Raw pre-screening is not composed for Or because a branch without
-// a Raw check may still match after decoding, so we must always decode.
+// Or returns a filter that matches when ANY child matches. Short-circuits on
+// the first true. Raw pre-screening is composed only when every child is
+// raw-only (Raw set, Eval nil); a single non-raw child forces a full decode
+// of every entry, with raw-only children evaluated at decode time.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
-	return Filter[K, E]{
+	f := Filter[K, E]{
 		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
-				if f.Eval == nil {
-					continue
-				}
-				ok, err := f.Eval(ctx, e, raw)
+				ok, err := evalChild(ctx, f, e, raw)
 				if err != nil {
 					return false, err
 				}
@@ -105,21 +91,71 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return false, nil
 		},
 	}
+	if len(filters) == 0 || !allRawOnly(filters) {
+		return f
+	}
+	f.Raw = func(data []byte) (bool, error) {
+		for _, child := range filters {
+			ok, err := child.Raw(data)
+			if err != nil {
+				return false, err
+			}
+			if ok {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	f.Eval = nil
+	return f
 }
 
-// Not returns a filter that inverts the child. Raw pre-screening is not composed
-// for Not because inverting a raw rejection requires decoding to check the Eval
-// stage.
+// Not returns a filter that inverts the child. When the child is raw-only,
+// Not composes an inverted Raw so the result still pre-screens before
+// decoding; otherwise Not falls back to evaluating the child at decode time.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
-	return Filter[K, E]{
+	out := Filter[K, E]{
 		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
-			if f.Eval == nil {
-				return false, nil
-			}
-			ok, err := f.Eval(ctx, e, raw)
+			ok, err := evalChild(ctx, f, e, raw)
 			return !ok, err
 		},
 	}
+	if f.Raw != nil && f.Eval == nil {
+		raw := f.Raw
+		out.Raw = func(data []byte) (bool, error) {
+			ok, err := raw(data)
+			return !ok, err
+		}
+		out.Eval = nil
+	}
+	return out
+}
+
+// allRawOnly reports whether every filter has Raw set and Eval nil.
+func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
+	for _, f := range filters {
+		if f.Raw == nil || f.Eval != nil {
+			return false
+		}
+	}
+	return true
+}
+
+// evalChild runs a child's Eval if set, else its Raw against raw bytes. A
+// child with neither matches vacuously.
+func evalChild[K Key, E Entry[K]](
+	ctx Context,
+	f Filter[K, E],
+	e *E,
+	raw []byte,
+) (bool, error) {
+	if f.Eval != nil {
+		return f.Eval(ctx, e, raw)
+	}
+	if f.Raw != nil {
+		return f.Raw(raw)
+	}
+	return true, nil
 }
 
 // BoundFilter is a Filter parameterized over a service-defined Retrieve type

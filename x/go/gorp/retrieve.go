@@ -291,10 +291,7 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(toReplace)
-	if err := r.runValidators(gorpCtx, toReplace); err != nil {
-		return err
-	}
-	return getErr
+	return errors.Join(r.runValidators(gorpCtx, toReplace), getErr)
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {

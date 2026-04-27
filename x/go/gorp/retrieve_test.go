@@ -724,5 +724,20 @@ var _ = Describe("Retrieve", func() {
 				Error().
 				To(MatchError(ContainSubstring("count validator rejected query")))
 		})
+
+		It("Should preserve ErrNotFound when WhereKeys partial-match also triggers a validator error", func(ctx SpecContext) {
+			var res []entry
+			err := gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereKeys(0, 1, 999).
+				Validate(func(_ gorp.Context, _ []entry) error {
+					return errors.New("partial validator failure")
+				}).
+				Exec(ctx, tx)
+			Expect(err).To(SatisfyAll(
+				MatchError(query.ErrNotFound),
+				MatchError(ContainSubstring("partial validator failure")),
+			))
+		})
 	})
 })
