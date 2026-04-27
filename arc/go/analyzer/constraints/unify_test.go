@@ -634,7 +634,9 @@ var _ = Describe("Type Unification", func() {
 				constraint = types.SignedNumericConstraint()
 				tv         = types.Variable("T", &constraint)
 			)
-			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
+			err := system.AddEquality(tv, types.String(), nil, "T = string")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("is not compatible with"))
 		})
 		It("should accept re-unification with the original unsigned type", func() {
 			var (
