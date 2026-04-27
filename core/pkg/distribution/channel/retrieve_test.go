@@ -53,7 +53,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				Where(channel.MatchNodeKey(1)).
+				Where(channel.MatchLeaseholders(1)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(len(created) + internalChannelCount))
@@ -63,7 +63,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 				g.Expect(mockCluster.Nodes[2].Channel.
 					NewRetrieve().
-					Where(channel.MatchNodeKey(1)).
+					Where(channel.MatchLeaseholders(1)).
 					Entries(&resChannelsTwo).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(resChannelsTwo).To(HaveLen(len(created) + internalChannelCount))

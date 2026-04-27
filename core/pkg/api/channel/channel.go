@@ -196,13 +196,13 @@ func (s *Service) Retrieve(
 		q = q.Search(req.SearchTerm)
 	}
 	if req.NodeKey != 0 {
-		q = q.Where(channel.MatchNodeKey(req.NodeKey))
+		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
 	}
 	if hasDataTypes {
 		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
 	}
 	if hasNotDataTypes {
-		q = q.Where(channel.MatchNotDataTypes(req.NotDataTypes...))
+		q = q.Where(gorp.Not(channel.MatchDataTypes(req.NotDataTypes...)))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
