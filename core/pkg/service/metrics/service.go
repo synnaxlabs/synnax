@@ -18,7 +18,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
@@ -44,7 +44,7 @@ type ServiceConfig struct {
 	// HostProvider is for identify the current host for channel naming.
 	//
 	// [REQUIRED]
-	HostProvider cluster.HostProvider
+	HostProvider node.HostProvider
 	// Channel is used to create and retrieve metric collection channels.
 	//
 	// [REQUIRED]

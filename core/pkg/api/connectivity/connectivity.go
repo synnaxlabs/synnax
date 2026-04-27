@@ -15,15 +15,13 @@ import (
 
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/version"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/telem"
 )
 
-type Service struct {
-	cluster cluster.Cluster
-}
+type Service struct{ cluster node.Cluster }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	cfg, err := xconfig.New(config.DefaultLayerConfig, cfgs...)
