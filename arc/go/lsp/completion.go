@@ -455,12 +455,12 @@ func (s *Server) getCompletionItems(
 		items = append(items, item)
 	}
 
-	if completionCtx != ContextTypeAnnotation && nesting != NestingSequenceBody {
+	if completionCtx != ContextTypeAnnotation {
 		var execFilter symbol.ExecContext
 		switch nesting {
 		case NestingFunction:
 			execFilter = symbol.ExecWASM
-		case NestingTopLevel, NestingStageBody:
+		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
 			execFilter = symbol.ExecFlow
 		}
 		modulePrefix := ""

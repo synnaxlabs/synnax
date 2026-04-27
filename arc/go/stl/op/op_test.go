@@ -15,7 +15,9 @@ import (
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	stlmath "github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/op"
+	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/telem"
@@ -180,7 +182,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			mathResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, mathResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -189,7 +192,8 @@ var _ = Describe("OP", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3, 4, 5)
 			*rhsNode.Output(0) = telem.NewSeriesV[float32](10, 20)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			m := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(m.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
@@ -231,7 +235,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -240,7 +245,8 @@ var _ = Describe("OP", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
 			*rhsNode.Output(0) = telem.NewSeriesV[int32](5, 6, 7)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(50, 150, 250)
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
@@ -282,7 +288,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -291,7 +298,8 @@ var _ = Describe("OP", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
 			*rhsNode.Output(0) = telem.NewSeriesV[float64](3.5, 4.5)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(10, 20)
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
@@ -335,7 +343,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -344,7 +353,8 @@ var _ = Describe("OP", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
 			*rhsNode.Output(0) = telem.NewSeriesV[int64](30)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5)
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "subtract"},
 				State: s.Node("op"),
 			}))
@@ -394,7 +404,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -403,7 +414,8 @@ var _ = Describe("OP", func() {
 			*lhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 			*rhsNode.Output(0) = telem.NewSeriesV[uint32](8)
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("op"),
 			}))
@@ -444,7 +456,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -495,7 +508,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -547,7 +561,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -599,7 +614,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -651,7 +667,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -702,7 +719,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -754,7 +772,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			lhsNode := s.Node("lhs")
@@ -772,7 +791,8 @@ var _ = Describe("OP", func() {
 			*rhsNode.Output(0) = rhsSeries
 			*rhsNode.OutputTime(0) = telem.NewSeriesSecondsTSV(5, 15)
 
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("op"),
 			}))
@@ -811,7 +831,8 @@ var _ = Describe("OP", func() {
 					},
 				},
 			}
-			analyzed, diagnostics := graph.Analyze(ctx, g, op.SymbolResolver)
+			combinedResolver := symbol.CompoundResolver{op.SymbolResolver, stlmath.SymbolResolver}
+			analyzed, diagnostics := graph.Analyze(ctx, g, combinedResolver)
 			Expect(diagnostics.Ok()).To(BeTrue())
 			s := node.New(analyzed)
 			inputNode := s.Node("input")
@@ -822,7 +843,8 @@ var _ = Describe("OP", func() {
 			*inputNode.Output(0) = inputSeries
 			*inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(100, 200, 300)
 
-			c := MustSucceed(op.NewModule().Create(ctx, node.Config{
+			mathMod := MustSucceed(stlmath.NewModule(ctx, nil))
+			c := MustSucceed(mathMod.Create(ctx, node.Config{
 				Node:  ir.Node{Type: "neg"},
 				State: s.Node("op"),
 			}))

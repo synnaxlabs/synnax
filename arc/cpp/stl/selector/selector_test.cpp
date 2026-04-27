@@ -115,7 +115,7 @@ TEST(SelectModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "not_select";
 
-    Module module;
+    WasmModule module;
     ASSERT_OCCURRED_AS_P(
         module.create(
             runtime::node::Config(setup.ir, ir_node, setup.make_select_node())
@@ -127,7 +127,7 @@ TEST(SelectModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates a Select node with valid configuration.
 TEST(SelectModuleTest, CreatesSelectNode) {
     TestSetup setup;
-    Module module;
+    WasmModule module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_select_node())
     ));
@@ -421,7 +421,7 @@ TEST(SelectorModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "selector.select";
 
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<WasmModule>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_select_node()))

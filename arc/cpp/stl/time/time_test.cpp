@@ -123,7 +123,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_a_time_node";
 
-    Module factory;
+    WasmModule factory;
     ASSERT_OCCURRED_AS_P(
         factory.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -133,7 +133,7 @@ TEST(TimeModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates an Interval node from valid configuration.
 TEST(TimeModuleTest, CreatesIntervalNode) {
     TestSetup setup("interval", "period", x::telem::SECOND.nanoseconds());
-    Module factory;
+    WasmModule factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -143,7 +143,7 @@ TEST(TimeModuleTest, CreatesIntervalNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.interval type.
 TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.interval", "period", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<WasmModule>();
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -154,7 +154,7 @@ TEST(TimeModuleTest, CreatesIntervalNodeQualifiedViaMultiFactory) {
 /// @brief Test that module creates a Wait node from valid configuration.
 TEST(TimeModuleTest, CreatesWaitNode) {
     TestSetup setup("wait", "duration", x::telem::SECOND.nanoseconds());
-    Module factory;
+    WasmModule factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -164,7 +164,7 @@ TEST(TimeModuleTest, CreatesWaitNode) {
 /// @brief Test that MultiFactory strips prefix for qualified time.wait type.
 TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
     TestSetup setup("time.wait", "duration", x::telem::SECOND.nanoseconds());
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<WasmModule>();
     runtime::node::MultiFactory multi({module});
     const auto node = ASSERT_NIL_P(multi.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
@@ -175,7 +175,7 @@ TEST(TimeModuleTest, CreatesWaitNodeQualifiedViaMultiFactory) {
 /// @brief Test that base_interval is set to the first interval when uninitialized.
 TEST(TimeModuleTest, BaseIntervalSetToFirstInterval) {
     TestSetup setup("interval", "period", (500 * x::telem::MILLISECOND).nanoseconds());
-    Module factory;
+    WasmModule factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -187,7 +187,7 @@ TEST(TimeModuleTest, BaseIntervalComputesGCDAcrossNodes) {
     TestSetup setup1("interval", "period", (600 * x::telem::MILLISECOND).nanoseconds());
     TestSetup setup2("wait", "duration", (400 * x::telem::MILLISECOND).nanoseconds());
 
-    Module factory;
+    WasmModule factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup1.ir, setup1.ir.nodes[0], setup1.make_node())
     ));
@@ -1147,8 +1147,7 @@ TEST(NowTest, OutputsWallClockTimestamp) {
     const auto before = x::telem::TimeStamp::now().nanoseconds();
     auto ctx = make_context(x::telem::SECOND * 5);
     bool changed = false;
-    ctx.mark_changed = [&](const std::string &param) {
-        EXPECT_EQ(param, ir::default_output_param);
+    ctx.mark_changed = [&](size_t) {
         changed = true;
     };
     ASSERT_NIL(node.next(ctx));
@@ -1175,7 +1174,7 @@ TEST(NowTest, FiresOnChannelInput) {
         x::telem::TimeSpan(0),
         runtime::node::RunReason::ChannelInput
     );
-    ctx.mark_changed = [&](const std::string &) { changed = true; };
+    ctx.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx));
     EXPECT_TRUE(changed);
 
@@ -1214,7 +1213,7 @@ TEST(NowTest, WorksAfterReset) {
 
     bool changed = false;
     auto ctx2 = make_context(x::telem::SECOND);
-    ctx2.mark_changed = [&](const std::string &) { changed = true; };
+    ctx2.mark_changed = [&](size_t) { changed = true; };
     ASSERT_NIL(node.next(ctx2));
     EXPECT_TRUE(changed);
 
@@ -1228,7 +1227,7 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
     NowTestSetup setup;
     const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
     time::Now node(cfg, setup.make_node());
-    EXPECT_FALSE(node.is_output_truthy("nonexistent"));
+    EXPECT_FALSE(node.is_output_truthy(999));
 }
 
 /// @brief Now node with positive offset adds to wall-clock timestamp.
@@ -1276,7 +1275,7 @@ TEST(NowTest, NegativeOffsetSubtractsFromTimestamp) {
 /// @brief Module creates Now node from factory with offset config.
 TEST(TimeModuleTest, CreatesNowNodeWithOffset) {
     NowTestSetup setup(x::telem::SECOND.nanoseconds());
-    Module factory;
+    WasmModule factory;
     const auto node = ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -1286,7 +1285,7 @@ TEST(TimeModuleTest, CreatesNowNodeWithOffset) {
 /// @brief Now node does not affect base_interval.
 TEST(TimeModuleTest, NowDoesNotAffectBaseInterval) {
     NowTestSetup setup;
-    Module factory;
+    WasmModule factory;
     ASSERT_NIL_P(factory.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));

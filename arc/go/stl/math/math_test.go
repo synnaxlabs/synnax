@@ -112,9 +112,9 @@ func openMathWithReset(
 	return mathSetup{state: s, inputNode: inputNode, n: n}
 }
 
-func nextChanged(ctx SpecContext, n node.Node) set.Set[string] {
-	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
+	changed := make(set.Set[int])
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
 	return changed
 }
 
@@ -430,9 +430,9 @@ var _ = Describe("Arithmetic", func() {
 			Node:  ir.Node{Type: t},
 			State: s.Node("math"),
 		}))
-		changed := make(set.Set[string])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		changed := make(set.Set[int])
+		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+		Expect(changed.Contains(0)).To(BeTrue())
 		Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
@@ -603,9 +603,9 @@ var _ = Describe("Arithmetic", func() {
 			Node:  ir.Node{Type: t},
 			State: s.Node("math"),
 		}))
-		changed := make(set.Set[string])
-		c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		changed := make(set.Set[int])
+		c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+		Expect(changed.Contains(0)).To(BeTrue())
 		Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
@@ -703,9 +703,9 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(s.Node("math").Output(0).Len()).To(Equal(int64(5)))
 		})
 		It("Should handle different time bases", func(ctx SpecContext) {
@@ -722,9 +722,9 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(telem.NewSeriesSecondsTSV(100, 200, 300)))
 		})
 		It("Should handle repeated calls with no input changes", func(ctx SpecContext) {
@@ -741,12 +741,12 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			changed = make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
+			changed = make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeFalse())
 		})
 		It("Should handle repeated calls with input changes", func(ctx SpecContext) {
 			g := makeBinaryGraph("subtract", types.I64())
@@ -762,17 +762,17 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "subtract"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](70)))
 			*s.Node("lhs").Output(0) = telem.NewSeriesV[int64](200)
 			*s.Node("lhs").OutputTime(0) = telem.NewSeriesSecondsTSV(10)
 			*s.Node("rhs").Output(0) = telem.NewSeriesV[int64](50)
 			*s.Node("rhs").OutputTime(0) = telem.NewSeriesSecondsTSV(10)
-			changed = make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed = make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[int64](150)))
 		})
 		It("Should handle single value series", func(ctx SpecContext) {
@@ -789,9 +789,9 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "multiply"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(telem.NewSeriesV[uint32](56)))
 		})
 	})
@@ -816,9 +816,9 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "add"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("math").Output(0)
 			Expect(result.Alignment).To(Equal(telem.Alignment(150)))
 			Expect(result.TimeRange.Start).To(Equal(5 * telem.SecondTS))
@@ -843,9 +843,9 @@ var _ = Describe("Arithmetic", func() {
 				Node:  ir.Node{Type: "neg"},
 				State: s.Node("math"),
 			}))
-			changed := make(set.Set[string])
-			c.Next(node.Context{Context: ctx, MarkChanged: func(o string) { changed.Add(o) }})
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+			changed := make(set.Set[int])
+			c.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
+			Expect(changed.Contains(0)).To(BeTrue())
 			result := *s.Node("math").Output(0)
 			Expect(result.Alignment).To(Equal(telem.Alignment(200)))
 			Expect(result.TimeRange.Start).To(Equal(100 * telem.SecondTS))
@@ -864,7 +864,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -938,7 +938,7 @@ var _ = Describe("Avg", func() {
 	It("Should not execute on empty input", func(ctx SpecContext) {
 		s := openMath(ctx, "avg", types.F64(), nil)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+		Expect(changed.Contains(0)).To(BeFalse())
 	})
 
 	It("Should work with int32 type", func(ctx SpecContext) {
@@ -946,7 +946,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](10, 20, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 20)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -958,7 +958,7 @@ var _ = Describe("Min", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 10)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -1050,7 +1050,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -1140,7 +1140,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
@@ -1265,7 +1265,7 @@ var _ = Describe("Derivative", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0, 10.0, 10.0)
 	})
 
@@ -1286,7 +1286,7 @@ var _ = Describe("Derivative", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0)
 	})
 

@@ -1824,8 +1824,8 @@ var _ = Describe("WASM", func() {
 			h.SetInput("input_source", 0, telem.NewSeriesV[int64](100), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "offset_func")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			changed := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
 
 			output := h.Output("offset_func", 0)
 			Expect(output.Len()).To(Equal(int64(1)))
@@ -1862,8 +1862,8 @@ var _ = Describe("WASM", func() {
 			h.SetInput("input_source", 0, telem.NewSeriesV[float64](10.0), telem.NewSeriesSecondsTSV(1))
 
 			n := h.CreateNode(ctx, "scale_neg")
-			changed := make(set.Set[string])
-			n.Next(node.Context{Context: ctx, MarkChanged: func(s string) { changed.Add(s) }})
+			changed := make(set.Set[int])
+			n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
 
 			output := h.Output("scale_neg", 0)
 			Expect(output.Len()).To(Equal(int64(1)))

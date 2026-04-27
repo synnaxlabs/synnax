@@ -31,7 +31,7 @@ const std::string_view PANIC_WAT = R"wat(
 
 TEST(ErrorModule, PanicInvokesHandlerWithCorrectMessage) {
     x::errors::Error captured;
-    Module mod([&](const x::errors::Error &err) { captured = err; });
+    WasmModule mod([&](const x::errors::Error &err) { captured = err; });
 
     wasmtime::Engine engine;
     wasmtime::Store store(engine);
@@ -51,7 +51,7 @@ TEST(ErrorModule, PanicInvokesHandlerWithCorrectMessage) {
 
 TEST(ErrorModule, PanicReportsOutOfBoundsForInvalidPointer) {
     x::errors::Error captured;
-    Module mod([&](const x::errors::Error &err) { captured = err; });
+    WasmModule mod([&](const x::errors::Error &err) { captured = err; });
 
     wasmtime::Engine engine;
     wasmtime::Store store(engine);
@@ -71,7 +71,7 @@ TEST(ErrorModule, PanicReportsOutOfBoundsForInvalidPointer) {
 
 TEST(ErrorModule, PanicBeforeSetWasmContextReportsNoMemory) {
     x::errors::Error captured;
-    Module mod([&](const x::errors::Error &err) { captured = err; });
+    WasmModule mod([&](const x::errors::Error &err) { captured = err; });
 
     wasmtime::Engine engine;
     wasmtime::Store store(engine);

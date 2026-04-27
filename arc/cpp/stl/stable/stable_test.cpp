@@ -139,7 +139,7 @@ TEST(StableForModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "not_stable_for";
 
-    Module module;
+    WasmModule module;
     ASSERT_OCCURRED_AS_P(
         module.create(
             runtime::node::Config(setup.ir, ir_node, setup.make_stable_node())
@@ -150,7 +150,7 @@ TEST(StableForModuleTest, ReturnsNotFoundForWrongType) {
 
 TEST(StableForModuleTest, CreatesStableForNode) {
     TestSetup setup(x::telem::SECOND.nanoseconds());
-    Module module;
+    WasmModule module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_stable_node())
     ));
@@ -490,7 +490,7 @@ TEST(StableModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "stable.stable_for";
 
-    auto module = std::make_shared<Module>();
+    auto module = std::make_shared<WasmModule>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_stable_node()))
