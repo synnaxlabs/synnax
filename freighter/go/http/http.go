@@ -12,36 +12,14 @@ package http
 import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/synnaxlabs/freighter"
-	"github.com/synnaxlabs/x/http"
 )
 
+// BindableTransport is a freighter.Transport that knows how to register its routes on a
+// fiber.App. The Router and any individual server registered through it satisfy this
+// interface.
 type BindableTransport interface {
 	freighter.Transport
+	// BindTo registers the transport's HTTP and websocket routes on the given
+	// fiber.App.
 	BindTo(*fiber.App)
-}
-
-var streamReporter = freighter.Reporter{
-	Protocol:  "websocket",
-	Encodings: http.SupportedContentTypes(),
-}
-
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: http.SupportedContentTypes(),
-}
-
-type serverOptions struct{ codecResolver http.CodecResolver }
-
-type ServerOption func(*serverOptions)
-
-func WithCodecResolver(r http.CodecResolver) ServerOption {
-	return func(o *serverOptions) { o.codecResolver = r }
-}
-
-func newServerOptions(opts []ServerOption) serverOptions {
-	so := serverOptions{codecResolver: http.ResolveCodec}
-	for _, opt := range opts {
-		opt(&so)
-	}
-	return so
 }

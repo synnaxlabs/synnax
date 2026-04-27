@@ -28,7 +28,9 @@ import (
 func main() {
 	app := fiber.New(fiber.Config{})
 	app.Use(logger.New())
-	http.BindTo(app)
+	if err := http.BindTo(app); err != nil {
+		log.Fatal(err)
+	}
 	interruptC := make(chan os.Signal, 1)
 	signal.Notify(interruptC, os.Interrupt)
 	g := grpc.NewServer()
