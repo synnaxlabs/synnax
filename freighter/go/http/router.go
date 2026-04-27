@@ -28,10 +28,14 @@ type route struct {
 	httpMethod string
 }
 
+// RouterConfig configures a Router. All fields are optional; pass the zero
+// value to accept the defaults.
 type RouterConfig struct {
 	alamos.Instrumentation
 	// StreamWriteDeadline sets the default duration for the write deadline of a stream
 	// transport. After the duration has been exceeded, the transport will be closed.
+	//
+	// [OPTIONAL] - Defaults to 10 seconds.
 	StreamWriteDeadline time.Duration
 }
 
@@ -49,22 +53,29 @@ func (r RouterConfig) Override(other RouterConfig) RouterConfig {
 	return r
 }
 
-func NewRouter(configs ...RouterConfig) *Router {
+// NewRouter constructs a Router from the given configs. Servers registered through the
+// returned Router will be bound to a fiber.App by calling Router.BindTo. Returns an
+// error if the merged config fails to validate.
+func NewRouter(configs ...RouterConfig) (*Router, error) {
 	cfg, err := config.New(RouterConfig{}, configs...)
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.TODO())
 	return &Router{
-		RouterConfig:  cfg,
+		cfg:           cfg,
 		streamCtx:     ctx,
 		cancelStreams: cancel,
 		streamWg:      &sync.WaitGroup{},
-	}
+	}, nil
 }
 
+// Router collects unary and stream servers and binds them to a fiber.App as a
+// single BindableTransport. It also owns the lifecycle of any websocket
+// streams: BindTo installs a post-shutdown hook that cancels in-flight streams
+// and waits for them to drain.
 type Router struct {
-	RouterConfig
+	cfg RouterConfig
 	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need
 	// to manage them ourselves. We'll pass in a context object that gets cancelled when
 	// the app is shut down, and we'll use a WaitGroup to wait for all streams to close.
@@ -97,8 +108,14 @@ func (r *Router) BindTo(app *fiber.App) {
 	}
 }
 
+// Report implements freighter.Transport. The Router itself is a passive container for
+// routes, so its report is empty.
 func (*Router) Report() alamos.Report { return alamos.Report{} }
 
+// Use installs the given middleware on every server currently registered with the
+// router. Middleware added before BindTo is called is applied to every request handled
+// by the resulting fiber.App; middleware added after BindTo applies to subsequent
+// requests against existing servers.
 func (r *Router) Use(middleware ...freighter.Middleware) {
 	for _, route := range r.routes {
 		route.transport.Use(middleware...)
@@ -119,33 +136,40 @@ func (r *Router) register(
 	})
 }
 
-func StreamServer[RQ, RS freighter.Payload](
+// NewStreamServer registers a streaming (websocket) server at the given path on the
+// router and returns a freighter.StreamServer the caller can attach a handler to via
+// BindHandler. The route is bound on the GET method to support the websocket upgrade
+// handshake.
+func NewStreamServer[RQ, RS freighter.Payload](
 	r *Router,
 	path string,
-	opts ...ServerOption,
+	opts ...StreamServerOption,
 ) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
-		serverOptions:   newServerOptions(opts),
-		Reporter:        streamReporter,
-		path:            path,
-		Instrumentation: r.Instrumentation,
-		serverCtx:       r.streamCtx,
-		writeDeadline:   r.StreamWriteDeadline,
-		wg:              r.streamWg,
+		streamServerOptions: newStreamServerOptions(opts),
+		Reporter:            streamReporter,
+		path:                path,
+		Instrumentation:     r.cfg.Instrumentation,
+		serverCtx:           r.streamCtx,
+		writeDeadline:       r.cfg.StreamWriteDeadline,
+		wg:                  r.streamWg,
 	}
 	r.register(path, "GET", s, s.fiberHandler)
 	return s
 }
 
-func UnaryServer[RQ, RS freighter.Payload](
+// NewUnaryServer registers a unary HTTP server at the given path on the router and
+// returns a freighter.UnaryServer the caller can attach a handler to via BindHandler.
+// The route is bound on the POST method.
+func NewUnaryServer[RQ, RS freighter.Payload](
 	r *Router,
 	path string,
-	opts ...ServerOption,
+	opts ...UnaryServerOption,
 ) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
-		serverOptions: newServerOptions(opts),
-		Reporter:      unaryReporter,
-		path:          path,
+		unaryServerOptions: newUnaryServerOptions(opts),
+		Reporter:           unaryReporter,
+		path:               path,
 	}
 	r.register(path, "POST", us, us.fiberHandler)
 	return us
