@@ -73,53 +73,6 @@ private:
                 }
             )
             .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "add_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) + static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "subtract_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) - static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "multiply_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) * static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "divide_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) / static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "mod_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(
-                        std::fmod(static_cast<double>(a), static_cast<double>(b))
-                    );
-                }
-            )
-            .unwrap();
     }
 
     template<typename T>
@@ -133,51 +86,6 @@ private:
                     return static_cast<W>(
                         int_pow(static_cast<T>(a), static_cast<T>(b))
                     );
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "add_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) + static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "subtract_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) - static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "multiply_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) * static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "divide_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) / static_cast<T>(b));
-                }
-            )
-            .unwrap();
-        linker
-            .func_wrap(
-                "math",
-                "mod_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(static_cast<T>(a) % static_cast<T>(b));
                 }
             )
             .unwrap();

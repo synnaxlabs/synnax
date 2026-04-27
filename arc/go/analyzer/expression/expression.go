@@ -392,8 +392,8 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			if callerFn != nil && scope.Exec == symbol.ExecFlow {
 				ctx.Diagnostics.Add(diagnostics.Errorf(
 					ctx.AST,
-					"function '%s' is only available in flow statements, not in func blocks",
-					funcName,
+					"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+					funcName, funcName,
 				))
 				return
 			}

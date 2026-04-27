@@ -228,46 +228,6 @@ var _ = Describe("Math", func() {
 			Expect(rt.Close(ctx)).To(Succeed())
 		})
 
-		It("Should add i32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "add_i32", testutil.U32(3), testutil.U32(7))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(10)))
-		})
-		It("Should add f64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "add_f64", testutil.F64(1.5), testutil.F64(2.5))
-			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 4.0, 0.001))
-		})
-		It("Should subtract i32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "subtract_i32", testutil.U32(10), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(7)))
-		})
-		It("Should subtract f64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "subtract_f64", testutil.F64(10.0), testutil.F64(3.5))
-			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 6.5, 0.001))
-		})
-		It("Should multiply i32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "multiply_i32", testutil.U32(4), testutil.U32(5))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(20)))
-		})
-		It("Should multiply f64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "multiply_f64", testutil.F64(2.5), testutil.F64(4.0))
-			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 10.0, 0.001))
-		})
-		It("Should divide i32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "divide_i32", testutil.U32(20), testutil.U32(4))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(5)))
-		})
-		It("Should divide f64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "divide_f64", testutil.F64(10.0), testutil.F64(4.0))
-			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 2.5, 0.001))
-		})
-		It("Should mod i32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "mod_i32", testutil.U32(10), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(1)))
-		})
-		It("Should mod f64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "mod_f64", testutil.F64(10.5), testutil.F64(3.0))
-			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", 1.5, 0.001))
-		})
 		It("Should negate i32 values", func(ctx SpecContext) {
 			var negFive int32 = -5
 			res := rt.Call(ctx, "math", "neg_i32", testutil.I32(5))
@@ -276,66 +236,6 @@ var _ = Describe("Math", func() {
 		It("Should negate f64 values", func(ctx SpecContext) {
 			res := rt.Call(ctx, "math", "neg_f64", testutil.F64(3.5))
 			Expect(testutil.AsF64(res[0])).To(BeNumerically("~", -3.5, 0.001))
-		})
-		It("Should add u8 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "add_u8", testutil.U32(3), testutil.U32(7))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(10)))
-		})
-		It("Should add i64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "add_i64", testutil.U64(100), testutil.U64(200))
-			Expect(testutil.AsU64(res[0])).To(Equal(uint64(300)))
-		})
-		It("Should add f32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "add_f32", testutil.F32(1.5), testutil.F32(2.5))
-			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 4.0, 0.001))
-		})
-		It("Should subtract u8 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "subtract_u8", testutil.U32(10), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(7)))
-		})
-		It("Should subtract i64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "subtract_i64", testutil.U64(300), testutil.U64(100))
-			Expect(testutil.AsU64(res[0])).To(Equal(uint64(200)))
-		})
-		It("Should subtract f32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "subtract_f32", testutil.F32(10.0), testutil.F32(3.5))
-			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 6.5, 0.001))
-		})
-		It("Should multiply u8 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "multiply_u8", testutil.U32(4), testutil.U32(5))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(20)))
-		})
-		It("Should multiply i64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "multiply_i64", testutil.U64(10), testutil.U64(20))
-			Expect(testutil.AsU64(res[0])).To(Equal(uint64(200)))
-		})
-		It("Should multiply f32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "multiply_f32", testutil.F32(2.5), testutil.F32(4.0))
-			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 10.0, 0.001))
-		})
-		It("Should divide u8 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "divide_u8", testutil.U32(20), testutil.U32(4))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(5)))
-		})
-		It("Should divide i64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "divide_i64", testutil.U64(100), testutil.U64(5))
-			Expect(testutil.AsU64(res[0])).To(Equal(uint64(20)))
-		})
-		It("Should divide f32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "divide_f32", testutil.F32(10.0), testutil.F32(4.0))
-			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 2.5, 0.001))
-		})
-		It("Should mod u8 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "mod_u8", testutil.U32(10), testutil.U32(3))
-			Expect(testutil.AsU32(res[0])).To(Equal(uint32(1)))
-		})
-		It("Should mod i64 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "mod_i64", testutil.U64(10), testutil.U64(3))
-			Expect(testutil.AsU64(res[0])).To(Equal(uint64(1)))
-		})
-		It("Should mod f32 values", func(ctx SpecContext) {
-			res := rt.Call(ctx, "math", "mod_f32", testutil.F32(10.5), testutil.F32(3.0))
-			Expect(testutil.AsF32(res[0])).To(BeNumerically("~", 1.5, 0.001))
 		})
 		It("Should negate i8 values", func(ctx SpecContext) {
 			var negThree int32 = -3
@@ -536,25 +436,158 @@ var _ = Describe("Arithmetic", func() {
 		Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
-		Entry("Float32 Add", "add", telem.NewSeriesV[float32](1.5, 2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](0.5, 1.5, 2.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 4.0, 6.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 Add", "add", telem.NewSeriesV[float64](10.5, 20.5, 30.5), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](5.5, 10.5, 15.5), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](16.0, 31.0, 46.0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Int64 Add", "add", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](50, 75, 100), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](150, 275, 400), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint32 Add", "add", telem.NewSeriesV[uint32](10, 20, 30), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint32](5, 10, 15), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[uint32](15, 30, 45), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Float32 Subtract", "subtract", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](3.0, 5.0, 7.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](7.0, 15.0, 23.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int32 Subtract", "subtract", telem.NewSeriesV[int32](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](25, 50, 75), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int32](75, 150, 225), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint16 Subtract", "subtract", telem.NewSeriesV[uint16](500, 400, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](100, 150, 200), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint16](400, 250, 100), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 Multiply", "multiply", telem.NewSeriesV[float64](2.5, 3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](2.0, 3.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](5.0, 9.0, 20.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 Multiply", "multiply", telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](2, 3, 4), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](20, 60, 120), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint8 Multiply", "multiply", telem.NewSeriesV[uint8](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](2, 3, 4), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint8](10, 30, 60), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float32 Divide", "divide", telem.NewSeriesV[float32](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.0, 4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](5.0, 5.0, 6.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 Divide", "divide", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 20, 30), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 10, 10), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint32 Divide", "divide", telem.NewSeriesV[uint32](100, 250, 500), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 25, 50), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](10, 10, 10), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int32 Mod", "mod", telem.NewSeriesV[int32](10, 15, 23), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int32](3, 4, 5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int32](1, 3, 3), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 Mod", "mod", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](30, 70, 80), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](10, 60, 60), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Uint32 Mod", "mod", telem.NewSeriesV[uint32](17, 25, 100), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](5, 7, 30), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint32](2, 4, 10), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint64 Mod", "mod", telem.NewSeriesV[uint64](1000, 2000, 3000), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint64](300, 700, 800), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[uint64](100, 600, 600), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 Mod", "mod", telem.NewSeriesV[float64](10.5, 20.5, 30.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](3.0, 6.0, 7.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](1.5, 2.5, 2.5), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float32 Mod", "mod", telem.NewSeriesV[float32](7.5, 15.0, 22.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](2.5, 4.0, 5.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](0.0, 3.0, 2.5), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float32 Add", "add",
+			telem.NewSeriesV[float32](1.5, 2.5, 3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](0.5, 1.5, 2.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](2.0, 4.0, 6.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float64 Add", "add",
+			telem.NewSeriesV[float64](10.5, 20.5, 30.5),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[float64](5.5, 10.5, 15.5),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[float64](16.0, 31.0, 46.0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Int64 Add", "add",
+			telem.NewSeriesV[int64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int64](50, 75, 100),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int64](150, 275, 400),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Uint32 Add", "add",
+			telem.NewSeriesV[uint32](10, 20, 30),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint32](5, 10, 15),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[uint32](15, 30, 45),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+		),
+		Entry("Float32 Subtract", "subtract",
+			telem.NewSeriesV[float32](10.0, 20.0, 30.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](3.0, 5.0, 7.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](7.0, 15.0, 23.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int32 Subtract", "subtract",
+			telem.NewSeriesV[int32](100, 200, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int32](25, 50, 75),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int32](75, 150, 225),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Uint16 Subtract", "subtract",
+			telem.NewSeriesV[uint16](500, 400, 300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint16](100, 150, 200),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint16](400, 250, 100),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float64 Multiply", "multiply",
+			telem.NewSeriesV[float64](2.5, 3.0, 4.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](2.0, 3.0, 5.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](5.0, 9.0, 20.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int64 Multiply", "multiply",
+			telem.NewSeriesV[int64](10, 20, 30),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](2, 3, 4),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](20, 60, 120),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Uint8 Multiply", "multiply",
+			telem.NewSeriesV[uint8](5, 10, 15),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](2, 3, 4),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint8](10, 30, 60),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float32 Divide", "divide",
+			telem.NewSeriesV[float32](10.0, 20.0, 30.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](2.0, 4.0, 5.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](5.0, 5.0, 6.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int64 Divide", "divide",
+			telem.NewSeriesV[int64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](10, 20, 30),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](10, 10, 10),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Uint32 Divide", "divide",
+			telem.NewSeriesV[uint32](100, 250, 500),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](10, 25, 50),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](10, 10, 10),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int32 Mod", "mod",
+			telem.NewSeriesV[int32](10, 15, 23),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int32](3, 4, 5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int32](1, 3, 3),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int64 Mod", "mod",
+			telem.NewSeriesV[int64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](30, 70, 80),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](10, 60, 60),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Uint32 Mod", "mod",
+			telem.NewSeriesV[uint32](17, 25, 100),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](5, 7, 30),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint32](2, 4, 10),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Uint64 Mod", "mod",
+			telem.NewSeriesV[uint64](1000, 2000, 3000),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint64](300, 700, 800),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[uint64](100, 600, 600),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float64 Mod", "mod",
+			telem.NewSeriesV[float64](10.5, 20.5, 30.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](3.0, 6.0, 7.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](1.5, 2.5, 2.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float32 Mod", "mod",
+			telem.NewSeriesV[float32](7.5, 15.0, 22.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](2.5, 4.0, 5.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](0.0, 3.0, 2.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
 	)
 	DescribeTable("Unary Outputs", func(
 		ctx SpecContext, t string, input, inputTime, output, outputTime telem.Series) {
@@ -576,19 +609,84 @@ var _ = Describe("Arithmetic", func() {
 		Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
-		Entry("Float64 NEG - positive", "neg", telem.NewSeriesV[float64](1.5, 2.5, 3.5), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](-1.5, -2.5, -3.5), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Float64 NEG - negative", "neg", telem.NewSeriesV[float64](-10.0, -20.0, -30.0), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[float64](10.0, 20.0, 30.0), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Float64 NEG - mixed", "neg", telem.NewSeriesV[float64](-1.0, 2.0, -3.0, 4.0), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[float64](1.0, -2.0, 3.0, -4.0), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
-		Entry("Float32 NEG - positive", "neg", telem.NewSeriesV[float32](5.0, 10.0, 15.0), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float32](-5.0, -10.0, -15.0), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 NEG - positive", "neg", telem.NewSeriesV[int64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](-100, -200, -300), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int64 NEG - negative", "neg", telem.NewSeriesV[int64](-50, -75, -100), telem.NewSeriesSecondsTSV(5, 10, 15), telem.NewSeriesV[int64](50, 75, 100), telem.NewSeriesSecondsTSV(5, 10, 15)),
-		Entry("Int32 NEG - mixed", "neg", telem.NewSeriesV[int32](10, -20, 30, -40), telem.NewSeriesSecondsTSV(1, 2, 3, 4), telem.NewSeriesV[int32](-10, 20, -30, 40), telem.NewSeriesSecondsTSV(1, 2, 3, 4)),
-		Entry("Int16 NEG - positive", "neg", telem.NewSeriesV[int16](5, 10, 15), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](-5, -10, -15), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Int8 NEG - negative", "neg", telem.NewSeriesV[int8](-1, -2, -3), telem.NewSeriesSecondsTSV(10, 20, 30), telem.NewSeriesV[int8](1, 2, 3), telem.NewSeriesSecondsTSV(10, 20, 30)),
-		Entry("Uint8 NEG - promotes to int16", "neg", telem.NewSeriesV[uint8](5, 10, 255), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int16](-5, -10, -255), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint16 NEG - promotes to int32", "neg", telem.NewSeriesV[uint16](100, 500, 65535), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int32](-100, -500, -65535), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint32 NEG - promotes to int64", "neg", telem.NewSeriesV[uint32](1000, 50000, 4294967295), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[int64](-1000, -50000, -4294967295), telem.NewSeriesSecondsTSV(1, 2, 3)),
-		Entry("Uint64 NEG - promotes to float64", "neg", telem.NewSeriesV[uint64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3), telem.NewSeriesV[float64](-100, -200, -300), telem.NewSeriesSecondsTSV(1, 2, 3)),
+		Entry("Float64 NEG - positive", "neg",
+			telem.NewSeriesV[float64](1.5, 2.5, 3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](-1.5, -2.5, -3.5),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Float64 NEG - negative", "neg",
+			telem.NewSeriesV[float64](-10.0, -20.0, -30.0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[float64](10.0, 20.0, 30.0),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Float64 NEG - mixed", "neg",
+			telem.NewSeriesV[float64](-1.0, 2.0, -3.0, 4.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[float64](1.0, -2.0, 3.0, -4.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+		),
+		Entry("Float32 NEG - positive", "neg",
+			telem.NewSeriesV[float32](5.0, 10.0, 15.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float32](-5.0, -10.0, -15.0),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int64 NEG - positive", "neg",
+			telem.NewSeriesV[int64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int64](-100, -200, -300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int64 NEG - negative", "neg",
+			telem.NewSeriesV[int64](-50, -75, -100),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+			telem.NewSeriesV[int64](50, 75, 100),
+			telem.NewSeriesSecondsTSV(5, 10, 15),
+		),
+		Entry("Int32 NEG - mixed", "neg",
+			telem.NewSeriesV[int32](10, -20, 30, -40),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+			telem.NewSeriesV[int32](-10, 20, -30, 40),
+			telem.NewSeriesSecondsTSV(1, 2, 3, 4),
+		),
+		Entry("Int16 NEG - positive", "neg",
+			telem.NewSeriesV[int16](5, 10, 15),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int16](-5, -10, -15),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Int8 NEG - negative", "neg",
+			telem.NewSeriesV[int8](-1, -2, -3),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+			telem.NewSeriesV[int8](1, 2, 3),
+			telem.NewSeriesSecondsTSV(10, 20, 30),
+		),
+		Entry("Uint8 NEG - promotes to int16", "neg",
+			telem.NewSeriesV[uint8](5, 10, 255),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int16](-5, -10, -255),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Uint16 NEG - promotes to int32", "neg",
+			telem.NewSeriesV[uint16](100, 500, 65535),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int32](-100, -500, -65535),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Uint32 NEG - promotes to int64", "neg",
+			telem.NewSeriesV[uint32](1000, 50000, 4294967295),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[int64](-1000, -50000, -4294967295),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
+		Entry("Uint64 NEG - promotes to float64", "neg",
+			telem.NewSeriesV[uint64](100, 200, 300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+			telem.NewSeriesV[float64](-100, -200, -300),
+			telem.NewSeriesSecondsTSV(1, 2, 3),
+		),
 	)
 	Describe("Edge Cases", func() {
 		It("Should handle mismatched series lengths", func(ctx SpecContext) {

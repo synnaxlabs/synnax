@@ -38,7 +38,7 @@ var _ = Describe("ExecContext", func() {
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
 		_, err := expression.Compile(context.Child(ctx, expr))
-		Expect(err).To(MatchError(ContainSubstring("only available in flow statements")))
+		Expect(err).To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 
 	It("Should allow a WASM function in a func block", func(bCtx SpecContext) {

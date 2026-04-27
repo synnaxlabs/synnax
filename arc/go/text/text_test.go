@@ -2428,7 +2428,7 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.String()).To(ContainSubstring("only available in func blocks"))
+			Expect(diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
 		})
 
 		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {
@@ -2512,7 +2512,7 @@ var _ = Describe("Text", func() {
 			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 			Expect(diagnostics.Ok()).To(BeFalse())
-			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("only available in flow statements"))
+			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("cannot be called inside a func block"))
 		})
 	})
 })

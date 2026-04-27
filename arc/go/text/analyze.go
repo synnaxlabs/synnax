@@ -276,8 +276,8 @@ func analyzeFunctionNode(
 	if sym.Exec == symbol.ExecWASM {
 		ctx.Diagnostics.Add(diagnostics.Errorf(
 			ctx.AST,
-			"function '%s' is only available in func blocks, not in flow statements",
-			name,
+			"function '%s' cannot be used as a flow statement. Call it inside a func block instead: %s()",
+			name, name,
 		))
 		return nodeResult{}, false
 	}

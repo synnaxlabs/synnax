@@ -62,11 +62,11 @@ type ExecContext int
 
 const (
 	// ExecWASM marks a symbol as only usable in func blocks (WASM compilation).
-	ExecWASM ExecContext = iota + 1
+	ExecWASM ExecContext = 1 << iota
 	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
 	ExecFlow
 	// ExecBoth marks a symbol as usable in both contexts.
-	ExecBoth
+	ExecBoth = ExecWASM | ExecFlow
 )
 
 // Compatible reports whether a symbol with exec context e is visible in a
@@ -74,15 +74,12 @@ const (
 // visible. An unset filter (target == 0) shows all tagged symbols.
 func (e ExecContext) Compatible(target ExecContext) bool {
 	if e == 0 {
-		return false // untagged symbol is never visible
+		return false
 	}
 	if target == 0 {
-		return true // no filter active = show everything tagged
-	}
-	if e == ExecBoth || target == ExecBoth {
 		return true
 	}
-	return e == target
+	return e&target != 0
 }
 
 // Kind categorizes symbols by their role in the Arc program.

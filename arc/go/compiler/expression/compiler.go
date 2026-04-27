@@ -153,8 +153,8 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 			if err == nil && scope.Kind == symbol.KindFunction {
 				if scope.Exec == symbol.ExecFlow {
 					return types.Type{}, errors.Newf(
-						"function '%s' is only available in flow statements, not in func blocks",
-						funcName,
+						"function '%s' cannot be called inside a func block. Use it as a flow statement instead: %s{}",
+						funcName, funcName,
 					)
 				}
 				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
@@ -475,8 +475,13 @@ func compileBuiltinNow(
 		return types.Type{}, errors.Newf("now() accepts 0 or 1 arguments, got %d", len(args))
 	}
 	if len(args) == 1 {
-		if _, err := Compile(context.Child(ctx, args[0])); err != nil {
+		argType, err := Compile(context.Child(ctx, args[0]))
+		if err != nil {
 			return types.Type{}, errors.Wrap(err, "argument 1 of now")
+		}
+		if argType.Kind != types.KindI64 {
+			return types.Type{}, errors.Newf(
+				"argument 1 of now: expected TimeSpan (i64), got %s", argType)
 		}
 	} else {
 		ctx.Writer.WriteI64Const(0)

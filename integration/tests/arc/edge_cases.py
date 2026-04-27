@@ -259,12 +259,12 @@ EXEC_CONTEXT_CASES = [
     ExecContextCase(
         "FlowInFunc",
         ARC_FLOW_IN_FUNC,
-        "only available in flow statements",
+        "cannot be called inside a func block",
     ),
     ExecContextCase(
         "WasmInFlow",
         ARC_WASM_IN_FLOW,
-        "only available in func blocks",
+        "cannot be used as a flow statement",
     ),
 ]
 
