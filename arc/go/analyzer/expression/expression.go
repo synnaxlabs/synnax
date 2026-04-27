@@ -397,8 +397,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 				))
 				return
 			}
-			if funcName != "now" && funcName != "time.now" &&
-				funcName != "len" && funcName != "series.len" {
+			if funcName != "len" && funcName != "series.len" {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
 			if callerFn != nil {
