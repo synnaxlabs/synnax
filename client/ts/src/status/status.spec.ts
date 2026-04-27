@@ -161,12 +161,13 @@ describe("Status", () => {
         time: TimeStamp.now(),
       });
 
-      const results = await client.statuses.retrieve({
-        searchTerm: uniqueName,
-      });
-
-      expect(results.length).toBeGreaterThanOrEqual(1);
-      expect(results.some((s) => s.name === uniqueName)).toBe(true);
+      await expect
+        .poll(async () =>
+          (await client.statuses.retrieve({ searchTerm: uniqueName })).some(
+            (s) => s.name === uniqueName,
+          ),
+        )
+        .toBe(true);
     });
 
     it("should paginate results", async () => {

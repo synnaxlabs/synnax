@@ -15,14 +15,16 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium/internal/channel"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Garbage Collection", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
 				dataDB   *unary.DB
@@ -31,16 +33,14 @@ var _ = Describe("Garbage Collection", func() {
 				indexFS  fs.FS
 				dataKey  channel.Key = 2
 				indexKey channel.Key = 3
-				cleanUp  func() error
 			)
 			Describe("Garbage collection without threshold", func() {
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs, cleanUp = makeFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Chin",
 							Key:      indexKey,
@@ -55,7 +55,7 @@ var _ = Describe("Garbage Collection", func() {
 					dataFS = MustSucceed(fs.Sub("data"))
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Renan",
 							Key:      dataKey,
@@ -71,7 +71,6 @@ var _ = Describe("Garbage Collection", func() {
 				AfterEach(func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				It("Should correctly delete and re-read data from the channel", func(ctx SpecContext) {
@@ -120,12 +119,11 @@ var _ = Describe("Garbage Collection", func() {
 
 			Describe("GC with threshold and many files", func() {
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs, cleanUp = makeFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Wilkes",
 							Key:      indexKey,
@@ -139,7 +137,7 @@ var _ = Describe("Garbage Collection", func() {
 					dataFS = MustSucceed(fs.Sub("data"))
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Lincoln",
 							Key:      dataKey,
@@ -155,7 +153,6 @@ var _ = Describe("Garbage Collection", func() {
 				AfterEach(func() {
 					Expect(indexDB.Close()).To(Succeed())
 					Expect(dataDB.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				Specify("Only some files GC", func(ctx SpecContext) {
