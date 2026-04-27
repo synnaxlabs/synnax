@@ -390,12 +390,12 @@ var _ = Describe("Text", func() {
 
 			It("Should handle negated time unit config value", func(ctx SpecContext) {
 				source := `
-				time_trigger -> time.now{offset=-3h} -> ts_out
+				time_trigger -> time.wait{duration=-3h} -> wait_out
 				`
 				resolver := symbol.CompoundResolver{
 					symbol.MapResolver{
 						"time_trigger": {Name: "time_trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
-						"ts_out":       {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
+						"wait_out":     {Name: "wait_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10043},
 					},
 					stl.SymbolResolver,
 				}
@@ -403,12 +403,12 @@ var _ = Describe("Text", func() {
 				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
-				nowNode := findNodeByType(inter.Nodes, "time.now")
-				Expect(nowNode).ToNot(BeNil())
-				Expect(nowNode.Config).To(HaveLen(1))
-				Expect(nowNode.Config[0].Name).To(Equal("offset"))
+				waitNode := findNodeByType(inter.Nodes, "time.wait")
+				Expect(waitNode).ToNot(BeNil())
+				Expect(waitNode.Config).To(HaveLen(1))
+				Expect(waitNode.Config[0].Name).To(Equal("duration"))
 				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
-				Expect(nowNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
+				Expect(waitNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
 			})
 
 			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {

@@ -30,7 +30,6 @@ const (
 	nowSymbolName       = "now"
 	periodConfigParam   = "period"
 	durationConfigParam = "duration"
-	offsetConfigParam   = "offset"
 )
 
 // MinTolerance is the minimum tolerance for timing comparisons,
@@ -64,7 +63,6 @@ var baseSymbolResolver = symbol.MapResolver{
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
-			Config:  types.Params{{Name: offsetConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpan(0)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
 	},
@@ -88,8 +86,8 @@ func NewModule(
 	mod := &Module{BaseInterval: unsetBaseInterval}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, offset uint64) uint64 {
-			return uint64(mod.clock.Now()) + offset
+		WithFunc(func(_ context.Context) uint64 {
+			return uint64(mod.clock.Now())
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -138,15 +136,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case nowSymbolName:
-		var offset telem.TimeSpan
-		if offsetParam, ok := cfg.Node.Config.Get(offsetConfigParam); ok {
-			parsed, err := parseTime(offsetParam.Value, offsetParam.Name)
-			if err != nil {
-				return nil, err
-			}
-			offset = parsed
-		}
-		return &Now{State: cfg.State, offset: offset}, nil
+		return &Now{State: cfg.State}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -273,16 +263,15 @@ func (w *Wait) Reset() {
 	w.fired = false
 }
 
-// Now outputs the current wall-clock timestamp (plus an optional offset) when triggered.
+// Now outputs the current wall-clock timestamp when triggered.
 type Now struct {
 	*node.State
-	offset telem.TimeSpan
 }
 
 func (n *Now) Init(_ node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
-	ts := telem.Now() + telem.TimeStamp(n.offset)
+	ts := telem.Now()
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
 	output.Resize(1)

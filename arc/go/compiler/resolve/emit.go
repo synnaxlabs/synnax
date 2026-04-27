@@ -301,10 +301,9 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 	r.EmitCall(w, wID, "string.len", ct)
 }
 
-// EmitNow emits a call to time.now with a TimeSpan offset parameter.
+// EmitNow emits a call to time.now.
 func (r *Resolver) EmitNow(w *wasm.Writer, wID int) {
 	ct := types.Function(types.FunctionProperties{
-		Inputs:  types.Params{{Type: types.TimeSpan()}},
 		Outputs: types.Params{{Type: types.TimeStamp()}},
 	})
 	r.EmitCall(w, wID, "time.now", ct)

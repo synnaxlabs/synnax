@@ -1083,8 +1083,8 @@ struct NowTestSetup {
     ir::IR ir;
     runtime::state::State state;
 
-    explicit NowTestSetup(const int64_t offset_ns = 0):
-        ir(build_ir(offset_ns)),
+    NowTestSetup():
+        ir(build_ir()),
         state(
             runtime::state::Config{.ir = ir, .channels = {}},
             runtime::errors::noop_handler
@@ -1093,7 +1093,7 @@ struct NowTestSetup {
     runtime::state::Node make_node() { return ASSERT_NIL_P(state.node("now_node")); }
 
 private:
-    static ir::IR build_ir(const int64_t offset_ns) {
+    static ir::IR build_ir() {
         arc::types::Param output_param;
         output_param.name = "output";
         output_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
@@ -1102,14 +1102,6 @@ private:
         ir_node.key = "now_node";
         ir_node.type = "now";
         ir_node.outputs.push_back(output_param);
-
-        if (offset_ns != 0) {
-            arc::types::Param cfg_param;
-            cfg_param.name = "offset";
-            cfg_param.type = arc::types::Type{.kind = arc::types::Kind::I64};
-            cfg_param.value = offset_ns;
-            ir_node.config.push_back(cfg_param);
-        }
 
         ir::Function fn;
         fn.key = "test";
@@ -1120,23 +1112,6 @@ private:
         return ir;
     }
 };
-
-TEST(NowConfigTest, DefaultOffsetIsZero) {
-    types::Params params;
-    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(params));
-    EXPECT_EQ(cfg.offset, x::telem::TimeSpan(0));
-}
-
-TEST(NowConfigTest, ParsesOffsetFromParams) {
-    types::Param offset_param;
-    offset_param.name = "offset";
-    offset_param.type = types::Type{.kind = types::Kind::I64};
-    offset_param.value = x::telem::SECOND.nanoseconds();
-    types::Params params;
-    params.push_back(offset_param);
-    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(params));
-    EXPECT_EQ(cfg.offset, x::telem::SECOND);
-}
 
 /// @brief Now node outputs a valid wall-clock timestamp.
 TEST(NowTest, OutputsWallClockTimestamp) {
@@ -1226,58 +1201,6 @@ TEST(NowTest, IsOutputTruthyFalseForUnknownParam) {
     const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
     time::Now node(cfg, setup.make_node());
     EXPECT_FALSE(node.is_output_truthy(999));
-}
-
-/// @brief Now node with positive offset adds to wall-clock timestamp.
-TEST(NowTest, PositiveOffsetAddsToTimestamp) {
-    NowTestSetup setup(x::telem::SECOND.nanoseconds());
-    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
-    time::Now node(cfg, setup.make_node());
-
-    const auto before = x::telem::TimeStamp::now().nanoseconds() +
-                        x::telem::SECOND.nanoseconds();
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx));
-    const auto after = x::telem::TimeStamp::now().nanoseconds() +
-                       x::telem::SECOND.nanoseconds();
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 1);
-    const auto ts = output->at<int64_t>(0);
-    EXPECT_GE(ts, before);
-    EXPECT_LE(ts, after);
-}
-
-/// @brief Now node with negative offset subtracts from wall-clock timestamp.
-TEST(NowTest, NegativeOffsetSubtractsFromTimestamp) {
-    NowTestSetup setup(-x::telem::SECOND.nanoseconds());
-    const auto cfg = ASSERT_NIL_P(time::NowConfig::create(setup.ir.nodes[0].config));
-    time::Now node(cfg, setup.make_node());
-
-    const auto before = x::telem::TimeStamp::now().nanoseconds() -
-                        x::telem::SECOND.nanoseconds();
-    auto ctx = make_context(x::telem::TimeSpan(0));
-    ASSERT_NIL(node.next(ctx));
-    const auto after = x::telem::TimeStamp::now().nanoseconds() -
-                       x::telem::SECOND.nanoseconds();
-
-    auto checker = setup.make_node();
-    const auto &output = checker.output(0);
-    EXPECT_EQ(output->size(), 1);
-    const auto ts = output->at<int64_t>(0);
-    EXPECT_GE(ts, before);
-    EXPECT_LE(ts, after);
-}
-
-/// @brief Module creates Now node from factory with offset config.
-TEST(TimeModuleTest, CreatesNowNodeWithOffset) {
-    NowTestSetup setup(x::telem::SECOND.nanoseconds());
-    WasmModule factory;
-    const auto node = ASSERT_NIL_P(factory.create(
-        runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
-    ));
-    ASSERT_NE(node, nullptr);
 }
 
 /// @brief Now node does not affect base_interval.

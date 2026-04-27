@@ -471,20 +471,8 @@ func compileBuiltinNow(
 	if argList := funcCall.ArgumentList(); argList != nil {
 		args = argList.AllExpression()
 	}
-	if len(args) > 1 {
-		return types.Type{}, errors.Newf("now() accepts 0 or 1 arguments, got %d", len(args))
-	}
-	if len(args) == 1 {
-		argType, err := Compile(context.Child(ctx, args[0]))
-		if err != nil {
-			return types.Type{}, errors.Wrap(err, "argument 1 of now")
-		}
-		if argType.Kind != types.KindI64 {
-			return types.Type{}, errors.Newf(
-				"argument 1 of now: expected TimeSpan (i64), got %s", argType)
-		}
-	} else {
-		ctx.Writer.WriteI64Const(0)
+	if len(args) > 0 {
+		return types.Type{}, errors.Newf("now() accepts no arguments, got %d", len(args))
 	}
 	ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID)
 	return types.TimeStamp(), nil

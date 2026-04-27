@@ -22,12 +22,6 @@ time_trigger -> write_now{}
 // time.now{} as a flow node: triggered by any upstream, outputs timestamp.
 time_now_flow_trigger -> time.now{} -> time_now_flow_out
 
-// time.now{offset=1s}: flow node with 1-second positive offset.
-time_now_offset_trigger -> time.now{offset=1s} -> time_now_offset_out
-
-// time.now{offset=-3h}: flow node with negative 3-hour offset.
-time_now_neg_offset_trigger -> time.now{offset=-3h} -> time_now_neg_offset_out
-
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
 // We use time.interval{} (qualified syntax) to verify module syntax works.
@@ -96,8 +90,6 @@ class StlTime(ArcConsoleCase):
     subscribe_channels = [
         "time_now_out",
         "time_now_flow_out",
-        "time_now_offset_out",
-        "time_now_neg_offset_out",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -111,18 +103,6 @@ class StlTime(ArcConsoleCase):
             self.client, "time_now_flow_trigger", sy.DataType.FLOAT64
         )
         create_virtual_channel(self.client, "time_now_flow_out", sy.DataType.TIMESTAMP)
-        create_virtual_channel(
-            self.client, "time_now_offset_trigger", sy.DataType.FLOAT64
-        )
-        create_virtual_channel(
-            self.client, "time_now_offset_out", sy.DataType.TIMESTAMP
-        )
-        create_virtual_channel(
-            self.client, "time_now_neg_offset_trigger", sy.DataType.FLOAT64
-        )
-        create_virtual_channel(
-            self.client, "time_now_neg_offset_out", sy.DataType.TIMESTAMP
-        )
         create_virtual_channel(self.client, "interval_count", sy.DataType.INT64)
         create_virtual_channel(self.client, "interval_count_mod", sy.DataType.INT64)
         create_virtual_channel(self.client, "start_wait_cmd", sy.DataType.UINT8)
@@ -152,49 +132,6 @@ class StlTime(ArcConsoleCase):
         )
         if drift > max_drift:
             self.fail(f"time.now{{}} drift {drift / 1e6:.1f}ms exceeds 500ms tolerance")
-
-    def _test_now_pos_offset(self) -> None:
-        self.log("=== time.now{offset=1s} [Flow] ===")
-        self.writer.write("time_now_offset_trigger", 1.0)
-        self.wait_for_gt("time_now_offset_out", 0, is_virtual=True)
-        ts = self.read_tlm("time_now_offset_out", 0)
-        now = int(sy.TimeStamp.now())
-        expected_min = (
-            now + int(sy.TimeSpan.SECOND) - 500 * int(sy.TimeSpan.MILLISECOND)
-        )
-        expected_max = (
-            now + int(sy.TimeSpan.SECOND) + 500 * int(sy.TimeSpan.MILLISECOND)
-        )
-        self.log(
-            f"time.now{{offset=1s}} returned {ts}, "
-            f"expected ~{now + int(sy.TimeSpan.SECOND)} (now + 1s)"
-        )
-        if ts < expected_min or ts > expected_max:
-            self.fail(
-                f"time.now{{offset=1s}} value {ts} not within 500ms of "
-                f"expected {now + int(sy.TimeSpan.SECOND)}"
-            )
-
-    def _test_now_neg_offset(self) -> None:
-        self.log("=== time.now{offset=-3h} [Flow] ===")
-        three_hours_ns = 3 * 60 * 60 * int(sy.TimeSpan.SECOND)
-        max_drift = 500 * int(sy.TimeSpan.MILLISECOND)
-        self.writer.write("time_now_neg_offset_trigger", 1.0)
-        self.wait_for_gt("time_now_neg_offset_out", 0, is_virtual=True)
-        ts = self.read_tlm("time_now_neg_offset_out", 0)
-        now = int(sy.TimeStamp.now())
-        expected = now - three_hours_ns
-        drift = abs(ts - expected)
-        self.log(
-            f"time.now{{offset=-3h}} returned {ts}, "
-            f"expected ~{expected} (now - 3h), "
-            f"drift {drift / 1e6:.1f}ms (max 500ms)"
-        )
-        if drift > max_drift:
-            self.fail(
-                f"time.now{{offset=-3h}} drift {drift / 1e6:.1f}ms exceeds "
-                f"500ms tolerance"
-            )
 
     def _check_interval_rate(self, channel: str, label: str) -> None:
         baseline = self.read_tlm(channel, 0)
@@ -258,7 +195,5 @@ class StlTime(ArcConsoleCase):
     def verify_sequence_execution(self) -> None:
         self._test_now()
         self._test_now_flow()
-        self._test_now_pos_offset()
-        self._test_now_neg_offset()
         self._test_interval_rate()
         self._test_wait_timing()

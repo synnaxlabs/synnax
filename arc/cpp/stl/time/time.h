@@ -173,35 +173,21 @@ public:
 };
 
 struct NowConfig {
-    x::telem::TimeSpan offset = x::telem::TimeSpan(0);
-
-    static std::pair<NowConfig, x::errors::Error> create(const types::Params &params) {
-        NowConfig cfg;
-        auto it = std::find_if(params.begin(), params.end(), [](const types::Param &p) {
-            return p.name == "offset";
-        });
-        if (it != params.end()) {
-            auto sv = types::to_sample_value(it->value, it->type);
-            if (sv.has_value())
-                cfg.offset = x::telem::TimeSpan(x::telem::cast<std::int64_t>(*sv));
-        }
-        return {cfg, x::errors::NIL};
+    static std::pair<NowConfig, x::errors::Error> create(const types::Params &) {
+        return {NowConfig{}, x::errors::NIL};
     }
 };
 
-/// @brief Outputs the current wall-clock timestamp (plus optional offset) when
-/// triggered.
+/// @brief Outputs the current wall-clock timestamp when triggered.
 class Now : public runtime::node::Node {
     runtime::state::Node state;
-    NowConfig cfg;
 
 public:
-    explicit Now(const NowConfig &cfg, runtime::state::Node &&state):
-        state(std::move(state)), cfg(cfg) {}
+    explicit Now(const NowConfig &, runtime::state::Node &&state):
+        state(std::move(state)) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto ts = x::telem::TimeStamp::now().nanoseconds() +
-                        this->cfg.offset.nanoseconds();
+        const auto ts = x::telem::TimeStamp::now().nanoseconds();
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -268,9 +254,7 @@ public:
             .func_wrap(
                 "time",
                 "now",
-                [this](int64_t offset) -> int64_t {
-                    return this->clock.now().nanoseconds() + offset;
-                }
+                [this]() -> int64_t { return this->clock.now().nanoseconds(); }
             )
             .unwrap();
     }
