@@ -1689,7 +1689,7 @@ TEST(RealNodeSchedulerTest, IntervalConditionalEdgeFires) {
     );
 
     // Create real Interval node using Factory
-    stl::time::Module time_factory;
+    stl::time::WasmModule time_factory;
     auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
@@ -1758,7 +1758,7 @@ TEST(RealNodeSchedulerTest, IntervalTruthyCheckBeforeFiring) {
         errors::noop_handler
     );
 
-    stl::time::Module time_factory;
+    stl::time::WasmModule time_factory;
     auto [interval_node, err] = time_factory.create(
         node::Config(
             interval_ir,
@@ -1859,7 +1859,7 @@ TEST(RealNodeSchedulerTest, WaitConditionalEdgeFiresAfterDuration) {
         errors::noop_handler
     );
 
-    stl::time::Module factory;
+    stl::time::WasmModule factory;
     auto [wait_node, err] = factory.create(
         node::Config(wait_ir, wait_ir.nodes[0], ASSERT_NIL_P(state.node("wait_0")))
     );

@@ -51,11 +51,11 @@ public:
     }
 };
 
-class Module : public stl::Module {
+class WasmModule : public stl::Module {
     std::shared_ptr<runtime::state::State> state;
 
 public:
-    explicit Module(std::shared_ptr<runtime::state::State> state):
+    explicit WasmModule(std::shared_ptr<runtime::state::State> state):
         state(std::move(state)) {}
 
     [[nodiscard]] std::string module_name() const override { return "authority"; }

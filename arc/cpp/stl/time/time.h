@@ -219,7 +219,7 @@ public:
     }
 };
 
-class Module : public stl::Module {
+class WasmModule : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
 
 public:

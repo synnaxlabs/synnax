@@ -82,13 +82,13 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
     const std::shared_ptr<stl::stateful::Variables> &var_st
 ) {
     return {
-        std::make_shared<stl::channel::Module>(channel_st, str_st),
-        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
-        std::make_shared<stl::series::Module>(series_st),
-        std::make_shared<stl::str::Module>(str_st),
-        std::make_shared<stl::math::Module>(),
-        std::make_shared<stl::time::Module>(),
-        std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
+        std::make_shared<stl::channel::WasmModule>(channel_st, str_st),
+        std::make_shared<stl::stateful::WasmModule>(var_st, series_st, str_st),
+        std::make_shared<stl::series::WasmModule>(series_st),
+        std::make_shared<stl::str::WasmModule>(str_st),
+        std::make_shared<stl::math::WasmModule>(),
+        std::make_shared<stl::time::WasmModule>(),
+        std::make_shared<stl::error::WasmModule>(arc::runtime::errors::noop_handler),
     };
 }
 

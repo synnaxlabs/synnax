@@ -78,7 +78,7 @@ TEST(SetAuthorityModuleTest, ReturnsErrorForNullAuthorityValue) {
     for (auto &p: ir_node.config)
         if (p.name == "value") p.value = nullptr;
 
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     ASSERT_OCCURRED_AS_P(
         module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::VALIDATION
@@ -90,7 +90,7 @@ TEST(SetAuthorityModuleTest, CreatesNodeWithQualifiedMemberName) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "set";
 
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
     );
@@ -102,7 +102,7 @@ TEST(SetAuthorityModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "authority.set";
 
-    auto module = std::make_shared<authority::Module>(setup.state);
+    auto module = std::make_shared<authority::WasmModule>(setup.state);
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_node()))
@@ -115,7 +115,7 @@ TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_set_authority";
 
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     ASSERT_OCCURRED_AS_P(
         module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -124,7 +124,7 @@ TEST(SetAuthorityModuleTest, ReturnsNotFoundForWrongType) {
 
 TEST(SetAuthorityModuleTest, CreatesNode) {
     TestSetup setup(100, 42);
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -133,7 +133,7 @@ TEST(SetAuthorityModuleTest, CreatesNode) {
 
 TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
     TestSetup setup(200, 42);
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -150,7 +150,7 @@ TEST(SetAuthorityTest, NextBuffersChannelAuthorityChange) {
 
 TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
     TestSetup setup(150, 0);
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -166,7 +166,7 @@ TEST(SetAuthorityTest, NextBuffersGlobalAuthorityChange) {
 
 TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
     TestSetup setup(200, 42);
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));
@@ -182,7 +182,7 @@ TEST(SetAuthorityTest, NextFiresOnceBeforeReset) {
 
 TEST(SetAuthorityTest, ResetAllowsRefire) {
     TestSetup setup(200, 42);
-    authority::Module module(setup.state);
+    authority::WasmModule module(setup.state);
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));

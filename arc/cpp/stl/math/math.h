@@ -37,7 +37,7 @@ T int_pow(T base, T exp) {
     return result;
 }
 
-class Module : public stl::Module {
+class WasmModule : public stl::Module {
 public:
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         bind_float<float>(linker, "f32");

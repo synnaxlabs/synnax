@@ -61,7 +61,7 @@ public:
     }
 };
 
-class Module : public stl::Module {
+class WasmModule : public stl::Module {
 public:
     bool handles(const std::string &node_type) const override {
         return node_type == "constant";
