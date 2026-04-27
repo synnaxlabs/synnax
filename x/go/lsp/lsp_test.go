@@ -100,6 +100,59 @@ var _ = Describe("LSP", func() {
 			Expect(result).To(HaveLen(1))
 			Expect(result[0].Range.Start.Line).To(Equal(uint32(0)))
 		})
+
+		It("Should propagate TagUnnecessary as DiagnosticTagUnnecessary", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Warningf(nil, "unused").WithTags(diagnostics.TagUnnecessary))
+			result := lsp.TranslateDiagnostics(d, cfg)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Tags).To(Equal([]protocol.DiagnosticTag{
+				protocol.DiagnosticTagUnnecessary,
+			}))
+		})
+
+		It("Should propagate TagDeprecated as DiagnosticTagDeprecated", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Warningf(nil, "deprecated").WithTags(diagnostics.TagDeprecated))
+			result := lsp.TranslateDiagnostics(d, cfg)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Tags).To(Equal([]protocol.DiagnosticTag{
+				protocol.DiagnosticTagDeprecated,
+			}))
+		})
+
+		It("Should propagate multiple tags preserving order", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Warningf(nil, "both").
+				WithTags(diagnostics.TagUnnecessary, diagnostics.TagDeprecated))
+			result := lsp.TranslateDiagnostics(d, cfg)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Tags).To(Equal([]protocol.DiagnosticTag{
+				protocol.DiagnosticTagUnnecessary,
+				protocol.DiagnosticTagDeprecated,
+			}))
+		})
+
+		It("Should leave Tags empty when no tags are attached", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Warningf(nil, "untagged"))
+			result := lsp.TranslateDiagnostics(d, cfg)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Tags).To(BeEmpty())
+		})
+
+		It("Should drop unknown tag values rather than emitting zero-valued protocol tags", func() {
+			var d diagnostics.Diagnostics
+			d.Add(diagnostics.Diagnostic{
+				Start:    diagnostics.Position{Line: 1, Col: 0},
+				Severity: diagnostics.SeverityWarning,
+				Message:  "unknown tag",
+				Tags:     []diagnostics.Tag{diagnostics.Tag(99)},
+			})
+			result := lsp.TranslateDiagnostics(d, cfg)
+			Expect(result).To(HaveLen(1))
+			Expect(result[0].Tags).To(BeEmpty())
+		})
 	})
 
 	Describe("ConvertToSemanticTokenTypes", func() {

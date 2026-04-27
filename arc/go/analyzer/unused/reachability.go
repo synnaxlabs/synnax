@@ -81,52 +81,128 @@ func collectReachabilityEdges(
 			})
 			continue
 		}
-		seqDecl := item.SequenceDeclaration()
-		if seqDecl == nil {
-			continue
-		}
-		seqScope, err := ctx.Scope.GetChildByParserRule(seqDecl)
-		if err != nil {
-			continue
-		}
-		stages := seqDecl.AllStageDeclaration()
-		stageScopes := make([]*symbol.Scope, len(stages))
-		for i, stageDecl := range stages {
-			if stageScope, err := seqScope.GetChildByParserRule(stageDecl); err == nil {
-				stageScopes[i] = stageScope
-			}
-		}
-		if len(stageScopes) > 0 && stageScopes[0] != nil {
-			addEdge(seqScope, stageScopes[0])
-		}
-		for i, stageDecl := range stages {
-			stageScope := stageScopes[i]
-			if stageScope == nil {
+		if seqDecl := item.SequenceDeclaration(); seqDecl != nil {
+			seqScope, err := ctx.Scope.GetChildByParserRule(seqDecl)
+			if err != nil {
 				continue
 			}
-			var nextStage *symbol.Scope
-			if i+1 < len(stageScopes) {
-				nextStage = stageScopes[i+1]
-			}
-			body := stageDecl.StageBody()
-			if body == nil {
+			walkSequenceBody(ctx.Context, seqScope, seqDecl, addEdge)
+			continue
+		}
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			// Top-level stage declarations are registered as KindSequence
+			// (see sequence.collectTopLevelStage); their body executes when
+			// the wrapping pseudo-sequence is reached.
+			stageScope, err := ctx.Scope.GetChildByParserRule(stageDecl)
+			if err != nil {
 				continue
 			}
-			for _, stageItem := range body.AllStageItem() {
-				if flowStmt := stageItem.FlowStatement(); flowStmt != nil {
-					walkFlowOutputs(ctx.Context, seqScope, nextStage, flowStmt, func(target *symbol.Scope) {
-						addEdge(stageScope, target)
-					})
-				}
-				if single := stageItem.SingleInvocation(); single != nil {
-					if fn := single.Function(); fn != nil {
-						addEdge(stageScope, resolveCalledFunction(ctx.Context, seqScope, fn))
-					}
-				}
-			}
+			walkStageBody(ctx.Context, stageScope, stageScope, nil, stageDecl, addEdge)
 		}
 	}
 	return edges
+}
+
+// walkSequenceBody adds edges for every item in seqDecl's body. The first
+// stage in source order is the entry stage; flow statements and single
+// invocations declared directly in the sequence run when the sequence
+// activates; nested sequence declarations are members that activate with
+// their parent.
+func walkSequenceBody(
+	stdCtx stdcontext.Context,
+	seqScope *symbol.Scope,
+	seqDecl parser.ISequenceDeclarationContext,
+	addEdge func(src, dst *symbol.Scope),
+) {
+	items := seqDecl.AllSequenceItem()
+	stageScopes := make([]*symbol.Scope, len(items))
+	for i, item := range items {
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if scope, err := seqScope.GetChildByParserRule(stageDecl); err == nil {
+				stageScopes[i] = scope
+			}
+		}
+	}
+	for _, scope := range stageScopes {
+		if scope != nil {
+			addEdge(seqScope, scope)
+			break
+		}
+	}
+	for i, item := range items {
+		var nextStage *symbol.Scope
+		for j := i + 1; j < len(items); j++ {
+			if stageScopes[j] != nil {
+				nextStage = stageScopes[j]
+				break
+			}
+		}
+		if stageDecl := item.StageDeclaration(); stageDecl != nil {
+			if stageScope := stageScopes[i]; stageScope != nil {
+				walkStageBody(stdCtx, stageScope, seqScope, nextStage, stageDecl, addEdge)
+			}
+			continue
+		}
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			nestedScope, err := seqScope.GetChildByParserRule(nestedSeq)
+			if err != nil {
+				continue
+			}
+			addEdge(seqScope, nestedScope)
+			walkSequenceBody(stdCtx, nestedScope, nestedSeq, addEdge)
+			continue
+		}
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			walkFlowOutputs(stdCtx, seqScope, nextStage, flowStmt, func(target *symbol.Scope) {
+				addEdge(seqScope, target)
+			})
+			continue
+		}
+		if single := item.SingleInvocation(); single != nil {
+			if fn := single.Function(); fn != nil {
+				addEdge(seqScope, resolveCalledFunction(stdCtx, seqScope, fn))
+			}
+		}
+	}
+}
+
+// walkStageBody adds edges for every item in stageDecl's body. resolveScope
+// is the enclosing scope used to resolve identifiers in flow statements;
+// nextStage is the stage activated by `=> next`.
+func walkStageBody(
+	stdCtx stdcontext.Context,
+	stageScope *symbol.Scope,
+	resolveScope *symbol.Scope,
+	nextStage *symbol.Scope,
+	stageDecl parser.IStageDeclarationContext,
+	addEdge func(src, dst *symbol.Scope),
+) {
+	body := stageDecl.StageBody()
+	if body == nil {
+		return
+	}
+	for _, item := range body.AllStageItem() {
+		if flowStmt := item.FlowStatement(); flowStmt != nil {
+			walkFlowOutputs(stdCtx, resolveScope, nextStage, flowStmt, func(target *symbol.Scope) {
+				addEdge(stageScope, target)
+			})
+			continue
+		}
+		if single := item.SingleInvocation(); single != nil {
+			if fn := single.Function(); fn != nil {
+				addEdge(stageScope, resolveCalledFunction(stdCtx, resolveScope, fn))
+			}
+			continue
+		}
+		if nestedSeq := item.SequenceDeclaration(); nestedSeq != nil {
+			nestedScope, err := stageScope.GetChildByParserRule(nestedSeq)
+			if err != nil {
+				continue
+			}
+			addEdge(stageScope, nestedScope)
+			walkSequenceBody(stdCtx, nestedScope, nestedSeq, addEdge)
+		}
+	}
 }
 
 // walkFlowOutputs invokes addTarget for every scope that a flow statement
@@ -260,14 +336,16 @@ func emitReachabilityDiagnostics(
 				continue
 			}
 			ctx.Diagnostics.Add(diagnostics.
-				Warningf(child.AST, "uncalled function '%s'", child.Name).
+				Warningf(nameNode(child), "uncalled function '%s'", child.Name).
 				WithCode(codes.UncalledFunction).
+				WithTags(diagnostics.TagUnnecessary).
 				WithNote("prefix the name with an underscore to suppress this warning"))
 		case symbol.KindSequence:
 			if !reached.Contains(child) {
 				ctx.Diagnostics.Add(diagnostics.
-					Warningf(child.AST, "unstarted sequence '%s'", child.Name).
+					Warningf(nameNode(child), "unstarted sequence '%s'", child.Name).
 					WithCode(codes.UnstartedSequence).
+					WithTags(diagnostics.TagUnnecessary).
 					WithNote("prefix the name with an underscore to suppress this warning"))
 				continue
 			}
@@ -279,8 +357,9 @@ func emitReachabilityDiagnostics(
 					continue
 				}
 				ctx.Diagnostics.Add(diagnostics.
-					Warningf(stage.AST, "unreachable stage '%s'", stage.Name).
+					Warningf(nameNode(stage), "unreachable stage '%s'", stage.Name).
 					WithCode(codes.UnreachableStage).
+					WithTags(diagnostics.TagUnnecessary).
 					WithNote("prefix the name with an underscore to suppress this warning"))
 			}
 		}

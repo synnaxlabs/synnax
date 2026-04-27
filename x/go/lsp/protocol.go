@@ -40,6 +40,18 @@ func Severity(in diagnostics.Severity) protocol.DiagnosticSeverity {
 	}
 }
 
+// tag converts an internal Tag to an LSP protocol DiagnosticTag.
+func tag(in diagnostics.Tag) (protocol.DiagnosticTag, bool) {
+	switch in {
+	case diagnostics.TagUnnecessary:
+		return protocol.DiagnosticTagUnnecessary, true
+	case diagnostics.TagDeprecated:
+		return protocol.DiagnosticTagDeprecated, true
+	default:
+		return 0, false
+	}
+}
+
 // TranslateConfig configures how diagnostics are translated to LSP format.
 type TranslateConfig struct {
 	// Source is the name shown in the LSP client's diagnostic source field
@@ -82,6 +94,18 @@ func TranslateDiagnostics(
 
 		if diag.Code != "" {
 			pDiag.Code = string(diag.Code)
+		}
+
+		if len(diag.Tags) > 0 {
+			pTags := make([]protocol.DiagnosticTag, 0, len(diag.Tags))
+			for _, t := range diag.Tags {
+				if pt, ok := tag(t); ok {
+					pTags = append(pTags, pt)
+				}
+			}
+			if len(pTags) > 0 {
+				pDiag.Tags = pTags
+			}
 		}
 
 		if len(diag.Notes) > 0 {

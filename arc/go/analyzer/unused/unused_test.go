@@ -10,6 +10,8 @@
 package unused_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
@@ -590,3 +592,151 @@ var _ = Describe("Uncalled Function (ARC5102)", func() {
 		})
 	})
 })
+
+var _ = Describe("Unused Diagnostic Presentation", func() {
+	// nameRange computes the (line, start col, end col) where name first
+	// appears as a whole word in src, using the same 1-indexed line / 0-indexed
+	// column convention diagnostics use.
+	nameRange := func(src, name string) (line, startCol, endCol int) {
+		for i, raw := range strings.Split(src, "\n") {
+			col := strings.Index(raw, name)
+			if col < 0 {
+				continue
+			}
+			before := byte(' ')
+			if col > 0 {
+				before = raw[col-1]
+			}
+			after := byte(' ')
+			if col+len(name) < len(raw) {
+				after = raw[col+len(name)]
+			}
+			if isIdentChar(before) || isIdentChar(after) {
+				continue
+			}
+			return i + 1, col, col + len(name)
+		}
+		return 0, 0, 0
+	}
+
+	expectNarrowedToName := func(d diagnostics.Diagnostic, src, name string) {
+		line, start, end := nameRange(src, name)
+		ExpectWithOffset(1, line).ToNot(Equal(0), "name %q not found in source", name)
+		ExpectWithOffset(1, d.Start.Line).To(Equal(line))
+		ExpectWithOffset(1, d.Start.Col).To(Equal(start))
+		ExpectWithOffset(1, d.End.Line).To(Equal(line))
+		ExpectWithOffset(1, d.End.Col).To(Equal(end))
+	}
+
+	resolver := symbol.MapResolver{
+		"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+		"valve":   {Name: "valve", Kind: symbol.KindChannel, Type: types.Chan(types.U8())},
+	}
+
+	Describe("range narrowing", func() {
+		It("Should point unused-variable diagnostics at the variable name", func(bCtx SpecContext) {
+			src := `
+func test() i32 {
+	x := 42
+	return 0
+}
+`
+			diags := analyze(bCtx, src, nil)
+			warns := warningsWithCode(diags, codes.UnusedVariable)
+			Expect(warns).To(HaveLen(1), diags.String())
+			expectNarrowedToName(warns[0], src, "x")
+		})
+
+		It("Should point uncalled-function diagnostics at the function name", func(bCtx SpecContext) {
+			src := `
+func helper(x i32) i32 {
+	return x
+}
+`
+			diags := analyze(bCtx, src, nil)
+			warns := warningsWithCode(diags, codes.UncalledFunction)
+			Expect(warns).To(HaveLen(1), diags.String())
+			expectNarrowedToName(warns[0], src, "helper")
+		})
+
+		It("Should point unstarted-sequence diagnostics at the sequence name", func(bCtx SpecContext) {
+			src := `
+sequence orphan {
+	stage only { 1 -> valve }
+}
+`
+			diags := analyze(bCtx, src, resolver)
+			warns := warningsWithCode(diags, codes.UnstartedSequence)
+			Expect(warns).To(HaveLen(1), diags.String())
+			expectNarrowedToName(warns[0], src, "orphan")
+		})
+
+		It("Should point unreachable-stage diagnostics at the stage name", func(bCtx SpecContext) {
+			src := `
+sequence main {
+	stage entry { 1 -> valve }
+	stage abort { 0 -> valve }
+}
+trigger => main
+`
+			diags := analyze(bCtx, src, resolver)
+			warns := warningsWithCode(diags, codes.UnreachableStage)
+			Expect(warns).To(HaveLen(1), diags.String())
+			expectNarrowedToName(warns[0], src, "abort")
+		})
+	})
+
+	Describe("LSP tags", func() {
+		It("Should mark unused variables with TagUnnecessary", func(bCtx SpecContext) {
+			diags := analyze(bCtx, `
+				func test() i32 {
+					x := 42
+					return 0
+				}
+			`, nil)
+			warns := warningsWithCode(diags, codes.UnusedVariable)
+			Expect(warns).To(HaveLen(1), diags.String())
+			Expect(warns[0].Tags).To(ContainElement(diagnostics.TagUnnecessary))
+		})
+
+		It("Should mark uncalled functions with TagUnnecessary", func(bCtx SpecContext) {
+			diags := analyze(bCtx, `
+				func helper(x i32) i32 { return x }
+			`, nil)
+			warns := warningsWithCode(diags, codes.UncalledFunction)
+			Expect(warns).To(HaveLen(1), diags.String())
+			Expect(warns[0].Tags).To(ContainElement(diagnostics.TagUnnecessary))
+		})
+
+		It("Should mark unstarted sequences with TagUnnecessary", func(bCtx SpecContext) {
+			diags := analyze(bCtx, `
+				sequence orphan {
+					stage only { 1 -> valve }
+				}
+			`, resolver)
+			warns := warningsWithCode(diags, codes.UnstartedSequence)
+			Expect(warns).To(HaveLen(1), diags.String())
+			Expect(warns[0].Tags).To(ContainElement(diagnostics.TagUnnecessary))
+		})
+
+		It("Should mark unreachable stages with TagUnnecessary", func(bCtx SpecContext) {
+			diags := analyze(bCtx, `
+				sequence main {
+					stage entry { 1 -> valve }
+					stage abort { 0 -> valve }
+				}
+				trigger => main
+			`, resolver)
+			warns := warningsWithCode(diags, codes.UnreachableStage)
+			Expect(warns).To(HaveLen(1), diags.String())
+			Expect(warns[0].Tags).To(ContainElement(diagnostics.TagUnnecessary))
+		})
+	})
+})
+
+func isIdentChar(b byte) bool {
+	return (b >= 'a' && b <= 'z') ||
+		(b >= 'A' && b <= 'Z') ||
+		(b >= '0' && b <= '9') ||
+		b == '_'
+}

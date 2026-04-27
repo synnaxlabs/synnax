@@ -12,6 +12,8 @@ package unused
 import (
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
+
 	"github.com/synnaxlabs/arc/analyzer/codes"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/parser"
@@ -20,6 +22,20 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/set"
 )
+
+// nameNode returns the IDENTIFIER terminal in scope.AST whose text matches
+// scope.Name when one exists, falling back to scope.AST otherwise.
+// Diagnostics tagged TagUnnecessary use this to fade only the name rather
+// than the entire declaration.
+func nameNode(scope *symbol.Scope) antlr.Tree {
+	if scope == nil || scope.AST == nil {
+		return nil
+	}
+	if id := parser.FindIdentifierToken(scope.AST, scope.Name); id != nil {
+		return id
+	}
+	return scope.AST
+}
 
 // analyzeDeclarations emits ARC5101 (unused variable / stateful variable /
 // channel alias) and ARC5103 (unused global constant) for every declaration
@@ -78,8 +94,9 @@ func newUnusedDiagnostic(
 	label string,
 ) *diagnostics.Diagnostic {
 	d := diagnostics.
-		Warningf(scope.AST, "%s '%s'", label, scope.Name).
+		Warningf(nameNode(scope), "%s '%s'", label, scope.Name).
 		WithCode(code).
+		WithTags(diagnostics.TagUnnecessary).
 		WithNote("prefix the name with an underscore to suppress this warning")
 	return &d
 }
