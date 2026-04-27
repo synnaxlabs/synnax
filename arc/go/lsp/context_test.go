@@ -78,8 +78,8 @@ var _ = Describe("Context Detection", func() {
 			"x := y + (o", uint32(0), uint32(11), lsp.ContextExpression),
 
 		// Statement Start Context
-		Entry("statement start after LBRACE",
-			"func foo() { ", uint32(0), uint32(13), lsp.ContextStatementStart),
+		Entry("no completions on the same line as opening LBRACE",
+			"func foo() { ", uint32(0), uint32(13), lsp.ContextNone),
 		Entry("statement start on new line in function body",
 			"func foo() {\n    ", uint32(1), uint32(4), lsp.ContextStatementStart),
 		Entry("statement start after closing brace on new line",

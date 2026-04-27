@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
@@ -122,10 +123,10 @@ var _ = Describe("Completion", func() {
 		})
 
 		It("should show function keywords at statement start inside func body", func(ctx SpecContext) {
-			content := "func foo() { "
+			content := "func foo() {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "if")).To(BeTrue(), "Should show 'if' keyword at statement start in func body")
@@ -174,11 +175,9 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside sequence body")
 			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside sequence body")
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside sequence body")
-			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside sequence body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' inside sequence body (nested sequences)")
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type inside sequence body")
 			Expect(HasCompletion(completions.Items, "f64")).To(BeFalse(), "Should not show 'f64' type inside sequence body")
-			Expect(HasCompletion(completions.Items, "len")).To(BeFalse(), "Should not show 'len' inside sequence body")
-			Expect(HasCompletion(completions.Items, "now")).To(BeFalse(), "Should not show 'now' inside sequence body")
 		})
 
 		It("should show next keyword inside a stage body", func(ctx SpecContext) {
@@ -193,14 +192,14 @@ var _ = Describe("Completion", func() {
 			Expect(HasCompletion(completions.Items, "if")).To(BeFalse(), "Should not show 'if' inside stage body")
 			Expect(HasCompletion(completions.Items, "return")).To(BeFalse(), "Should not show 'return' inside stage body")
 			Expect(HasCompletion(completions.Items, "func")).To(BeFalse(), "Should not show 'func' inside stage body")
-			Expect(HasCompletion(completions.Items, "sequence")).To(BeFalse(), "Should not show 'sequence' inside stage body")
+			Expect(HasCompletion(completions.Items, "sequence")).To(BeTrue(), "Should show 'sequence' inside stage body (inline sequences)")
 		})
 
 		It("should not show types at statement start", func(ctx SpecContext) {
-			content := "func foo() { "
+			content := "func foo() {\n    \n}"
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 0, 13)
+			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "i32")).To(BeFalse(), "Should not show 'i32' type at statement start")
@@ -238,8 +237,8 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
-	Describe("Sequence Body Suppresses Symbols", func() {
-		It("should not show channel symbols inside sequence body", func(ctx SpecContext) {
+	Describe("Sequence Body Shows Symbols and Keywords", func() {
+		It("should show channel symbols and stage keyword inside sequence body", func(ctx SpecContext) {
 			globalResolver := symbol.MapResolver{
 				"sensor": symbol.Symbol{
 					Name: "sensor",
@@ -258,7 +257,7 @@ var _ = Describe("Completion", func() {
 			completions := Completion(server, ctx, uri, 1, 4)
 			Expect(completions).ToNot(BeNil())
 
-			Expect(HasCompletion(completions.Items, "sensor")).To(BeFalse(), "Should not show channel symbols inside sequence body")
+			Expect(HasCompletion(completions.Items, "sensor")).To(BeTrue(), "Should show channel symbols inside sequence body for flow statements")
 			Expect(HasCompletion(completions.Items, "stage")).To(BeTrue(), "Should show 'stage' inside sequence body")
 		})
 	})
@@ -531,6 +530,79 @@ var _ = Describe("Completion", func() {
 		})
 	})
 
+	Describe("Loop Keyword Completion", func() {
+		It("should show for keyword at statement start inside func body", func(ctx SpecContext) {
+			content := "func foo() {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeTrue(), "Should show 'for' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "break")).To(BeTrue(), "Should show 'break' keyword at statement start in func body")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeTrue(), "Should show 'continue' keyword at statement start in func body")
+		})
+
+		It("should not show for keyword at top level", func(ctx SpecContext) {
+			content := "fo"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 2)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' at top level")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' at top level")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' at top level")
+		})
+
+		It("should not show loop keywords inside sequence body", func(ctx SpecContext) {
+			content := "sequence main {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' inside sequence body")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' inside sequence body")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' inside sequence body")
+		})
+
+		It("should not show loop keywords in expression context", func(ctx SpecContext) {
+			content := "func foo() {\n    x := \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "for")).To(BeFalse(), "Should not show 'for' in expression context")
+			Expect(HasCompletion(completions.Items, "break")).To(BeFalse(), "Should not show 'break' in expression context")
+			Expect(HasCompletion(completions.Items, "continue")).To(BeFalse(), "Should not show 'continue' in expression context")
+		})
+
+		It("should show for snippet with correct insert text", func(ctx SpecContext) {
+			content := "func foo() {\n    fo\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 6)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "for")
+			Expect(found).To(BeTrue())
+			Expect(item.InsertText).To(ContainSubstring("range"))
+			Expect(item.InsertTextFormat).To(Equal(protocol.InsertTextFormatSnippet))
+		})
+
+		It("should show range function in expression context", func(ctx SpecContext) {
+			content := "func foo() {\n    x := r\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+
+			Expect(HasCompletion(completions.Items, "range")).To(BeTrue(), "Should show 'range' function in expression context")
+		})
+	})
+
 	Describe("Stage Body Completion", func() {
 		var globalResolver symbol.MapResolver
 
@@ -590,7 +662,7 @@ var _ = Describe("Completion", func() {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
-			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        \n    }\n}"
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        \n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 8)
@@ -604,7 +676,7 @@ var _ = Describe("Completion", func() {
 			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: globalResolver}))
 			server.SetClient(&MockClient{})
 
-			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd,\n        v\n    }\n}"
+			content := "sequence main {\n    stage first {\n        1 -> vent_vlv_cmd\n        v\n    }\n}"
 			OpenArcDocument(server, ctx, uri, content)
 
 			completions := Completion(server, ctx, uri, 3, 9)
@@ -612,5 +684,221 @@ var _ = Describe("Completion", func() {
 
 			Expect(HasCompletion(completions.Items, "vent_vlv_cmd")).To(BeTrue(), "Should suggest 'vent_vlv_cmd' matching prefix 'v'")
 		})
+	})
+
+	Describe("Module Qualified Completion", func() {
+		var resolverWithChannels symbol.CompoundResolver
+
+		BeforeEach(func() {
+			resolverWithChannels = make(symbol.CompoundResolver, len(stl.SymbolResolver))
+			copy(resolverWithChannels, stl.SymbolResolver)
+			resolverWithChannels = append(resolverWithChannels, symbol.MapResolver{
+				"sy_node_1_metrics_time": {
+					Name: "sy_node_1_metrics_time",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+				"temperature_sensor": {
+					Name: "temperature_sensor",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F64()),
+				},
+			})
+		})
+
+		It("Should return module members for 'math.p' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.p\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+		})
+
+		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+		})
+
+		It("Should return all time module members for 'time.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "wait")).To(BeTrue())
+		})
+
+		It("Should return error module members for 'error.' prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    error.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "panic")).To(BeTrue())
+		})
+
+		It("Should set FilterText with qualified name", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "pow")
+			Expect(found).To(BeTrue())
+			Expect(item.FilterText).To(Equal("math.pow"))
+		})
+
+		It("Should set TextEdit that replaces the full module prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+
+			item, found := FindCompletion(completions.Items, "pow")
+			Expect(found).To(BeTrue())
+			Expect(item.TextEdit).ToNot(BeNil())
+			Expect(item.TextEdit.NewText).To(Equal("math.pow"))
+			Expect(item.TextEdit.Range.Start.Character).To(Equal(uint32(4)))
+			Expect(item.TextEdit.Range.End.Character).To(Equal(uint32(9)))
+		})
+
+		It("Should exclude channel symbols from module-qualified results", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse(),
+				"Should not show channel names in module-qualified completions")
+		})
+
+		It("Should exclude channels even with partial member prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.n\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 10)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "sy_node_1_metrics_time")).To(BeFalse())
+			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeFalse())
+		})
+
+		It("Should return nothing for unknown module prefix", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: stl.SymbolResolver,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    fake.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(completions.Items).To(BeEmpty())
+		})
+
+		It("Should not affect unqualified completions", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{
+				GlobalResolver: resolverWithChannels,
+			}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    t\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 5)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
+				"Unqualified prefix should still show channels")
+		})
+	})
+
+	Describe("Same-Line After Opening Brace", func() {
+		DescribeTable("returns no completions when the cursor is on the same line as the opening brace",
+			func(ctx SpecContext, content string, line, char uint32) {
+				OpenArcDocument(server, ctx, uri, content)
+				completions := Completion(server, ctx, uri, line, char)
+				Expect(completions).ToNot(BeNil())
+				Expect(completions.Items).To(BeEmpty())
+			},
+			Entry("func, cursor flush against brace",
+				"func cat() {", uint32(0), uint32(12)),
+			Entry("func, cursor after trailing space",
+				"func cat() { ", uint32(0), uint32(13)),
+			Entry("sequence, cursor flush against brace",
+				"sequence main {", uint32(0), uint32(15)),
+			Entry("sequence, cursor after trailing space",
+				"sequence main { ", uint32(0), uint32(16)),
+			Entry("stage, cursor flush against brace",
+				"sequence main {\n    stage cat {", uint32(1), uint32(15)),
+			Entry("stage, cursor after trailing space",
+				"sequence main {\n    stage cat { ", uint32(1), uint32(16)),
+		)
+
+		DescribeTable("still returns block-body completions on the next line",
+			func(ctx SpecContext, content string, line, char uint32, expectedLabel string) {
+				OpenArcDocument(server, ctx, uri, content)
+				completions := Completion(server, ctx, uri, line, char)
+				Expect(completions).ToNot(BeNil())
+				Expect(HasCompletion(completions.Items, expectedLabel)).To(BeTrue(),
+					"Expected to find %q completion on the new line inside the block", expectedLabel)
+			},
+			Entry("func body offers return",
+				"func cat() {\n    \n}", uint32(1), uint32(4), "return"),
+			Entry("sequence body offers stage",
+				"sequence main {\n    \n}", uint32(1), uint32(4), "stage"),
+			Entry("stage body offers next",
+				"sequence main {\n    stage cat {\n        \n    }\n}", uint32(2), uint32(8), "next"),
+		)
 	})
 })

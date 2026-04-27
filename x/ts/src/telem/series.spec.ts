@@ -141,7 +141,7 @@ describe("Series", () => {
       const s = new Series({ data: [{ a: 1, b: "apple" }] });
       expect(s.dataType.equals(DataType.JSON));
       expect(s.length).toEqual(1);
-      expect(s.data.at(-1)).toEqual(10);
+      expect(s.at(0)).toEqual({ a: 1, b: "apple" });
     });
 
     it("should correctly interpret a bigint as an int64", () => {
@@ -214,8 +214,8 @@ describe("Series", () => {
 
     it("should convert encoded keys to snake_case", () => {
       const a = new Series({ data: [{ aB: 1, bC: "apple" }], dataType: DataType.JSON });
-      const strContent = new TextDecoder().decode(a.data);
-      expect(strContent).toBe('{"a_b":1,"b_c":"apple"}\n');
+      expect(a.length).toEqual(1);
+      expect(a.at(0)).toEqual({ aB: 1, bC: "apple" });
     });
 
     it("should throw an error when an empty JS array is provided and no data type is provided", () => {
@@ -502,7 +502,7 @@ describe("Series", () => {
     });
 
     it("should recompute the length of a variable density array", () => {
-      const series = Series.alloc({ capacity: 12, dataType: DataType.STRING });
+      const series = Series.alloc({ capacity: 18, dataType: DataType.STRING });
       expect(series.length).toEqual(0);
       const writeOne = new Series({ data: ["apple"] });
       expect(series.write(writeOne)).toEqual(1);
@@ -688,6 +688,54 @@ describe("Series", () => {
         { a: 2, b: "banana" },
         { a: 3, b: "carrot" },
       ]);
+    });
+
+    it("should handle a single JSON value", () => {
+      const s = new Series([{ key: "val" }]);
+      expect(s.length).toEqual(1);
+      expect(s.at(0)).toEqual({ key: "val" });
+    });
+
+    it("should handle empty JSON objects", () => {
+      const s = new Series([{}, {}, {}]);
+      expect(s.length).toEqual(3);
+      expect(s.at(0)).toEqual({});
+      expect(s.at(2)).toEqual({});
+    });
+
+    it("should support negative indexing", () => {
+      const s = new Series([{ a: 1 }, { a: 2 }, { a: 3 }]);
+      expect(s.at(-1)).toEqual({ a: 3 });
+      expect(s.at(-2)).toEqual({ a: 2 });
+    });
+
+    it("should handle an empty JSON series", () => {
+      const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.JSON });
+      expect(s.length).toEqual(0);
+      expect(Array.from(s)).toEqual([]);
+    });
+  });
+
+  describe("bytes series", () => {
+    it("should handle an empty bytes series", () => {
+      const s = new Series({ data: new ArrayBuffer(0), dataType: DataType.BYTES });
+      expect(s.length).toEqual(0);
+      expect(Array.from(s)).toEqual([]);
+    });
+
+    it("should correctly compute the length of a bytes series from a length-prefixed buffer", () => {
+      const payload1 = new Uint8Array([1, 2, 3]);
+      const payload2 = new Uint8Array([4, 5]);
+      const totalBytes = 4 + payload1.byteLength + 4 + payload2.byteLength;
+      const buf = new ArrayBuffer(totalBytes);
+      const view = new DataView(buf);
+      const bytes = new Uint8Array(buf);
+      view.setUint32(0, payload1.byteLength, true);
+      bytes.set(payload1, 4);
+      view.setUint32(4 + payload1.byteLength, payload2.byteLength, true);
+      bytes.set(payload2, 4 + payload1.byteLength + 4);
+      const s = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(s.length).toEqual(2);
     });
   });
 

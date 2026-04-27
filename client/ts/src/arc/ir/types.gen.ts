@@ -21,6 +21,20 @@ export enum EdgeKind {
 }
 export const edgeKindZ = z.enum(EdgeKind);
 
+export enum ScopeMode {
+  unspecified = 0,
+  parallel = 1,
+  sequential = 2,
+}
+export const scopeModeZ = z.enum(ScopeMode);
+
+export enum Liveness {
+  unspecified = 0,
+  always = 1,
+  gated = 2,
+}
+export const livenessZ = z.enum(Liveness);
+
 /** Handle is a reference to a specific parameter on a specific node in the dataflow graph. */
 export const handleZ = z.object({
   /** node is the node identifier. */
@@ -47,13 +61,13 @@ export const nodeZ = z.object({
   /** type is the function type being instantiated. */
   type: z.string(),
   /** config contains configuration parameter values. */
-  config: types.paramsZ.optional(),
+  config: types.paramsZ,
   /** inputs contains input parameter type signatures. */
-  inputs: types.paramsZ.optional(),
+  inputs: types.paramsZ,
   /** outputs contains output parameter type signatures. */
-  outputs: types.paramsZ.optional(),
+  outputs: types.paramsZ,
   /** channels contains channel read/write mappings. */
-  channels: types.channelsZ.optional(),
+  channels: types.channelsZ,
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
@@ -62,12 +76,9 @@ export const authoritiesZ = z.object({
   /** default is the default authority for all write channels not explicitly listed. */
   default: zod.uint8.optional(),
   /** channels maps channel keys to their specific authority values. */
-  channels: z.record(z.uint32(), zod.uint8).optional(),
+  channels: z.record(z.uint32(), zod.uint8),
 });
 export interface Authorities extends z.infer<typeof authoritiesZ> {}
-
-export const stratumZ = array.nullishToEmpty(z.string());
-export type Stratum = z.infer<typeof stratumZ>;
 
 /** Edge is a dataflow connection between node parameters in the Arc graph. */
 export const edgeZ = z.object({
@@ -76,9 +87,21 @@ export const edgeZ = z.object({
   /** target is the target node parameter consuming data. */
   target: handleZ,
   /** kind defines execution semantics for this connection. */
-  kind: edgeKindZ.optional(),
+  kind: edgeKindZ,
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
+
+/** Transition is a declarative state-transition rule on a sequential Scope. */
+export const transitionZ = z.object({
+  /** on is the dataflow handle whose truthy value fires this transition. */
+  on: handleZ,
+  /**
+   * targetKey is the sibling step key to activate. Null when the transition
+   * exits the scope, yielding to the parent.
+   */
+  targetKey: z.string().optional(),
+});
+export interface Transition extends z.infer<typeof transitionZ> {}
 
 /**
  * Function is a function template definition with typed parameters, serving as a
@@ -90,21 +113,18 @@ export const functionZ = z.object({
   /** body is raw source code for user-defined functions. */
   body: bodyZ.optional(),
   /** config contains configuration parameter definitions. */
-  config: types.paramsZ.optional(),
+  config: types.paramsZ,
   /** inputs contains input parameter definitions. */
-  inputs: types.paramsZ.optional(),
+  inputs: types.paramsZ,
   /** outputs contains output parameter definitions. */
-  outputs: types.paramsZ.optional(),
+  outputs: types.paramsZ,
   /** channels contains channel read/write declarations. */
-  channels: types.channelsZ.optional(),
+  channels: types.channelsZ,
 });
 export interface Function extends z.infer<typeof functionZ> {}
 
 export const nodesZ = array.nullishToEmpty(nodeZ);
 export type Nodes = z.infer<typeof nodesZ>;
-
-export const strataZ = array.nullishToEmpty(stratumZ);
-export type Strata = z.infer<typeof strataZ>;
 
 export const edgesZ = array.nullishToEmpty(edgeZ);
 export type Edges = z.infer<typeof edgesZ>;
@@ -113,36 +133,65 @@ export const functionsZ = array.nullishToEmpty(functionZ);
 export type Functions = z.infer<typeof functionsZ>;
 
 /**
- * Stage is a stage in a sequence state machine, containing active nodes and their
- * execution stratification.
+ * Member is a tagged union representing a single child of a Scope. Exactly one
+ * of nodeKey or scope is set. The member's lookup key (used as the
+ * target of `=> name` transitions) is derived from the set variant via
+ * Member.key().
  */
-export const stageZ = z.object({
-  /** key is the stage identifier. */
-  key: z.string(),
-  /** nodes contains node keys active in this stage. */
-  nodes: array.nullishToEmpty(z.string()),
-  /** strata contains execution stratification for nodes in this stage. */
-  strata: strataZ,
+export interface Member {
+  nodeKey?: string;
+  scope?: Scope;
+}
+export const memberZ: z.ZodType<Member> = z.object({
+  /**
+   * nodeKey is the key of the referenced node in IR.nodes. Null when this
+   * member is a nested scope.
+   */
+  nodeKey: z.string().optional(),
+  /** scope is set when this member is a nested scope. */
+  get scope() {
+    return scopeZ.optional();
+  },
 });
-export interface Stage extends z.infer<typeof stageZ> {}
 
 /**
- * Sequence is a state machine defining ordered stages of execution, where entry point
- * is always the first stage.
+ * Scope is the unified Layer 2 execution primitive. Parameterized by mode
+ * (parallel or sequential) and liveness (always-live or gated). Parallel
+ * scopes organize members into strata; sequential scopes run one step
+ * at a time and advance via transitions.
  */
-export const sequenceZ = z.object({
-  /** key is the sequence identifier. */
+export interface Scope {
+  key: string;
+  mode: ScopeMode;
+  liveness: Liveness;
+  activation?: Handle;
+  strata: Members[];
+  steps: Members;
+  transitions: Transition[];
+}
+export const scopeZ: z.ZodType<Scope> = z.object({
+  /** key is the scope identifier. */
   key: z.string(),
-  /** stages contains ordered stages in this sequence. */
-  stages: array.nullishToEmpty(stageZ),
+  /** mode defines whether this scope runs steps in parallel or sequentially. */
+  mode: scopeModeZ,
+  /** liveness defines whether this scope is continuously active or must be activated. */
+  liveness: livenessZ,
+  /** activation is the handle whose truthy value activates a gated scope. Unset for always-live scopes. */
+  activation: handleZ.optional(),
+  /**
+   * strata contains stratified execution layers for parallel scopes. Empty
+   * for sequential scopes. Stratum N depends only on strata 0 to N-1.
+   */
+  get strata() {
+    return array.nullishToEmpty(membersZ);
+  },
+  /** steps contains ordered steps for sequential scopes. Empty for parallel scopes. */
+  get steps() {
+    return membersZ;
+  },
+  /** transitions contains state-transition rules for sequential scopes. Empty for parallel scopes. */
+  transitions: array.nullishToEmpty(transitionZ),
 });
-export interface Sequence extends z.infer<typeof sequenceZ> {}
-
-export const stagesZ = array.nullishToEmpty(stageZ);
-export type Stages = z.infer<typeof stagesZ>;
-
-export const sequencesZ = array.nullishToEmpty(sequenceZ);
-export type Sequences = z.infer<typeof sequencesZ>;
 
 /**
  * IR is the intermediate representation of an Arc program as a dataflow graph
@@ -151,16 +200,21 @@ export type Sequences = z.infer<typeof sequencesZ>;
  */
 export const irZ = z.object({
   /** functions contains function template definitions. */
-  functions: functionsZ.optional(),
+  functions: functionsZ,
   /** nodes contains node instantiations. */
-  nodes: nodesZ.optional(),
+  nodes: nodesZ,
   /** edges contains dataflow connections. */
-  edges: edgesZ.optional(),
-  /** strata contains execution stratification layers. */
-  strata: strataZ.optional(),
-  /** sequences contains state machine definitions. */
-  sequences: sequencesZ.optional(),
+  edges: edgesZ,
   /** authorities contains the static authority declarations for this program. */
-  authorities: authoritiesZ.optional(),
+  authorities: authoritiesZ,
+  /**
+   * root is the top-level execution context. The root is always a
+   * parallel, always-live Scope whose strata mix module-scope
+   * reactive flow with top-level gated scopes.
+   */
+  root: scopeZ,
 });
 export interface IR extends z.infer<typeof irZ> {}
+
+export const membersZ = array.nullishToEmpty(memberZ);
+export type Members = z.infer<typeof membersZ>;

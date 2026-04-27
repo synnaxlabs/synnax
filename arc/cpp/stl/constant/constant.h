@@ -26,6 +26,7 @@ namespace arc::stl::constant {
 /// or after reset() has been called.
 class Constant : public runtime::node::Node {
     runtime::state::Node state;
+    x::telem::MonoClock clock;
     x::telem::SampleValue value;
     bool initialized = false;
 
@@ -49,15 +50,15 @@ public:
             o->set(0, this->value);
         }
         o_time->resize(1);
-        o_time->set(0, x::telem::TimeStamp::now());
-        ctx.mark_changed(ir::default_output_param);
+        o_time->set(0, this->clock.now());
+        ctx.mark_changed(0);
         return x::errors::NIL;
     }
 
     void reset() override { this->initialized = false; }
 
-    [[nodiscard]] bool is_output_truthy(const std::string &param) const override {
-        return this->state.is_output_truthy(param);
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return this->state.is_output_truthy(output_idx);
     }
 };
 

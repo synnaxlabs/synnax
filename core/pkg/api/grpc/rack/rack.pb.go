@@ -125,6 +125,7 @@ type RetrieveRequest struct {
 	Keys          []uint32               `protobuf:"varint,1,rep,packed,name=keys,proto3" json:"keys,omitempty"`
 	Names         []string               `protobuf:"bytes,2,rep,name=names,proto3" json:"names,omitempty"`
 	Integration   string                 `protobuf:"bytes,3,opt,name=integration,proto3" json:"integration,omitempty"`
+	IncludeStatus bool                   `protobuf:"varint,4,opt,name=include_status,json=includeStatus,proto3" json:"include_status,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -178,6 +179,13 @@ func (x *RetrieveRequest) GetIntegration() string {
 		return x.Integration
 	}
 	return ""
+}
+
+func (x *RetrieveRequest) GetIncludeStatus() bool {
+	if x != nil {
+		return x.IncludeStatus
+	}
+	return false
 }
 
 type RetrieveResponse struct {
@@ -276,11 +284,12 @@ const file_core_pkg_api_grpc_rack_rack_proto_rawDesc = "" +
 	"\rCreateRequest\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"=\n" +
 	"\x0eCreateResponse\x12+\n" +
-	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"]\n" +
+	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"\x84\x01\n" +
 	"\x0fRetrieveRequest\x12\x12\n" +
 	"\x04keys\x18\x01 \x03(\rR\x04keys\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\x12 \n" +
-	"\vintegration\x18\x03 \x01(\tR\vintegration\"?\n" +
+	"\vintegration\x18\x03 \x01(\tR\vintegration\x12%\n" +
+	"\x0einclude_status\x18\x04 \x01(\bR\rincludeStatus\"?\n" +
 	"\x10RetrieveResponse\x12+\n" +
 	"\x05racks\x18\x01 \x03(\v2\x15.service.rack.pb.RackR\x05racks\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +

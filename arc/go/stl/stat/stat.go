@@ -228,7 +228,7 @@ func (r *statNode) Next(ctx node.Context) {
 	r.Output(0).TimeRange = timeRange
 	r.OutputTime(0).Alignment = alignment
 	r.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }
 
 var (
@@ -328,5 +328,5 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(ir.DefaultOutputParam)
+	ctx.MarkChanged(0)
 }

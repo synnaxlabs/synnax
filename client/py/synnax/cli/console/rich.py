@@ -92,7 +92,7 @@ class RichConsole:
                 default=default,
                 show_default=True,
                 show_choices=True,
-            )  # type: ignore
+            )
         if type_ == int:
             return IntPrompt.ask(
                 question,

@@ -616,6 +616,95 @@ any{ox_pt_1, ox_pt_2} -> average{} -> ox_pt_avg`)
 				Expect(ifStmt.ElseClause()).NotTo(BeNil())
 			})
 		})
+
+		Context("For Loops", func() {
+			It("Should parse for with range(1 arg)", func() {
+				stmt := mustParseStatement(`for i := range(10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				Expect(forStmt.FOR()).NotTo(BeNil())
+
+				clause := forStmt.ForClause()
+				Expect(clause).NotTo(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(forStmt.Block()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(2 args)", func() {
+				stmt := mustParseStatement(`for i := range(5, 10) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(1))
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse for with range(3 args)", func() {
+				stmt := mustParseStatement(`for i := range(0, 10, 2) { x := i }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+			})
+
+			It("Should parse for with two identifiers (series iteration)", func() {
+				stmt := mustParseStatement(`for i, x := data { y := x }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(2))
+				Expect(clause.AllIDENTIFIER()[0].GetText()).To(Equal("i"))
+				Expect(clause.AllIDENTIFIER()[1].GetText()).To(Equal("x"))
+				Expect(clause.COMMA()).NotTo(BeNil())
+				Expect(clause.DECLARE()).NotTo(BeNil())
+			})
+
+			It("Should parse conditional (while-style) for loop", func() {
+				stmt := mustParseStatement(`for running { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).NotTo(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+			})
+
+			It("Should parse infinite for loop", func() {
+				stmt := mustParseStatement(`for { x := 1 }`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				clause := forStmt.ForClause()
+				Expect(clause.Expression()).To(BeNil())
+				Expect(clause.DECLARE()).To(BeNil())
+				Expect(clause.AllIDENTIFIER()).To(HaveLen(0))
+			})
+
+			It("Should parse break statement", func() {
+				stmt := mustParseStatement(`break`)
+				Expect(stmt.BreakStatement()).NotTo(BeNil())
+				Expect(stmt.BreakStatement().BREAK()).NotTo(BeNil())
+			})
+
+			It("Should parse continue statement", func() {
+				stmt := mustParseStatement(`continue`)
+				Expect(stmt.ContinueStatement()).NotTo(BeNil())
+				Expect(stmt.ContinueStatement().CONTINUE()).NotTo(BeNil())
+			})
+
+			It("Should parse nested for loops", func() {
+				stmt := mustParseStatement(`for i := range(3) {
+					for j := range(5) {
+						x := i + j
+					}
+				}`)
+				forStmt := stmt.ForStatement()
+				Expect(forStmt).NotTo(BeNil())
+				block := forStmt.Block()
+				Expect(block.AllStatement()).To(HaveLen(1))
+				innerFor := block.Statement(0).ForStatement()
+				Expect(innerFor).NotTo(BeNil())
+			})
+		})
 	})
 
 	Describe("Comprehensive Tests", func() {
@@ -845,19 +934,11 @@ func broken() {
 			})
 
 			It("Should handle empty input gracefully", func() {
-				_, err := parser.Parse("")
-				// Empty input should either succeed with empty program or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse(""))
 			})
 
 			It("Should handle whitespace-only input", func() {
-				_, err := parser.Parse("   \n\t  \n  ")
-				// Whitespace-only should either succeed or fail gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+				MustSucceed(parser.Parse("   \n\t  \n  "))
 			})
 
 			It("Should report error for unclosed brace", func() {
@@ -867,8 +948,8 @@ func broken() {
 			})
 
 			It("Should report error for missing function body", func() {
-				_, err := parser.Parse(`func test()`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test()`)).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 	})
@@ -886,8 +967,8 @@ func broken() {
 			})
 
 			It("Should handle empty expression", func() {
-				_, err := parser.ParseExpression("")
-				Expect(err).To(MatchError(ContainSubstring("mismatched input")))
+				Expect(parser.ParseExpression("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -898,16 +979,13 @@ func broken() {
 			})
 
 			It("Should return error for invalid statement", func() {
-				_, err := parser.ParseStatement("x := := 5")
-				Expect(err).NotTo(BeNil())
+				Expect(parser.ParseStatement("x := := 5")).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
-			It("Should handle empty statement", func() {
-				_, err := parser.ParseStatement("")
-				// Empty statement should produce an error or handle gracefully
-				if err != nil {
-					Expect(err.Error()).NotTo(BeEmpty())
-				}
+			It("Should error on an empty statement", func() {
+				Expect(parser.ParseStatement("")).
+					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
 
@@ -918,7 +996,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid block", func() {
-				Expect(parser.ParseBlock("{ x := := 5 }")).Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
+				Expect(parser.ParseBlock("{ x := := 5 }")).
+					Error().To(MatchError(ContainSubstring("1:7 error: extraneous input")))
 			})
 
 			It("Should handle empty block", func() {
@@ -927,7 +1006,8 @@ func broken() {
 			})
 
 			It("Should handle block without braces", func() {
-				Expect(parser.ParseBlock("x := 42")).Error().To(MatchError(ContainSubstring("missing '{'")))
+				Expect(parser.ParseBlock("x := 42")).
+					Error().To(MatchError(ContainSubstring("missing '{'")))
 			})
 		})
 
@@ -938,8 +1018,8 @@ func broken() {
 			})
 
 			It("Should return error for invalid program", func() {
-				_, err := parser.Parse(`func test() { x := := 5 }`)
-				Expect(err).NotTo(BeNil())
+				Expect(parser.Parse(`func test() { x := := 5 }`)).
+					Error().To(MatchError(ContainSubstring("extraneous input ':='")))
 			})
 
 			It("Should handle program with multiple top-level items", func() {
@@ -1014,11 +1094,13 @@ func demux{
 
 				// First output: high f32
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("high"))
-				Expect(outputs[0].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[0].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 
 				// Second output: low f32
 				Expect(outputs[1].IDENTIFIER().GetText()).To(Equal("low"))
-				Expect(outputs[1].Type_().PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
+				Expect(outputs[1].Type_().
+					PrimitiveType().NumericType().FloatType().F32()).NotTo(BeNil())
 			})
 
 			It("Should parse func with three named outputs", func() {
@@ -1033,7 +1115,6 @@ func range_classifier{
 				stageDecl := prog.TopLevelItem(0).FunctionDeclaration()
 				returnType := stageDecl.OutputType()
 				multiOutput := returnType.MultiOutputBlock()
-
 				outputs := multiOutput.AllNamedOutput()
 				Expect(outputs).To(HaveLen(3))
 				Expect(outputs[0].IDENTIFIER().GetText()).To(Equal("below_range"))
@@ -1366,7 +1447,7 @@ sequence main {
 				Expect(seq).NotTo(BeNil())
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(2))
 
 				// First stage: precheck
@@ -1387,7 +1468,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1403,7 +1484,7 @@ sequence seq {
     }
 }`)
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				stage := stages[0]
 				body := stage.StageBody()
 				items := body.AllStageItem()
@@ -1430,7 +1511,7 @@ sequence seq {
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq).NotTo(BeNil())
 
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(1))
 
 				stage := stages[0]
@@ -1458,7 +1539,7 @@ sequence main {
 				// Verify sequence
 				seq := prog.TopLevelItem(0).SequenceDeclaration()
 				Expect(seq.IDENTIFIER().GetText()).To(Equal("main"))
-				stages := seq.AllStageDeclaration()
+				stages := allStageDecls(seq)
 				Expect(stages).To(HaveLen(3))
 
 				// Verify stage names
@@ -1466,6 +1547,180 @@ sequence main {
 				Expect(stages[1].IDENTIFIER().GetText()).To(Equal("pressurize"))
 				Expect(stages[2].IDENTIFIER().GetText()).To(Equal("complete"))
 			})
+		})
+
+		Context("Optional Commas In Stage Bodies", func() {
+			DescribeTable("Should parse stage bodies with any mix of comma / newline separators",
+				func(code string, expectedItems int) {
+					prog := mustParseProgram(code)
+					seq := prog.TopLevelItem(0).SequenceDeclaration()
+					stages := allStageDecls(seq)
+					Expect(stages).To(HaveLen(1))
+					Expect(stages[0].StageBody().AllStageItem()).To(HaveLen(expectedItems))
+				},
+				Entry("newline-separated transitions, no commas", `
+sequence seq {
+    stage hold {
+        condition1 => next
+        condition2 => next
+    }
+}`, 2),
+				Entry("newline-separated flows, no commas", `
+sequence seq {
+    stage fire {
+        1 -> ox_cmd
+        1 -> fuel_cmd
+    }
+}`, 2),
+				Entry("mixed flows and invocations, no commas", `
+sequence seq {
+    stage settle {
+        0 -> vent_cmd
+        wait{duration=2s}
+        pressure < LOW => done
+    }
+}`, 3),
+				Entry("mix of comma-separated and newline-separated items", `
+sequence seq {
+    stage mixed {
+        1 -> a,
+        1 -> b
+        1 -> c
+    }
+}`, 3),
+				Entry("comma-separated inline on one line", `sequence seq { stage s { 1 -> a, 1 -> b } }`, 2),
+				Entry("newline-separated with trailing comma still valid", `
+sequence seq {
+    stage s {
+        1 -> a
+        1 -> b,
+    }
+}`, 2),
+				Entry("all legacy comma-separated form still parses", `
+sequence seq {
+    stage s {
+        1 -> a,
+        1 -> b,
+        1 -> c
+    }
+}`, 3),
+			)
+		})
+
+		Context("Optional Commas In Stageless Sequence Bodies", func() {
+			DescribeTable("Should parse stageless sequence bodies with any mix of separators",
+				func(code string, expectedItems int) {
+					prog := mustParseProgram(code)
+					seq := prog.TopLevelItem(0).SequenceDeclaration()
+					Expect(seq.AllSequenceItem()).To(HaveLen(expectedItems))
+				},
+				Entry("newline-separated, no commas (legacy form)", `
+sequence main {
+    1 -> valve_a
+    1 -> valve_b
+}`, 2),
+				Entry("comma-separated on one line", `sequence main { 1 -> valve_a, 1 -> valve_b }`, 2),
+				Entry("comma-separated across multiple lines", `
+sequence main {
+    1 -> valve_a,
+    1 -> valve_b,
+}`, 2),
+				Entry("mixed commas and newlines", `
+sequence main {
+    1 -> valve_a,
+    1 -> valve_b
+    1 -> valve_c
+}`, 3),
+				Entry("mixed flows and invocations with commas", `
+sequence main {
+    1 -> valve_a,
+    wait{duration=2s},
+    0 -> valve_a
+}`, 3),
+			)
+		})
+	})
+
+	Describe("Qualified Identifiers", func() {
+		It("Should parse a qualified identifier in an expression", func() {
+			expr := mustParseExpression("math.pow")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			ids := qid.AllIDENTIFIER()
+			Expect(ids).To(HaveLen(2))
+			Expect(ids[0].GetText()).To(Equal("math"))
+			Expect(ids[1].GetText()).To(Equal("pow"))
+		})
+
+		It("Should parse a qualified function call", func() {
+			expr := mustParseExpression("math.pow(2.0, 3.0)")
+			postfix := getPostfixExpression(expr)
+			Expect(postfix).ToNot(BeNil())
+			primary := postfix.PrimaryExpression()
+			qid := primary.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			Expect(parser.QualifiedName(qid)).To(Equal("math.pow"))
+			funcCalls := postfix.AllFunctionCallSuffix()
+			Expect(funcCalls).To(HaveLen(1))
+			args := funcCalls[0].ArgumentList().AllExpression()
+			Expect(args).To(HaveLen(2))
+		})
+
+		It("Should not confuse float literals with qualified identifiers", func() {
+			expr := mustParseExpression("1.5")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			Expect(primary.QualifiedIdentifier()).To(BeNil())
+			Expect(primary.Literal()).ToNot(BeNil())
+			Expect(primary.Literal().NumericLiteral()).ToNot(BeNil())
+		})
+
+		It("Should parse a bare identifier without a dot", func() {
+			expr := mustParseExpression("foo")
+			primary := parser.GetPrimaryExpression(expr)
+			Expect(primary).ToNot(BeNil())
+			Expect(primary.QualifiedIdentifier()).To(BeNil())
+			Expect(primary.IDENTIFIER()).ToNot(BeNil())
+			Expect(primary.IDENTIFIER().GetText()).To(Equal("foo"))
+		})
+
+		It("Should parse qualified identifier in flow function", func() {
+			prog := mustParseProgram("sensor -> error.panic{msg=\"fail\"}")
+			items := prog.AllTopLevelItem()
+			Expect(items).To(HaveLen(1))
+			flow := items[0].FlowStatement()
+			Expect(flow).ToNot(BeNil())
+			nodes := flow.AllFlowNode()
+			fn := nodes[1].Function()
+			Expect(fn).ToNot(BeNil())
+			qid := fn.QualifiedIdentifier()
+			Expect(qid).ToNot(BeNil())
+			Expect(parser.FunctionName(fn)).To(Equal("error.panic"))
+		})
+
+		It("Should use PrimaryName for qualified identifiers", func() {
+			expr := mustParseExpression("time.now()")
+			postfix := getPostfixExpression(expr)
+			primary := postfix.PrimaryExpression()
+			Expect(parser.PrimaryName(primary)).To(Equal("time.now"))
+		})
+
+		It("Should use PrimaryName for bare identifiers", func() {
+			expr := mustParseExpression("now()")
+			postfix := getPostfixExpression(expr)
+			primary := postfix.PrimaryExpression()
+			Expect(parser.PrimaryName(primary)).To(Equal("now"))
+		})
+
+		It("Should use FunctionName for bare function", func() {
+			prog := mustParseProgram("sensor -> set_point{value=50}")
+			flow := prog.AllTopLevelItem()[0].FlowStatement()
+			fn := flow.AllFlowNode()[1].Function()
+			Expect(fn).ToNot(BeNil())
+			Expect(fn.QualifiedIdentifier()).To(BeNil())
+			Expect(parser.FunctionName(fn)).To(Equal("set_point"))
 		})
 	})
 })
@@ -1514,4 +1769,14 @@ func getEqualityExpression(expr parser.IExpressionContext) parser.IEqualityExpre
 
 func getLogicalAndExpression(expr parser.IExpressionContext) parser.ILogicalAndExpressionContext {
 	return expr.LogicalOrExpression().LogicalAndExpression(0)
+}
+
+func allStageDecls(seq parser.ISequenceDeclarationContext) []parser.IStageDeclarationContext {
+	var stages []parser.IStageDeclarationContext
+	for _, item := range seq.AllSequenceItem() {
+		if s := item.StageDeclaration(); s != nil {
+			stages = append(stages, s)
+		}
+	}
+	return stages
 }

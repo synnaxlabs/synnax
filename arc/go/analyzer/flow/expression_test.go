@@ -221,5 +221,6 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: foo"))
 			Expect((*ctx.Diagnostics)[1].Message).To(Equal("undefined symbol: bar"))
 		})
+
 	})
 })

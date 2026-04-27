@@ -75,7 +75,7 @@ type Channel struct {
 	// LocalKey is the locally-unique portion of this channel's key.
 	LocalKey LocalKey `json:"local_key" msgpack:"local_key"`
 	// LocalIndex is the channel used to index this channel's values, associating each value
-	// with a timestamp. If zero, the channel's data will be indexed using its rate.
+	// with a timestamp.
 	LocalIndex LocalKey `json:"local_index" msgpack:"local_index"`
 	// Virtual is true if this channel does not persist data and is used only for streaming.
 	Virtual bool `json:"virtual" msgpack:"virtual"`

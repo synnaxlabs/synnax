@@ -14,6 +14,9 @@ const (
 	LiteralIF            = "if"
 	LiteralELSE          = "else"
 	LiteralRETURN        = "return"
+	LiteralFOR           = "for"
+	LiteralBREAK         = "break"
+	LiteralCONTINUE      = "continue"
 	LiteralSEQUENCE      = "sequence"
 	LiteralSTAGE         = "stage"
 	LiteralNEXT          = "next"
@@ -64,4 +67,5 @@ const (
 	LiteralRBRACKET      = "]"
 	LiteralCOMMA         = ","
 	LiteralCOLON         = ":"
+	LiteralDOT           = "."
 )

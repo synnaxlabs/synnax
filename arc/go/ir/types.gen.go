@@ -20,25 +20,14 @@ import (
 // Edges is a collection of dataflow edges in an Arc graph.
 type Edges []Edge
 
-// Stages is a collection of stages in an Arc sequence.
-type Stages []Stage
-
-// Sequences is a collection of sequences in an Arc module.
-type Sequences []Sequence
-
 // Functions is a collection of function definitions in an Arc module.
 type Functions []Function
-
-// Strata contains stratified execution layers where stratum N depends only on strata 0
-// to N-1, enabling glitch-free reactive evaluation.
-type Strata []Stratum
 
 // Nodes is a collection of node instantiations in an Arc module.
 type Nodes []Node
 
-// Stratum is a single execution layer containing node keys that can execute in
-// parallel.
-type Stratum = []string
+// Members is an ordered collection of Scope members, one per position.
+type Members = []Member
 
 // EdgeKind defines execution semantics for dataflow edges between nodes.
 type EdgeKind uint8
@@ -49,6 +38,28 @@ const (
 	EdgeKindUnspecified EdgeKind = iota
 	EdgeKindContinuous
 	EdgeKindConditional
+)
+
+// ScopeMode defines the concurrency model of a Scope.
+type ScopeMode uint8
+
+//go:generate stringer -type=ScopeMode
+
+const (
+	ScopeModeUnspecified ScopeMode = iota
+	ScopeModeParallel
+	ScopeModeSequential
+)
+
+// Liveness defines whether a Scope is continuously active or must be activated.
+type Liveness uint8
+
+//go:generate stringer -type=Liveness
+
+const (
+	LivenessUnspecified Liveness = iota
+	LivenessAlways
+	LivenessGated
 )
 
 // Handle is a reference to a specific parameter on a specific node in the dataflow
@@ -70,24 +81,47 @@ type Edge struct {
 	Kind EdgeKind `json:"kind" msgpack:"kind"`
 }
 
-// Stage is a stage in a sequence state machine, containing active nodes and their
-// execution stratification.
-type Stage struct {
-	// Key is the stage identifier.
-	Key string `json:"key" msgpack:"key"`
-	// Nodes contains node keys active in this stage.
-	Nodes []string `json:"nodes" msgpack:"nodes"`
-	// Strata contains execution stratification for nodes in this stage.
-	Strata Strata `json:"strata" msgpack:"strata"`
+// Transition is a declarative state-transition rule on a sequential Scope.
+type Transition struct {
+	// On is the dataflow handle whose truthy value fires this transition.
+	On Handle `json:"on" msgpack:"on"`
+	// TargetKey is the sibling step key to activate. Null when the transition exits the
+	// scope, yielding to the parent.
+	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
 }
 
-// Sequence is a state machine defining ordered stages of execution, where entry point
-// is always the first stage.
-type Sequence struct {
-	// Key is the sequence identifier.
+// Member is a tagged union representing a single child of a Scope. Exactly one of
+// nodeKey or scope is set. The member's lookup key (used as the target of `=> name`
+// transitions) is derived from the set variant via Member.key().
+type Member struct {
+	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
+	// nested scope.
+	NodeKey *string `json:"node_key,omitempty" msgpack:"node_key,omitempty"`
+	// Scope is set when this member is a nested scope.
+	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
+}
+
+// Scope is the unified Layer 2 execution primitive. Parameterized by mode (parallel or
+// sequential) and liveness (always-live or gated). Parallel scopes organize members
+// into strata; sequential scopes run one step at a time and advance via transitions.
+type Scope struct {
+	// Key is the scope identifier.
 	Key string `json:"key" msgpack:"key"`
-	// Stages contains ordered stages in this sequence.
-	Stages []Stage `json:"stages" msgpack:"stages"`
+	// Mode defines whether this scope runs steps in parallel or sequentially.
+	Mode ScopeMode `json:"mode" msgpack:"mode"`
+	// Liveness defines whether this scope is continuously active or must be activated.
+	Liveness Liveness `json:"liveness" msgpack:"liveness"`
+	// Activation is the handle whose truthy value activates a gated scope. Unset for
+	// always-live scopes.
+	Activation *Handle `json:"activation,omitempty" msgpack:"activation,omitempty"`
+	// Strata contains stratified execution layers for parallel scopes. Empty for sequential
+	// scopes. Stratum N depends only on strata 0 to N-1.
+	Strata []Members `json:"strata" msgpack:"strata"`
+	// Steps contains ordered steps for sequential scopes. Empty for parallel scopes.
+	Steps Members `json:"steps" msgpack:"steps"`
+	// Transitions contains state-transition rules for sequential scopes. Empty for parallel
+	// scopes.
+	Transitions []Transition `json:"transitions" msgpack:"transitions"`
 }
 
 // Body is raw function body source code with optional parsed AST.
@@ -148,12 +182,11 @@ type IR struct {
 	Nodes Nodes `json:"nodes" msgpack:"nodes"`
 	// Edges contains dataflow connections.
 	Edges Edges `json:"edges" msgpack:"edges"`
-	// Strata contains execution stratification layers.
-	Strata Strata `json:"strata" msgpack:"strata"`
-	// Sequences contains state machine definitions.
-	Sequences Sequences `json:"sequences" msgpack:"sequences"`
 	// Authorities contains the static authority declarations for this program.
-	Authorities Authorities                            `json:"authorities" msgpack:"authorities"`
-	Symbols     *symbol.Scope                          `json:"-"`
-	TypeMap     map[antlr.ParserRuleContext]types.Type `json:"-"`
+	Authorities Authorities `json:"authorities" msgpack:"authorities"`
+	// Root is the top-level execution context. The root is always a parallel, always-live
+	// Scope whose strata mix module-scope reactive flow with top-level gated scopes.
+	Root    Scope                                  `json:"root" msgpack:"root"`
+	Symbols *symbol.Scope                          `json:"-"`
+	TypeMap map[antlr.ParserRuleContext]types.Type `json:"-"`
 }

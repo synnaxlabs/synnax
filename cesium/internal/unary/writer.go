@@ -76,7 +76,7 @@ var (
 		AutoIndexPersistInterval: 1 * telem.Second,
 		ErrOnUnauthorizedOpen:    new(false),
 	}
-	errWriterClosed = resource.NewClosedError("unary.writer")
+	ErrWriterClosed = resource.NewClosedError("unary.writer")
 )
 
 const AlwaysIndexPersistOnAutoCommit telem.TimeSpan = -1
@@ -135,6 +135,13 @@ type controlledWriter struct {
 	// one goroutine may write alignment through Authorize while another reads it through
 	// PeekResource concurrently.
 	alignment atomic.Uint64
+	// tracker holds per-domain offset state shared across every Writer that takes
+	// control of this resource. It is created once when the resource is opened and
+	// survives control handoffs (where a higher-authority Writer joins an existing
+	// region) so that per-sample byte offsets, the cumulative session sample count,
+	// and the current domain start remain consistent across owners. Reset on rollover
+	// via the domain.Writer's OnRollover hook.
+	tracker *offsetTracker
 }
 
 var _ control.Resource = &controlledWriter{}
@@ -196,11 +203,14 @@ func (db *DB) OpenWriter(ctx context.Context, cfgs ...WriterConfig) (
 		Authority:             cfg.Authority,
 		Subject:               cfg.Subject,
 		OpenResource: func() (*controlledWriter, error) {
-			dw, err := db.domain.OpenWriter(ctx, cfg.domain())
 			cw := &controlledWriter{
-				Writer:     dw,
 				channelKey: db.cfg.Channel.Key,
+				tracker:    db.resolver.newTracker(cfg.Start),
 			}
+			domainCfg := cfg.domain()
+			domainCfg.OnRollover = cw.tracker.rollover
+			dw, err := db.domain.OpenWriter(ctx, domainCfg)
+			cw.Writer = dw
 			a := telem.NewAlignment(cfg.AlignmentDomainIndex, 0)
 			if cfg.AlignmentDomainIndex == 0 {
 				a = telem.NewAlignment(db.leadingAlignment.Add(1), 0)
@@ -239,14 +249,10 @@ func Write(
 	return err
 }
 
-func (w *Writer) len(dw *domain.Writer) int64 {
-	return w.Channel.DataType.Density().SampleCount(telem.Size(dw.Len()))
-}
-
 // Write validates and writes the given array.
 func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 	if w.closed {
-		return 0, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 	if err := w.Channel.ValidateSeries(series); err != nil {
 		return 0, w.wrapError(err)
@@ -259,8 +265,10 @@ func (w *Writer) Write(series telem.Series) (telem.Alignment, error) {
 		w.updateHwm(series)
 	}
 	if *w.cfg.Persist {
-		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(w.len(dw.Writer)))
+		baseOffset := uint32(dw.tracker.domainBytes)
+		a := telem.NewAlignment(dw.loadAlignment().DomainIndex(), uint32(dw.tracker.count(dw.Writer)))
 		dw.storeAlignment(a)
+		dw.tracker.record(series.Data, baseOffset)
 		_, err = dw.Write(series.Data)
 	} else {
 		dw.storeAlignment(dw.loadAlignment().AddSamples(uint32(series.Len())))
@@ -285,20 +293,26 @@ func (w *Writer) updateHwm(series telem.Series) {
 // Commit commits the written series to the database.
 func (w *Writer) Commit(ctx context.Context) (telem.TimeStamp, error) {
 	if w.closed {
-		return telem.TimeStampMax, w.wrapError(errWriterClosed)
+		return 0, w.wrapError(ErrWriterClosed)
 	}
 
 	if w.Channel.IsIndex {
 		ts, err := w.commitWithEnd(ctx, w.highWaterMark+1)
-		return ts, w.wrapError(err)
+		if err != nil {
+			return 0, w.wrapError(err)
+		}
+		return ts, nil
 	}
 	ts, err := w.commitWithEnd(ctx, telem.TimeStamp(0))
-	return ts, w.wrapError(err)
+	if err != nil {
+		return 0, w.wrapError(err)
+	}
+	return ts, nil
 }
 
 func (w *Writer) CommitWithEnd(ctx context.Context, end telem.TimeStamp) (err error) {
 	if w.closed {
-		return w.wrapError(errWriterClosed)
+		return w.wrapError(ErrWriterClosed)
 	}
 	_, err = w.commitWithEnd(ctx, end)
 	return w.wrapError(err)
@@ -311,12 +325,15 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 	}
 
 	if end.IsZero() {
-		// We're using w.len - 1 here because we want the timestamp of the last written
-		// frame.
+		// Subtract 1 because we want the timestamp of the last written sample.
+		// Anchor on cfg.Start (the writer's session start, always a real index
+		// timestamp) and use the cumulative session sample count, since after a
+		// rollover the per-domain start is "previous commit end + 1ns" which is
+		// not a sample boundary in the index.
 		approx, err := w.idx.Stamp(
 			ctx,
 			w.cfg.Start,
-			w.len(dw.Writer)-1,
+			dw.tracker.count(dw.Writer)-1,
 			index.MustBeContinuous,
 		)
 		if err != nil {
@@ -334,7 +351,11 @@ func (w *Writer) commitWithEnd(ctx context.Context, end telem.TimeStamp) (telem.
 		end = approx.Lower + 1
 	}
 
-	return end, dw.Commit(ctx, end)
+	if err := dw.Commit(ctx, end); err != nil {
+		return 0, err
+	}
+	dw.tracker.publish(end)
+	return end, nil
 }
 
 func (w *Writer) Close() (control.Transfer, error) {

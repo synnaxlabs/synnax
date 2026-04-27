@@ -8,7 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { migrate, TimeSpan } from "@synnaxlabs/x";
+import {
+  ClockSkewCalculator,
+  type CrudeTimeSpan,
+  migrate,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const statusZ = z.enum(["disconnected", "connecting", "connected", "failed"]);
@@ -22,12 +28,15 @@ export const stateZ = z.object({
   clientVersion: z.string(),
   clientServerCompatible: z.boolean(),
   nodeVersion: z.string().optional(),
+  clockSkew: TimeSpan.z.default(TimeSpan.ZERO),
+  clockSkewExceeded: z.boolean().default(false),
 });
 export interface State extends z.infer<typeof stateZ> {}
 
 const responseZ = z.object({
   clusterKey: z.string(),
   nodeVersion: z.string().optional(),
+  nodeTime: TimeStamp.z,
 });
 const requestZ = z.void();
 
@@ -38,6 +47,8 @@ const DEFAULT: State = {
   message: "Disconnected",
   clientServerCompatible: false,
   clientVersion: __VERSION__,
+  clockSkew: TimeSpan.ZERO,
+  clockSkewExceeded: false,
 };
 
 const createWarning = (
@@ -46,16 +57,16 @@ const createWarning = (
   clientIsNewer: boolean,
 ): string => {
   const toUpgrade = clientIsNewer ? "Core" : "client";
-  return `Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
+  return `The Synnax Core version ${nodeVersion != null ? `${nodeVersion} ` : ""}is too ${clientIsNewer ? "old" : "new"} for client version ${clientVersion}.
   This may cause compatibility issues. We recommend updating the ${toUpgrade}. For more information, see
-  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade}-version`;
+  https://docs.synnaxlabs.com/reference/client/resources/troubleshooting#old-${toUpgrade.toLowerCase()}-version`;
 };
 
 /** Polls a synnax cluster for connectivity information. */
 export class Checker {
   static readonly DEFAULT: State = DEFAULT;
   private readonly _state: State;
-  private readonly pollFrequency = TimeSpan.seconds(30);
+  private readonly pollFrequency: TimeSpan;
   private readonly client: UnaryClient;
   private readonly name?: string;
   private interval?: NodeJS.Timeout;
@@ -63,6 +74,9 @@ export class Checker {
   private readonly onChangeHandlers: Array<(state: State) => void> = [];
   static readonly connectionStateZ = stateZ;
   private versionWarned = false;
+  private readonly skewCalc: ClockSkewCalculator;
+  private readonly clockSkewThreshold: TimeSpan;
+  private checking = false;
 
   /**
    * @param client - The transport client to use for connectivity checks.
@@ -74,12 +88,15 @@ export class Checker {
     pollFreq: TimeSpan = TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
+    clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
     this.pollFrequency = pollFreq;
     this.clientVersion = clientVersion;
     this.name = name;
+    this.skewCalc = new ClockSkewCalculator();
+    this.clockSkewThreshold = new TimeSpan(clockSkewThreshold).abs();
     void this.check();
     this.start();
   }
@@ -95,7 +112,11 @@ export class Checker {
    */
   async check(): Promise<State> {
     const prevStatus = this._state.status;
+    const prevSkewExceeded = this._state.clockSkewExceeded;
+    const measureSkew = !this.checking;
+    this.checking = true;
     try {
+      if (measureSkew) this.skewCalc.start();
       const res = await sendRequired(
         this.client,
         "/connectivity/check",
@@ -103,6 +124,19 @@ export class Checker {
         requestZ,
         responseZ,
       );
+      if (measureSkew) {
+        this.skewCalc.end(res.nodeTime);
+        this._state.clockSkew = this.skewCalc.skew;
+        this._state.clockSkewExceeded = this.skewCalc.exceeds(this.clockSkewThreshold);
+        if (this._state.clockSkewExceeded) {
+          const direction = this.skewCalc.skew.valueOf() > 0n ? "ahead of" : "behind";
+          console.warn(
+            `Measured excessive clock skew between this host and ` +
+              `the Synnax Core. This host is ${direction} the Synnax Core ` +
+              `by approximately ${this.skewCalc.skew.abs().toString()}.`,
+          );
+        }
+      }
       const nodeVersion = res.nodeVersion;
       const clientVersion = this.clientVersion;
       const warned = this.versionWarned;
@@ -140,8 +174,13 @@ export class Checker {
       this._state.status = "failed";
       this._state.error = err as Error;
       this._state.message = this.state.error?.message;
+    } finally {
+      this.checking = false;
     }
-    if (this.onChangeHandlers.length > 0 && prevStatus !== this._state.status)
+    const changed =
+      prevStatus !== this._state.status ||
+      prevSkewExceeded !== this._state.clockSkewExceeded;
+    if (this.onChangeHandlers.length > 0 && changed)
       this.onChangeHandlers.forEach((handler) => handler(this.state));
     return this.state;
   }

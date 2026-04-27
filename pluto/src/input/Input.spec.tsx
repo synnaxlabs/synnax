@@ -355,16 +355,55 @@ describe("Input", () => {
     });
 
     describe("disabled", () => {
-      it("should not show drag handle when disabled", () => {
+      it("should still show drag handle when disabled", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
-        const dragButton = c.container.querySelector(".pluto-input-drag-button");
-        expect(dragButton).not.toBeTruthy();
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton).toBeTruthy();
       });
 
       it("should disable the input when disabled is true", () => {
         const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
         const input = c.getByRole("textbox") as HTMLInputElement;
         expect(input.disabled).toBe(true);
+      });
+
+      it("should pass disabled to the drag button", () => {
+        const c = render(<Input.Numeric value={0} onChange={vi.fn()} disabled />);
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton?.className).toContain("--disabled");
+      });
+
+      it("should not call onChange when dragging the drag handle while disabled", () => {
+        const onChange = vi.fn();
+        // jsdom does not implement pointer capture APIs — define stubs so vi.spyOn
+        // has a property to intercept.
+        if (!HTMLElement.prototype.setPointerCapture)
+          Object.defineProperty(HTMLElement.prototype, "setPointerCapture", {
+            value: () => {},
+            writable: true,
+            configurable: true,
+          });
+        if (!HTMLElement.prototype.releasePointerCapture)
+          Object.defineProperty(HTMLElement.prototype, "releasePointerCapture", {
+            value: () => {},
+            writable: true,
+            configurable: true,
+          });
+        vi.spyOn(HTMLElement.prototype, "setPointerCapture").mockImplementation(
+          vi.fn(),
+        );
+        vi.spyOn(HTMLElement.prototype, "releasePointerCapture").mockImplementation(
+          vi.fn(),
+        );
+        const c = render(<Input.Numeric value={5} onChange={onChange} disabled />);
+        const dragBtn = c.container.querySelector(
+          ".pluto-input__drag-btn",
+        ) as HTMLElement;
+        expect(dragBtn).toBeTruthy();
+        fireEvent.pointerDown(dragBtn, { pointerId: 1, clientX: 0, clientY: 0 });
+        fireEvent.pointerMove(dragBtn, { clientX: 200, clientY: 0 });
+        fireEvent.pointerUp(dragBtn, { pointerId: 1, clientX: 200, clientY: 0 });
+        expect(onChange).not.toHaveBeenCalled();
       });
     });
 
@@ -373,7 +412,15 @@ describe("Input", () => {
         const c = render(
           <Input.Numeric value={0} onChange={vi.fn()} showDragHandle={false} />,
         );
-        const dragButton = c.container.querySelector(".pluto-input-drag-button");
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
+        expect(dragButton).not.toBeTruthy();
+      });
+
+      it("should hide drag handle when variant is preview", () => {
+        const c = render(
+          <Input.Numeric value={0} onChange={vi.fn()} variant="preview" />,
+        );
+        const dragButton = c.container.querySelector(".pluto-input__drag-btn");
         expect(dragButton).not.toBeTruthy();
       });
     });
@@ -387,6 +434,69 @@ describe("Input", () => {
         const input = c.getByRole("textbox");
         fireEvent.blur(input);
         expect(onBlur).toHaveBeenCalled();
+      });
+    });
+
+    describe("emptyValue", () => {
+      it("should render an empty string when the value equals emptyValue", () => {
+        const c = render(
+          <Input.Numeric value={-1} onChange={vi.fn()} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("");
+      });
+
+      it("should render the value when it does not equal emptyValue", () => {
+        const c = render(
+          <Input.Numeric value={3} onChange={vi.fn()} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.value).toBe("3");
+      });
+
+      it("should show the placeholder when the value equals emptyValue", () => {
+        const c = render(
+          <Input.Numeric
+            value={-1}
+            onChange={vi.fn()}
+            emptyValue={-1}
+            placeholder="Auto"
+          />,
+        );
+        const input = c.getByRole("textbox") as HTMLInputElement;
+        expect(input.placeholder).toBe("Auto");
+      });
+
+      it("should emit emptyValue when the input is cleared and blurred", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Numeric value={7} onChange={onChange} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).toHaveBeenCalledWith(-1);
+      });
+
+      it("should emit a parsed number when typing overrides the empty state", () => {
+        const onChange = vi.fn();
+        const c = render(
+          <Input.Numeric value={-1} onChange={onChange} emptyValue={-1} />,
+        );
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "5" } });
+        fireEvent.blur(input);
+        expect(onChange).toHaveBeenCalledWith(5);
+      });
+
+      it("should not emit emptyValue when the input is cleared and emptyValue is unset", () => {
+        const onChange = vi.fn();
+        const c = render(<Input.Numeric value={7} onChange={onChange} />);
+        const input = c.getByRole("textbox");
+        fireEvent.change(input, { target: { value: "" } });
+        fireEvent.blur(input);
+        expect(onChange).not.toHaveBeenCalled();
+        expect((input as HTMLInputElement).value).toBe("7");
       });
     });
   });

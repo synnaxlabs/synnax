@@ -44,6 +44,16 @@ func (n NumberZ) Coerce() NumberZ { n.coerce = true; return n }
 // Shape returns the base shape of the number schema.
 func (n NumberZ) Shape() Shape { return n.baseZ }
 
+// Validate checks that the data is a valid number without parsing into a destination.
+func (n NumberZ) Validate(data any) error {
+	if n.expectedType != nil {
+		dest := reflect.New(n.expectedType).Interface()
+		return n.Parse(data, dest)
+	}
+	var dest any
+	return n.Parse(data, &dest)
+}
+
 // validateDestination validates that the destination is compatible with numeric data
 func (n NumberZ) validateDestination(dest reflect.Value) error {
 	if dest.Kind() != reflect.Pointer || dest.IsNil() {
@@ -172,6 +182,9 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		return nil, errors.WithStack(validate.ErrRequired)
 	}
+	if result, ok := n.dumpFast(data); ok {
+		return result, nil
+	}
 	val := reflect.ValueOf(data)
 	if val.Kind() == reflect.Pointer {
 		if val.IsNil() {
@@ -182,7 +195,70 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		val = val.Elem()
 	}
-	// If an expected type is set and coercion is not enabled, validate the input type
+	return n.dumpReflect(val)
+}
+
+func (n NumberZ) dumpFast(data any) (any, bool) {
+	if n.dataType == NumberT {
+		switch v := data.(type) {
+		case float64:
+			return v, true
+		case float32:
+			return float64(v), true
+		case int:
+			return int64(v), true
+		case int64:
+			return v, true
+		case int32:
+			return int64(v), true
+		case uint32:
+			return uint64(v), true
+		case uint64:
+			return v, true
+		}
+		return nil, false
+	}
+	if n.coerce {
+		return nil, false
+	}
+	switch n.dataType {
+	case Float64T:
+		if v, ok := data.(float64); ok {
+			return v, true
+		}
+	case Float32T:
+		if v, ok := data.(float32); ok {
+			return v, true
+		}
+	case IntT:
+		if v, ok := data.(int); ok {
+			return v, true
+		}
+	case Int64T:
+		if v, ok := data.(int64); ok {
+			return v, true
+		}
+	case Int32T:
+		if v, ok := data.(int32); ok {
+			return int64(v), true
+		}
+	case Uint32T:
+		if v, ok := data.(uint32); ok {
+			return uint64(v), true
+		}
+	case Uint64T:
+		if v, ok := data.(uint64); ok {
+			return v, true
+		}
+	case Uint16T:
+		if v, ok := data.(uint16); ok {
+			return uint64(v), true
+		}
+	}
+	return nil, false
+}
+
+func (n NumberZ) dumpReflect(val reflect.Value) (any, error) {
 	if n.dataType != NumberT && !n.coerce {
 		if val.Type() != n.expectedType {
 			return nil, validate.NewInvalidTypeError(
@@ -192,19 +268,7 @@ func (n NumberZ) Dump(data any) (any, error) {
 		}
 		return val.Interface(), nil
 	}
-	// If the source is a custom type, try to convert it to a basic type first
-	if val.Type().Kind() != reflect.Float64 &&
-		val.Type().Kind() != reflect.Float32 &&
-		val.Type().Kind() != reflect.Int &&
-		val.Type().Kind() != reflect.Int8 &&
-		val.Type().Kind() != reflect.Int16 &&
-		val.Type().Kind() != reflect.Int32 &&
-		val.Type().Kind() != reflect.Int64 &&
-		val.Type().Kind() != reflect.Uint &&
-		val.Type().Kind() != reflect.Uint8 &&
-		val.Type().Kind() != reflect.Uint16 &&
-		val.Type().Kind() != reflect.Uint32 &&
-		val.Type().Kind() != reflect.Uint64 {
+	if !isNumericType(val.Type()) {
 		if val.CanConvert(reflect.TypeFor[float64]()) {
 			val = val.Convert(reflect.TypeFor[float64]())
 		} else {
@@ -295,7 +359,6 @@ func (n NumberZ) Dump(data any) (any, error) {
 			types.ValueName(val),
 		)
 	}
-	// If no expected type is set, return the value in its most appropriate form
 	switch val.Kind() {
 	case reflect.Float64, reflect.Float32:
 		return val.Float(), nil
@@ -314,6 +377,114 @@ func (n NumberZ) Dump(data any) (any, error) {
 // ensures the value is within the valid range. For floating-point types, it handles
 // precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
+	if ok := n.parseFast(data, dest); ok {
+		return nil
+	}
+	return n.parseReflect(data, dest)
+}
+
+func (n NumberZ) parseFast(data any, dest any) bool {
+	if data == nil || dest == nil {
+		return false
+	}
+	if n.dataType != NumberT && !n.coerce {
+		switch d := dest.(type) {
+		case *float64:
+			if d == nil {
+				return false
+			}
+			if v, ok := data.(float64); ok && n.dataType == Float64T {
+				*d = v
+				return true
+			}
+		case *int:
+			if d == nil {
+				return false
+			}
+			if v, ok := data.(int); ok && n.dataType == IntT {
+				*d = v
+				return true
+			}
+		case *int64:
+			if d == nil {
+				return false
+			}
+			if v, ok := data.(int64); ok && n.dataType == Int64T {
+				*d = v
+				return true
+			}
+		case *uint32:
+			if d == nil {
+				return false
+			}
+			if v, ok := data.(uint32); ok && n.dataType == Uint32T {
+				*d = v
+				return true
+			}
+		case *uint64:
+			if d == nil {
+				return false
+			}
+			if v, ok := data.(uint64); ok && n.dataType == Uint64T {
+				*d = v
+				return true
+			}
+		}
+		return false
+	}
+	switch d := dest.(type) {
+	case *float64:
+		if d == nil {
+			return false
+		}
+		switch v := data.(type) {
+		case float64:
+			*d = v
+			return true
+		case int:
+			*d = float64(v)
+			return true
+		case int64:
+			*d = float64(v)
+			return true
+		}
+	case *int:
+		if d == nil {
+			return false
+		}
+		if v, ok := data.(int); ok {
+			*d = v
+			return true
+		}
+	case *int64:
+		if d == nil {
+			return false
+		}
+		if v, ok := data.(int64); ok {
+			*d = v
+			return true
+		}
+	case *uint32:
+		if d == nil {
+			return false
+		}
+		if v, ok := data.(uint32); ok {
+			*d = v
+			return true
+		}
+	case *uint64:
+		if d == nil {
+			return false
+		}
+		if v, ok := data.(uint64); ok {
+			*d = v
+			return true
+		}
+	}
+	return false
+}
+
+func (n NumberZ) parseReflect(data any, dest any) error {
 	destVal := reflect.ValueOf(dest)
 	if err := n.validateDestination(destVal); err != nil {
 		return err
@@ -331,43 +502,26 @@ func (n NumberZ) Parse(data any, dest any) error {
 		destType = destType.Elem()
 	}
 	srcVal := reflect.ValueOf(data)
-	srcValName := types.ValueName(srcVal)
-	convertibleErr := validate.NewInvalidTypeError(
-		"number or convertible to number",
-		srcValName,
-	)
 	if n.dataType != NumberT && !n.coerce {
 		if srcVal.Type() != n.expectedType {
-			return validate.NewInvalidTypeError(n.expectedType.String(), srcValName)
+			return validate.NewInvalidTypeError(
+				n.expectedType.String(),
+				types.ValueName(srcVal),
+			)
 		}
 	}
-	if srcVal.Type().Kind() != reflect.Float64 &&
-		srcVal.Type().Kind() != reflect.Float32 &&
-		srcVal.Type().Kind() != reflect.Int &&
-		srcVal.Type().Kind() != reflect.Int8 &&
-		srcVal.Type().Kind() != reflect.Int16 &&
-		srcVal.Type().Kind() != reflect.Int32 &&
-		srcVal.Type().Kind() != reflect.Int64 &&
-		srcVal.Type().Kind() != reflect.Uint &&
-		srcVal.Type().Kind() != reflect.Uint8 &&
-		srcVal.Type().Kind() != reflect.Uint16 &&
-		srcVal.Type().Kind() != reflect.Uint32 &&
-		srcVal.Type().Kind() != reflect.Uint64 {
+	if !isNumericType(srcVal.Type()) {
 		if srcVal.CanConvert(reflect.TypeFor[float64]()) {
 			srcVal = srcVal.Convert(reflect.TypeFor[float64]())
 		} else {
-			return convertibleErr
+			return cannotConvertToNumberError(srcVal)
 		}
 	}
-	// Handle the destination type
 	switch destType.Kind() {
 	case reflect.Float64, reflect.Float32:
-		// For floating point destinations, we can safely convert through float64
 		var floatVal float64
 		switch srcVal.Kind() {
-		case reflect.Float64:
-			floatVal = srcVal.Float()
-		case reflect.Float32:
+		case reflect.Float64, reflect.Float32:
 			floatVal = srcVal.Float()
 		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 			floatVal = float64(srcVal.Int())
@@ -375,7 +529,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 			reflect.Uint64:
 			floatVal = float64(srcVal.Uint())
 		default:
-			return convertibleErr
+			return cannotConvertToNumberError(srcVal)
 		}
 		destVal.SetFloat(floatVal)
 		return nil
@@ -398,7 +552,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 			}
 			intVal = int64(uintVal)
 		default:
-			return convertibleErr
+			return cannotConvertToNumberError(srcVal)
 		}
 		if intVal > (1<<(destType.Bits()-1)-1) || intVal < -(1<<(destType.Bits()-1)) {
 			return errors.Wrap(
@@ -430,7 +584,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 			reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 			uintVal = srcVal.Uint()
 		default:
-			return convertibleErr
+			return cannotConvertToNumberError(srcVal)
 		}
 		if uintVal > (1<<destType.Bits() - 1) {
 			return valueOutOfRangeError(uintVal, destType.Name())
@@ -439,7 +593,7 @@ func (n NumberZ) Parse(data any, dest any) error {
 		return nil
 	default:
 	}
-	return convertibleErr
+	return cannotConvertToNumberError(srcVal)
 }
 
 // Uint32 is a schema that validates uint32 numbers.

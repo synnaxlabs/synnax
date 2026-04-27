@@ -14,6 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("update", func() {
@@ -22,14 +23,13 @@ var _ = Describe("update", func() {
 		tx      gorp.Tx
 	)
 	BeforeEach(func(ctx SpecContext) {
-		tx = db.OpenTx()
+		tx = DeferClose(db.OpenTx())
 		entries = make([]entry, 10)
 		for i := range 10 {
 			entries[i] = entry{ID: int32(i), Data: "data"}
 		}
 		Expect(gorp.NewCreate[int32, entry]().Entries(&entries).Exec(ctx, tx)).To(Succeed())
 	})
-	AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
 
 	It("Should correctly update set of entries", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().

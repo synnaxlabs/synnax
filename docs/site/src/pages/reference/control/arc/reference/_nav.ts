@@ -34,6 +34,11 @@ export const REFERENCE_NAV: PageNavNode = {
       name: "Functions",
     },
     {
+      key: "/reference/control/arc/reference/loops",
+      href: "/reference/control/arc/reference/loops",
+      name: "Loops",
+    },
+    {
       key: "/reference/control/arc/reference/sequences",
       href: "/reference/control/arc/reference/sequences",
       name: "Sequences",
