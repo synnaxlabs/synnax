@@ -31,6 +31,7 @@ class On : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
     ::x::telem::Alignment high_water_mark{0};
+    ::x::telem::MonoClock clock;
 
 public:
     On(runtime::state::Node &&state, const types::ChannelKey channel_key):
@@ -60,7 +61,7 @@ public:
                                                : std::move(index_data.series[i]);
 
             if (generate_synthetic) {
-                const auto now = ::x::telem::TimeStamp::now();
+                const auto now = this->clock.now();
                 for (size_t j = 0; j < ser.size(); j++)
                     time_series.write(
                         ::x::telem::TimeStamp(
@@ -105,6 +106,7 @@ public:
 class Write : public runtime::node::Node {
     runtime::state::Node state;
     types::ChannelKey channel_key;
+    ::x::telem::MonoClock clock;
 
 public:
     Write(runtime::state::Node &&state, const types::ChannelKey channel_key):
@@ -114,7 +116,7 @@ public:
         if (!this->state.refresh_inputs()) return x::errors::NIL;
         const auto &data = this->state.input(0);
         if (data->empty()) return x::errors::NIL;
-        const auto start = ::x::telem::TimeStamp::now();
+        const auto start = this->clock.now();
         const auto time = x::mem::local_shared(
             ::x::telem::Series::linspace(
                 start,
@@ -145,6 +147,7 @@ public:
 class Module : public stl::Module {
     std::shared_ptr<State> channel;
     std::shared_ptr<str::State> str_state;
+    x::telem::MonoClock clock;
 
 public:
     Module(std::shared_ptr<State> channel, std::shared_ptr<str::State> str_state):
@@ -253,14 +256,14 @@ private:
             .func_wrap(
                 "channel",
                 "write_str",
-                [ch, ss](uint32_t channel_id, uint32_t str_handle) {
+                [this, ch, ss](uint32_t channel_id, uint32_t str_handle) {
                     std::string str_value = ss->get(str_handle);
                     if (str_value.empty()) return;
                     const auto data = x::mem::make_local_shared<x::telem::Series>(
                         str_value
                     );
                     const auto time = x::mem::make_local_shared<x::telem::Series>(
-                        x::telem::TimeStamp::now()
+                        this->clock.now()
                     );
                     ch->write_value(
                         static_cast<types::ChannelKey>(channel_id),
