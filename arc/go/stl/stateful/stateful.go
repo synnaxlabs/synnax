@@ -143,14 +143,6 @@ var SymbolResolver = &symbol.ModuleResolver{
 	},
 }
 
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
-
 func (m *Module) Create(_ context.Context, _ node.Config) (node.Node, error) {
 	return nil, query.ErrNotFound
 }

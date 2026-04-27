@@ -50,10 +50,11 @@ var (
 	})
 	bareResolver = symbol.MapResolver{
 		bareSymbolName: {
-			Name: bareSymbolName,
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecFlow,
-			Type: symbolProps,
+			Name:       bareSymbolName,
+			Kind:       symbol.KindFunction,
+			Exec:       symbol.ExecFlow,
+			Type:       symbolProps,
+			Deprecated: "status.set",
 		},
 	}
 	moduleResolver = &symbol.ModuleResolver{

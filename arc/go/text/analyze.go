@@ -29,25 +29,6 @@ import (
 	"github.com/synnaxlabs/x/set"
 )
 
-// deprecatedBareFunctions maps bare function names to their qualified replacements.
-// When the analyzer encounters one of these names, it emits a deprecation warning.
-var deprecatedBareFunctions = map[string]string{
-	"set_authority": "authority.set",
-	"avg":           "math.avg",
-	"min":           "math.min",
-	"max":           "math.max",
-	"derivative":    "math.derivative",
-	"add":           "math.add",
-	"subtract":      "math.subtract",
-	"multiply":      "math.multiply",
-	"divide":        "math.divide",
-	"mod":           "math.mod",
-	"neg":           "math.neg",
-	"select":        "selector.select",
-	"stable_for":    "stable.stable_for",
-	"set_status":    "status.set",
-}
-
 // keyGenerator produces globally unique IR node keys. It maintains a running
 // per-role counter so that successive channel reads, writes, or function
 // invocations with the same logical name receive distinct keys.
@@ -469,18 +450,10 @@ func analyzeFunctionNode(
 ) (nodeResult, bool) {
 	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	sym, err := ctx.ResolveAndWarn(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false
-	}
-	if alt, ok := deprecatedBareFunctions[name]; ok {
-		ctx.Diagnostics.Add(diagnostics.Warningf(
-			ctx.AST,
-			"'%s' is deprecated, use '%s' instead",
-			name,
-			alt,
-		))
 	}
 	if sym.Exec == symbol.ExecWASM {
 		ctx.Diagnostics.Add(diagnostics.Errorf(

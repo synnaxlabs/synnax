@@ -54,24 +54,24 @@ var (
 			},
 		}),
 	}
-	bareResolver   = symbol.MapResolver{symbolName: symbolSelect}
-	SymbolResolver = symbol.CompoundResolver{
+	deprecatedBare = symbol.Symbol{
+		Name:       symbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Deprecated: "selector.select",
+		Type:       symbolSelect.Type,
+	}
+	bareResolver     = symbol.MapResolver{symbolName: deprecatedBare}
+	moduleMembers    = symbol.MapResolver{symbolName: symbolSelect}
+	SymbolResolver   = symbol.CompoundResolver{
 		bareResolver,
-		&symbol.ModuleResolver{Name: "selector", Members: bareResolver},
+		&symbol.ModuleResolver{Name: "selector", Members: moduleMembers},
 	}
 )
 
 type Module struct{}
 
 func NewModule() *Module { return &Module{} }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != symbolName {

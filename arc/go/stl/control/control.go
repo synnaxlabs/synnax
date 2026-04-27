@@ -44,10 +44,11 @@ var (
 	})
 	bareResolver = symbol.MapResolver{
 		bareSymbolName: {
-			Name: bareSymbolName,
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecFlow,
-			Type: symbolProps,
+			Name:       bareSymbolName,
+			Kind:       symbol.KindFunction,
+			Exec:       symbol.ExecFlow,
+			Type:       symbolProps,
+			Deprecated: "authority.set",
 		},
 	}
 	moduleResolver = &symbol.ModuleResolver{
@@ -71,14 +72,6 @@ type Module struct {
 func NewModule(ab *ProgramState) *Module { return &Module{auth: ab} }
 
 func (m *Module) ModuleName() string { return moduleName }
-
-func (m *Module) Resolve(ctx context.Context, name string) (symbol.Symbol, error) {
-	return SymbolResolver.Resolve(ctx, name)
-}
-
-func (m *Module) Search(ctx context.Context, term string) ([]symbol.Symbol, error) {
-	return SymbolResolver.Search(ctx, term)
-}
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {

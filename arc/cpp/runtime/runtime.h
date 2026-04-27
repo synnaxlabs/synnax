@@ -272,14 +272,13 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::stateful::WasmModule>(var_st, series_st, str_st),
         std::make_shared<stl::series::WasmModule>(series_st),
         std::make_shared<stl::str::WasmModule>(str_st),
-        std::make_shared<stl::math::WasmModule>(),
+        std::make_shared<stl::math::Module>(),
         time_module,
         std::make_shared<stl::error::WasmModule>(error_handler),
         std::make_shared<stl::constant::WasmModule>(),
         std::make_shared<stl::authority::WasmModule>(state),
         std::make_shared<stl::stable::WasmModule>(),
         std::make_shared<stl::selector::WasmModule>(),
-        std::make_shared<stl::math::FlowModule>(),
     };
 
     wasm::ModuleConfig module_cfg{

@@ -706,9 +706,10 @@ var _ = Describe("Text", func() {
 				statusResolver := symbol.CompoundResolver{
 					symbol.MapResolver{
 						"set_status": {
-							Name: "set_status",
-							Kind: symbol.KindFunction,
-							Exec: symbol.ExecFlow,
+							Name:       "set_status",
+							Kind:       symbol.KindFunction,
+							Exec:       symbol.ExecFlow,
+							Deprecated: "status.set",
 							Type: types.Function(types.FunctionProperties{
 								Config: types.Params{
 									{Name: "status_key", Type: types.String()},

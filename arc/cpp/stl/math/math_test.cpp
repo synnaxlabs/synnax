@@ -168,8 +168,8 @@ void write_reset(
 }
 }
 
-TEST(MathFlowModuleTest, HandlesMathTypes) {
-    FlowModule module;
+TEST(MathModuleTest, HandlesMathTypes) {
+    Module module;
     EXPECT_TRUE(module.handles("avg"));
     EXPECT_TRUE(module.handles("min"));
     EXPECT_TRUE(module.handles("max"));
@@ -177,11 +177,11 @@ TEST(MathFlowModuleTest, HandlesMathTypes) {
     EXPECT_FALSE(module.handles("other"));
 }
 
-TEST(MathFlowModuleTest, ReturnsNotFoundForWrongType) {
+TEST(MathModuleTest, ReturnsNotFoundForWrongType) {
     TestSetup setup(types::Kind::F64, "avg");
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "unknown";
-    FlowModule module;
+    Module module;
     ASSERT_OCCURRED_AS_P(
         module.create(
             runtime::node::Config(setup.ir, ir_node, setup.make_target_node())
@@ -192,7 +192,7 @@ TEST(MathFlowModuleTest, ReturnsNotFoundForWrongType) {
 
 TEST(MathAvgTest, ComputesRunningAverage) {
     TestSetup setup(types::Kind::F64, "avg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -215,7 +215,7 @@ TEST(MathAvgTest, ComputesRunningAverage) {
 
 TEST(MathAvgTest, AccumulatesAcrossBatches) {
     TestSetup setup(types::Kind::F64, "avg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -236,7 +236,7 @@ TEST(MathAvgTest, AccumulatesAcrossBatches) {
 
 TEST(MathAvgTest, WeightedAverageWithUnequalBatchSizes) {
     TestSetup setup(types::Kind::F64, "avg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -266,7 +266,7 @@ TEST(MathAvgTest, ResetsWithCountConfig) {
     count_param.value = static_cast<int64_t>(3);
 
     TestSetup setup(types::Kind::F64, "avg", {count_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -295,7 +295,7 @@ TEST(MathAvgTest, ResetsWithDurationConfig) {
     duration_param.value = 5 * x::telem::SECOND.nanoseconds();
 
     TestSetup setup(types::Kind::F64, "avg", {duration_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -319,7 +319,7 @@ TEST(MathAvgTest, ResetsWithDurationConfig) {
 
 TEST(MathAvgTest, ResetsWithSignal) {
     TestSetup setup(types::Kind::F64, "avg", {}, true);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -347,7 +347,7 @@ TEST(MathAvgTest, ResetsWithSignal) {
 
 TEST(MathMinTest, ComputesRunningMinimum) {
     TestSetup setup(types::Kind::I32, "min");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -369,7 +369,7 @@ TEST(MathMinTest, ComputesRunningMinimum) {
 
 TEST(MathMinTest, MaintainsMinAcrossBatches) {
     TestSetup setup(types::Kind::I32, "min");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -395,7 +395,7 @@ TEST(MathMinTest, ResetsWithDurationConfig) {
     duration_param.value = 5 * x::telem::SECOND.nanoseconds();
 
     TestSetup setup(types::Kind::I32, "min", {duration_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -430,7 +430,7 @@ TEST(MathMinTest, ResetsWithCountConfig) {
     count_param.value = static_cast<int64_t>(3);
 
     TestSetup setup(types::Kind::F64, "min", {count_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -454,7 +454,7 @@ TEST(MathMinTest, ResetsWithCountConfig) {
 
 TEST(MathMinTest, ResetsWithSignal) {
     TestSetup setup(types::Kind::I32, "min", {}, true);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -482,7 +482,7 @@ TEST(MathMinTest, ResetsWithSignal) {
 
 TEST(MathMinTest, DoesNotUpdateWhenNewValuesLarger) {
     TestSetup setup(types::Kind::F64, "min");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -503,7 +503,7 @@ TEST(MathMinTest, DoesNotUpdateWhenNewValuesLarger) {
 
 TEST(MathMaxTest, ComputesRunningMaximum) {
     TestSetup setup(types::Kind::F64, "max");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -525,7 +525,7 @@ TEST(MathMaxTest, ComputesRunningMaximum) {
 
 TEST(MathMaxTest, MaintainsMaxAcrossBatches) {
     TestSetup setup(types::Kind::F64, "max");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -551,7 +551,7 @@ TEST(MathMaxTest, ResetsWithDurationConfig) {
     duration_param.value = 5 * x::telem::SECOND.nanoseconds();
 
     TestSetup setup(types::Kind::F64, "max", {duration_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -580,7 +580,7 @@ TEST(MathMaxTest, ResetsWithCountConfig) {
     count_param.value = static_cast<int64_t>(2);
 
     TestSetup setup(types::Kind::I32, "max", {count_param});
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -604,7 +604,7 @@ TEST(MathMaxTest, ResetsWithCountConfig) {
 
 TEST(MathMaxTest, ResetsWithSignal) {
     TestSetup setup(types::Kind::F64, "max", {}, true);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -632,7 +632,7 @@ TEST(MathMaxTest, ResetsWithSignal) {
 
 TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
     TestSetup setup(types::Kind::F64, "max", {}, true);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -680,7 +680,7 @@ TEST(MathMaxTest, SumsAlignmentFromResetSignal) {
 
 TEST(MathMaxTest, ExecutesBeforeResetSignalSendsData) {
     TestSetup setup(types::Kind::F64, "max", {}, true);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -701,7 +701,7 @@ TEST(MathMaxTest, ExecutesBeforeResetSignalSendsData) {
 
 TEST(MathDerivativeTest, ComputesPointwiseDerivative) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -739,7 +739,7 @@ TEST(MathDerivativeTest, ComputesPointwiseDerivative) {
 
 TEST(MathDerivativeTest, MaintainsStateAcrossBatches) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -761,7 +761,7 @@ TEST(MathDerivativeTest, MaintainsStateAcrossBatches) {
 
 TEST(MathDerivativeTest, FirstSampleOutputsZero) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -778,7 +778,7 @@ TEST(MathDerivativeTest, FirstSampleOutputsZero) {
 
 TEST(MathDerivativeTest, ResetClearsState) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -801,7 +801,7 @@ TEST(MathDerivativeTest, ResetClearsState) {
 
 TEST(MathDerivativeTest, ZeroDtOutputsZero) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -819,7 +819,7 @@ TEST(MathDerivativeTest, ZeroDtOutputsZero) {
 
 TEST(MathDerivativeTest, NegativeDerivative) {
     TestSetup setup(types::Kind::F64, "derivative");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -838,7 +838,7 @@ TEST(MathDerivativeTest, NegativeDerivative) {
 
 TEST(MathDerivativeTest, I32InputOutputsFloat64) {
     TestSetup setup(types::Kind::I32, "derivative", {}, false, types::Kind::F64);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -858,7 +858,7 @@ TEST(MathDerivativeTest, I32InputOutputsFloat64) {
 
 TEST(MathDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
     TestSetup setup(types::Kind::U8, "derivative", {}, false, types::Kind::F64);
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -883,7 +883,7 @@ TEST(MathDerivativeTest, U8InputNegativeDerivativeOutputsFloat64) {
 
 TEST(MathAvgTest, HandlesEmptyInput) {
     TestSetup setup(types::Kind::F64, "avg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -897,7 +897,7 @@ TEST(MathAvgTest, HandlesEmptyInput) {
 
 TEST(MathMinTest, HandlesEmptyInput) {
     TestSetup setup(types::Kind::I32, "min");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -911,7 +911,7 @@ TEST(MathMinTest, HandlesEmptyInput) {
 
 TEST(MathMaxTest, HandlesEmptyInput) {
     TestSetup setup(types::Kind::F64, "max");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -925,7 +925,7 @@ TEST(MathMaxTest, HandlesEmptyInput) {
 
 TEST(MathAvgTest, WorksWithI32) {
     TestSetup setup(types::Kind::I32, "avg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -942,7 +942,7 @@ TEST(MathAvgTest, WorksWithI32) {
 
 TEST(MathMaxTest, WorksWithI32) {
     TestSetup setup(types::Kind::I32, "max");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -957,8 +957,8 @@ TEST(MathMaxTest, WorksWithI32) {
     EXPECT_EQ(checker.output(0)->at<int32_t>(0), 50);
 }
 
-TEST(MathFlowModuleTest, HandlesArithmeticTypes) {
-    FlowModule module;
+TEST(MathModuleTest, HandlesArithmeticTypes) {
+    Module module;
     EXPECT_TRUE(module.handles("add"));
     EXPECT_TRUE(module.handles("subtract"));
     EXPECT_TRUE(module.handles("multiply"));
@@ -1093,7 +1093,7 @@ void write_rhs_i32(
 
 TEST(MathAddTest, AddsF64ElementWise) {
     BinaryTestSetup setup(types::Kind::F64, "add");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1116,7 +1116,7 @@ TEST(MathAddTest, AddsF64ElementWise) {
 
 TEST(MathAddTest, AddsI32ElementWise) {
     BinaryTestSetup setup(types::Kind::I32, "add");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1137,7 +1137,7 @@ TEST(MathAddTest, AddsI32ElementWise) {
 
 TEST(MathSubtractTest, SubtractsF64ElementWise) {
     BinaryTestSetup setup(types::Kind::F64, "subtract");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1156,7 +1156,7 @@ TEST(MathSubtractTest, SubtractsF64ElementWise) {
 
 TEST(MathSubtractTest, SubtractsI32ElementWise) {
     BinaryTestSetup setup(types::Kind::I32, "subtract");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1177,7 +1177,7 @@ TEST(MathSubtractTest, SubtractsI32ElementWise) {
 
 TEST(MathMultiplyTest, MultipliesF64ElementWise) {
     BinaryTestSetup setup(types::Kind::F64, "multiply");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1195,7 +1195,7 @@ TEST(MathMultiplyTest, MultipliesF64ElementWise) {
 
 TEST(MathMultiplyTest, MultipliesI32ElementWise) {
     BinaryTestSetup setup(types::Kind::I32, "multiply");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1215,7 +1215,7 @@ TEST(MathMultiplyTest, MultipliesI32ElementWise) {
 
 TEST(MathDivideTest, DividesF64ElementWise) {
     BinaryTestSetup setup(types::Kind::F64, "divide");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1233,7 +1233,7 @@ TEST(MathDivideTest, DividesF64ElementWise) {
 
 TEST(MathDivideTest, DividesI32ElementWise) {
     BinaryTestSetup setup(types::Kind::I32, "divide");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1253,7 +1253,7 @@ TEST(MathDivideTest, DividesI32ElementWise) {
 
 TEST(MathModTest, ModsF64ElementWise) {
     BinaryTestSetup setup(types::Kind::F64, "mod");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1271,7 +1271,7 @@ TEST(MathModTest, ModsF64ElementWise) {
 
 TEST(MathModTest, ModsI32ElementWise) {
     BinaryTestSetup setup(types::Kind::I32, "mod");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1292,7 +1292,7 @@ TEST(MathModTest, ModsI32ElementWise) {
 
 TEST(MathNegTest, NegatesF64ElementWise) {
     TestSetup setup(types::Kind::F64, "neg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -1313,7 +1313,7 @@ TEST(MathNegTest, NegatesF64ElementWise) {
 
 TEST(MathNegTest, NegatesI32ElementWise) {
     TestSetup setup(types::Kind::I32, "neg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -1332,7 +1332,7 @@ TEST(MathNegTest, NegatesI32ElementWise) {
 
 TEST(MathArithmeticTest, HandlesMismatchedSeriesLengths) {
     BinaryTestSetup setup(types::Kind::F64, "add");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1353,7 +1353,7 @@ TEST(MathArithmeticTest, HandlesMismatchedSeriesLengths) {
 
 TEST(MathArithmeticTest, NoChangeWhenInputsNotRefreshed) {
     BinaryTestSetup setup(types::Kind::F64, "add");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1366,7 +1366,7 @@ TEST(MathArithmeticTest, NoChangeWhenInputsNotRefreshed) {
 
 TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
     BinaryTestSetup setup(types::Kind::F64, "add");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[2], setup.make_target_node())
     ));
@@ -1401,7 +1401,7 @@ TEST(MathArithmeticTest, PropagatesAlignmentFromBothInputs) {
 
 TEST(MathArithmeticTest, NegPropagatesAlignmentFromInput) {
     TestSetup setup(types::Kind::F64, "neg");
-    FlowModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[1], setup.make_target_node())
     ));
@@ -1425,11 +1425,11 @@ TEST(MathArithmeticTest, NegPropagatesAlignmentFromInput) {
 
 // ───────────────── MultiFactory Qualified Routing ─────────────────
 
-TEST(MathFlowModuleTest, CreatesAddWithQualifiedTypeViaMultiFactory) {
+TEST(MathModuleTest, CreatesAddWithQualifiedTypeViaMultiFactory) {
     BinaryTestSetup setup(types::Kind::F64, "add");
     auto ir_node = setup.ir.nodes[2];
     ir_node.type = "math.add";
-    auto module = std::make_shared<FlowModule>();
+    auto module = std::make_shared<Module>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))
@@ -1437,11 +1437,11 @@ TEST(MathFlowModuleTest, CreatesAddWithQualifiedTypeViaMultiFactory) {
     ASSERT_NE(node, nullptr);
 }
 
-TEST(MathFlowModuleTest, CreatesNegWithQualifiedTypeViaMultiFactory) {
+TEST(MathModuleTest, CreatesNegWithQualifiedTypeViaMultiFactory) {
     TestSetup setup(types::Kind::F64, "neg");
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "math.neg";
-    auto module = std::make_shared<FlowModule>();
+    auto module = std::make_shared<Module>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))
@@ -1449,12 +1449,12 @@ TEST(MathFlowModuleTest, CreatesNegWithQualifiedTypeViaMultiFactory) {
     ASSERT_NE(node, nullptr);
 }
 
-TEST(MathFlowModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+TEST(MathModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     TestSetup setup(types::Kind::F64, "avg");
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "math.avg";
 
-    auto module = std::make_shared<FlowModule>();
+    auto module = std::make_shared<Module>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))
@@ -1462,12 +1462,12 @@ TEST(MathFlowModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
     ASSERT_NE(node, nullptr);
 }
 
-TEST(MathFlowModuleTest, CreatesDerivativeWithQualifiedTypeViaMultiFactory) {
+TEST(MathModuleTest, CreatesDerivativeWithQualifiedTypeViaMultiFactory) {
     TestSetup setup(types::Kind::F64, "derivative", {}, false, types::Kind::F64);
     auto ir_node = setup.ir.nodes[1];
     ir_node.type = "math.derivative";
 
-    auto module = std::make_shared<FlowModule>();
+    auto module = std::make_shared<Module>();
     runtime::node::MultiFactory multi({module});
     auto node = ASSERT_NIL_P(
         multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_target_node()))

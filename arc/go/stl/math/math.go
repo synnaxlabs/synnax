@@ -106,17 +106,22 @@ var (
 	}
 )
 
+func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
+}
+
 var deprecatedBareResolver = symbol.MapResolver{
-	avgSymbolName:        avgSymbol,
-	minSymbolName:        minSymbol,
-	maxSymbolName:        maxSymbol,
-	derivativeSymbolName: derivativeSymbol,
-	addSymbolName:        addSymbol,
-	subSymbolName:        subSymbol,
-	mulSymbolName:        mulSymbol,
-	divSymbolName:        divSymbol,
-	modSymbolName:        modSymbol,
-	negSymbolName:        negSymbol,
+	avgSymbolName:        deprecated(avgSymbol, "math.avg"),
+	minSymbolName:        deprecated(minSymbol, "math.min"),
+	maxSymbolName:        deprecated(maxSymbol, "math.max"),
+	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
+	addSymbolName:        deprecated(addSymbol, "math.add"),
+	subSymbolName:        deprecated(subSymbol, "math.subtract"),
+	mulSymbolName:        deprecated(mulSymbol, "math.multiply"),
+	divSymbolName:        deprecated(divSymbol, "math.divide"),
+	modSymbolName:        deprecated(modSymbol, "math.mod"),
+	negSymbolName:        deprecated(negSymbol, "math.neg"),
 }
 
 var moduleMembers = symbol.MapResolver{

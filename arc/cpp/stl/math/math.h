@@ -37,85 +37,6 @@ T int_pow(T base, T exp) {
     return result;
 }
 
-class WasmModule : public stl::Module {
-public:
-    void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
-        bind_float<float>(linker, "f32");
-        bind_float<double>(linker, "f64");
-        bind_int<uint8_t>(linker, "u8");
-        bind_int<uint16_t>(linker, "u16");
-        bind_int<uint32_t>(linker, "u32");
-        bind_int<uint64_t>(linker, "u64");
-        bind_int<int8_t>(linker, "i8");
-        bind_int<int16_t>(linker, "i16");
-        bind_int<int32_t>(linker, "i32");
-        bind_int<int64_t>(linker, "i64");
-        bind_signed_unary<int8_t>(linker, "i8");
-        bind_signed_unary<int16_t>(linker, "i16");
-        bind_signed_unary<int32_t>(linker, "i32");
-        bind_signed_unary<int64_t>(linker, "i64");
-        bind_float_unary<float>(linker, "f32");
-        bind_float_unary<double>(linker, "f64");
-    }
-
-private:
-    template<typename T>
-    static void bind_float(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
-        linker
-            .func_wrap(
-                "math",
-                "pow_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(
-                        std::pow(static_cast<T>(a), static_cast<T>(b))
-                    );
-                }
-            )
-            .unwrap();
-    }
-
-    template<typename T>
-    static void bind_int(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
-        linker
-            .func_wrap(
-                "math",
-                "pow_" + suffix,
-                [](W a, W b) -> W {
-                    return static_cast<W>(
-                        int_pow(static_cast<T>(a), static_cast<T>(b))
-                    );
-                }
-            )
-            .unwrap();
-    }
-
-    template<typename T>
-    static void bind_signed_unary(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
-        linker
-            .func_wrap(
-                "math",
-                "neg_" + suffix,
-                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
-            )
-            .unwrap();
-    }
-
-    template<typename T>
-    static void bind_float_unary(wasmtime::Linker &linker, const std::string &suffix) {
-        using W = typename WasmType<T>::type;
-        linker
-            .func_wrap(
-                "math",
-                "neg_" + suffix,
-                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
-            )
-            .unwrap();
-    }
-};
-
 struct WindowConfig {
     x::telem::TimeSpan duration{0};
     int64_t count = 0;
@@ -632,9 +553,28 @@ private:
     }
 };
 
-class FlowModule : public stl::Module {
+class Module : public stl::Module {
 public:
     [[nodiscard]] std::string module_name() const override { return "math"; }
+
+    void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
+        bind_float<float>(linker, "f32");
+        bind_float<double>(linker, "f64");
+        bind_int<uint8_t>(linker, "u8");
+        bind_int<uint16_t>(linker, "u16");
+        bind_int<uint32_t>(linker, "u32");
+        bind_int<uint64_t>(linker, "u64");
+        bind_int<int8_t>(linker, "i8");
+        bind_int<int16_t>(linker, "i16");
+        bind_int<int32_t>(linker, "i32");
+        bind_int<int64_t>(linker, "i64");
+        bind_signed_unary<int8_t>(linker, "i8");
+        bind_signed_unary<int16_t>(linker, "i16");
+        bind_signed_unary<int32_t>(linker, "i32");
+        bind_signed_unary<int64_t>(linker, "i64");
+        bind_float_unary<float>(linker, "f32");
+        bind_float_unary<double>(linker, "f64");
+    }
 
     bool handles(const std::string &node_type) const override {
         return node_type == "avg" || node_type == "min" || node_type == "max" ||
@@ -706,6 +646,69 @@ public:
                 Aggregator>(std::move(cfg.state), kind, op, window_cfg, reset_idx),
             x::errors::NIL
         };
+    }
+
+private:
+    template<typename T>
+    static void bind_float(wasmtime::Linker &linker, const std::string &suffix) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "pow_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(
+                        std::pow(static_cast<T>(a), static_cast<T>(b))
+                    );
+                }
+            )
+            .unwrap();
+    }
+
+    template<typename T>
+    static void bind_int(wasmtime::Linker &linker, const std::string &suffix) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "pow_" + suffix,
+                [](W a, W b) -> W {
+                    return static_cast<W>(
+                        int_pow(static_cast<T>(a), static_cast<T>(b))
+                    );
+                }
+            )
+            .unwrap();
+    }
+
+    template<typename T>
+    static void bind_signed_unary(
+        wasmtime::Linker &linker,
+        const std::string &suffix
+    ) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "neg_" + suffix,
+                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
+            )
+            .unwrap();
+    }
+
+    template<typename T>
+    static void bind_float_unary(
+        wasmtime::Linker &linker,
+        const std::string &suffix
+    ) {
+        using W = typename WasmType<T>::type;
+        linker
+            .func_wrap(
+                "math",
+                "neg_" + suffix,
+                [](W a) -> W { return static_cast<W>(-static_cast<T>(a)); }
+            )
+            .unwrap();
     }
 };
 

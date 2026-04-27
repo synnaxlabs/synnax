@@ -39,10 +39,18 @@ var (
 			},
 		}),
 	}
-	bareResolver   = symbol.MapResolver{symbolName: symbolDef}
+	deprecatedBare = symbol.Symbol{
+		Name:       symbolName,
+		Kind:       symbol.KindFunction,
+		Exec:       symbol.ExecFlow,
+		Deprecated: "stable.stable_for",
+		Type:       symbolDef.Type,
+	}
+	bareResolver   = symbol.MapResolver{symbolName: deprecatedBare}
+	moduleMembers  = symbol.MapResolver{symbolName: symbolDef}
 	SymbolResolver = symbol.CompoundResolver{
 		bareResolver,
-		&symbol.ModuleResolver{Name: "stable", Members: bareResolver},
+		&symbol.ModuleResolver{Name: "stable", Members: moduleMembers},
 	}
 )
 

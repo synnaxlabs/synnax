@@ -125,6 +125,24 @@ func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	return c
 }
 
+// ResolveAndWarn resolves a symbol by name and, if the resolved symbol is
+// deprecated, automatically adds a deprecation warning to diagnostics.
+func (c Context[AST]) ResolveAndWarn(name string) (*symbol.Scope, error) {
+	result, err := c.Scope.Resolve(c, name)
+	if err != nil {
+		return result, err
+	}
+	if result.Deprecated != "" {
+		c.Diagnostics.Add(diagnostics.Warningf(
+			c.AST,
+			"'%s' is deprecated, use '%s' instead",
+			name,
+			result.Deprecated,
+		))
+	}
+	return result, nil
+}
+
 // CreateRoot creates a new root context for program analysis. CreateRoot initializes
 // all shared state (Diagnostics, Constraints, TypeMap) and creates the root symbol
 // scope.

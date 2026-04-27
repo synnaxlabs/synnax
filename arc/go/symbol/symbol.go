@@ -157,4 +157,8 @@ type Symbol struct {
 	// or Both). A zero value is invalid and will cause resolution to fail, forcing
 	// every symbol to be explicitly tagged.
 	Exec ExecContext
+	// Deprecated holds the qualified replacement name for deprecated symbols.
+	// Empty means not deprecated. When set, analysis helpers can automatically
+	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
+	Deprecated string
 }
