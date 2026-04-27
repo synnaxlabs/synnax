@@ -61,9 +61,9 @@ var (
 		Deprecated: "selector.select",
 		Type:       symbolSelect.Type,
 	}
-	bareResolver     = symbol.MapResolver{symbolName: deprecatedBare}
-	moduleMembers    = symbol.MapResolver{symbolName: symbolSelect}
-	SymbolResolver   = symbol.CompoundResolver{
+	bareResolver   = symbol.MapResolver{symbolName: deprecatedBare}
+	moduleMembers  = symbol.MapResolver{symbolName: symbolSelect}
+	SymbolResolver = symbol.CompoundResolver{
 		bareResolver,
 		&symbol.ModuleResolver{Name: "selector", Members: moduleMembers},
 	}
