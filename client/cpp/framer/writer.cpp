@@ -22,12 +22,8 @@ enum WriterCommand : uint32_t {
 };
 
 std::pair<Writer, x::errors::Error> Client::open_writer(const WriterConfig &cfg) const {
-    Codec codec;
-    if (cfg.enable_experimental_codec) {
-        codec = Codec(this->channel_client);
-        if (const auto codec_err = codec.update(cfg.channels))
-            return {Writer(), codec_err};
-    }
+    Codec codec(this->channel_client);
+    if (const auto codec_err = codec.update(cfg.channels)) return {Writer(), codec_err};
     auto [net_writer, err] = this->writer_client->stream("/frame/write");
     if (err) return {Writer(), err};
     grpc::framer::WriterRequest req;
@@ -99,30 +95,14 @@ x::errors::Error Writer::close() {
 }
 
 x::errors::Error Writer::init_request(const x::telem::Frame &fr) {
-    if (this->cfg.enable_experimental_codec) {
-        if (this->cached_write_req == nullptr)
-            this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
-        this->cached_write_req->set_command(WRITE);
-        if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
-        this->cached_write_req->set_buffer(
-            this->codec_data.data(),
-            this->codec_data.size()
-        );
-        return x::errors::NIL;
-    }
-
-    if (this->cached_write_req != nullptr && this->cfg.enable_proto_frame_caching) {
-        for (size_t i = 0; i < fr.series->size(); i++)
-            *cached_frame->mutable_series(
-                static_cast<int>(i)
-            ) = fr.series->at(i).to_proto();
-        return x::errors::NIL;
-    }
-    this->cached_write_req = nullptr;
-    this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
+    if (this->cached_write_req == nullptr)
+        this->cached_write_req = std::make_unique<grpc::framer::WriterRequest>();
     this->cached_write_req->set_command(WRITE);
-    this->cached_frame = cached_write_req->mutable_frame();
-    *cached_frame = fr.to_proto();
+    if (const auto err = this->codec.encode(fr, this->codec_data)) return err;
+    this->cached_write_req->set_buffer(
+        this->codec_data.data(),
+        this->codec_data.size()
+    );
     return x::errors::NIL;
 }
 
