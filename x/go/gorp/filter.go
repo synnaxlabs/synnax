@@ -9,37 +9,54 @@
 
 package gorp
 
-// Filter is a composable query filter that evaluates entries. The struct carries
-// closures for both raw-byte pre-screening and decoded-entry evaluation.
+// Filter is a composable query filter that evaluates entries. Eval is the
+// semantic predicate that decides whether an entry matches; it receives both
+// the decoded entry and the raw encoded bytes so filters constructed via
+// MatchRaw can run their predicate at composition time inside Or/Not. Raw is
+// an optional optimization hint that, when present, runs before decoding so
+// that entries the predicate rejects are skipped without ever being decoded.
+// Eval and Raw must agree: if Raw rejects, Eval would have rejected too.
 type Filter[K Key, E Entry[K]] struct {
-	// Eval evaluates a decoded entry. Nil means no decoded-entry constraint.
-	Eval func(ctx Context, e *E) (bool, error)
-	// Raw evaluates the raw encoded bytes before decoding. Returning false skips
-	// the entry without allocating a decoded value. Nil means no raw constraint.
+	// Eval evaluates an entry by its decoded value and/or its raw encoded
+	// bytes. Filters constructed via Match ignore raw; filters constructed
+	// via MatchRaw ignore the decoded value.
+	Eval func(ctx Context, e *E, raw []byte) (bool, error)
+	// Raw evaluates the raw encoded bytes before decoding as a pre-screen
+	// optimization. Nil means no pre-screen; Eval is still authoritative.
 	Raw func(data []byte) (bool, error)
 }
 
-// Match wraps a bare closure as a Filter.
+// Match wraps a closure that operates on a decoded entry as a Filter.
 func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Eval: f}
+	return Filter[K, E]{
+		Eval: func(ctx Context, e *E, _ []byte) (bool, error) {
+			return f(ctx, e)
+		},
+	}
 }
 
-// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs before
-// decoding; returning false skips the entry entirely.
+// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs as a
+// pre-decode pre-screen (skipping non-matching entries entirely) and again at
+// the Eval stage so the filter composes correctly inside Or and Not.
 func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Raw: f}
+	return Filter[K, E]{
+		Raw: f,
+		Eval: func(_ Context, _ *E, raw []byte) (bool, error) {
+			return f(raw)
+		},
+	}
 }
 
 // And returns a filter that matches when ALL children match. Short-circuits on the
 // first false for both Raw and Eval stages independently.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	f := Filter[K, E]{
-		Eval: func(ctx Context, e *E) (bool, error) {
+		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
 				if f.Eval == nil {
 					continue
 				}
-				ok, err := f.Eval(ctx, e)
+				ok, err := f.Eval(ctx, e, raw)
 				if err != nil || !ok {
 					return false, err
 				}
@@ -72,12 +89,12 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // a Raw check may still match after decoding, so we must always decode.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return Filter[K, E]{
-		Eval: func(ctx Context, e *E) (bool, error) {
+		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
 				if f.Eval == nil {
 					continue
 				}
-				ok, err := f.Eval(ctx, e)
+				ok, err := f.Eval(ctx, e, raw)
 				if err != nil {
 					return false, err
 				}
@@ -95,11 +112,11 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // stage.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	return Filter[K, E]{
-		Eval: func(ctx Context, e *E) (bool, error) {
+		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			if f.Eval == nil {
 				return false, nil
 			}
-			ok, err := f.Eval(ctx, e)
+			ok, err := f.Eval(ctx, e, raw)
 			return !ok, err
 		},
 	}
@@ -124,7 +141,7 @@ func MatchBound[R any, K Key, E Entry[K]](
 	f func(ctx Context, r R, e *E) (bool, error),
 ) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
-		return Filter[K, E]{Eval: func(ctx Context, e *E) (bool, error) {
+		return Filter[K, E]{Eval: func(ctx Context, e *E, _ []byte) (bool, error) {
 			return f(ctx, r, e)
 		}}
 	}

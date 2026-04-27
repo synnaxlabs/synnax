@@ -41,42 +41,59 @@ func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
+	e, _, err := r.get(ctx, key)
+	return e, err
+}
+
+// get retrieves a single entry along with a copy of its raw encoded
+// bytes. The returned raw slice is owned by the caller and outlives the
+// underlying transaction handle.
+func (r Reader[K, E]) get(ctx context.Context, key K) (E, []byte, error) {
 	var e E
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
-		return e, err
+		return e, nil, err
 	}
+	raw := append([]byte(nil), b...)
 	err = r.tx.Decode(ctx, b, &e)
-	return e, errors.Combine(err, closer.Close())
+	return e, raw, errors.Combine(err, closer.Close())
 }
 
 // GetMany retrieves isMultiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
+	entries, _, err := r.getMany(ctx, keys)
+	return entries, err
+}
+
+// getMany retrieves entries along with their raw encoded bytes.
+// entries[i] corresponds to raws[i]. Entries that are not found are omitted
+// from both slices.
+func (r Reader[K, E]) getMany(ctx context.Context, keys []K) ([]E, [][]byte, error) {
 	var (
 		entries  = make([]E, 0, len(keys))
+		raws     = make([][]byte, 0, len(keys))
 		notFound []K
 	)
 	for i := range keys {
-		e, err := r.Get(ctx, keys[i])
+		e, raw, err := r.get(ctx, keys[i])
 		if err != nil {
 			if errors.Is(err, query.ErrNotFound) {
 				notFound = append(notFound, keys[i])
 				continue
-			} else {
-				return entries, err
 			}
-		} else {
-			entries = append(entries, e)
+			return entries, raws, err
 		}
+		entries = append(entries, e)
+		raws = append(raws, raw)
 	}
 	if len(notFound) > 0 {
-		return entries, errors.Wrapf(
+		return entries, raws, errors.Wrapf(
 			query.ErrNotFound,
 			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
 		)
 	}
-	return entries, nil
+	return entries, raws, nil
 }
 
 type IterOptions struct {

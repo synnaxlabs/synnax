@@ -10,6 +10,8 @@
 package gorp_test
 
 import (
+	"bytes"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/x/errors"
@@ -320,6 +322,63 @@ var _ = Describe("Filter Combinators", func() {
 				Where(inverted(bindCtx{threshold: 2})).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[5], entries[6], entries[7], entries[8], entries[9]}))
+		})
+	})
+
+	Describe("MatchRaw inside Or/Not", func() {
+		alwaysTrueRaw := func(_ []byte) (bool, error) { return true, nil }
+		alwaysFalseRaw := func(_ []byte) (bool, error) { return false, nil }
+		containsDataRaw := func(data []byte) (bool, error) {
+			return bytes.Contains(data, []byte("data")), nil
+		}
+		neverMatch := gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) {
+			return false, nil
+		})
+
+		It("Or(MatchRaw(true), neverMatch) should match every entry", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Or(gorp.MatchRaw[int32, entry](alwaysTrueRaw), neverMatch)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(10))
+		})
+
+		It("Or(MatchRaw(containsData), neverMatch) should match every entry", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(10))
+		})
+
+		It("Not(MatchRaw(false)) should match every entry", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Not(gorp.MatchRaw[int32, entry](alwaysFalseRaw))).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(10))
+		})
+
+		It("Not(MatchRaw(true)) should match no entries", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				Where(gorp.Not(gorp.MatchRaw[int32, entry](alwaysTrueRaw))).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Or(MatchRaw, Match) should compose correctly under WhereKeys", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereKeys(1, 2, 3).
+				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(HaveLen(3))
 		})
 	})
 
