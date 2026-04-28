@@ -10,45 +10,53 @@
 package server_test
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 
+	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/synnax/pkg/server"
+	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-type integerServer struct {
-}
-
-func (b integerServer) BindTo(router *fhttp.Router) {
-	g := fhttp.NewUnaryServer[int, int](router, "/basic")
-	g.BindHandler(func(ctx context.Context, req int) (int, error) {
-		req++
-		return req, nil
-	})
-}
-
 var _ = Describe("HTTP", func() {
-	It("Should serve http requests", func() {
+	It("Should serve http requests", Focus, func(ctx context.Context) {
 		r := MustSucceed(fhttp.NewRouter())
-		integerServer{}.BindTo(r)
+		s := fhttp.NewUnaryServer[int, int](r, "/basic")
+		s.BindHandler(func(_ context.Context, req int) (int, error) {
+			req++
+			return req, nil
+		})
+		port := MustSucceed(net.FindOpenPort())
+		addr := address.Newf("localhost:%d", port)
 		b := MustSucceed(server.Serve(server.Config{
-			ListenAddress: "localhost:26260",
-			Security: server.SecurityConfig{
-				Insecure: new(true),
-			},
-			Debug: new(true),
+			ListenAddress: addr,
+			Security:      server.SecurityConfig{Insecure: new(true)},
+			Debug:         new(true),
 			Branches: []server.Branch{
-				&server.SecureHTTPBranch{
-					Transports: []fhttp.BindableTransport{r},
-				},
+				&server.SecureHTTPBranch{Transports: []fhttp.BindableTransport{r}},
 			},
 		}))
-		_, err := http.Get("http://localhost:26260/basic")
-		Expect(err).To(Succeed())
-		Expect(b.Close()).To(Succeed())
+		defer func() { Expect(b.Close()).To(Succeed()) }()
+		url := "http://" + addr.String() + "/basic"
+		body := MustSucceed(json.Marshal(1))
+		req := MustSucceed(http.NewRequestWithContext(
+			ctx, http.MethodPost, url, bytes.NewReader(body),
+		))
+		req.Header.Set(fiber.HeaderContentType, "application/json")
+		res := MustSucceed((&http.Client{}).Do(req))
+		defer func() { Expect(res.Body.Close()).To(Succeed()) }()
+		Expect(res.StatusCode).To(Equal(http.StatusOK))
+		respBody := MustSucceed(io.ReadAll(res.Body))
+		var got int
+		Expect(json.Unmarshal(respBody, &got)).To(Succeed())
+		Expect(got).To(Equal(2))
 	})
 })

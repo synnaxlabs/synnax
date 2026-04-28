@@ -12,24 +12,24 @@ package http_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	fhttp "github.com/synnaxlabs/freighter/http"
+	"github.com/synnaxlabs/freighter/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Codec", func() {
 	Describe("ResolveCodec", func() {
 		It("Should determine the encoder based on a content-type", func() {
-			codec := MustSucceed(fhttp.ResolveCodec("application/json"))
+			codec := MustSucceed(http.ResolveCodec("application/json"))
 			Expect(codec.ContentType()).To(Equal("application/json"))
 		})
 		It("Should return an error if the content-type is not supported", func() {
-			Expect(fhttp.ResolveCodec("application/octet-stream")).
+			Expect(http.ResolveCodec("application/octet-stream")).
 				Error().To(MatchError(ContainSubstring("unable to determine encoding type")))
 		})
 	})
 	Describe("SupportedContentTypes", func() {
 		It("Should return the supported content types", func() {
-			contentTypes := fhttp.SupportedContentTypes()
+			contentTypes := http.SupportedContentTypes()
 			Expect(contentTypes).To(ContainElement("application/json"))
 			Expect(contentTypes).To(ContainElement("application/msgpack"))
 		})
