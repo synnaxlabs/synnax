@@ -9,7 +9,7 @@
 
 import "@/color/Picker.css";
 
-import { color } from "@synnaxlabs/x";
+import { color, TimeSpan } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
@@ -39,7 +39,9 @@ export const Picker = ({
   ...rest
 }: PickerProps): ReactElement => {
   const updateFreq = useFrequentUpdater();
-  const updateFreqDebounced = useDebouncedCallback(updateFreq, 1000, [updateFreq]);
+  const updateFreqDebounced = useDebouncedCallback(updateFreq, TimeSpan.SECOND, [
+    updateFreq,
+  ]);
 
   const baseHandleChange = useCallback(
     (c: color.Color): void => {

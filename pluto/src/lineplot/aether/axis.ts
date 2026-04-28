@@ -124,7 +124,7 @@ export class BaseAxis<
     render.request(ctx, "layout");
     i.updateBounds ??= throttle(
       (b) => this.setState((p) => ({ ...p, bounds: b })),
-      autoBoundUpdateInterval.milliseconds,
+      autoBoundUpdateInterval,
     );
   }
 

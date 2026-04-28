@@ -85,14 +85,14 @@ export class Checker {
    */
   constructor(
     client: UnaryClient,
-    pollFreq: TimeSpan = TimeSpan.seconds(30),
+    pollFreq: CrudeTimeSpan = TimeSpan.seconds(30),
     clientVersion: string,
     name?: string,
     clockSkewThreshold: CrudeTimeSpan = TimeSpan.seconds(1),
   ) {
     this._state = { ...DEFAULT };
     this.client = client;
-    this.pollFrequency = pollFreq;
+    this.pollFrequency = new TimeSpan(pollFreq);
     this.clientVersion = clientVersion;
     this.name = name;
     this.skewCalc = new ClockSkewCalculator();

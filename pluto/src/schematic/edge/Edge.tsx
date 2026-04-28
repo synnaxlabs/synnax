@@ -9,7 +9,15 @@
 
 import "@/schematic/edge/Edge.css";
 
-import { box, color, direction, location, type record, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  direction,
+  location,
+  type record,
+  TimeSpan,
+  xy,
+} from "@synnaxlabs/x";
 import {
   type ConnectionLineComponentProps,
   type Position,
@@ -145,9 +153,11 @@ export const Edge = ({
     [data, onDataChange],
   );
 
-  const debouncedOnSegmentsChange = useDebouncedCallback(handleSegmentsChange, 100, [
+  const debouncedOnSegmentsChange = useDebouncedCallback(
     handleSegmentsChange,
-  ]);
+    TimeSpan.milliseconds(100),
+    [handleSegmentsChange],
+  );
 
   if (!sourcePosEq || !targetPosEq) {
     let next: connector.Segment[] = segments;

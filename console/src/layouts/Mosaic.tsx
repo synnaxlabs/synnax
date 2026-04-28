@@ -176,7 +176,7 @@ interface MosaicProps {
   mosaic: Base.Node;
 }
 
-const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100).milliseconds;
+const RESIZE_DEBOUNCE = TimeSpan.milliseconds(100);
 
 export const Mosaic = memo((): ReactElement | null => {
   const [windowKey, mosaic] = Layout.useSelectMosaic();

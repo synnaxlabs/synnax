@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, type status } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
@@ -70,7 +70,7 @@ export interface UseObservableUpdateParams<
   AllowDisconnected extends boolean = false,
   SubStore extends base.Store = {},
 > {
-  debounce?: number;
+  debounce?: CrudeTimeSpan;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   scope?: string;
   beforeUpdate?: (

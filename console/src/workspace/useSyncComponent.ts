@@ -10,6 +10,7 @@
 import { type Dispatch, type PayloadAction, type Store } from "@reduxjs/toolkit";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { Flux, type Pluto } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect } from "react";
 import { useStore } from "react-redux";
 
@@ -57,6 +58,6 @@ export const createSyncComponent = (
     }, [layoutKey, store]);
     const ws = useSelectActiveKey();
     useEffect(() => run(), [ws, run]);
-    return useDispatchEffect(run, 100, dispatch);
+    return useDispatchEffect(run, TimeSpan.milliseconds(100), dispatch);
   };
 };

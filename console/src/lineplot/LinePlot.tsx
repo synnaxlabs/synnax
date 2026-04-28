@@ -35,6 +35,7 @@ import {
   scale,
   type sticky,
   TimeRange,
+  TimeSpan,
   unique,
 } from "@synnaxlabs/x";
 import {
@@ -293,7 +294,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
           storeViewport({ key: layoutKey, pan: box.bottomLeft(b), zoom: box.dims(b) }),
         );
     },
-    100,
+    TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 
@@ -302,7 +303,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const storeLegendPosition = useDebouncedCallback(
     (position: sticky.XY) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { position } })),
-    100,
+    TimeSpan.milliseconds(100),
     [syncDispatch, layoutKey],
   );
 

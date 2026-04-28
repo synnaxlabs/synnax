@@ -58,7 +58,10 @@ const basicRemoteReadFunc =
     );
   };
 
-const retriever = new channel.DebouncedBatchRetriever(new MockRetriever(), 10);
+const retriever = new channel.DebouncedBatchRetriever(
+  new MockRetriever(),
+  TimeSpan.milliseconds(10),
+);
 
 const newCache = (): Cache =>
   new Cache({

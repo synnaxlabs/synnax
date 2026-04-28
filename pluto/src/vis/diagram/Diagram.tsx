@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, color, location, type record, xy } from "@synnaxlabs/x";
+import { box, color, location, type record, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   addEdge as rfAddEdge,
   applyEdgeChanges as rfApplyEdgeChanges,
@@ -304,9 +304,11 @@ const Base = ({
     },
   });
   const { fitView } = useReactFlow();
-  const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
-    fitView,
-  ]);
+  const debouncedFitView = useDebouncedCallback(
+    (args) => void fitView(args),
+    TimeSpan.milliseconds(50),
+    [fitView],
+  );
 
   const resizeRef = Canvas.useRegion(
     useCallback(

@@ -19,7 +19,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, id, xy } from "@synnaxlabs/x";
+import { box, id, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -116,7 +116,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    // roughly the right time needed to prevent actions that get dispatch automatically
+    // by Diagram.tsx, like setNodes immediately following addElement
+    TimeSpan.milliseconds(30),
   );
 
   const theme = Theming.use();

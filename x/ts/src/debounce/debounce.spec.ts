@@ -9,44 +9,35 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { debounce, throttle } from "@/debounce/debounce";
+import { debounce } from "@/debounce/debounce";
+import { TimeSpan } from "@/telem/telem";
 
 describe("debounce", () => {
-  describe("debounce", () => {
-    it("should debounce the execution of the given function", () => {
-      vi.useFakeTimers();
-      const fn = vi.fn();
-      const debounced = debounce(fn, 100);
-      debounced(10);
-      debounced(20);
-      debounced(30);
-      debounced(40);
-      expect(fn).toHaveBeenCalledTimes(0);
-      vi.advanceTimersByTime(100);
-      expect(fn).toHaveBeenCalledTimes(1);
-      expect(fn).toHaveBeenCalledWith(40);
-    });
-    it("should not debounce the execution of the given function if the time is 0", () => {
-      const fn = vi.fn();
-      const debounced = debounce(fn, 0);
-      // assert that debounced is the same
-      expect(debounced).toBe(fn);
-    });
+  it("should debounce the execution of the given function", () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, TimeSpan.milliseconds(100));
+    debounced(10);
+    debounced(20);
+    debounced(30);
+    debounced(40);
+    expect(fn).toHaveBeenCalledTimes(0);
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(40);
   });
-  describe("throttle", () => {
-    it("should throttle the execution of the given function", () => {
-      vi.useFakeTimers();
-      const fn = vi.fn();
-      const debounced = throttle(fn, 100);
-      debounced(10);
-      debounced(20);
-      debounced(30);
-      debounced(40);
-      vi.advanceTimersByTime(100);
-      expect(fn).toHaveBeenCalledTimes(1);
-      expect(fn).toHaveBeenCalledWith(10);
-      vi.advanceTimersByTime(100);
-      expect(fn).toHaveBeenCalledTimes(1);
-    });
+  it("should accept any CrudeTimeSpan equivalently", () => {
+    vi.useFakeTimers();
+    const fn = vi.fn();
+    const debounced = debounce(fn, TimeSpan.MILLISECOND.valueOf() * 100n);
+    debounced(1);
+    vi.advanceTimersByTime(100);
+    expect(fn).toHaveBeenCalledTimes(1);
+    expect(fn).toHaveBeenCalledWith(1);
+  });
+  it("should not debounce the execution of the given function if the time is 0", () => {
+    const fn = vi.fn();
+    const debounced = debounce(fn, TimeSpan.ZERO);
+    expect(debounced).toBe(fn);
   });
 });

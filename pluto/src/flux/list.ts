@@ -434,7 +434,7 @@ export const createList =
     const retrieveSync = useDebouncedCallback(
       (query: state.SetArg<Query, Query | {}>, options: AsyncListOptions = {}) =>
         void retrieveAsync(query, options),
-      new TimeSpan(retrieveDebounce).milliseconds,
+      retrieveDebounce,
       [retrieveAsync],
     );
 

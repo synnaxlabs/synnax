@@ -9,7 +9,7 @@
 
 import { type Dispatch, type Selector, type UnknownAction } from "@reduxjs/toolkit";
 import { useDebouncedCallback } from "@synnaxlabs/pluto";
-import { deep } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, deep } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useStore } from "react-redux";
 
@@ -25,7 +25,7 @@ export const useUndoableDispatch = <
 >(
   selector: Selector<StoreType, SelectedType>,
   stateUpdateActionCreator: (state: SelectedType) => UnknownAction,
-  waitFor: number = 0,
+  waitFor: CrudeTimeSpan = 0,
   size: number = 20,
 ) => {
   const store = useStore<StoreType>();
