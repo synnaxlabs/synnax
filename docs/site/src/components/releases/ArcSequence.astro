@@ -1,0 +1,18 @@
+---
+import Code from "astro/components/Code.astro";
+import { grammar as arcGrammar } from "@synnaxlabs/arc";
+
+const code = `sequence startup {
+    1 -> press_vlv
+    pressure > 500
+    wait{5s}
+    0 -> press_vlv
+    1 -> vent_vlv
+    wait{3s}
+    0 -> vent_vlv
+}`;
+---
+
+<div class="arc-sequence-thumbnail">
+    <Code code={code} lang={arcGrammar} theme="css-variables" />
+</div>

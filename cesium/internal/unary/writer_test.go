@@ -17,9 +17,10 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/alignment"
 	"github.com/synnaxlabs/cesium/internal/channel"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
 	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -32,19 +33,18 @@ func filterDataFiles(l []os.FileInfo) []os.FileInfo {
 }
 
 var _ = Describe("Writer Behavior", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			Describe("Index", func() {
 				var (
-					db      *unary.DB
-					fs      fs.FS
-					cleanUp func() error
+					db *unary.DB
+					fs fs.FS
 				)
 				BeforeEach(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Conrad",
 							Key:      2,
@@ -56,7 +56,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{
@@ -90,17 +89,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					dataFS  fs.FS
 					indexDB *unary.DB
 					indexFS fs.FS
-					index   = testutil.GenerateChannelKey()
-					data    = testutil.GenerateChannelKey()
-					cleanUp func() error
+					index   = GenerateChannelKey()
+					data    = GenerateChannelKey()
 				)
 				BeforeEach(func(ctx SpecContext) {
-					var fs fs.FS
-					fs, cleanUp = makeFS()
+					fs := openFS()
 					indexFS = MustSucceed(fs.Sub("index"))
 					indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        indexFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      index,
 							Name:     "Cayley",
@@ -113,7 +110,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 					dataFS = MustSucceed(fs.Sub("data"))
 					dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        dataFS,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      data,
 							Name:     "Maxwell",
@@ -128,7 +125,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				AfterEach(func() {
 					Expect(dataDB.Close()).To(Succeed())
 					Expect(indexDB.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				Specify("Happy Path", func(ctx SpecContext) {
 					Expect(unary.Write(ctx, indexDB, 10*telem.SecondTS, telem.NewSeriesSecondsTSV(10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20))).To(Succeed())
@@ -386,15 +382,14 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 			Describe("Control", func() {
 				var (
-					db      *unary.DB
-					fs      fs.FS
-					cleanUp func() error
+					db *unary.DB
+					fs fs.FS
 				)
 				BeforeEach(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Name:     "Frederick",
 							Key:      2,
@@ -406,7 +401,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				Describe("Index", func() {
 					Specify("Control Handoff", func(ctx SpecContext) {
@@ -481,16 +475,15 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 			Describe("Close", Ordered, func() {
 				var (
-					db      *unary.DB
-					fs      fs.FS
-					cleanUp func() error
-					key     = testutil.GenerateChannelKey()
+					db  *unary.DB
+					fs  fs.FS
+					key = GenerateChannelKey()
 				)
 				BeforeEach(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(unary.Open(ctx, unary.Config{
 						FS:        fs,
-						MetaCodec: codec,
+						MetaCodec: json.Codec,
 						Channel: channel.Channel{
 							Key:      key,
 							Name:     "gauss",
@@ -502,7 +495,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 				})
 				AfterEach(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should not allow operations on a closed writer", func(ctx SpecContext) {
 					w, t := MustSucceed2(db.OpenWriter(ctx, unary.WriterConfig{

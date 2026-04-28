@@ -36,6 +36,7 @@ class State {
     std::unordered_map<types::ChannelKey, std::vector<Series>> reads;
     std::unordered_map<types::ChannelKey, Series> writes;
     std::vector<types::ChannelKey> active_write_keys;
+    ::x::telem::MonoClock clock;
 
     template<typename T>
     void append_fixed_sample(types::ChannelKey key, x::telem::DataType dt, T value) {
@@ -67,7 +68,7 @@ public:
             this->append_fixed_sample(
                 idx_iter->second,
                 x::telem::TIMESTAMP_T,
-                x::telem::TimeStamp::now()
+                this->clock.now()
             );
     }
     explicit State(const std::vector<Digest> &digests);

@@ -68,6 +68,9 @@ var baseSymbolResolver = symbol.MapResolver{
 type Module struct {
 	// BaseInterval is the GCD of all timer periods, used for scheduler timing.
 	BaseInterval telem.TimeSpan
+	// clock provides monotonically increasing timestamps, avoiding
+	// duplicate values on platforms with coarse clock resolution.
+	clock telem.MonoClock
 }
 
 func NewModule(
@@ -77,15 +80,16 @@ func NewModule(
 	if rat == nil {
 		return &Module{BaseInterval: unsetBaseInterval}, nil
 	}
+	mod := &Module{BaseInterval: unsetBaseInterval}
 	builder := rat.NewHostModuleBuilder("time")
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context) uint64 {
-			return uint64(telem.Now())
+			return uint64(mod.clock.Now())
 		}).Export("now")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
-	return &Module{BaseInterval: unsetBaseInterval}, nil
+	return mod, nil
 }
 
 var SymbolResolver = symbol.CompoundResolver{

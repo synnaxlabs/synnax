@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from tests.eventually import assert_eventually
+from x.testutil import assert_eventually
 
 
 def assert_eventually_channels_are_found(client: sy.Synnax, keys: list[int]):

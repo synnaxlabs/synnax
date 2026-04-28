@@ -19,13 +19,14 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/cesium/internal/domain"
-	"github.com/synnaxlabs/x/io/fs"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
+	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
 
-func extractPointer(f fs.File) (p struct {
+func extractPointer(f xfs.File) (p struct {
 	telem.TimeRange
 	fileKey uint16
 	offset  uint32
@@ -53,15 +54,14 @@ func filterDataFiles(info []os.FileInfo) []os.FileInfo {
 }
 
 var _ = Describe("Writer Behavior", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			var (
-				db      *domain.DB
-				fs      fs.FS
-				cleanUp func() error
+				db *domain.DB
+				fs xfs.FS
 			)
 			BeforeEach(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = MustSucceed(domain.Open(domain.Config{
 					FS:              fs,
 					Instrumentation: PanicLogger(),
@@ -69,7 +69,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			AfterEach(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Happiest of paths", func() {
 				It("Should work with a preset end", func(ctx SpecContext) {
@@ -122,7 +121,7 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			Describe("CheckFileSizeAndMaybeSwitchFile", func() {
 				Context("No preset end", func() {
 					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        10 * telem.Byte,
@@ -175,11 +174,10 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 
 					It("Should work when the file size exceeds the limit by just 1", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        5 * telem.Byte,
@@ -221,13 +219,12 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 
 				Context("With preset end", func() {
 					It("Should start writing to a new file when one file is full", func(ctx SpecContext) {
-						fs2, cleanUp2 := makeFS()
+						fs2 := openFS()
 						db2 := MustSucceed(domain.Open(domain.Config{
 							FS:              fs2,
 							FileSize:        10 * telem.Byte,
@@ -270,7 +267,6 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 						Expect(i.Close()).To(Succeed())
 						Expect(w.Close()).To(Succeed())
 						Expect(db2.Close()).To(Succeed())
-						Expect(cleanUp2()).To(Succeed())
 					})
 				})
 			})
@@ -427,33 +423,40 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 			})
 			Describe("AutoPersist", func() {
 				It("Should persist to disk every subsequent call after the set time interval", func(ctx SpecContext) {
+					By("Replacing the DB with a recorder-wrapped FS")
+					Expect(db.Close()).To(Succeed())
+					rec := xfs.NewRecorder(fs)
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              rec,
+						Instrumentation: PanicLogger(),
+					}))
+
 					By("Opening a writer")
 					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{Start: 10 * telem.SecondTS, AutoIndexPersistInterval: 50 * telem.Millisecond}))
 
-					modTime := MustSucceed(fs.Stat("index.domain")).ModTime()
-
 					By("Writing some data and committing it right after")
+					rec.Reset()
 					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
 					Expect(w.Commit(ctx, 20*telem.SecondTS+1)).To(Succeed())
 
 					MustSucceed(w.Write([]byte{11, 12, 13, 14, 15}))
 					Expect(w.Commit(ctx, 25*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the previous commits have not been persisted")
-					s := MustSucceed(fs.Stat("index.domain"))
-					Expect(s.Size()).To(Equal(int64(0)))
+					By("Asserting the in-interval commits did not write the index file")
+					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
+						To(BeZero())
 
 					By("Sleeping for some time")
 					time.Sleep(time.Duration(50 * telem.Millisecond))
+					rec.Reset()
 					MustSucceed(w.Write([]byte{16, 17, 18, 19, 20}))
 					Expect(w.Commit(ctx, 30*telem.SecondTS+1)).To(Succeed())
 
-					By("Asserting that the commits will be persisted the next time we use the method after the set time interval")
-					Eventually(func() time.Time {
-						return MustSucceed(fs.Stat("index.domain")).ModTime()
-					}).ShouldNot(Equal(modTime))
+					By("Asserting the post-interval commit wrote the index file")
+					Expect(rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))).
+						To(BeNumerically(">", 0))
 
-					f := MustSucceed(fs.Open("index.domain", os.O_RDONLY))
+					f := MustSucceed(rec.Open("index.domain", os.O_RDONLY))
 					p := extractPointer(f)
 					Expect(p.End).To(Equal(30*telem.SecondTS + 1))
 					Expect(p.length).To(Equal(uint32(15)))
@@ -552,6 +555,33 @@ var _ = Describe("Writer Behavior", Ordered, func() {
 
 					By("Closing the writer")
 					Expect(w.Close()).To(Succeed())
+				})
+
+				It("Should not write the index file on commits within the persist interval", func(ctx SpecContext) {
+					Expect(db.Close()).To(Succeed())
+					rec := xfs.NewRecorder(fs)
+					db = MustSucceed(domain.Open(domain.Config{
+						FS:              rec,
+						FileSize:        1 * telem.Megabyte,
+						Instrumentation: PanicLogger(),
+					}))
+
+					w := MustSucceed(db.OpenWriter(ctx, domain.WriterConfig{
+						Start:                    100 * telem.SecondTS,
+						AutoIndexPersistInterval: 1 * telem.Hour,
+					}))
+					rec.Reset()
+
+					MustSucceed(w.Write([]byte{1, 2, 3, 4, 5}))
+					Expect(w.Commit(ctx, 110*telem.SecondTS+1)).To(Succeed())
+					MustSucceed(w.Write([]byte{6, 7, 8, 9, 10}))
+					Expect(w.Commit(ctx, 120*telem.SecondTS+1)).To(Succeed())
+					// Within the persist interval, the index file should not be
+					// touched by commits. Snapshot the count before Close since
+					// Close itself flushes any unpersisted state.
+					indexWrites := rec.Count(xfs.MatchOp(xfs.OpWrite, xfs.OpWriteAt), xfs.MatchName("index.domain"))
+					Expect(w.Close()).To(Succeed())
+					Expect(indexWrites).To(BeZero())
 				})
 			})
 			Describe("Close", func() {

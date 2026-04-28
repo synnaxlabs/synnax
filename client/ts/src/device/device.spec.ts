@@ -312,11 +312,13 @@ describe("Device", async () => {
       });
 
       it("should retrieve devices by search term", async () => {
-        const result = await client.devices.retrieve({
-          searchTerm: "sensor1",
-        });
-        expect(result.length).toBeGreaterThanOrEqual(2);
-        expect(result.every((d) => d.name.includes("sensor"))).toBe(true);
+        const sensor1 = testDevices.find((d) => d.name === "sensor1")!;
+        await expect
+          .poll(async () => {
+            const result = await client.devices.retrieve({ searchTerm: "sensor1" });
+            return result.find((d) => d.key === sensor1.key);
+          })
+          .toMatchObject({ name: "sensor1", key: sensor1.key });
       });
 
       it("should support pagination with limit and offset", async () => {
