@@ -57,7 +57,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return WrapWriter[K, E](tx).Set(ctx, entries...)
+	return wrapWriter[K, E](tx, u.retrieve.keyPrefix).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

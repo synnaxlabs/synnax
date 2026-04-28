@@ -10,8 +10,7 @@
 package policy
 
 import (
-	"slices"
-	"sync"
+	"context"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -24,40 +23,27 @@ type Retrieve struct {
 	ontology *ontology.Ontology
 }
 
-// MatchSubjects returns a filter that matches policies attached to any of the
-// given subjects via the ontology. On first evaluation the filter resolves the
-// subjects to policy keys through a parent→role→child→policy traversal, caches
-// the result, and then tests key membership for each subsequent entry.
-func MatchSubjects(subjects ...ontology.ID) Filter {
-	var (
-		keys   []uuid.UUID
-		resErr error
-		once   sync.Once
-	)
-	return Match(func(ctx gorp.Context, r Retrieve, p *Policy) (bool, error) {
-		once.Do(func() {
-			var policyResources []ontology.Resource
-			if err := r.ontology.NewRetrieve().WhereIDs(subjects...).
-				ExcludeFieldData(true).
-				TraverseTo(ontology.ParentsTraverser).
-				WhereTypes(ontology.ResourceTypeRole).
-				TraverseTo(ontology.ChildrenTraverser).
-				WhereTypes(ontology.ResourceTypePolicy).
-				Entries(&policyResources).
-				Exec(ctx, ctx.Tx); err != nil {
-				resErr = err
-				return
-			}
-			k, err := KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
-			if err != nil {
-				resErr = err
-				return
-			}
-			keys = k
-		})
-		if resErr != nil {
-			return false, resErr
-		}
-		return slices.Contains(keys, p.Key), nil
-	})
+// ResolveSubjects walks the ontology from each subject up to its parent roles
+// and back down to the policies attached to those roles, returning the policy
+// keys. The result is the input to MatchKeys when retrieving policies for a
+// subject; performing the resolution eagerly lets the policy retrieve hit the
+// keyed multi-get fast path instead of scanning the full policy table.
+func (s *Service) ResolveSubjects(
+	ctx context.Context,
+	tx gorp.Tx,
+	subjects ...ontology.ID,
+) ([]uuid.UUID, error) {
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
+	var policyResources []ontology.Resource
+	if err := s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...).
+		ExcludeFieldData(true).
+		TraverseTo(ontology.ParentsTraverser).
+		WhereTypes(ontology.ResourceTypeRole).
+		TraverseTo(ontology.ChildrenTraverser).
+		WhereTypes(ontology.ResourceTypePolicy).
+		Entries(&policyResources).
+		Exec(ctx, tx); err != nil {
+		return nil, err
+	}
+	return KeysFromOntologyIDs(ontology.ResourceIDs(policyResources))
 }

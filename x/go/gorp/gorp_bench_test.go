@@ -63,6 +63,19 @@ func setupBenchDB(b *testing.B) *gorp.DB {
 	return db
 }
 
+// openBenchTable opens a Table for the given (K, E) on a fresh in-memory DB.
+// The Table caches the gorp key prefix so each query construction inside the
+// benchmark loop reuses it instead of rebuilding via reflection.
+func openBenchTable[K gorp.Key, E gorp.Entry[K]](b *testing.B) *gorp.Table[K, E] {
+	b.Helper()
+	db := setupBenchDB(b)
+	t, err := gorp.OpenTable[K, E](b.Context(), gorp.TableConfig[E]{DB: db})
+	if err != nil {
+		b.Fatal(err)
+	}
+	return t
+}
+
 func makeBenchEntries(n int) []benchEntry {
 	entries := make([]benchEntry, n)
 	for i := range entries {
@@ -141,7 +154,7 @@ func BenchmarkCreate(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 				db := setupBenchDB(b)
-				ctx := context.Background()
+				ctx := b.Context()
 				entries := makeBenchEntries(size)
 				b.ReportAllocs()
 				b.ResetTimer()
@@ -166,7 +179,7 @@ func BenchmarkCreate(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 				db := setupBenchDB(b)
-				ctx := context.Background()
+				ctx := b.Context()
 				base := makeBenchStringEntries(size)
 				b.ReportAllocs()
 				b.ResetTimer()
@@ -189,7 +202,7 @@ func BenchmarkCreate(b *testing.B) {
 		for _, size := range []int{1, 10, 100} {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 				db := setupBenchDB(b)
-				ctx := context.Background()
+				ctx := b.Context()
 				base := makeBenchLargeEntries(size)
 				b.ReportAllocs()
 				b.ResetTimer()
@@ -210,7 +223,7 @@ func BenchmarkCreate(b *testing.B) {
 		for _, size := range []int{1, 10, 100} {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
 				db := setupBenchDB(b)
-				ctx := context.Background()
+				ctx := b.Context()
 				populateEntries(b, db, size)
 				entries := makeBenchEntries(size)
 				b.ReportAllocs()
@@ -239,17 +252,17 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 	b.Run("int32_key", func(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				db := setupBenchDB(b)
-				ctx := context.Background()
-				keys := populateEntries(b, db, size)
+				t := openBenchTable[int32, benchEntry](b)
+				ctx := b.Context()
+				keys := populateEntries(b, t.DB, size)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					var results []benchEntry
-					if err := gorp.NewRetrieve[int32, benchEntry]().
+					if err := t.NewRetrieve().
 						Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 						Entries(&results).
-						Exec(ctx, db); err != nil {
+						Exec(ctx, t.DB); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -259,17 +272,17 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 	b.Run("string_key", func(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
-				db := setupBenchDB(b)
-				ctx := context.Background()
-				keys := populateStringEntries(b, db, size)
+				t := openBenchTable[string, benchStringEntry](b)
+				ctx := b.Context()
+				keys := populateStringEntries(b, t.DB, size)
 				b.ReportAllocs()
 				b.ResetTimer()
 				for i := 0; i < b.N; i++ {
 					var results []benchStringEntry
-					if err := gorp.NewRetrieve[string, benchStringEntry]().
+					if err := t.NewRetrieve().
 						Where(gorp.MatchKeys[string, benchStringEntry](keys...)).
 						Entries(&results).
-						Exec(ctx, db); err != nil {
+						Exec(ctx, t.DB); err != nil {
 						b.Fatal(err)
 					}
 				}
@@ -281,20 +294,20 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 func BenchmarkRetrieveByFilter(b *testing.B) {
 	for _, size := range []int{100, 1000, 10000} {
 		b.Run(fmt.Sprintf("dbSize=%d", size), func(b *testing.B) {
-			db := setupBenchDB(b)
-			ctx := context.Background()
-			populateEntries(b, db, size)
+			t := openBenchTable[int32, benchEntry](b)
+			ctx := b.Context()
+			populateEntries(b, t.DB, size)
 			half := int32(size / 2)
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
 				var results []benchEntry
-				if err := gorp.NewRetrieve[int32, benchEntry]().
+				if err := t.NewRetrieve().
 					Where(gorp.Match(func(_ gorp.Context, e *benchEntry) (bool, error) {
 						return e.ID < half, nil
 					})).
 					Entries(&results).
-					Exec(ctx, db); err != nil {
+					Exec(ctx, t.DB); err != nil {
 					b.Fatal(err)
 				}
 			}
@@ -304,29 +317,29 @@ func BenchmarkRetrieveByFilter(b *testing.B) {
 
 func BenchmarkRetrieveExists(b *testing.B) {
 	b.Run("present", func(b *testing.B) {
-		db := setupBenchDB(b)
-		ctx := context.Background()
-		populateEntries(b, db, 1000)
+		t := openBenchTable[int32, benchEntry](b)
+		ctx := b.Context()
+		populateEntries(b, t.DB, 1000)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			if _, err := gorp.NewRetrieve[int32, benchEntry]().
+			if _, err := t.NewRetrieve().
 				Where(gorp.MatchKeys[int32, benchEntry](500)).
-				Exists(ctx, db); err != nil {
+				Exists(ctx, t.DB); err != nil {
 				b.Fatal(err)
 			}
 		}
 	})
 	b.Run("absent", func(b *testing.B) {
-		db := setupBenchDB(b)
-		ctx := context.Background()
-		populateEntries(b, db, 1000)
+		t := openBenchTable[int32, benchEntry](b)
+		ctx := b.Context()
+		populateEntries(b, t.DB, 1000)
 		b.ReportAllocs()
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
-			if _, err := gorp.NewRetrieve[int32, benchEntry]().
+			if _, err := t.NewRetrieve().
 				Where(gorp.MatchKeys[int32, benchEntry](9999)).
-				Exists(ctx, db); err != nil {
+				Exists(ctx, t.DB); err != nil {
 				b.Fatal(err)
 			}
 		}

@@ -15,13 +15,20 @@ import "context"
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
 	tx       Tx
-	keyCodec *keyCodec[K, E]
+	keyCodec keyCodec[K, E]
 }
 
 // WrapWriter wraps the given BaseWriter to provide a strongly typed interface for writing
-// entries to the DB.
+// entries to the DB. Each call builds a fresh key codec; prefer Table.WrapWriter
+// when a Table is available so the cached prefix is reused.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
+	return wrapWriter[K, E](tx, nil)
+}
+
+// wrapWriter is the internal Writer constructor. See wrapReader for the
+// prefix-caching contract.
+func wrapWriter[K Key, E Entry[K]](tx Tx, prefix []byte) *Writer[K, E] {
+	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
 
 // Set writes the provided entries to the DB.

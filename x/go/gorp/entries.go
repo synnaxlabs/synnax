@@ -180,6 +180,24 @@ func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
 	return &Entries[K, E]{entries: entries, isMultiple: true}
 }
 
+// bindMultiple updates this Entries in place to bind the given slice. Used by
+// Retrieve.Entries to avoid allocating a fresh Entries on every chain call.
+func (e *Entries[K, E]) bindMultiple(entries *[]E) {
+	e.entries = entries
+	e.entry = nil
+	e.isMultiple = true
+	e.changes = 0
+}
+
+// bindSingle updates this Entries in place to bind the given single entry.
+// See bindMultiple.
+func (e *Entries[K, E]) bindSingle(entry *E) {
+	e.entry = entry
+	e.entries = nil
+	e.isMultiple = false
+	e.changes = 0
+}
+
 const magicPrefix = "gorp."
 const migrationVersionPrefix = "gorp.migration."
 
@@ -190,8 +208,15 @@ type keyCodec[K Key, E Entry[K]] struct {
 	kind    keyKind
 }
 
-func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
-	c := &keyCodec[K, E]{prefix: []byte(magicPrefix + types.Name[E]())}
+// newKeyCodec returns a keyCodec for (K, E). If prefix is non-nil, it is used
+// directly (typically a pre-computed prefix cached on Table); if nil, the
+// prefix is built fresh via types.Name[E]() — used by top-level WrapReader /
+// WrapWriter callers that don't have a Table.
+func newKeyCodec[K Key, E Entry[K]](prefix []byte) keyCodec[K, E] {
+	if prefix == nil {
+		prefix = newKeyPrefix[E]()
+	}
+	c := keyCodec[K, E]{prefix: prefix}
 	var zero K
 	switch reflect.TypeOf(zero).Kind() {
 	case reflect.String:
@@ -205,6 +230,11 @@ func newKeyCodec[K Key, E Entry[K]]() *keyCodec[K, E] {
 		copy(c.buf, c.prefix)
 	}
 	return c
+}
+
+// newKeyPrefix builds the gorp key prefix for entry type E.
+func newKeyPrefix[E any]() []byte {
+	return []byte(magicPrefix + types.Name[E]())
 }
 
 func (k *keyCodec[K, E]) encode(key K) []byte {

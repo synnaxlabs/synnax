@@ -26,19 +26,27 @@ import (
 // entries from the DB. Reader only accesses entries that match its type arguments.
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
-	keyCodec *keyCodec[K, E]
+	keyCodec keyCodec[K, E]
 	tx       Tx
 }
 
 // WrapReader wraps the given BaseReader to provide a strongly typed interface for reading
-// entries from the DB.
+// entries from the DB. Each call builds a fresh key codec; prefer Table.WrapReader
+// when a Table is available so the cached prefix is reused.
 func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
-	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
+	return wrapReader[K, E](tx, nil)
+}
+
+// wrapReader is the internal Reader constructor. When prefix is non-nil it is
+// reused as the codec's prefix (avoiding the per-call types.Name and string
+// concat allocations); when nil, a fresh prefix is built.
+func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) *Reader[K, E] {
+	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
-func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
+func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
 	_, closer, err := r.get(ctx, key, &e)
 	if err != nil {
@@ -48,7 +56,7 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	return e, closer.Close()
 }
 
-func (r Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Closer, error) {
+func (r *Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Closer, error) {
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
 		return nil, nil, err
@@ -61,7 +69,7 @@ func (r Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Clos
 
 // GetMany retrieves isMultiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
-func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
+func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
 		entries  = make([]E, 0, len(keys))
 		notFound []K
@@ -95,7 +103,7 @@ type IterOptions struct {
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
+func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
@@ -103,7 +111,7 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+func (r *Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
 		return nil, nil, err

@@ -327,23 +327,20 @@ var _ = Describe("Retriever", func() {
 		})
 
 		It("Should retrieve policies for a subject via role", func(ctx SpecContext) {
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1))
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.MatchSubjects(subject1)).
+				Where(policy.MatchKeys(keys...)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
-			keys := []uuid.UUID{ps[0].Key, ps[1].Key}
-			Expect(keys).To(ContainElements(policies[0].Key, policies[1].Key))
+			gotKeys := []uuid.UUID{ps[0].Key, ps[1].Key}
+			Expect(gotKeys).To(ContainElements(policies[0].Key, policies[1].Key))
 		})
 
 		It("Should return empty when subject has no roles", func(ctx SpecContext) {
-			var ps []policy.Policy
-			Expect(svc.NewRetrieve().
-				Where(policy.MatchSubjects(subject2)).
-				Entries(&ps).
-				Exec(ctx, tx)).To(Succeed())
-			Expect(ps).To(BeEmpty())
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject2))
+			Expect(keys).To(BeEmpty())
 		})
 
 		It("Should retrieve policies for multiple subjects", func(ctx SpecContext) {
@@ -356,9 +353,10 @@ var _ = Describe("Retriever", func() {
 			Expect(w.SetOnRole(ctx, r2.Key, policies[2].Key)).To(Succeed())
 			Expect(rw.AssignRole(ctx, subject2, r2.Key)).To(Succeed())
 
+			keys := MustSucceed(svc.ResolveSubjects(ctx, tx, subject1, subject2))
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				Where(policy.MatchSubjects(subject1, subject2)).
+				Where(policy.MatchKeys(keys...)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(3))

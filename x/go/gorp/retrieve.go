@@ -37,6 +37,10 @@ type Retrieve[K Key, E Entry[K]] struct {
 	prefix     []byte
 	filter     *Filter[K, E]
 	validators []Validator[K, E]
+	// keyPrefix is the gorp key prefix for E. Set by Table.NewRetrieve so
+	// execKeys / execFilter / Count reuse the cached prefix instead of
+	// re-computing it on every Exec. nil for top-level NewRetrieve callers.
+	keyPrefix []byte
 }
 
 // NewRetrieve opens a new Retrieve query.
@@ -140,7 +144,7 @@ func (r Retrieve[K, E]) runValidators(ctx Context, entries []E) error {
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
-	r.entries = multipleEntries(entries)
+	r.entries.bindMultiple(entries)
 	return r
 }
 
@@ -148,7 +152,7 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 // or Entries will override All previous calls to Entries or Entry. If  isMultiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
-	r.entries = singleEntry(entry)
+	r.entries.bindSingle(entry)
 	return r
 }
 
@@ -230,7 +234,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		return len(r.entries.All()), nil
 	}
 
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
+	iter, err := wrapReader[K, E](tx, r.keyPrefix).OpenIterator(IterOptions{
 		prefix: r.prefix,
 	})
 	if err != nil {
@@ -298,7 +302,7 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
 		keys       = r.filter.keys
-		reader     = WrapReader[K, E](tx)
+		reader     = wrapReader[K, E](tx, r.keyPrefix)
 		out        = make([]E, 0, len(keys))
 		notFound   []K
 		validCount int
@@ -340,7 +344,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		match      bool
 		gorpCtx    = Context{Context: ctx, Tx: tx}
 	)
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := wrapReader[K, E](tx, r.keyPrefix).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}
