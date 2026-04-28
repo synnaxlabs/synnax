@@ -17,6 +17,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/query"
 )
 
 var _ = Describe("Retrieve", func() {
@@ -95,6 +96,16 @@ var _ = Describe("Retrieve", func() {
 				Expect(res.Key).To(Equal("B"))
 				Expect(r[1].Parse(&res)).To(Succeed())
 				Expect(res.Key).To(Equal("C"))
+			})
+
+			It("Should return ErrNotFound when traversing children of a non-existent parent", func(ctx SpecContext) {
+				var r []ontology.Resource
+				err := w.NewRetrieve().
+					WhereIDs(newSampleType("nonexistent")).
+					TraverseTo(ontology.ChildrenTraverser).
+					Entries(&r).
+					Exec(ctx, nil)
+				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should retrieve the grandparents of a resource", func(ctx SpecContext) {

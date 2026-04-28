@@ -304,7 +304,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
 	return !entriesBound && !atLast && q.HasFilterKeys() &&
-		!q.HasNonKeyFilters() && !q.HasLimit() && !q.HasOffset()
+		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(

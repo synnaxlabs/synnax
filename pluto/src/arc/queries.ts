@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { arc, ontology, type rack, task } from "@synnaxlabs/client";
+import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
 import { primitive, status } from "@synnaxlabs/x";
 import z from "zod";
 
@@ -200,8 +200,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
     }
     const prog = await client.arcs.create(data);
     rollbacks.push(store.arcs.set(prog));
-    const { key, name } = prog;
     if (taskKey == null) return prog;
+    const { key, name } = prog;
     const newTsk = await client.tasks.create(
       {
         key: taskKey,
@@ -280,9 +280,16 @@ export const retrieveTask = async ({
   let taskKey = cachedChild?.to.key;
 
   if (taskKey == null) {
-    const children = await client.ontology.retrieveChildren(arcOntologyID, {
-      types: ["task"],
-    });
+    let children: ontology.Resource[];
+    try {
+      children = await client.ontology.retrieveChildren(arcOntologyID, {
+        types: ["task"],
+      });
+    } catch (e) {
+      // if the arc doesn't exist then it can't have a task.
+      if (NotFoundError.matches(e)) return undefined;
+      throw e;
+    }
     children.forEach((c) => {
       const rel: ontology.Relationship = {
         from: arcOntologyID,
