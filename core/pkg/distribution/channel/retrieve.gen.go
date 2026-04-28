@@ -14,7 +14,7 @@ package channel
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -76,7 +76,7 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchLeaseholders returns a filter for channels whose Leaseholder matches any of the provided values.
-func MatchLeaseholders(vals ...cluster.NodeKey) Filter {
+func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return lo.Contains(vals, e.Leaseholder), nil
