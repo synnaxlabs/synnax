@@ -9,7 +9,11 @@
 
 import "@/schematic/symbol/Forms.css";
 
-import { type channel, type schematic as clientSchematic } from "@synnaxlabs/client";
+import {
+  type channel,
+  schematic,
+  type schematic as clientSchematic,
+} from "@synnaxlabs/client";
 import {
   type bounds,
   color,
@@ -31,7 +35,7 @@ import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { usePages } from "@/schematic/queries";
+import { Workspace } from "@/workspace";
 import { StateOverrideControls } from "@/schematic/symbol/Custom";
 import { type StateMapping } from "@/schematic/symbol/Primitives";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
@@ -1151,37 +1155,39 @@ export const TextBoxForm = (): ReactElement => {
 
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 
-const ClickModeSelect = ({
-  value,
-  onChange,
-}: {
-  value: boolean;
-  onChange: (v: boolean) => void;
-}): ReactElement => {
-  const handleChange = useCallback((v: string) => onChange(v === "double"), [onChange]);
-  return (
-    <Select.Buttons
-      value={value ? "double" : "single"}
-      onChange={handleChange}
-      keys={CLICK_MODE_KEYS}
-    >
-      <Select.Button itemKey="single">Single</Select.Button>
-      <Select.Button itemKey="double">Double</Select.Button>
-    </Select.Buttons>
-  );
-};
+const ClickModeSelect = Component.renderProp(
+  ({
+    value,
+    onChange,
+  }: {
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }): ReactElement => {
+    const handleChange = useCallback(
+      (v: string) => onChange(v === "double"),
+      [onChange],
+    );
+    return (
+      <Select.Buttons
+        value={value ? "double" : "single"}
+        onChange={handleChange}
+        keys={CLICK_MODE_KEYS}
+      >
+        <Select.Button itemKey="single">Single</Select.Button>
+        <Select.Button itemKey="double">Double</Select.Button>
+      </Select.Buttons>
+    );
+  },
+);
 
-const useHandlePageChange = (): ((
-  value: string | undefined,
-  onChange: (v: string) => void,
-  v: string,
-) => void) => {
+const useHandlePageChange = (): ((v: string) => void) => {
   const theme = Theming.use();
   const ctx = Form.useContext();
   return useCallback(
-    (value, onChange, v) => {
-      onChange(v);
-      const hadPage = value != null && value.length > 0;
+    (v: string) => {
+      const prev = ctx.get<string>("page").value;
+      ctx.set("page", v);
+      const hadPage = prev != null && prev.length > 0;
       const hasPage = v != null && v.length > 0;
       if (!hadPage && hasPage) ctx.set("color", color.hex(theme.colors.primary.z));
     },
@@ -1192,7 +1198,10 @@ const useHandlePageChange = (): ((
 export const OffPageReferenceForm = ({
   schematicKey,
 }: SymbolFormProps): ReactElement => {
-  const pages = usePages(schematicKey);
+  const { data: siblings = [] } = Workspace.useRetrieveChildren({
+    resourceID: schematicKey != null ? schematic.ontologyID(schematicKey) : undefined,
+    types: ["schematic"],
+  });
   const handlePageChange = useHandlePageChange();
   return (
     <FormWrapper x align="stretch">
@@ -1203,15 +1212,16 @@ export const OffPageReferenceForm = ({
           label="Page"
           padHelpText={false}
           hideIfNull={false}
+          defaultValue=""
           grow
           className={CSS.BE("symbol-form", "page-field")}
         >
-          {({ value, onChange }) => (
+          {({ value }) => (
             <Select.Static
               value={value}
-              onChange={(v: string) => handlePageChange(value, onChange, v)}
-              data={pages}
-              resourceName="workspace schematic"
+              onChange={handlePageChange}
+              data={siblings}
+              resourceName="schematic"
               emptyContent="No other schematics in this workspace"
               allowNone
             />

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { ontology, workspace } from "@synnaxlabs/client";
-import { array } from "@synnaxlabs/x";
+import { array, type record } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type policy } from "@/access/policy/aether";
@@ -209,4 +209,54 @@ export const { useUpdate: useSaveLayout } = Flux.createUpdate<
     await client.workspaces.setLayout(key, layout);
     return data;
   },
+});
+
+export interface RetrieveChildrenQuery {
+  resourceID?: ontology.ID;
+  types: ontology.ResourceType[];
+}
+
+const collectChildren = async (
+  client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
+  parentID: ontology.ID,
+  types: ontology.ResourceType[],
+  exclude?: string,
+): Promise<record.KeyedNamed[]> => {
+  const children = await client.ontology.retrieveChildren(parentID, {
+    types: [...types, "group"],
+  });
+  const results: record.KeyedNamed[] = [];
+  for (const child of children)
+    if (types.includes(child.id.type) && child.id.key !== exclude)
+      results.push({ key: child.id.key, name: child.name });
+    else if (child.id.type === "group")
+      results.push(...(await collectChildren(client, child.id, types, exclude)));
+  return results;
+};
+
+const retrieveChildrenImpl = async ({
+  client,
+  query: { resourceID, types },
+}: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>): Promise<
+  record.KeyedNamed[]
+> => {
+  if (resourceID == null) return [];
+  const parents = await client.ontology.retrieveParents(resourceID, {
+    types: ["workspace"],
+  });
+  if (parents.length === 0) return [];
+  return await collectChildren(client, parents[0].id, types, resourceID.key);
+};
+
+export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
+  RetrieveChildrenQuery,
+  record.KeyedNamed[],
+  FluxSubStore
+>({
+  name: "workspace children",
+  retrieve: retrieveChildrenImpl,
+  mountListeners: ({ store, onChange }) => [
+    store.relationships.onSet(() => onChange(undefined)),
+    store.resources.onSet(() => onChange(undefined)),
+  ],
 });

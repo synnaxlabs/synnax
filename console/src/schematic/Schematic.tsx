@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
-import { schematic, type Synnax as SynnaxClient } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
@@ -16,8 +16,10 @@ import {
   Control,
   Diagram,
   Flex,
+  Flux,
   Haul,
   Icon,
+  type Pluto,
   Schematic as Base,
   Status,
   Synnax,
@@ -69,7 +71,6 @@ import {
   setViewport,
   setViewportMode,
   type State,
-  type StoreState,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -79,57 +80,57 @@ import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
 
-type SchematicRetriever = {
-  schematics: Pick<SynnaxClient["schematics"], "retrieve">;
-};
+type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 
-export const navigateToLinkedSchematic = async (
-  client: SchematicRetriever,
+const navigateToLinkedSchematic = async (
+  retrieve: SchematicRetriever,
   page: string,
   placeLayout: Layout.Placer,
 ): Promise<void> => {
-  const s = await client.schematics.retrieve({ key: page });
-  placeLayout(create({ ...s.data, ...s }));
+  const s = await retrieve(page);
+  placeLayout(create({ ...(s.data as State), key: s.key, name: s.name }));
 };
 
-export interface HandleNodeClickArgs {
-  editable: boolean;
-  client: SchematicRetriever | null;
-  storeState: StoreState;
-  layoutKey: string;
-  nodeId: string;
-  placeLayout: Layout.Placer;
-  handleError: Status.ErrorHandler;
-  dblClick: boolean;
-}
+type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
 
-export const handleNodeClickAction = (args: HandleNodeClickArgs): void => {
-  const {
-    editable,
-    client,
-    storeState,
-    layoutKey,
-    nodeId,
-    placeLayout,
-    handleError,
-    dblClick,
-  } = args;
-  if (editable || client == null) return;
-  const props = selectNodeProps(storeState, layoutKey, nodeId);
-  if (
-    props?.key !== "offPageReference" ||
-    typeof props.page !== "string" ||
-    props.page.length === 0
-  )
-    return;
-  const dblClickNav = props.dblClickNav !== false;
-  if (dblClick !== dblClickNav) return;
-  const { page } = props;
-  const label = props.label?.label;
-  const name = label != null && label.length > 0 ? label : "Referenced schematic";
-  handleError(
-    () => navigateToLinkedSchematic(client, page, placeLayout),
-    `Schematic "${name}" not found`,
+const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const retrieve: SchematicRetriever | null = useMemo(
+    () =>
+      client != null
+        ? (key: string) =>
+            Base.retrieveSingle({ store: fluxStore, client, query: { key } })
+        : null,
+    [fluxStore, client],
+  );
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Layout.usePlacer();
+
+  return useCallback(
+    (nodeId: string, dblClick: boolean) => {
+      const storeState = store.getState();
+      const state = selectOptional(storeState, layoutKey);
+      if (state == null || state.editable || retrieve == null) return;
+      const props = selectNodeProps(storeState, layoutKey, nodeId);
+      if (
+        props?.key !== "offPageReference" ||
+        typeof props.page !== "string" ||
+        props.page.length === 0
+      )
+        return;
+      const dblClickNav = props.dblClickNav !== false;
+      if (dblClick !== dblClickNav) return;
+      const { page } = props;
+      const label = props.label?.label;
+      const name = label != null && label.length > 0 ? label : "Referenced schematic";
+      handleError(
+        () => navigateToLinkedSchematic(retrieve, page, placeLayout),
+        `Schematic "${name}" not found`,
+      );
+    },
+    [store, layoutKey, retrieve, placeLayout, handleError],
   );
 };
 
@@ -246,10 +247,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
   const syncDispatch = useSyncComponent(layoutKey);
   const selector = useCallback(
     (state: RootState) => selectRequired(state, layoutKey),
@@ -373,34 +370,18 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.editable, syncDispatch]);
 
+  const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
+
   const handleNodeClick = useCallback(
     (_event: React.MouseEvent, node: { id: string }) =>
-      handleNodeClickAction({
-        editable: state.editable,
-        client,
-        storeState: store.getState(),
-        layoutKey,
-        nodeId: node.id,
-        placeLayout,
-        handleError,
-        dblClick: false,
-      }),
-    [state.editable, client, store, layoutKey, placeLayout, handleError],
+      handleNodeClickAction(node.id, false),
+    [handleNodeClickAction],
   );
 
   const handleNodeDoubleClick = useCallback(
     (_event: React.MouseEvent, node: { id: string }) =>
-      handleNodeClickAction({
-        editable: state.editable,
-        client,
-        storeState: store.getState(),
-        layoutKey,
-        nodeId: node.id,
-        placeLayout,
-        handleError,
-        dblClick: true,
-      }),
-    [state.editable, client, store, layoutKey, placeLayout, handleError],
+      handleNodeClickAction(node.id, true),
+    [handleNodeClickAction],
   );
 
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(

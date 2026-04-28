@@ -444,10 +444,8 @@ class SchematicLifecycle(ConsoleCase):
 
         # Cleanup
         for name in names:
-            try:
-                self.console.layout.close_tab(name)
-            except Exception:
-                pass
+            self.console.layout.close_tab(name)
+
         self.console.workspace.delete_pages(names)
         self.off_page_schematic_names = []
 
