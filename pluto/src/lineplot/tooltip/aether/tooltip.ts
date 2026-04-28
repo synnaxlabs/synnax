@@ -131,7 +131,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     const hasSubGroups = validValues.some((v) => v.subGroupIndex != null);
     const subGroupPrefixWidth = hasSubGroups ? 14 : 0;
     let maxLabelLength = validValues.reduce(
-      (p, c) => Math.max(p, (c.label?.length ?? 0)),
+      (p, c) => Math.max(p, c.label?.length ?? 0),
       0,
     );
     if (xValueStr.length > maxLabelLength) maxLabelLength = xValueStr.length;
@@ -157,7 +157,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
           label = v.label ?? "";
           value = math.smartRound(v.value.y, v.bounds).toString();
           color = v.color;
-          if (v.subGroupIndex != null) 
+          if (v.subGroupIndex != null)
             draw.text({
               position: box.topLeft(b),
               text: `${v.subGroupIndex}`,
@@ -165,7 +165,6 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
               weight: 600,
               color: this.state.ruleColor,
             });
-          
         }
         const labelOffset = hasSubGroups ? subGroupPrefixWidth : 0;
         draw.text({

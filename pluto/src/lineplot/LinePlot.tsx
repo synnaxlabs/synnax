@@ -142,9 +142,7 @@ export const LinePlot = ({
   ...rest
 }: LinePlotProps): ReactElement => {
   const [lines, setLines] = useState<LineState>([]);
-  const [highlightedSubGroup, setHighlightedSubGroup] = useState<string | null>(
-    null,
-  );
+  const [highlightedSubGroup, setHighlightedSubGroup] = useState<string | null>(null);
 
   const memoProps = useMemoDeepEqual({ clearOverScan, hold, visible });
 

@@ -26,7 +26,10 @@ export interface GroupData {
 export interface GroupedProps
   extends
     Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
-    Pick<EntriesProps, "background" | "allowVisibleChange" | "onEntryChange" | "highlightedSubGroupIndex"> {
+    Pick<
+      EntriesProps,
+      "background" | "allowVisibleChange" | "onEntryChange" | "highlightedSubGroupIndex"
+    > {
   data: GroupData[];
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
