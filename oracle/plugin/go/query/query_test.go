@@ -362,7 +362,7 @@ var _ = Describe("Go Query Plugin", func() {
 					)
 			})
 
-			It("Should emit a Where method taking ...Filter and binding each filter to r", func(ctx SpecContext) {
+			It("Should emit a Where method taking a single Filter and binding it to r", func(ctx SpecContext) {
 				source := `
 					@go output "core/pkg/service/rack"
 
@@ -378,10 +378,11 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) Where(filters ...Filter) Retrieve",
-						"bound[i] = f(r)",
+						"func (r Retrieve) Where(filter Filter) Retrieve",
+						"r.gorp = r.gorp.Where(filter(r))",
 					).
 					ToNotContain(
+						"func (r Retrieve) Where(filters ...Filter) Retrieve",
 						"func (r Retrieve) Where(filters ...gorp.Filter[uint32, Rack]) Retrieve",
 					)
 			})
@@ -408,8 +409,8 @@ var _ = Describe("Go Query Plugin", func() {
 						"type Retrieve struct",
 						"type Filter = gorp.BoundFilter[Retrieve, uint32, Rack]",
 						"func MatchNames(vals ...string) Filter",
-						"func (r Retrieve) Where(filters ...Filter) Retrieve",
-						"bound[i] = f(r)",
+						"func (r Retrieve) Where(filter Filter) Retrieve",
+						"r.gorp = r.gorp.Where(filter(r))",
 					)
 			})
 
@@ -652,7 +653,7 @@ var _ = Describe("Go Query Plugin", func() {
 					"// MatchKeys returns a filter that restricts results to foos whose key",
 					"// MatchNames returns a filter for foos whose Name",
 					"// MatchActive returns a filter for foos by their Active",
-					"// Where applies the provided filters",
+					"// Where applies the provided filter",
 					"// Entry binds the provided foo as the result",
 					"// Entries binds the provided slice of foos",
 					"// Limit sets the maximum number of foos",
