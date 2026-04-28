@@ -16,27 +16,26 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Garbage collection", Ordered, func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				db      *cesium.DB
-				basic   = testutil.GenerateChannelKey()
-				index   = testutil.GenerateChannelKey()
-				fs      xfs.FS
-				cleanUp func() error
+				db    *cesium.DB
+				basic = GenerateChannelKey()
+				index = GenerateChannelKey()
+				fs    xfs.FS
 			)
 
 			Context("Threshold = 0", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
@@ -49,7 +48,6 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 
 				It("Should recycle properly for deletion on an indexed channel", func(ctx SpecContext) {
@@ -105,7 +103,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 
 			Context("Threshold != 0", Ordered, func() {
 				BeforeAll(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
@@ -118,7 +116,6 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating a channel")
@@ -181,7 +178,7 @@ var _ = Describe("Garbage collection", Ordered, func() {
 			})
 			Context("Multiple files", func() {
 				BeforeAll(func(ctx SpecContext) {
-					fs, cleanUp = makeFS()
+					fs = openFS()
 					db = MustSucceed(cesium.Open(ctx, "",
 						cesium.WithGCConfig(cesium.GCConfig{
 							MaxGoroutine: 10,
@@ -195,7 +192,6 @@ var _ = Describe("Garbage collection", Ordered, func() {
 				})
 				AfterAll(func() {
 					Expect(db.Close()).To(Succeed())
-					Expect(cleanUp()).To(Succeed())
 				})
 				It("Should only garbage collect after a certain amount garbage has accumulated", func(ctx SpecContext) {
 					By("Creating channels")

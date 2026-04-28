@@ -12,6 +12,7 @@ from uuid import uuid4
 import pytest
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 @pytest.mark.status
@@ -105,10 +106,12 @@ class TestStatusClient:
         )
         created = client.statuses.set(status)
 
-        results = client.statuses.retrieve(search_term=unique_term)
+        def check() -> None:
+            results = client.statuses.retrieve(search_term=unique_term)
+            assert len(results) >= 1
+            assert any(s.key == created.key for s in results)
 
-        assert len(results) >= 1
-        assert any(s.key == created.key for s in results)
+        assert_eventually(check)
 
     def test_retrieve_with_pagination(self, client: sy.Synnax):
         """Should paginate results."""

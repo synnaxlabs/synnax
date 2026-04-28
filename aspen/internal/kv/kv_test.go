@@ -278,6 +278,93 @@ var _ = Describe("txn", func() {
 		})
 	})
 
+	Describe("NewObservable", func() {
+		Describe("IgnoreHostLeaseholder", func() {
+			It("Should not invoke the handler for writes led by the host node", func(ctx SpecContext) {
+				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+				var fired atomic.Int64
+				kv1.NewObservable(kv.IgnoreHostLeaseholder).OnChange(func(context.Context, xkv.TxReader) {
+					fired.Add(1)
+				})
+				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+				Consistently(func() int64 { return fired.Load() }, "200ms", "20ms").
+					Should(Equal(int64(0)))
+			})
+
+			It("Should invoke the handler for writes replicated from a peer", func(ctx SpecContext) {
+				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+				var mu sync.Mutex
+				var seen []xkv.Change
+				kv2.NewObservable(kv.IgnoreHostLeaseholder).OnChange(func(_ context.Context, r xkv.TxReader) {
+					mu.Lock()
+					defer mu.Unlock()
+					seen = append(seen, slices.Collect(r)...)
+				})
+				Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					g.Expect(seen).To(HaveLen(1))
+					g.Expect(seen[0].Key).To(Equal([]byte("key")))
+					g.Expect(seen[0].Value).To(Equal([]byte("value")))
+				}).Should(Succeed())
+			})
+
+			It("Should filter local writes but pass through replicated writes", func(ctx SpecContext) {
+				kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+				kv2 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+				var mu sync.Mutex
+				var seen []xkv.Change
+				kv1.NewObservable(kv.IgnoreHostLeaseholder).OnChange(func(_ context.Context, r xkv.TxReader) {
+					mu.Lock()
+					defer mu.Unlock()
+					seen = append(seen, slices.Collect(r)...)
+				})
+				// kv1 originates this write — host is leaseholder, must be filtered out.
+				Expect(kv1.Set(ctx, []byte("local"), []byte("v1"))).To(Succeed())
+				// kv2 originates this write — replicated to kv1, must pass through.
+				Expect(kv2.Set(ctx, []byte("remote"), []byte("v2"))).To(Succeed())
+				Eventually(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					keys := make([]string, len(seen))
+					for i, ch := range seen {
+						keys[i] = string(ch.Key)
+					}
+					g.Expect(keys).To(ConsistOf("remote"))
+				}).Should(Succeed())
+				// Hold past the typical gossip propagation window to confirm the
+				// local write never sneaks through.
+				Consistently(func(g Gomega) {
+					mu.Lock()
+					defer mu.Unlock()
+					for _, ch := range seen {
+						g.Expect(string(ch.Key)).ToNot(Equal("local"))
+					}
+				}, "200ms", "20ms").Should(Succeed())
+			})
+		})
+
+		It("Should deliver every change when no options are passed", func(ctx SpecContext) {
+			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))
+			var mu sync.Mutex
+			var seen []xkv.Change
+			kv1.NewObservable().OnChange(func(_ context.Context, r xkv.TxReader) {
+				mu.Lock()
+				defer mu.Unlock()
+				seen = append(seen, slices.Collect(r)...)
+			})
+			Expect(kv1.Set(ctx, []byte("key"), []byte("value"))).To(Succeed())
+			Eventually(func(g Gomega) {
+				mu.Lock()
+				defer mu.Unlock()
+				g.Expect(seen).To(HaveLen(1))
+				g.Expect(seen[0].Value).To(Equal([]byte("value")))
+			}).Should(Succeed())
+		})
+	})
+
 	Describe("Recovery", func() {
 		It("Should recover the state of the key-value store", func(ctx SpecContext) {
 			kv1 := MustSucceed(builder.New(ctx, kv.Config{}, cluster.Config{}))

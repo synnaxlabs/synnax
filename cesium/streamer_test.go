@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/alignment"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/confluence"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/io/fs"
@@ -25,23 +26,21 @@ import (
 )
 
 var _ = Describe("Streamer Behavior", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
 				db         *cesium.DB
 				fs         fs.FS
-				cleanUp    func() error
 				controlKey cesium.ChannelKey = 5
 			)
 			BeforeAll(func(ctx SpecContext) {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				db = openDBOnFS(ctx, fs)
 				Expect(db.ConfigureControlUpdateChannel(ctx, controlKey, "cesium_control")).To(Succeed())
 			})
 			AfterAll(func() {
 				Expect(db.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Happy Path", func() {

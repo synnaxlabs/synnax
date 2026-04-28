@@ -87,17 +87,15 @@ var _ = Describe("Control", func() {
 		})
 	})
 
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, Ordered, func() {
 			var (
-				fs      fs.FS
-				cleanUp func() error
+				fs fs.FS
 			)
 			BeforeAll(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 			})
 			AfterAll(func() {
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Nominal", func() {

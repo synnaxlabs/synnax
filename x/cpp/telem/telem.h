@@ -471,12 +471,81 @@ public:
 
     bool operator!=(const int &other) const { return value != other; }
 
+    bool operator==(const std::int64_t &other) const { return value == other; }
+
+    bool operator!=(const std::int64_t &other) const { return value != other; }
+
+    bool operator<(const std::int64_t &other) const { return value < other; }
+
+    bool operator>(const std::int64_t &other) const { return value > other; }
+
+    bool operator<=(const std::int64_t &other) const { return value <= other; }
+
+    bool operator>=(const std::int64_t &other) const { return value >= other; }
+
+    TimeStamp operator+(const std::int64_t &other) const {
+        return TimeStamp(value + other);
+    }
+
+    TimeStamp operator-(const std::int64_t &other) const {
+        return TimeStamp(value - other);
+    }
+
+    TimeStamp operator*(const std::int64_t &other) const {
+        return TimeStamp(value * other);
+    }
+
+    TimeStamp operator/(const std::int64_t &other) const {
+        return TimeStamp(value / other);
+    }
+
+    TimeStamp operator%(const std::int64_t &other) const {
+        return TimeStamp(value % other);
+    }
+
+    TimeStamp operator+=(const std::int64_t &other) {
+        value += other;
+        return *this;
+    }
+
+    TimeStamp operator-=(const std::int64_t &other) {
+        value -= other;
+        return *this;
+    }
+
+    TimeStamp operator*=(const std::int64_t &other) {
+        value *= other;
+        return *this;
+    }
+
+    TimeStamp operator/=(const std::int64_t &other) {
+        value /= other;
+        return *this;
+    }
+
+    TimeStamp operator%=(const std::int64_t &other) {
+        value %= other;
+        return *this;
+    }
+
     friend TimeStamp operator+(const std::int64_t &lhs, const TimeStamp &rhs) {
         return TimeStamp(lhs + rhs.value);
     }
 
     friend TimeSpan operator-(const std::int64_t &lhs, const TimeStamp &rhs) {
         return TimeSpan(lhs - rhs.value);
+    }
+
+    friend TimeStamp operator*(const std::int64_t &lhs, const TimeStamp &rhs) {
+        return TimeStamp(lhs * rhs.value);
+    }
+
+    friend TimeStamp operator/(const std::int64_t &lhs, const TimeStamp &rhs) {
+        return TimeStamp(lhs / rhs.value);
+    }
+
+    friend TimeStamp operator%(const std::int64_t &lhs, const TimeStamp &rhs) {
+        return TimeStamp(lhs % rhs.value);
     }
 
     friend std::ostream &operator<<(std::ostream &os, const TimeStamp &ts) {
@@ -820,8 +889,6 @@ inline void to_proto(const SampleValue &sv, google::protobuf::Value *v) {
         sv
     );
 }
-
-using NowFunc = std::function<TimeStamp()>;
 
 namespace details {
 const std::string UNKNOWN_T;
@@ -1223,3 +1290,5 @@ struct std::hash<x::telem::DataType> {
         return hash<string>()(dt.value);
     }
 };
+
+#include "x/cpp/telem/mono_clock.h"
