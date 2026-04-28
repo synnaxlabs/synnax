@@ -33,8 +33,6 @@ resource_type_to_pb(const std::string &cpp) {
              ::distribution::ontology::pb::RESOURCE_TYPE_BUILTIN},
             {RESOURCE_TYPE_CHANNEL,
              ::distribution::ontology::pb::RESOURCE_TYPE_CHANNEL},
-            {RESOURCE_TYPE_CLUSTER,
-             ::distribution::ontology::pb::RESOURCE_TYPE_CLUSTER},
             {RESOURCE_TYPE_DEVICE, ::distribution::ontology::pb::RESOURCE_TYPE_DEVICE},
             {RESOURCE_TYPE_FRAMER, ::distribution::ontology::pb::RESOURCE_TYPE_FRAMER},
             {RESOURCE_TYPE_GROUP, ::distribution::ontology::pb::RESOURCE_TYPE_GROUP},
@@ -76,8 +74,6 @@ resource_type_from_pb(::distribution::ontology::pb::ResourceType pb) {
             return {RESOURCE_TYPE_BUILTIN, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_CHANNEL:
             return {RESOURCE_TYPE_CHANNEL, x::errors::NIL};
-        case ::distribution::ontology::pb::RESOURCE_TYPE_CLUSTER:
-            return {RESOURCE_TYPE_CLUSTER, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_DEVICE:
             return {RESOURCE_TYPE_DEVICE, x::errors::NIL};
         case ::distribution::ontology::pb::RESOURCE_TYPE_FRAMER:

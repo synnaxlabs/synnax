@@ -15,7 +15,6 @@ export const RESOURCE_TYPES = [
   "arc",
   "builtin",
   "channel",
-  "cluster",
   "device",
   "framer",
   "group",
