@@ -65,7 +65,7 @@ op_mul_a -> do_mul{}
 func do_div(a f64) { op_div_out = a / op_div_b }
 op_div_a -> do_div{}
 
-func do_mod(a f64) { op_mod_out = a % op_mod_b }
+func do_mod(a i64) { op_mod_out = a % op_mod_b }
 op_mod_a -> do_mod{}
 
 func do_neg(a f64) { op_neg_out = math.neg(a) }
@@ -194,7 +194,7 @@ OP_BINARY_CASES = [
     BinaryOpCase("sub", "op_sub_a", "op_sub_b", "op_sub_out", 10.0, 3.0, 7.0),
     BinaryOpCase("mul", "op_mul_a", "op_mul_b", "op_mul_out", 4.0, 5.0, 20.0),
     BinaryOpCase("div", "op_div_a", "op_div_b", "op_div_out", 20.0, 4.0, 5.0),
-    BinaryOpCase("mod", "op_mod_a", "op_mod_b", "op_mod_out", 10.0, 3.0, 1.0),
+    BinaryOpCase("mod", "op_mod_a", "op_mod_b", "op_mod_out", 10, 3, 1),
 ]
 
 STAT_VIRTUAL_INPUTS = [
@@ -272,9 +272,10 @@ class StlMath(ArcConsoleCase):
 
     def _setup_op_channels(self) -> None:
         for c in OP_BINARY_CASES:
-            create_virtual_channel(self.client, c.a_ch, sy.DataType.FLOAT64)
-            create_virtual_channel(self.client, c.b_ch, sy.DataType.FLOAT64)
-            create_virtual_channel(self.client, c.out_ch, sy.DataType.FLOAT64)
+            dtype = sy.DataType.INT64 if c.label == "mod" else sy.DataType.FLOAT64
+            create_virtual_channel(self.client, c.a_ch, dtype)
+            create_virtual_channel(self.client, c.b_ch, dtype)
+            create_virtual_channel(self.client, c.out_ch, dtype)
         create_virtual_channel(self.client, "op_neg_a", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "op_neg_out", sy.DataType.FLOAT64)
         for c in OP_BINARY_CASES:
