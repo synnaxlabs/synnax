@@ -30,16 +30,11 @@ type Reader[K Key, E Entry[K]] struct {
 	tx       Tx
 }
 
-// WrapReader wraps the given BaseReader to provide a strongly typed interface for reading
-// entries from the DB. Each call builds a fresh key codec; prefer Table.WrapReader
-// when a Table is available so the cached prefix is reused.
+// WrapReader wraps the given Tx to provide a strongly typed Reader.
 func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
 	return wrapReader[K, E](tx, nil)
 }
 
-// wrapReader is the internal Reader constructor. When prefix is non-nil it is
-// reused as the codec's prefix (avoiding the per-call types.Name and string
-// concat allocations); when nil, a fresh prefix is built.
 func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) *Reader[K, E] {
 	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }

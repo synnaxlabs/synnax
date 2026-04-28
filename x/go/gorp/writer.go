@@ -18,15 +18,11 @@ type Writer[K Key, E Entry[K]] struct {
 	keyCodec keyCodec[K, E]
 }
 
-// WrapWriter wraps the given BaseWriter to provide a strongly typed interface for writing
-// entries to the DB. Each call builds a fresh key codec; prefer Table.WrapWriter
-// when a Table is available so the cached prefix is reused.
+// WrapWriter wraps the given Tx to provide a strongly typed Writer.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	return wrapWriter[K, E](tx, nil)
 }
 
-// wrapWriter is the internal Writer constructor. See wrapReader for the
-// prefix-caching contract.
 func wrapWriter[K Key, E Entry[K]](tx Tx, prefix []byte) *Writer[K, E] {
 	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }

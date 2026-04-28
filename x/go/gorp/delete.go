@@ -29,10 +29,9 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 }
 
 // Where adds the provided filter to the query. To delete by primary key,
-// compose MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))) — the
-// resolved filter's Keys field dispatches to the multi-get fast path.
-func (d Delete[K, E]) Where(filters ...Filter[K, E]) Delete[K, E] {
-	d.retrieve = d.retrieve.Where(filters...)
+// compose MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))).
+func (d Delete[K, E]) Where(filter Filter[K, E]) Delete[K, E] {
+	d.retrieve = d.retrieve.Where(filter)
 	return d
 }
 

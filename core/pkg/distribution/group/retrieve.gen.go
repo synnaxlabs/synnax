@@ -75,15 +75,12 @@ func MatchNames(vals ...string) Filter {
 	}
 }
 
-// Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.indexes, r.label,
-// r.hostProvider, etc.
-func (r Retrieve) Where(filters ...Filter) Retrieve {
-	bound := make([]gorp.Filter[Key, Group], len(filters))
-	for i, f := range filters {
-		bound[i] = f(r)
-	}
-	r.gorp = r.gorp.Where(bound...)
+// Where applies the provided filter to the query, binding it to the Retrieve
+// so service-bound filters can read from r.indexes, r.label, r.hostProvider,
+// etc. To compose multiple filters, chain Where calls or pass a combined
+// filter via And / Or.
+func (r Retrieve) Where(filter Filter) Retrieve {
+	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 

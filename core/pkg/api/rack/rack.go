@@ -212,7 +212,7 @@ func (s *Service) Delete(
 			)
 		}
 		exists, err = s.task.NewRetrieve().
-			Where(task.MatchInternal(false), task.MatchRacks(req.Keys...)).
+			Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
 			Exists(ctx, tx)
 		if err != nil {
 			return err

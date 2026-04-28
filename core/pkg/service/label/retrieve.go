@@ -43,9 +43,10 @@ func (r Retrieve) Entry(label *label.Label) Retrieve { r.gorp = r.gorp.Entry(lab
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(labels *[]label.Label) Retrieve { r.gorp = r.gorp.Entries(labels); return r }
 
-// Where applies the provided filters to the query.
-func (r Retrieve) Where(filters ...gorp.Filter[label.Key, label.Label]) Retrieve {
-	r.gorp = r.gorp.Where(filters...)
+// Where applies the provided filter to the query. To compose multiple filters,
+// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
+func (r Retrieve) Where(filter gorp.Filter[label.Key, label.Label]) Retrieve {
+	r.gorp = r.gorp.Where(filter)
 	return r
 }
 

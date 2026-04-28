@@ -222,7 +222,7 @@ func (d *Driver) handleTaskChange(
 func (d *Driver) configureExistingTasks(ctx context.Context) {
 	var tasks []task.Task
 	if err := d.cfg.Task.NewRetrieve().
-		Where(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false)).
+		Where(task.And(task.MatchRacks(d.rack.Key), task.MatchSnapshot(false))).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		d.cfg.L.Error("failed to retrieve existing tasks", zap.Error(err))

@@ -28,9 +28,10 @@ type Retrieve struct {
 	searchTerm string
 }
 
-// Where applies the provided filters to the query.
-func (r Retrieve) Where(filters ...gorp.Filter[uuid.UUID, Symbol]) Retrieve {
-	r.gorp = r.gorp.Where(filters...)
+// Where applies the provided filter to the query. To compose multiple filters,
+// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
+func (r Retrieve) Where(filter gorp.Filter[uuid.UUID, Symbol]) Retrieve {
+	r.gorp = r.gorp.Where(filter)
 	return r
 }
 

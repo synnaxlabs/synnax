@@ -9,20 +9,11 @@
 
 package gorp
 
-// Filter is a composable query filter. eval matches against the decoded entry;
-// raw, when set, pre-screens entries by raw bytes before decoding. keys, when
-// set, restricts the filter to a bounded set of primary keys and lets
-// Retrieve.Exec dispatch to the multi-get fast path instead of a full scan.
+// Filter is a composable query filter built up via Match, MatchRaw, MatchKeys,
+// And, Or, and Not.
 type Filter[K Key, E Entry[K]] struct {
-	// eval matches against the decoded entry; raw bytes are passed too for
-	// filters that need them. Nil falls back to raw in combinators.
 	eval func(ctx Context, e *E, raw []byte) (bool, error)
-	// raw pre-screens by raw bytes before decoding. Optional.
-	raw func(data []byte) (bool, error)
-	// keys, when non-nil, bounds the filter to the given set of primary keys.
-	// nil means unbounded (no key restriction). When the resolved query
-	// filter has keys != nil, Retrieve.Exec uses a multi-get fast path
-	// instead of iterating the full table.
+	raw  func(data []byte) (bool, error)
 	keys []K
 }
 
@@ -35,38 +26,23 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 	}
 }
 
-// MatchRaw wraps a raw-byte predicate as a Filter. The result has Raw set and
-// Eval nil so it pre-screens before decoding. Composition rules:
-//
-//   - Under And, Raw is preserved alongside any sibling's Raw, so pre-screening
-//     still applies (sibling Evals run after decode as usual).
-//   - Under Or, Raw is preserved only when every sibling is also raw-only; if
-//     any sibling has Eval, the whole Or has to decode every entry to evaluate
-//     that sibling, and the MatchRaw branch is evaluated at decode time using
-//     the raw bytes carried alongside the decoded entry.
-//   - Under Not, Raw is inverted and pre-screening still applies.
+// MatchRaw wraps a raw-byte predicate as a Filter. The predicate runs on the
+// raw encoded bytes of an entry, before decoding.
 func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{raw: f}
 }
 
 // MatchKeys returns a filter that restricts results to the given primary keys.
-// The returned filter's Keys slice owns its own storage, so callers may mutate
-// the input without affecting the filter. An empty (non-nil) slice produces a
-// bounded filter that matches no entries; nil keys would be unbounded, so the
-// constructor always allocates at least an empty slice.
+// An empty key set produces a filter that matches no entries.
 func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
+	if keys == nil {
+		keys = []K{}
+	}
 	return Filter[K, E]{keys: keys}
 }
 
-// And returns a filter that matches when ALL children match. Short-circuits on the
-// first false for both Raw and Eval stages independently. Keys propagate when
-// exactly one child is bounded: the result inherits that child's Keys and the
-// other children's Eval / Raw become post-filters on the multi-get fast path.
-// When two or more children are bounded, the result drops Keys and falls back
-// to a full scan with the AND'd Eval evaluated per row — composing two bounded
-// children at the same level is rare in practice (callers concatenate keys at
-// the call site instead), so the optimization isn't worth the cost of
-// constraining K to comparable here.
+// And returns a filter that matches when ALL children match. Short-circuits on
+// the first false.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	if len(filters) == 1 {
 		return filters[0]
@@ -107,14 +83,7 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 }
 
 // Or returns a filter that matches when ANY child matches. Short-circuits on
-// the first true. Raw pre-screening is composed only when every child is
-// raw-only (Raw set, Eval nil); a single non-raw child forces a full decode
-// of every entry, with raw-only children evaluated at decode time. Or always
-// drops Keys: unioning bounded children would require equality on K (i.e.
-// constraining K to comparable), and the case where every child is bounded
-// is rare enough that the simpler full-scan fallback is preferable. When
-// index-backed filters land and resolve to bounded Keys at query time, the
-// resolver itself can union with comparable K it owns.
+// the first true.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	if len(filters) == 1 {
 		return filters[0]
@@ -152,14 +121,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	return f
 }
 
-// Not returns a filter that inverts the child. When the child is raw-only,
-// Not composes an inverted Raw so the result still pre-screens before
-// decoding; otherwise Not falls back to evaluating the child at decode time.
-// Not always drops Keys: inverting a key set requires the universe of all
-// keys, which the filter doesn't have, so the inverted filter falls through
-// to a full scan with the negated Eval evaluated per row. A child with only
-// Keys (no Eval / Raw) gets a synthesized Eval that checks key membership
-// before negation, so Not(MatchKeys(...)) still produces correct results.
+// Not returns a filter that inverts the child.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
 		eval: func(ctx Context, e *E, raw []byte) (bool, error) {
@@ -178,7 +140,6 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	return out
 }
 
-// allRawOnly reports whether every filter has Raw set and Eval nil.
 func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	for _, f := range filters {
 		if f.raw == nil || f.eval != nil {
@@ -188,9 +149,6 @@ func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	return true
 }
 
-// singleBoundedKeys returns the Keys of the unique bounded child if exactly
-// one child has Keys != nil; returns nil otherwise. The result is the
-// caller's storage — callers must not mutate it.
 func singleBoundedKeys[K Key, E Entry[K]](filters []Filter[K, E]) []K {
 	var (
 		out   []K
@@ -209,8 +167,6 @@ func singleBoundedKeys[K Key, E Entry[K]](filters []Filter[K, E]) []K {
 	return out
 }
 
-// evalChild runs a child's Eval if set, else its Raw against raw bytes. A
-// child with neither matches vacuously.
 func evalChild[K Key, E Entry[K]](
 	ctx Context,
 	f Filter[K, E],
@@ -226,21 +182,12 @@ func evalChild[K Key, E Entry[K]](
 	return true, nil
 }
 
-// BoundFilter is a Filter parameterized over a service-defined Retrieve type
-// R. It's the underlying type behind the per-service Filter alias emitted by
-// the oracle query plugin: a closure that takes the caller's Retrieve and
-// produces a gorp.Filter[K, E] bound to it. Service code uses BoundFilter so
-// filter constructors can read from r.indexes / r.label / r.hostProvider when
-// evaluated by Retrieve.Where, while pure constructors can ignore r entirely.
-//
-// The MatchBound / AndBound / OrBound / NotBound helpers below let generated
-// code stay one-liner thin instead of re-emitting the same closure plumbing
-// per service.
+// BoundFilter is a Filter that needs access to a caller-supplied value R when
+// it is built. R is typically a service-specific Retrieve type that exposes
+// indexes or other state the filter depends on.
 type BoundFilter[R any, K Key, E Entry[K]] func(r R) Filter[K, E]
 
-// MatchBound wraps a closure that needs the Retrieve R into a BoundFilter.
-// The Retrieve value is supplied by the per-service Where method when the
-// query is evaluated.
+// MatchBound wraps a predicate that needs access to R as a BoundFilter.
 func MatchBound[R any, K Key, E Entry[K]](
 	f func(ctx Context, r R, e *E) (bool, error),
 ) BoundFilter[R, K, E] {
@@ -251,9 +198,7 @@ func MatchBound[R any, K Key, E Entry[K]](
 	}
 }
 
-// AndBound returns a BoundFilter that matches when all provided filters
-// match. Each child is bound to the same Retrieve before being composed via
-// gorp.And, so the resulting filter inherits And's Eval/Raw composition semantics.
+// AndBound returns a BoundFilter that matches when ALL children match.
 func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
@@ -264,8 +209,7 @@ func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[
 	}
 }
 
-// OrBound returns a BoundFilter that matches when any provided filter
-// matches. Bound children are composed via gorp.Or.
+// OrBound returns a BoundFilter that matches when ANY child matches.
 func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
@@ -276,8 +220,7 @@ func OrBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R
 	}
 }
 
-// NotBound returns a BoundFilter that inverts the provided filter via
-// gorp.Not after binding it to the Retrieve.
+// NotBound returns a BoundFilter that inverts the provided filter.
 func NotBound[R any, K Key, E Entry[K]](f BoundFilter[R, K, E]) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		return Not(f(r))

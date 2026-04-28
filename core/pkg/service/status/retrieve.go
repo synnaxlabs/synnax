@@ -105,14 +105,11 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	return r
 }
 
-// Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.label, r.search, etc.
-func (r Retrieve[D]) Where(filters ...Filter[D]) Retrieve[D] {
-	bound := make([]gorp.Filter[string, Status[D]], len(filters))
-	for i, f := range filters {
-		bound[i] = f(r)
-	}
-	r.gorp = r.gorp.Where(bound...)
+// Where applies the provided filter to the query, binding it to the Retrieve
+// so service-bound filters can read from r.label, r.search, etc. To compose
+// multiple filters, chain Where calls or pass a combined filter via And / Or.
+func (r Retrieve[D]) Where(filter Filter[D]) Retrieve[D] {
+	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 

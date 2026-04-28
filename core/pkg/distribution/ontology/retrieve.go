@@ -80,9 +80,9 @@ func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 }
 
 // Where filters resources by the provided predicate.
-func (r Retrieve) Where(filters ...gorp.Filter[string, Resource]) Retrieve {
+func (r Retrieve) Where(filter gorp.Filter[string, Resource]) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.Where(filters...)
+	c.Retrieve = c.Where(filter)
 	return r.setCurrentClause(c)
 }
 
@@ -304,7 +304,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
 	return !entriesBound && !atLast && q.HasFilterKeys() &&
-		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
+		!q.HasNonKeyFilters() && !q.HasLimit() && !q.HasOffset()
 }
 
 func (r Retrieve) retrieveEntities(

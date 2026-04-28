@@ -249,6 +249,24 @@ func BenchmarkCreate(b *testing.B) {
 // --- Retrieve Benchmarks ---
 
 func BenchmarkRetrieveByKeys(b *testing.B) {
+	b.Run("int32_key_no_table", func(b *testing.B) {
+		b.Run("n=1", func(b *testing.B) {
+			db := setupBenchDB(b)
+			ctx := b.Context()
+			keys := populateEntries(b, db, 1)
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := 0; i < b.N; i++ {
+				var results []benchEntry
+				if err := gorp.NewRetrieve[int32, benchEntry]().
+					Where(gorp.MatchKeys[int32, benchEntry](keys...)).
+					Entries(&results).
+					Exec(ctx, db); err != nil {
+					b.Fatal(err)
+				}
+			}
+		})
+	})
 	b.Run("int32_key", func(b *testing.B) {
 		for _, size := range crudSizes {
 			b.Run(fmt.Sprintf("n=%d", size), func(b *testing.B) {
@@ -289,6 +307,27 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 			})
 		}
 	})
+}
+
+// BenchmarkRetrieveByKey exercises the single-entry Retrieve path
+// (.Entry(&out) instead of .Entries(&slice)). The key is pre-allocated and
+// spread into MatchKeys so the variadic call doesn't allocate.
+func BenchmarkRetrieveByKey(b *testing.B) {
+	t := openBenchTable[int32, benchEntry](b)
+	ctx := b.Context()
+	populateEntries(b, t.DB, 1000)
+	keys := []int32{500}
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		var result benchEntry
+		if err := t.NewRetrieve().
+			Where(gorp.MatchKeys[int32, benchEntry](keys...)).
+			Entry(&result).
+			Exec(ctx, t.DB); err != nil {
+			b.Fatal(err)
+		}
+	}
 }
 
 func BenchmarkRetrieveByFilter(b *testing.B) {

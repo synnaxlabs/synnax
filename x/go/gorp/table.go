@@ -35,10 +35,7 @@ type TableConfig[E any] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB *DB
-	// keyPrefix is the gorp key prefix for E, computed once in OpenTable and
-	// reused by every query / Reader / Writer constructed from this Table —
-	// avoids the per-call types.Name reflection and []byte allocation.
+	DB        *DB
 	keyPrefix []byte
 }
 
@@ -69,32 +66,28 @@ func OpenTable[K Key, E Entry[K]](
 	return &Table[K, E]{DB: cfg.DB, keyPrefix: newKeyPrefix[E]()}, nil
 }
 
-// NewCreate returns a Create query builder bound to this Table's cached
-// key prefix.
+// NewCreate returns a Create query builder.
 func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
 	c.keyPrefix = t.keyPrefix
 	return c
 }
 
-// NewRetrieve returns a Retrieve query builder bound to this Table's cached
-// key prefix.
+// NewRetrieve returns a Retrieve query builder.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 	r := NewRetrieve[K, E]()
 	r.keyPrefix = t.keyPrefix
 	return r
 }
 
-// NewUpdate returns an Update query builder bound to this Table's cached
-// key prefix.
+// NewUpdate returns an Update query builder.
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
 	u.retrieve.keyPrefix = t.keyPrefix
 	return u
 }
 
-// NewDelete returns a Delete query builder bound to this Table's cached
-// key prefix.
+// NewDelete returns a Delete query builder.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
 	d.retrieve.keyPrefix = t.keyPrefix

@@ -270,7 +270,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, snapshot2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.And(task.MatchSnapshot(true), task.MatchNames("Snapshot Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Snapshot Task 1"))
 			Expect(res.Snapshot).To(BeTrue())
 		})
@@ -314,7 +314,7 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, internal2)).To(Succeed())
 			var res task.Task
-			Expect(svc.NewRetrieve().Where(task.MatchInternal(true), task.MatchNames("Internal Task 1")).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.And(task.MatchInternal(true), task.MatchNames("Internal Task 1"))).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("Internal Task 1"))
 			Expect(res.Internal).To(BeTrue())
 		})
