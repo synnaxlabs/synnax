@@ -17,10 +17,8 @@ import (
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
-	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -41,86 +39,55 @@ func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
-	var zero E
-	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
-	if err != nil {
-		return zero, err
-	}
 	var e E
-	if err := r.tx.Decode(ctx, b, &e); err != nil {
-		return zero, errors.Combine(err, closer.Close())
+	_, closer, err := r.get(ctx, key, &e)
+	if err != nil {
+		var zero E
+		return zero, err
 	}
 	return e, closer.Close()
 }
 
-// GetMany retrieves multiple entries from the database. Missing keys are
-// omitted from the returned slice but reported via a wrapped query.ErrNotFound
-// in the returned error; callers that don't care about missing keys should
-// use errors.Skip(err, query.ErrNotFound).
-func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
-	seq, closer := r.iterKeys(ctx, keys)
-	return slices.CollectKeys(seq, len(keys)), closer.Close()
+func (r Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Closer, error) {
+	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
+	if err != nil {
+		return nil, nil, err
+	}
+	if err := r.tx.Decode(ctx, b, entry); err != nil {
+		return nil, nil, errors.Combine(err, closer.Close())
+	}
+	return b, closer, nil
 }
 
-// iterKeys returns a sequence of (decoded, raw) pairs for each key that
-// exists in the DB. The raw bytes yielded by the seq are valid only until
-// the returned closer is closed; the caller MUST close once iteration is
-// complete. Decoding happens lazily inside the seq, so filters that reject
-// on raw bytes don't pay the decode cost.
-//
-// The returned error wraps query.ErrNotFound with the missing key list when
-// any keys are absent, while the seq still yields the keys that were found.
-// On a non-NotFound kv error the partial closer is still returned so the
-// caller can release any successful gets.
-func (r Reader[K, E]) iterKeys(
-	ctx context.Context,
-	keys []K,
-) (iter.Seq2[E, []byte], io.Closer) {
+// GetMany retrieves isMultiple entries from the database. Entries that are not
+// found are simply omitted from the returned slice.
+func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
-		resErr   error
+		entries  = make([]E, 0, len(keys))
 		notFound []K
-		seq      = func(yield func(E, []byte) bool) {
-			var e E
-			for _, k := range keys {
-				b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(k))
-				if err != nil {
-					if errors.Is(err, query.ErrNotFound) {
-						notFound = append(notFound, k)
-						continue
-					}
-					resErr = err
-					return
-				}
-				if err := r.tx.Decode(ctx, b, &e); err != nil {
-					resErr = errors.Combine(err, closer.Close())
-					return
-				}
-				ok := yield(e, b)
-				if err := closer.Close(); err != nil {
-					resErr = err
-					return
-				}
-				if !ok {
-					return
-				}
-			}
-		}
-		closer = xio.CloserFunc(func() error {
-			if resErr != nil {
-				return resErr
-			}
-			if len(notFound) > 0 {
-				return errors.Wrapf(
-					query.ErrNotFound,
-					"%s with keys %v not found",
-					types.PluralName[E](),
-					notFound,
-				)
-			}
-			return nil
-		})
 	)
-	return seq, closer
+	for i := range keys {
+		e, err := r.Get(ctx, keys[i])
+		if err != nil {
+			if errors.Is(err, query.ErrNotFound) {
+				notFound = append(notFound, keys[i])
+				continue
+			} else {
+				return entries, err
+			}
+		} else {
+			entries = append(entries, e)
+		}
+	}
+	if len(notFound) > 0 {
+		return entries, errors.Wrapf(
+			query.ErrNotFound,
+			"%s with keys %v not found",
+			types.PluralName[E](),
+			notFound,
+		)
+	}
+	return entries, nil
 }
 
 type IterOptions struct {

@@ -282,34 +282,51 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 }
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
-	keys := r.filter.keys
 	var (
-		reader      = WrapReader[K, E](tx)
-		seq, closer = reader.iterKeys(ctx, keys)
-		out         = make([]E, 0, len(keys))
-		validCount  int
-		gorpCtx     = Context{Context: ctx, Tx: tx}
+		keys       = r.filter.keys
+		reader     = WrapReader[K, E](tx)
+		out        = make([]E, 0, len(keys))
+		notFound   []K
+		validCount int
+		gorpCtx    = Context{Context: ctx, Tx: tx}
+		e          E
 	)
-	for e, raw := range seq {
-		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
-			continue
-		}
-		match, err := r.match(gorpCtx, &e, raw)
+	for _, k := range keys {
+		b, closer, err := reader.get(ctx, k, &e)
 		if err != nil {
-			return errors.Combine(err, closer.Close())
+			if errors.Is(err, query.ErrNotFound) {
+				notFound = append(notFound, k)
+				continue
+			}
+			return err
 		}
-		if !match {
-			continue
+		if reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
+			match, mErr := r.match(gorpCtx, &e, b)
+			if mErr != nil {
+				return errors.Combine(mErr, closer.Close())
+			}
+			if match {
+				validCount++
+				if validCount > r.offset && (r.limit == 0 || validCount <= r.limit+r.offset) {
+					out = append(out, e)
+				}
+			}
 		}
-		validCount++
-		if validCount > r.offset && (r.limit == 0 || validCount <= r.limit+r.offset) {
-			out = append(out, e)
+		if cErr := closer.Close(); cErr != nil {
+			return cErr
 		}
 	}
-	cErr := closer.Close()
 	r.entries.Replace(out)
 	vErr := r.runValidators(gorpCtx, out)
-	return errors.Join(vErr, cErr)
+	if r.isBareKeys() && notFound != nil {
+		return errors.Join(vErr, errors.Wrapf(
+			query.ErrNotFound,
+			"%s with keys %v not found",
+			types.PluralName[E](),
+			notFound,
+		))
+	}
+	return vErr
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
