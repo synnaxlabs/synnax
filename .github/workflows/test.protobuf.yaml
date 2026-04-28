@@ -3,6 +3,7 @@ name: Test - Protobuf
 on:
   pull_request:
     paths:
+      - "**/*.pb.go"
       - "**/*.proto"
       - .github/workflows/test.protobuf.yaml
       - buf.yaml
@@ -12,11 +13,15 @@ on:
       - main
       - rc
     paths:
+      - "**/*.pb.go"
       - "**/*.proto"
       - .github/workflows/test.protobuf.yaml
       - buf.yaml
       - buf.gen.yaml
   workflow_dispatch:
+
+permissions:
+  pull-requests: write
 
 jobs:
   test:
@@ -30,4 +35,3 @@ jobs:
         uses: bufbuild/buf-action@v1
         with:
           breaking: false
-          pr_comment: false
