@@ -374,9 +374,7 @@ var keywordDocs = map[string]string{
 	"math.neg":          simpleFuncDoc("math.neg", "Negates numeric input values element-wise.", "sensor -> math.neg{} -> output"),
 	"selector.select":   simpleFuncDoc("selector.select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
 	"stable.stable_for": simpleFuncDoc("stable.stable_for", "Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.", "sensor -> stable.stable_for{duration=5s} -> output"),
-	"series.len":        simpleFuncDoc("series.len", "Returns the length of a series as i64.", "length := series.len(data)"),
-	"string.len":        simpleFuncDoc("string.len", "Returns the length of a string as i64.", "length := string.len(name)"),
-	"len":               simpleFuncDoc("len", "Returns the length of a series or string as i64. Dispatches to series.len() or string.len() based on argument type.", "length := len(data)"),
+	"len":               simpleFuncDoc("len", "Returns the length of a series or string as i64.", "length := len(data)"),
 	"now":               simpleFuncDoc("now", "Returns the current timestamp.", "time := now()"),
 }
 

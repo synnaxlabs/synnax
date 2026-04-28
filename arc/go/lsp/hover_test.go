@@ -226,38 +226,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
 		})
 
-		It("should provide hover for 'series.len' function", func(ctx SpecContext) {
-			content := "length := series.len(data)"
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 18},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### series.len"))
-			Expect(hover.Contents.Value).To(ContainSubstring("length of a series"))
-		})
-
-		It("should provide hover for 'string.len' function", func(ctx SpecContext) {
-			content := "length := string.len(name)"
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 18},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### string.len"))
-			Expect(hover.Contents.Value).To(ContainSubstring("length of a string"))
-		})
-
 		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
 			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
 			OpenArcDocument(server, ctx, uri, content)
