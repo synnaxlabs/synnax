@@ -11,8 +11,8 @@ import "@/schematic/symbol/Forms.css";
 
 import {
   type channel,
-  schematic,
   type schematic as clientSchematic,
+  schematic,
 } from "@synnaxlabs/client";
 import {
   type bounds,
@@ -35,7 +35,6 @@ import { Form } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
 import { List } from "@/list";
-import { Workspace } from "@/workspace";
 import { StateOverrideControls } from "@/schematic/symbol/Custom";
 import { type StateMapping } from "@/schematic/symbol/Primitives";
 import { SelectOrientation } from "@/schematic/symbol/SelectOrientation";
@@ -55,6 +54,7 @@ import { type Setpoint } from "@/vis/setpoint";
 import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
+import { Workspace } from "@/workspace";
 
 const SelectTextLevel = ({
   value,

@@ -699,5 +699,242 @@ describe("queries", () => {
       expect(keys).toContain(lp1.key);
       expect(keys).toHaveLength(1);
     });
+
+    describe("nested group visibility", () => {
+      // TestSpace structure:
+      //   Schematic A (top level)
+      //   Group 1
+      //     Schematic B
+      //     Group 2
+      //       Schematic C
+      //       Schematic D
+      //       Group E
+      //         Schematic E
+      //
+      // Mirrored TestSpace (separate workspace, same structure):
+      //   Schematic A Mirrored (top level)
+      //   Group 1 Mirrored
+      //     Schematic B Mirrored
+      //     Group 2 Mirrored
+      //       Schematic C Mirrored
+      //       Schematic D Mirrored
+      //       Group E Mirrored
+      //         Schematic E Mirrored
+
+      let sA: schematic.Schematic,
+        sB: schematic.Schematic,
+        sC: schematic.Schematic,
+        sD: schematic.Schematic,
+        sE: schematic.Schematic;
+      let sAm: schematic.Schematic,
+        sBm: schematic.Schematic,
+        sCm: schematic.Schematic,
+        sDm: schematic.Schematic,
+        sEm: schematic.Schematic;
+
+      beforeEach(async () => {
+        // --- TestSpace ---
+        const ws = await client.workspaces.create({
+          name: "TestSpace",
+          layout: {},
+        });
+        sA = await client.schematics.create(ws.key, {
+          name: "Schematic A",
+          data: {},
+        });
+        sB = await client.schematics.create(ws.key, {
+          name: "Schematic B",
+          data: {},
+        });
+        sC = await client.schematics.create(ws.key, {
+          name: "Schematic C",
+          data: {},
+        });
+        sD = await client.schematics.create(ws.key, {
+          name: "Schematic D",
+          data: {},
+        });
+        sE = await client.schematics.create(ws.key, {
+          name: "Schematic E",
+          data: {},
+        });
+
+        const g1 = await client.groups.create({
+          parent: workspace.ontologyID(ws.key),
+          name: "Group 1",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(ws.key),
+          group.ontologyID(g1.key),
+          schematic.ontologyID(sB.key),
+        );
+
+        const g2 = await client.groups.create({
+          parent: group.ontologyID(g1.key),
+          name: "Group 2",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(ws.key),
+          group.ontologyID(g2.key),
+          schematic.ontologyID(sC.key),
+        );
+        await client.ontology.moveChildren(
+          workspace.ontologyID(ws.key),
+          group.ontologyID(g2.key),
+          schematic.ontologyID(sD.key),
+        );
+
+        const gE = await client.groups.create({
+          parent: group.ontologyID(g2.key),
+          name: "Group E",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(ws.key),
+          group.ontologyID(gE.key),
+          schematic.ontologyID(sE.key),
+        );
+
+        // --- Mirrored TestSpace ---
+        const mws = await client.workspaces.create({
+          name: "Mirrored TestSpace",
+          layout: {},
+        });
+        sAm = await client.schematics.create(mws.key, {
+          name: "Schematic A Mirrored",
+          data: {},
+        });
+        sBm = await client.schematics.create(mws.key, {
+          name: "Schematic B Mirrored",
+          data: {},
+        });
+        sCm = await client.schematics.create(mws.key, {
+          name: "Schematic C Mirrored",
+          data: {},
+        });
+        sDm = await client.schematics.create(mws.key, {
+          name: "Schematic D Mirrored",
+          data: {},
+        });
+        sEm = await client.schematics.create(mws.key, {
+          name: "Schematic E Mirrored",
+          data: {},
+        });
+
+        const mg1 = await client.groups.create({
+          parent: workspace.ontologyID(mws.key),
+          name: "Group 1 Mirrored",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(mws.key),
+          group.ontologyID(mg1.key),
+          schematic.ontologyID(sBm.key),
+        );
+
+        const mg2 = await client.groups.create({
+          parent: group.ontologyID(mg1.key),
+          name: "Group 2 Mirrored",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(mws.key),
+          group.ontologyID(mg2.key),
+          schematic.ontologyID(sCm.key),
+        );
+        await client.ontology.moveChildren(
+          workspace.ontologyID(mws.key),
+          group.ontologyID(mg2.key),
+          schematic.ontologyID(sDm.key),
+        );
+
+        const mgE = await client.groups.create({
+          parent: group.ontologyID(mg2.key),
+          name: "Group E Mirrored",
+        });
+        await client.ontology.moveChildren(
+          workspace.ontologyID(mws.key),
+          group.ontologyID(mgE.key),
+          schematic.ontologyID(sEm.key),
+        );
+      });
+
+      const expectSiblingsFromSource = async (
+        source: schematic.Schematic,
+        expectedSiblings: schematic.Schematic[],
+        unexpectedKeys: string[],
+      ): Promise<void> => {
+        const { result } = renderHook(
+          () =>
+            Workspace.useRetrieveChildren({
+              resourceID: schematic.ontologyID(source.key),
+              types: ["schematic"],
+            }),
+          { wrapper },
+        );
+        await waitFor(() => {
+          expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(
+            expectedSiblings.length,
+          );
+        });
+        const keys = (result.current.data ?? []).map((p) => p.key);
+        for (const s of expectedSiblings) expect(keys).toContain(s.key);
+        expect(keys).not.toContain(source.key);
+        for (const k of unexpectedKeys) expect(keys).not.toContain(k);
+      };
+
+      it("top-level schematic A sees all workspace schematics", async () => {
+        await expectSiblingsFromSource(
+          sA,
+          [sB, sC, sD, sE],
+          [sAm.key, sBm.key, sCm.key, sDm.key, sEm.key],
+        );
+      });
+
+      it("grouped schematic B sees all workspace schematics", async () => {
+        await expectSiblingsFromSource(
+          sB,
+          [sA, sC, sD, sE],
+          [sAm.key, sBm.key, sCm.key, sDm.key, sEm.key],
+        );
+      });
+
+      it("deeply nested schematic C sees all workspace schematics", async () => {
+        await expectSiblingsFromSource(
+          sC,
+          [sA, sB, sD, sE],
+          [sAm.key, sBm.key, sCm.key, sDm.key, sEm.key],
+        );
+      });
+
+      it("deeply nested schematic D sees all workspace schematics", async () => {
+        await expectSiblingsFromSource(
+          sD,
+          [sA, sB, sC, sE],
+          [sAm.key, sBm.key, sCm.key, sDm.key, sEm.key],
+        );
+      });
+
+      it("most deeply nested schematic E sees all workspace schematics", async () => {
+        await expectSiblingsFromSource(
+          sE,
+          [sA, sB, sC, sD],
+          [sAm.key, sBm.key, sCm.key, sDm.key, sEm.key],
+        );
+      });
+
+      it("mirrored schematic A sees only mirrored schematics", async () => {
+        await expectSiblingsFromSource(
+          sAm,
+          [sBm, sCm, sDm, sEm],
+          [sA.key, sB.key, sC.key, sD.key, sE.key],
+        );
+      });
+
+      it("mirrored deeply nested schematic E sees only mirrored schematics", async () => {
+        await expectSiblingsFromSource(
+          sEm,
+          [sAm, sBm, sCm, sDm],
+          [sA.key, sB.key, sC.key, sD.key, sE.key],
+        );
+      });
+    });
   });
 });

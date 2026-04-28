@@ -234,6 +234,18 @@ const collectChildren = async (
   return results;
 };
 
+const findWorkspaceAncestor = async (
+  client: Flux.RetrieveParams<RetrieveChildrenQuery, FluxSubStore>["client"],
+  resourceID: ontology.ID,
+): Promise<ontology.ID | null> => {
+  const parents = await client.ontology.retrieveParents(resourceID);
+  for (const parent of parents) {
+    if (parent.id.type === "workspace") return parent.id;
+    if (parent.id.type === "group") return findWorkspaceAncestor(client, parent.id);
+  }
+  return null;
+};
+
 const retrieveChildrenImpl = async ({
   client,
   query: { resourceID, types },
@@ -241,11 +253,9 @@ const retrieveChildrenImpl = async ({
   record.KeyedNamed[]
 > => {
   if (resourceID == null) return [];
-  const parents = await client.ontology.retrieveParents(resourceID, {
-    types: ["workspace"],
-  });
-  if (parents.length === 0) return [];
-  return await collectChildren(client, parents[0].id, types, resourceID.key);
+  const workspaceID = await findWorkspaceAncestor(client, resourceID);
+  if (workspaceID == null) return [];
+  return await collectChildren(client, workspaceID, types, resourceID.key);
 };
 
 export const { useRetrieve: useRetrieveChildren } = Flux.createRetrieve<
