@@ -130,10 +130,7 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     const hasSubGroups = validValues.some((v) => v.subGroupIndex != null);
     const subGroupPrefixWidth = hasSubGroups ? 14 : 0;
-    let maxLabelLength = validValues.reduce(
-      (p, c) => Math.max(p, c.label?.length ?? 0),
-      0,
-    );
+    let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
     if (xValueStr.length > maxLabelLength) maxLabelLength = xValueStr.length;
 
     draw.list({
