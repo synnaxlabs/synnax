@@ -80,12 +80,11 @@ var _ = Describe("Ontology", func() {
 
 		Describe("Schema", func() {
 			It("Should return a schema that accepts a valid node payload", func() {
-				dumped, err := testSvc.Schema().Dump(map[string]any{
+				dumped := MustSucceed(testSvc.Schema().Dump(map[string]any{
 					"key":     uint16(1),
 					"address": "localhost:0",
 					"state":   uint32(0),
-				})
-				Expect(err).ToNot(HaveOccurred())
+				}))
 				Expect(dumped).ToNot(BeNil())
 			})
 		})
