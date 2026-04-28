@@ -16,9 +16,13 @@ import {
   Control,
   Diagram,
   Flex,
+  Flux,
   Haul,
   Icon,
+  type Pluto,
   Schematic as Base,
+  Status,
+  Synnax,
   Theming,
   usePrevious,
   User,
@@ -34,13 +38,14 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
+  selectNodeProps,
   selectOptional,
   selectRequired,
   useSelectLegendVisible,
@@ -74,6 +79,60 @@ import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
 export const HAUL_TYPE = "schematic-element";
+
+type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
+
+const navigateToLinkedSchematic = async (
+  retrieve: SchematicRetriever,
+  page: string,
+  placeLayout: Layout.Placer,
+): Promise<void> => {
+  const s = await retrieve(page);
+  placeLayout(create({ ...(s.data as State), key: s.key, name: s.name }));
+};
+
+type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
+
+const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const retrieve: SchematicRetriever | null = useMemo(
+    () =>
+      client != null
+        ? (key: string) =>
+            Base.retrieveSingle({ store: fluxStore, client, query: { key } })
+        : null,
+    [fluxStore, client],
+  );
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Layout.usePlacer();
+
+  return useCallback(
+    (nodeId: string, dblClick: boolean) => {
+      const storeState = store.getState();
+      const state = selectOptional(storeState, layoutKey);
+      if (state == null || state.editable || retrieve == null) return;
+      const props = selectNodeProps(storeState, layoutKey, nodeId);
+      if (
+        props?.key !== "offPageReference" ||
+        typeof props.page !== "string" ||
+        props.page.length === 0
+      )
+        return;
+      const dblClickNav = props.dblClickNav !== false;
+      if (dblClick !== dblClickNav) return;
+      const { page } = props;
+      const label = props.label?.label;
+      const name = label != null && label.length > 0 ? label : "Referenced schematic";
+      handleError(
+        () => navigateToLinkedSchematic(retrieve, page, placeLayout),
+        `Schematic "${name}" not found`,
+      );
+    },
+    [store, layoutKey, retrieve, placeLayout, handleError],
+  );
+};
 
 interface ControlToggleButtonProps {
   control: Control.Status;
@@ -312,6 +371,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     );
   }, [windowKey, state.editable, syncDispatch]);
 
+  const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction(node.id, false),
+    [handleNodeClickAction],
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction(node.id, true),
+    [handleNodeClickAction],
+  );
+
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
     state.legend.position,
   );
@@ -405,6 +478,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           editable={canEdit}
           triggers={triggers}
           onDoubleClick={handleDoubleClick}
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
           fitViewOnResize={state.fitViewOnResize}
           setFitViewOnResize={handleSetFitViewOnResize}
           visible={visible}
