@@ -10,7 +10,7 @@
 package rack
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -19,7 +19,7 @@ type Retrieve struct {
 	baseTX       gorp.Tx
 	search       *search.Index
 	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider cluster.HostProvider
+	hostProvider node.HostProvider
 	searchTerm   string
 }
 
@@ -33,7 +33,7 @@ func MatchNodeIsHost(v bool) Filter {
 }
 
 // MatchNode returns a filter that matches racks on the given cluster node.
-func MatchNode(node cluster.NodeKey) Filter {
+func MatchNode(node node.Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
 			return rack.Key.Node() == node, nil

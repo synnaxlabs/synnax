@@ -19,10 +19,10 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	svcchannel "github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/framer/calculation"
@@ -166,7 +166,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
@@ -203,7 +203,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 				}}
 			})
@@ -255,7 +255,7 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}}
 			)
@@ -300,7 +300,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -351,7 +351,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -406,7 +406,7 @@ var _ = Describe("Calculation", Ordered, func() {
 						Name:        channel.NewRandomName(),
 						DataType:    telem.Float32T,
 						Virtual:     true,
-						Leaseholder: cluster.NodeKeyFree,
+						Leaseholder: node.KeyFree,
 						Expression:  fmt.Sprintf("return %s * %s", bases[0].Name, bases[1].Name),
 					}}
 				)
@@ -455,13 +455,13 @@ var _ = Describe("Calculation", Ordered, func() {
 					Name:        calc1Name,
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 				}, {
 					Name:        channel.NewRandomName(),
 					DataType:    telem.Int64T,
 					Virtual:     true,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Expression:  fmt.Sprintf("return %s * 2", calc1Name),
 				}}
 			})
@@ -503,7 +503,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression without return",
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
@@ -528,7 +528,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &bases)).To(Succeed())
@@ -555,7 +555,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  "invalid expression",
 			}}
 			Expect(dist.Channel.CreateMany(ctx, &calcs)).To(Succeed())
@@ -583,7 +583,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)
@@ -623,7 +623,7 @@ var _ = Describe("Calculation", Ordered, func() {
 				Name:        channel.NewRandomName(),
 				DataType:    telem.Int64T,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Expression:  fmt.Sprintf("return %s * 2", bases[0].Name),
 			}}
 			w, sOutlet, cancel := open(ctx, nil, &bases, &calcs, channel.KeysFromChannels)

@@ -19,9 +19,9 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -87,7 +87,7 @@ var _ = Describe("Rack", Ordered, func() {
 	Describe("Key", func() {
 		It("Should correctly construct and deconstruct key from its components", func(ctx SpecContext) {
 			k := rack.NewKey(1, 2)
-			Expect(k.Node()).To(Equal(cluster.NodeKey(1)))
+			Expect(k.Node()).To(Equal(node.Key(1)))
 			Expect(k.LocalKey()).To(Equal(uint16(2)))
 		})
 	})
@@ -155,7 +155,7 @@ var _ = Describe("Rack", Ordered, func() {
 			r := &rack.Rack{Name: "rack1"}
 			Expect(writer.Create(ctx, r)).To(Succeed())
 			Expect(!r.Key.IsZero()).To(BeTrue())
-			Expect(r.Key.Node()).To(Equal(cluster.NodeKey(1)))
+			Expect(r.Key.Node()).To(Equal(node.Key(1)))
 			Expect(r.Key.LocalKey()).To(Equal(uint16(2)))
 		})
 		It("Should correctly increment the local key counter", func(ctx SpecContext) {
