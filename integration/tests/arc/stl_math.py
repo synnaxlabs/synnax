@@ -53,19 +53,19 @@ pow_xx_i64_in -> pow_xx_i64{}
 
 // ─────────────────────── arithmetic operators (WASM) ────────────────
 
-func do_add(a f64) { op_add_out = math.add(a, op_add_b) }
+func do_add(a f64) { op_add_out = a + op_add_b }
 op_add_a -> do_add{}
 
-func do_sub(a f64) { op_sub_out = math.subtract(a, op_sub_b) }
+func do_sub(a f64) { op_sub_out = a - op_sub_b }
 op_sub_a -> do_sub{}
 
-func do_mul(a f64) { op_mul_out = math.multiply(a, op_mul_b) }
+func do_mul(a f64) { op_mul_out = a * op_mul_b }
 op_mul_a -> do_mul{}
 
-func do_div(a f64) { op_div_out = math.divide(a, op_div_b) }
+func do_div(a f64) { op_div_out = a / op_div_b }
 op_div_a -> do_div{}
 
-func do_mod(a f64) { op_mod_out = math.mod(a, op_mod_b) }
+func do_mod(a f64) { op_mod_out = a % op_mod_b }
 op_mod_a -> do_mod{}
 
 func do_neg(a f64) { op_neg_out = math.neg(a) }
