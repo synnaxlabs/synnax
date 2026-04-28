@@ -176,7 +176,16 @@ func (r Retrieve[K, E]) isBareKeys() bool {
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
 	if r.HasFilterKeys() {
-		return r.execKeys(ctx, tx)
+		notFound, err := r.execKeys(ctx, tx)
+		if r.isBareKeys() && notFound != nil {
+			return errors.Join(err, errors.Wrapf(
+				query.ErrNotFound,
+				"%s with keys %v not found",
+				types.PluralName[E](),
+				notFound,
+			))
+		}
+		return err
 	}
 	return r.execFilter(ctx, tx)
 }
@@ -190,7 +199,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 		keys := r.filter.keys
 		e := make([]E, 0, len(keys))
 		r.entries = multipleEntries(&e)
-		if err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+		if _, err := r.execKeys(ctx, tx); err != nil {
 			return false, err
 		}
 		if r.isBareKeys() {
@@ -215,7 +224,7 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	if r.HasFilterKeys() {
 		e := make([]E, 0, len(r.filter.keys))
 		r.entries = multipleEntries(&e)
-		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+		if _, err := r.execKeys(ctx, tx); err != nil {
 			return 0, err
 		}
 		return len(r.entries.All()), nil
@@ -281,7 +290,12 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 	return r.filter.raw(data)
 }
 
-func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
+// execKeys runs the keys-bounded retrieval loop. It returns the list of keys
+// that were not found in storage (nil if every key was found) along with any
+// error from get/match/validators. The notFound list is raw — callers
+// (Exec, Exists, Count) decide whether missing keys constitute a query.ErrNotFound,
+// so Exists/Count don't pay the formatted-error allocation cost.
+func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
 		keys       = r.filter.keys
 		reader     = WrapReader[K, E](tx)
@@ -298,12 +312,12 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 				notFound = append(notFound, k)
 				continue
 			}
-			return err
+			return nil, err
 		}
 		if reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
 			match, mErr := r.match(gorpCtx, &e, b)
 			if mErr != nil {
-				return errors.Combine(mErr, closer.Close())
+				return nil, errors.Combine(mErr, closer.Close())
 			}
 			if match {
 				validCount++
@@ -313,20 +327,11 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 			}
 		}
 		if cErr := closer.Close(); cErr != nil {
-			return cErr
+			return nil, cErr
 		}
 	}
 	r.entries.Replace(out)
-	vErr := r.runValidators(gorpCtx, out)
-	if r.isBareKeys() && notFound != nil {
-		return errors.Join(vErr, errors.Wrapf(
-			query.ErrNotFound,
-			"%s with keys %v not found",
-			types.PluralName[E](),
-			notFound,
-		))
-	}
-	return vErr
+	return notFound, r.runValidators(gorpCtx, out)
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
