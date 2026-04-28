@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"reflect"
+	"slices"
 	"unsafe"
 
 	"github.com/synnaxlabs/x/types"
@@ -213,16 +214,16 @@ func (k *keyCodec[K, E]) encode(key K) []byte {
 		return k.buf
 	case keyKindString:
 		s := *(*string)(unsafe.Pointer(&key))
-		out := make([]byte, len(k.prefix)+len(s))
-		copy(out, k.prefix)
-		copy(out[len(k.prefix):], s)
-		return out
+		k.buf = slices.Grow(k.buf[:0], len(k.prefix)+len(s))[:len(k.prefix)+len(s)]
+		copy(k.buf, k.prefix)
+		copy(k.buf[len(k.prefix):], s)
+		return k.buf
 	case keyKindBytes:
 		b := *(*[]byte)(unsafe.Pointer(&key))
-		out := make([]byte, len(k.prefix)+len(b))
-		copy(out, k.prefix)
-		copy(out[len(k.prefix):], b)
-		return out
+		k.buf = slices.Grow(k.buf[:0], len(k.prefix)+len(b))[:len(k.prefix)+len(b)]
+		copy(k.buf, k.prefix)
+		copy(k.buf[len(k.prefix):], b)
+		return k.buf
 	default:
 		panic("unreachable")
 	}
