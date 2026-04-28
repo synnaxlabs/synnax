@@ -11,14 +11,33 @@ package gorp_test
 
 import (
 	"bytes"
+	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var errFilter = errors.New("filter error")
+
+// decodeCountingCodec wraps an encoding.Codec and counts every Decode call.
+// Retrieve.Exec only invokes Decode after the filter's raw pre-screen accepts
+// an entry, so decodeCount reveals whether raw composition skipped decode for
+// pre-screen-rejected entries.
+type decodeCountingCodec struct {
+	encoding.Codec
+	decodeCount int
+}
+
+func (c *decodeCountingCodec) Decode(ctx context.Context, data []byte, value any) error {
+	c.decodeCount++
+	return c.Codec.Decode(ctx, data, value)
+}
 
 func idLT(v int32) gorp.Filter[int32, entry] {
 	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
@@ -381,34 +400,62 @@ var _ = Describe("Filter Combinators", func() {
 			Expect(res).To(HaveLen(3))
 		})
 
-		It("Or of raw-only children should compose Raw to pre-screen", func() {
-			or := gorp.Or(
-				gorp.MatchRaw[int32, entry](alwaysFalseRaw),
-				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
+		Describe("Pre-screening optimization", func() {
+			var (
+				codec      *decodeCountingCodec
+				countingDB *gorp.DB
+				countingTx gorp.Tx
 			)
-			Expect(or.Raw).NotTo(BeNil())
-			Expect(or.Eval).To(BeNil())
-		})
+			BeforeEach(func(ctx SpecContext) {
+				codec = &decodeCountingCodec{Codec: orc.NewCodec(msgpack.Codec)}
+				countingDB = gorp.Wrap(memkv.New(), gorp.WithCodec(codec))
+				countingTx = countingDB.OpenTx()
+				es := make([]entry, 10)
+				for i := range 10 {
+					es[i] = entry{ID: int32(i), Data: "data"}
+				}
+				Expect(gorp.NewCreate[int32, entry]().
+					Entries(&es).Exec(ctx, countingTx)).To(Succeed())
+				codec.decodeCount = 0
+			})
+			AfterEach(func() {
+				Expect(countingTx.Close()).To(Succeed())
+				Expect(countingDB.Close()).To(Succeed())
+			})
 
-		It("Or with a non-raw child should not compose Raw", func() {
-			or := gorp.Or(
-				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
-				neverMatch,
+			DescribeTable("decode count reflects whether the composed filter pre-screens",
+				func(ctx SpecContext, filter gorp.Filter[int32, entry], wantResults, wantDecodes int) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(filter).
+						Exec(ctx, countingTx)).To(Succeed())
+					Expect(res).To(HaveLen(wantResults))
+					Expect(codec.decodeCount).To(Equal(wantDecodes))
+				},
+				Entry("Or of raw-only children pre-screens, so both rejecting yields no decodes",
+					gorp.Or(
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+					),
+					0, 0,
+				),
+				Entry("Or with a non-raw child cannot pre-screen, so every entry is decoded",
+					gorp.Or(
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+						neverMatch,
+					),
+					0, 10,
+				),
+				Entry("Not of a raw-only child pre-screens, so inverted raw rejection yields no decodes",
+					gorp.Not(gorp.MatchRaw[int32, entry](alwaysTrueRaw)),
+					0, 0,
+				),
+				Entry("Not of a non-raw child cannot pre-screen, so every entry is decoded",
+					gorp.Not(neverMatch),
+					10, 10,
+				),
 			)
-			Expect(or.Raw).To(BeNil())
-			Expect(or.Eval).NotTo(BeNil())
-		})
-
-		It("Not of a raw-only child should compose Raw to pre-screen", func() {
-			not := gorp.Not(gorp.MatchRaw[int32, entry](alwaysFalseRaw))
-			Expect(not.Raw).NotTo(BeNil())
-			Expect(not.Eval).To(BeNil())
-		})
-
-		It("Not of a non-raw child should not compose Raw", func() {
-			not := gorp.Not(neverMatch)
-			Expect(not.Raw).To(BeNil())
-			Expect(not.Eval).NotTo(BeNil())
 		})
 	})
 

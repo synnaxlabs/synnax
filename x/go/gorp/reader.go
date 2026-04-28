@@ -10,18 +10,17 @@
 package gorp
 
 import (
-	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"iter"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	xio "github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/slices"
 	"github.com/synnaxlabs/x/types"
 )
 
@@ -42,62 +41,86 @@ func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
 func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
-	e, _, err := r.get(ctx, key)
-	return e, err
-}
-
-// get returns an entry with a copy of its raw bytes that outlives the
-// transaction handle. On any error, returns zero values so callers cannot
-// accidentally use a partially decoded entry or its raw bytes.
-func (r Reader[K, E]) get(ctx context.Context, key K) (E, []byte, error) {
 	var zero E
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
-		return zero, nil, err
+		return zero, err
 	}
-	raw := bytes.Clone(b)
 	var e E
-	err = errors.Combine(r.tx.Decode(ctx, b, &e), closer.Close())
-	if err != nil {
-		return zero, nil, err
+	if err := r.tx.Decode(ctx, b, &e); err != nil {
+		return zero, errors.Combine(err, closer.Close())
 	}
-	return e, raw, nil
+	return e, closer.Close()
 }
 
-// GetMany retrieves isMultiple entries from the database. Entries that are not
-// found are simply omitted from the returned slice.
+// GetMany retrieves multiple entries from the database. Missing keys are
+// omitted from the returned slice but reported via a wrapped query.ErrNotFound
+// in the returned error; callers that don't care about missing keys should
+// use errors.Skip(err, query.ErrNotFound).
 func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
-	entries, _, err := r.getMany(ctx, keys)
-	return entries, err
+	seq, closer := r.iterKeys(ctx, keys)
+	return slices.CollectKeys(seq, len(keys)), closer.Close()
 }
 
-// getMany returns entries paired with their raw bytes (entries[i] with
-// raws[i]). Missing keys are omitted.
-func (r Reader[K, E]) getMany(ctx context.Context, keys []K) ([]E, [][]byte, error) {
+// iterKeys returns a sequence of (decoded, raw) pairs for each key that
+// exists in the DB. The raw bytes yielded by the seq are valid only until
+// the returned closer is closed; the caller MUST close once iteration is
+// complete. Decoding happens lazily inside the seq, so filters that reject
+// on raw bytes don't pay the decode cost.
+//
+// The returned error wraps query.ErrNotFound with the missing key list when
+// any keys are absent, while the seq still yields the keys that were found.
+// On a non-NotFound kv error the partial closer is still returned so the
+// caller can release any successful gets.
+func (r Reader[K, E]) iterKeys(
+	ctx context.Context,
+	keys []K,
+) (iter.Seq2[E, []byte], io.Closer) {
 	var (
-		entries  = make([]E, 0, len(keys))
-		raws     = make([][]byte, 0, len(keys))
+		resErr   error
 		notFound []K
-	)
-	for i := range keys {
-		e, raw, err := r.get(ctx, keys[i])
-		if err != nil {
-			if errors.Is(err, query.ErrNotFound) {
-				notFound = append(notFound, keys[i])
-				continue
+		seq      = func(yield func(E, []byte) bool) {
+			var e E
+			for _, k := range keys {
+				b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(k))
+				if err != nil {
+					if errors.Is(err, query.ErrNotFound) {
+						notFound = append(notFound, k)
+						continue
+					}
+					resErr = err
+					return
+				}
+				if err := r.tx.Decode(ctx, b, &e); err != nil {
+					resErr = errors.Combine(err, closer.Close())
+					return
+				}
+				ok := yield(e, b)
+				if err := closer.Close(); err != nil {
+					resErr = err
+					return
+				}
+				if !ok {
+					return
+				}
 			}
-			return entries, raws, err
 		}
-		entries = append(entries, e)
-		raws = append(raws, raw)
-	}
-	if len(notFound) > 0 {
-		return entries, raws, errors.Wrapf(
-			query.ErrNotFound,
-			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
-		)
-	}
-	return entries, raws, nil
+		closer = xio.CloserFunc(func() error {
+			if resErr != nil {
+				return resErr
+			}
+			if len(notFound) > 0 {
+				return errors.Wrapf(
+					query.ErrNotFound,
+					"%s with keys %v not found",
+					types.PluralName[E](),
+					notFound,
+				)
+			}
+			return nil
+		})
+	)
+	return seq, closer
 }
 
 type IterOptions struct {
@@ -158,13 +181,13 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 
 // Error returns the error accumulated by the Iterator.
 func (k *Iterator[E]) Error() error {
-	return lo.Ternary(k.err != nil, k.err, k.Iterator.Error())
+	return errors.Join(k.err, k.Iterator.Error())
 }
 
 // Valid returns true if the current iterator Value is pointing
 // to a valid entry and the iterator has not accumulated an error.
 func (k *Iterator[E]) Valid() bool {
-	return lo.Ternary(k.err != nil, false, k.Iterator.Valid())
+	return k.err == nil && k.Iterator.Valid()
 }
 
 type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]

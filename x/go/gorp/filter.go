@@ -9,27 +9,27 @@
 
 package gorp
 
-// Filter is a composable query filter. Eval matches against the decoded entry;
-// Raw, when set, pre-screens entries by raw bytes before decoding. Keys, when
+// Filter is a composable query filter. eval matches against the decoded entry;
+// raw, when set, pre-screens entries by raw bytes before decoding. keys, when
 // set, restricts the filter to a bounded set of primary keys and lets
 // Retrieve.Exec dispatch to the multi-get fast path instead of a full scan.
 type Filter[K Key, E Entry[K]] struct {
-	// Eval matches against the decoded entry; raw bytes are passed too for
-	// filters that need them. Nil falls back to Raw in combinators.
-	Eval func(ctx Context, e *E, raw []byte) (bool, error)
-	// Raw pre-screens by raw bytes before decoding. Optional.
-	Raw func(data []byte) (bool, error)
-	// Keys, when non-nil, bounds the filter to the given set of primary keys.
+	// eval matches against the decoded entry; raw bytes are passed too for
+	// filters that need them. Nil falls back to raw in combinators.
+	eval func(ctx Context, e *E, raw []byte) (bool, error)
+	// raw pre-screens by raw bytes before decoding. Optional.
+	raw func(data []byte) (bool, error)
+	// keys, when non-nil, bounds the filter to the given set of primary keys.
 	// nil means unbounded (no key restriction). When the resolved query
-	// filter has Keys != nil, Retrieve.Exec uses a multi-get fast path
+	// filter has keys != nil, Retrieve.Exec uses a multi-get fast path
 	// instead of iterating the full table.
-	Keys []K
+	keys []K
 }
 
 // Match wraps a decoded-entry predicate as a Filter.
 func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{
-		Eval: func(ctx Context, e *E, _ []byte) (bool, error) {
+		eval: func(ctx Context, e *E, _ []byte) (bool, error) {
 			return f(ctx, e)
 		},
 	}
@@ -46,7 +46,7 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 //     the raw bytes carried alongside the decoded entry.
 //   - Under Not, Raw is inverted and pre-screening still applies.
 func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
-	return Filter[K, E]{Raw: f}
+	return Filter[K, E]{raw: f}
 }
 
 // MatchKeys returns a filter that restricts results to the given primary keys.
@@ -55,9 +55,7 @@ func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E]
 // bounded filter that matches no entries; nil keys would be unbounded, so the
 // constructor always allocates at least an empty slice.
 func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
-	out := make([]K, len(keys))
-	copy(out, keys)
-	return Filter[K, E]{Keys: out}
+	return Filter[K, E]{keys: keys}
 }
 
 // And returns a filter that matches when ALL children match. Short-circuits on the
@@ -74,12 +72,12 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		return filters[0]
 	}
 	f := Filter[K, E]{
-		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
+		eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
-				if f.Eval == nil {
+				if f.eval == nil {
 					continue
 				}
-				ok, err := f.Eval(ctx, e, raw)
+				ok, err := f.eval(ctx, e, raw)
 				if err != nil || !ok {
 					return false, err
 				}
@@ -89,12 +87,12 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 	var raws []func([]byte) (bool, error)
 	for _, child := range filters {
-		if child.Raw != nil {
-			raws = append(raws, child.Raw)
+		if child.raw != nil {
+			raws = append(raws, child.raw)
 		}
 	}
 	if len(raws) > 0 {
-		f.Raw = func(data []byte) (bool, error) {
+		f.raw = func(data []byte) (bool, error) {
 			for _, r := range raws {
 				ok, err := r(data)
 				if err != nil || !ok {
@@ -104,7 +102,7 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
-	f.Keys = singleBoundedKeys(filters)
+	f.keys = singleBoundedKeys(filters)
 	return f
 }
 
@@ -122,7 +120,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		return filters[0]
 	}
 	f := Filter[K, E]{
-		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
+		eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
 				ok, err := evalChild(ctx, f, e, raw)
 				if err != nil {
@@ -138,9 +136,9 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	if len(filters) == 0 || !allRawOnly(filters) {
 		return f
 	}
-	f.Raw = func(data []byte) (bool, error) {
+	f.raw = func(data []byte) (bool, error) {
 		for _, child := range filters {
-			ok, err := child.Raw(data)
+			ok, err := child.raw(data)
 			if err != nil {
 				return false, err
 			}
@@ -150,7 +148,7 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 		}
 		return false, nil
 	}
-	f.Eval = nil
+	f.eval = nil
 	return f
 }
 
@@ -164,18 +162,18 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // before negation, so Not(MatchKeys(...)) still produces correct results.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
-		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
+		eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			ok, err := evalChild(ctx, f, e, raw)
 			return !ok, err
 		},
 	}
-	if f.Raw != nil && f.Eval == nil {
-		raw := f.Raw
-		out.Raw = func(data []byte) (bool, error) {
+	if f.raw != nil && f.eval == nil {
+		raw := f.raw
+		out.raw = func(data []byte) (bool, error) {
 			ok, err := raw(data)
 			return !ok, err
 		}
-		out.Eval = nil
+		out.eval = nil
 	}
 	return out
 }
@@ -183,7 +181,7 @@ func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 // allRawOnly reports whether every filter has Raw set and Eval nil.
 func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 	for _, f := range filters {
-		if f.Raw == nil || f.Eval != nil {
+		if f.raw == nil || f.eval != nil {
 			return false
 		}
 	}
@@ -194,17 +192,19 @@ func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 // one child has Keys != nil; returns nil otherwise. The result is the
 // caller's storage — callers must not mutate it.
 func singleBoundedKeys[K Key, E Entry[K]](filters []Filter[K, E]) []K {
-	var out []K
-	count := 0
+	var (
+		out   []K
+		count = 0
+	)
 	for _, f := range filters {
-		if f.Keys == nil {
+		if f.keys == nil {
 			continue
 		}
 		count++
 		if count > 1 {
 			return nil
 		}
-		out = f.Keys
+		out = f.keys
 	}
 	return out
 }
@@ -217,11 +217,11 @@ func evalChild[K Key, E Entry[K]](
 	e *E,
 	raw []byte,
 ) (bool, error) {
-	if f.Eval != nil {
-		return f.Eval(ctx, e, raw)
+	if f.eval != nil {
+		return f.eval(ctx, e, raw)
 	}
-	if f.Raw != nil {
-		return f.Raw(raw)
+	if f.raw != nil {
+		return f.raw(raw)
 	}
 	return true, nil
 }
@@ -245,7 +245,7 @@ func MatchBound[R any, K Key, E Entry[K]](
 	f func(ctx Context, r R, e *E) (bool, error),
 ) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
-		return Filter[K, E]{Eval: func(ctx Context, e *E, _ []byte) (bool, error) {
+		return Filter[K, E]{eval: func(ctx Context, e *E, _ []byte) (bool, error) {
 			return f(ctx, r, e)
 		}}
 	}
@@ -253,8 +253,7 @@ func MatchBound[R any, K Key, E Entry[K]](
 
 // AndBound returns a BoundFilter that matches when all provided filters
 // match. Each child is bound to the same Retrieve before being composed via
-// gorp.And, so the resulting filter inherits And's Eval/Raw composition
-// semantics.
+// gorp.And, so the resulting filter inherits And's Eval/Raw composition semantics.
 func AndBound[R any, K Key, E Entry[K]](fs ...BoundFilter[R, K, E]) BoundFilter[R, K, E] {
 	return func(r R) Filter[K, E] {
 		inner := make([]Filter[K, E], len(fs))
