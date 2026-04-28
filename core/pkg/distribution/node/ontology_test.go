@@ -53,9 +53,8 @@ var (
 var _ = BeforeSuite(func(ctx SpecContext) {
 	testCluster = mock.ProvisionCluster(ctx, 2)
 	testSvc, testOtg = openTestService(ctx, testCluster.Nodes[1].Cluster)
+	DeferCleanup(func() { Expect(testCluster.Close()).To(Succeed()) })
 })
-
-var _ = AfterSuite(func() { Expect(testCluster.Close()).To(Succeed()) })
 
 var _ = Describe("Ontology", func() {
 	Describe("OntologyID", func() {
