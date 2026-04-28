@@ -253,7 +253,15 @@ export const CommonStyleForm = ({
   );
 };
 
-const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
+interface ToggleControlFormProps {
+  path: string;
+  omit?: string[];
+}
+
+const ToggleControlForm = ({
+  path,
+  omit = [],
+}: ToggleControlFormProps): ReactElement => {
   const { value, onChange } = Form.useField<
     Omit<Toggle.UseProps, "aetherKey"> & { control: ControlStateProps }
   >(path);
@@ -322,14 +330,16 @@ const ToggleControlForm = ({ path }: { path: string }): ReactElement => {
         </Input.Item>
       </Flex.Box>
       <Flex.Box x grow>
-        <Form.NumericField
-          label="Activation Delay"
-          path="onClickDelay"
-          grow
-          inputProps={ACTIVATION_DELAY_INPUT_PROPS}
-          hideIfNull
-          padHelpText={false}
-        />
+        {!omit.includes("onClickDelay") && (
+          <Form.NumericField
+            label="Activation Delay"
+            path="onClickDelay"
+            grow
+            inputProps={ACTIVATION_DELAY_INPUT_PROPS}
+            hideIfNull
+            padHelpText={false}
+          />
+        )}
         <Form.SwitchField
           path="control.show"
           label="Show Control Chip"
@@ -354,22 +364,24 @@ const COMMON_TOGGLE_FORM_TABS: Tabs.Tab[] = [
 
 interface CommonToggleFormProps extends SymbolFormProps {
   hideInnerOrientation?: boolean;
+  omit?: string[];
 }
 
 export const CommonToggleForm = ({
   actions,
   hideInnerOrientation,
+  omit,
 }: CommonToggleFormProps): ReactElement => {
   const content: Tabs.RenderProp = useCallback(
     ({ tabKey }) => {
       switch (tabKey) {
         case "control":
-          return <ToggleControlForm path="" />;
+          return <ToggleControlForm path="" omit={omit} />;
         default:
           return <CommonStyleForm hideInnerOrientation={hideInnerOrientation} />;
       }
     },
-    [hideInnerOrientation],
+    [hideInnerOrientation, omit],
   );
   const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} actions={actions} />;
@@ -1304,7 +1316,9 @@ export const BoxForm = (): ReactElement => (
   <TankForm includeBorderRadius includeStrokeWidth />
 );
 
-export const SwitchForm = (): ReactElement => <CommonToggleForm hideInnerOrientation />;
+export const SwitchForm = (): ReactElement => (
+  <CommonToggleForm hideInnerOrientation omit={["onClickDelay"]} />
+);
 
 interface StateMappingFormProps {
   path: string;

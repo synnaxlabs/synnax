@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type arc } from "@synnaxlabs/client";
+import { arc } from "@synnaxlabs/client";
 import { color, xy } from "@synnaxlabs/x";
 
 import { type GraphState } from "@/arc/types";
@@ -41,14 +41,15 @@ export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => 
   fitViewOnResize: false,
 });
 
-export const translateGraphToServer = (arc: GraphState): arc.graph.Graph => ({
-  nodes: arc.nodes.map((n) => {
-    const { key: type, ...config } = arc.props[n.key];
+export const translateGraphToServer = (state: GraphState): arc.graph.Graph => ({
+  nodes: state.nodes.map((n) => {
+    const { key: type, ...config } = state.props[n.key];
     return { key: n.key, type, config, position: n.position };
   }),
-  edges: arc.edges.map((e) => ({
+  edges: state.edges.map((e) => ({
     source: { param: e.sourceHandle as string, node: e.source },
     target: { param: e.targetHandle as string, node: e.target },
+    kind: arc.ir.EdgeKind.continuous,
   })),
   viewport: { position: xy.ZERO, zoom: 1 },
   functions: [],

@@ -29,7 +29,7 @@ message Channel {
   // nanosecond timestamps.
   bool is_index = 5;
   // index is the channel used to index this channel's values, associating each value with
-  // a timestamp. If zero, the channel's data will be indexed using its rate.
+  // a timestamp.
   uint32 index = 6;
   // alias is an optional alternate name for the channel within a specific context.
   string alias = 7;

@@ -169,7 +169,7 @@ func writeAppliedMigrations(
 	applied set.Set[string],
 ) error {
 	key := migrationKey(namespace)
-	names := applied.ToSlice()
+	names := applied.Slice()
 	sort.Strings(names)
 	b, err := json.Marshal(names)
 	if err != nil {

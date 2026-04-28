@@ -45,6 +45,7 @@ export const synnaxParamsZ = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
   connectivityPollFrequency: TimeSpan.z.default(TimeSpan.seconds(30)),
+  clockSkewThreshold: TimeSpan.z.default(TimeSpan.seconds(1)),
   secure: z.boolean().default(false),
   name: z.string().optional(),
   retry: breaker.breakerConfigZ.optional(),
@@ -116,6 +117,7 @@ export default class Synnax extends framer.Client {
       username,
       password,
       connectivityPollFrequency,
+      clockSkewThreshold,
       secure,
       retry: breaker,
     } = parsedParams;
@@ -141,6 +143,7 @@ export default class Synnax extends framer.Client {
       connectivityPollFrequency,
       this.clientVersion,
       parsedParams.name,
+      clockSkewThreshold,
     );
     this.control = new control.Client(this);
     this.ontology = new ontology.Client(this.transport.unary);

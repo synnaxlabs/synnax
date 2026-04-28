@@ -15,6 +15,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Kind classifies constraint relationships between types.
@@ -142,10 +143,10 @@ func (s *System) HasTypeVariables() bool {
 
 // ApplySubstitutions replaces type variables in t with their computed substitutions.
 func (s *System) ApplySubstitutions(t types.Type) types.Type {
-	return s.applySubstitutions(t, make(map[string]bool))
+	return s.applySubstitutions(t, make(set.Set[string]))
 }
 
-func (s *System) applySubstitutionsToParams(t types.Params, visited map[string]bool) types.Params {
+func (s *System) applySubstitutionsToParams(t types.Params, visited set.Set[string]) types.Params {
 	t2 := slices.Clone(t)
 	for i, p := range t2 {
 		t2[i].Type = s.applySubstitutions(p.Type, visited)
@@ -153,15 +154,15 @@ func (s *System) applySubstitutionsToParams(t types.Params, visited map[string]b
 	return t2
 }
 
-func (s *System) applySubstitutions(t types.Type, visited map[string]bool) types.Type {
+func (s *System) applySubstitutions(t types.Type, visited set.Set[string]) types.Type {
 	if t.Kind == types.KindVariable {
-		if visited[t.Name] {
+		if visited.Contains(t.Name) {
 			return t
 		}
 		if sub, exists := s.Substitutions[t.Name]; exists {
-			visited[t.Name] = true
+			visited.Add(t.Name)
 			result := s.applySubstitutions(sub, visited)
-			visited[t.Name] = false
+			visited.Remove(t.Name)
 			// Preserve unit from the original type variable if it had one
 			if t.Unit != nil && result.Unit == nil {
 				result.Unit = t.Unit

@@ -114,8 +114,7 @@ func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Sc
 	)
 	sym, err := scope.Resolve(ctx, name)
 	if err != nil || sym == nil {
-		tokenType := uint32(SemanticTokenTypeVariable)
-		return &tokenType
+		return nil
 	}
 	return mapSymbolKind(sym.Kind)
 }

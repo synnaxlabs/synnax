@@ -51,10 +51,11 @@ var _ = Describe("Bounds", func() {
 		Context("Error messages", func() {
 			It("Should include type and bounds in error message", func() {
 				checker := validate.NewInclusiveBoundsChecker(1, 10)
-				err := checker(0)
-				Expect(err.Error()).To(ContainSubstring("int"))
-				Expect(err.Error()).To(ContainSubstring("1"))
-				Expect(err.Error()).To(ContainSubstring("10"))
+				Expect(checker(0)).Error().To(SatisfyAll(
+					MatchError(ContainSubstring("int")),
+					MatchError(ContainSubstring("1")),
+					MatchError(ContainSubstring("10")),
+				))
 			})
 		})
 	})

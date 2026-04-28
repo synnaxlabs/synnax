@@ -125,7 +125,7 @@ jobs:
           fi
 
       - name: Create Releases
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CONSOLE_VERSION: ${{ steps.console-version.outputs.VERSION }}
         with:
@@ -208,8 +208,8 @@ jobs:
         run: |
           Move-Item -Force scripts/synnax-v${{ needs.setup.outputs.VERSION }}.exe scripts/synnax-server.exe
 
-      - name: Update Rust
-        run: rustup update
+      - name: Install Rust
+        uses: actions-rust-lang/setup-rust-toolchain@v1
 
       - name: Install trusted-signing-cli
         run: cargo install trusted-signing-cli
@@ -288,7 +288,7 @@ jobs:
           echo "CONSOLE_VERSION=${CONSOLE_VERSION}" >> $GITHUB_OUTPUT
 
       - name: Set up pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
         if: github.ref == 'refs/heads/main'
 
       - name: Set up Node.js
@@ -299,7 +299,7 @@ jobs:
           cache: pnpm
 
       - name: Add Auto Update JSON File
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         env:
           CONSOLE_VERSION: ${{ steps.console-version.outputs.CONSOLE_VERSION }}
         with:
@@ -348,7 +348,7 @@ jobs:
             fs.writeFileSync("console/release-spec.json", JSON.stringify(data, null, 2) + "\n");
 
       - name: Commit & Push Auto Update JSON File on Main
-        uses: EndBug/add-and-commit@v9
+        uses: EndBug/add-and-commit@v10
         with:
           add: "*"
           default_author: github_actor

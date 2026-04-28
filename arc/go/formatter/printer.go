@@ -14,6 +14,7 @@ import (
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/parser"
+	"github.com/synnaxlabs/x/set"
 )
 
 type braceContext int
@@ -23,6 +24,7 @@ const (
 	braceContextConfigBlock
 	braceContextConfigValues
 	braceContextStageBody
+	braceContextSequenceBody
 )
 
 type parenContext int
@@ -35,22 +37,32 @@ const (
 )
 
 type printer struct {
-	output                 strings.Builder
-	indentLevel            int
-	linePos                int
-	lastTokenType          int
-	prevToken              antlr.Token
-	needsSpace             bool
-	atLineStart            bool
-	prevLine               int
-	lastWasUnaryMinus      bool
-	indentCache            []string
-	delimiterStack         []int
-	braceContextStack      []braceContext
-	parenContextStack      []parenContext
-	inlineConfigValues     bool
-	inlineConfigBlock      bool
-	multilineParens        map[int]bool // tracks which paren depth levels are multiline
+	output             strings.Builder
+	indentLevel        int
+	linePos            int
+	lastTokenType      int
+	prevToken          antlr.Token
+	needsSpace         bool
+	atLineStart        bool
+	prevLine           int
+	lastWasUnaryMinus  bool
+	indentCache        []string
+	delimiterStack     []int
+	braceContextStack  []braceContext
+	parenContextStack  []parenContext
+	inlineConfigValues bool
+	inlineConfigBlock  bool
+	// inForHeader is true between a `for` keyword and the `{` that opens its
+	// body. While set, commas are part of the for-clause (`for i, x := data`)
+	// and must not trigger line breaks.
+	inForHeader bool
+	// reactiveBodyMultiline is a stack tracking, for each currently-open stage
+	// or stageless sequence body, whether the opener emitted a newline and
+	// incremented indent (true) or emitted `{}` as a truly-empty body (false).
+	// The closer uses this to decide whether to de-indent. Pushed in
+	// handleOpenBrace, popped in handleCloseBrace.
+	reactiveBodyMultiline  []bool
+	multilineParens        set.Set[int] // tracks which paren depth levels are multiline
 	allComments            []antlr.Token
 	pendingTrailingComment string
 	pendingBreak           bool
@@ -66,7 +78,7 @@ func newPrinter() *printer {
 	return &printer{
 		atLineStart:     true,
 		indentCache:     cache,
-		multilineParens: make(map[int]bool),
+		multilineParens: make(set.Set[int]),
 	}
 }
 
@@ -167,14 +179,11 @@ func (p *printer) shouldAddTrailingComma(tok antlr.Token, idx int, tokens []antl
 		if ctx == braceContextConfigBlock && !p.inlineConfigBlock {
 			return true
 		}
-		if ctx == braceContextStageBody {
-			return true
-		}
 	}
 
 	if nextType == parser.ArcLexerRPAREN {
 		depth := len(p.parenContextStack)
-		if p.multilineParens[depth] && len(p.parenContextStack) > 0 {
+		if p.multilineParens.Contains(depth) && len(p.parenContextStack) > 0 {
 			ctx := p.parenContextStack[len(p.parenContextStack)-1]
 			if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 				return true
@@ -271,7 +280,7 @@ func (p *printer) emitToken(tok antlr.Token, idx int, tokens []antlr.Token, ca *
 	case parser.ArcLexerRBRACKET:
 		p.handleCloseBracket()
 	case parser.ArcLexerCOMMA:
-		p.handleComma()
+		p.handleComma(idx, tokens)
 	case parser.ArcLexerCOLON:
 		p.handleColon()
 	default:
@@ -290,6 +299,9 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 	if p.isStageBody(idx, tokens) {
 		return braceContextStageBody
 	}
+	if p.isSequenceBody(idx, tokens) {
+		return braceContextSequenceBody
+	}
 	if p.isConfigValuesBlock(idx, tokens) {
 		return braceContextConfigValues
 	}
@@ -297,13 +309,35 @@ func (p *printer) detectBraceContext(idx int, tokens []antlr.Token) braceContext
 }
 
 func (p *printer) isStageBody(idx int, tokens []antlr.Token) bool {
-	if idx < 2 {
+	if idx < 1 {
 		return false
 	}
-	prevTok := tokens[idx-1]
-	prevPrevTok := tokens[idx-2]
-	return prevTok.GetTokenType() == parser.ArcLexerIDENTIFIER &&
-		prevPrevTok.GetTokenType() == parser.ArcLexerSTAGE
+	// stage { ... }  or  stage IDENT { ... }
+	if tokens[idx-1].GetTokenType() == parser.ArcLexerSTAGE {
+		return true
+	}
+	if idx >= 2 &&
+		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[idx-2].GetTokenType() == parser.ArcLexerSTAGE {
+		return true
+	}
+	return false
+}
+
+func (p *printer) isSequenceBody(idx int, tokens []antlr.Token) bool {
+	if idx < 1 {
+		return false
+	}
+	// sequence { ... }  or  sequence IDENT { ... }
+	if tokens[idx-1].GetTokenType() == parser.ArcLexerSEQUENCE {
+		return true
+	}
+	if idx >= 2 &&
+		tokens[idx-1].GetTokenType() == parser.ArcLexerIDENTIFIER &&
+		tokens[idx-2].GetTokenType() == parser.ArcLexerSEQUENCE {
+		return true
+	}
+	return false
 }
 
 func (p *printer) isFuncConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -320,17 +354,48 @@ func (p *printer) isConfigValuesBlock(idx int, tokens []antlr.Token) bool {
 	if idx < 1 {
 		return false
 	}
-	prevTok := tokens[idx-1]
-	if prevTok.GetTokenType() != parser.ArcLexerIDENTIFIER {
+	if tokens[idx-1].GetTokenType() != parser.ArcLexerIDENTIFIER {
 		return false
 	}
-	if idx >= 2 {
-		prevPrevTok := tokens[idx-2]
-		prevPrevType := prevPrevTok.GetTokenType()
-		if prevPrevType == parser.ArcLexerFUNC ||
-			prevPrevType == parser.ArcLexerSTAGE ||
-			prevPrevType == parser.ArcLexerSEQUENCE {
+	// Walk back through the preceding expression to find the enclosing
+	// statement context. If the brace closes a control-flow condition
+	// (if/for/else) or a declaration header (func/stage/sequence), it
+	// opens a block body, not a call-site config values block.
+	parenDepth, bracketDepth := 0, 0
+	for i := idx - 1; i >= 0; i-- {
+		t := tokens[i].GetTokenType()
+		switch t {
+		case parser.ArcLexerRPAREN:
+			parenDepth++
+			continue
+		case parser.ArcLexerLPAREN:
+			if parenDepth == 0 {
+				return true
+			}
+			parenDepth--
+			continue
+		case parser.ArcLexerRBRACKET:
+			bracketDepth++
+			continue
+		case parser.ArcLexerLBRACKET:
+			if bracketDepth == 0 {
+				return true
+			}
+			bracketDepth--
+			continue
+		}
+		if parenDepth != 0 || bracketDepth != 0 {
+			continue
+		}
+		switch t {
+		case parser.ArcLexerIF, parser.ArcLexerFOR, parser.ArcLexerELSE,
+			parser.ArcLexerFUNC, parser.ArcLexerSTAGE, parser.ArcLexerSEQUENCE:
 			return false
+		case parser.ArcLexerLBRACE, parser.ArcLexerRBRACE,
+			parser.ArcLexerCOLON, parser.ArcLexerARROW,
+			parser.ArcLexerTRANSITION, parser.ArcLexerASSIGN,
+			parser.ArcLexerRETURN:
+			return true
 		}
 	}
 	if p.isEmptyBlock(idx, tokens) {
@@ -366,6 +431,23 @@ func (p *printer) shouldInlineConfigValues(idx int, tokens []antlr.Token) bool {
 	}
 	length := p.calculateConfigValuesLength(idx, tokens)
 	return length <= maxLineLength
+}
+
+// reactiveBodyIsEmpty reports whether a stage or stageless sequence body has
+// nothing inside it at all (no visible tokens and no comments). Truly-empty
+// bodies are emitted as `{}` on one line; everything else is multi-line.
+func (p *printer) reactiveBodyIsEmpty(idx int, tokens []antlr.Token) bool {
+	return p.isEmptyBlock(idx, tokens) && !p.hasCommentsInBlock(idx, tokens)
+}
+
+// inReactiveBodyContext reports whether the innermost open brace is a stage
+// or stageless sequence body.
+func (p *printer) inReactiveBodyContext() bool {
+	if len(p.braceContextStack) == 0 {
+		return false
+	}
+	ctx := p.braceContextStack[len(p.braceContextStack)-1]
+	return ctx == braceContextStageBody || ctx == braceContextSequenceBody
 }
 
 func (p *printer) shouldInlineConfigBlock(idx int, tokens []antlr.Token) bool {
@@ -465,6 +547,7 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 	ctx := p.detectBraceContext(idx, tokens)
 	p.braceContextStack = append(p.braceContextStack, ctx)
 	p.delimiterStack = append(p.delimiterStack, parser.ArcLexerLBRACE)
+	p.inForHeader = false
 
 	if ctx == braceContextConfigValues {
 		if p.shouldInlineConfigValues(idx, tokens) {
@@ -484,7 +567,19 @@ func (p *printer) handleOpenBrace(idx int, tokens []antlr.Token) {
 		p.inlineConfigBlock = false
 	}
 
-	// Add space before brace for non-config contexts (blocks, stage bodies)
+	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
+		multiline := !p.reactiveBodyIsEmpty(idx, tokens)
+		p.reactiveBodyMultiline = append(p.reactiveBodyMultiline, multiline)
+		p.writeSpace()
+		p.emitChar("{")
+		if multiline {
+			p.writeNewline()
+			p.indentLevel++
+		}
+		return
+	}
+
+	// Add space before brace for non-config contexts (plain blocks)
 	if ctx != braceContextConfigValues && ctx != braceContextConfigBlock {
 		p.writeSpace()
 	}
@@ -512,6 +607,24 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		return
 	}
 
+	if ctx == braceContextStageBody || ctx == braceContextSequenceBody {
+		if !p.popReactiveBodyMultiline() {
+			p.emitChar("}")
+			return
+		}
+		p.flushPendingTrailingComment()
+		p.indentLevel--
+		if p.indentLevel < 0 {
+			p.indentLevel = 0
+		}
+		if !p.atLineStart {
+			p.writeNewline()
+		}
+		p.writeIndent()
+		p.emitChar("}")
+		return
+	}
+
 	isEmptyBlock := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLBRACE
 	if !isEmptyBlock {
 		p.flushPendingTrailingComment()
@@ -525,6 +638,15 @@ func (p *printer) handleCloseBrace(idx int, tokens []antlr.Token) {
 		p.writeIndent()
 	}
 	p.emitChar("}")
+}
+
+func (p *printer) popReactiveBodyMultiline() bool {
+	if len(p.reactiveBodyMultiline) == 0 {
+		return true
+	}
+	v := p.reactiveBodyMultiline[len(p.reactiveBodyMultiline)-1]
+	p.reactiveBodyMultiline = p.reactiveBodyMultiline[:len(p.reactiveBodyMultiline)-1]
+	return v
 }
 
 func (p *printer) popBraceContext() braceContext {
@@ -549,7 +671,7 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 	// Authority paren blocks are always multiline
 	if ctx == parenContextAuthority {
 		depth := len(p.parenContextStack)
-		p.multilineParens[depth] = true
+		p.multilineParens.Add(depth)
 		p.emitChar("(")
 		if !p.isEmptyParenList(idx, tokens) {
 			p.writeNewline()
@@ -563,7 +685,7 @@ func (p *printer) handleOpenParen(idx int, tokens []antlr.Token) {
 	if ctx == parenContextInputList || ctx == parenContextMultiOutput {
 		depth := len(p.parenContextStack)
 		if p.shouldMultilineParenList(idx, tokens) {
-			p.multilineParens[depth] = true
+			p.multilineParens.Add(depth)
 			p.emitChar("(")
 			if !p.isEmptyParenList(idx, tokens) {
 				p.writeNewline()
@@ -583,8 +705,8 @@ func (p *printer) handleCloseParen(idx int, tokens []antlr.Token) {
 	p.popParenContext()
 	depth := len(p.parenContextStack) + 1
 
-	if p.multilineParens[depth] {
-		delete(p.multilineParens, depth)
+	if p.multilineParens.Contains(depth) {
+		p.multilineParens.Remove(depth)
 		isEmptyList := idx > 0 && tokens[idx-1].GetTokenType() == parser.ArcLexerLPAREN
 		if !isEmptyList {
 			p.flushPendingTrailingComment()
@@ -752,13 +874,42 @@ func (p *printer) handleCloseBracket() {
 	p.emitChar("]")
 }
 
-func (p *printer) handleComma() {
+func (p *printer) handleComma(idx int, tokens []antlr.Token) {
+	if p.isTrailingCommaInInlinedBlock(idx, tokens) {
+		return
+	}
+	// Stage and stageless sequence bodies always format multi-line with
+	// newline separators. Any comma the user wrote between items is dropped
+	// and replaced with a pending line break.
+	if p.inReactiveBodyContext() {
+		p.pendingBreak = true
+		return
+	}
 	p.emitChar(",")
 	if p.shouldBreakAfterComma() {
 		p.pendingBreak = true
 	} else {
 		p.needsSpace = true
 	}
+}
+
+// isTrailingCommaInInlinedBlock reports whether the comma at idx is the final
+// separator in a config values or config block that is being collapsed onto
+// a single line (i.e., the next non-whitespace token is the closing brace).
+// Such trailing commas must be dropped so the inlined form reads cleanly.
+func (p *printer) isTrailingCommaInInlinedBlock(idx int, tokens []antlr.Token) bool {
+	inlined := (p.inConfigValuesContext() && p.inlineConfigValues) ||
+		(p.inConfigBlockContext() && p.inlineConfigBlock)
+	if !inlined {
+		return false
+	}
+	for i := idx + 1; i < len(tokens); i++ {
+		if tokens[i].GetTokenType() == parser.ArcLexerWS {
+			continue
+		}
+		return tokens[i].GetTokenType() == parser.ArcLexerRBRACE
+	}
+	return false
 }
 
 func (p *printer) handleColon() {
@@ -769,6 +920,10 @@ func (p *printer) handleColon() {
 func (p *printer) handleDefault(tok antlr.Token, idx int, tokens []antlr.Token) {
 	tokType := tok.GetTokenType()
 	tokText := tok.GetText()
+
+	if tokType == parser.ArcLexerFOR {
+		p.inForHeader = true
+	}
 
 	if p.needsNewlineBefore(tokType) {
 		if !p.atLineStart {
@@ -848,7 +1003,7 @@ func (p *printer) needsSpaceBefore(tok antlr.Token) bool {
 		return false
 	}
 
-	if p.inConfigValuesContext() && p.inlineConfigValues {
+	if p.inConfigValuesContext() {
 		if tokType == parser.ArcLexerASSIGN || prevType == parser.ArcLexerASSIGN {
 			return false
 		}
@@ -942,7 +1097,8 @@ func (p *printer) isUnaryMinus(tokType int) bool {
 func (p *printer) isKeyword(tokType int) bool {
 	switch tokType {
 	case parser.ArcLexerFUNC, parser.ArcLexerIF, parser.ArcLexerELSE,
-		parser.ArcLexerRETURN, parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
+		parser.ArcLexerFOR, parser.ArcLexerRETURN,
+		parser.ArcLexerSEQUENCE, parser.ArcLexerSTAGE,
 		parser.ArcLexerNEXT, parser.ArcLexerNOT, parser.ArcLexerAUTHORITY:
 		return true
 	}
@@ -1007,8 +1163,11 @@ func (p *printer) shouldBreakAfterComma() bool {
 	if p.inConfigBlockContext() && p.inlineConfigBlock {
 		return false
 	}
+	if p.inForHeader {
+		return false
+	}
 	// Break after comma in multiline paren lists
-	if p.multilineParens[len(p.parenContextStack)] {
+	if p.multilineParens.Contains(len(p.parenContextStack)) {
 		return true
 	}
 	return p.delimiterStack[len(p.delimiterStack)-1] == parser.ArcLexerLBRACE

@@ -84,6 +84,16 @@ var _ = Describe("Sequence Analyzer", func() {
 				}
 			}
 		`),
+		Entry("stage name same as sibling sequence name (different scopes)", `
+			sequence main {
+				stage abort {
+				}
+			}
+			sequence abort {
+				stage safed {
+				}
+			}
+		`),
 		Entry("multiple stages in sequence", `
 			sequence main {
 				stage step1 {
@@ -169,16 +179,6 @@ var _ = Describe("Sequence Analyzer", func() {
 				msg := analyzeAndExpectError(bCtx, source)
 				Expect(msg).To(ContainSubstring(expectedError))
 			},
-			Entry("stage name conflicts with sequence name", `
-				sequence main {
-					stage abort {
-					}
-				}
-				sequence abort {
-					stage safed {
-					}
-				}
-			`, "conflicts with existing symbol"),
 			Entry("duplicate sequence names", `
 				sequence main {
 					stage step1 {

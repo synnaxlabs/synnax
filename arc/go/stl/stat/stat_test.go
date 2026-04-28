@@ -110,9 +110,9 @@ func openStatWithReset(
 	return statSetup{state: s, inputNode: inputNode, n: n}
 }
 
-func nextChanged(ctx SpecContext, n node.Node) set.Set[string] {
-	changed := make(set.Set[string])
-	n.Next(node.Context{Context: ctx, MarkChanged: func(output string) { changed.Add(output) }})
+func nextChanged(ctx SpecContext, n node.Node) set.Set[int] {
+	changed := make(set.Set[int])
+	n.Next(node.Context{Context: ctx, MarkChanged: func(i int) { changed.Add(i) }})
 	return changed
 }
 
@@ -140,7 +140,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 20.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -217,7 +217,7 @@ var _ = Describe("Avg", func() {
 	It("Should not execute on empty input", func(ctx SpecContext) {
 		s := openStat(ctx, "avg", types.F64(), nil)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeFalse())
+		Expect(changed.Contains(0)).To(BeFalse())
 	})
 
 	It("Should work with int32 type", func(ctx SpecContext) {
@@ -225,7 +225,7 @@ var _ = Describe("Avg", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](10, 20, 30)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 20)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -237,7 +237,7 @@ var _ = Describe("Min", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV[int32](50, 10, 70)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[int32](s.state, 10)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -330,7 +330,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 	})
@@ -420,7 +420,7 @@ var _ = Describe("Max", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 50.0, 30.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 3)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectOutput[float64](s.state, 50.0)
 		expectOutputTime(s.state, 3*telem.SecondTS)
 
@@ -546,7 +546,7 @@ var _ = Describe("Derivative", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(10.0, 20.0, 40.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2, 4)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0, 10.0, 10.0)
 	})
 
@@ -567,7 +567,7 @@ var _ = Describe("Derivative", func() {
 		*s.inputNode.Output(0) = telem.NewSeriesV(5.0)
 		*s.inputNode.OutputTime(0) = telem.NewSeriesSecondsTSV(1)
 		changed := nextChanged(ctx, s.n)
-		Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+		Expect(changed.Contains(0)).To(BeTrue())
 		expectDerivOutput(s.state, 0.0)
 	})
 

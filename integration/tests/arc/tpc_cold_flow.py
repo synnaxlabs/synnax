@@ -24,7 +24,6 @@ func classify_pressure{safe_threshold f32, warning_threshold f32} (pressure f32)
         critical_out = pressure
     }
 }
-
 // Helper function triggered via dataflow - closes all pressurization valves
 func close_press{} (trigger f32) {
     gas_booster_iso_cmd = 0
@@ -32,7 +31,6 @@ func close_press{} (trigger f32) {
     ox_press_cmd = 0
     fuel_press_cmd = 0
 }
-
 // Vent control - state > 0 closes vents (1=closed, 0=open)
 func vent_control{} (state f32) {
     if (state > 0) {
@@ -43,7 +41,6 @@ func vent_control{} (state f32) {
         fuel_vent_cmd = 0
     }
 }
-
 // MPV control - state > 0 opens MPVs (1=open, 0=closed)
 func mpv_control{} (state f32) {
     if (state > 0) {
@@ -54,12 +51,10 @@ func mpv_control{} (state f32) {
         fuel_mpv_cmd = 0
     }
 }
-
 // Dataflows: trigger channels activate helper functions
 tpc_press_trigger -> close_press{}
 tpc_vent_trigger -> vent_control{}
 tpc_mpv_trigger -> mpv_control{}
-
 // Status handlers - write strings to pressure_status channel via dataflow
 func on_safe{} (value f32) {
     pressure_status = "Safe"
@@ -72,7 +67,6 @@ func on_warning{} (value f32) {
 func on_critical{} (value f32) {
     pressure_status = "Critical"
 }
-
 // Dataflow: OX pressure -> classifier -> status handlers
 ox_pt_1 -> classify_pressure{15, 40} -> {
     safe_out: on_safe{},
@@ -84,83 +78,83 @@ start_tpc_cmd => main
 
 sequence main {
     stage precheck {
-        1 -> tpc_press_trigger,
-        1 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        1 -> tpc_stage,
+        1 -> tpc_press_trigger
+        1 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        1 -> tpc_stage
         wait{500ms} => press_charge
     }
 
     stage press_charge {
-        1 -> gas_booster_iso_cmd,
-        0 -> press_iso_cmd,
-        0 -> ox_press_cmd,
-        0 -> fuel_press_cmd,
-        1 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        2 -> tpc_stage,
+        1 -> gas_booster_iso_cmd
+        0 -> press_iso_cmd
+        0 -> ox_press_cmd
+        0 -> fuel_press_cmd
+        1 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        2 -> tpc_stage
         press_pt_1 > 200 => ox_press
     }
 
     stage ox_press {
-        0 -> gas_booster_iso_cmd,
-        1 -> press_iso_cmd,
-        1 -> ox_press_cmd,
-        0 -> fuel_press_cmd,
-        1 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        3 -> tpc_stage,
+        0 -> gas_booster_iso_cmd
+        1 -> press_iso_cmd
+        1 -> ox_press_cmd
+        0 -> fuel_press_cmd
+        1 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        3 -> tpc_stage
         ox_pt_1 > 50 => fuel_press
     }
 
     stage fuel_press {
-        0 -> gas_booster_iso_cmd,
-        1 -> press_iso_cmd,
-        0 -> ox_press_cmd,
-        1 -> fuel_press_cmd,
-        1 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        4 -> tpc_stage,
+        0 -> gas_booster_iso_cmd
+        1 -> press_iso_cmd
+        0 -> ox_press_cmd
+        1 -> fuel_press_cmd
+        1 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        4 -> tpc_stage
         fuel_pt_1 > 50 => hold
     }
 
     stage hold {
-        1 -> tpc_press_trigger,
-        1 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        5 -> tpc_stage,
+        1 -> tpc_press_trigger
+        1 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        5 -> tpc_stage
         wait{2s} => fire
     }
 
     stage fire {
-        1 -> tpc_press_trigger,
-        1 -> tpc_vent_trigger,
-        1 -> tpc_mpv_trigger,
-        6 -> tpc_stage,
+        1 -> tpc_press_trigger
+        1 -> tpc_vent_trigger
+        1 -> tpc_mpv_trigger
+        6 -> tpc_stage
         wait{1s} => shutdown
     }
 
     stage shutdown {
-        1 -> tpc_press_trigger,
-        0 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        7 -> tpc_stage,
+        1 -> tpc_press_trigger
+        0 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        7 -> tpc_stage
         ox_pt_1 < 5 and fuel_pt_1 < 5 => safe
     }
 
     stage safe {
-        1 -> tpc_press_trigger,
-        0 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        8 -> tpc_stage,
+        1 -> tpc_press_trigger
+        0 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        8 -> tpc_stage
         start_tpc_cmd == 0 => idle
     }
 
     stage idle {
-        1 -> tpc_press_trigger,
-        0 -> tpc_vent_trigger,
-        0 -> tpc_mpv_trigger,
-        0 -> tpc_stage,
+        1 -> tpc_press_trigger
+        0 -> tpc_vent_trigger
+        0 -> tpc_mpv_trigger
+        0 -> tpc_stage
         start_tpc_cmd == 1 => precheck
     }
 }

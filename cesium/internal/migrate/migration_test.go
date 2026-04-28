@@ -17,7 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/cesium"
 	"github.com/synnaxlabs/cesium/internal/testdata"
-	"github.com/synnaxlabs/cesium/internal/testutil"
+	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/x/encoding/json"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/query"
@@ -25,21 +25,18 @@ import (
 )
 
 var _ = Describe("Migration Test", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			var (
-				db        *cesium.DB
-				fs        xfs.FS
-				cleanUp   func() error
-				jsonCodec = json.Codec
+				db *cesium.DB
+				fs xfs.FS
 			)
-			BeforeEach(func() { fs, cleanUp = makeFS() })
-			AfterEach(func() { Expect(cleanUp()).To(Succeed()) })
+			BeforeEach(func() { fs = openFS() })
 			Specify("V1 to V2", func(ctx SpecContext) {
 				By("Making a copy of an unversioned database")
 				sourceFS := MustSucceed(xfs.Default.Sub("../testdata/v1/db-data"))
 				destFS := fs
-				Expect(testutil.CopyFS(sourceFS, destFS)).To(Succeed())
+				Expect(CopyFS(sourceFS, destFS)).To(Succeed())
 
 				By("Opening the V1 database in V2")
 				db = MustSucceed(cesium.Open(ctx, "", cesium.WithFS(fs), cesium.WithInstrumentation(PanicLogger())))
@@ -48,7 +45,7 @@ var _ = Describe("Migration Test", func() {
 				for _, ch := range testdata.Channels {
 					chInDB, err := db.RetrieveChannel(ctx, ch.Key)
 					if ch.Key == testdata.LegacyRateKey {
-						Expect(err).To(HaveOccurredAs(query.ErrNotFound))
+						Expect(err).To(MatchError(query.ErrNotFound))
 						continue
 					} else {
 						Expect(err).ToNot(HaveOccurred())
@@ -66,7 +63,7 @@ var _ = Describe("Migration Test", func() {
 					MustSucceed(r.Read(buf))
 					Expect(r.Close()).To(Succeed())
 
-					Expect(jsonCodec.Decode(ctx, buf, &chInMeta)).To(Succeed())
+					Expect(json.Codec.Decode(ctx, buf, &chInMeta)).To(Succeed())
 					Expect(chInMeta).To(Equal(chInDB))
 
 				}

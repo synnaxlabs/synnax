@@ -5,9 +5,9 @@ title: "Version 0.40 Release Notes"
 import { Image, Video } from "@/components/media/Media";
 import Diagram from "@/components/diagram/Diagram.astro";
 import Release from "@/components/releases/Release.astro";
-import LabJack from "@/pages/releases/LabJack.astro";
+import LabJack from "@/components/releases/LabJack.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import { Note } from "@synnaxlabs/pluto";
+import { Note, Divider } from "@synnaxlabs/pluto";
 export const components = mdxOverrides;
 
 <Release
@@ -20,6 +20,8 @@ Synnax v0.40.0 is a maintenance release that introduces no breaking changes, imp
 performance of the Synnax Driver, and fixes a few bugs related to the embedded control
 sequences.
 
+<Divider.Divider x />
+
 ### Driver Clock Skew Improvements
 
 Our refactor of the Driver in Synnax v0.39 made several major improvements, and,
@@ -28,6 +30,8 @@ release, we've introduced a new
 [clock skew detection algorithm](/reference/driver/timing) that automatically corrects
 for timing offsets in hardware timed tasks.
 
+<Divider.Divider x />
+
 ### Warnings on Slow Data Acquisition Tasks
 
 In previous versions of Synnax, tasks that were set at too high of a stream rate would
@@ -35,10 +39,14 @@ silently fall behind drop data samples. This release introduces a new warning me
 that updates the Console task configuration dialog and logs a warning to the Driver logs
 when Synnax cannot keep up with the requested stream rate.
 
+<Divider.Divider x />
+
 ### Improved Device Disconnection Retry
 
 We've improved the device disconnection retry mechanisms for NI, LabJack, and OPC UA to
 better handle unexpected cable disconnections and loss of power.
+
+<Divider.Divider x />
 
 ### Cleaner Transfer of Devices Across Drivers
 
@@ -46,10 +54,14 @@ We've implemented a smoother mechanisms for moving data acquisition modules acro
 Drivers, ensuring that existing tasks on a device are correctly transferred and started
 on new Drivers.
 
+<Divider.Divider x />
+
 ### Other Improvements
 
 - It's now possible to change the identifier of a device after configuring it.
 - Added the location of a device to the device drop-down list selectors.
+
+<Divider.Divider x />
 
 ### Bug Fixes
 

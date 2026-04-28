@@ -24,11 +24,24 @@ import { render } from "@/vis/render";
 
 import { noopLogSourceSpec } from "./telem/noop";
 
+export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
+export type TimestampFormat = z.infer<typeof timestampFormatZ>;
+
+export const timestampTZZ = z.enum(["UTC", "local"]);
+export type TimestampTZ = z.infer<typeof timestampTZZ>;
+
+export const timestampConfigZ = z.object({
+  format: timestampFormatZ.default("preciseDate"),
+  tz: timestampTZZ.default("local"),
+});
+export type TimestampConfig = z.infer<typeof timestampConfigZ>;
+
 export const channelConfigZ = z.object({
   color: z.string().default(""),
   notation: notation.notationZ.default("standard"),
   precision: z.number().min(-1).max(17).default(-1),
   alias: z.string().default(""),
+  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
 });
 
 export const channelEntryZ = channelConfigZ.extend({
@@ -45,8 +58,10 @@ export const logState = z.object({
   showReceiptTimestamp: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   // channelNames: server-side display names (fetched fresh, never persisted)
+  // channelDataTypes: server-side data types (fetched fresh, never persisted)
   // channels: user-defined config per channel (color, precision, alias; persisted)
   channelNames: z.record(z.string(), z.string()).default({}),
+  channelDataTypes: z.record(z.string(), z.string()).default({}),
   channels: z.array(channelEntryZ).default([]),
   telem: logSourceSpecZ.default(noopLogSourceSpec),
   font: text.levelZ.default("p"),
@@ -59,7 +74,6 @@ export const logState = z.object({
   selectedLines: z.array(z.object({ text: z.string(), color: z.string() })).default([]),
   computedLineHeight: z.number().default(0),
   entryCount: z.number().default(0),
-  copyFlash: z.boolean().default(false),
 });
 
 const SCROLLBAR_RENDER_THRESHOLD = 0.98;
@@ -89,7 +103,6 @@ interface InternalState {
   lineHeight: number;
   tsLen: number;
   selectionColor: color.Color;
-  selectionFlashColor: color.Color;
   stopListeningTelem?: destructor.Destructor;
 }
 
@@ -176,9 +189,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     }
     i.configs = configs;
 
-    // Cache selection highlight colors (theme-dependent).
     i.selectionColor = color.setAlpha(i.theme.colors.primary.z, 0.25);
-    i.selectionFlashColor = color.setAlpha(i.theme.colors.primary.z, 0.15);
 
     i.telem = telem.useSource(ctx, this.state.telem, i.telem);
 
@@ -386,9 +397,6 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     const reg = this.state.region;
     const highlightStart = Math.max(selMin, sliceStart) - sliceStart;
     const highlightEnd = Math.min(selMax, sliceEnd - 1) - sliceStart;
-    const bgColor = this.state.copyFlash
-      ? this.internal.selectionFlashColor
-      : this.internal.selectionColor;
     const rowCount = highlightEnd - highlightStart + 1;
     draw2d.container({
       region: box.construct(
@@ -400,7 +408,7 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       ),
       bordered: false,
       rounded: false,
-      backgroundColor: bgColor,
+      backgroundColor: this.internal.selectionColor,
     });
   }
 
@@ -414,14 +422,23 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, showReceiptTimestamp } = this.state;
+    const { showChannelNames, showReceiptTimestamp, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
-    const cfg = configs[String(entry.channelKey)];
+    const chKeyStr = String(entry.channelKey);
+    const cfg = configs[chKeyStr];
     const ts = showReceiptTimestamp
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
-    if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+    const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
+    if (isTimestampChannel) {
+      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      try {
+        value = new TimeStamp(BigInt(value)).toString(format, tz);
+      } catch {
+        // Leave value as-is if it can't be parsed as a bigint.
+      }
+    } else if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
       const num = parseFloat(value);
       if (!isNaN(num)) {
         const precision = cfg.precision >= 0 ? cfg.precision : 0;
@@ -429,20 +446,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       }
     }
     const { displayNames, namePadding } = this.internal;
-    const chKey = String(entry.channelKey);
-    const name = displayNames[chKey] ?? String(entry.channelKey);
-    const pad = namePadding[chKey] ?? "";
+    const name = displayNames[chKeyStr] ?? chKeyStr;
+    const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
     if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
     else if (showReceiptTimestamp) prefix = `${ts}  `;
     else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
-    return {
-      prefix,
-      value,
-      line: prefix + value,
-      channelKey: String(entry.channelKey),
-    };
+    return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
   private updateSelectedText(): void {
@@ -487,11 +498,22 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
         position: { x: posX, y: posY },
         code: true,
       });
+      const valueX = posX + prefix.length * charWidth;
+      const isNegative = value[0] === "-";
+      const displayValue = isNegative ? value.slice(1) : value;
+      if (isNegative)
+        draw2D.text({
+          text: "-",
+          level: font,
+          color: entryColor,
+          position: { x: valueX - charWidth, y: posY },
+          code: true,
+        });
       draw2D.text({
-        text: value,
+        text: displayValue,
         level: font,
         color: entryColor,
-        position: { x: posX + prefix.length * charWidth, y: posY },
+        position: { x: valueX, y: posY },
         code: true,
       });
     }

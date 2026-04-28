@@ -9,6 +9,8 @@
 
 #include <set>
 
+#include "x/cpp/strings/strings.h"
+
 #include "driver/http/device/device.h"
 #include "driver/http/errors/errors.h"
 #include "driver/http/read_task.h"
@@ -354,12 +356,7 @@ ReadTaskSource::read(x::breaker::Breaker &breaker, x::telem::Frame &fr) {
         }
     }
 
-    if (!warnings.empty()) {
-        for (size_t i = 0; i < warnings.size(); i++) {
-            if (i > 0) res.warning += "; ";
-            res.warning += warnings[i];
-        }
-    }
+    if (!warnings.empty()) res.warning = x::strings::join(warnings, "; ");
     return res;
 }
 

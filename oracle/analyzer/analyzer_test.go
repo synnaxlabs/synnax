@@ -1368,5 +1368,80 @@ var _ = Describe("Analyzer", func() {
 			form := simpleType.Form.(resolution.StructForm)
 			Expect(form.IsRecursive).To(BeFalse())
 		})
+
+		It("Should detect mutual recursion through struct fields", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b B?
+				}
+				B struct {
+					a A?
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct array wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through an alias wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					bs Bs
+				}
+				B struct {
+					a A?
+				}
+				Bs = B[]
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
+
+		It("Should detect mutual recursion through a distinct struct wrapper", func(ctx SpecContext) {
+			source := `
+				A struct {
+					b BWrap?
+				}
+				B struct {
+					a A?
+				}
+				BWrap B
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			aForm := table.MustGet("test.A").Form.(resolution.StructForm)
+			bForm := table.MustGet("test.B").Form.(resolution.StructForm)
+			Expect(aForm.IsRecursive).To(BeTrue())
+			Expect(bForm.IsRecursive).To(BeTrue())
+		})
 	})
 })

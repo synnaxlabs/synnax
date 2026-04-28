@@ -5,8 +5,9 @@ title: "Version 0.52 Release Notes"
 import { Image } from "@/components/media/Media";
 import Release from "@/components/releases/Release.astro";
 import Diagram from "@/components/diagram/Diagram.astro";
+import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
-import HTTP from "@/pages/releases/HTTP.astro";
+import HTTP from "@/components/releases/HTTP.astro";
 
 export const components = mdxOverrides;
 
@@ -21,6 +22,8 @@ export const components = mdxOverrides;
 Synnax v0.52 introduces our new HTTP device driver for integrating with REST APIs and
 web services. We've also added support for extended analog input channels on the LabJack
 T7.
+
+<Divider.Divider x />
 
 ### HTTP Device Driver
 
@@ -37,11 +40,15 @@ availability, with results displayed in the Console's device status indicators.
 Authentication is supported out of the box, including token, API key, and basic
 username/password methods.
 
+<Divider.Divider x />
+
 ### LabJack T7 Extended Analog Inputs
 
 The Console and Driver now support extended analog input channels (AIN 48–127) on the
 LabJack T7 when used with the MUX80 analog multiplexer. Previously, only channels AIN
 0–13 were available.
+
+<Divider.Divider x />
 
 ### Removal of Lua Sequences
 
@@ -49,6 +56,8 @@ Lua-based embedded sequences have been fully removed from Synnax. This includes 
 language server, the sequence driver, and all related Console UI. Users who have not yet
 migrated their Lua sequences to [Arc](/reference/control/arc/get-started) should do so
 before upgrading.
+
+<Divider.Divider x />
 
 ### Minor Improvements and Bug Fixes
 
