@@ -74,16 +74,14 @@ Creates or updates a status in the Synnax cluster.
 
 ```
 status.set(identifier: string, variant: string, message: string) -> string
-status.set(identifier: string, variant: string, message: string, name: string) -> string
 ```
 
-| Param        | Type     | Required | Default | Description                                                        |
-| ------------ | -------- | -------- | ------- | ------------------------------------------------------------------ |
-| `identifier` | `string` | yes      |         | Status key or name (auto-detected)                                 |
-| `variant`    | `string` | yes      |         | `success`, `info`, `warning`, `error`, `loading`, or `disabled`    |
-| `message`    | `string` | yes      |         | Status message text                                                |
-| `name`       | `string` | no       | `""`    | Human-readable name to set on the status                           |
-| `status_key` | `string` | no       |         | Explicit key (Flow-only, alternative to name-based auto-detection) |
+| Param        | Type     | Required | Description                                                        |
+| ------------ | -------- | -------- | ------------------------------------------------------------------ |
+| `identifier` | `string` | yes      | Status key or name (auto-detected)                                 |
+| `variant`    | `string` | yes      | `success`, `info`, `warning`, `error`, `loading`, or `disabled`    |
+| `message`    | `string` | yes      | Status message text                                                |
+| `status_key` | `string` | no       | Explicit key (Flow-only, alternative to name-based auto-detection) |
 
 **Returns:** Status key string. In WASM form, returned as a string handle (handle 0 on
 failure; see Section 3).
@@ -93,8 +91,9 @@ WASM form, the `identifier` argument handles both key and name via auto-detectio
 
 **Backward compatibility**: The existing `status_key` Flow config field is preserved.
 Programs using `status.set{status_key="...", ...}` continue to work unchanged. The
-`name` config field is a new alternative, not a replacement. WASM form introduces the
-unified `identifier` concept, which is new (there was no WASM form before).
+`name` config field is a new alternative for Flow form, not a replacement. WASM form
+introduces the unified `identifier` concept, which is new (there was no WASM form
+before).
 
 **Resolution logic (WASM form):**
 
@@ -105,9 +104,10 @@ unified `identifier` concept, which is new (there was no WASM form before).
 
 **Resolution logic (Flow form):**
 
-Exactly one of `status_key` or `name` must be provided. When `status_key` is provided,
-the status is identified by key directly. When `name` is provided, resolution follows
-steps 2-4 of the WASM logic above.
+Both `status_key` and `name` may be provided. When `status_key` is present, the status
+is identified by key directly and `name` is ignored. When only `name` is provided,
+resolution follows steps 2-4 of the WASM logic above. At least one of `status_key` or
+`name` must be provided.
 
 **Examples:**
 
@@ -127,12 +127,6 @@ status.set("abc-123-def", "error", "Sensor offline")
 // Flow set by key
 trigger -> status.set{status_key="abc-123-def", variant="error",
     message="Sensor offline"}
-
-// WASM set by name with explicit display name
-status.set("abc-123-def", "warning", "Degraded", "Pressure Check")
-// Flow with all parameters
-trigger -> status.set{status_key="abc-123-def", variant="warning",
-    message="Degraded", name="Pressure Check"}
 ```
 
 ## 4.1 - `status.delete`
@@ -178,12 +172,12 @@ trigger -> status.delete{name="Pressure Check"}
 
 ## 4.2 - Client Interface Comparison
 
-| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                              | Arc Flow                                     |
-| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------------- | -------------------------------------------- |
-| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `identifier, variant, message, name?` | `status_key` or `name`, `variant`, `message` |
-| **Set return**    | `Status` object                            | `Status` object                      | key string                            | none (sink)                                  |
-| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `identifier` (key or name)            | `key` or `name`                              |
-| **Delete return** | `None`                                     | `void`                               | nothing                               | none (sink)                                  |
+| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                       | Arc Flow                                     |
+| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------ | -------------------------------------------- |
+| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `identifier, variant, message` | `status_key` or `name`, `variant`, `message` |
+| **Set return**    | `Status` object                            | `Status` object                      | key string                     | none (sink)                                  |
+| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `identifier` (key or name)     | `key` or `name`                              |
+| **Delete return** | `None`                                     | `void`                               | nothing                        | none (sink)                                  |
 
 **Adaptations from client interface:**
 
@@ -243,28 +237,8 @@ var deleteType = types.Function(types.FunctionProperties{
 })
 ```
 
-The optional `name` parameter on `set` is handled by registering a second internal
-symbol (`set_with_name`) with four inputs:
-
-```go
-var setWithNameType = types.Function(types.FunctionProperties{
-    Inputs: types.Params{
-        {Name: "identifier", Type: types.String()},
-        {Name: "variant", Type: types.String()},
-        {Name: "message", Type: types.String()},
-        {Name: "name", Type: types.String()},
-    },
-    Outputs: types.Params{
-        {Name: "key", Type: types.String()},
-    },
-})
-```
-
-The compiler dispatches between the 3-arg and 4-arg variants via a dedicated
-`compileBuiltinStatusSet` function in `compiler/expression/compiler.go`, following the
-same pattern as `compileBuiltinRangesCreate` (RFC 0036) and `compileBuiltinLen`. The
-builtin checks the argument count at the call site and emits the appropriate WASM call
-(`set` for 3 args, `set_with_name` for 4 args).
+`status.set` has a single fixed-arity WASM signature (3 args). No compiler dispatch is
+needed; the symbol resolver provides the type directly.
 
 The deprecated bare `set_status` resolver remains unchanged and does not gain a WASM
 implementation. Its deprecation is out of scope for this RFC.
@@ -273,11 +247,10 @@ implementation. Its deprecation is out of scope for this RFC.
 
 Host functions are registered via `wazero.HostModuleBuilder("status")`:
 
-| WASM Module | Function        | WASM Signature                | Description                                        |
-| ----------- | --------------- | ----------------------------- | -------------------------------------------------- |
-| `status`    | `set`           | `(i32, i32, i32) -> i32`      | identifier, variant, message handles -> key handle |
-| `status`    | `set_with_name` | `(i32, i32, i32, i32) -> i32` | + name handle -> key handle                        |
-| `status`    | `delete`        | `(i32)`                       | identifier handle                                  |
+| WASM Module | Function | WASM Signature           | Description                                        |
+| ----------- | -------- | ------------------------ | -------------------------------------------------- |
+| `status`    | `set`    | `(i32, i32, i32) -> i32` | identifier, variant, message handles -> key handle |
+| `status`    | `delete` | `(i32)`                  | identifier handle                                  |
 
 Host function closures capture:
 
@@ -399,15 +372,15 @@ The existing `setStatus` node is updated to support name-based identification:
 
 ### 5.2.2 - Error Handling
 
-| Phase                  | Error                                      | Behavior                                    |
-| ---------------------- | ------------------------------------------ | ------------------------------------------- |
-| Factory (task startup) | Missing required config                    | Task fails to start with error status       |
-| Factory (task startup) | Both or neither `status_key`/`name` on set | Task fails to start                         |
-| Factory (task startup) | Both or neither `key`/`name` on delete     | Task fails to start                         |
-| Runtime (`Next()`)     | API error on set/delete                    | `ctx.ReportError(err)`, execution continues |
-| Runtime (`Next()`)     | Multiple statuses match name on set        | Error status, execution continues           |
-| Runtime (`Next()`)     | No match on delete-by-name                 | Warning status, execution continues         |
-| Runtime (`Next()`)     | Multiple matches on delete-by-name         | All deleted, info status with count         |
+| Phase                  | Error                                  | Behavior                                    |
+| ---------------------- | -------------------------------------- | ------------------------------------------- |
+| Factory (task startup) | Missing required config                | Task fails to start with error status       |
+| Factory (task startup) | Neither `status_key` nor `name` on set | Task fails to start                         |
+| Factory (task startup) | Both or neither `key`/`name` on delete | Task fails to start                         |
+| Runtime (`Next()`)     | API error on set/delete                | `ctx.ReportError(err)`, execution continues |
+| Runtime (`Next()`)     | Multiple statuses match name on set    | Error status, execution continues           |
+| Runtime (`Next()`)     | No match on delete-by-name             | Warning status, execution continues         |
+| Runtime (`Next()`)     | Multiple matches on delete-by-name     | All deleted, info status with count         |
 
 ## 5.3 - Name Resolution
 
@@ -463,22 +436,19 @@ New files (`delete.go`) and modifications to existing files (`set.go`) stay with
 
 ## 6.0 - Modified Files
 
-| File                                     | Change                                                                                                                       |
-| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `core/pkg/service/arc/status/set.go`     | Change `set` to `ExecBoth`, add WASM host function bindings, update symbol types, add name-based identification to Flow node |
-| `core/pkg/service/arc/status/delete.go`  | New file: `delete` symbol, WASM host function, Flow node                                                                     |
-| `core/pkg/service/arc/runtime/task.go`   | Register status WASM host functions in WASM builder, pass `*status.Service` to host function closures                        |
-| `arc/go/compiler/expression/compiler.go` | Add `compileBuiltinStatusSet` for 3/4-arg dispatch                                                                           |
+| File                                    | Change                                                                                                                       |
+| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `core/pkg/service/arc/status/set.go`    | Change `set` to `ExecBoth`, add WASM host function bindings, update symbol types, add name-based identification to Flow node |
+| `core/pkg/service/arc/status/delete.go` | New file: `delete` symbol, WASM host function, Flow node                                                                     |
+| `core/pkg/service/arc/runtime/task.go`  | Register status WASM host functions in WASM builder, pass `*status.Service` to host function closures                        |
 
 ## 6.1 - Implementation Sequence
 
-1. Update symbol registration in `set.go`: change `set` to `ExecBoth`, add
-   `set_with_name` internal variant, add `delete` member, update type definitions
-2. Add `compileBuiltinStatusSet` to `compiler/expression/compiler.go` for 3/4-arg
-   dispatch
-3. Add WASM host function bindings for `set`, `set_with_name`, and `delete`
-4. Update existing `setStatus` Flow node for name-based identification
-5. Create `deleteStatus` Flow node in `delete.go`
-6. Register WASM host functions in `task.go`, wiring `*status.Service` and
+1. Update symbol registration in `set.go`: change `set` to `ExecBoth`, add `delete`
+   member, update type definitions
+2. Add WASM host function bindings for `set` and `delete`
+3. Update existing `setStatus` Flow node for name-based identification
+4. Create `deleteStatus` Flow node in `delete.go`
+5. Register WASM host functions in `task.go`, wiring `*status.Service` and
    `*strings.ProgramState` into closures
-7. Write tests
+6. Write tests
