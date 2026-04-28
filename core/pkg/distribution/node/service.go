@@ -74,7 +74,7 @@ func NewService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	if err := cfg.Ontology.NewWriter(nil).DefineResource(ctx, OntologyID(KeyFree)); err != nil {
-		return nil, errors.Wrap(err, "define free node ontology resource: ")
+		return nil, errors.Wrap(err, "define free node ontology resource")
 	}
 	return s, nil
 }
