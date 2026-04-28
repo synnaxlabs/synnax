@@ -24,11 +24,24 @@ import { render } from "@/vis/render";
 
 import { noopLogSourceSpec } from "./telem/noop";
 
+export const timestampFormatZ = z.enum(["preciseTime", "preciseDate", "ISO"]);
+export type TimestampFormat = z.infer<typeof timestampFormatZ>;
+
+export const timestampTZZ = z.enum(["UTC", "local"]);
+export type TimestampTZ = z.infer<typeof timestampTZZ>;
+
+export const timestampConfigZ = z.object({
+  format: timestampFormatZ.default("preciseDate"),
+  tz: timestampTZZ.default("local"),
+});
+export type TimestampConfig = z.infer<typeof timestampConfigZ>;
+
 export const channelConfigZ = z.object({
   color: z.string().default(""),
   notation: notation.notationZ.default("standard"),
   precision: z.number().min(-1).max(17).default(-1),
   alias: z.string().default(""),
+  timestamp: timestampConfigZ.default({ format: "preciseDate", tz: "local" }),
 });
 
 export const channelEntryZ = channelConfigZ.extend({
@@ -45,8 +58,10 @@ export const logState = z.object({
   showReceiptTimestamp: z.boolean().default(true),
   timestampPrecision: z.number().min(0).max(3).default(0),
   // channelNames: server-side display names (fetched fresh, never persisted)
+  // channelDataTypes: server-side data types (fetched fresh, never persisted)
   // channels: user-defined config per channel (color, precision, alias; persisted)
   channelNames: z.record(z.string(), z.string()).default({}),
+  channelDataTypes: z.record(z.string(), z.string()).default({}),
   channels: z.array(channelEntryZ).default([]),
   telem: logSourceSpecZ.default(noopLogSourceSpec),
   font: text.levelZ.default("p"),
@@ -407,14 +422,23 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     line: string;
     channelKey: string;
   } {
-    const { showChannelNames, showReceiptTimestamp } = this.state;
+    const { showChannelNames, showReceiptTimestamp, channelDataTypes } = this.state;
     const { tsLen, configs } = this.internal;
-    const cfg = configs[String(entry.channelKey)];
+    const chKeyStr = String(entry.channelKey);
+    const cfg = configs[chKeyStr];
     const ts = showReceiptTimestamp
       ? new TimeStamp(entry.timestamp).toString("preciseTime", "local").slice(0, tsLen)
       : "";
     let value = entry.value;
-    if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
+    const isTimestampChannel = channelDataTypes[chKeyStr] === "timestamp";
+    if (isTimestampChannel) {
+      const { format, tz } = cfg?.timestamp ?? { format: "preciseDate", tz: "local" };
+      try {
+        value = new TimeStamp(BigInt(value)).toString(format, tz);
+      } catch {
+        // Leave value as-is if it can't be parsed as a bigint.
+      }
+    } else if (cfg != null && (cfg.precision >= 0 || cfg.notation !== "standard")) {
       const num = parseFloat(value);
       if (!isNaN(num)) {
         const precision = cfg.precision >= 0 ? cfg.precision : 0;
@@ -422,20 +446,14 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
       }
     }
     const { displayNames, namePadding } = this.internal;
-    const chKey = String(entry.channelKey);
-    const name = displayNames[chKey] ?? String(entry.channelKey);
-    const pad = namePadding[chKey] ?? "";
+    const name = displayNames[chKeyStr] ?? chKeyStr;
+    const pad = namePadding[chKeyStr] ?? "";
     let prefix: string;
     if (showReceiptTimestamp && showChannelNames) prefix = `${ts} [${name}]${pad}  `;
     else if (showReceiptTimestamp) prefix = `${ts}  `;
     else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
-    return {
-      prefix,
-      value,
-      line: prefix + value,
-      channelKey: String(entry.channelKey),
-    };
+    return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 
   private updateSelectedText(): void {

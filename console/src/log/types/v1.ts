@@ -24,6 +24,7 @@ export const ZERO_CHANNEL_CONFIG: ChannelConfig = {
   notation: "standard",
   precision: -1,
   alias: "",
+  timestamp: { format: "preciseDate", tz: "local" },
 };
 
 export const channelEntryZ = channelConfigZ.extend({

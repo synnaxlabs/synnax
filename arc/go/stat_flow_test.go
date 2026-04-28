@@ -70,6 +70,92 @@ var _ = Describe("Stat Flow Chains", func() {
 			Expect(changed).To(BeTrue())
 			Expect(telem.UnmarshalSeries[int32](out.Get(200).Series[0])[0]).To(BeNumerically("~", 20, 1))
 		})
+
+		// stat.avg{count=N} checks sampleCount >= count at the start of each
+		// Next() (stat.go:197-199). When the threshold is hit, it zeros the
+		// sample count and output buffer before processing new input, so the
+		// very next ingestion averages only the fresh sample — independent of
+		// the prior window. The test feeds one sample per tick for four ticks
+		// to straddle the boundary: ticks 1–3 accumulate 10, 20, 30 into a
+		// single window (outputs 10, 15, 20); tick 4 hits sampleCount=3 at
+		// the reset check, zeros the window, and averages just [1000] to
+		// produce 1000. A regression that used > instead of >= or failed to
+		// resize the output buffer would mix samples across the boundary and
+		// yield (10+20+30+1000)/4 = 265 instead.
+		It("avg{count=N} resets the window when sampleCount reaches N", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor":  {types.F64(), 100},
+				"avg_out": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `sensor -> avg{count=3} -> avg_out`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			readAvg := func() float64 {
+				out, _ := h.Flush()
+				series := out.Get(200).Series
+				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+			}
+
+			step := func(v float64) float64 {
+				h.Ingest(100, telem.NewSeriesV(v))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+				return readAvg()
+			}
+
+			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001), "first sample; window has 1 sample")
+			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001), "second sample; avg(10, 20)")
+			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001), "third sample; avg(10, 20, 30); sampleCount is now 3")
+			Expect(step(1000.0)).To(BeNumerically("~", 1000.0, 0.001),
+				"fourth sample should trigger reset (sampleCount>=3) and average only [1000]; "+
+					"a broken reset would give (10+20+30+1000)/4 = 265")
+		})
+
+		// Counterpart to the {count=3} test above: with no window config,
+		// neither the duration nor the count reset path fires (stat.go:189
+		// and stat.go:197 both gate on cfg > 0). Samples accumulate for the
+		// lifetime of the node. This test pins that current behavior — if a
+		// future change introduces a default window, this test should
+		// either be updated or deleted, and that's exactly the signal we
+		// want from a behavior-pinning test. The same four-step input as
+		// the {count=3} test makes the contrast explicit: step(1000) gives
+		// 265 here (all four samples averaged) vs 1000 there (reset).
+		It("avg{} with no window config accumulates indefinitely", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor":  {types.F64(), 100},
+				"avg_out": {types.F64(), 200},
+			})
+			h := newRuntimeHarness(ctx, `sensor -> avg{} -> avg_out`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float64T},
+				channel.Digest{Key: 200, DataType: telem.Float64T},
+			)
+			defer h.Close(ctx)
+
+			readAvg := func() float64 {
+				out, _ := h.Flush()
+				series := out.Get(200).Series
+				Expect(series).ToNot(BeEmpty(), "avg_out should have been written")
+				return telem.UnmarshalSeries[float64](series[len(series)-1])[0]
+			}
+
+			step := func(v float64) float64 {
+				h.Ingest(100, telem.NewSeriesV(v))
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+				return readAvg()
+			}
+
+			Expect(step(10.0)).To(BeNumerically("~", 10.0, 0.001))
+			Expect(step(20.0)).To(BeNumerically("~", 15.0, 0.001))
+			Expect(step(30.0)).To(BeNumerically("~", 20.0, 0.001))
+			Expect(step(1000.0)).To(BeNumerically("~", 265.0, 0.001),
+				"no config → no reset → running avg over all four samples = 265; "+
+					"a reset here would give 1000 (only the fresh sample)")
+		})
 	})
 
 	Describe("min", func() {

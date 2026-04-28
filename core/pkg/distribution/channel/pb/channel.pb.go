@@ -176,7 +176,7 @@ type Channel struct {
 	// local_key is the locally-unique portion of this channel's key.
 	LocalKey uint32 `protobuf:"varint,5,opt,name=local_key,json=localKey,proto3" json:"local_key,omitempty"`
 	// local_index is the channel used to index this channel's values, associating each
-	// value with a timestamp. If zero, the channel's data will be indexed using its rate.
+	// value with a timestamp.
 	LocalIndex uint32 `protobuf:"varint,6,opt,name=local_index,json=localIndex,proto3" json:"local_index,omitempty"`
 	// virtual is true if this channel does not persist data and is used only for streaming.
 	Virtual bool `protobuf:"varint,7,opt,name=virtual,proto3" json:"virtual,omitempty"`

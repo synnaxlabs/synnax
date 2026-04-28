@@ -191,7 +191,7 @@ export class Provider extends aether.Leaf<typeof providerStateZ, InternalState> 
         maxWidth: endPos - startPos - 16,
       });
     });
-    clearScissor();
+    clearScissor?.();
     if (hoveredState != null) this.setState((s) => ({ ...s, hovered: hoveredState }));
     else if (this.state.hovered) this.setState((s) => ({ ...s, hovered: null }));
     if (this.state.count !== visibleCount)

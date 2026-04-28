@@ -7,12 +7,12 @@
 #  License, use of this software will be governed by the Apache License, Version 2.0,
 #  included in the file licenses/APL.txt.
 
-import time
 from uuid import uuid4
 
 import pytest
 
 import synnax as sy
+from x.testutil import assert_eventually
 
 
 @pytest.mark.arc
@@ -115,13 +115,20 @@ class TestArc:
     def test_search(self, client: sy.Synnax):
         """Should search for Arcs by name."""
         unique_prefix = f"searchable-arc-{uuid4()}"
-        client.arcs.create(name=f"{unique_prefix}-1", mode="text")
-        client.arcs.create(name=f"{unique_prefix}-2", mode="text")
-        time.sleep(0.2)
-        results = client.arcs.retrieve(search_term=unique_prefix)
-        assert len(results) >= 2
-        for arc in results:
-            assert unique_prefix in arc.name
+        client.arcs.create(
+            [
+                sy.Arc(name=f"{unique_prefix}-1", mode="text"),
+                sy.Arc(name=f"{unique_prefix}-2", mode="text"),
+            ]
+        )
+
+        def check() -> None:
+            results = client.arcs.retrieve(search_term=unique_prefix)
+            assert len(results) >= 2
+            for arc in results:
+                assert unique_prefix in arc.name
+
+        assert_eventually(check)
 
 
 @pytest.mark.arc

@@ -22,6 +22,10 @@
     right: 2rem;
 }
 
+.console-controls--annotations-visible {
+    top: 0rem;
+}
+
 .pluto-tabs-content:hover .console-controls {
     opacity: 1;
 }

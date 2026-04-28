@@ -49,6 +49,7 @@ export type ControlState = latest.ControlState;
 export type SliceState = latest.SliceState;
 export const ZERO_STATE = latest.ZERO_STATE;
 export const ZERO_CHANNELS_STATE = latest.ZERO_CHANNELS_STATE;
+export const ZERO_ANNOTATIONS_STATE = latest.ZERO_ANNOTATIONS_STATE;
 export const ZERO_SLICE_STATE = latest.ZERO_SLICE_STATE;
 export const migrateSlice = latest.migrateSlice;
 export const migrateState = latest.migrateState;
@@ -182,7 +183,6 @@ export interface SetAlignPayload {
   key: string;
   align: boolean;
 }
-
 export const typedLineKeyToString = (key: TypedLineKey): string =>
   `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
 
@@ -238,7 +238,7 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const migrated = migrateState(payload);
+      const migrated = anyStateZ.parse(payload);
       const { key: layoutKey } = migrated;
       const existing = state.plots[layoutKey];
       if (existing != null && existing.version === migrated.version) return;

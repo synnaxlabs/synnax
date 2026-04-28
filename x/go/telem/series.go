@@ -10,7 +10,6 @@
 package telem
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"iter"
@@ -37,7 +36,7 @@ func (s Series) Len() int64 {
 			var cl int64
 			offset := 0
 			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
 				if offset+variableLengthPrefixSize+length > len(s.Data) {
 					break
 				}
@@ -84,7 +83,7 @@ func (s *Series) validateVariable() error {
 		count  int64
 	)
 	for offset+variableLengthPrefixSize <= len(s.Data) {
-		length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+		length := int(ByteOrder.Uint32(s.Data[offset:]))
 		offset += variableLengthPrefixSize
 		if offset+length > len(s.Data) {
 			return errors.Wrapf(
@@ -131,7 +130,7 @@ func (s Series) Samples() iter.Seq[[]byte] {
 		if s.DataType.IsVariable() {
 			offset := 0
 			for offset+variableLengthPrefixSize <= len(s.Data) {
-				length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+				length := int(ByteOrder.Uint32(s.Data[offset:]))
 				offset += variableLengthPrefixSize
 				if offset+length > len(s.Data) {
 					return
@@ -159,7 +158,7 @@ func (s Series) At(i int) []byte {
 	if s.DataType.IsVariable() {
 		offset := 0
 		for offset+variableLengthPrefixSize <= len(s.Data) {
-			length := int(binary.LittleEndian.Uint32(s.Data[offset:]))
+			length := int(ByteOrder.Uint32(s.Data[offset:]))
 			offset += variableLengthPrefixSize
 			if offset+length > len(s.Data) {
 				break

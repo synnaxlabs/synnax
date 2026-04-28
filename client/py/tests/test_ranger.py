@@ -8,7 +8,6 @@
 #  included in the file licenses/APL.txt.
 
 import re
-import time
 from uuid import uuid4
 
 import numpy as np
@@ -17,6 +16,7 @@ import pytest
 import synnax as sy
 from x.params import RequiresNamedParams
 from x.strings import random_name
+from x.testutil import assert_eventually
 
 
 @pytest.mark.ranger
@@ -79,9 +79,11 @@ class TestRangeClient:
 
     def test_search(self, two_ranges: list[sy.Range], client: sy.Synnax):
         """Should search for ranges"""
-        time.sleep(0.2)
-        rng = client.ranges.search(two_ranges[0].name)
-        assert len(rng) > 0
+
+        def check() -> None:
+            assert len(client.ranges.search(two_ranges[0].name)) > 0
+
+        assert_eventually(check)
 
     def test_create_retrieve_if_name_exists(
         self, two_ranges: list[sy.Range], client: sy.Synnax

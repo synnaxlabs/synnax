@@ -80,19 +80,14 @@ export const Create: Layout.Renderer = ({ onClose }) => {
               label="Virtual"
               inputProps={{ disabled: isIndex }}
               onChange={(v, ctx) => {
-                if (!v) {
-                  const dataType = ctx.get<string>("dataType").value;
-                  if (new DataType(dataType).isVariable)
-                    ctx.set("dataType", DataType.FLOAT32.toString());
-                  return;
-                }
+                if (!v) return;
                 ctx.set("isIndex", false);
                 ctx.set("index", 0);
               }}
             />
             <Form.SwitchField
               path="isIndex"
-              label="Is Index"
+              label="Is index"
               inputProps={{ disabled: isVirtual }}
               onChange={(v, ctx) => {
                 if (!v) return;
@@ -100,15 +95,9 @@ export const Create: Layout.Renderer = ({ onClose }) => {
                 if (ctx.get("index").value !== 0) ctx.set("index", 0);
               }}
             />
-            <Form.Field<string> path="dataType" label="Data Type" grow>
+            <Form.Field<string> path="dataType" label="Data type" grow>
               {({ variant: _, ...p }) => (
-                <Telem.SelectDataType
-                  {...p}
-                  disabled={isIndex}
-                  zIndex={100}
-                  hideVariableDensity={!isVirtual}
-                  full="x"
-                />
+                <Telem.SelectDataType {...p} disabled={isIndex} zIndex={100} full="x" />
               )}
             </Form.Field>
           </Flex.Box>

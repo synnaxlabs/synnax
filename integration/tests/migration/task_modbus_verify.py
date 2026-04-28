@@ -1,0 +1,56 @@
+#  Copyright 2026 Synnax Labs, Inc.
+#
+#  Use of this software is governed by the Business Source License included in the file
+#  licenses/BSL.txt.
+#
+#  As of the Change Date specified in that file, in accordance with the Business Source
+#  License, use of this software will be governed by the Apache License, Version 2.0,
+#  included in the file licenses/APL.txt.
+
+import synnax as sy
+from tests.driver.modbus_task import ModbusReadTaskCase
+from tests.driver.task import create_channel, create_index
+from tests.migration.task_modbus_setup import (
+    CHANNEL_PREFIX,
+    IDX_NAME,
+    NUM_CHANNELS,
+    TASK_NAME,
+)
+from tests.migration.task_verify import ReadTaskConsoleVerify, ReadTaskMigrationVerify
+
+
+class ModbusReadVerify(ReadTaskMigrationVerify, ModbusReadTaskCase):
+    """Verify Modbus task config survived and task can still run."""
+
+    task_name = TASK_NAME
+    task_type = "modbus_read"
+    task_class = sy.modbus.ReadTask
+    channel_prefix = CHANNEL_PREFIX
+    num_channels = NUM_CHANNELS
+    pre_start_sleep = 2
+
+    @staticmethod
+    def create_channels(client: sy.Synnax) -> list[sy.modbus.BaseChan]:
+        idx = create_index(client, IDX_NAME)
+        return [
+            sy.modbus.HoldingRegisterInputChan(
+                channel=create_channel(
+                    client,
+                    name=f"{CHANNEL_PREFIX}_{i}",
+                    data_type=sy.DataType.FLOAT32,
+                    index=idx.key,
+                ),
+                address=i,
+                data_type="float32",
+            )
+            for i in range(NUM_CHANNELS)
+        ]
+
+
+class ModbusReadConsoleVerify(ReadTaskConsoleVerify):
+    """Verify the Modbus read task configuration renders correctly in the console UI."""
+
+    task_name = TASK_NAME
+    expected_channels = [f"{CHANNEL_PREFIX}_{i}" for i in range(NUM_CHANNELS)]
+    expected_sample_rate = "50"
+    expected_stream_rate = "10"
