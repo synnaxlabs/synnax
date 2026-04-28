@@ -330,8 +330,8 @@ export class Codec {
   }
 }
 
-export const LOW_PER_SPECIAL_CHAR = 254;
-const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
+export const LOW_PERF_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PERF_SPECIAL_CHAR]);
 export const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
 const CONTENT_TYPE = "application/sy-framer";
@@ -363,7 +363,7 @@ export class WSWriterCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
@@ -389,7 +389,7 @@ export class WSStreamerCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<StreamerResponse> = {
       type: "data",
@@ -416,7 +416,7 @@ export class WSIteratorCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<IteratorResponse> = {
       type: "data",

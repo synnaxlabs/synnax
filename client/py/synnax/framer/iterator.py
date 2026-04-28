@@ -78,7 +78,7 @@ class WSIteratorCodec(WSFramerCodec):
                 type="data",
                 payload=_Response(
                     variant=_ResponseVariant.DATA,
-                    command=_Command.OPEN,
+                    command=_Command(0),
                     ack=False,
                     error=None,
                     frame=frame,

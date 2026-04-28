@@ -17,7 +17,7 @@ import { framer } from "@/framer";
 import {
   Codec,
   HIGH_PERF_SPECIAL_CHAR,
-  LOW_PER_SPECIAL_CHAR,
+  LOW_PERF_SPECIAL_CHAR,
   WSIteratorCodec,
   WSWriterCodec,
 } from "@/framer/codec";
@@ -327,7 +327,7 @@ describe("encoder", () => {
       const codec = new WSWriterCodec(baseCodec);
       const msg: WebsocketMessage<WriteRequest> = { type: "data", payload: writeReq };
       const encoded = codec.encode(msg);
-      expect(encoded[0]).toEqual(LOW_PER_SPECIAL_CHAR);
+      expect(encoded[0]).toEqual(LOW_PERF_SPECIAL_CHAR);
       const decoded = codec.decode(encoded);
       expect(decoded).toEqual(msg);
     });
@@ -373,7 +373,7 @@ describe("encoder", () => {
       // Simulate what the server sends: LOW_PERF_SPECIAL_CHAR + JSON-encoded message.
       const json = new TextEncoder().encode(JSON.stringify(ackMsg));
       const encoded = new Uint8Array(json.byteLength + 1);
-      encoded[0] = LOW_PER_SPECIAL_CHAR;
+      encoded[0] = LOW_PERF_SPECIAL_CHAR;
       encoded.set(json, 1);
       const decoded = codec.decode(encoded) as WebsocketMessage<IteratorResponse>;
       expect(decoded.payload?.variant).toEqual(IteratorResponseVariant.Ack);
