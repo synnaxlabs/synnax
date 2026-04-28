@@ -20,7 +20,10 @@ import { type z } from "zod";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
-import { type IteratorResponse, IteratorResponseVariant } from "@/framer/iterator";
+import {
+  type IteratorResponse,
+  IteratorResponseVariant,
+} from "@/framer/iterator.types";
 import { type StreamerResponse } from "@/framer/streamer";
 import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";

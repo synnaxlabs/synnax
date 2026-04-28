@@ -12,58 +12,33 @@ import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
-  errors,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-import { z } from "zod";
 
-import { channel } from "@/channel";
+import { type channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
-import { Frame, frameZ } from "@/framer/frame";
+import { Frame } from "@/framer/frame";
+import {
+  IteratorCommand,
+  type IteratorRequest,
+  iteratorReqZ,
+  IteratorResponseVariant,
+  iteratorResZ,
+} from "@/framer/iterator.types";
 import { StreamProxy } from "@/framer/streamProxy";
 
+export {
+  IteratorCommand,
+  type IteratorRequest,
+  type IteratorResponse,
+  IteratorResponseVariant,
+  iteratorResZ,
+} from "@/framer/iterator.types";
+
 export const AUTO_SPAN = new TimeSpan(-1);
-
-enum Command {
-  Open = 0,
-  Next = 1,
-  Prev = 2,
-  SeekFirst = 3,
-  SeekLast = 4,
-  SeekLE = 5,
-  SeekGE = 6,
-  Valid = 7,
-  Error = 8,
-}
-
-export enum IteratorResponseVariant {
-  None = 0,
-  Ack = 1,
-  Data = 2,
-}
-
-const reqZ = z.object({
-  command: z.enum(Command),
-  span: TimeSpan.z.optional(),
-  bounds: TimeRange.z.optional(),
-  stamp: TimeStamp.z.optional(),
-  keys: channel.keyZ.array().optional(),
-  chunkSize: z.number().optional(),
-  downsampleFactor: z.int().optional(),
-});
-export interface IteratorRequest extends z.infer<typeof reqZ> {}
-
-export const iteratorResZ = z.object({
-  variant: z.enum(IteratorResponseVariant),
-  ack: z.boolean(),
-  command: z.enum(Command),
-  error: errors.payloadZ.optional().nullable(),
-  frame: frameZ.optional(),
-});
-export interface IteratorResponse extends z.infer<typeof iteratorResZ> {}
 
 export interface IteratorConfig {
   /** chunkSize is the maximum number of samples contained per channel in the frame
@@ -86,12 +61,12 @@ export interface IteratorConfig {
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class Iterator {
-  private readonly stream: StreamProxy<typeof reqZ, typeof iteratorResZ>;
+  private readonly stream: StreamProxy<typeof iteratorReqZ, typeof iteratorResZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
 
   private constructor(
-    stream: Stream<typeof reqZ, typeof iteratorResZ>,
+    stream: Stream<typeof iteratorReqZ, typeof iteratorResZ>,
     adapter: ReadAdapter,
   ) {
     this.stream = new StreamProxy("Iterator", stream);
@@ -119,10 +94,10 @@ export class Iterator {
   ): Promise<Iterator> {
     const adapter = await ReadAdapter.open(retriever, channels);
     client = client.withCodec(new WSIteratorCodec(adapter.codec));
-    const stream = await client.stream("/frame/iterate", reqZ, iteratorResZ);
+    const stream = await client.stream("/frame/iterate", iteratorReqZ, iteratorResZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({
-      command: Command.Open,
+      command: IteratorCommand.Open,
       keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
@@ -143,7 +118,10 @@ export class Iterator {
    * particular channel or the iterator has accumulated an error.
    */
   async next(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
+    return await this.execute({
+      command: IteratorCommand.Next,
+      span: new TimeSpan(span),
+    });
   }
 
   /**
@@ -158,7 +136,10 @@ export class Iterator {
    * channel or the iterator has accumulated an error.
    */
   async prev(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
+    return await this.execute({
+      command: IteratorCommand.Prev,
+      span: new TimeSpan(span),
+    });
   }
 
   /**
@@ -170,7 +151,7 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekFirst(): Promise<boolean> {
-    return await this.execute({ command: Command.SeekFirst });
+    return await this.execute({ command: IteratorCommand.SeekFirst });
   }
 
   /** Seeks the iterator to the last segment in the time range, but does not read it.
@@ -181,7 +162,7 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekLast(): Promise<boolean> {
-    return await this.execute({ command: Command.SeekLast });
+    return await this.execute({ command: IteratorCommand.SeekLast });
   }
 
   /**
@@ -193,7 +174,10 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekLE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
+    return await this.execute({
+      command: IteratorCommand.SeekLE,
+      stamp: new TimeStamp(stamp),
+    });
   }
 
   /**
@@ -205,7 +189,10 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekGE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
+    return await this.execute({
+      command: IteratorCommand.SeekGE,
+      stamp: new TimeStamp(stamp),
+    });
   }
 
   /**
@@ -214,7 +201,7 @@ export class Iterator {
    * an error.
    */
   async valid(): Promise<boolean> {
-    return await this.execute({ command: Command.Valid });
+    return await this.execute({ command: IteratorCommand.Valid });
   }
 
   /**

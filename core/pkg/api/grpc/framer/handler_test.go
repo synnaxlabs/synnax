@@ -312,8 +312,7 @@ var _ = Describe("GRPC Framer Translators", func() {
 		It("Should accept a nil request without panicking", func(ctx SpecContext) {
 			cdec := codec.NewStatic(channel.Keys{1}, []telem.DataType{"int32"})
 			t := frameWriterRequestTranslator{codec: cdec}
-			out, err := t.Backward(ctx, nil)
-			Expect(err).ToNot(HaveOccurred())
+			out := MustSucceed(t.Backward(ctx, nil))
 			Expect(out.Command).To(Equal(writer.Command(0)))
 		})
 	})

@@ -22,10 +22,7 @@ import {
   WSWriterCodec,
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
-import {
-  type IteratorResponse,
-  IteratorResponseVariant,
-} from "@/framer/iterator";
+import { type IteratorResponse, IteratorResponseVariant } from "@/framer/iterator";
 import { WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
