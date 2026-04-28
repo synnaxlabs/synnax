@@ -227,7 +227,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(m.Key).To(Equal(task.NewKey(testRack.Key, 8)))
 			Expect(m.Name).To(Equal("Test Task"))
 			var res task.Task
-			Expect(svc.NewRetrieve().WhereKeys(m.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal(*m))
 		})
 
@@ -328,10 +328,10 @@ var _ = Describe("Task", Ordered, func() {
 			}
 			Expect(w.Create(ctx, m)).To(Succeed())
 			Expect(w.Delete(ctx, m.Key, false)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(m.Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			Expect(svc.NewRetrieve().Where(task.MatchKeys(m.Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			var deletedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(m.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&deletedStatus).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
@@ -347,7 +347,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(m.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -374,7 +374,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(m.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(m.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(xstatus.VariantSuccess))
@@ -413,7 +413,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var copiedStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(copied.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(copied.Key).String())).
 				Entry(&copiedStatus).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(copiedStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -436,7 +436,7 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var taskStatus task.Status
 				g.Expect(status.NewRetrieve[task.StatusDetails](stat).
-					WhereKeys(task.OntologyID(t.Key).String()).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 					Entry(&taskStatus).
 					Exec(ctx, nil)).To(Succeed())
 				g.Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -513,7 +513,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var restoredStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(task.Key(t.Key)).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(task.Key(t.Key)).String())).
 				Entry(&restoredStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(restoredStatus.Variant).To(Equal(xstatus.VariantWarning))
@@ -571,7 +571,7 @@ var _ = Describe("Task", Ordered, func() {
 
 			var taskStatus task.Status
 			Expect(status.NewRetrieve[task.StatusDetails](stat).
-				WhereKeys(task.OntologyID(t.Key).String()).
+				Where(status.MatchKeys[task.StatusDetails](task.OntologyID(t.Key).String())).
 				Entry(&taskStatus).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(taskStatus.Variant).To(Equal(xstatus.VariantWarning))

@@ -67,7 +67,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"package foo",
 						"type Retrieve struct",
 						"gorp.Retrieve[uuid.UUID, Foo]",
-						"func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve",
+						"func MatchKeys(keys ...uuid.UUID) Filter",
 						"func (r Retrieve) Entry(e *Foo) Retrieve",
 						"func (r Retrieve) Entries(es *[]Foo) Retrieve",
 						"func (r Retrieve) Limit(limit int) Retrieve",
@@ -217,6 +217,35 @@ var _ = Describe("Go Query Plugin", func() {
 					ToNotContain("func (r Retrieve) MatchUsernames(")
 			})
 
+			It("Should generate a contains-style filter for a slice-typed field", func(ctx SpecContext) {
+				source := `
+					@go output "core/pkg/service/rack"
+
+					Rack struct {
+						key uint32 {
+							@key
+						}
+						integrations string[]? {
+							@filter
+						}
+						@ontology type "rack"
+						@retrieve
+					}
+				`
+				resp := MustGenerate(ctx, source, "rack", loader, p)
+
+				ExpectContent(resp, "retrieve.gen.go").
+					ToContain(
+						"\"slices\"",
+						"func MatchIntegration(v string) Filter",
+						"slices.Contains(e.Integrations, v)",
+					).
+					ToNotContain(
+						"MatchIntegrations(",
+						"func (r Retrieve) MatchIntegration(",
+					)
+			})
+
 			It("Should generate a filter with a cross-namespace type", func(ctx SpecContext) {
 				loader.Add("schemas/rack", `
 					@go output "core/pkg/service/rack"
@@ -271,7 +300,7 @@ var _ = Describe("Go Query Plugin", func() {
 
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"func (r Retrieve) WhereKeys(keys ...uint32) Retrieve",
+						"func MatchKeys(keys ...uint32) Filter",
 						"func (r Retrieve) Entry(e *Rack) Retrieve",
 						"func (r Retrieve) Entries(es *[]Rack) Retrieve",
 						"func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error",
@@ -411,7 +440,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"type Filter = gorp.BoundFilter[Retrieve, Key, Channel]",
 						"func MatchNames(vals ...string) Filter",
 						"return func(_ Retrieve) gorp.Filter[Key, Channel]",
-						"func (r Retrieve) WhereKeys(keys ...Key) Retrieve",
+						"func MatchKeys(keys ...Key) Filter",
 					)
 			})
 		})
@@ -435,7 +464,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"gorp.Retrieve[string, Device]",
-						"func (r Retrieve) WhereKeys(keys ...string) Retrieve",
+						"func MatchKeys(keys ...string) Filter",
 					)
 			})
 
@@ -457,7 +486,7 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"gorp.Retrieve[uint32, Rack]",
-						"func (r Retrieve) WhereKeys(keys ...uint32) Retrieve",
+						"func MatchKeys(keys ...uint32) Filter",
 					)
 			})
 		})
@@ -620,7 +649,7 @@ var _ = Describe("Go Query Plugin", func() {
 				expectedDocPrefixes := []string{
 					"// Retrieve is used to retrieve Foo records",
 					"// Search sets a fuzzy search term",
-					"// WhereKeys filters for foos whose key",
+					"// MatchKeys returns a filter that restricts results to foos whose key",
 					"// MatchNames returns a filter for foos whose Name",
 					"// MatchActive returns a filter for foos by their Active",
 					"// Where applies the provided filters",

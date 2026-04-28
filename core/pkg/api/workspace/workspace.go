@@ -132,7 +132,7 @@ func (s *Service) Retrieve(
 ) (res RetrieveResponse, err error) {
 	q := s.internal.NewRetrieve().Search(req.SearchTerm)
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(workspace.MatchKeys(req.Keys...))
 	}
 	if req.Author != uuid.Nil {
 		q = q.Where(workspace.MatchAuthor(req.Author))

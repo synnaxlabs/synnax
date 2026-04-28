@@ -256,14 +256,14 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(mockCluster.Nodes[1].Channel.Create(ctx, &newCh, channel.OverwriteIfNameExistsAndDifferentProperties())).To(Succeed())
 
 				var resChannels []channel.Channel
-				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(newCh.Key()).
+				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(newCh.Key())).
 					Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(1))
 
 				Expect(resChannels[0].Virtual).To(BeTrue())
 				Expect(resChannels[0].DataType).To(Equal(telem.Float32T))
 
-				err := mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)
+				err := mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(originalKey)).Entries(&resChannels).Exec(ctx, nil)
 				Expect(err).To(MatchError(query.ErrNotFound))
 			})
 			It("Should not overwrite the channel if it already exists by name and the new channel has the same properties as the old one", func(ctx SpecContext) {
@@ -287,7 +287,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(newCh.Key()).To(Equal(originalKey))
 
 				var resChannels []channel.Channel
-				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(originalKey)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(1))
 				Expect(resChannels[0].IsIndex).To(BeTrue())
 				Expect(resChannels[0].DataType).To(Equal(telem.TimeStampT))
@@ -465,7 +465,7 @@ var _ = Describe("Create", Ordered, func() {
 			// 5. Retrieve and verify expression updated, other fields preserved
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(originalKey).
+				Where(channel.MatchKeys(originalKey)).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Expression).To(Equal("return channel('sensor1') * 3.0 + 10"))
@@ -491,7 +491,7 @@ var _ = Describe("Create", Ordered, func() {
 			// 3. Retrieve from DB and verify DataType was updated
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(originalKey).
+				Where(channel.MatchKeys(originalKey)).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 
@@ -524,7 +524,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Name).To(Equal(newName))
 
 			var resChannels []channel.Channel
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(newName))
 		})
@@ -535,7 +535,7 @@ var _ = Describe("Create", Ordered, func() {
 			Expect(ch.Name).To(Equal(existingName))
 
 			var resChannels []channel.Channel
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
 			Expect(resChannels[0].Name).To(Equal(existingName))
 		})
@@ -558,7 +558,7 @@ var _ = Describe("Create", Ordered, func() {
 				Expect(nonVirtualCh.Key()).ToNot(Equal(originalKey))
 
 				var resChannels []channel.Channel
-				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(originalKey, nonVirtualCh.Key()).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(originalKey, nonVirtualCh.Key())).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 				Expect(resChannels).To(HaveLen(2))
 
 				Expect(resChannels[0].Name).To(Equal("NonVirtual"))
@@ -590,7 +590,7 @@ var _ = Context("Name Validation Disabled", func() {
 			Expect(ch.Key()).ToNot(BeZero())
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(ch.Key()).
+				Where(channel.MatchKeys(ch.Key())).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("my channel with spaces"))
@@ -606,7 +606,7 @@ var _ = Context("Name Validation Disabled", func() {
 			Expect(ch.Key()).ToNot(BeZero())
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(ch.Key()).
+				Where(channel.MatchKeys(ch.Key())).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("sensor!@#$%"))
@@ -622,7 +622,7 @@ var _ = Context("Name Validation Disabled", func() {
 			Expect(ch.Key()).ToNot(BeZero())
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(ch.Key()).
+				Where(channel.MatchKeys(ch.Key())).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("1sensor"))
@@ -648,7 +648,7 @@ var _ = Context("Name Validation Disabled", func() {
 			Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), "new name with spaces!", false)).To(Succeed())
 			var retrieved channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-				WhereKeys(ch.Key()).
+				Where(channel.MatchKeys(ch.Key())).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("new name with spaces!"))

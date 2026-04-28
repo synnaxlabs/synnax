@@ -247,7 +247,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					var results []benchEntry
 					if err := gorp.NewRetrieve[int32, benchEntry]().
-						WhereKeys(keys...).
+						Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 						Entries(&results).
 						Exec(ctx, db); err != nil {
 						b.Fatal(err)
@@ -267,7 +267,7 @@ func BenchmarkRetrieveByKeys(b *testing.B) {
 				for i := 0; i < b.N; i++ {
 					var results []benchStringEntry
 					if err := gorp.NewRetrieve[string, benchStringEntry]().
-						WhereKeys(keys...).
+						Where(gorp.MatchKeys[string, benchStringEntry](keys...)).
 						Entries(&results).
 						Exec(ctx, db); err != nil {
 						b.Fatal(err)
@@ -311,7 +311,7 @@ func BenchmarkRetrieveExists(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if _, err := gorp.NewRetrieve[int32, benchEntry]().
-				WhereKeys(500).
+				Where(gorp.MatchKeys[int32, benchEntry](500)).
 				Exists(ctx, db); err != nil {
 				b.Fatal(err)
 			}
@@ -325,7 +325,7 @@ func BenchmarkRetrieveExists(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			if _, err := gorp.NewRetrieve[int32, benchEntry]().
-				WhereKeys(9999).
+				Where(gorp.MatchKeys[int32, benchEntry](9999)).
 				Exists(ctx, db); err != nil {
 				b.Fatal(err)
 			}
@@ -346,7 +346,7 @@ func BenchmarkUpdateByKeys(b *testing.B) {
 			for i := 0; i < b.N; i++ {
 				suffix := strconv.Itoa(i)
 				if err := gorp.NewUpdate[int32, benchEntry]().
-					WhereKeys(keys...).
+					Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 					Change(func(_ gorp.Context, entry benchEntry) benchEntry {
 						entry.Data = "updated-" + suffix
 						return entry
@@ -387,7 +387,7 @@ func BenchmarkDeleteByKeys(b *testing.B) {
 					keys[j] = int32(i*size + j)
 				}
 				if err := gorp.NewDelete[int32, benchEntry]().
-					WhereKeys(keys...).
+					Where(gorp.MatchKeys[int32, benchEntry](keys...)).
 					Exec(ctx, db); err != nil {
 					b.Fatal(err)
 				}
@@ -413,7 +413,7 @@ func BenchmarkWithTx(b *testing.B) {
 				}
 				var result benchEntry
 				return gorp.NewRetrieve[int32, benchEntry]().
-					WhereKeys(key).
+					Where(gorp.MatchKeys[int32, benchEntry](key)).
 					Entry(&result).
 					Exec(ctx, tx)
 			}); err != nil {
@@ -434,7 +434,7 @@ func BenchmarkWithTx(b *testing.B) {
 			}
 			var result benchEntry
 			if err := gorp.NewRetrieve[int32, benchEntry]().
-				WhereKeys(key).
+				Where(gorp.MatchKeys[int32, benchEntry](key)).
 				Entry(&result).
 				Exec(ctx, db); err != nil {
 				b.Fatal(err)

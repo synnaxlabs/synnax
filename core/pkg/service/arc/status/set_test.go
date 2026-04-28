@@ -239,7 +239,7 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("next_test").
+					Where(status.MatchKeys[any]("next_test")).
 					Entry(&retrieved).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(retrieved.Key).To(Equal("next_test"))
@@ -254,14 +254,14 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var first status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("timestamp_test").
+					Where(status.MatchKeys[any]("timestamp_test")).
 					Entry(&first).
 					Exec(ctx, nil)).To(Succeed())
 
 				n.Next(nodeCtx)
 				var second status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("timestamp_test").
+					Where(status.MatchKeys[any]("timestamp_test")).
 					Entry(&second).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(second.Time).To(BeNumerically(">=", first.Time))
@@ -273,7 +273,7 @@ var _ = Describe("Module", func() {
 				n.Next(nodeCtx)
 				var retrieved status.Status[any]
 				Expect(statSvc.NewRetrieve().
-					WhereKeys("variant_test").
+					Where(status.MatchKeys[any]("variant_test")).
 					Entry(&retrieved).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(retrieved.Variant).To(Equal(xstatus.VariantError))

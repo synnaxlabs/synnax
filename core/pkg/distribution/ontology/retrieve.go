@@ -75,7 +75,7 @@ func newRetrieve(
 // WhereIDs filters resources by the provided keys.
 func (r Retrieve) WhereIDs(ids ...ID) Retrieve {
 	c := r.currentClause()
-	c.Retrieve = c.WhereKeys(IDsToKeys(ids)...)
+	c.Retrieve = c.Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...))
 	return r.setCurrentClause(c)
 }
 
@@ -258,14 +258,14 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 	tx = gorp.OverrideTx(r.tx, tx)
 	for i, cls := range r.clauses {
 		if i != 0 {
-			cls.Retrieve = cls.WhereKeys(IDsToKeys(nextIDs)...)
+			cls.Retrieve = cls.Where(gorp.MatchKeys[string, Resource](IDsToKeys(nextIDs)...))
 		}
 		atLast := len(r.clauses) == i+1
 		entriesBound := cls.GetEntries().Bound()
 		// If we only have keys and no filters, and don't need entries, skip execution
 		// entirely and use the keys directly.
 		if canSkipExec(cls, entriesBound, atLast) {
-			nextIDs = lo.Must(ParseIDs(cls.GetWhereKeys()))
+			nextIDs = lo.Must(ParseIDs(cls.GetFilterKeys()))
 		} else {
 			// For intermediate clauses that don't have user-bound entries, we need to
 			// bind a temporary slice so gorp can store the query results. Without this,
@@ -303,7 +303,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 }
 
 func canSkipExec(q clause, entriesBound, atLast bool) bool {
-	return !entriesBound && !atLast && q.HasWhereKeys() &&
+	return !entriesBound && !atLast && q.HasFilterKeys() &&
 		!q.HasFilters() && !q.HasLimit() && !q.HasOffset()
 }
 

@@ -99,7 +99,7 @@ func (s *Service) RetrievePolicy(
 		q = q.Where(policy.MatchSubjects(req.Subjects...))
 	}
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(policy.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -199,7 +199,7 @@ func (s *Service) RetrieveRole(
 	var res RetrieveRoleResponse
 	q := s.internal.Role.NewRetrieve()
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(role.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

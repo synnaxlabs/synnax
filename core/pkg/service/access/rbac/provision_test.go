@@ -82,7 +82,7 @@ var _ = Describe("Provision", func() {
 			// Simulate stale DB by stripping objects in a committed transaction
 			staleTx := db.OpenTx()
 			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
-				WhereKeys(ownerPolicy.Key).
+				Where(gorp.MatchKeys[uuid.UUID, policy.Policy](ownerPolicy.Key)).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
 					return p

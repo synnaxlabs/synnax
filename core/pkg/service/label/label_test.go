@@ -90,7 +90,7 @@ var _ = Describe("Label", Ordered, func() {
 			}
 			Expect(w.Create(ctx, l)).To(Succeed())
 			Expect(w.Delete(ctx, l.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+			Expect(svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
 		It("Should delete many labels", func(ctx SpecContext) {
 			ls := []xlabel.Label{
@@ -106,7 +106,7 @@ var _ = Describe("Label", Ordered, func() {
 			Expect(w.CreateMany(ctx, &ls)).To(Succeed())
 			Expect(w.DeleteMany(ctx, []label.Key{ls[0].Key, ls[1].Key})).To(Succeed())
 			for _, l := range ls {
-				Expect(svc.NewRetrieve().WhereKeys(l.Key).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().Where(label.MatchKeys(l.Key)).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 			}
 		})
 	})

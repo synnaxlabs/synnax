@@ -192,7 +192,7 @@ func (s *Service) loadEmbeddedRack(ctx context.Context) error {
 		name         = fmt.Sprintf("Node %s Embedded Driver", s.HostProvider.HostKey())
 	)
 	err := s.NewRetrieve().
-		Where(MatchName(name)).
+		Where(MatchNames(name)).
 		Where(MatchEmbedded(true)).
 		Where(MatchNode(s.HostProvider.HostKey())).
 		Entry(&embeddedRack).Exec(ctx, s.DB)
@@ -211,7 +211,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 func (s *Service) RetrieveStatus(ctx context.Context, key Key) (status.Status[StatusDetails], error) {
 	var stat status.Status[StatusDetails]
 	if err := status.NewRetrieve[StatusDetails](s.Status).
-		WhereKeys(OntologyID(key).String()).
+		Where(status.MatchKeys[StatusDetails](OntologyID(key).String())).
 		Entry(&stat).
 		Exec(ctx, nil); err != nil {
 		return status.Status[StatusDetails]{}, err
@@ -240,7 +240,7 @@ func (s *Service) newKey(ctx context.Context) (Key, error) {
 func (s *Service) newTaskKey(ctx context.Context, rackKey Key) (next uint32, err error) {
 	s.keyMu.Lock()
 	defer s.keyMu.Unlock()
-	return next, s.table.NewUpdate().WhereKeys(rackKey).Change(func(_ gorp.Context, r Rack) Rack {
+	return next, s.table.NewUpdate().Where(gorp.MatchKeys[Key, Rack](rackKey)).Change(func(_ gorp.Context, r Rack) Rack {
 		r.TaskCounter += 1
 		next = r.TaskCounter
 		return r

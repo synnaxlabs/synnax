@@ -122,7 +122,7 @@ func (s *Service) Retrieve(
 	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
 	q := s.rack.NewRetrieve()
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(rack.MatchKeys(req.Keys...))
 	}
 	if hasNames {
 		q = q.Where(rack.MatchNames(req.Names...))
@@ -156,7 +156,7 @@ func (s *Service) Retrieve(
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

@@ -233,7 +233,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 		var chs []channel.Channel
 		g.Expect(dist.Channel.NewRetrieve().
 			Entries(&chs).
-			WhereKeys(keys...).
+			Where(channel.MatchKeys(keys...)).
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())
@@ -260,7 +260,7 @@ func mixedScenario(ctx context.Context) scenario {
 		var chs []channel.Channel
 		g.Expect(dist.Channel.NewRetrieve().
 			Entries(&chs).
-			WhereKeys(keys...).
+			Where(channel.MatchKeys(keys...)).
 			Exec(ctx, nil)).To(Succeed())
 		g.Expect(chs).To(HaveLen(len(channels)))
 	}).Should(Succeed())

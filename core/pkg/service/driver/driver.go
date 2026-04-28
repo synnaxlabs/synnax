@@ -74,7 +74,7 @@ func Open(ctx context.Context, cfgs ...Config) (d *Driver, err error) {
 
 	if err = cfg.Rack.NewRetrieve().
 		Where(rack.MatchEmbedded(true)).
-		Where(rack.MatchName(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
+		Where(rack.MatchNames(fmt.Sprintf("Node %d", cfg.Host.HostKey()))).
 		Entry(&d.rack).Exec(ctx, nil); errors.Is(err, query.ErrNotFound) {
 		d.rack = rack.Rack{
 			Name:         fmt.Sprintf("Node %d", cfg.Host.HostKey()),

@@ -63,10 +63,14 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// WhereKeys filters for arcs whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to arcs whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Arc] {
+		return gorp.MatchKeys[Key, Arc](keys...)
+	}
 }
 
 // MatchNames returns a filter for arcs whose Name matches any of the provided values.
@@ -127,7 +131,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return Retrieve{}, err
 	}
-	return r.WhereKeys(keys...), nil
+	return r.Where(MatchKeys(keys...)), nil
 }
 
 // Exec executes the query against the provided transaction.

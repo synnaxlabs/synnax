@@ -10,8 +10,6 @@
 package rack
 
 import (
-	"slices"
-
 	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -25,15 +23,6 @@ type Retrieve struct {
 	searchTerm   string
 }
 
-// MatchName returns a filter that matches racks whose Name matches the provided value.
-func MatchName(name string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
-		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
-			return name == rack.Name, nil
-		})
-	}
-}
-
 // MatchNodeIsHost returns a filter that matches racks whose node is (or is
 // not) the current host, using the host provider held on the Retrieve.
 func MatchNodeIsHost(v bool) Filter {
@@ -41,16 +30,6 @@ func MatchNodeIsHost(v bool) Filter {
 		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
 		return isNodeHost == v, nil
 	})
-}
-
-// MatchIntegration returns a filter that matches racks that support the given
-// integration.
-func MatchIntegration(integration string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
-		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
-			return slices.Contains(rack.Integrations, integration), nil
-		})
-	}
 }
 
 // MatchNode returns a filter that matches racks on the given cluster node.

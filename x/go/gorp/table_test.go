@@ -57,7 +57,7 @@ var _ = Describe("Table", func() {
 
 			var res entry
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Where(gorp.MatchKeys[int32, entry](1)).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(e))
 		})
 
@@ -75,7 +75,7 @@ var _ = Describe("Table", func() {
 
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(1, 2, 3).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
 		})
@@ -93,7 +93,7 @@ var _ = Describe("Table", func() {
 
 			var res []uint64Entry
 			Expect(gorp.NewRetrieve[uint64, uint64Entry]().
-				WhereKeys(1, 999999999).
+				Where(gorp.MatchKeys[uint64, uint64Entry](1, 999999999)).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
 		})
@@ -111,7 +111,7 @@ var _ = Describe("Table", func() {
 
 			var res []stringEntry
 			Expect(gorp.NewRetrieve[string, stringEntry]().
-				WhereKeys("alpha", "beta").
+				Where(gorp.MatchKeys[string, stringEntry]("alpha", "beta")).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entries))
 		})
@@ -174,7 +174,7 @@ var _ = Describe("Table", func() {
 				func(ctx context.Context, tx gorp.Tx, _ alamos.Instrumentation) error {
 					var res entry
 					err := gorp.NewRetrieve[int32, entry]().
-						WhereKeys(99).Entry(&res).Exec(ctx, tx)
+						Where(gorp.MatchKeys[int32, entry](99)).Entry(&res).Exec(ctx, tx)
 					if err == nil && res.Data == "old" {
 						sawEntry = true
 					}
@@ -216,7 +216,7 @@ var _ = Describe("Table", func() {
 
 			var res entry
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(42).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Where(gorp.MatchKeys[int32, entry](42)).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res.Data).To(Equal("old format"))
 		})
 
@@ -281,7 +281,7 @@ var _ = Describe("Table", func() {
 
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(1, 2).
+				Where(gorp.MatchKeys[int32, entry](1, 2)).
 				Entries(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(HaveLen(2))
 		})
@@ -300,7 +300,7 @@ var _ = Describe("Table", func() {
 				e := entry{ID: 1, Data: "json-encoded"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
 				var res entry
-				Expect(table.NewRetrieve().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewRetrieve().Where(gorp.MatchKeys[int32, entry](1)).Entry(&res).Exec(ctx, db)).To(Succeed())
 				Expect(res).To(Equal(e))
 			})
 
@@ -312,7 +312,7 @@ var _ = Describe("Table", func() {
 				}
 				Expect(table.NewCreate().Entries(&entries).Exec(ctx, db)).To(Succeed())
 				var res []entry
-				Expect(table.NewRetrieve().WhereKeys(10, 20, 30).Entries(&res).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewRetrieve().Where(gorp.MatchKeys[int32, entry](10, 20, 30)).Entries(&res).Exec(ctx, db)).To(Succeed())
 				Expect(res).To(Equal(entries))
 			})
 		})
@@ -321,12 +321,12 @@ var _ = Describe("Table", func() {
 			It("Should update an entry using the custom codec", func(ctx SpecContext) {
 				e := entry{ID: 50, Data: "before"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
-				Expect(table.NewUpdate().WhereKeys(50).Change(func(_ gorp.Context, e entry) entry {
+				Expect(table.NewUpdate().Where(gorp.MatchKeys[int32, entry](50)).Change(func(_ gorp.Context, e entry) entry {
 					e.Data = "after"
 					return e
 				}).Exec(ctx, db)).To(Succeed())
 				var res entry
-				Expect(table.NewRetrieve().WhereKeys(50).Entry(&res).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewRetrieve().Where(gorp.MatchKeys[int32, entry](50)).Entry(&res).Exec(ctx, db)).To(Succeed())
 				Expect(res.Data).To(Equal("after"))
 			})
 		})
@@ -335,8 +335,8 @@ var _ = Describe("Table", func() {
 			It("Should delete an entry using the custom codec", func(ctx SpecContext) {
 				e := entry{ID: 60, Data: "doomed"}
 				Expect(table.NewCreate().Entry(&e).Exec(ctx, db)).To(Succeed())
-				Expect(table.NewDelete().WhereKeys(60).Exec(ctx, db)).To(Succeed())
-				Expect(table.NewRetrieve().WhereKeys(60).Exists(ctx, db)).To(BeFalse())
+				Expect(table.NewDelete().Where(gorp.MatchKeys[int32, entry](60)).Exec(ctx, db)).To(Succeed())
+				Expect(table.NewRetrieve().Where(gorp.MatchKeys[int32, entry](60)).Exists(ctx, db)).To(BeFalse())
 			})
 		})
 

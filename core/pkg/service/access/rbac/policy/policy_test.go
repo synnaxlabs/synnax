@@ -146,7 +146,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, policies[0].Key)).To(Succeed())
 
 			var p policy.Policy
-			err := svc.NewRetrieve().WhereKeys(policies[0].Key).Entry(&p).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(policy.MatchKeys(policies[0].Key)).Entry(&p).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -155,7 +155,7 @@ var _ = Describe("Writer", func() {
 
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key, policies[1].Key).
+				Where(policy.MatchKeys(policies[0].Key, policies[1].Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			Expect(ps).To(BeEmpty())
@@ -258,7 +258,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve a single policy by key", func(ctx SpecContext) {
 			var p policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key).
+				Where(policy.MatchKeys(policies[0].Key)).
 				Entry(&p).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(p.Key).To(Equal(policies[0].Key))
@@ -268,7 +268,7 @@ var _ = Describe("Retriever", func() {
 		It("Should retrieve multiple policies by keys", func(ctx SpecContext) {
 			var ps []policy.Policy
 			Expect(svc.NewRetrieve().
-				WhereKeys(policies[0].Key, policies[1].Key).
+				Where(policy.MatchKeys(policies[0].Key, policies[1].Key)).
 				Entries(&ps).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(ps).To(HaveLen(2))
@@ -277,7 +277,7 @@ var _ = Describe("Retriever", func() {
 		It("Should return empty when key not found", func(ctx SpecContext) {
 			var p policy.Policy
 			err := svc.NewRetrieve().
-				WhereKeys(uuid.New()).
+				Where(policy.MatchKeys(uuid.New())).
 				Entry(&p).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))

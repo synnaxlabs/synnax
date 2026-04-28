@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
+	"slices"
 )
 
 // Filter is a per-service filter that is bound to the Retrieve when passed to
@@ -54,10 +55,14 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// WhereKeys filters for racks whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to racks whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.MatchKeys[Key, Rack](keys...)
+	}
 }
 
 // MatchNames returns a filter for racks whose Name matches any of the provided values.
@@ -74,6 +79,15 @@ func MatchEmbedded(v bool) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
 			return e.Embedded == v, nil
+		})
+	}
+}
+
+// MatchIntegration returns a filter for racks whose Integrations contains the provided value.
+func MatchIntegration(v string) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, e *Rack) (bool, error) {
+			return slices.Contains(e.Integrations, v), nil
 		})
 	}
 }
@@ -127,7 +141,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return Retrieve{}, err
 	}
-	return r.WhereKeys(keys...), nil
+	return r.Where(MatchKeys(keys...)), nil
 }
 
 // Exec executes the query against the provided transaction.

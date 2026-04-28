@@ -10,13 +10,20 @@
 package gorp
 
 // Filter is a composable query filter. Eval matches against the decoded entry;
-// Raw, when set, pre-screens entries by raw bytes before decoding.
+// Raw, when set, pre-screens entries by raw bytes before decoding. Keys, when
+// set, restricts the filter to a bounded set of primary keys and lets
+// Retrieve.Exec dispatch to the multi-get fast path instead of a full scan.
 type Filter[K Key, E Entry[K]] struct {
 	// Eval matches against the decoded entry; raw bytes are passed too for
 	// filters that need them. Nil falls back to Raw in combinators.
 	Eval func(ctx Context, e *E, raw []byte) (bool, error)
 	// Raw pre-screens by raw bytes before decoding. Optional.
 	Raw func(data []byte) (bool, error)
+	// Keys, when non-nil, bounds the filter to the given set of primary keys.
+	// nil means unbounded (no key restriction). When the resolved query
+	// filter has Keys != nil, Retrieve.Exec uses a multi-get fast path
+	// instead of iterating the full table.
+	Keys []K
 }
 
 // Match wraps a decoded-entry predicate as a Filter.
@@ -28,16 +35,44 @@ func Match[K Key, E Entry[K]](f func(ctx Context, e *E) (bool, error)) Filter[K,
 	}
 }
 
-// MatchRaw wraps a raw-byte predicate as a Filter. Under Where or And it
-// pre-screens before decoding; under Or or Not it is called at Eval time so
-// composition is correct, at the cost of decoding every entry.
+// MatchRaw wraps a raw-byte predicate as a Filter. The result has Raw set and
+// Eval nil so it pre-screens before decoding. Composition rules:
+//
+//   - Under And, Raw is preserved alongside any sibling's Raw, so pre-screening
+//     still applies (sibling Evals run after decode as usual).
+//   - Under Or, Raw is preserved only when every sibling is also raw-only; if
+//     any sibling has Eval, the whole Or has to decode every entry to evaluate
+//     that sibling, and the MatchRaw branch is evaluated at decode time using
+//     the raw bytes carried alongside the decoded entry.
+//   - Under Not, Raw is inverted and pre-screening still applies.
 func MatchRaw[K Key, E Entry[K]](f func(data []byte) (bool, error)) Filter[K, E] {
 	return Filter[K, E]{Raw: f}
 }
 
+// MatchKeys returns a filter that restricts results to the given primary keys.
+// The returned filter's Keys slice owns its own storage, so callers may mutate
+// the input without affecting the filter. An empty (non-nil) slice produces a
+// bounded filter that matches no entries; nil keys would be unbounded, so the
+// constructor always allocates at least an empty slice.
+func MatchKeys[K Key, E Entry[K]](keys ...K) Filter[K, E] {
+	out := make([]K, len(keys))
+	copy(out, keys)
+	return Filter[K, E]{Keys: out}
+}
+
 // And returns a filter that matches when ALL children match. Short-circuits on the
-// first false for both Raw and Eval stages independently.
+// first false for both Raw and Eval stages independently. Keys propagate when
+// exactly one child is bounded: the result inherits that child's Keys and the
+// other children's Eval / Raw become post-filters on the multi-get fast path.
+// When two or more children are bounded, the result drops Keys and falls back
+// to a full scan with the AND'd Eval evaluated per row — composing two bounded
+// children at the same level is rare in practice (callers concatenate keys at
+// the call site instead), so the optimization isn't worth the cost of
+// constraining K to comparable here.
 func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
+	if len(filters) == 1 {
+		return filters[0]
+	}
 	f := Filter[K, E]{
 		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
@@ -69,14 +104,23 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 			return true, nil
 		}
 	}
+	f.Keys = singleBoundedKeys(filters)
 	return f
 }
 
 // Or returns a filter that matches when ANY child matches. Short-circuits on
 // the first true. Raw pre-screening is composed only when every child is
 // raw-only (Raw set, Eval nil); a single non-raw child forces a full decode
-// of every entry, with raw-only children evaluated at decode time.
+// of every entry, with raw-only children evaluated at decode time. Or always
+// drops Keys: unioning bounded children would require equality on K (i.e.
+// constraining K to comparable), and the case where every child is bounded
+// is rare enough that the simpler full-scan fallback is preferable. When
+// index-backed filters land and resolve to bounded Keys at query time, the
+// resolver itself can union with comparable K it owns.
 func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
+	if len(filters) == 1 {
+		return filters[0]
+	}
 	f := Filter[K, E]{
 		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
 			for _, f := range filters {
@@ -113,6 +157,11 @@ func Or[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 // Not returns a filter that inverts the child. When the child is raw-only,
 // Not composes an inverted Raw so the result still pre-screens before
 // decoding; otherwise Not falls back to evaluating the child at decode time.
+// Not always drops Keys: inverting a key set requires the universe of all
+// keys, which the filter doesn't have, so the inverted filter falls through
+// to a full scan with the negated Eval evaluated per row. A child with only
+// Keys (no Eval / Raw) gets a synthesized Eval that checks key membership
+// before negation, so Not(MatchKeys(...)) still produces correct results.
 func Not[K Key, E Entry[K]](f Filter[K, E]) Filter[K, E] {
 	out := Filter[K, E]{
 		Eval: func(ctx Context, e *E, raw []byte) (bool, error) {
@@ -139,6 +188,25 @@ func allRawOnly[K Key, E Entry[K]](filters []Filter[K, E]) bool {
 		}
 	}
 	return true
+}
+
+// singleBoundedKeys returns the Keys of the unique bounded child if exactly
+// one child has Keys != nil; returns nil otherwise. The result is the
+// caller's storage — callers must not mutate it.
+func singleBoundedKeys[K Key, E Entry[K]](filters []Filter[K, E]) []K {
+	var out []K
+	count := 0
+	for _, f := range filters {
+		if f.Keys == nil {
+			continue
+		}
+		count++
+		if count > 1 {
+			return nil
+		}
+		out = f.Keys
+	}
+	return out
 }
 
 // evalChild runs a child's Eval if set, else its Raw against raw bytes. A

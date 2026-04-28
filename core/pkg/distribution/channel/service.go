@@ -179,7 +179,7 @@ func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
 		return key.String()
 	}
 	var ch Channel
-	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	if err := svc.NewRetrieve().Where(MatchKeys(key)).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

@@ -13,7 +13,6 @@ package gorp
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
@@ -35,7 +34,6 @@ type Retrieve[K Key, E Entry[K]] struct {
 	entries    *Entries[K, E]
 	limit      int
 	offset     int
-	keys       *[]K
 	prefix     []byte
 	filter     *Filter[K, E]
 	validators []Validator[K, E]
@@ -49,9 +47,10 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 // GetEntries returns the entries bound to the query.
 func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
 
-// Where adds the provided filters to the query, ANDing them with any existing filter.
-// If filtering by the key of the Entry, use the far more efficient WhereKeys method
-// instead.
+// Where adds the provided filters to the query, ANDing them with any existing
+// filter. To restrict by primary key, compose MatchKeys into the Where clause
+// (e.g. r.Where(MatchKeys(1, 2, 3))) — the resolved filter's Keys field is
+// what dispatches Exec to the multi-get fast path.
 func (r Retrieve[K, E]) Where(filters ...Filter[K, E]) Retrieve[K, E] {
 	combined := And(filters...)
 	if r.filter != nil {
@@ -67,19 +66,26 @@ func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 // HasOffset returns true if an offset was set on the query.
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
-// HasWhereKeys returns true if WhereKeys was called on the query.
-func (r Retrieve[K, E]) HasWhereKeys() bool { return r.keys != nil }
-
-// GetWhereKeys returns the keys set by WhereKeys, or nil if not set.
-func (r Retrieve[K, E]) GetWhereKeys() []K {
-	if r.keys != nil {
-		return *r.keys
-	}
-	return nil
-}
-
 // HasFilters returns true if any Where filters were added to the query.
 func (r Retrieve[K, E]) HasFilters() bool { return r.filter != nil }
+
+// HasFilterKeys returns true if the resolved filter is bounded by a primary
+// key set (i.e. Where(MatchKeys(...)) was called, possibly composed with
+// other filters under And). Routing layers that fan out by key set use this
+// to decide whether to read GetFilterKeys for sharded dispatch.
+func (r Retrieve[K, E]) HasFilterKeys() bool {
+	return r.filter != nil && r.filter.Keys != nil
+}
+
+// GetFilterKeys returns the resolved filter's primary key set, or nil if the
+// query is not bounded by keys. Mutating the returned slice mutates the
+// underlying filter.
+func (r Retrieve[K, E]) GetFilterKeys() []K {
+	if r.filter == nil {
+		return nil
+	}
+	return r.filter.Keys
+}
 
 // WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
@@ -131,18 +137,6 @@ func (r Retrieve[K, E]) runValidators(ctx Context, entries []E) error {
 	return nil
 }
 
-// WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
-// this lookup is substantially faster than a general Where query. If called in
-// conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
-// to WhereKeys will append the keys to the existing set.
-func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
-	if r.keys == nil {
-		r.keys = new([]K)
-	}
-	*r.keys = append(*r.keys, keys...)
-	return r
-}
-
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
@@ -158,27 +152,51 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	return r
 }
 
-// Exec executes the Params against the provided Writer. If the WhereKeys method is set on
-// the query, Retrieve will return a query.ErrNotFound  error if ANY of the keys do not
-// exist in the database. If Where is set on the query, Retrieve will return a query.ErrNotFound
-// if NO keys pass the Where filter.
-func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("Retriever.Exec", tx)
-	f := lo.Ternary(r.HasWhereKeys(), r.execKeys, r.execFilter)
-	return f(ctx, tx)
+// isBareKeys reports whether the resolved filter is keys-only (Keys set with
+// no Eval / Raw post-filter). When true, "key X requested but missing" is
+// unambiguous — there is no other filter that could have excluded a present
+// entry — so Exec applies the strict ErrNotFound semantic in that case.
+// Composing any post-filter (e.g. Where(MatchKeys(...), MatchNames(...))) is
+// enough to drop the strict semantic, since a missing key result could mean
+// either "not in storage" or "filtered out".
+func (r Retrieve[K, E]) isBareKeys() bool {
+	return r.filter != nil &&
+		r.filter.Keys != nil &&
+		r.filter.Eval == nil &&
+		r.filter.Raw == nil
 }
 
-// Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
-// set on the query, Exists will return true if ANY of the keys exist in the database. If
-// Where is set on the query, Exists will return true if ANY keys pass the Where filter.
+// Exec executes the Params against the provided Writer. If Where(MatchKeys(...))
+// is the only filter on the query, Retrieve will return a query.ErrNotFound
+// error if ANY of the keys do not exist in the database. If additional filters
+// compose with the keys (e.g. Where(MatchKeys(...), MatchNames(...))), missing
+// keys are no longer unambiguous and ErrNotFound is suppressed; an empty
+// result with a single-entry binding still surfaces ErrNotFound through
+// execFilter's existing path.
+func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Retriever.Exec", tx)
+	if r.HasFilterKeys() {
+		return r.execKeys(ctx, tx)
+	}
+	return r.execFilter(ctx, tx)
+}
+
+// Exists checks whether records matching the query exist in the DB. If the
+// resolved filter is bounded by primary keys, Exists returns true if ANY of
+// those keys exist in the database (subject to any composed post-filter).
+// Otherwise Exists returns true if any entry passes the Where filter.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
-	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.keys))
+	if r.HasFilterKeys() {
+		keys := r.filter.Keys
+		e := make([]E, 0, len(keys))
 		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 			return false, err
 		}
-		return len(e) == len(*r.keys), nil
+		if r.isBareKeys() {
+			return len(e) == len(keys), nil
+		}
+		return len(e) > 0, nil
 	}
 	e := make([]E, 0, 1)
 	r.entries = multipleEntries(&e)
@@ -188,13 +206,14 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	return len(e) > 0, nil
 }
 
-// Count returns the number of records matching the query. If the WhereKeys method is
-// set on the query, Count will return the number of existing keys. If Where is set
-// on the query, Count will return the number of records that pass the Where filter.
+// Count returns the number of records matching the query. If the resolved
+// filter is bounded by primary keys, Count returns the number of those keys
+// that exist (and pass any composed post-filter). Otherwise Count returns
+// the number of records that pass the Where filter.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
-	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.keys))
+	if r.HasFilterKeys() {
+		e := make([]E, 0, len(r.filter.Keys))
 		r.entries = multipleEntries(&e)
 		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 			return 0, err
@@ -263,9 +282,10 @@ func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
 }
 
 func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
+	keys := r.filter.Keys
 	var (
 		reader                   = WrapReader[K, E](tx)
-		keysResult, raws, getErr = reader.getMany(ctx, *r.keys)
+		keysResult, raws, getErr = reader.getMany(ctx, keys)
 		toReplace                = make([]E, 0, len(keysResult))
 		validCount               int
 		gorpCtx                  = Context{Context: ctx, Tx: tx}
@@ -291,7 +311,11 @@ func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(toReplace)
-	return errors.Join(r.runValidators(gorpCtx, toReplace), getErr)
+	vErr := r.runValidators(gorpCtx, toReplace)
+	if r.isBareKeys() {
+		return errors.Join(vErr, getErr)
+	}
+	return vErr
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {

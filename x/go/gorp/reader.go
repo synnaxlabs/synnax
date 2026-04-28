@@ -10,6 +10,7 @@
 package gorp
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -46,16 +47,21 @@ func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 }
 
 // get returns an entry with a copy of its raw bytes that outlives the
-// transaction handle.
+// transaction handle. On any error, returns zero values so callers cannot
+// accidentally use a partially decoded entry or its raw bytes.
 func (r Reader[K, E]) get(ctx context.Context, key K) (E, []byte, error) {
-	var e E
+	var zero E
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
-		return e, nil, err
+		return zero, nil, err
 	}
-	raw := append([]byte(nil), b...)
-	err = r.tx.Decode(ctx, b, &e)
-	return e, raw, errors.Combine(err, closer.Close())
+	raw := bytes.Clone(b)
+	var e E
+	err = errors.Combine(r.tx.Decode(ctx, b, &e), closer.Close())
+	if err != nil {
+		return zero, nil, err
+	}
+	return e, raw, nil
 }
 
 // GetMany retrieves isMultiple entries from the database. Entries that are not

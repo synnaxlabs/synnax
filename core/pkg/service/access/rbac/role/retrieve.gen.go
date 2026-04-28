@@ -56,10 +56,14 @@ func Not(f Filter) Filter {
 	return gorp.NotBound[Retrieve, Key, Role](f)
 }
 
-// WhereKeys filters for roles whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to roles whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Role] {
+		return gorp.MatchKeys[Key, Role](keys...)
+	}
 }
 
 // MatchNames returns a filter for roles whose Name matches any of the provided values.

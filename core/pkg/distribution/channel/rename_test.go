@@ -43,7 +43,7 @@ var _ = Describe("Rename", Ordered, func() {
 				Expect(mockCluster.Nodes[1].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(mockCluster.Nodes[1].Channel.NewRetrieve().
-					WhereKeys(ch.Key()).
+					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(resCh.Name).To(Equal(name))
@@ -56,7 +56,7 @@ var _ = Describe("Rename", Ordered, func() {
 				Expect(mockCluster.Nodes[2].Channel.Rename(ctx, ch.Key(), name, false)).To(Succeed())
 				var resCh channel.Channel
 				Expect(mockCluster.Nodes[2].Channel.NewRetrieve().
-					WhereKeys(ch.Key()).
+					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
 				Expect(resCh.Name).To(Equal(name))
@@ -110,7 +110,7 @@ var _ = Describe("Rename", Ordered, func() {
 				false,
 			)).To(Succeed())
 			var resChannels []channel.Channel
-			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(keys...).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
+			Expect(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&resChannels).Exec(ctx, nil)).To(Succeed())
 			Expect(channel.KeysFromChannels(resChannels)).To(Equal(keys))
 			Expect(resChannels[0].Name).To(Equal(names[0]))
 			Expect(resChannels[1].Name).To(Equal(names[1]))

@@ -154,7 +154,7 @@ var _ = Describe("Limit", Ordered, func() {
 
 		// Retrieve a specific channel by name
 		var singleChannel channel.Channel
-		Expect(retrieve.WhereKeys(createdChannels[0].Key()).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
+		Expect(retrieve.Where(channel.MatchKeys(createdChannels[0].Key())).Entry(&singleChannel).Exec(ctx, nil)).To(Succeed())
 		Expect(singleChannel.Name).To(Equal(createdChannels[0].Name))
 	})
 	It("Should not edit the channel limit if a deletion fails in TS", func(ctx SpecContext) {

@@ -113,7 +113,7 @@ func (s *Service) ChangeUsername(ctx context.Context, req ChangeUsernameRequest)
 		return types.Nil{}, errors.New("you cannot change your own username through the user service")
 	}
 	var u user.User
-	if err := s.internal.NewRetrieve().WhereKeys(req.Key).Entry(&u).Exec(ctx, nil); err != nil {
+	if err := s.internal.NewRetrieve().Where(user.MatchKeys(req.Key)).Entry(&u).Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
 	}
 	if u.Username == req.Username {
@@ -174,7 +174,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (RetrieveRe
 	q := s.internal.NewRetrieve()
 
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(user.MatchKeys(req.Keys...))
 	}
 	if len(req.Usernames) > 0 {
 		q = q.Where(user.MatchUsernames(req.Usernames...))
@@ -211,7 +211,7 @@ func (s *Service) Delete(ctx context.Context, req DeleteRequest) (types.Nil, err
 	users := make([]user.User, 0, len(req.Keys))
 	for _, key := range req.Keys {
 		var u user.User
-		err := s.internal.NewRetrieve().WhereKeys(key).Entry(&u).Exec(ctx, nil)
+		err := s.internal.NewRetrieve().Where(user.MatchKeys(key)).Entry(&u).Exec(ctx, nil)
 		if err != nil && !errors.Is(err, query.ErrNotFound) {
 			return types.Nil{}, err
 		}

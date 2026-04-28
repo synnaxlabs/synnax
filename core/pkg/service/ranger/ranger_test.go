@@ -266,7 +266,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&retrieveR).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieveR.Key).To(Equal(r.Key))
 		})
 		It("Should retrieve a range by its name", func(ctx SpecContext) {
@@ -500,7 +500,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).Create(ctx, r)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, r.Key)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
 		It("Should delete all child ranges when a range is deleted", func(ctx SpecContext) {
 			parent := ranger.Range{
@@ -521,7 +521,7 @@ var _ = Describe("Ranger", Ordered, func() {
 			Expect(svc.NewWriter(tx).CreateWithParent(ctx, &r, parent.OntologyID())).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, parent.Key)).To(Succeed())
 			var retrieveR ranger.Range
-			Expect(svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(svc.NewRetrieve().Where(ranger.MatchKeys(r.Key)).Entry(&retrieveR).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

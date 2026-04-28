@@ -375,7 +375,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
 				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(3))
@@ -467,7 +467,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(idGT(3)).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[4], entries[5]}))
@@ -477,7 +477,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(gorp.Or(idEQ(1), idEQ(5))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[5]}))
@@ -487,7 +487,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(gorp.Not(idEQ(3))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2], entries[4], entries[5]}))
@@ -537,11 +537,11 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.Or(idEQ(0), idEQ(9))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(0).Exists(ctx, tx)).To(BeFalse())
+				Where(gorp.MatchKeys[int32, entry](0)).Exists(ctx, tx)).To(BeFalse())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(9).Exists(ctx, tx)).To(BeFalse())
+				Where(gorp.MatchKeys[int32, entry](9)).Exists(ctx, tx)).To(BeFalse())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(5).Exists(ctx, tx)).To(BeTrue())
+				Where(gorp.MatchKeys[int32, entry](5)).Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It("Should delete entries matching a Not filter", func(ctx SpecContext) {

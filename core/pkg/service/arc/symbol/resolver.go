@@ -44,7 +44,7 @@ func (r *channelResolver) Resolve(ctx context.Context, name string) (arc.Symbol,
 	ch := channel.Channel{}
 	q := r.channelSvc.NewRetrieve().Entry(&ch)
 	if err == nil {
-		q = q.WhereKeys(channel.Key(key))
+		q = q.Where(channel.MatchKeys(channel.Key(key)))
 	} else {
 		q = q.Where(channel.MatchNames(name))
 	}

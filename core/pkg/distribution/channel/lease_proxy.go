@@ -216,8 +216,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Filter out zero keys (channels that don't exist yet)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
-		if err := lp.table.NewUpdate().
-			WhereKeys(existingKeys...).
+		if err := lp.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
 					idx := lo.IndexOf(keys, c.Key())
@@ -329,8 +328,7 @@ func (lp *leaseProxy) createAndUpdateFreeVirtual(
 	// Update existing calculated channels with their new LocalIndex values
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
-			if err := lp.table.NewUpdate().
-				WhereKeys(ch.Key()).
+			if err := lp.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](ch.Key())).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
 					return c
@@ -589,8 +587,7 @@ func (lp *leaseProxy) deleteByName(ctx context.Context, tx gorp.Tx, names []stri
 func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
-		if err := lp.table.NewRetrieve().
-			WhereKeys(keys...).
+		if err := lp.table.NewRetrieve().Where(gorp.MatchKeys[Key, Channel](keys...)).
 			Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
 				return c.Internal, nil
 			})).
@@ -627,11 +624,11 @@ func (lp *leaseProxy) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIn
 }
 
 func (lp *leaseProxy) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return lp.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
+	return lp.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](channels...)).Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := lp.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+	if err := lp.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](keys...)).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := lp.maybeDeleteResources(ctx, tx, keys); err != nil {
@@ -747,15 +744,13 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 }
 
 func (lp *leaseProxy) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return lp.table.NewUpdate().
-		WhereKeys(channels...).
+	return lp.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](channels...)).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
 func (lp *leaseProxy) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
-	if err := lp.table.NewUpdate().
-		WhereKeys(keys...).
+	if err := lp.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {
 		return err

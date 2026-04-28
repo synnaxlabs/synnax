@@ -105,12 +105,6 @@ func (r Retrieve[D]) Entries(s *[]Status[D]) Retrieve[D] {
 	return r
 }
 
-// WhereKeys filters for statuses whose Key attribute matches the provided key.
-func (r Retrieve[D]) WhereKeys(keys ...string) Retrieve[D] {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
 // Where applies the provided filters to the query, binding each filter to the
 // Retrieve so service-bound filters can read from r.label, r.search, etc.
 func (r Retrieve[D]) Where(filters ...Filter[D]) Retrieve[D] {
@@ -120,6 +114,14 @@ func (r Retrieve[D]) Where(filters ...Filter[D]) Retrieve[D] {
 	}
 	r.gorp = r.gorp.Where(bound...)
 	return r
+}
+
+// MatchKeys returns a filter that restricts results to statuses whose key
+// matches any of the provided values.
+func MatchKeys[D any](keys ...string) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.MatchKeys[string, Status[D]](keys...)
+	}
 }
 
 // MatchKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
@@ -168,7 +170,7 @@ func (r Retrieve[D]) Exec(ctx context.Context, tx gorp.Tx) error {
 			return err
 		}
 		keys := KeysFromOntologyIDs(ids)
-		r = r.WhereKeys(keys...)
+		r = r.Where(MatchKeys[D](keys...))
 	}
 	return r.gorp.Exec(ctx, tx)
 }

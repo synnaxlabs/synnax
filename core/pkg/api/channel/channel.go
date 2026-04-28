@@ -167,7 +167,7 @@ func (s *Service) Retrieve(
 
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil {
-		err := s.ranger.NewRetrieve().WhereKeys(req.RangeKey).Entry(&resRng).Exec(ctx, nil)
+		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, nil)
 		isNotFound := errors.Is(err, query.ErrNotFound)
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
@@ -180,14 +180,14 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
+			err = s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
 		q = q.Where(channel.MatchNames(req.Names...))

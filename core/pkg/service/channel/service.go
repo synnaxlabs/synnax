@@ -38,6 +38,7 @@ var (
 	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
 	ParseKey                                    = distchannel.ParseKey
 	OntologyID                                  = distchannel.OntologyID
+	MatchKeys                                   = distchannel.MatchKeys
 )
 
 // ServiceConfig configures a channel Service.
