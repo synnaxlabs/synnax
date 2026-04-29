@@ -81,13 +81,13 @@ std::vector<std::shared_ptr<stl::Module>> build_stl_modules(
     const std::shared_ptr<stl::stateful::Variables> &var_st
 ) {
     return {
-        std::make_shared<stl::channel::WasmModule>(channel_st, str_st),
-        std::make_shared<stl::stateful::WasmModule>(var_st, series_st, str_st),
-        std::make_shared<stl::series::WasmModule>(series_st),
-        std::make_shared<stl::str::WasmModule>(str_st),
+        std::make_shared<stl::channel::Module>(channel_st, str_st),
+        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::series::Module>(series_st),
+        std::make_shared<stl::str::Module>(str_st),
         std::make_shared<stl::math::Module>(),
-        std::make_shared<stl::time::WasmModule>(),
-        std::make_shared<stl::error::WasmModule>(arc::runtime::errors::noop_handler),
+        std::make_shared<stl::time::Module>(),
+        std::make_shared<stl::error::Module>(arc::runtime::errors::noop_handler),
     };
 }
 
@@ -1803,7 +1803,7 @@ func qstr_len(s str) i64 {
     EXPECT_EQ(output->at<int64_t>(2), 0); // ""
 }
 
-/// @brief Node converts string channel inputs to handles for qualified string.concat().
+/// @brief Node converts string channel inputs to handles for + operator.
 TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     const auto client = new_test_client();
 
@@ -1845,7 +1845,7 @@ TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
 
     const std::string source = R"(
 func concat_len(a str, b str) i64 {
-    return len(string.concat(a, b))
+    return len(a + b)
 }
 )" + input_a_name + ", " + input_b_name +
                                " -> concat_len{} -> " + output_name;
@@ -1937,107 +1937,83 @@ func str_len() i64 { return len("hello") })arc");
     EXPECT_EQ(v, 5);
 }
 
-/// @brief string.concat() with len() via qualified syntax.
-TEST(QualifiedCallTest, StringConcatLiteral) {
+/// @brief ^ operator (const, const) with i64 literals.
+TEST(BinaryOpTest, PowConstConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(client, R"arc(
-func concat_len() i64 { return len(string.concat("ab", "cd")) })arc");
-    EXPECT_EQ(v, 4);
-}
-
-/// @brief string.equal() returns 1 for identical strings.
-TEST(QualifiedCallTest, StringEqualTrue) {
-    const auto client = new_test_client();
-    const auto v = call_func<int32_t>(client, R"arc(
-func str_eq() i32 { return string.equal("abc", "abc") })arc");
-    EXPECT_EQ(v, 1);
-}
-
-/// @brief string.equal() returns 0 for different strings.
-TEST(QualifiedCallTest, StringEqualFalse) {
-    const auto client = new_test_client();
-    const auto v = call_func<int32_t>(client, R"arc(
-func str_neq() i32 { return string.equal("abc", "def") })arc");
-    EXPECT_EQ(v, 0);
-}
-
-/// @brief math.pow(const, const) with i64 literals.
-TEST(QualifiedCallTest, MathPowConstConstI64) {
-    const auto client = new_test_client();
-    const auto v = call_func<int64_t>(client, R"arc(
-func pow_ii() i64 { return math.pow(2, 10) })arc");
+func pow_ii() i64 { return 2 ^ 10 })arc");
     EXPECT_EQ(v, 1024);
 }
 
-/// @brief math.pow(const, const) with f64 literals.
-TEST(QualifiedCallTest, MathPowConstConstF64) {
+/// @brief ^ operator (const, const) with f64 literals.
+TEST(BinaryOpTest, PowConstConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(client, R"arc(
-func pow_ff() f64 { return math.pow(2.0, 3.0) })arc");
+func pow_ff() f64 { return 2.0 ^ 3.0 })arc");
     EXPECT_DOUBLE_EQ(v, 8.0);
 }
 
-/// @brief math.pow(chan, const) with f64 channel base.
-TEST(QualifiedCallTest, MathPowChanConstF64) {
+/// @brief ^ operator (chan, const) with f64 channel base.
+TEST(BinaryOpTest, PowChanConstF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func squared(x f64) f64 { return math.pow(x, 2) })arc",
+        R"arc(func squared(x f64) f64 { return x ^ 2 })arc",
         {3.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief math.pow(chan, const) with i64 channel base.
-TEST(QualifiedCallTest, MathPowChanConstI64) {
+/// @brief ^ operator (chan, const) with i64 channel base.
+TEST(BinaryOpTest, PowChanConstI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func cubed(x i64) i64 { return math.pow(x, 3) })arc",
+        R"arc(func cubed(x i64) i64 { return x ^ 3 })arc",
         {static_cast<int64_t>(5)}
     );
     EXPECT_EQ(v, 125);
 }
 
-/// @brief math.pow(const, chan) with f64 channel exponent.
-TEST(QualifiedCallTest, MathPowConstChanF64) {
+/// @brief ^ operator (const, chan) with f64 channel exponent.
+TEST(BinaryOpTest, PowConstChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func base3(exp f64) f64 { return math.pow(3.0, exp) })arc",
+        R"arc(func base3(exp f64) f64 { return 3.0 ^ exp })arc",
         {2.0}
     );
     EXPECT_DOUBLE_EQ(v, 9.0);
 }
 
-/// @brief math.pow(const, chan) with i64 channel exponent.
-TEST(QualifiedCallTest, MathPowConstChanI64) {
+/// @brief ^ operator (const, chan) with i64 channel exponent.
+TEST(BinaryOpTest, PowConstChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func base2(exp i64) i64 { return math.pow(2, exp) })arc",
+        R"arc(func base2(exp i64) i64 { return 2 ^ exp })arc",
         {static_cast<int64_t>(4)}
     );
     EXPECT_EQ(v, 16);
 }
 
-/// @brief math.pow(chan, chan) with f64 channels.
-TEST(QualifiedCallTest, MathPowChanChanF64) {
+/// @brief ^ operator (chan, chan) with f64 channels.
+TEST(BinaryOpTest, PowChanChanF64) {
     const auto client = new_test_client();
     const auto v = call_func<double>(
         client,
-        R"arc(func pow_ff(base f64, exp f64) f64 { return math.pow(base, exp) })arc",
+        R"arc(func pow_ff(base f64, exp f64) f64 { return base ^ exp })arc",
         {4.0, 0.5}
     );
     EXPECT_DOUBLE_EQ(v, 2.0);
 }
 
-/// @brief math.pow(chan, chan) with i64 channels.
-TEST(QualifiedCallTest, MathPowChanChanI64) {
+/// @brief ^ operator (chan, chan) with i64 channels.
+TEST(BinaryOpTest, PowChanChanI64) {
     const auto client = new_test_client();
     const auto v = call_func<int64_t>(
         client,
-        R"arc(func pow_ii(base i64, exp i64) i64 { return math.pow(base, exp) })arc",
+        R"arc(func pow_ii(base i64, exp i64) i64 { return base ^ exp })arc",
         {static_cast<int64_t>(2), static_cast<int64_t>(10)}
     );
     EXPECT_EQ(v, 1024);

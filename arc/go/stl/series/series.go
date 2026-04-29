@@ -85,23 +85,8 @@ var hostSymbols = symbol.MapResolver{
 	"slice":             hostSym("slice", polyFunc(types.Params{{Name: "handle", Type: i32}, {Name: "start", Type: i32}, {Name: "end", Type: i32}}, types.Params{{Name: "result", Type: i32}})),
 }
 
-// moduleMembers contains symbols accessible via the "series" module namespace.
-var moduleMembers = symbol.MapResolver{
-	"len": {
-		Name:     "len",
-		Kind:     symbol.KindFunction,
-		Exec:     symbol.ExecWASM,
-		Internal: true,
-		Type: types.Function(types.FunctionProperties{
-			Inputs:  types.Params{{Name: "handle", Type: types.I32()}},
-			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-		}),
-	},
-}
-
 var SymbolResolver = symbol.CompoundResolver{
 	userSymbols,
-	&symbol.ModuleResolver{Name: "series", Members: moduleMembers},
 	&symbol.ModuleResolver{Name: "series", Members: hostSymbols},
 }
 

@@ -43,18 +43,6 @@ func intTypeDoc(name, desc, rng string) string {
 	).Render()
 }
 
-func binaryMathFlowDoc(name, desc string) string {
-	return doc.New(
-		doc.TitleWithKind(name, "Function"),
-		doc.Paragraph(desc),
-		doc.Divider(),
-		arcCode(fmt.Sprintf(
-			"sensor_a -> %s{} -> output\nsensor_b -> %s{}.rhs",
-			name, name,
-		)),
-	).Render()
-}
-
 func runningStatDoc(name, stat string) string {
 	return doc.New(
 		doc.TitleWithKind(name, "Function"),
@@ -362,20 +350,19 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		arcCode("sensor -> math.avg{} -> output\nreset_signal -> math.avg{}.reset"),
 	).Render(),
-	"math.min":          runningStatDoc("math.min", "minimum"),
-	"math.max":          runningStatDoc("math.max", "maximum"),
-	"math.derivative":   simpleFuncDoc("math.derivative", "Computes the rate of change (derivative) of input values. Output is always f64.", "sensor -> math.derivative{} -> rate_output"),
-	"math.pow":          simpleFuncDoc("math.pow", "Raises a base to an exponent. Available in func blocks only (WASM).", "result := math.pow(base, exp)"),
-	"math.add":          binaryMathFlowDoc("math.add", "Adds two numeric inputs element-wise."),
-	"math.subtract":     binaryMathFlowDoc("math.subtract", "Subtracts the right input from the left input element-wise."),
-	"math.multiply":     binaryMathFlowDoc("math.multiply", "Multiplies two numeric inputs element-wise."),
-	"math.divide":       binaryMathFlowDoc("math.divide", "Divides the left input by the right input element-wise."),
-	"math.mod":          binaryMathFlowDoc("math.mod", "Computes the remainder of dividing the left input by the right input element-wise."),
-	"math.neg":          simpleFuncDoc("math.neg", "Negates numeric input values element-wise.", "sensor -> math.neg{} -> output"),
-	"selector.select":   simpleFuncDoc("selector.select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
-	"stable.stable_for": simpleFuncDoc("stable.stable_for", "Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.", "sensor -> stable.stable_for{duration=5s} -> output"),
-	"len":               simpleFuncDoc("len", "Returns the length of a series or string as i64.", "length := len(data)"),
-	"now":               simpleFuncDoc("now", "Returns the current timestamp.", "time := now()"),
+	"math.min":        runningStatDoc("math.min", "minimum"),
+	"math.max":        runningStatDoc("math.max", "maximum"),
+	"math.derivative": simpleFuncDoc("math.derivative", "Computes the rate of change (derivative) of input values. Output is always f64.", "sensor -> math.derivative{} -> rate_output"),
+	"selector.select": simpleFuncDoc("selector.select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	"stable.for":      simpleFuncDoc("stable.for", "Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.", "sensor -> stable.for{duration=5s} -> output"),
+	"stable_for":      deprecatedDoc("stable_for", "stable.for{}", "sensor -> stable.for{duration=5s} -> output"),
+	"len":             simpleFuncDoc("len", "Returns the length of a series or string as i64.", "length := len(data)"),
+	"time.now":        simpleFuncDoc("time.now", "Returns the current timestamp.", "t := time.now()"),
+	"now":             deprecatedDoc("now", "time.now()", "t := time.now()"),
+	"time.interval":   simpleFuncDoc("time.interval", "Fires repeatedly at a specified period.", "time.interval{period=1s} -> tick"),
+	"interval":        deprecatedDoc("interval", "time.interval{}", "time.interval{period=1s} -> tick"),
+	"time.wait":       simpleFuncDoc("time.wait", "Fires once after a specified duration.", "time.wait{duration=500ms} -> done"),
+	"wait":            deprecatedDoc("wait", "time.wait{}", "time.wait{duration=500ms} -> done"),
 }
 
 func (s *Server) getOperatorAtPosition(content string, pos protocol.Position) string {

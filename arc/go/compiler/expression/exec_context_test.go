@@ -37,9 +37,7 @@ var _ = Describe("ExecContext", func() {
 			Exec: symbol.ExecFlow,
 		}))
 		expr := MustSucceed(parser.ParseExpression("avg(10)"))
-		_, err := expression.Compile(context.Child(ctx, expr))
-		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("cannot be called inside a func block"))
+		Expect(expression.Compile(context.Child(ctx, expr))).Error().To(MatchError(ContainSubstring("cannot be called inside a func block")))
 	})
 
 	It("Should allow a WASM function in a func block", func(bCtx SpecContext) {
@@ -77,55 +75,15 @@ var _ = Describe("ExecContext", func() {
 	})
 })
 
-var _ = Describe("SignedNumericConstraint Promotion", func() {
-	It("Should promote u8 to i16 for math.neg", func(bCtx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			symbol.MapResolver{
-				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U8(), ID: 0},
-			},
-			stl.SymbolResolver,
-		}
-		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
-		Expect(exprType).To(Equal(types.I16()))
-	})
-	It("Should promote u16 to i32 for math.neg", func(bCtx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			symbol.MapResolver{
-				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U16(), ID: 0},
-			},
-			stl.SymbolResolver,
-		}
-		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
-		Expect(exprType).To(Equal(types.I32()))
-	})
-	It("Should promote u32 to i64 for math.neg", func(bCtx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			symbol.MapResolver{
-				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U32(), ID: 0},
-			},
-			stl.SymbolResolver,
-		}
-		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
-		Expect(exprType).To(Equal(types.I64()))
-	})
-	It("Should promote u64 to f64 for math.neg", func(bCtx SpecContext) {
-		resolver := symbol.CompoundResolver{
-			symbol.MapResolver{
-				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.U64(), ID: 0},
-			},
-			stl.SymbolResolver,
-		}
-		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
-		Expect(exprType).To(Equal(types.F64()))
-	})
-	It("Should not promote signed types for math.neg", func(bCtx SpecContext) {
+var _ = Describe("Unary Minus", func() {
+	It("Should preserve signed types for unary minus", func(bCtx SpecContext) {
 		resolver := symbol.CompoundResolver{
 			symbol.MapResolver{
 				"x": {Name: "x", Kind: symbol.KindVariable, Type: types.I32(), ID: 0},
 			},
 			stl.SymbolResolver,
 		}
-		_, exprType := compileWithAnalyzer(bCtx, "math.neg(x)", resolver)
+		_, exprType := compileWithAnalyzer(bCtx, "-x", resolver)
 		Expect(exprType).To(Equal(types.I32()))
 	})
 })

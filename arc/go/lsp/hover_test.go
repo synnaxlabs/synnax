@@ -147,53 +147,6 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("running average"))
 		})
 
-		It("should provide hover for 'math.pow' function", func(ctx SpecContext) {
-			content := "result := math.pow(2, 3)"
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### math.pow"))
-		})
-
-		It("should provide hover for 'math.add' function", func(ctx SpecContext) {
-			content := "sensor_a -> math.add{} -> output\nsensor_b -> math.add{}.rhs"
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### math.add"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Adds two numeric"))
-		})
-
-		It("should provide hover for 'math.neg' function", func(ctx SpecContext) {
-			content := "sensor -> math.neg{} -> output"
-			OpenArcDocument(server, ctx, uri, content)
-
-			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
-				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
-					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
-				},
-			}))
-
-			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### math.neg"))
-			Expect(hover.Contents.Value).To(ContainSubstring("Negates numeric"))
-		})
-
 		It("should provide hover for 'selector.select' function", func(ctx SpecContext) {
 			content := "flag -> selector.select{} -> output"
 			OpenArcDocument(server, ctx, uri, content)
@@ -210,8 +163,8 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("Routes input values"))
 		})
 
-		It("should provide hover for 'stable.stable_for' function", func(ctx SpecContext) {
-			content := "sensor -> stable.stable_for{duration=5s} -> output"
+		It("should provide hover for 'stable.for' function", func(ctx SpecContext) {
+			content := "sensor -> stable.for{duration=5s} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
@@ -222,7 +175,7 @@ var _ = Describe("Hover", func() {
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.stable_for"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### stable.for"))
 			Expect(hover.Contents.Value).To(ContainSubstring("remained stable"))
 		})
 
@@ -242,20 +195,100 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("status notification"))
 		})
 
-		It("should provide hover for 'now' function", func(ctx SpecContext) {
-			content := "time := now()"
+		It("should provide hover for 'time.now' function", func(ctx SpecContext) {
+			content := "t := time.now()"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 9}, // n|ow
+					Position:     protocol.Position{Line: 0, Character: 11}, // n|ow
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### now"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### time.now"))
 			Expect(hover.Contents.Value).To(ContainSubstring("current timestamp"))
+		})
+
+		It("should provide deprecation hover for bare 'now' function", func(ctx SpecContext) {
+			content := "t := now()"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 6}, // n|ow
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
+			Expect(hover.Contents.Value).To(ContainSubstring("time.now"))
+		})
+
+		It("should provide hover for 'time.interval' function", func(ctx SpecContext) {
+			content := "time.interval{period=100ms}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 7}, // time.i|nterval
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### time.interval"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Fires repeatedly"))
+		})
+
+		It("should provide deprecation hover for bare 'interval' function", func(ctx SpecContext) {
+			content := "interval{period=100ms}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 2}, // i|nterval
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
+			Expect(hover.Contents.Value).To(ContainSubstring("time.interval"))
+		})
+
+		It("should provide hover for 'time.wait' function", func(ctx SpecContext) {
+			content := "time.wait{duration=500ms}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 7}, // time.w|ait
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("#### time.wait"))
+			Expect(hover.Contents.Value).To(ContainSubstring("Fires once"))
+		})
+
+		It("should provide deprecation hover for bare 'wait' function", func(ctx SpecContext) {
+			content := "wait{duration=500ms}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
+				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
+					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
+					Position:     protocol.Position{Line: 0, Character: 2}, // w|ait
+				},
+			}))
+
+			Expect(hover).ToNot(BeNil())
+			Expect(hover.Contents.Value).To(ContainSubstring("deprecated"))
+			Expect(hover.Contents.Value).To(ContainSubstring("time.wait"))
 		})
 	})
 

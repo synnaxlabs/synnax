@@ -982,50 +982,29 @@ var _ = Describe("WASM", func() {
 			}`, stl.SymbolResolver, int32(11)),
 		)
 
-		DescribeTable("qualified string.concat() calls",
-			expectOutput[int32],
-			Entry("two literals", "qconcat_lit", types.I64(), `{
-				return len(string.concat("ab", "cd"))
-			}`, stl.SymbolResolver, int32(4)),
-			Entry("variables", "qconcat_var", types.I64(), `{
-				a str := "hello"
-				b str := " world"
-				return len(string.concat(a, b))
-			}`, stl.SymbolResolver, int32(11)),
-		)
-
-		DescribeTable("qualified string.equal() calls",
-			expectOutput[int32],
-			Entry("equal strings", "qeq_true", types.I32(), `{
-				return string.equal("abc", "abc")
-			}`, stl.SymbolResolver, int32(1)),
-			Entry("unequal strings", "qeq_false", types.I32(), `{
-				return string.equal("abc", "def")
-			}`, stl.SymbolResolver, int32(0)),
-		)
 	})
 
-	Describe("Qualified math.pow()", func() {
+	Describe("^ Operator (math.pow)", func() {
 		DescribeTable("const, const (i64)",
 			expectOutput[int32],
 			Entry("i64 literals", "pow_ii", types.I64(), `{
-				return math.pow(2, 10)
+				return 2 ^ 10
 			}`, stl.SymbolResolver, int32(1024)),
 		)
 
 		DescribeTable("const, const (f64)",
 			expectOutput[float64],
 			Entry("f64 literals", "pow_ff64", types.F64(), `{
-				return math.pow(2.0, 3.0)
+				return 2.0 ^ 3.0
 			}`, stl.SymbolResolver, float64(8.0)),
 			Entry("f64 fractional exp", "pow_ff64_frac", types.F64(), `{
-				return math.pow(9.0, 0.5)
+				return 9.0 ^ 0.5
 			}`, stl.SymbolResolver, float64(3.0)),
 		)
 
 		It("chan, const (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ci", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1041,7 +1020,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, const (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cf", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1057,7 +1036,7 @@ var _ = Describe("WASM", func() {
 
 		It("const, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_ic", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1073,7 +1052,7 @@ var _ = Describe("WASM", func() {
 
 		It("const, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_fc", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1089,7 +1068,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, chan (i64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_i", "base_src", "exp_src", types.I64(), types.I64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1105,7 +1084,7 @@ var _ = Describe("WASM", func() {
 
 		It("chan, chan (f64)", func(ctx SpecContext) {
 			g := binaryOpGraph("pow_cc_f", "base_src", "exp_src", types.F64(), types.F64(),
-				`{ return math.pow(lhs, rhs) }`)
+				`{ return lhs ^ rhs }`)
 			h := newHarness(ctx, g, stl.SymbolResolver)
 			defer h.Close(ctx)
 
@@ -1122,18 +1101,18 @@ var _ = Describe("WASM", func() {
 		})
 	})
 
-	Describe("Qualified math.neg()", func() {
+	Describe("Unary minus", func() {
 		DescribeTable("const",
 			expectOutput[int64],
 			Entry("i64 literal", "neg_i", types.I64(), `{
-				return math.neg(5)
+				return -5
 			}`, stl.SymbolResolver, int64(-5)),
 		)
 
 		DescribeTable("const (f64)",
 			expectOutput[float64],
 			Entry("f64 literal", "neg_f", types.F64(), `{
-				return math.neg(3.5)
+				return -3.5
 			}`, stl.SymbolResolver, float64(-3.5)),
 		)
 
@@ -1144,7 +1123,7 @@ var _ = Describe("WASM", func() {
 						Key:     "neg_c",
 						Inputs:  types.Params{{Name: "val", Type: types.I64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
+						Body:    ir.Body{Raw: `{ return -val }`},
 					},
 					{
 						Key:     "val_src",
@@ -1176,7 +1155,7 @@ var _ = Describe("WASM", func() {
 						Key:     "neg_cf",
 						Inputs:  types.Params{{Name: "val", Type: types.F64()}},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
+						Body:    ir.Body{Raw: `{ return -val }`},
 					},
 					{
 						Key:     "val_src",
@@ -1201,149 +1180,6 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[float64](h.Output("neg_cf", 0))).To(Equal([]float64{-1.5, 2.5, -3.5}))
 		})
 
-		It("chan (u8) promotes to i16", func(ctx SpecContext) {
-			g := arc.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "neg_u8",
-						Inputs:  types.Params{{Name: "val", Type: types.U8()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I16()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
-					},
-					{
-						Key:     "val_src",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
-						Body:    ir.Body{Raw: `{ return 1 }`},
-					},
-				},
-				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_u8", Type: "neg_u8"},
-				},
-				Edges: []graph.Edge{{
-					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "neg_u8", Param: "val"},
-				}},
-			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
-			defer h.Close(ctx)
-			h.SetInput("val_src", 0, telem.NewSeriesV[uint8](5, 10, 200), telem.NewSeriesSecondsTSV(1, 2, 3))
-			changed := h.Execute(ctx, "neg_u8")
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(telem.UnmarshalSeries[int16](h.Output("neg_u8", 0))).To(Equal([]int16{-5, -10, -200}))
-		})
-
-		It("chan (u16) promotes to i32", func(ctx SpecContext) {
-			g := arc.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "neg_u16",
-						Inputs:  types.Params{{Name: "val", Type: types.U16()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
-					},
-					{
-						Key:     "val_src",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U16()}},
-						Body:    ir.Body{Raw: `{ return 1 }`},
-					},
-				},
-				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_u16", Type: "neg_u16"},
-				},
-				Edges: []graph.Edge{{
-					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "neg_u16", Param: "val"},
-				}},
-			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
-			defer h.Close(ctx)
-			h.SetInput("val_src", 0, telem.NewSeriesV[uint16](100, 500, 60000), telem.NewSeriesSecondsTSV(1, 2, 3))
-			changed := h.Execute(ctx, "neg_u16")
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(telem.UnmarshalSeries[int32](h.Output("neg_u16", 0))).To(Equal([]int32{-100, -500, -60000}))
-		})
-
-		It("chan (u32) promotes to i64", func(ctx SpecContext) {
-			g := arc.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "neg_u32",
-						Inputs:  types.Params{{Name: "val", Type: types.U32()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
-					},
-					{
-						Key:     "val_src",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U32()}},
-						Body:    ir.Body{Raw: `{ return 1 }`},
-					},
-				},
-				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_u32", Type: "neg_u32"},
-				},
-				Edges: []graph.Edge{{
-					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "neg_u32", Param: "val"},
-				}},
-			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
-			defer h.Close(ctx)
-			h.SetInput("val_src", 0, telem.NewSeriesV[uint32](1000, 50000, 100000), telem.NewSeriesSecondsTSV(1, 2, 3))
-			changed := h.Execute(ctx, "neg_u32")
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(telem.UnmarshalSeries[int64](h.Output("neg_u32", 0))).To(Equal([]int64{-1000, -50000, -100000}))
-		})
-
-		It("chan (u64) promotes to f64", func(ctx SpecContext) {
-			g := arc.Graph{
-				Functions: []ir.Function{
-					{
-						Key:     "neg_u64",
-						Inputs:  types.Params{{Name: "val", Type: types.U64()}},
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F64()}},
-						Body:    ir.Body{Raw: `{ return math.neg(val) }`},
-					},
-					{
-						Key:     "val_src",
-						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U64()}},
-						Body:    ir.Body{Raw: `{ return 1 }`},
-					},
-				},
-				Nodes: []graph.Node{
-					{Key: "val_src", Type: "val_src"},
-					{Key: "neg_u64", Type: "neg_u64"},
-				},
-				Edges: []graph.Edge{{
-					Source: ir.Handle{Node: "val_src", Param: ir.DefaultOutputParam},
-					Target: ir.Handle{Node: "neg_u64", Param: "val"},
-				}},
-			}
-			h := newHarness(ctx, g, stl.SymbolResolver)
-			defer h.Close(ctx)
-			h.SetInput("val_src", 0, telem.NewSeriesV[uint64](100, 200, 300), telem.NewSeriesSecondsTSV(1, 2, 3))
-			changed := h.Execute(ctx, "neg_u64")
-			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
-			Expect(telem.UnmarshalSeries[float64](h.Output("neg_u64", 0))).To(Equal([]float64{-100, -200, -300}))
-		})
-	})
-
-	Describe("String Function Type Safety", func() {
-		DescribeTable("Should reject non-string arguments to string functions",
-			func(ctx SpecContext, source string) {
-				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
-				_, diagnostics := text.Analyze(ctx, parsedText, stl.SymbolResolver)
-				Expect(diagnostics.Ok()).To(BeFalse())
-			},
-			Entry("string.concat with integer", `
-				func bad() str { return string.concat(1, 2) }
-			`),
-			Entry("string.equal with integer", `
-				func bad() i32 { return string.equal(1, 2) }
-			`),
-		)
 	})
 
 	Describe("String Channel Input", func() {
@@ -1429,7 +1265,7 @@ var _ = Describe("WASM", func() {
 			Expect(telem.UnmarshalSeries[int64](result)).To(Equal([]int64{5, 6, 0}))
 		})
 
-		It("Should convert string channel data to handles for qualified string.concat()", func(ctx SpecContext) {
+		It("Should convert string channel data to handles for + concatenation", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1439,7 +1275,7 @@ var _ = Describe("WASM", func() {
 							{Name: "b", Type: types.String()},
 						},
 						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
-						Body:    ir.Body{Raw: `{ return len(string.concat(a, b)) }`},
+						Body:    ir.Body{Raw: `{ return len(a + b) }`},
 					},
 					{
 						Key:     "src_a",

@@ -81,8 +81,7 @@ var _ = Describe("Node", func() {
 			factory1 := &mockFactory{nodeType: "type1"}
 			factory2 := &mockFactory{nodeType: "type2"}
 			compound := node.CompoundFactory{factory1, factory2}
-			_, err := compound.Create(ctx, newTestConfig(ctx, "unknown"))
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(compound.Create(ctx, newTestConfig(ctx, "unknown"))).Error().To(MatchError(query.ErrNotFound))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 		})
@@ -93,8 +92,7 @@ var _ = Describe("Node", func() {
 			factory2 := &mockFactory{nodeType: "type2", returnError: expectedErr}
 			factory3 := &mockFactory{nodeType: "type3"}
 			compound := node.CompoundFactory{factory1, factory2, factory3}
-			_, err := compound.Create(ctx, newTestConfig(ctx, "type2"))
-			Expect(err).To(MatchError(expectedErr))
+			Expect(compound.Create(ctx, newTestConfig(ctx, "type2"))).Error().To(MatchError(expectedErr))
 			Expect(factory1.createCalled).To(Equal(1))
 			Expect(factory2.createCalled).To(Equal(1))
 			Expect(factory3.createCalled).To(Equal(0))

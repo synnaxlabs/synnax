@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/arc/runtime/scheduler"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
-	stlcontrol "github.com/synnaxlabs/arc/stl/control"
+	stlauthority "github.com/synnaxlabs/arc/stl/authority"
 	stlerrors "github.com/synnaxlabs/arc/stl/errors"
 	stlmath "github.com/synnaxlabs/arc/stl/math"
 	stlop "github.com/synnaxlabs/arc/stl/op"
@@ -101,7 +101,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 	drt.state.channel = channel.NewProgramState(stateCfg.ChannelDigests)
 	drt.state.series = series.NewProgramState()
 	drt.state.strings = stlstrings.NewProgramState()
-	drt.state.control = &stlcontrol.ProgramState{}
+	drt.state.authority = &stlauthority.ProgramState{}
 
 	var closers xio.MultiCloser
 	defer func() {
@@ -162,7 +162,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		stlop.NewModule(),
 		stable.NewModule(),
 		arcstatus.NewModule(t.factoryCfg.Status),
-		stlcontrol.NewModule(drt.state.control),
+		stlauthority.NewModule(drt.state.authority),
 		mathMod,
 	}
 
@@ -367,11 +367,11 @@ func (t *taskImpl) setRuntimeError(ctx context.Context, nodeKey string, err erro
 }
 
 type state struct {
-	nodes   *node.ProgramState
-	channel *channel.ProgramState
-	series  *series.ProgramState
-	strings *stlstrings.ProgramState
-	control *stlcontrol.ProgramState
+	nodes     *node.ProgramState
+	channel   *channel.ProgramState
+	series    *series.ProgramState
+	strings   *stlstrings.ProgramState
+	authority *stlauthority.ProgramState
 }
 
 type dataRuntime struct {
@@ -408,7 +408,7 @@ func (d *dataRuntime) next(
 }
 
 func (d *dataRuntime) flushAuthorityChanges(ctx context.Context) error {
-	changes := d.state.control.Flush()
+	changes := d.state.authority.Flush()
 	if len(changes) == 0 {
 		return nil
 	}

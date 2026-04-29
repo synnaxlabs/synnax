@@ -125,9 +125,12 @@ func (c Context[AST]) WithTypeHint(hint types.Type) Context[AST] {
 	return c
 }
 
-// ResolveAndWarn resolves a symbol by name and, if the resolved symbol is
-// deprecated, automatically adds a deprecation warning to diagnostics.
-func (c Context[AST]) ResolveAndWarn(name string) (*symbol.Scope, error) {
+// Resolve resolves a symbol by name and, if the resolved symbol is deprecated,
+// automatically adds a deprecation warning to diagnostics. Analyzer call sites
+// resolving user-named symbols should use Resolve so deprecation warnings fire
+// consistently. Use c.Scope.Resolve directly when raw resolution is needed
+// (inference passes, internal lookups) to avoid duplicate warnings.
+func (c Context[AST]) Resolve(name string) (*symbol.Scope, error) {
 	result, err := c.Scope.Resolve(c, name)
 	if err != nil {
 		return result, err

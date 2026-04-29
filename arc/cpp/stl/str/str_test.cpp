@@ -44,7 +44,7 @@ const std::string_view STR_WAT = R"wat(
 
 struct StrModuleFixture {
     std::shared_ptr<State> state;
-    WasmModule mod;
+    Module mod;
     wasmtime::Engine engine;
     wasmtime::Store store;
     wasmtime::Linker linker;

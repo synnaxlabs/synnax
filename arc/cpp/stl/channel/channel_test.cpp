@@ -51,7 +51,7 @@ TEST(ChannelModuleTest, CreateSourceNode) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -81,7 +81,7 @@ TEST(ChannelModuleTest, CreateSinkNode) {
     runtime::state::Config cfg{.ir = ir, .channels = {}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("sink"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -106,7 +106,7 @@ TEST(ChannelModuleTest, ReturnsErrorForNullChannelParam) {
     runtime::state::Config cfg{.ir = ir, .channels = {}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     ASSERT_OCCURRED_AS_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node))),
@@ -131,7 +131,7 @@ TEST(ChannelModuleTest, UnknownNodeType) {
     runtime::state::Config cfg{.ir = ir, .channels = {}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("unknown"));
     auto [node, create_err] = module.create(
         runtime::node::Config(ir, ir_node, std::move(state_node))
@@ -141,7 +141,7 @@ TEST(ChannelModuleTest, UnknownNodeType) {
 }
 
 TEST(ChannelModuleTest, HandlesOnAndWrite) {
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     EXPECT_TRUE(module.handles("on"));
     EXPECT_TRUE(module.handles("write"));
     EXPECT_FALSE(module.handles("unknown"));
@@ -170,7 +170,7 @@ TEST(OnTest, NextReadsChannelData) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -224,7 +224,7 @@ TEST(OnTest, NextHandlesChannelWithoutIndex) {
     runtime::state::Config cfg{.ir = ir, .channels = {{20, ::x::telem::INT32_T, 0}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -273,7 +273,7 @@ TEST(OnTest, NextReturnsEarlyOnEmptyChannel) {
     runtime::state::Config cfg{.ir = ir, .channels = {{999, ::x::telem::FLOAT32_T, 0}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -308,7 +308,7 @@ TEST(OnTest, NextHandlesMultipleSeries) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -372,7 +372,7 @@ TEST(OnTest, NextSkipsOnIndexCountMismatch) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -423,7 +423,7 @@ TEST(OnTest, NextSkipsOnAlignmentMismatch) {
     runtime::state::Config cfg{.ir = ir, .channels = {{30, ::x::telem::FLOAT64_T, 31}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -471,7 +471,7 @@ TEST(OnTest, NextCallsMarkChanged) {
     runtime::state::Config cfg{.ir = ir, .channels = {{10, ::x::telem::FLOAT32_T, 11}}};
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto state_node = ASSERT_NIL_P(s.node("source"));
     auto node = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, ir_node, std::move(state_node)))
@@ -541,7 +541,7 @@ TEST(WriteTest, NextWritesDataWhenInputAvailable) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
@@ -631,7 +631,7 @@ TEST(WriteTest, NextRespectsRefreshInputsGuard) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
@@ -690,7 +690,7 @@ TEST(WriteTest, NextSkipsEmptyInput) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
@@ -760,7 +760,7 @@ TEST(WriteTest, NextHandlesSequentialWrites) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
     auto sink_state = ASSERT_NIL_P(s.node("sink"));
     auto sink = ASSERT_NIL_P(
         module.create(runtime::node::Config(ir, sink_node, std::move(sink_state)))
@@ -856,7 +856,7 @@ TEST(IntegrationTest, SourceToSinkFlow) {
     };
     runtime::state::State s(cfg, runtime::errors::noop_handler);
 
-    channel::WasmModule module(nullptr, nullptr);
+    channel::Module module(nullptr, nullptr);
 
     auto read_state = ASSERT_NIL_P(s.node("read"));
     auto source = ASSERT_NIL_P(

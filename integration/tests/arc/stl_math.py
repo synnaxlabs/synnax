@@ -14,39 +14,39 @@ from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_MATH_SOURCE = """
-// ─────────────────────── math.pow(const, const) ─────────────────────
+// ─────────────────────── pow operator (const, const) ────────────────
 func pow_cc_f64() f64 {
-    return math.pow(3.0, 2.0)
+    return 3.0 ^ 2.0
 }
 func pow_cc_int() f64 {
-    return math.pow(5, 2)
+    return 5 ^ 2
 }
 pow_cc_trigger -> pow_cc_f64{} -> pow_cc_f64_out
 pow_cc_trigger -> pow_cc_int{} -> pow_cc_int_out
-// ─────────────────────── math.pow(chan, const) ──────────────────────
+// ─────────────────────── pow operator (chan, const) ─────────────────
 func pow_xc_f64(base f64) f64 {
-    return math.pow(base, 2.0)
+    return base ^ 2.0
 }
-func pow_xc_i64(base i64) f64 {
-    return math.pow(base, 2)
+func pow_xc_i64(base i64) i64 {
+    return base ^ 2
 }
 pow_xc_f64_in -> pow_xc_f64{} -> pow_xc_f64_out
 pow_xc_i64_in -> pow_xc_i64{} -> pow_xc_i64_out
-// ─────────────────────── math.pow(const, chan) ──────────────────────
+// ─────────────────────── pow operator (const, chan) ─────────────────
 func pow_cx_f64(exp f64) f64 {
-    return math.pow(2.0, exp)
+    return 2.0 ^ exp
 }
-func pow_cx_i64(exp i64) f64 {
-    return math.pow(2, exp)
+func pow_cx_i64(exp i64) i64 {
+    return 2 ^ exp
 }
 pow_cx_f64_in -> pow_cx_f64{} -> pow_cx_f64_out
 pow_cx_i64_in -> pow_cx_i64{} -> pow_cx_i64_out
-// ─────────────────────── math.pow(chan, chan) ────────────────────────
+// ─────────────────────── pow operator (chan, chan) ──────────────────
 func pow_xx_f64(base f64) {
-    pow_xx_f64_out = math.pow(base, pow_xx_f64_exp)
+    pow_xx_f64_out = base ^ pow_xx_f64_exp
 }
 func pow_xx_i64(base i64) {
-    pow_xx_i64_out = math.pow(base, pow_xx_i64_exp)
+    pow_xx_i64_out = base ^ pow_xx_i64_exp
 }
 pow_xx_f64_in -> pow_xx_f64{}
 pow_xx_i64_in -> pow_xx_i64{}
@@ -68,14 +68,14 @@ op_div_a -> do_div{}
 func do_mod(a i64) { op_mod_out = a % op_mod_b }
 op_mod_a -> do_mod{}
 
-func do_neg(a f64) { op_neg_out = math.neg(a) }
+func do_neg(a f64) { op_neg_out = -a }
 op_neg_a -> do_neg{}
 
 // ─────────────────────── math.avg / math.min / math.max ─────────────
 
-stat_in -> avg{} -> stat_avg_out
-stat_in -> min{} -> stat_min_out
-stat_in -> max{} -> stat_max_out
+stat_in -> math.avg{} -> stat_avg_out
+stat_in -> math.min{} -> stat_min_out
+stat_in -> math.max{} -> stat_max_out
 
 // ─────────────────────── math.avg/min/max (count window) ────────────
 
@@ -85,9 +85,9 @@ stat_count_in -> math.max{count=5} -> stat_max_count_out
 
 // ─────────────────────── math.avg/min/max (duration window) ─────────
 
-stat_dur_in -> avg{duration=500ms} -> stat_avg_dur_out
-stat_dur_in -> min{duration=500ms} -> stat_min_dur_out
-stat_dur_in -> max{duration=500ms} -> stat_max_dur_out
+stat_dur_in -> math.avg{duration=500ms} -> stat_avg_dur_out
+stat_dur_in -> math.min{duration=500ms} -> stat_min_dur_out
+stat_dur_in -> math.max{duration=500ms} -> stat_max_dur_out
 
 // ─────────────────────── math.avg/min/max (negative values) ─────────
 
@@ -97,9 +97,9 @@ stat_neg_in -> math.max{} -> stat_neg_max_out
 
 // ─────────────────────── math.avg/min/max (edge cases) ──────────────
 
-stat_edge_in -> avg{} -> stat_edge_avg_out
-stat_edge_in -> min{} -> stat_edge_min_out
-stat_edge_in -> max{} -> stat_edge_max_out
+stat_edge_in -> math.avg{} -> stat_edge_avg_out
+stat_edge_in -> math.min{} -> stat_edge_min_out
+stat_edge_in -> math.max{} -> stat_edge_max_out
 
 // ─────────────────────── math.derivative ────────────────────────────
 
@@ -253,12 +253,20 @@ class StlMath(ArcConsoleCase):
         for fc in FLOW_CASES:
             assert fc.in_ch is not None and fc.in_dtype is not None
             create_virtual_channel(self.client, fc.in_ch, fc.in_dtype)
-            create_indexed_pair(self.client, fc.out_ch, sy.DataType.FLOAT64)
+            out_dtype = (
+                sy.DataType.INT64
+                if fc.label in ("xc_i64", "cx_i64")
+                else sy.DataType.FLOAT64
+            )
+            create_indexed_pair(self.client, fc.out_ch, out_dtype)
 
         for xxc in XX_CASES:
             create_virtual_channel(self.client, xxc.base_ch, xxc.base_dtype)
             create_virtual_channel(self.client, xxc.exp_ch, xxc.exp_dtype)
-            create_virtual_channel(self.client, xxc.out_ch, sy.DataType.FLOAT64)
+            out_dtype = (
+                sy.DataType.INT64 if xxc.label == "xx_i64" else sy.DataType.FLOAT64
+            )
+            create_virtual_channel(self.client, xxc.out_ch, out_dtype)
 
         all_ch: list[str] = ["pow_cc_trigger"]
         for cc in CC_CASES:

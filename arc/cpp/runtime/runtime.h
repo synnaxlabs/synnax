@@ -29,9 +29,9 @@
 #include "arc/cpp/runtime/state/state.h"
 #include "arc/cpp/runtime/wasm/factory.h"
 #include "arc/cpp/runtime/wasm/module.h"
+#include "arc/cpp/stl/authority/authority.h"
 #include "arc/cpp/stl/channel/channel.h"
 #include "arc/cpp/stl/constant/constant.h"
-#include "arc/cpp/stl/control/control.h"
 #include "arc/cpp/stl/error/error.h"
 #include "arc/cpp/stl/math/math.h"
 #include "arc/cpp/stl/selector/selector.h"
@@ -266,19 +266,19 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         error_handler
     );
 
-    auto time_module = std::make_shared<stl::time::WasmModule>();
+    auto time_module = std::make_shared<stl::time::Module>();
     std::vector<std::shared_ptr<stl::Module>> stl_modules = {
-        std::make_shared<stl::channel::WasmModule>(channel_st, str_st),
-        std::make_shared<stl::stateful::WasmModule>(var_st, series_st, str_st),
-        std::make_shared<stl::series::WasmModule>(series_st),
-        std::make_shared<stl::str::WasmModule>(str_st),
+        std::make_shared<stl::channel::Module>(channel_st, str_st),
+        std::make_shared<stl::stateful::Module>(var_st, series_st, str_st),
+        std::make_shared<stl::series::Module>(series_st),
+        std::make_shared<stl::str::Module>(str_st),
         std::make_shared<stl::math::Module>(),
         time_module,
-        std::make_shared<stl::error::WasmModule>(error_handler),
-        std::make_shared<stl::constant::WasmModule>(),
-        std::make_shared<stl::authority::WasmModule>(state),
-        std::make_shared<stl::stable::WasmModule>(),
-        std::make_shared<stl::selector::WasmModule>(),
+        std::make_shared<stl::error::Module>(error_handler),
+        std::make_shared<stl::constant::Module>(),
+        std::make_shared<stl::authority::Module>(state),
+        std::make_shared<stl::stable::Module>(),
+        std::make_shared<stl::selector::Module>(),
     };
 
     wasm::ModuleConfig module_cfg{

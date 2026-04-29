@@ -276,38 +276,41 @@ var _ = Describe("Math", func() {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.derivative"))
 			Expect(sym.Name).To(Equal("derivative"))
 		})
-		It("Should resolve qualified math.pow symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.pow symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.pow"))
 			Expect(sym.Name).To(Equal("pow"))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.add symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.add symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.add"))
 			Expect(sym.Name).To(Equal("add"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.subtract symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.subtract symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.subtract"))
 			Expect(sym.Name).To(Equal("subtract"))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.multiply symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.multiply symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.multiply"))
 			Expect(sym.Name).To(Equal("multiply"))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.divide symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.divide symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.divide"))
 			Expect(sym.Name).To(Equal("divide"))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.mod symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.mod symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.mod"))
 			Expect(sym.Name).To(Equal("mod"))
+			Expect(sym.Internal).To(BeTrue())
 		})
-		It("Should resolve qualified math.neg symbol", func(ctx SpecContext) {
+		It("Should resolve qualified math.neg symbol as internal", func(ctx SpecContext) {
 			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "math.neg"))
 			Expect(sym.Name).To(Equal("neg"))
-		})
-		It("Should resolve bare add symbol (deprecated)", func(ctx SpecContext) {
-			sym := MustSucceed(stlmath.SymbolResolver.Resolve(ctx, "add"))
-			Expect(sym.Name).To(Equal("add"))
+			Expect(sym.Internal).To(BeTrue())
 		})
 	})
 
@@ -609,7 +612,7 @@ var _ = Describe("Arithmetic", func() {
 		Expect(*s.Node("math").Output(0)).To(telem.MatchSeries(output))
 		Expect(*s.Node("math").OutputTime(0)).To(telem.MatchSeries(outputTime))
 	},
-		Entry("Float64 NEG - positive", "neg",
+		Entry("Float64 NEG - positive", "math.neg",
 			telem.NewSeriesV[float64](1.5, 2.5, 3.5),
 			telem.NewSeriesSecondsTSV(1, 2, 3),
 			telem.NewSeriesV[float64](-1.5, -2.5, -3.5),
@@ -662,30 +665,6 @@ var _ = Describe("Arithmetic", func() {
 			telem.NewSeriesSecondsTSV(10, 20, 30),
 			telem.NewSeriesV[int8](1, 2, 3),
 			telem.NewSeriesSecondsTSV(10, 20, 30),
-		),
-		Entry("Uint8 NEG - promotes to int16", "neg",
-			telem.NewSeriesV[uint8](5, 10, 255),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-			telem.NewSeriesV[int16](-5, -10, -255),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-		),
-		Entry("Uint16 NEG - promotes to int32", "neg",
-			telem.NewSeriesV[uint16](100, 500, 65535),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-			telem.NewSeriesV[int32](-100, -500, -65535),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-		),
-		Entry("Uint32 NEG - promotes to int64", "neg",
-			telem.NewSeriesV[uint32](1000, 50000, 4294967295),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-			telem.NewSeriesV[int64](-1000, -50000, -4294967295),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-		),
-		Entry("Uint64 NEG - promotes to float64", "neg",
-			telem.NewSeriesV[uint64](100, 200, 300),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
-			telem.NewSeriesV[float64](-100, -200, -300),
-			telem.NewSeriesSecondsTSV(1, 2, 3),
 		),
 	)
 	Describe("Edge Cases", func() {

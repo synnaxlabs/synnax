@@ -1563,14 +1563,8 @@ var _ = Describe("Expressions", func() {
 			Entry("time.now()", `
 				func testFunc() i64 { return time.now() }
 			`),
-			Entry("math.pow()", `
-				func testFunc() i64 { return math.pow(2, 3) }
-			`),
-			Entry("string.concat()", `
-				func testFunc() str { return string.concat("a", "b") }
-			`),
-			Entry("string.equal()", `
-				func testFunc() i32 { return string.equal("a", "b") }
+			Entry("bare now() (deprecated)", `
+				func testFunc() i64 { return now() }
 			`),
 		)
 

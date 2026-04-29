@@ -113,10 +113,12 @@ public:
     }
 };
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
 public:
+    [[nodiscard]] std::string module_name() const override { return "stable"; }
+
     bool handles(const std::string &node_type) const override {
-        return node_type == "stable_for";
+        return node_type == "stable_for" || node_type == "for";
     }
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>

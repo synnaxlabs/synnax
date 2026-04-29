@@ -450,7 +450,7 @@ func analyzeFunctionNode(
 ) (nodeResult, bool) {
 	name := parser.FunctionName(ctx.AST)
 	key := kg.generate(name, "")
-	sym, err := ctx.ResolveAndWarn(name)
+	sym, err := ctx.Resolve(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nodeResult{}, false

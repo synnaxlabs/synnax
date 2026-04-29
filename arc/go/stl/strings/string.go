@@ -33,18 +33,20 @@ var SymbolResolver = &symbol.ModuleResolver{
 			}),
 		},
 		"concat": {
-			Name: "concat",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecWASM,
+			Name:     "concat",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
 		"equal": {
-			Name: "equal",
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecWASM,
+			Name:     "equal",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "a", Type: types.String()}, {Name: "b", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I32()}},

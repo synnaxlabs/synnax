@@ -23,62 +23,62 @@ func len_ch(s str) i64 {
     return len(s)
 }
 str_trigger -> len_ch{} -> len_ch_out
-// ─────────────────────────── string.concat ───────────────────────────
+// ───────────────────────────── concat (+) ────────────────────────────
 // concat(const, const)
 func concat_cc(s str) i64 {
-    return len(string.concat("ab", "cd"))
+    return len("ab" + "cd")
 }
 str_trigger -> concat_cc{} -> concat_cc_out
 // concat(chan, const)
 func concat_xc(s str) i64 {
-    return len(string.concat(s, " world"))
+    return len(s + " world")
 }
 str_trigger -> concat_xc{} -> concat_xc_out
 // concat(const, chan)
 func concat_cx(s str) i64 {
-    return len(string.concat("prefix:", s))
+    return len("prefix:" + s)
 }
 str_trigger -> concat_cx{} -> concat_cx_out
 // concat(chan, chan)
 func concat_xx(s str) {
-    concat_xx_out = len(string.concat(s, str_second))
+    concat_xx_out = len(s + str_second)
 }
 str_trigger -> concat_xx{}
-// ─────────────────────────── string.equal ────────────────────────────
+// ───────────────────────────── equal (==) ────────────────────────────
 // equal(const, const)
-func equal_cc(s str) i32 {
-    return string.equal("abc", "abc")
+func equal_cc(s str) u8 {
+    return "abc" == "abc"
 }
 str_trigger -> equal_cc{} -> equal_cc_out
 // equal(chan, const) — match
-func equal_xc_match(s str) i32 {
-    return string.equal(s, "hello")
+func equal_xc_match(s str) u8 {
+    return s == "hello"
 }
 str_trigger -> equal_xc_match{} -> equal_xc_match_out
 // equal(chan, const) — mismatch
-func equal_xc_mismatch(s str) i32 {
-    return string.equal(s, "world")
+func equal_xc_mismatch(s str) u8 {
+    return s == "world"
 }
 str_trigger -> equal_xc_mismatch{} -> equal_xc_mismatch_out
 // equal(const, chan)
-func equal_cx(s str) i32 {
-    return string.equal("hello", s)
+func equal_cx(s str) u8 {
+    return "hello" == s
 }
 str_trigger -> equal_cx{} -> equal_cx_out
 // equal(chan, chan) — same
-func equal_xx_same(s str) i32 {
-    return string.equal(s, s)
+func equal_xx_same(s str) u8 {
+    return s == s
 }
 str_trigger -> equal_xx_same{} -> equal_xx_same_out
 // equal(chan, chan) — different
 func equal_xx_diff(s str) {
-    equal_xx_diff_out = string.equal(s, str_second)
+    equal_xx_diff_out = s == str_second
 }
 str_trigger -> equal_xx_diff{}
 // ──────────────────────────────── misc ───────────────────────────────
 // nested concat
 func concat_nested(s str) {
-    concat_nested_out = len(string.concat(string.concat(s, "-"), str_second))
+    concat_nested_out = len(s + "-" + str_second)
 }
 str_trigger -> concat_nested{}
 // multi-string addition
@@ -93,7 +93,7 @@ VIRTUAL_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("str_second", sy.DataType.STRING),
     ("str_third", sy.DataType.STRING),
     ("concat_xx_out", sy.DataType.INT64),
-    ("equal_xx_diff_out", sy.DataType.INT32),
+    ("equal_xx_diff_out", sy.DataType.UINT8),
     ("concat_nested_out", sy.DataType.INT64),
     ("multi_add_out", sy.DataType.INT64),
 ]
@@ -104,11 +104,11 @@ INDEXED_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("concat_cc_out", sy.DataType.INT64),
     ("concat_xc_out", sy.DataType.INT64),
     ("concat_cx_out", sy.DataType.INT64),
-    ("equal_cc_out", sy.DataType.INT32),
-    ("equal_xc_match_out", sy.DataType.INT32),
-    ("equal_xc_mismatch_out", sy.DataType.INT32),
-    ("equal_cx_out", sy.DataType.INT32),
-    ("equal_xx_same_out", sy.DataType.INT32),
+    ("equal_cc_out", sy.DataType.UINT8),
+    ("equal_xc_match_out", sy.DataType.UINT8),
+    ("equal_xc_mismatch_out", sy.DataType.UINT8),
+    ("equal_cx_out", sy.DataType.UINT8),
+    ("equal_xx_same_out", sy.DataType.UINT8),
 ]
 
 ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS] + [
@@ -117,8 +117,7 @@ ALL_CHANNELS = [name for name, _ in VIRTUAL_CHANNELS] + [
 
 
 class StlString(ArcConsoleCase):
-    """Test string module with qualified syntax: len(),
-    string.concat(), string.equal().
+    """Test string operations: len(), + concat, == equal.
 
     Primary axis: function (len, concat, equal).
     Secondary axis: input type (const/chan combinations).
@@ -154,7 +153,7 @@ class StlString(ArcConsoleCase):
         self.wait_for_eq("len_ch_out", 5)
 
     def _test_concat(self) -> None:
-        self.log("=== string.concat ===")
+        self.log("=== concat (+) ===")
         self._trigger()
 
         self.log("[concat_cc] Expecting 4 (len('abcd'))")
@@ -170,7 +169,7 @@ class StlString(ArcConsoleCase):
         self.wait_for_eq("concat_xx_out", 10, is_virtual=True)
 
     def _test_equal(self) -> None:
-        self.log("=== string.equal ===")
+        self.log("=== equal (==) ===")
         self._trigger()
 
         self.log("[equal_cc] Expecting 1 (equal('abc', 'abc'))")

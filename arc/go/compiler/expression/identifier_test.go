@@ -540,16 +540,19 @@ var _ = Describe("Identifier Compilation", func() {
 			))
 		})
 
-		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
-			_, exprType := compileWithAnalyzer(
+		It("Should compile bare now() (deprecated)", func(ctx SpecContext) {
+			bytecode, exprType := compileWithAnalyzer(
 				ctx,
-				`string.concat("a", "b")`,
+				"now()",
 				stl.SymbolResolver,
 			)
-			Expect(exprType).To(Equal(types.String()))
+			Expect(exprType).To(Equal(types.TimeStamp()))
+			Expect(bytecode).To(MatchOpcodes(
+				OpCall, uint32(0),
+			))
 		})
 
-		It("Should compile math.pow() with type variable resolution", func(ctx SpecContext) {
+		It("Should compile ^ operator with type variable resolution", func(ctx SpecContext) {
 			resolver := symbol.CompoundResolver{
 				symbol.MapResolver{
 					"x": {Name: "x", Kind: symbol.KindVariable, Type: types.F64(), ID: 0},
@@ -558,7 +561,7 @@ var _ = Describe("Identifier Compilation", func() {
 			}
 			_, exprType := compileWithAnalyzer(
 				ctx,
-				"math.pow(x, 2)",
+				"x ^ 2.0",
 				resolver,
 			)
 			Expect(exprType).To(Equal(types.F64()))

@@ -13,9 +13,9 @@
 package stl
 
 import (
+	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/op"
@@ -29,9 +29,9 @@ import (
 )
 
 var SymbolResolver = symbol.CompoundResolver{
+	authority.SymbolResolver,
 	channel.SymbolResolver,
 	constant.SymbolResolver,
-	control.SymbolResolver,
 	errors.SymbolResolver,
 	math.SymbolResolver,
 	op.SymbolResolver,

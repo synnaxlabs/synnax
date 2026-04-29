@@ -11,7 +11,7 @@
 
 namespace arc::stl::series {
 
-void WasmModule::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
+void Module::bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {
     auto ss = this->series_state;
 
 #define BIND_SERIES_OPS(suffix, cpptype, data_type_const)                              \

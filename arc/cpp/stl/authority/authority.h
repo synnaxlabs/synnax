@@ -49,11 +49,11 @@ public:
     [[nodiscard]] bool is_output_truthy(size_t) const override { return false; }
 };
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     std::shared_ptr<runtime::state::State> state;
 
 public:
-    explicit WasmModule(std::shared_ptr<runtime::state::State> state):
+    explicit Module(std::shared_ptr<runtime::state::State> state):
         state(std::move(state)) {}
 
     [[nodiscard]] std::string module_name() const override { return "authority"; }

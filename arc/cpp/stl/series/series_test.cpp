@@ -204,7 +204,7 @@ std::string build_compare_wat(const std::string &suffix) {
 
 struct Fixture {
     std::shared_ptr<State> state;
-    WasmModule mod;
+    Module mod;
     wasmtime::Engine engine;
     wasmtime::Store store;
     wasmtime::Linker linker;

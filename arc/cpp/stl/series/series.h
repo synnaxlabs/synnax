@@ -20,11 +20,11 @@
 
 namespace arc::stl::series {
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     std::shared_ptr<State> series_state;
 
 public:
-    explicit WasmModule(std::shared_ptr<State> series_state):
+    explicit Module(std::shared_ptr<State> series_state):
         series_state(std::move(series_state)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override;

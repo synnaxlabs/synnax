@@ -18,13 +18,13 @@
 
 namespace arc::stl::str {
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     std::shared_ptr<State> str_state;
     wasmtime::Store *store = nullptr;
     wasmtime::Memory *memory = nullptr;
 
 public:
-    explicit WasmModule(std::shared_ptr<State> str_state):
+    explicit Module(std::shared_ptr<State> str_state):
         str_state(std::move(str_state)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {

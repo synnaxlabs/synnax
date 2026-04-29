@@ -19,13 +19,13 @@
 
 namespace arc::stl::stateful {
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     std::shared_ptr<Variables> vars;
     std::shared_ptr<series::State> series_state;
     std::shared_ptr<str::State> str_state;
 
 public:
-    WasmModule(
+    Module(
         std::shared_ptr<Variables> vars,
         std::shared_ptr<series::State> series_state,
         std::shared_ptr<str::State> str_state

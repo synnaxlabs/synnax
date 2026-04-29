@@ -252,19 +252,17 @@ func GetPrimaryExpression(expr IExpressionContext) IPrimaryExpressionContext {
 }
 
 // QualifiedName returns the dot-joined name from a qualified identifier
-// (e.g., "math.pow", "authority.set").
+// (e.g., "math.avg", "authority.set", "stable.for"). Reads the terminal
+// children directly so it works when either side is a lexer keyword
+// (AUTHORITY on the left, FOR on the right) and not just an IDENTIFIER.
 func QualifiedName(qid IQualifiedIdentifierContext) string {
-	ids := qid.AllIDENTIFIER()
-	// When the module name is a keyword (e.g., AUTHORITY), it won't appear
-	// in AllIDENTIFIER(). Fall back to the first child token text.
-	if len(ids) == 2 {
-		return ids[0].GetText() + "." + ids[1].GetText()
-	}
-	return qid.GetChild(0).(antlr.TerminalNode).GetText() + "." + ids[0].GetText()
+	left := qid.GetChild(0).(antlr.TerminalNode).GetText()
+	right := qid.GetChild(2).(antlr.TerminalNode).GetText()
+	return left + "." + right
 }
 
 // FunctionName extracts the name from a function context, handling both
-// qualified (math.pow{}) and bare (set_authority{}) forms.
+// qualified (math.avg{}) and bare (set_authority{}) forms.
 func FunctionName(fn IFunctionContext) string {
 	if qid := fn.QualifiedIdentifier(); qid != nil {
 		return QualifiedName(qid)
@@ -273,7 +271,7 @@ func FunctionName(fn IFunctionContext) string {
 }
 
 // PrimaryName extracts the name from a primary expression context, handling
-// both qualified (math.pow) and bare (x) identifier forms. Returns empty
+// both qualified (math.avg) and bare (x) identifier forms. Returns empty
 // string if the primary expression is not an identifier.
 func PrimaryName(primary IPrimaryExpressionContext) string {
 	if qid := primary.QualifiedIdentifier(); qid != nil {

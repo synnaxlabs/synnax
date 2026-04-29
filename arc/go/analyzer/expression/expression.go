@@ -378,7 +378,7 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 	primary := ctx.AST.PrimaryExpression()
 	funcName := parser.PrimaryName(primary)
 	if funcName != "" {
-		scope, err := ctx.Scope.Resolve(ctx, funcName)
+		scope, err := ctx.Resolve(funcName)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, primary))
 			return
@@ -489,13 +489,13 @@ func validateFunctionCall(
 func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	if qid := ctx.AST.QualifiedIdentifier(); qid != nil {
 		name := parser.QualifiedName(qid)
-		if _, err := ctx.Scope.Resolve(ctx, name); err != nil {
+		if _, err := ctx.Resolve(name); err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		}
 		return
 	}
 	if id := ctx.AST.IDENTIFIER(); id != nil {
-		resolved, err := ctx.Scope.Resolve(ctx, id.GetText())
+		resolved, err := ctx.Resolve(id.GetText())
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return

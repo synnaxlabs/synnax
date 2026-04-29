@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/graph"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/stable"
 	"github.com/synnaxlabs/arc/symbol"
@@ -787,7 +787,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				control.SymbolResolver,
+				authority.SymbolResolver,
 				symbol.MapResolver{
 					"10057": symbol.Symbol{
 						Name: "f64_sensor",
@@ -832,7 +832,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				control.SymbolResolver,
+				authority.SymbolResolver,
 				symbol.MapResolver{
 					"10057": symbol.Symbol{
 						Name: "f64_sensor",
@@ -861,7 +861,7 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			resolver := symbol.CompoundResolver{
-				control.SymbolResolver,
+				authority.SymbolResolver,
 				symbol.MapResolver{
 					"10058": symbol.Symbol{
 						Name: "f64_sensor",
@@ -1179,7 +1179,7 @@ var _ = Describe("Graph", func() {
 			Expect(inter.Nodes).To(HaveLen(2))
 		})
 
-		It("Should analyze stable.stable_for with qualified name", func(ctx SpecContext) {
+		It("Should analyze stable.for with qualified name", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1200,7 +1200,7 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key:  "sf",
-						Type: "stable.stable_for",
+						Type: "stable.for",
 						Config: map[string]any{
 							"duration": int(telem.Millisecond),
 						},

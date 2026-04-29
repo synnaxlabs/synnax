@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package control
+package authority
 
 // AuthorityChange represents a buffered authority change request.
-// It is produced by set_authority nodes during reactive execution and consumed
+// It is produced by authority.set nodes during reactive execution and consumed
 // by the runtime task when flushing state.
 type AuthorityChange struct {
 	// Channel is the specific channel to change authority for.

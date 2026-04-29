@@ -39,8 +39,8 @@ const MinTolerance = 5 * telem.Millisecond
 // unsetBaseInterval is the sentinel value indicating BaseInterval hasn't been set yet.
 const unsetBaseInterval = telem.TimeSpanMax
 
-var baseSymbolResolver = symbol.MapResolver{
-	intervalSymbolName: {
+var (
+	intervalSymbol = symbol.Symbol{
 		Name: intervalSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -48,8 +48,8 @@ var baseSymbolResolver = symbol.MapResolver{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: periodConfigParam, Type: types.TimeSpan()}},
 		}),
-	},
-	waitSymbolName: {
+	}
+	waitSymbol = symbol.Symbol{
 		Name: waitSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecFlow,
@@ -57,15 +57,32 @@ var baseSymbolResolver = symbol.MapResolver{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
 			Config:  types.Params{{Name: durationConfigParam, Type: types.TimeSpan()}},
 		}),
-	},
-	nowSymbolName: {
+	}
+	nowSymbol = symbol.Symbol{
 		Name: nowSymbolName,
 		Kind: symbol.KindFunction,
 		Exec: symbol.ExecBoth,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.TimeStamp()}},
 		}),
-	},
+	}
+)
+
+func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
+}
+
+var deprecatedBareResolver = symbol.MapResolver{
+	intervalSymbolName: deprecated(intervalSymbol, "time.interval"),
+	waitSymbolName:     deprecated(waitSymbol, "time.wait"),
+	nowSymbolName:      deprecated(nowSymbol, "time.now"),
+}
+
+var moduleMembers = symbol.MapResolver{
+	intervalSymbolName: intervalSymbol,
+	waitSymbolName:     waitSymbol,
+	nowSymbolName:      nowSymbol,
 }
 
 type Module struct {
@@ -96,8 +113,8 @@ func NewModule(
 }
 
 var SymbolResolver = symbol.CompoundResolver{
-	baseSymbolResolver,
-	&symbol.ModuleResolver{Name: "time", Members: baseSymbolResolver},
+	deprecatedBareResolver,
+	&symbol.ModuleResolver{Name: "time", Members: moduleMembers},
 }
 
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
@@ -136,7 +153,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 		}, nil
 
 	case nowSymbolName:
-		return &Now{State: cfg.State}, nil
+		return &Now{State: cfg.State, clock: &m.clock}, nil
 
 	default:
 		return nil, query.ErrNotFound
@@ -266,12 +283,13 @@ func (w *Wait) Reset() {
 // Now outputs the current wall-clock timestamp when triggered.
 type Now struct {
 	*node.State
+	clock *telem.MonoClock
 }
 
 func (n *Now) Init(_ node.Context) {}
 
 func (n *Now) Next(ctx node.Context) {
-	ts := telem.Now()
+	ts := n.clock.Now()
 	output := n.Output(0)
 	outputTime := n.OutputTime(0)
 	output.Resize(1)

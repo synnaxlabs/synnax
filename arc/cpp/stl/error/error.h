@@ -19,14 +19,13 @@
 
 namespace arc::stl::error {
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     runtime::errors::Handler handler;
     wasmtime::Store *store = nullptr;
     wasmtime::Memory *memory = nullptr;
 
 public:
-    explicit WasmModule(runtime::errors::Handler handler):
-        handler(std::move(handler)) {}
+    explicit Module(runtime::errors::Handler handler): handler(std::move(handler)) {}
 
     void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) override {
         // SAFETY: raw `this` capture is safe because wasm::Module owns this

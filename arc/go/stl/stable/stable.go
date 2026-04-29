@@ -21,37 +21,45 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
+const (
+	bareSymbolName      = "stable_for"
+	qualifiedMemberName = "for"
+	moduleName          = "stable"
+)
+
 var (
-	symbolName = "stable_for"
-	symbolDef  = symbol.Symbol{
-		Name: symbolName,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
-		Type: types.Function(types.FunctionProperties{
-			Config: types.Params{
-				{Name: "duration", Type: types.TimeSpan()},
-			},
-			Inputs: types.Params{
-				{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
-			},
-			Outputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
-			},
-		}),
+	symbolType = types.Function(types.FunctionProperties{
+		Config: types.Params{
+			{Name: "duration", Type: types.TimeSpan()},
+		},
+		Inputs: types.Params{
+			{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)},
+		},
+		Outputs: types.Params{
+			{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)},
+		},
+	})
+	bareResolver = symbol.MapResolver{
+		bareSymbolName: {
+			Name:       bareSymbolName,
+			Kind:       symbol.KindFunction,
+			Exec:       symbol.ExecFlow,
+			Deprecated: "stable.for",
+			Type:       symbolType,
+		},
 	}
-	deprecatedBare = symbol.Symbol{
-		Name:       symbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Deprecated: "stable.stable_for",
-		Type:       symbolDef.Type,
+	moduleResolver = &symbol.ModuleResolver{
+		Name: moduleName,
+		Members: symbol.MapResolver{
+			qualifiedMemberName: {
+				Name: qualifiedMemberName,
+				Kind: symbol.KindFunction,
+				Exec: symbol.ExecFlow,
+				Type: symbolType,
+			},
+		},
 	}
-	bareResolver   = symbol.MapResolver{symbolName: deprecatedBare}
-	moduleMembers  = symbol.MapResolver{symbolName: symbolDef}
-	SymbolResolver = symbol.CompoundResolver{
-		bareResolver,
-		&symbol.ModuleResolver{Name: "stable", Members: moduleMembers},
-	}
+	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
 )
 
 type Module struct {
@@ -70,8 +78,10 @@ func WithNow(fn func() telem.TimeStamp) func(*Module) {
 	return func(m *Module) { m.now = fn }
 }
 
+func (m *Module) ModuleName() string { return moduleName }
+
 func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != symbolName {
+	if cfg.Node.Type != bareSymbolName && cfg.Node.Type != qualifiedMemberName {
 		return nil, query.ErrNotFound
 	}
 	var cfgVals config

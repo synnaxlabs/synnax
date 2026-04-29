@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package control
+package authority
 
 import (
 	"context"
@@ -79,7 +79,7 @@ func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
 	}
 	var nodeCfg nodeConfig
 	if err := schema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-		return nil, errors.Wrap(err, "set_authority config")
+		return nil, errors.Wrap(err, "authority.set config")
 	}
 	var channelKey *uint32
 	if nodeCfg.Channel != 0 {

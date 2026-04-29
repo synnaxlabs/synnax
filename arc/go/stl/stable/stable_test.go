@@ -95,8 +95,7 @@ var _ = Describe("StableFor", func() {
 				Node:  ir.Node{Type: "unknown"},
 				State: s.Node("stable"),
 			}
-			_, err := module.Create(ctx, cfg)
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(module.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
@@ -382,14 +381,14 @@ var _ = Describe("StableFor", func() {
 			Expect(sym.Name).To(Equal("stable_for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified stable.stable_for symbol", func(ctx SpecContext) {
-			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable.stable_for"))
-			Expect(sym.Name).To(Equal("stable_for"))
+		It("Should resolve qualified stable.for symbol", func(ctx SpecContext) {
+			sym := MustSucceed(stable.SymbolResolver.Resolve(ctx, "stable.for"))
+			Expect(sym.Name).To(Equal("for"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 	})
 	Describe("Factory", func() {
-		It("Should create node for stable.stable_for via CompoundFactory", func(ctx SpecContext) {
+		It("Should create node for stable.for via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -429,7 +428,7 @@ var _ = Describe("StableFor", func() {
 			s := node.New(analyzed)
 			compound := node.CompoundFactory{stable.NewModule()}
 			irNode := analyzed.Nodes[1]
-			irNode.Type = "stable.stable_for"
+			irNode.Type = "stable.for"
 			n := MustSucceed(compound.Create(ctx, node.Config{
 				Node:  irNode,
 				State: s.Node("stable"),

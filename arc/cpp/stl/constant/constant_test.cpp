@@ -73,7 +73,7 @@ TEST(ConstantModuleTest, ReturnsNotFoundForWrongType) {
     auto ir_node = setup.ir.nodes[0];
     ir_node.type = "not_constant";
 
-    WasmModule module;
+    Module module;
     ASSERT_OCCURRED_AS_P(
         module.create(runtime::node::Config(setup.ir, ir_node, setup.make_node())),
         x::errors::NOT_FOUND
@@ -83,7 +83,7 @@ TEST(ConstantModuleTest, ReturnsNotFoundForWrongType) {
 /// @brief Test that module creates a Constant node with valid configuration.
 TEST(ConstantModuleTest, CreatesConstantNode) {
     TestSetup setup(types::Kind::F32, 42.5f);
-    WasmModule module;
+    Module module;
     auto node = ASSERT_NIL_P(module.create(
         runtime::node::Config(setup.ir, setup.ir.nodes[0], setup.make_node())
     ));

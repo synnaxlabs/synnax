@@ -27,19 +27,20 @@ import (
 )
 
 const (
-	resetInputParam      = "reset"
-	durationConfigParam  = "duration"
-	countConfigParam     = "count"
-	avgSymbolName        = "avg"
-	minSymbolName        = "min"
-	maxSymbolName        = "max"
-	derivativeSymbolName = "derivative"
 	addSymbolName        = "add"
-	subSymbolName        = "subtract"
-	mulSymbolName        = "multiply"
+	avgSymbolName        = "avg"
+	countConfigParam     = "count"
+	derivativeSymbolName = "derivative"
 	divSymbolName        = "divide"
+	durationConfigParam  = "duration"
+	maxSymbolName        = "max"
+	minSymbolName        = "min"
 	modSymbolName        = "mod"
+	mulSymbolName        = "multiply"
 	negSymbolName        = "neg"
+	powSymbolName        = "pow"
+	resetInputParam      = "reset"
+	subSymbolName        = "subtract"
 )
 
 var numConstraint = types.NumericConstraint()
@@ -80,9 +81,10 @@ func createBaseSymbol(name string) symbol.Symbol {
 
 var (
 	powSymbol = symbol.Symbol{
-		Name: "pow",
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecWASM,
+		Name:     powSymbolName,
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
@@ -116,16 +118,10 @@ var deprecatedBareResolver = symbol.MapResolver{
 	minSymbolName:        deprecated(minSymbol, "math.min"),
 	maxSymbolName:        deprecated(maxSymbol, "math.max"),
 	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
-	addSymbolName:        deprecated(addSymbol, "math.add"),
-	subSymbolName:        deprecated(subSymbol, "math.subtract"),
-	mulSymbolName:        deprecated(mulSymbol, "math.multiply"),
-	divSymbolName:        deprecated(divSymbol, "math.divide"),
-	modSymbolName:        deprecated(modSymbol, "math.mod"),
-	negSymbolName:        deprecated(negSymbol, "math.neg"),
 }
 
 var moduleMembers = symbol.MapResolver{
-	"pow":                powSymbol,
+	powSymbolName:        powSymbol,
 	avgSymbolName:        avgSymbol,
 	minSymbolName:        minSymbol,
 	maxSymbolName:        maxSymbol,
@@ -439,9 +435,10 @@ func (d *derivativeNode) Next(ctx node.Context) {
 func createArithmeticSymbol(name string) symbol.Symbol {
 	constraint := types.NumericConstraint()
 	return symbol.Symbol{
-		Name: name,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecFlow,
+		Name:     name,
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecFlow,
+		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
@@ -457,9 +454,10 @@ func createArithmeticSymbol(name string) symbol.Symbol {
 func createNegateSymbol(name string) symbol.Symbol {
 	constraint := types.SignedNumericConstraint()
 	return symbol.Symbol{
-		Name: name,
-		Kind: symbol.KindFunction,
-		Exec: symbol.ExecBoth,
+		Name:     name,
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecBoth,
+		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{
 				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},

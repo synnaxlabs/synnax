@@ -152,10 +152,10 @@ var completions = []completionInfo{
 		Category:     categoryFunction | categoryValue,
 	},
 	{
-		Label:        "now",
-		Detail:       "now() timestamp",
+		Label:        "time.now",
+		Detail:       "time.now() timestamp",
 		Doc:          "Returns the current timestamp",
-		Insert:       "now()",
+		Insert:       "time.now()",
 		Kind:         protocol.CompletionItemKindFunction,
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryFunction | categoryValue,
@@ -477,6 +477,9 @@ func (s *Server) getCompletionItems(
 				if err == nil {
 					for _, sym := range symbols {
 						if sym.Kind != symbol.KindFunction {
+							continue
+						}
+						if sym.Internal {
 							continue
 						}
 						if !sym.Exec.Compatible(execFilter) {

@@ -140,13 +140,8 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 			// that require compiler dispatch rather than normal function resolution.
 			// len() is polymorphic, dispatching to series.len or string.len based
 			// on argument type. The qualified forms restrict to a specific type.
-			// now() maps to time.now but is exposed as a bare global; deriving
-			// WASM coordinates requires the qualified name "time.now".
 			if funcName == "len" || funcName == "series.len" || funcName == "string.len" {
 				return compileBuiltinLen(ctx, funcCalls[0], funcName)
-			}
-			if funcName == "now" || funcName == "time.now" {
-				return compileBuiltinNow(ctx, funcCalls[0])
 			}
 
 			scope, err := ctx.Scope.Resolve(ctx, funcName)
@@ -263,7 +258,11 @@ func compileFunctionCallExpr(
 		Inputs:  concreteInputs,
 		Outputs: concreteOutputs,
 	})
-	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, funcName, concreteType)
+	emitName := funcName
+	if scope.Deprecated != "" {
+		emitName = scope.Deprecated
+	}
+	ctx.Resolver.EmitCall(ctx.Writer, ctx.WriterID, emitName, concreteType)
 	defaultOutput, hasDefault := concreteOutputs.Get(ir.DefaultOutputParam)
 	if hasDefault {
 		return defaultOutput.Type, nil
@@ -461,19 +460,4 @@ func compileBuiltinLen(
 		return types.Type{}, errors.Newf(
 			"argument 1 of %s: expected series or str, got %s", funcName, argType)
 	}
-}
-
-func compileBuiltinNow(
-	ctx context.Context[parser.IPostfixExpressionContext],
-	funcCall parser.IFunctionCallSuffixContext,
-) (types.Type, error) {
-	var args []parser.IExpressionContext
-	if argList := funcCall.ArgumentList(); argList != nil {
-		args = argList.AllExpression()
-	}
-	if len(args) > 0 {
-		return types.Type{}, errors.Newf("now() accepts no arguments, got %d", len(args))
-	}
-	ctx.Resolver.EmitNow(ctx.Writer, ctx.WriterID)
-	return types.TimeStamp(), nil
 }

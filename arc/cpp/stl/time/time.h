@@ -181,13 +181,18 @@ struct NowConfig {
 /// @brief Outputs the current wall-clock timestamp when triggered.
 class Now : public runtime::node::Node {
     runtime::state::Node state;
+    x::telem::MonoClock *clock;
 
 public:
-    explicit Now(const NowConfig &, runtime::state::Node &&state):
-        state(std::move(state)) {}
+    explicit Now(
+        const NowConfig &,
+        runtime::state::Node &&state,
+        x::telem::MonoClock *clock
+    ):
+        state(std::move(state)), clock(clock) {}
 
     x::errors::Error next(runtime::node::Context &ctx) override {
-        const auto ts = x::telem::TimeStamp::now().nanoseconds();
+        const auto ts = this->clock->now();
         const auto &o = this->state.output(0);
         const auto &o_time = this->state.output_time(0);
         o->resize(1);
@@ -205,7 +210,7 @@ public:
     }
 };
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
     x::telem::MonoClock clock;
 
@@ -242,7 +247,7 @@ public:
             auto [node_cfg, err] = NowConfig::create(cfg.node.config);
             if (err) return {nullptr, err};
             return {
-                std::make_unique<Now>(node_cfg, std::move(cfg.state)),
+                std::make_unique<Now>(node_cfg, std::move(cfg.state), &this->clock),
                 x::errors::NIL
             };
         }

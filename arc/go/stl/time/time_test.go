@@ -914,13 +914,23 @@ var _ = Describe("Time", func() {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
 			Expect(sym.Name).To(Equal("wait"))
 		})
-		It("Should resolve now symbol", func(ctx SpecContext) {
-			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "now"))
-			Expect(sym.Name).To(Equal("now"))
-		})
 		It("Should resolve now via module-qualified name", func(ctx SpecContext) {
 			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "time.now"))
 			Expect(sym.Name).To(Equal("now"))
+			Expect(sym.Deprecated).To(Equal(""))
+		})
+		It("Should resolve bare now symbol (deprecated)", func(ctx SpecContext) {
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "now"))
+			Expect(sym.Name).To(Equal("now"))
+			Expect(sym.Deprecated).To(Equal("time.now"))
+		})
+		It("Should mark bare interval as deprecated", func(ctx SpecContext) {
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "interval"))
+			Expect(sym.Deprecated).To(Equal("time.interval"))
+		})
+		It("Should mark bare wait as deprecated", func(ctx SpecContext) {
+			sym := MustSucceed(time.SymbolResolver.Resolve(ctx, "wait"))
+			Expect(sym.Deprecated).To(Equal("time.wait"))
 		})
 	})
 	Describe("CalculateTolerance", func() {

@@ -144,13 +144,13 @@ public:
     }
 };
 
-class WasmModule : public stl::Module {
+class Module : public stl::Module {
     std::shared_ptr<State> channel;
     std::shared_ptr<str::State> str_state;
     x::telem::MonoClock clock;
 
 public:
-    WasmModule(std::shared_ptr<State> channel, std::shared_ptr<str::State> str_state):
+    Module(std::shared_ptr<State> channel, std::shared_ptr<str::State> str_state):
         channel(std::move(channel)), str_state(std::move(str_state)) {}
 
     bool handles(const std::string &node_type) const override {
