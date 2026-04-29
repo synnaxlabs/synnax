@@ -19,6 +19,7 @@ import {
   Flux,
   Haul,
   Icon,
+  Menu,
   type Pluto,
   Schematic as Base,
   Status,
@@ -57,6 +58,7 @@ import {
 import {
   clearSelection,
   copySelection,
+  cutSelection,
   internalCreate,
   pasteSelection,
   selectAll,
@@ -414,9 +416,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleCopySelection = useCallback(
-    (cursor: xy.XY) =>
-      dispatch(copySelection({ pos: calculateCursorPosition(cursor) })),
-    [dispatch, calculateCursorPosition],
+    (_cursor: xy.XY) => dispatch(copySelection({})),
+    [dispatch],
+  );
+
+  const handleCutSelection = useCallback(
+    (_cursor: xy.XY) =>
+      undoableDispatch(cutSelection({ key: layoutKey })),
+    [undoableDispatch, layoutKey],
   );
 
   const handlePasteSelection = useCallback(
@@ -442,6 +449,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   Diagram.useTriggers({
     onCopy: handleCopySelection,
+    onCut: handleCutSelection,
     onPaste: handlePasteSelection,
     onSelectAll: handleSelectAll,
     onClear: handleClearSelection,
@@ -450,63 +458,127 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const canvasMenuProps = Menu.useContextMenu();
+  // React Flow doesn't select nodes on right-click, so ctx menu actions like
+  // Copy would operate on an empty selection without this.
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest<HTMLElement>("[data-id]");
+      if (nodeEl != null) {
+        const nodeKey = nodeEl.dataset.id;
+        const node = state.nodes.find((n) => n.key === nodeKey);
+        if (node != null && !node.selected) {
+          const updatedNodes = state.nodes.map((n) => ({
+            ...n,
+            selected: n.key === nodeKey,
+          }));
+          syncDispatch(setNodes({ key: layoutKey, nodes: updatedNodes }));
+        }
+      }
+      canvasMenuProps.open(e);
+    },
+    [state.nodes, layoutKey, syncDispatch, canvasMenuProps.open],
+  );
+  const canvasMenu = useCallback(
+    () => (
+      <CContextMenu.Menu>
+        <Menu.Item
+          itemKey="cut"
+          trigger={["Control", "X"]}
+          triggerIndicator
+          onClick={() => handleCutSelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Cut />
+          Cut
+        </Menu.Item>
+        <Menu.Item
+          itemKey="copy"
+          trigger={["Control", "C"]}
+          triggerIndicator
+          onClick={() => handleCopySelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Copy />
+          Copy
+        </Menu.Item>
+        <Menu.Item
+          itemKey="paste"
+          trigger={["Control", "V"]}
+          triggerIndicator
+          onClick={() => handlePasteSelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Paste />
+          Paste
+        </Menu.Item>
+        <Menu.Divider />
+        <CContextMenu.ReloadConsoleItem />
+      </CContextMenu.Menu>
+    ),
+    [handleCutSelection, handleCopySelection, handlePasteSelection, canvasMenuProps.cursor],
+  );
+
   return (
     <div
       ref={ref}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Control.Controller
-        name={controlName}
-        authority={state.authority}
-        onStatusChange={handleControlStatusChange}
-      >
-        <Base.Schematic
-          onViewportChange={handleViewportChange}
-          viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          edges={state.edges}
-          nodes={state.nodes}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the schematic sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          onNodeClick={handleNodeClick}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
+      <Menu.ContextMenu menu={canvasMenu} {...canvasMenuProps}>
+        <Control.Controller
+          name={controlName}
+          authority={state.authority}
+          onStatusChange={handleControlStatusChange}
         >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
-          <Diagram.Background />
-          <Controls x>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
-              )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
-            </Flex.Box>
-          </Controls>
-        </Base.Schematic>
-        {legendVisible && (
-          <Control.Legend
-            position={legendPosition}
-            onPositionChange={handleLegendPositionChange}
-            colors={state.legend.colors}
-            onColorsChange={handleLegendColorsChange}
-            allowVisibleChange={false}
-          />
-        )}
-      </Control.Controller>
+          <Base.Schematic
+            onViewportChange={handleViewportChange}
+            viewportMode={mode}
+            onViewportModeChange={handleViewportModeChange}
+            edges={state.edges}
+            nodes={state.nodes}
+            // Turns out that setting the zoom value to 1 here doesn't have any negative
+            // effects on the schematic sizing and ensures that we position all the lines
+            // in the correct place.
+            viewport={{ ...state.viewport, zoom: 1 }}
+            onEdgesChange={handleEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEditableChange={handleEditableChange}
+            editable={canEdit}
+            triggers={triggers}
+            onDoubleClick={handleDoubleClick}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            fitViewOnResize={state.fitViewOnResize}
+            setFitViewOnResize={handleSetFitViewOnResize}
+            visible={visible}
+            {...dropProps}
+          >
+            <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+            <Diagram.Background />
+            <Controls x>
+              <Diagram.SelectViewportModeControl />
+              <Diagram.FitViewControl />
+              <Flex.Box x pack>
+                {hasUpdatePermission && (
+                  <Diagram.ToggleEditControl
+                    disabled={state.control === "acquired"}
+                  />
+                )}
+                {!state.snapshot && <ControlToggleButton control={state.control} />}
+              </Flex.Box>
+            </Controls>
+          </Base.Schematic>
+          {legendVisible && (
+            <Control.Legend
+              position={legendPosition}
+              onPositionChange={handleLegendPositionChange}
+              colors={state.legend.colors}
+              onColorsChange={handleLegendColorsChange}
+              allowVisibleChange={false}
+            />
+          )}
+        </Control.Controller>
+      </Menu.ContextMenu>
     </div>
   );
 };

@@ -552,6 +552,256 @@ describe("Schematic Slice", () => {
     });
   });
 
+  describe("copy, cut, and paste", () => {
+    const schematicKey = "test-schematic";
+
+    beforeEach(() => {
+      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "valve-1",
+          props: { key: "valve", color: "#ff0000" },
+          node: { position: { x: 100, y: 200 } },
+        }),
+      );
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "valve-2",
+          props: { key: "valve", color: "#00ff00" },
+          node: { position: { x: 300, y: 400 } },
+        }),
+      );
+      // Select both nodes
+      store.dispatch(
+        actions.setNodes({
+          key: schematicKey,
+          nodes: [
+            { key: "valve-1", position: { x: 100, y: 200 }, selected: true },
+            { key: "valve-2", position: { x: 300, y: 400 }, selected: true },
+          ],
+          mode: "update",
+        }),
+      );
+    });
+
+    describe("copySelection", () => {
+      it("should copy selected nodes into the copy buffer", () => {
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.nodes).toHaveLength(2);
+        expect(state.copy.nodes.map((n) => n.key)).toContain("valve-1");
+        expect(state.copy.nodes.map((n) => n.key)).toContain("valve-2");
+      });
+
+      it("should copy node props into the copy buffer", () => {
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.props["valve-1"]).toEqual({ key: "valve", color: "#ff0000" });
+        expect(state.copy.props["valve-2"]).toEqual({ key: "valve", color: "#00ff00" });
+      });
+
+      it("should compute the centroid position of copied nodes", () => {
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.pos).toEqual({ x: 200, y: 300 });
+      });
+
+      it("should not remove nodes from the schematic", () => {
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].nodes).toHaveLength(2);
+      });
+
+      it("should not copy unselected nodes", () => {
+        // Deselect valve-2
+        store.dispatch(
+          actions.setNodes({
+            key: schematicKey,
+            nodes: [{ key: "valve-2", position: { x: 300, y: 400 }, selected: false }],
+            mode: "update",
+          }),
+        );
+
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.nodes).toHaveLength(1);
+        expect(state.copy.nodes[0].key).toBe("valve-1");
+      });
+
+      it("should handle no selected nodes", () => {
+        store.dispatch(actions.clearSelection({ key: schematicKey }));
+        store.dispatch(actions.copySelection({}));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.nodes).toHaveLength(0);
+        expect(state.copy.pos).toEqual({ x: 0, y: 0 });
+      });
+    });
+
+    describe("cutSelection", () => {
+      it("should copy selected nodes into the copy buffer", () => {
+        store.dispatch(actions.cutSelection({ key: schematicKey }));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.copy.nodes).toHaveLength(2);
+        expect(state.copy.props["valve-1"]).toEqual({ key: "valve", color: "#ff0000" });
+      });
+
+      it("should remove cut nodes from the schematic", () => {
+        store.dispatch(actions.cutSelection({ key: schematicKey }));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].nodes).toHaveLength(0);
+      });
+
+      it("should remove cut node props from the schematic", () => {
+        store.dispatch(actions.cutSelection({ key: schematicKey }));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].props["valve-1"]).toBeUndefined();
+        expect(state.schematics[schematicKey].props["valve-2"]).toBeUndefined();
+      });
+
+      it("should not remove unselected nodes", () => {
+        // Deselect valve-2
+        store.dispatch(
+          actions.setNodes({
+            key: schematicKey,
+            nodes: [{ key: "valve-2", position: { x: 300, y: 400 }, selected: false }],
+            mode: "update",
+          }),
+        );
+
+        store.dispatch(actions.cutSelection({ key: schematicKey }));
+
+        const state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].nodes).toHaveLength(1);
+        expect(state.schematics[schematicKey].nodes[0].key).toBe("valve-2");
+      });
+    });
+
+    describe("pasteSelection", () => {
+      it("should paste copied nodes at the given position", () => {
+        store.dispatch(actions.copySelection({}));
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 400, y: 500 },
+          }),
+        );
+
+        const state = store.getState()[SLICE_NAME];
+        // Original 2 + pasted 2
+        expect(state.schematics[schematicKey].nodes).toHaveLength(4);
+      });
+
+      it("should generate new keys for pasted nodes", () => {
+        store.dispatch(actions.copySelection({}));
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 200, y: 300 },
+          }),
+        );
+
+        const state = store.getState()[SLICE_NAME];
+        const keys = state.schematics[schematicKey].nodes.map((n) => n.key);
+        const uniqueKeys = new Set(keys);
+        expect(uniqueKeys.size).toBe(keys.length);
+      });
+
+      it("should offset pasted nodes relative to the paste position", () => {
+        store.dispatch(actions.copySelection({}));
+        // Centroid is (200, 300), paste at (400, 500) → offset (200, 200)
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 400, y: 500 },
+          }),
+        );
+
+        const state = store.getState()[SLICE_NAME];
+        const pastedNodes = state.schematics[schematicKey].nodes.filter(
+          (n) => n.key !== "valve-1" && n.key !== "valve-2",
+        );
+        const positions = pastedNodes.map((n) => n.position);
+        // valve-1 was at (100,200), offset by (200,200) → (300,400)
+        // valve-2 was at (300,400), offset by (200,200) → (500,600)
+        expect(positions).toContainEqual({ x: 300, y: 400 });
+        expect(positions).toContainEqual({ x: 500, y: 600 });
+      });
+
+      it("should select only the pasted nodes", () => {
+        store.dispatch(actions.copySelection({}));
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 200, y: 300 },
+          }),
+        );
+
+        const state = store.getState()[SLICE_NAME];
+        const nodes = state.schematics[schematicKey].nodes;
+        const originalNodes = nodes.filter(
+          (n) => n.key === "valve-1" || n.key === "valve-2",
+        );
+        const pastedNodes = nodes.filter(
+          (n) => n.key !== "valve-1" && n.key !== "valve-2",
+        );
+        expect(originalNodes.every((n) => !n.selected)).toBe(true);
+        expect(pastedNodes.every((n) => n.selected)).toBe(true);
+      });
+
+      it("should copy props to pasted nodes", () => {
+        store.dispatch(actions.copySelection({}));
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 200, y: 300 },
+          }),
+        );
+
+        const state = store.getState()[SLICE_NAME];
+        const pastedNodes = state.schematics[schematicKey].nodes.filter(
+          (n) => n.key !== "valve-1" && n.key !== "valve-2",
+        );
+        pastedNodes.forEach((node) => {
+          expect(state.schematics[schematicKey].props[node.key]).toBeDefined();
+          expect(state.schematics[schematicKey].props[node.key].key).toBe("valve");
+        });
+      });
+    });
+
+    describe("cut then paste", () => {
+      it("should move nodes from one position to another", () => {
+        store.dispatch(actions.cutSelection({ key: schematicKey }));
+
+        let state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].nodes).toHaveLength(0);
+
+        store.dispatch(
+          actions.pasteSelection({
+            key: schematicKey,
+            pos: { x: 500, y: 600 },
+          }),
+        );
+
+        state = store.getState()[SLICE_NAME];
+        expect(state.schematics[schematicKey].nodes).toHaveLength(2);
+        expect(
+          state.schematics[schematicKey].nodes.every((n) => n.selected),
+        ).toBe(true);
+      });
+    });
+  });
+
   describe("off-page reference page prop", () => {
     const schematicKey = "test-schematic";
     const nodeKey = "opr-1";
