@@ -186,19 +186,23 @@ func StickyUnitsListFromPB(pbs []*StickyUnits) ([]spatial.StickyUnits, error) {
 
 // StickyXYToPB converts StickyXY to StickyXY.
 func StickyXYToPB(r spatial.StickyXY) (*StickyXY, error) {
-	rootVal, err := CornerLocationToPB(r.Root)
-	if err != nil {
-		return nil, err
-	}
-	unitsVal, err := StickyUnitsToPB(r.Units)
-	if err != nil {
-		return nil, err
-	}
 	pb := &StickyXY{
-		X:     r.X,
-		Y:     r.Y,
-		Root:  rootVal,
-		Units: unitsVal,
+		X: r.X,
+		Y: r.Y,
+	}
+	if r.Root != (spatial.CornerLocation{}) {
+		rootVal, err := CornerLocationToPB(r.Root)
+		if err != nil {
+			return nil, err
+		}
+		pb.Root = rootVal
+	}
+	if r.Units != (spatial.StickyUnits{}) {
+		unitsVal, err := StickyUnitsToPB(r.Units)
+		if err != nil {
+			return nil, err
+		}
+		pb.Units = unitsVal
 	}
 	return pb, nil
 }
@@ -210,21 +214,25 @@ func StickyXYFromPB(pb *StickyXY) (spatial.StickyXY, error) {
 		return r, nil
 	}
 	var err error
-	r.Root, err = CornerLocationFromPB(pb.Root)
-	if err != nil {
-		return spatial.StickyXY{}, err
-	}
-	r.Units, err = StickyUnitsFromPB(pb.Units)
-	if err != nil {
-		return spatial.StickyXY{}, err
-	}
 	r.X = pb.X
 	r.Y = pb.Y
+	if pb.Root != nil {
+		r.Root, err = CornerLocationFromPB(pb.Root)
+		if err != nil {
+			return spatial.StickyXY{}, err
+		}
+	}
+	if pb.Units != nil {
+		r.Units, err = StickyUnitsFromPB(pb.Units)
+		if err != nil {
+			return spatial.StickyXY{}, err
+		}
+	}
 	return r, nil
 }
 
-// StickyXiesToPB converts a slice of StickyXY to StickyXY.
-func StickyXiesToPB(rs []spatial.StickyXY) ([]*StickyXY, error) {
+// StickyXYsToPB converts a slice of StickyXY to StickyXY.
+func StickyXYsToPB(rs []spatial.StickyXY) ([]*StickyXY, error) {
 	result := make([]*StickyXY, len(rs))
 	for i := range rs {
 		var err error
@@ -236,8 +244,8 @@ func StickyXiesToPB(rs []spatial.StickyXY) ([]*StickyXY, error) {
 	return result, nil
 }
 
-// StickyXiesFromPB converts a slice of StickyXY to StickyXY.
-func StickyXiesFromPB(pbs []*StickyXY) ([]spatial.StickyXY, error) {
+// StickyXYsFromPB converts a slice of StickyXY to StickyXY.
+func StickyXYsFromPB(pbs []*StickyXY) ([]spatial.StickyXY, error) {
 	result := make([]spatial.StickyXY, len(pbs))
 	for i, pb := range pbs {
 		var err error
@@ -415,8 +423,8 @@ func ClientXYFromPB(pb *ClientXY) (spatial.ClientXY, error) {
 	return r, nil
 }
 
-// ClientXiesToPB converts a slice of ClientXY to ClientXY.
-func ClientXiesToPB(rs []spatial.ClientXY) ([]*ClientXY, error) {
+// ClientXYsToPB converts a slice of ClientXY to ClientXY.
+func ClientXYsToPB(rs []spatial.ClientXY) ([]*ClientXY, error) {
 	result := make([]*ClientXY, len(rs))
 	for i := range rs {
 		var err error
@@ -428,8 +436,8 @@ func ClientXiesToPB(rs []spatial.ClientXY) ([]*ClientXY, error) {
 	return result, nil
 }
 
-// ClientXiesFromPB converts a slice of ClientXY to ClientXY.
-func ClientXiesFromPB(pbs []*ClientXY) ([]spatial.ClientXY, error) {
+// ClientXYsFromPB converts a slice of ClientXY to ClientXY.
+func ClientXYsFromPB(pbs []*ClientXY) ([]spatial.ClientXY, error) {
 	result := make([]spatial.ClientXY, len(pbs))
 	for i, pb := range pbs {
 		var err error

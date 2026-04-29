@@ -174,18 +174,18 @@ type Viewport struct {
 // negative values to express direction.
 type SignedDimensions struct {
 	// SignedWidth is the signed width.
-	SignedWidth float64 `json:"signed_width" msgpack:"signed_width"`
+	SignedWidth float64 `json:"signedWidth" msgpack:"signedWidth"`
 	// SignedHeight is the signed height.
-	SignedHeight float64 `json:"signed_height" msgpack:"signed_height"`
+	SignedHeight float64 `json:"signedHeight" msgpack:"signedHeight"`
 }
 
 // ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
 // shape of DOM mouse events.
 type ClientXY struct {
 	// ClientX is the horizontal coordinate in client (viewport) space.
-	ClientX float64 `json:"client_x" msgpack:"client_x"`
+	ClientX float64 `json:"clientX" msgpack:"clientX"`
 	// ClientY is the vertical coordinate in client (viewport) space.
-	ClientY float64 `json:"client_y" msgpack:"client_y"`
+	ClientY float64 `json:"clientY" msgpack:"clientY"`
 }
 
 // Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.

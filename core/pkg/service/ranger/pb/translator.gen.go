@@ -14,6 +14,7 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/color"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
 )
@@ -24,15 +25,17 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 	if err != nil {
 		return nil, err
 	}
-	colorVal, err := colorpb.ColorToPB(r.Color)
-	if err != nil {
-		return nil, err
-	}
 	pb := &Range{
 		Name:      r.Name,
 		Key:       r.Key.String(),
 		TimeRange: timeRangeVal,
-		Color:     colorVal,
+	}
+	if r.Color != (color.Color{}) {
+		colorVal, err := colorpb.ColorToPB(r.Color)
+		if err != nil {
+			return nil, err
+		}
+		pb.Color = colorVal
 	}
 	return pb, nil
 }
@@ -53,11 +56,13 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return ranger.Range{}, err
-	}
 	r.Name = pb.Name
+	if pb.Color != nil {
+		r.Color, err = colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return ranger.Range{}, err
+		}
+	}
 	return r, nil
 }
 
