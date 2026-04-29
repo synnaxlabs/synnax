@@ -11,6 +11,8 @@
 
 import { z } from "zod";
 
+import { type numeric } from "@/numeric";
+
 export const X_LOCATIONS = ["left", "right"] as const;
 export const xLocationZ = z.enum(X_LOCATIONS);
 export type XLocation = z.infer<typeof xLocationZ>;
@@ -114,13 +116,13 @@ export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
  * ClientXY is a 2D coordinate point expressed in client (viewport) space, matching
  * the shape of DOM mouse events.
  */
-export const clientXyZ = z.object({
+export const clientXYZ = z.object({
   /** clientX is the horizontal coordinate in client (viewport) space. */
   clientX: z.number(),
   /** clientY is the vertical coordinate in client (viewport) space. */
   clientY: z.number(),
 });
-export interface ClientXY extends z.infer<typeof clientXyZ> {}
+export interface ClientXY extends z.infer<typeof clientXYZ> {}
 
 /**
  * Bounds is a closed-open interval [lower, upper) over an ordered numeric value
@@ -128,14 +130,14 @@ export interface ClientXY extends z.infer<typeof clientXyZ> {}
  * bounds over either number or bigint values; other languages emit a
  * concrete float64-based type.
  */
-export const boundsZ = <T extends number | bigint = number>(t?: z.ZodType<T>) =>
+export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>
   z.object({
     /** lower is the inclusive lower bound. */
     lower: t ?? z.number(),
     /** upper is the exclusive upper bound. */
     upper: t ?? z.number(),
   });
-export interface Bounds<T extends number | bigint = number> {
+export interface Bounds<T extends numeric.Value = number> {
   lower: T;
   upper: T;
 }
@@ -153,7 +155,7 @@ export interface Viewport extends z.infer<typeof viewportZ> {}
  * StickyXY is a position that can be anchored to different corners of a
  * container with configurable units (pixels or decimal fractions).
  */
-export const stickyXyZ = z.object({
+export const stickyXYZ = z.object({
   /** x is the horizontal coordinate. */
   x: z.number(),
   /** y is the vertical coordinate. */
@@ -163,4 +165,4 @@ export const stickyXyZ = z.object({
   /** units is the optional unit specification for the coordinates. */
   units: stickyUnitsZ.optional(),
 });
-export interface StickyXY extends z.infer<typeof stickyXyZ> {}
+export interface StickyXY extends z.infer<typeof stickyXYZ> {}

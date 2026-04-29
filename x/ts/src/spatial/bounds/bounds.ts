@@ -13,11 +13,7 @@ import { type Bounds, boundsZ, type NumberCouple } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
 
-export type CrudeBounds<T extends number | bigint = number> =
-  | Bounds<T>
-  | NumberCouple<T>;
-
-export type Crude<T extends numeric.Value = number> = CrudeBounds<T>;
+export type Crude<T extends number | bigint = number> = Bounds<T> | NumberCouple<T>;
 
 /** Options for the `construct` function. */
 interface ConstructOptions {
@@ -213,7 +209,7 @@ export const clamp = <T extends numeric.Value>(bounds: Crude<T>, target: T): T =
  */
 export const contains = <T extends numeric.Value>(
   bounds: Crude<T>,
-  target: T | CrudeBounds<T>,
+  target: T | Crude<T>,
 ): boolean => {
   const _bounds = construct(bounds);
   if (typeof target === "number" || typeof target === "bigint")

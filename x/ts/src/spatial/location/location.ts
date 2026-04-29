@@ -100,7 +100,6 @@ export const xy = z.object({
   y: yLocationZ.or(centerLocationZ),
 });
 export type XY = z.infer<typeof xy>;
-export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
 export const TOP_LEFT: Corner = Object.freeze({ x: "left", y: "top" });
 export const TOP_RIGHT: Corner = Object.freeze({ x: "right", y: "top" });

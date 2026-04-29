@@ -421,13 +421,18 @@ func (p *Plugin) processGenericStructForTranslation(
 		pbName = s.Name
 	}
 
-	data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
-
 	typeParams := make([]typeParamData, 0, len(form.TypeParams))
 	typeParamNames := make([]string, 0, len(form.TypeParams))
 	for _, tp := range resolution.NonDefaultedTypeParams(form.TypeParams) {
 		typeParams = append(typeParams, typeParamData{Name: tp.Name, Constraint: typeParamConstraint(tp)})
 		typeParamNames = append(typeParamNames, tp.Name)
+	}
+
+	// anypb is only referenced from translator signatures of structs whose
+	// generics survive default-substitution; for fully-defaulted generics the
+	// emitted translator is concrete and the import would be unused.
+	if len(typeParamNames) > 0 {
+		data.imports.AddExternal("google.golang.org/protobuf/types/known/anypb")
 	}
 
 	goTypeBase := fmt.Sprintf("%s.%s", data.parentAlias, goName)

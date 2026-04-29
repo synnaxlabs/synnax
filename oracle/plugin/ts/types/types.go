@@ -674,6 +674,12 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 			break
 		}
 	}
+	for _, tp := range sd.TypeParams {
+		if tp.IsPrimitiveConstrained {
+			addXImport(data, xImport{name: "numeric", submodule: "numeric"})
+			break
+		}
+	}
 
 	sd.AllParamsOptional = true
 	for _, tp := range sd.TypeParams {
@@ -951,7 +957,7 @@ func (p *Plugin) processTypeParam(tp resolution.TypeParam, table *resolution.Tab
 		}
 		if tp.Constraint.Name == "numeric" {
 			tpd.IsPrimitiveConstrained = true
-			tpd.BareConstraint = "number | bigint"
+			tpd.BareConstraint = "numeric.Value"
 		}
 		resolved, ok := tp.Constraint.Resolve(table)
 		if ok {

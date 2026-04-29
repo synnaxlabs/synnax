@@ -14,7 +14,6 @@ package pb
 import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/spatial"
-	"google.golang.org/protobuf/types/known/anypb"
 )
 
 // XYToPB converts XY to XY.

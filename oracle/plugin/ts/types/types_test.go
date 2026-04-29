@@ -1080,10 +1080,11 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(err).To(BeNil())
 
 			content := string(resp.Files[0].Content)
-			Expect(content).To(ContainSubstring(`export const boundsZ = <T extends number | bigint = number>(t?: z.ZodType<T>) =>`))
+			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>`))
 			Expect(content).To(ContainSubstring(`lower: t ?? z.number()`))
 			Expect(content).To(ContainSubstring(`upper: t ?? z.number()`))
-			Expect(content).To(ContainSubstring(`export interface Bounds<T extends number | bigint = number> {`))
+			Expect(content).To(ContainSubstring(`export interface Bounds<T extends numeric.Value = number> {`))
 			Expect(content).To(ContainSubstring(`lower: T;`))
 			Expect(content).To(ContainSubstring(`upper: T;`))
 			Expect(content).NotTo(ContainSubstring(`z.infer<T>`))

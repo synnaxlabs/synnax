@@ -7,25 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import z from "zod";
+import type z from "zod";
 
 import { box } from "@/spatial/box";
 import { location } from "@/spatial/location";
+import { type StickyXY, stickyXYZ } from "@/spatial/types.gen";
 import { xy as base } from "@/spatial/xy";
 
-export const completeXY = base.xyZ.extend({
-  root: location.cornerZ,
-  units: z.object({
-    x: z.enum(["px", "decimal"]),
-    y: z.enum(["px", "decimal"]),
-  }),
-});
+export const xyZ = stickyXYZ;
+export type XY = StickyXY;
 
-export type CompleteXY = z.infer<typeof completeXY>;
-
-export const xy = completeXY.partial({ root: true, units: true });
-
-export interface XY extends z.infer<typeof xy> {}
+export const completeXYZ = stickyXYZ.required({ root: true, units: true });
+export type CompleteXY = z.infer<typeof completeXYZ>;
 
 interface ToCSSReturn extends Partial<Record<location.Outer, string>> {}
 
