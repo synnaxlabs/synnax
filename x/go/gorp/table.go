@@ -139,7 +139,8 @@ func populateIndexes[K Key, E Entry[K]](
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
-	nexter, closer, nexterErr := wrapReader[K, E](db, keyPrefix).OpenNexter(ctx)
+	reader := wrapReader[K, E](db, keyPrefix)
+	nexter, closer, nexterErr := reader.OpenNexter(ctx)
 	if nexterErr != nil {
 		return nexterErr
 	}
@@ -219,7 +220,8 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return wrapReader[K, E](t.DB, t.keyPrefix).OpenNexter(ctx)
+	reader := wrapReader[K, E](t.DB, t.keyPrefix)
+	return reader.OpenNexter(ctx)
 }
 
 var normalizeKeysMigrationKey = "normalize_keys"

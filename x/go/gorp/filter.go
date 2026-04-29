@@ -195,6 +195,20 @@ func (m bytesKeyMembership) Contains(k []byte) bool {
 	return ok
 }
 
+// present reports whether the filter carries any active constraint —
+// equivalent to the historical `*Filter != nil` check, but without forcing
+// the filter onto the heap. A zero-value Filter (no eval, raw, keys,
+// membership, or resolve) is treated as absent so callers can store a
+// value-typed Filter on Retrieve and rely on the zero value to mean
+// "no filter set" (e.g. immediately after NewRetrieve).
+func (f Filter[K, E]) present() bool {
+	return f.eval != nil ||
+		f.raw != nil ||
+		f.keys != nil ||
+		f.membership != nil ||
+		f.resolve != nil
+}
+
 // containsKey reports whether k is present in the filter's precomputed keys
 // set. Routes through the lazy O(1) predicate when the filter carries one
 // (built by index-backed constructors and And/Or composition), and falls

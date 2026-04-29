@@ -18,7 +18,7 @@ import (
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
-	entries   *Entries[K, E]
+	entries   Entries[K, E]
 	onUpdate  onUpdate[K, E]
 	keyPrefix []byte
 	// indexes, when non-nil, are propagated into the writer constructed by
@@ -30,7 +30,7 @@ type Create[K Key, E Entry[K]] struct {
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
-	return Create[K, E]{entries: new(Entries[K, E])}
+	return Create[K, E]{}
 }
 
 // MergeExisting adds a function to the query that can be used to prevent the accidental
@@ -46,13 +46,13 @@ func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating, existing 
 
 // Entries sets the Entries to write to the DB.
 func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
-	c.entries = multipleEntries(entries)
+	c.entries.bindMultiple(entries)
 	return c
 }
 
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] {
-	c.entries = singleEntry(entry)
+	c.entries.bindSingle(entry)
 	return c
 }
 
