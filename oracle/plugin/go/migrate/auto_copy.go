@@ -636,16 +636,6 @@ func decorateWithTypeParams(fn funcData, tparams []resolution.TypeParam) funcDat
 	return fn
 }
 
-// constraintNameForGo returns the Go type expression for a constraint name. Most
-// constraints pass through unchanged; pseudo-types that don't have a direct Go
-// equivalent (like 'numeric') are expanded into a tilde-union.
-func constraintNameForGo(name string) string {
-	if name == "numeric" {
-		return "~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64"
-	}
-	return name
-}
-
 // formatTypeParamsDecl renders the type-param list as it appears in a function
 // signature: "" when the slice is empty, "[Details any, V comparable]" when
 // non-empty. Constraints fall back to "any" when none is set on the param.
@@ -663,7 +653,7 @@ func formatTypeParamsDecl(tps []resolution.TypeParam) string {
 		b.WriteString(tp.Name)
 		b.WriteString(" ")
 		if tp.Constraint != nil {
-			b.WriteString(constraintNameForGo(tp.Constraint.Name))
+			b.WriteString(tp.Constraint.Name)
 		} else {
 			b.WriteString("any")
 		}

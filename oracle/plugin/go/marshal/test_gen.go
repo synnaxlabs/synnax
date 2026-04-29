@@ -245,8 +245,8 @@ func concreteOracleTypeForConstraint(tp resolution.TypeParam) string {
 			return "int64"
 		case "float":
 			return "float64"
-		case "number", "numeric":
-			return "float64"
+		case "number":
+			return "int64"
 		}
 	}
 	return "string"
@@ -262,8 +262,6 @@ func concreteGoTypeForConstraint(constraint string) string {
 		return "float64"
 	case "number":
 		return "int64"
-	case "numeric":
-		return "float64"
 	case "any":
 		return "string"
 	default:

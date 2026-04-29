@@ -356,12 +356,7 @@ func processTypeParam(tp resolution.TypeParam, data *templateData) typeParamData
 
 func constraintToGo(constraint resolution.TypeRef, data *templateData) string {
 	if resolution.IsConstraint(constraint.Name) {
-		switch constraint.Name {
-		case "numeric":
-			return "~int | ~int8 | ~int16 | ~int32 | ~int64 | ~uint | ~uint8 | ~uint16 | ~uint32 | ~uint64 | ~float32 | ~float64"
-		default:
-			return constraint.Name
-		}
+		return constraint.Name
 	}
 	if resolution.IsPrimitive(constraint.Name) {
 		switch constraint.Name {
