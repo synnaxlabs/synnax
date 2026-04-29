@@ -10,79 +10,48 @@
 package http
 
 import (
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
 
-// Codec pairs an encoding.Codec with the HTTP content type that identifies it over the
-// wire. A Codec satisfies both RequestDecoder and ResponseEncoder, so any registered
-// Codec can be used on either side of a request.
-type Codec interface {
-	RequestDecoder
-	ResponseEncoder
-}
-
-// RequestDecoder is an encoding.Decoder paired with the HTTP content type it accepts on
-// a request body. It is used by the unary HTTP server to select a decoder based on the
-// request's Content-Type header.
-type RequestDecoder interface {
-	encoding.Decoder
-	ContentType() string
-}
-
-// ResponseEncoder is an encoding.Encoder paired with the HTTP content type it produces
-// on a response body. It is used by the unary HTTP server to select an encoder based
-// on the request's Accept header.
-type ResponseEncoder interface {
+// Encoder is an encoding.Encoder paired with the HTTP content type it produces. Used by
+// the unary HTTP server to encode a response body based on the Accept header, and by
+// the unary HTTP client to encode an outgoing request body.
+type Encoder interface {
 	encoding.Encoder
 	ContentType() string
 }
 
+// Decoder is an encoding.Decoder paired with the HTTP content type it accepts. Used by
+// the unary HTTP server and client to decode a request and response body, based off of
+// the Content-Type header.
+type Decoder interface {
+	encoding.Decoder
+	ContentType() string
+}
+
+// Codec is both an Encoder and a Decoder for the same content type. The stream
+// transport uses one Codec for both directions of a websocket connection; the unary
+// transport uses Codec values as defaults for both Encoder and Decoder registries.
+type Codec interface {
+	Encoder
+	Decoder
+}
+
 var codecs = []Codec{json.Codec, msgpack.Codec}
 
-// ResolveCodec returns the registered Codec whose ContentType exactly matches the given
-// content-type string, or an error if none match. Comparison is case-sensitive and does
-// not strip parameters such as charset.
-func ResolveCodec(contentType string) (Codec, error) {
-	for _, codec := range codecs {
-		if codec.ContentType() == contentType {
-			return codec, nil
-		}
-	}
-	return nil, errors.Newf(
-		"[encoding] - unable to determine encoding type for %s",
-		contentType,
-	)
-}
+// defaultDecoders is the registered codecs as Decoders, used to seed a unary server's
+// decoder registry. Read-only after init; callers replace the slice rather than
+// mutating it.
+var defaultDecoders = func() []Decoder {
+	return lo.Map(codecs, func(c Codec, _ int) Decoder { return c })
+}()
 
-// SupportedContentTypes returns the content types of every registered Codec, in
-// registration order. Useful for reporting and content negotiation.
-func SupportedContentTypes() []string {
-	var contentTypes []string
-	for _, codec := range codecs {
-		contentTypes = append(contentTypes, codec.ContentType())
-	}
-	return contentTypes
-}
-
-// DefaultRequestDecoders returns the registered codecs as a slice of RequestDecoders,
-// suitable for seeding a unary server's decoder registry.
-func DefaultRequestDecoders() []RequestDecoder {
-	out := make([]RequestDecoder, len(codecs))
-	for i, c := range codecs {
-		out[i] = c
-	}
-	return out
-}
-
-// DefaultResponseEncoders returns the registered codecs as a slice of ResponseEncoders,
-// suitable for seeding a unary server's encoder registry.
-func DefaultResponseEncoders() []ResponseEncoder {
-	out := make([]ResponseEncoder, len(codecs))
-	for i, c := range codecs {
-		out[i] = c
-	}
-	return out
-}
+// defaultEncoders is the registered codecs as Encoders, used to seed a unary server's
+// encoder registry. Read-only after init; callers replace the slice rather than
+// mutating it.
+var defaultEncoders = func() []Encoder {
+	return lo.Map(codecs, func(c Codec, _ int) Encoder { return c })
+}()

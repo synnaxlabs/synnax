@@ -32,7 +32,7 @@ type Codec struct {
 	LowerPerfCodec xencoding.Codec
 }
 
-func NewWSFramerCodec(channelSvc *channel.Service) fhttp.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) xencoding.Codec {
 	return &Codec{
 		LowerPerfCodec: json.Codec,
 		Codec:          codec.NewDynamic(channelSvc),
@@ -236,18 +236,11 @@ func (c *Codec) decodeStreamRequest(
 	return c.Update(ctx, v.Payload.Keys)
 }
 
-func (c *Codec) ContentType() string {
-	return framerContentType
-}
-
-const framerContentType = "application/sy-framer"
-
-// WithCodec returns a StreamServerOption that registers the WS framer codec on
-// a streaming server. A fresh codec instance is constructed per request because
-// the framer codec is stateful (it tracks the channel keys for the active
-// stream).
+// WithCodec returns a StreamServerOption that registers the WS framer codec on a
+// streaming server. A fresh codec instance is constructed per connection because the
+// framer codec is stateful (it tracks the channel keys for the active stream).
 func WithCodec(channelSvc *channel.Service) fhttp.StreamServerOption {
-	return fhttp.WithAdditionalCodec(framerContentType, func() fhttp.Codec {
+	return fhttp.WithAdditionalCodec("application/sy-framer", func() xencoding.Codec {
 		return NewWSFramerCodec(channelSvc)
 	})
 }

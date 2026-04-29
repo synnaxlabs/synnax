@@ -147,7 +147,6 @@ func NewStreamServer[RQ, RS freighter.Payload](
 ) freighter.StreamServer[RQ, RS] {
 	s := &streamServer[RQ, RS]{
 		streamServerOptions: newStreamServerOptions(opts),
-		Reporter:            streamReporter,
 		path:                path,
 		Instrumentation:     r.cfg.Instrumentation,
 		serverCtx:           r.streamCtx,
@@ -168,7 +167,6 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 ) freighter.UnaryServer[RQ, RS] {
 	us := &unaryServer[RQ, RS]{
 		unaryServerOptions: newUnaryServerOptions(opts),
-		Reporter:           unaryReporter,
 		path:               path,
 	}
 	r.register(path, "POST", us, us.fiberHandler)

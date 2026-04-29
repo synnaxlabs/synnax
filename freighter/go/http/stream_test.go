@@ -43,7 +43,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
-			fhttp.ClientConfig{Codec: json.Codec},
+			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
 		router.BindTo(app)
 		go func() {

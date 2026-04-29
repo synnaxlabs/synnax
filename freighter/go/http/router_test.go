@@ -128,7 +128,10 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.ClientConfig{Codec: json.Codec},
+				fhttp.UnaryClientConfig{
+					Encoder:  json.Codec,
+					Decoders: []fhttp.Decoder{json.Codec},
+				},
 			))
 			res := MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
 			Expect(res).To(Equal(test.Response{ID: 1, Message: "hi"}))
@@ -166,7 +169,7 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
-				fhttp.ClientConfig{Codec: json.Codec},
+				fhttp.StreamClientConfig{Codec: json.Codec},
 			))
 			stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
 			Eventually(handlerEntered).Should(BeClosed())
@@ -210,7 +213,10 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.ClientConfig{Codec: json.Codec},
+				fhttp.UnaryClientConfig{
+					Encoder:  json.Codec,
+					Decoders: []fhttp.Decoder{json.Codec},
+				},
 			))
 			MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
 			Expect(calls).To(Equal(1))
@@ -248,7 +254,10 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.ClientConfig{Codec: json.Codec},
+				fhttp.UnaryClientConfig{
+					Encoder:  json.Codec,
+					Decoders: []fhttp.Decoder{json.Codec},
+				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
 				ID:      1,
@@ -299,7 +308,10 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-				fhttp.ClientConfig{Codec: json.Codec},
+				fhttp.UnaryClientConfig{
+					Encoder:  json.Codec,
+					Decoders: []fhttp.Decoder{json.Codec},
+				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
 				ID:      1,

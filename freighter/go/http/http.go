@@ -27,10 +27,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/override"
-	"github.com/synnaxlabs/x/validate"
 	"go.uber.org/zap"
 )
 
@@ -43,30 +40,6 @@ type BindableTransport interface {
 	// fiber.App.
 	BindTo(*fiber.App)
 }
-
-// ClientConfig configures an HTTP client built by NewUnaryClient or NewStreamClient.
-type ClientConfig struct {
-	// Codec is the encoding used for both the request body (Content-Type) and the
-	// response body.
-	//
-	// [OPTIONAL] - Defaults to MessagePack.
-	Codec Codec
-}
-
-// Validate implements config.Config.
-func (c ClientConfig) Validate() error {
-	v := validate.New("http.client")
-	validate.NotNil(v, "codec", c.Codec)
-	return v.Error()
-}
-
-// Override implements config.Config.
-func (c ClientConfig) Override(other ClientConfig) ClientConfig {
-	c.Codec = override.Nil(c.Codec, other.Codec)
-	return c
-}
-
-var defaultClientConfig = ClientConfig{Codec: msgpack.Codec}
 
 // WSMessageType is used to differentiate between the different types of messages used
 // to implement the websocket stream transport.
@@ -249,7 +222,7 @@ func parseRequestCtx(
 ) freighter.Context {
 	md := freighter.Context{
 		Context:  socketCtx,
-		Protocol: unaryReporter.Protocol,
+		Protocol: unaryProtocol,
 		Target:   target,
 		Sec:      parseSecurityInfo(fiberCtx),
 		Role:     freighter.RoleServer,
@@ -290,7 +263,7 @@ func parseResponseCtx(c *http.Response, target address.Address) freighter.Contex
 	md := freighter.Context{
 		Role:     freighter.RoleClient,
 		Variant:  freighter.VariantUnary,
-		Protocol: unaryReporter.Protocol,
+		Protocol: unaryProtocol,
 		Target:   target,
 		Params: lo.Ternary(
 			len(c.Header) > 0,

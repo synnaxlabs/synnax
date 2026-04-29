@@ -13,15 +13,14 @@ import (
 	"context"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 )
 
-var unaryReporter = freighter.Reporter{
-	Protocol:  "http",
-	Encodings: SupportedContentTypes(),
-}
+const unaryProtocol = "http"
 
 // unaryServerOptions configures a unary HTTP server. Unary handlers are stateless
 // across requests, so the registered decoders and encoders are shared instances rather
@@ -29,10 +28,10 @@ var unaryReporter = freighter.Reporter{
 type unaryServerOptions struct {
 	// requestDecoders is the set of decoders the unary server will consider when
 	// resolving the request body codec from the Content-Type header.
-	requestDecoders []RequestDecoder
+	requestDecoders []Decoder
 	// responseEncoders is the set of encoders the unary server will consider when
 	// resolving the response body codec from the Accept header.
-	responseEncoders []ResponseEncoder
+	responseEncoders []Encoder
 }
 
 // UnaryServerOption configures a unary HTTP server.
@@ -40,20 +39,20 @@ type UnaryServerOption func(*unaryServerOptions)
 
 // WithRequestDecoders overrides the set of decoders the unary server matches against
 // the request's Content-Type header.
-func WithRequestDecoders(decoders ...RequestDecoder) UnaryServerOption {
+func WithRequestDecoders(decoders ...Decoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.requestDecoders = decoders }
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
 // the request's Accept header.
-func WithResponseEncoders(encoders ...ResponseEncoder) UnaryServerOption {
+func WithResponseEncoders(encoders ...Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
 
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
 	so := unaryServerOptions{
-		requestDecoders:  DefaultRequestDecoders(),
-		responseEncoders: DefaultResponseEncoders(),
+		requestDecoders:  defaultDecoders,
+		responseEncoders: defaultEncoders,
 	}
 	for _, opt := range opts {
 		opt(&so)
@@ -65,9 +64,19 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	unaryServerOptions
 	handle func(context.Context, RQ) (RS, error)
 	path   string
-	freighter.Reporter
 	freighter.MiddlewareCollector
 	internal bool
+}
+
+// Report describes the unary server's protocol and the content types it accepts on
+// requests vs emits on responses. Accept and emit lists may differ — e.g. an import
+// endpoint that accepts JSON|YAML|TOML but emits only JSON|MessagePack.
+func (s *unaryServer[RQ, RS]) Report() alamos.Report {
+	return alamos.Report{
+		"protocol":             unaryProtocol,
+		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d Decoder, _ int) string { return d.ContentType() }),
+		"emittedContentTypes":  lo.Map(s.responseEncoders, func(e Encoder, _ int) string { return e.ContentType() }),
+	}
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(
@@ -114,7 +123,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
 	contentType string,
-) (RequestDecoder, error) {
+) (Decoder, error) {
 	for _, d := range s.requestDecoders {
 		if d.ContentType() == contentType {
 			return d, nil
@@ -128,7 +137,7 @@ func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
 
 func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	fCtx fiber.Ctx,
-) (ResponseEncoder, bool) {
+) (Encoder, bool) {
 	offers := make([]string, len(s.responseEncoders))
 	for i, e := range s.responseEncoders {
 		offers[i] = e.ContentType()
@@ -145,7 +154,7 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	return nil, false
 }
 
-func encodeAndWrite(c fiber.Ctx, encoder ResponseEncoder, v any) error {
+func encodeAndWrite(c fiber.Ctx, encoder Encoder, v any) error {
 	b, err := encoder.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err

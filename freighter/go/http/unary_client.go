@@ -13,33 +13,107 @@ import (
 	"bytes"
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
+// UnaryClientConfig configures a unary HTTP client built by NewUnaryClient.
+type UnaryClientConfig struct {
+	// Encoder encodes outgoing requests. Sets the Content-Type header.
+	//
+	// [OPTIONAL] - Defaults to MessagePack.
+	Encoder Encoder
+	// Decoders are the codecs the client can decode responses from. Drives the Accept
+	// header for content negotiation; the response is decoded with whichever Decoder
+	// matches the response Content-Type.
+	//
+	// [OPTIONAL] - Defaults to JSON and MessagePack.
+	Decoders []Decoder
+}
+
+// Validate implements config.Config.
+func (c UnaryClientConfig) Validate() error {
+	v := validate.New("http.unary_client")
+	validate.NotNil(v, "encoder", c.Encoder)
+	v.Ternary("decoders", len(c.Decoders) == 0, "at least one decoder is required")
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
+	c.Encoder = override.Nil(c.Encoder, other.Encoder)
+	c.Decoders = override.Slice(c.Decoders, other.Decoders)
+	return c
+}
+
+var defaultUnaryClientConfig = UnaryClientConfig{
+	Encoder:  msgpack.Codec,
+	Decoders: defaultDecoders,
+}
+
 // NewUnaryClient builds a freighter.UnaryClient using the merged config (left to right)
-// layered on top of defaultClientConfig. Returns an error if the merged config fails to
-// validate. The client uses the same codec for both Content-Type and the response body
-// (no Accept negotiation); use a server-side configuration to negotiate alternate
-// response codecs.
+// layered on top of the defaults. Returns an error if the merged config fails to
+// validate. The client encodes outgoing requests with Encoder, advertises Decoders via
+// the Accept header, and dispatches the response on its Content-Type to pick a decoder.
 func NewUnaryClient[RQ, RS freighter.Payload](
-	configs ...ClientConfig,
+	configs ...UnaryClientConfig,
 ) (freighter.UnaryClient[RQ, RS], error) {
-	cfg, err := config.New(defaultClientConfig, configs...)
+	cfg, err := config.New(UnaryClientConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
-	return &unaryClient[RQ, RS]{codec: cfg.Codec}, nil
+	return &unaryClient[RQ, RS]{
+		encoder:      cfg.Encoder,
+		decoders:     cfg.Decoders,
+		acceptHeader: buildAcceptHeader(cfg.Decoders),
+	}, nil
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
-	codec Codec
-	freighter.Reporter
+	encoder      Encoder
+	decoders     []Decoder
+	acceptHeader string
 	freighter.MiddlewareCollector
+}
+
+// Report describes the unary client's protocol, the content type it sends on requests,
+// and the content types it can decode from responses.
+func (u *unaryClient[RQ, RS]) Report() alamos.Report {
+	return alamos.Report{
+		"protocol":             unaryProtocol,
+		"sentContentType":      u.encoder.ContentType(),
+		"acceptedContentTypes": lo.Map(u.decoders, func(d Decoder, _ int) string { return d.ContentType() }),
+	}
+}
+
+func (u *unaryClient[RQ, RS]) resolveResponseDecoder(contentType string) (Decoder, error) {
+	for _, d := range u.decoders {
+		if d.ContentType() == contentType {
+			return d, nil
+		}
+	}
+	return nil, errors.Newf(
+		"[encoding] - no decoder for response content type %q",
+		contentType,
+	)
+}
+
+func buildAcceptHeader(decoders []Decoder) string {
+	cts := make([]string, len(decoders))
+	for i, d := range decoders {
+		cts[i] = d.ContentType()
+	}
+	return strings.Join(cts, ", ")
 }
 
 func (u *unaryClient[RQ, RS]) Send(
@@ -51,13 +125,13 @@ func (u *unaryClient[RQ, RS]) Send(
 	_, err := u.Exec(
 		freighter.Context{
 			Context:  ctx,
-			Protocol: unaryReporter.Protocol,
+			Protocol: unaryProtocol,
 			Target:   target,
 		},
 		freighter.FinalizerFunc(func(
 			inCtx freighter.Context,
 		) (freighter.Context, error) {
-			b, err := u.codec.Encode(inCtx, req)
+			b, err := u.encoder.Encode(inCtx, req)
 			if err != nil {
 				return freighter.Context{}, err
 			}
@@ -71,7 +145,8 @@ func (u *unaryClient[RQ, RS]) Send(
 				return freighter.Context{}, err
 			}
 			setRequestCtx(httpReq, inCtx)
-			httpReq.Header.Set(fiber.HeaderContentType, u.codec.ContentType())
+			httpReq.Header.Set(fiber.HeaderContentType, u.encoder.ContentType())
+			httpReq.Header.Set(fiber.HeaderAccept, u.acceptHeader)
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
 			outCtx := parseResponseCtx(httpRes, target)
@@ -79,14 +154,19 @@ func (u *unaryClient[RQ, RS]) Send(
 				return outCtx, err
 			}
 
+			decoder, err := u.resolveResponseDecoder(httpRes.Header.Get(fiber.HeaderContentType))
+			if err != nil {
+				return outCtx, err
+			}
+
 			if httpRes.StatusCode < 200 || httpRes.StatusCode >= 300 {
 				var pld errors.Payload
-				if err := u.codec.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
+				if err := decoder.DecodeStream(outCtx, httpRes.Body, &pld); err != nil {
 					return outCtx, err
 				}
 				return outCtx, errors.Decode(ctx, pld)
 			}
-			return outCtx, u.codec.DecodeStream(outCtx, httpRes.Body, &res)
+			return outCtx, decoder.DecodeStream(outCtx, httpRes.Body, &res)
 		}),
 	)
 	return res, err

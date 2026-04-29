@@ -18,6 +18,7 @@ import (
 	ws "github.com/fasthttp/websocket"
 	fiberws "github.com/gofiber/contrib/v3/websocket"
 	"github.com/gofiber/fiber/v3"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
@@ -26,17 +27,16 @@ import (
 	"go.uber.org/zap"
 )
 
-var streamReporter = freighter.Reporter{
-	Protocol:  "websocket",
-	Encodings: SupportedContentTypes(),
-}
+const streamProtocol = "websocket"
 
-// additionalCodec pairs a content type with a constructor that returns a fresh Codec
-// instance per request. Per-request construction matters for stateful codecs (e.g. the
-// streaming framer codec, which tracks channel keys for the active stream).
+// additionalCodec pairs a content type with a constructor that returns a fresh
+// encoding.Codec instance per connection. Per-connection construction matters for
+// stateful codecs (e.g. the streaming framer codec, which tracks channel keys for the
+// active stream). Content type comes from registration, not from the codec — stateful
+// codecs don't need to carry it on every instance.
 type additionalCodec struct {
 	contentType string
-	new         func() Codec
+	new         func() encoding.Codec
 }
 
 // streamServerOptions configures a streaming HTTP server. Stream handlers can register
@@ -53,11 +53,13 @@ type streamServerOptions struct {
 type StreamServerOption func(*streamServerOptions)
 
 // WithAdditionalCodec registers a stream-server codec on top of the default codec list.
-// The constructor is invoked once per matching request so the codec may be stateful and
-// hold per-stream state.
+// The constructor is invoked once per matching connection so the codec may be stateful
+// and hold per-stream state. The factory returns an encoding.Codec because the content
+// type is supplied here at registration — stateful codecs don't need a ContentType
+// method on every instance.
 func WithAdditionalCodec(
 	contentType string,
-	new func() Codec,
+	new func() encoding.Codec,
 ) StreamServerOption {
 	return func(o *streamServerOptions) {
 		o.additionalCodecs = append(o.additionalCodecs, additionalCodec{
@@ -82,18 +84,39 @@ type streamServer[RQ, RS freighter.Payload] struct {
 	handler func(context.Context, freighter.ServerStream[RQ, RS]) error
 	wg      *sync.WaitGroup
 	path    string
-	freighter.Reporter
 	freighter.MiddlewareCollector
 	writeDeadline time.Duration
 }
 
-func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (Codec, error) {
+// Report describes the stream server's protocol and the content types it can negotiate
+// at websocket upgrade time. The list is the union of the default registered codecs
+// and any additional codecs registered via WithAdditionalCodec.
+func (s *streamServer[RQ, RS]) Report() alamos.Report {
+	encs := lo.Map(codecs, func(c Codec, _ int) string { return c.ContentType() })
+	for _, ac := range s.additionalCodecs {
+		encs = append(encs, ac.contentType)
+	}
+	return alamos.Report{
+		"protocol":  streamProtocol,
+		"encodings": encs,
+	}
+}
+
+func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.Codec, error) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
 			return ac.new(), nil
 		}
 	}
-	return ResolveCodec(contentType)
+	for _, c := range codecs {
+		if c.ContentType() == contentType {
+			return c, nil
+		}
+	}
+	return nil, errors.Newf(
+		"[encoding] - unable to determine encoding type for %s",
+		contentType,
+	)
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(

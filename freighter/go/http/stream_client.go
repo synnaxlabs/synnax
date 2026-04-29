@@ -20,23 +20,51 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var (
 	_ freighter.StreamClient[any, types.Nil] = (*streamClient[any, types.Nil])(nil)
 	_ freighter.ClientStream[any, types.Nil] = (*clientStream[any, types.Nil])(nil)
-	_ config.Config[ClientConfig]            = ClientConfig{}
+	_ config.Config[StreamClientConfig]      = StreamClientConfig{}
 )
 
+// StreamClientConfig configures a streaming HTTP client built by NewStreamClient.
+type StreamClientConfig struct {
+	// Codec is used for both encoding outgoing messages and decoding incoming messages
+	// on the websocket connection. Websockets negotiate a single codec at upgrade time,
+	// so there is no per-direction split.
+	//
+	// [OPTIONAL] - Defaults to MessagePack.
+	Codec Codec
+}
+
+// Validate implements config.Config.
+func (c StreamClientConfig) Validate() error {
+	v := validate.New("http.stream_client")
+	validate.NotNil(v, "codec", c.Codec)
+	return v.Error()
+}
+
+// Override implements config.Config.
+func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfig {
+	c.Codec = override.Nil(c.Codec, other.Codec)
+	return c
+}
+
+var defaultStreamClientConfig = StreamClientConfig{Codec: msgpack.Codec}
+
 // NewStreamClient builds a freighter.StreamClient using the merged config (left to
-// right) layered on top of defaultClientConfig. Returns an error if the merged config
+// right) layered on top of the default config. Returns an error if the merged config
 // fails to validate. The returned client opens a websocket connection per call to
 // Stream.
 func NewStreamClient[RQ, RS freighter.Payload](
-	configs ...ClientConfig,
+	configs ...StreamClientConfig,
 ) (freighter.StreamClient[RQ, RS], error) {
-	cfg, err := config.New(defaultClientConfig, configs...)
+	cfg, err := config.New(defaultStreamClientConfig, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -47,14 +75,16 @@ type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
 	codec  Codec
 	dialer ws.Dialer
-	freighter.Reporter
 	freighter.MiddlewareCollector
 }
 
+// Report describes the stream client's protocol and the single content type it
+// negotiates at websocket upgrade time.
 func (s *streamClient[RQ, RS]) Report() alamos.Report {
-	r := streamReporter
-	r.Encodings = []string{s.codec.ContentType()}
-	return r.Report()
+	return alamos.Report{
+		"protocol":  streamProtocol,
+		"encodings": []string{s.codec.ContentType()},
+	}
 }
 
 func (s *streamClient[RQ, RS]) Stream(
@@ -66,7 +96,7 @@ func (s *streamClient[RQ, RS]) Stream(
 		freighter.Context{
 			Context:  ctx,
 			Target:   target,
-			Protocol: s.Protocol,
+			Protocol: streamProtocol,
 			Params:   make(freighter.Params),
 		},
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
