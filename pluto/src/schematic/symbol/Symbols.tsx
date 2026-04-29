@@ -1172,7 +1172,18 @@ export interface OffPageReferenceProps extends Omit<
   "label"
 > {
   label: LabelExtensionProps;
+  page?: string;
+  dblClickNav?: boolean;
 }
+
+export const offPageReferenceTooltip = (
+  page?: string,
+  dblClickNav?: boolean,
+): string | undefined => {
+  if (page == null || page.length === 0) return undefined;
+  const mode = dblClickNav !== false ? "Double" : "Single";
+  return `${mode}-click to navigate`;
+};
 
 export const OffPageReference = ({
   onChange,
@@ -1182,6 +1193,8 @@ export const OffPageReference = ({
     label: { label, level },
     orientation,
     color,
+    page,
+    dblClickNav,
   } = data;
   return (
     <Primitives.OffPageReference
@@ -1191,6 +1204,7 @@ export const OffPageReference = ({
       level={level}
       orientation={orientation}
       color={color}
+      title={offPageReferenceTooltip(page, dblClickNav)}
     />
   );
 };

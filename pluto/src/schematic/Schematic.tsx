@@ -14,8 +14,8 @@ import { type FC, type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
-import { ConnectionLine, Edge } from "@/schematic/edge";
 import { type connector } from "@/schematic/edge/connector";
+import { ConnectionLine, Edge } from "@/schematic/edge/Edge";
 import { type EdgeType } from "@/schematic/edge/paths";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { REGISTRY, type Variant } from "@/schematic/symbol/registry";

@@ -1430,12 +1430,12 @@ export const Filter = ({
   </Div>
 );
 
-type DetailedBorderRadius = Record<location.CornerXYString, xy.XY>;
+type DetailedBorderRadius = Record<location.CornerString, xy.XY>;
 
 type BorderRadius =
   | number
   | Record<direction.Direction, number>
-  | Record<location.CornerXYString, number>
+  | Record<location.CornerString, number>
   | DetailedBorderRadius;
 
 const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
