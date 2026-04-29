@@ -12,11 +12,11 @@ package aspen
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/aspen/internal/cluster"
+	"github.com/synnaxlabs/aspen/internal/kv"
 	"github.com/synnaxlabs/aspen/internal/node"
 	"github.com/synnaxlabs/aspen/transport"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/io"
-	xkv "github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/observe"
 	storex "github.com/synnaxlabs/x/store"
 )
@@ -79,9 +79,18 @@ const (
 
 var ErrNodeNotFound = cluster.ErrNodeNotFound
 
+// ObservableOption configures an observable returned by DB.NewObservable.
+type ObservableOption = kv.ObservableOption
+
+// IgnoreHostLeaseholder, when passed to DB.NewObservable, returns an
+// observable that filters out TxRequests whose Leaseholder is the host node —
+// subscribers see only writes that originated on a peer node and were
+// replicated here via gossip.
+var IgnoreHostLeaseholder = kv.IgnoreHostLeaseholder
+
 type DB struct {
 	Cluster *cluster.Cluster
-	xkv.DB
+	*kv.DB
 	closer io.MultiCloser
 }
 

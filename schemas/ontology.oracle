@@ -17,7 +17,6 @@ ResourceType enum {
     arc              = "arc"
     builtin          = "builtin"
     channel          = "channel"
-    cluster          = "cluster"
     device           = "device"
     framer           = "framer"
     group            = "group"

@@ -340,9 +340,10 @@ private:
 
     /// @brief marks a scope active and primes its members. Sequential
     /// scopes activate step 0; parallel scopes reset every leaf-node
-    /// member and cascade-activate nested gated scopes that have no
-    /// Activation handle — gated children with a handle wait for it to
-    /// fire via mark_changed.
+    /// member and cascade-activate always-live nested scopes. Gated
+    /// children wait for their Activation handle to fire via
+    /// mark_changed; gated children with no handle stay inert (used for
+    /// named top-level scopes awaiting an external trigger).
     void activate_scope(ScopeState &state) {
         state.active = true;
         if (state.ir.mode == ir::ScopeMode::Sequential) {
@@ -356,9 +357,7 @@ private:
             }
             if (m.scope == NO_INDEX) continue;
             auto &child = this->scopes[m.scope];
-            if (child.ir.liveness == ir::Liveness::Gated &&
-                !child.ir.activation.has_value())
-                this->activate_scope(child);
+            if (child.ir.liveness == ir::Liveness::Always) this->activate_scope(child);
         }
     }
 

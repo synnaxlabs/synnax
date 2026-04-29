@@ -18,7 +18,7 @@ import (
 	apichannel "github.com/synnaxlabs/synnax/pkg/api/channel"
 	entitypb "github.com/synnaxlabs/synnax/pkg/api/channel/pb"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/unsafe"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -124,7 +124,7 @@ func (t retrieveRequestTranslator) Backward(
 	msg *RetrieveRequest,
 ) (apichannel.RetrieveRequest, error) {
 	return apichannel.RetrieveRequest{
-		NodeKey:    cluster.NodeKey(msg.NodeKey),
+		NodeKey:    node.Key(msg.NodeKey),
 		Names:      msg.Names,
 		SearchTerm: msg.Search,
 		Keys:       unsafe.ReinterpretSlice[uint32, channel.Key](msg.Keys),

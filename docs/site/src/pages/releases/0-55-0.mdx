@@ -9,7 +9,7 @@ import { Divider } from "@synnaxlabs/pluto";
 import { mdxOverrides } from "@/components/mdxOverrides";
 import { Client } from "@/components/client";
 import Diagram from "@/components/diagram/Diagram.astro";
-import ArcSequence from "@/pages/releases/ArcSequence.astro";
+import ArcSequence from "@/components/releases/ArcSequence.astro";
 
 export const components = mdxOverrides;
 
@@ -94,19 +94,32 @@ Arc now supports [`for` loops](/reference/control/arc/reference/loops) inside fu
 bodies, with range, series, and conditional forms:
 
 ```arc
-for x := data { sum = sum + x }
-
-for i, x := data {
-    if x > peak { peak = x; peak_idx = i }
+for x := data {
+    sum = sum + x
 }
 
-for i := range(5)          { }       // 0..4
-for i := range(5, 10)      { }       // 5..9
-for i := range(0, 10, 2)   { }       // 0, 2, 4, 6, 8
+for i, x := data {
+    if x > peak {
+        peak = x
+        peak_idx = i
+    }
+}
 
-for n > 0 { sum = sum + n; n = n - 1 }
+for i := range(5) {}        // 0..4
+for i := range(5, 10) {}    // 5..9
+for i := range(0, 10, 2) {} // 0, 2, 4, 6, 8
 
-for { if val >= threshold { break } val = val * 2 }
+for n > 0 {
+    sum = sum + n
+    n = n - 1
+}
+
+for {
+    if val >= threshold {
+        break
+    }
+    val = val * 2
+}
 ```
 
 The Arc formatter now collapses short anonymous config blocks onto a single line so

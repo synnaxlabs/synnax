@@ -1400,6 +1400,7 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   defaultProps: (t) => ({
     color: t.colors.gray.l11,
     orientation: "right",
+    page: "",
     ...zeroLabel("Off Page Reference"),
   }),
   Preview: OffPageReferencePreview,

@@ -12,6 +12,7 @@ import { describe, expect, it } from "vitest";
 import {
   dimensionsOnResize,
   inlineSizeOnResize,
+  offPageReferenceTooltip,
   radiusOnResize,
   sideLengthOnResize,
 } from "@/schematic/symbol/Symbols";
@@ -107,5 +108,27 @@ describe("onResize helpers", () => {
         inlineSize: -50,
       });
     });
+  });
+});
+
+describe("offPageReferenceTooltip", () => {
+  it("should return double-click tooltip by default", () => {
+    expect(offPageReferenceTooltip("page-key")).toBe("Double-click to navigate");
+  });
+
+  it("should return double-click tooltip when dblClickNav is true", () => {
+    expect(offPageReferenceTooltip("page-key", true)).toBe("Double-click to navigate");
+  });
+
+  it("should return single-click tooltip when dblClickNav is false", () => {
+    expect(offPageReferenceTooltip("page-key", false)).toBe("Single-click to navigate");
+  });
+
+  it("should return undefined when page is undefined", () => {
+    expect(offPageReferenceTooltip(undefined)).toBeUndefined();
+  });
+
+  it("should return undefined when page is empty string", () => {
+    expect(offPageReferenceTooltip("")).toBeUndefined();
   });
 });

@@ -1163,26 +1163,40 @@ export const Light = ({
   );
 };
 
+export const offPageReferenceTooltip = (
+  page?: string,
+  dblClickNav?: boolean,
+): string | undefined => {
+  if (page == null || page.length === 0) return undefined;
+  const mode = dblClickNav !== false ? "Double" : "Single";
+  return `${mode}-click to navigate`;
+};
+
 export interface OffPageReferenceProps extends Omit<
   Primitives.OffPageReferenceProps,
   "label"
 > {
   label: LabelExtensionProps;
+  page?: string;
+  dblClickNav?: boolean;
 }
 
 export const OffPageReference = ({
   label: { label, level },
   orientation,
   color,
+  page,
+  dblClickNav,
   onChange,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => (
   <Primitives.OffPageReference
-    className={DRAG_HANDLE_CLASS}
+    className={CSS(DRAG_HANDLE_CLASS, page && CSS.M("linked"))}
     onLabelChange={(label) => onChange({ label: { label, level } })}
     label={label}
     level={level}
     orientation={orientation}
     color={color}
+    title={offPageReferenceTooltip(page, dblClickNav)}
   />
 );
 

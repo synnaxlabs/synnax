@@ -2984,6 +2984,13 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
   if (element) element.classList.add(orientation);
 
   const swap = direction.construct(orientation) === "y";
+  const theme = Theming.use();
+  const resolvedColor = colorVal ?? theme.colors.gray.l11;
+  const textColor = color.pickByContrast(
+    resolvedColor,
+    theme.colors.text,
+    theme.colors.textInverted,
+  );
 
   return (
     <Div
@@ -2992,7 +2999,15 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
       {...rest}
     >
       <div className="wrapper">
-        <div className="outline" style={{ backgroundColor: color.cssString(colorVal) }}>
+        <div
+          className="outline"
+          style={
+            {
+              "--off-page-color": color.cssString(resolvedColor),
+              "--off-page-text-color": color.cssString(textColor),
+            } as React.CSSProperties
+          }
+        >
           <div className="bg">
             <Text.MaybeEditable
               value={label}
@@ -3003,26 +3018,6 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           </div>
         </div>
       </div>
-      <HandleBoundary orientation={orientation}>
-        <Handle
-          location="left"
-          orientation={orientation}
-          preventAutoAdjust
-          left={98}
-          top={50}
-          swap={swap}
-          id="1"
-        />
-        <Handle
-          location="right"
-          preventAutoAdjust
-          orientation={orientation}
-          left={1}
-          top={50}
-          swap={swap}
-          id="2"
-        />
-      </HandleBoundary>
       <svg
         style={{ visibility: "hidden", position: "absolute" }}
         width="0"
@@ -3043,6 +3038,26 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           </filter>
         </defs>
       </svg>
+      <HandleBoundary orientation={orientation}>
+        <Handle
+          location="left"
+          orientation={orientation}
+          preventAutoAdjust
+          left={98}
+          top={50}
+          swap={swap}
+          id="1"
+        />
+        <Handle
+          location="right"
+          preventAutoAdjust
+          orientation={orientation}
+          left={1}
+          top={50}
+          swap={swap}
+          id="2"
+        />
+      </HandleBoundary>
     </Div>
   );
 };

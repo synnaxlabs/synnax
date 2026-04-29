@@ -1369,6 +1369,159 @@ var _ = Describe("Text", func() {
 			})
 		})
 
+		Context("Cross-scope Transitions", func() {
+			// These tests assert the IR shape produced when `=> X` resolves
+			// to a frame further up the shell stack than the innermost
+			// enclosing sequence. The resolver must (1) place the transition
+			// on the correct owning frame, (2) suppress the redundant
+			// auto-wire that would otherwise clear markedFlags before the
+			// outer frame's evaluator sees it, and (3) preserve the
+			// root-level activation path for top-level targets.
+
+			It("Places => X on the enclosing sequence's frame when X is two levels up through a stage and a nested sequence", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20001},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20002},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        sequence {
+				            trigger => second
+				        }
+				    }
+				    stage second {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// The transition must live on `main` (the frame whose
+				// memberKeys contain `second`), not on the anonymous nested
+				// sequence inside `first`.
+				main := findTopLevelScope(inter, "main")
+				Expect(main.Transitions).To(HaveLen(1),
+					"=> second must be placed on main's frame")
+				t := main.Transitions[0]
+				Expect(t.TargetKey).ToNot(BeNil())
+				Expect(*t.TargetKey).To(Equal("second"))
+				Expect(t.On.Node).To(HavePrefix("on_trigger"))
+
+				// The nested sequence inside first must NOT carry an exit
+				// transition on the same handle — otherwise its evaluator
+				// would clear markedFlags before main's evaluator sees it.
+				first := findMember(main, "first").Scope
+				Expect(first).ToNot(BeNil())
+				nestedSeqMember := first.Strata[0][0]
+				Expect(nestedSeqMember.Scope).ToNot(BeNil())
+				Expect(nestedSeqMember.Scope.Transitions).To(BeEmpty(),
+					"the inner nested sequence must not auto-wire an exit transition when the flow ends in an explicit cross-level => target")
+			})
+
+			It("Prefers the innermost sequence's member when the name exists at multiple levels", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20003},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20004},
+				}
+				source := `
+				sequence outer {
+				    sequence inner {
+				        stage a {
+				            trigger => target
+				        }
+				        stage target {
+				            1 -> ch
+				        }
+				    }
+				    sequence target {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// The transition must land on `inner` (innermost sibling
+				// that owns `target`), not on `outer`.
+				outer := findTopLevelScope(inter, "outer")
+				Expect(outer.Transitions).To(BeEmpty(),
+					"outer must not carry the transition — it is shadowed by inner's target")
+
+				inner := findMember(outer, "inner").Scope
+				Expect(inner).ToNot(BeNil())
+				Expect(inner.Transitions).To(HaveLen(1),
+					"inner must carry the transition because its target shadows outer's")
+				t := inner.Transitions[0]
+				Expect(t.TargetKey).ToNot(BeNil())
+				Expect(*t.TargetKey).To(Equal("target"))
+			})
+
+			It("Emits exactly one transition per flow step that ends in an explicit => X (no auto-wire duplicate)", func(ctx SpecContext) {
+				// Regression guard: before the auto-wire-suppression fix,
+				// analyzeSequence would emit a terminal exit transition on
+				// the innermost frame in addition to the explicit cross-
+				// level transition. That clobbered the outer transition's
+				// markedFlags. The IR should have a single transition for
+				// this flow step.
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20005},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20006},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        sequence {
+				            trigger => second
+				        }
+				    }
+				    stage second {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				// Count transitions across main's frame and the inner anon
+				// sequence's frame — the total must be 1.
+				main := findTopLevelScope(inter, "main")
+				first := findMember(main, "first").Scope
+				inner := first.Strata[0][0].Scope
+				total := len(main.Transitions) + len(inner.Transitions)
+				Expect(total).To(Equal(1),
+					"a single explicit => X must produce exactly one transition across all frames")
+			})
+
+			It("Preserves root-level activation for => root_sibling from inside a top-level sequence", func(ctx SpecContext) {
+				// Regression guard for the activation path. When the target
+				// is not in any enclosing frame's memberKeys but is a root-
+				// level scope, the resolver must register an activation
+				// (not a transition) and the stamping loop must set
+				// Activation on that scope.
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20007},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 20008},
+				}
+				source := `
+				sequence main {
+				    trigger => other
+				}
+				sequence other {
+				    1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				other := findTopLevelScope(inter, "other")
+				Expect(other.Activation).ToNot(BeNil(),
+					"=> other from inside main must stamp an Activation handle on other")
+				Expect(other.Activation.Node).To(HavePrefix("on_trigger"))
+			})
+		})
+
 		Context("Top-level anonymous scopes", func() {
 			It("Should compile an anonymous top-level stage and produce a root member with an auto-generated key", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
@@ -1391,7 +1544,7 @@ var _ = Describe("Text", func() {
 				Expect(scopeMembers).To(HaveLen(1))
 				s := scopeMembers[0].Scope
 				Expect(s.Key).To(HavePrefix("stage_"))
-				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Liveness).To(Equal(ir.LivenessAlways))
 				Expect(s.Activation).To(BeNil())
 			})
 
@@ -1416,8 +1569,233 @@ var _ = Describe("Text", func() {
 				Expect(scopeMembers).To(HaveLen(1))
 				s := scopeMembers[0].Scope
 				Expect(s.Key).To(HavePrefix("seq_"))
+				Expect(s.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level sequence as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11010},
+				}
+				source := `
+				sequence main {
+				    stage s {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(Equal("main"))
 				Expect(s.Liveness).To(Equal(ir.LivenessGated))
 				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level stage as LivenessGated with no activation when nothing targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11011},
+				}
+				source := `
+				stage main {
+				    1 -> ch
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				Expect(inter.Root.Strata).To(HaveLen(1))
+				var scopeMembers []ir.Member
+				for _, m := range inter.Root.Strata[0] {
+					if m.Scope != nil {
+						scopeMembers = append(scopeMembers, m)
+					}
+				}
+				Expect(scopeMembers).To(HaveLen(1))
+				s := scopeMembers[0].Scope
+				Expect(s.Key).To(Equal("main"))
+				Expect(s.Liveness).To(Equal(ir.LivenessGated))
+				Expect(s.Activation).To(BeNil())
+			})
+
+			It("Should compile a named top-level sequence as LivenessGated with an activation handle when `trigger => name` targets it", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"trigger": {Name: "trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11012},
+					"ch":      {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11013},
+				}
+				source := `
+				trigger => main
+
+				sequence main {
+				    stage s {
+				        1 -> ch
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var main *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "main" {
+							main = m.Scope
+						}
+					}
+				}
+				Expect(main).ToNot(BeNil())
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Activation).ToNot(BeNil())
+			})
+
+			It("Should compile named nested scopes as LivenessGated at every depth", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11014},
+				}
+				source := `
+				sequence outer {
+				    stage s {
+				        sequence inner {
+				            stage t {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var outer *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "outer" {
+							outer = m.Scope
+						}
+					}
+				}
+				Expect(outer).ToNot(BeNil())
+				Expect(outer.Liveness).To(Equal(ir.LivenessGated))
+				Expect(outer.Steps).To(HaveLen(1))
+				stageS := outer.Steps[0].Scope
+				Expect(stageS).ToNot(BeNil())
+				Expect(stageS.Key).To(Equal("s"))
+				Expect(stageS.Liveness).To(Equal(ir.LivenessGated))
+				var inner *ir.Scope
+				for _, stratum := range stageS.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil && mem.Scope.Key == "inner" {
+							inner = mem.Scope
+						}
+					}
+				}
+				Expect(inner).ToNot(BeNil())
+				Expect(inner.Liveness).To(Equal(ir.LivenessGated))
+				Expect(inner.Steps).To(HaveLen(1))
+				stageT := inner.Steps[0].Scope
+				Expect(stageT).ToNot(BeNil())
+				Expect(stageT.Key).To(Equal("t"))
+				Expect(stageT.Liveness).To(Equal(ir.LivenessGated))
+			})
+
+			It("Should compile anonymous nested scopes as LivenessAlways at every depth", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11015},
+				}
+				source := `
+				sequence {
+				    stage {
+				        sequence {
+				            stage {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var outer *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && strings.HasPrefix(m.Scope.Key, "seq_") {
+							outer = m.Scope
+						}
+					}
+				}
+				Expect(outer).ToNot(BeNil())
+				Expect(outer.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(outer.Steps).To(HaveLen(1))
+				stageA := outer.Steps[0].Scope
+				Expect(stageA).ToNot(BeNil())
+				Expect(stageA.Liveness).To(Equal(ir.LivenessAlways))
+				var innerSeq *ir.Scope
+				for _, stratum := range stageA.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil {
+							innerSeq = mem.Scope
+						}
+					}
+				}
+				Expect(innerSeq).ToNot(BeNil())
+				Expect(innerSeq.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(innerSeq.Steps).To(HaveLen(1))
+				stageB := innerSeq.Steps[0].Scope
+				Expect(stageB).ToNot(BeNil())
+				Expect(stageB.Liveness).To(Equal(ir.LivenessAlways))
+			})
+
+			It("Should compile mixed named/anonymous nesting per the uniform rule", func(ctx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ch": {Name: "ch", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 11016},
+				}
+				source := `
+				sequence main {
+				    stage first {
+				        sequence {
+				            stage {
+				                1 -> ch
+				            }
+				        }
+				    }
+				}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+				var main *ir.Scope
+				for _, stratum := range inter.Root.Strata {
+					for _, m := range stratum {
+						if m.Scope != nil && m.Scope.Key == "main" {
+							main = m.Scope
+						}
+					}
+				}
+				Expect(main).ToNot(BeNil())
+				Expect(main.Liveness).To(Equal(ir.LivenessGated))
+				Expect(main.Steps).To(HaveLen(1))
+				first := main.Steps[0].Scope
+				Expect(first).ToNot(BeNil())
+				Expect(first.Key).To(Equal("first"))
+				Expect(first.Liveness).To(Equal(ir.LivenessGated))
+				var anonSeq *ir.Scope
+				for _, stratum := range first.Strata {
+					for _, mem := range stratum {
+						if mem.Scope != nil && strings.HasPrefix(mem.Scope.Key, "seq_") {
+							anonSeq = mem.Scope
+						}
+					}
+				}
+				Expect(anonSeq).ToNot(BeNil())
+				Expect(anonSeq.Liveness).To(Equal(ir.LivenessAlways))
+				Expect(anonSeq.Steps).To(HaveLen(1))
+				anonStage := anonSeq.Steps[0].Scope
+				Expect(anonStage).ToNot(BeNil())
+				Expect(anonStage.Liveness).To(Equal(ir.LivenessAlways))
 			})
 		})
 

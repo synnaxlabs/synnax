@@ -17,8 +17,10 @@ import { Form } from "@/form";
 import {
   IframeEmbedForm,
   MediaEmbedForm,
+  OffPageReferenceForm,
   PageEmbedForm,
 } from "@/schematic/symbol/Forms";
+import { createSynnaxWrapper } from "@/testutil/Synnax";
 import { Theming } from "@/theming";
 
 const embedSchema = z.object({
@@ -139,5 +141,80 @@ describe("PageEmbedForm", () => {
     });
     const pageInput = container.querySelector('input[placeholder="Select a page"]');
     expect(pageInput).not.toBeNull();
+  });
+});
+
+const offPageRefSchema = z.object({
+  label: z.object({
+    label: z.string(),
+    level: z.string().optional(),
+    orientation: z.string().optional(),
+  }),
+  page: z.string(),
+  dblClickNav: z.boolean(),
+  color: z.string().nullable().optional(),
+  orientation: z.string().optional(),
+});
+
+const offPageRefValues: z.infer<typeof offPageRefSchema> = {
+  label: { label: "Test Label", level: "p", orientation: "top" },
+  page: "",
+  dblClickNav: true,
+  color: "#000000",
+  orientation: "left",
+};
+
+const SynnaxWrapper = createSynnaxWrapper({ client: null });
+
+const OffPageReferenceFormWrapper = ({ children }: PropsWithChildren): ReactElement => {
+  const methods = Form.use<typeof offPageRefSchema>({
+    values: deep.copy(offPageRefValues),
+    schema: offPageRefSchema,
+  });
+  return (
+    <SynnaxWrapper>
+      <Form.Form<typeof offPageRefSchema> {...methods}>{children}</Form.Form>
+    </SynnaxWrapper>
+  );
+};
+
+describe("OffPageReferenceForm", () => {
+  it("should render the form with label, page, and click mode fields", () => {
+    const { getByText } = render(
+      <OffPageReferenceFormWrapper>
+        <OffPageReferenceForm />
+      </OffPageReferenceFormWrapper>,
+    );
+    expect(getByText("Label")).toBeDefined();
+    expect(getByText("Page")).toBeDefined();
+    expect(getByText("Click Mode")).toBeDefined();
+  });
+
+  it("should render single and double click mode buttons", () => {
+    const { getByText } = render(
+      <OffPageReferenceFormWrapper>
+        <OffPageReferenceForm />
+      </OffPageReferenceFormWrapper>,
+    );
+    expect(getByText("Single")).toBeDefined();
+    expect(getByText("Double")).toBeDefined();
+  });
+
+  it("should render color control", () => {
+    const { getByText } = render(
+      <OffPageReferenceFormWrapper>
+        <OffPageReferenceForm />
+      </OffPageReferenceFormWrapper>,
+    );
+    expect(getByText("Color")).toBeDefined();
+  });
+
+  it("should render label size field when level is provided", () => {
+    const { getByText } = render(
+      <OffPageReferenceFormWrapper>
+        <OffPageReferenceForm />
+      </OffPageReferenceFormWrapper>,
+    );
+    expect(getByText("Label Size")).toBeDefined();
   });
 });

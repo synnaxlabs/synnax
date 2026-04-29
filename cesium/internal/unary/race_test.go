@@ -17,17 +17,17 @@ import (
 	"github.com/synnaxlabs/cesium/internal/channel"
 	. "github.com/synnaxlabs/cesium/internal/testutil"
 	"github.com/synnaxlabs/cesium/internal/unary"
+	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/io/fs"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Unary racing", func() {
-	for fsName, makeFS := range FileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS:"+fsName, func() {
 			var (
 				fs                fs.FS
-				cleanUp           func() error
 				indexKey, dataKey channel.Key
 				indexDB           *unary.DB
 				dataDB            *unary.DB
@@ -35,11 +35,11 @@ var _ = Describe("Unary racing", func() {
 			BeforeEach(func(ctx SpecContext) {
 				indexKey = GenerateChannelKey()
 				dataKey = GenerateChannelKey()
-				fs, cleanUp = makeFS()
+				fs = openFS()
 				indexFS, dataFS := MustSucceed(fs.Sub("index")), MustSucceed(fs.Sub("data"))
 				indexDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        indexFS,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Anker",
 						Key:      indexKey,
@@ -51,7 +51,7 @@ var _ = Describe("Unary racing", func() {
 				}))
 				dataDB = MustSucceed(unary.Open(ctx, unary.Config{
 					FS:        dataFS,
-					MetaCodec: codec,
+					MetaCodec: json.Codec,
 					Channel: channel.Channel{
 						Name:     "Jimmy",
 						Key:      dataKey,
@@ -67,7 +67,6 @@ var _ = Describe("Unary racing", func() {
 			AfterEach(func() {
 				Expect(indexDB.Close()).To(Succeed())
 				Expect(dataDB.Close()).To(Succeed())
-				Expect(cleanUp()).To(Succeed())
 			})
 
 			Describe("Multiple deletes", func() {

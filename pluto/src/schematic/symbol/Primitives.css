@@ -61,25 +61,25 @@
 .pluto-symbol__container:not(.pluto--editable) .pluto-symbol-primitive-toggle {
     &:hover {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.15) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.75) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.15) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.75) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.8) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.85) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.8) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.85) !important;
         }
     }
 
     &:active {
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
-            stroke: rgba(var(--pluto-symbol-color), 0.9) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.9) !important;
         }
 
         &.pluto--enabled svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.7) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.75) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.7) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.75) !important;
         }
     }
 }
@@ -133,12 +133,12 @@
 .pluto-solenoid-valve.pluto--normally-open {
     &:hover {
         & svg {
-            stroke: rgba(var(--pluto-symbol-color), 0.95) !important;
-            fill: rgba(var(--pluto-symbol-color), 0.95) !important;
+            stroke: rgb(var(--pluto-symbol-color), 0.95) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.95) !important;
         }
 
         &:not(.pluto--enabled) svg {
-            fill: rgba(var(--pluto-symbol-color), 0.25) !important;
+            fill: rgb(var(--pluto-symbol-color), 0.25) !important;
         }
     }
 
@@ -172,7 +172,7 @@
 }
 
 .pluto--enabled svg .pluto--detail {
-    stroke: rgba(var(--pluto-symbol-color-contrast), 0.9) !important;
+    stroke: rgb(var(--pluto-symbol-color-contrast), 0.9) !important;
 }
 
 .pluto-tank {
@@ -283,7 +283,7 @@
 
     svg.pluto-caret-animated {
         color: var(--pluto-gray-l9);
-        fill: currentColor;
+        fill: currentcolor;
     }
 }
 
@@ -325,6 +325,7 @@
         filter: url("#goo");
 
         .outline {
+            background-color: var(--off-page-color);
             padding: 1px;
             clip-path: polygon(
                 0 0,
@@ -356,7 +357,7 @@
 
 .pluto-embed {
     border: var(--pluto-border);
-    border-width: 0px;
+    border-width: 0;
     overflow: hidden;
 
     & .pluto-embed__content {
@@ -367,4 +368,23 @@
         width: 100%;
         height: 100%;
     }
+}
+
+.pluto-arrow.pluto--linked .wrapper .outline .bg {
+    background-color: var(--off-page-color);
+    color: var(--off-page-text-color);
+
+    * {
+        color: inherit;
+    }
+}
+
+.pluto-symbol__container:not(.pluto--editable) .pluto-arrow.pluto--linked {
+    cursor: pointer;
+}
+
+.pluto-symbol__container:not(.pluto--editable)
+    .pluto-arrow.pluto--linked:hover
+    .wrapper {
+    filter: brightness(1.2);
 }
