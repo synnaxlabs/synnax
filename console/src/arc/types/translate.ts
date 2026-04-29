@@ -41,8 +41,8 @@ export const translateGraphToServer = (state: GraphState): arc.graph.Graph => ({
     return { key: n.key, type, config, position: n.position };
   }),
   edges: state.edges.map((e) => ({
-    source: { param: e.sourceHandle as string, node: e.source },
-    target: { param: e.targetHandle as string, node: e.target },
+    source: { node: e.source.node, param: e.source.param },
+    target: { node: e.target.node, param: e.target.param },
     kind: arc.ir.EdgeKind.continuous,
   })),
   viewport: { position: xy.ZERO, zoom: 1 },

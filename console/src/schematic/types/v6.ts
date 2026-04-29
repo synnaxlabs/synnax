@@ -53,14 +53,33 @@ export const ZERO_STATE: State = {
   selected: [],
 };
 
+export const copyBufferZ = z.object({
+  pos: v0.copyBufferZ.shape.pos,
+  nodes: z.array(Diagram.nodeZ),
+  edges: z.array(Diagram.edgeZ),
+  props: z.record(z.string(), propsZ),
+});
+export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
+const ZERO_COPY_BUFFER: CopyBuffer = {
+  pos: { x: 0, y: 0 },
+  nodes: [],
+  edges: [],
+  props: {},
+};
+
 export const sliceStateZ = v5.sliceStateZ
-  .omit({ version: true, schematics: true })
-  .extend({ version: z.literal(VERSION), schematics: z.record(z.string(), stateZ) });
+  .omit({ version: true, schematics: true, copy: true })
+  .extend({
+    version: z.literal(VERSION),
+    schematics: z.record(z.string(), stateZ),
+    copy: copyBufferZ,
+  });
 export interface SliceState extends z.infer<typeof sliceStateZ> {}
 export const ZERO_SLICE_STATE: SliceState = {
   ...v5.ZERO_SLICE_STATE,
   version: VERSION,
   schematics: {},
+  copy: ZERO_COPY_BUFFER,
 };
 
 const migrateEdge = (
@@ -122,11 +141,28 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
   },
 });
 
+const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
+  const props = migrateProps(copy.props);
+  const edges: Diagram.Edge[] = [];
+  for (const e of copy.edges) {
+    const { edge, edgeProps } = migrateEdge(e);
+    edges.push(edge);
+    if (edgeProps != null) props[edge.key] = edgeProps;
+  }
+  return {
+    pos: copy.pos,
+    nodes: copy.nodes.map(migrateNode),
+    edges,
+    props,
+  };
+};
+
 export const sliceMigration = migrate.createMigration<v5.SliceState, SliceState>({
   name: v1.SLICE_MIGRATION_NAME,
-  migrate: ({ schematics, ...rest }) => ({
+  migrate: ({ schematics, copy, ...rest }) => ({
     ...rest,
     version: VERSION,
+    copy: migrateCopyBuffer(copy),
     schematics: Object.fromEntries(
       Object.entries(schematics).map(([key, schematic]) => [
         key,

@@ -118,7 +118,13 @@ export interface DiagramProps
     Aether.ComponentProps,
     Pick<
       ReactFlowProps,
-      "minZoom" | "maxZoom" | "fitViewOptions" | "snapGrid" | "snapToGrid"
+      | "minZoom"
+      | "maxZoom"
+      | "fitViewOptions"
+      | "snapGrid"
+      | "snapToGrid"
+      | "onNodeClick"
+      | "onNodeDoubleClick"
     > {
   edges: Edge[];
   nodes: Node[];
