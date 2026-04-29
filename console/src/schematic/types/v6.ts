@@ -45,9 +45,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   schematics: {},
 };
 
-const migrateColors = (
-  colors: Record<string, string>,
-): Record<string, color.Color> =>
+const migrateColors = (colors: Record<string, string>): Record<string, color.Color> =>
   Object.fromEntries(
     Object.entries(colors).map(([key, value]) => [key, color.construct(value)]),
   );
