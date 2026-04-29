@@ -21,3 +21,34 @@ WriterCommand enum {
         Open → Write+ → Commit → Close.
     """
 }
+
+IteratorCommand enum {
+    Open      = 0
+    Next      = 1
+    Prev      = 2
+    SeekFirst = 3
+    SeekLast  = 4
+    SeekLE    = 5
+    SeekGE    = 6
+    Valid     = 7
+    Error     = 8
+
+    @doc value """
+        defines commands driving an iterator's traversal of a time range.
+        Open initializes the iterator with the requested keys, bounds, and
+        chunk size; the seek commands position the cursor without yielding
+        data; Next/Prev advance through the range and emit data frames.
+    """
+}
+
+IteratorResponseVariant enum {
+    None = 0
+    Ack  = 1
+    Data = 2
+
+    @doc value """
+        distinguishes iterator response messages: Ack acknowledges a request
+        completion and carries the success boolean, while Data carries a
+        frame of telemetry produced by the iterator.
+    """
+}

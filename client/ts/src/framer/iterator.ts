@@ -12,33 +12,46 @@ import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
   type CrudeTimeStamp,
+  errors,
   TimeRange,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type channel } from "@/channel";
+import { channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
-import { Frame } from "@/framer/frame";
+import { Frame, frameZ } from "@/framer/frame";
+import { StreamProxy } from "@/framer/streamProxy";
 import {
   IteratorCommand,
-  type IteratorRequest,
-  iteratorReqZ,
   IteratorResponseVariant,
-  iteratorResZ,
-} from "@/framer/iterator.types";
-import { StreamProxy } from "@/framer/streamProxy";
-
-export {
-  IteratorCommand,
-  type IteratorRequest,
-  type IteratorResponse,
-  IteratorResponseVariant,
-  iteratorResZ,
-} from "@/framer/iterator.types";
+} from "@/framer/types.gen";
 
 export const AUTO_SPAN = new TimeSpan(-1);
+
+export const iteratorReqZ = z.object({
+  command: z.enum(IteratorCommand),
+  span: TimeSpan.z.optional(),
+  bounds: TimeRange.z.optional(),
+  stamp: TimeStamp.z.optional(),
+  keys: channel.keyZ.array().optional(),
+  chunkSize: z.number().optional(),
+  downsampleFactor: z.int().optional(),
+});
+
+export interface IteratorRequest extends z.infer<typeof iteratorReqZ> {}
+
+export const iteratorResZ = z.object({
+  variant: z.enum(IteratorResponseVariant),
+  ack: z.boolean(),
+  command: z.enum(IteratorCommand),
+  error: errors.payloadZ.optional().nullable(),
+  frame: frameZ.optional(),
+});
+
+export interface IteratorResponse extends z.infer<typeof iteratorResZ> {}
 
 export interface IteratorConfig {
   /** chunkSize is the maximum number of samples contained per channel in the frame

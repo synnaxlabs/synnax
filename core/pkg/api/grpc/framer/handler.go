@@ -392,45 +392,50 @@ func (f *streamerServer) BindTo(reg grpc.ServiceRegistrar) {
 }
 
 func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport {
-	ws := &writerServer{
-		framerWriterServerCore: &framerWriterServerCore{
-			ResponseTranslator: frameWriterResponseTranslator{},
-			CreateTranslators: func() (
-				fgrpc.Translator[apifra.WriterRequest, *WriterRequest],
-				fgrpc.Translator[apifra.WriterResponse, *WriterResponse],
-			) {
-				codec := codec.NewDynamic(channelSvc)
-				return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
+	var (
+		ws = &writerServer{
+			framerWriterServerCore: &framerWriterServerCore{
+				ResponseTranslator: frameWriterResponseTranslator{},
+				CreateTranslators: func() (
+					fgrpc.Translator[apifra.WriterRequest, *WriterRequest],
+					fgrpc.Translator[apifra.WriterResponse, *WriterResponse],
+				) {
+					codec := codec.NewDynamic(channelSvc)
+					return frameWriterRequestTranslator{codec: codec}, frameWriterResponseTranslator{}
+				},
+				ServiceDesc: &FrameWriterService_ServiceDesc,
 			},
-			ServiceDesc: &FrameWriterService_ServiceDesc,
-		},
-	}
-	is := &iteratorServer{
-		frameIteratorServerCore: &frameIteratorServerCore{
-			CreateTranslators: func() (
-				fgrpc.Translator[apifra.IteratorRequest, *IteratorRequest],
-				fgrpc.Translator[apifra.IteratorResponse, *IteratorResponse],
-			) {
-				codec := codec.NewDynamic(channelSvc)
-				return frameIteratorRequestTranslator{codec: codec},
-					frameIteratorResponseTranslator{codec: codec}
+		}
+		is = &iteratorServer{
+			frameIteratorServerCore: &frameIteratorServerCore{
+				CreateTranslators: func() (
+					fgrpc.Translator[apifra.IteratorRequest, *IteratorRequest],
+					fgrpc.Translator[apifra.IteratorResponse, *IteratorResponse],
+				) {
+					codec := codec.NewDynamic(channelSvc)
+					return frameIteratorRequestTranslator{codec: codec},
+						frameIteratorResponseTranslator{codec: codec}
+				},
+				ServiceDesc: &FrameIteratorService_ServiceDesc,
 			},
-			ServiceDesc: &FrameIteratorService_ServiceDesc,
-		},
-	}
-	ss := &streamerServer{
-		frameStreamerServerCore: &frameStreamerServerCore{
-			CreateTranslators: func() (fgrpc.Translator[apifra.StreamerRequest, *StreamerRequest], fgrpc.Translator[apifra.StreamerResponse, *StreamerResponse]) {
-				codec := codec.NewDynamic(channelSvc)
-				return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
+		}
+		ss = &streamerServer{
+			frameStreamerServerCore: &frameStreamerServerCore{
+				CreateTranslators: func() (
+					fgrpc.Translator[apifra.StreamerRequest, *StreamerRequest],
+					fgrpc.Translator[apifra.StreamerResponse, *StreamerResponse],
+				) {
+					codec := codec.NewDynamic(channelSvc)
+					return frameStreamerRequestTranslator{codec: codec}, frameStreamerResponseTranslator{codec: codec}
+				},
+				ServiceDesc: &FrameStreamerService_ServiceDesc,
 			},
-			ServiceDesc: &FrameStreamerService_ServiceDesc,
-		},
-	}
-	ds := &frameDeleteServer{
-		RequestTranslator: frameDeleteRequestTranslator{},
-		ServiceDesc:       &FrameDeleteService_ServiceDesc,
-	}
+		}
+		ds = &frameDeleteServer{
+			RequestTranslator: frameDeleteRequestTranslator{},
+			ServiceDesc:       &FrameDeleteService_ServiceDesc,
+		}
+	)
 	a.FrameStreamer = ss
 	a.FrameWriter = ws
 	a.FrameIterator = is

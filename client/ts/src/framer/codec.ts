@@ -20,12 +20,8 @@ import { type z } from "zod";
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
-import {
-  type IteratorResponse,
-  IteratorResponseVariant,
-} from "@/framer/iterator.types";
 import { type StreamerResponse } from "@/framer/streamer";
-import { WriterCommand } from "@/framer/types.gen";
+import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 const seriesPldLength = (series: SeriesPayload): number =>
@@ -418,7 +414,7 @@ export class WSIteratorCodec implements binary.Codec {
     const codec = dv.getUint8(0);
     if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
-    const v: WebsocketMessage<IteratorResponse> = {
+    const v: WebsocketMessage<unknown> = {
       type: "data",
       payload: {
         variant: IteratorResponseVariant.Data,

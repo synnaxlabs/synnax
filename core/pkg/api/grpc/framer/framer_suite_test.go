@@ -10,7 +10,6 @@
 package framer
 
 import (
-	"context"
 	"testing"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -26,15 +25,14 @@ var (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Framer Suite")
+	RunSpecs(t, "gRPC Framer Suite")
 }
 
-var _ = BeforeSuite(func() {
-	mockCluster = mock.ProvisionCluster(context.Background(), 1)
+var _ = BeforeSuite(func(ctx SpecContext) {
+	mockCluster = mock.ProvisionCluster(ctx, 1)
 	dist = mockCluster.Nodes[1].Layer
-})
-
-var _ = AfterSuite(func() {
-	Expect(dist.Close()).To(Succeed())
-	Expect(mockCluster.Close()).To(Succeed())
+	DeferCleanup(func() {
+		Expect(dist.Close()).To(Succeed())
+		Expect(mockCluster.Close()).To(Succeed())
+	})
 })

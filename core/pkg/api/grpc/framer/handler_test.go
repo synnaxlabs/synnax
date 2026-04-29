@@ -37,7 +37,7 @@ func createVirtualChannels(ctx context.Context, dt telem.DataType, n int) channe
 	return channel.KeysFromChannels(chs)
 }
 
-var _ = Describe("GRPC Framer Translators", func() {
+var _ = Describe("gRPC Framer Translators", func() {
 	Describe("Frame Writer Translators", func() {
 		It("Should round-trip a write request via the codec buffer", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int32T, 1)

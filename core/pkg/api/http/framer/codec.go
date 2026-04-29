@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/http"
+	"go.uber.org/zap"
 )
 
 type Codec struct {
@@ -74,7 +75,9 @@ func (c *Codec) DecodeStream(
 	case *fhttp.WSMessage[framer.IteratorResponse]:
 		return c.decodeIteratorResponse(ctx, r, v)
 	default:
-		return errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		zap.S().DPanic(err.Error())
+		return err
 	}
 }
 
@@ -101,7 +104,9 @@ func (c *Codec) EncodeStream(ctx context.Context, w io.Writer, value any) error 
 	case fhttp.WSMessage[framer.IteratorResponse]:
 		return c.encodeIteratorResponse(ctx, w, v)
 	default:
-		return errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		err := errors.Newf("[api.Codec] incompatible type %T provided to framer codec", value)
+		zap.S().DPanic(err.Error())
+		return err
 	}
 }
 
