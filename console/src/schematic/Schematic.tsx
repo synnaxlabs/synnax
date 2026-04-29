@@ -296,7 +296,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-
   const ref = useRef<HTMLDivElement>(null);
 
   const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
@@ -438,45 +437,47 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         authority={state.authority}
         onStatusChange={handleControlStatusChange}
       >
-       <Base.Provider value={layoutKey}>
-        <SchematicComponent
-          onViewportChange={handleViewportChange}
-          viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          edges={state.edges}
-          nodes={state.nodes}
-          selected={selected}
-          onSelectionChange={handleSelectionChange}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the schematic sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          onNodeClick={handleNodeClick}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.Background />
-          <Controls x>
-            <Diagram.Controls.SelectViewportMode />
-            <Diagram.Controls.FitView />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
-              )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
-            </Flex.Box>
-          </Controls>
-        </SchematicComponent>
-       </Base.Provider>
+        <Base.Provider value={layoutKey}>
+          <SchematicComponent
+            onViewportChange={handleViewportChange}
+            viewportMode={mode}
+            onViewportModeChange={handleViewportModeChange}
+            edges={state.edges}
+            nodes={state.nodes}
+            selected={selected}
+            onSelectionChange={handleSelectionChange}
+            // Turns out that setting the zoom value to 1 here doesn't have any negative
+            // effects on the schematic sizing and ensures that we position all the lines
+            // in the correct place.
+            viewport={{ ...state.viewport, zoom: 1 }}
+            onEdgesChange={handleEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEditableChange={handleEditableChange}
+            editable={canEdit}
+            triggers={triggers}
+            onDoubleClick={handleDoubleClick}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            fitViewOnResize={state.fitViewOnResize}
+            setFitViewOnResize={handleSetFitViewOnResize}
+            visible={visible}
+            {...dropProps}
+          >
+            <Diagram.Background />
+            <Controls x>
+              <Diagram.Controls.SelectViewportMode />
+              <Diagram.Controls.FitView />
+              <Flex.Box x pack>
+                {hasUpdatePermission && (
+                  <Diagram.Controls.ToggleEdit
+                    disabled={state.control === "acquired"}
+                  />
+                )}
+                {!state.snapshot && <ControlToggleButton control={state.control} />}
+              </Flex.Box>
+            </Controls>
+          </SchematicComponent>
+        </Base.Provider>
         {legendVisible && (
           <Control.Legend
             position={legendPosition}

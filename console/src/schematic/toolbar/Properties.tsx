@@ -147,11 +147,17 @@ const EdgeProperties = ({
   const onChange = (key: string, props: Partial<EdgeProps>): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
+  // Color.Swatch requires a parseable hex; persisted edges may carry CSS
+  // variables (e.g. "var(--pluto-gray-l11)") inherited from migration defaults.
+  const swatchColor =
+    edgeProps?.color != null && color.colorZ.safeParse(edgeProps.color).success
+      ? (edgeProps.color as color.Crude)
+      : color.ZERO;
   return (
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={(edgeProps?.color ?? color.ZERO) as color.Crude}
+          value={swatchColor}
           onChange={(v: color.Color) => onChange(edgeKey, { color: color.hex(v) })}
         />
       </Input.Item>

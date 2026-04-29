@@ -341,16 +341,9 @@ export const { actions, reducer } = createSlice({
       const prevKeys = new Set(schematic.edges.map((edge) => edge.key));
       const newEdges = edges.filter((edge) => !prevKeys.has(edge.key));
       newEdges.forEach((edge) => {
-        const sourceProps = schematic.props[edge.source.node] as
-          | NodeProps
-          | undefined;
-        const targetProps = schematic.props[edge.target.node] as
-          | NodeProps
-          | undefined;
-        if (
-          sourceProps?.color != null &&
-          sourceProps.color === targetProps?.color
-        ) {
+        const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
+        const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
+        if (sourceProps?.color != null && sourceProps.color === targetProps?.color) {
           const existing = (schematic.props[edge.key] ?? {}) as EdgeProps;
           schematic.props[edge.key] = {
             ...existing,
@@ -376,9 +369,7 @@ export const { actions, reducer } = createSlice({
               (e) => e.source.node !== change.key && e.target.node !== change.key,
             );
             delete schematic.props[change.key];
-            schematic.selected = schematic.selected.filter(
-              (k) => k !== change.key,
-            );
+            schematic.selected = schematic.selected.filter((k) => k !== change.key);
             break;
           }
           case "dimensions": {
@@ -399,9 +390,7 @@ export const { actions, reducer } = createSlice({
           case "remove":
             schematic.edges = schematic.edges.filter((e) => e.key !== change.key);
             delete schematic.props[change.key];
-            schematic.selected = schematic.selected.filter(
-              (k) => k !== change.key,
-            );
+            schematic.selected = schematic.selected.filter((k) => k !== change.key);
             break;
         }
     },

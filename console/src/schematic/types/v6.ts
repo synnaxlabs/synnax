@@ -82,9 +82,7 @@ export const ZERO_SLICE_STATE: SliceState = {
   copy: ZERO_COPY_BUFFER,
 };
 
-const migrateEdge = (
-  edge: v0.Edge,
-): { edge: Diagram.Edge; edgeProps?: EdgeProps } => {
+const migrateEdge = (edge: v0.Edge): { edge: Diagram.Edge; edgeProps?: EdgeProps } => {
   const next: Diagram.Edge = {
     key: edge.key,
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
@@ -109,9 +107,7 @@ const migrateNode = (node: v0.Node): Diagram.Node => ({
   measured: node.measured,
 });
 
-const migrateProps = (
-  props: Record<string, v0.NodeProps>,
-): Record<string, Props> =>
+const migrateProps = (props: Record<string, v0.NodeProps>): Record<string, Props> =>
   Object.fromEntries(
     Object.entries(props).map(([k, p]) => {
       const { key, ...rest } = p as v0.NodeProps & Record<string, unknown>;

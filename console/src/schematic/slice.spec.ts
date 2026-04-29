@@ -213,47 +213,24 @@ describe("Schematic Slice", () => {
     });
 
     it("should select nodes and switch to properties tab", () => {
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
       store.dispatch(
-        actions.setNodes({
+        actions.setSelected({
           key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
+          selected: ["valve-1", "valve-2"],
         }),
       );
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
-
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-
-      // TODO(sy-4140): selection moved to top-level state.selected; rewrite these assertions.
-      void node1;
-      void node2;
+      expect(schematic.selected).toEqual(["valve-1", "valve-2"]);
       expect(schematic.toolbar.activeTab).toBe("properties");
     });
 
     it("should clear selection", () => {
-      // First select some nodes
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
       store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
-        }),
+        actions.setSelected({ key: schematicKey, selected: ["valve-1", "valve-2"] }),
       );
 
-      // Then clear selection
       store.dispatch(actions.clearSelection({ key: schematicKey }));
 
       const state = store.getState()[SLICE_NAME];
@@ -264,18 +241,7 @@ describe("Schematic Slice", () => {
     });
 
     it("should switch back to symbols tab when no nodes selected", () => {
-      const unselectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: unselectedNodes,
-          mode: "update",
-        }),
-      );
+      store.dispatch(actions.setSelected({ key: schematicKey, selected: [] }));
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
@@ -572,7 +538,7 @@ describe("Schematic Slice", () => {
     it("should store the page prop on an off-page reference element", () => {
       const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
       expect(props).toBeDefined();
-      expect(props?.key).toBe("offPageReference");
+      expect(props?.variant).toBe("offPageReference");
       expect(props?.page).toBe("");
     });
 

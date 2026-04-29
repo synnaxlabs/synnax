@@ -86,13 +86,9 @@ export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
     const setElementProps = hooks.useSetElementProps();
     const handleSegmentsChange = useCallback(
       (segments: connector.Segment[]) => {
-        setElementProps(props.edgeKey, {
-          segments,
-          variant: edgeProps?.variant ?? "pipe",
-          color: edgeProps?.color ?? "var(--pluto-gray-l11)",
-        });
+        setElementProps(props.edgeKey, { segments });
       },
-      [props.edgeKey, edgeProps?.variant, edgeProps?.color, setElementProps],
+      [props.edgeKey, setElementProps],
     );
     return (
       <Edge
