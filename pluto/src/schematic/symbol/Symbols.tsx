@@ -25,6 +25,7 @@ import {
   type CSSProperties,
   type FC,
   type ReactElement,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -278,7 +279,7 @@ export const createLabeled = <P extends object = record.Unknown>(
         }
       >
         {/* @ts-expect-error - typescript with HOCs */}
-        <BaseSymbol orientation={orientation} {...rest} />
+        <BaseSymbol orientation={orientation} onChange={onChange} {...rest} />
       </Grid>
     );
   };
@@ -1389,13 +1390,31 @@ export const MediaEmbedBase = ({
   dimensions: dims,
   color: colorVal,
   url,
-}: SymbolProps<MediaEmbedProps>): ReactElement => (
-  <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
-    {url != null && url.length > 0 ? (
-      <img src={url} style={{ width: "100%", height: "100%", objectFit: "contain" }} />
-    ) : undefined}
-  </Primitives.Embed>
-);
+  onChange,
+}: SymbolProps<MediaEmbedProps>): ReactElement => {
+  const hasURL = url != null && url.length > 0;
+  useEffect(() => {
+    if (!hasURL) return;
+    const img = new Image();
+    img.onload = () =>
+      onChange({ dimensions: { width: img.naturalWidth, height: img.naturalHeight } });
+    img.src = url;
+    return () => {
+      img.onload = null;
+    };
+  }, [url, onChange]);
+
+  return (
+    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+      {hasURL ? (
+        <img
+          src={url}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      ) : undefined}
+    </Primitives.Embed>
+  );
+};
 
 export const MediaEmbed = createLabeled(MediaEmbedBase, {
   grid: { allowCenter: true, allowRotate: false },

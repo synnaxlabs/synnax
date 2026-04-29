@@ -356,7 +356,7 @@
 
 .pluto-embed {
     border: var(--pluto-border);
-    border-width: 2px;
+    border-width: 0px;
     overflow: hidden;
 
     & .pluto-embed__content {
