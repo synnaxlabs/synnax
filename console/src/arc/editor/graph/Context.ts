@@ -15,7 +15,10 @@ export interface ArcEditorContext {
   dispatch: Dispatch<UnknownAction>;
 }
 
+// This is a temporary type that is used for drilling the arc program key and
+// the UNDOABLE dispatch down into the arc stage renderer. This function will
+// be removed when arc no longer gets stored in redux.
 export const [Provider, useArcEditorContext] = context.create<ArcEditorContext>({
-  defaultValue: { layoutKey: "", dispatch: (() => {}) as Dispatch<UnknownAction> },
+  providerName: "ArcEditor.Provider",
   displayName: "ArcEditor.Context",
 });

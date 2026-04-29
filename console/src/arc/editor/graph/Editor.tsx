@@ -61,7 +61,7 @@ const StageRenderer = ({
   selected,
   draggable,
 }: Diagram.NodeProps): ReactElement | null => {
-  const { layoutKey, dispatch } = useArcEditorContext();
+  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.StageRenderer");
   const props = useSelectNodeProps(layoutKey, nodeKey);
   const { key = "", ...rest } = props ?? {};
   const handleChange = useCallback(

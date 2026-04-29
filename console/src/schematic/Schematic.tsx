@@ -24,7 +24,6 @@ import {
   Synnax,
   Theming,
   usePrevious,
-  User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
@@ -43,6 +42,7 @@ import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { Controller } from "@/schematic/Controller";
 import {
   selectNodeProps,
   selectOptional,
@@ -63,7 +63,6 @@ import {
   internalCreate,
   pasteSelection,
   selectAll,
-  setControlStatus,
   setEditable,
   setElementProps,
   setFitViewOnResize,
@@ -220,9 +219,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const username = user?.username ?? "";
-  const controlName = username.length > 0 ? `${name} (${username})` : name;
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
@@ -287,12 +283,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handleSetFitViewOnResize = useCallback(
     (v: boolean) =>
       syncDispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
-    [layoutKey, syncDispatch],
-  );
-
-  const handleControlStatusChange = useCallback(
-    (control: Control.Status) =>
-      syncDispatch(setControlStatus({ key: layoutKey, control })),
     [layoutKey, syncDispatch],
   );
 
@@ -432,11 +422,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       onDoubleClick={handleDoubleClick}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Control.Controller
-        name={controlName}
-        authority={state.authority}
-        onStatusChange={handleControlStatusChange}
-      >
+      <Controller resourceKey={layoutKey} authority={state.authority}>
         <Base.Provider value={layoutKey}>
           <SchematicComponent
             onViewportChange={handleViewportChange}
@@ -487,7 +473,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             allowVisibleChange={false}
           />
         )}
-      </Control.Controller>
+      </Controller>
     </div>
   );
 };
