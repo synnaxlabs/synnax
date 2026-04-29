@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { color, xy } from "@synnaxlabs/x";
+import { xy } from "@synnaxlabs/x";
 
 import { type GraphState } from "@/arc/types";
 
@@ -16,19 +16,12 @@ export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => 
   nodes: module.nodes.map((n) => ({
     key: n.key,
     position: n.position,
-    selected: false,
     zIndex: 1,
   })),
   edges: module.edges.map((e) => ({
-    id: `${e.source.node}-${e.target.node}`,
     key: `${e.source.node}-${e.target.node}`,
-    source: e.source.node,
-    target: e.target.node,
-    sourceHandle: e.source.param,
-    targetHandle: e.target.param,
-    segments: [],
-    color: color.ZERO,
-    selected: false,
+    source: { node: e.source.node, param: e.source.param },
+    target: { node: e.target.node, param: e.target.param },
   })),
   props: Object.fromEntries(
     module.nodes.map((n) => [n.key, { key: n.type, ...n.config }]),
@@ -37,6 +30,7 @@ export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => 
     position: xy.ZERO,
     zoom: 1,
   },
+  selected: [],
   editable: false,
   fitViewOnResize: false,
 });
