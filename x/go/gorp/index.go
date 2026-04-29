@@ -28,16 +28,17 @@ type Index[K Key, E Entry[K]] interface {
 	// mandatory: implementations may hold a write lock across the populate
 	// phase, and skipping finish leaks it.
 	populate() (func(entry E), func(), error)
-	// set records that the entry for key is now entry, replacing any prior
-	// mapping for the same key in committed index state.
-	set(key K, entry E)
+	// set records entry in committed index state, keyed by entry.GorpKey(),
+	// replacing any prior mapping for the same key.
+	set(entry E)
 	// delete removes any committed mapping for key.
 	delete(key K)
-	// stageSet records a pending insert or update of entry under key
-	// against tx's per-tx delta. Committed index state is not modified
-	// until tx commits. When tx has no per-tx identity (a DB used
-	// directly), the mutation applies to committed state immediately.
-	stageSet(tx Tx, key K, entry E)
+	// stageSet records a pending insert or update of entry against tx's
+	// per-tx delta, keyed by entry.GorpKey(). Committed index state is
+	// not modified until tx commits. When tx has no per-tx identity (a
+	// DB used directly), the mutation applies to committed state
+	// immediately.
+	stageSet(tx Tx, entry E)
 	// stageDelete records a pending deletion of key against tx's per-tx
 	// delta. Committed index state is not modified until tx commits.
 	// When tx has no per-tx identity, the deletion applies to committed
@@ -92,9 +93,10 @@ func (l *Lookup[K, E, V]) populate() (func(E), func(), error) {
 }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) set(key K, entry E) {
+func (l *Lookup[K, E, V]) set(entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	key := entry.GorpKey()
 	newValue := l.extract(&entry)
 	if oldValue, existed := l.reverse[key]; existed {
 		if oldValue == newValue {
@@ -119,12 +121,12 @@ func (l *Lookup[K, E, V]) delete(key K) {
 }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) stageSet(tx Tx, key K, entry E) {
+func (l *Lookup[K, E, V]) stageSet(tx Tx, entry E) {
 	if tx.txIdentity() == nil {
-		l.set(key, entry)
+		l.set(entry)
 		return
 	}
-	l.overlay.stage(tx, key, l.extract(&entry))
+	l.overlay.stage(tx, entry.GorpKey(), l.extract(&entry))
 }
 
 //nolint:unused
@@ -274,9 +276,10 @@ func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
 }
 
 //nolint:unused
-func (s *Sorted[K, E, V]) set(key K, entry E) {
+func (s *Sorted[K, E, V]) set(entry E) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	key := entry.GorpKey()
 	newValue := s.extract(&entry)
 	if oldValue, existed := s.reverse[key]; existed {
 		if cmp.Compare(oldValue, newValue) == 0 {
@@ -301,12 +304,12 @@ func (s *Sorted[K, E, V]) delete(key K) {
 }
 
 //nolint:unused
-func (s *Sorted[K, E, V]) stageSet(tx Tx, key K, entry E) {
+func (s *Sorted[K, E, V]) stageSet(tx Tx, entry E) {
 	if tx.txIdentity() == nil {
-		s.set(key, entry)
+		s.set(entry)
 		return
 	}
-	s.overlay.stage(tx, key, s.extract(&entry))
+	s.overlay.stage(tx, entry.GorpKey(), s.extract(&entry))
 }
 
 //nolint:unused

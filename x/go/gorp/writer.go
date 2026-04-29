@@ -73,7 +73,7 @@ func (w *Writer[K, E]) set(ctx context.Context, entry E) error {
 		return err
 	}
 	for _, idx := range w.indexes {
-		idx.stageSet(w.tx, entry.GorpKey(), entry)
+		idx.stageSet(w.tx, entry)
 	}
 	return nil
 }

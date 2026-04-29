@@ -156,7 +156,7 @@ func attachIndexObserver[K Key, E Entry[K]](
 				switch ch.Variant {
 				case change.VariantSet:
 					for _, idx := range indexes {
-						idx.set(ch.Key, ch.Value)
+						idx.set(ch.Value)
 					}
 				case change.VariantDelete:
 					for _, idx := range indexes {

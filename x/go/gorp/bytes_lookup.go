@@ -70,9 +70,10 @@ func (l *BytesLookup[E, V]) populate() (func(E), func(), error) {
 }
 
 //nolint:unused
-func (l *BytesLookup[E, V]) set(key []byte, entry E) {
+func (l *BytesLookup[E, V]) set(entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	key := entry.GorpKey()
 	newValue := l.extract(&entry)
 	if oldValue, existed := l.reverse[string(key)]; existed {
 		if oldValue == newValue {
@@ -98,12 +99,12 @@ func (l *BytesLookup[E, V]) delete(key []byte) {
 }
 
 //nolint:unused
-func (l *BytesLookup[E, V]) stageSet(tx Tx, key []byte, entry E) {
+func (l *BytesLookup[E, V]) stageSet(tx Tx, entry E) {
 	if tx.txIdentity() == nil {
-		l.set(key, entry)
+		l.set(entry)
 		return
 	}
-	l.overlay.stage(tx, string(key), l.extract(&entry))
+	l.overlay.stage(tx, string(entry.GorpKey()), l.extract(&entry))
 }
 
 //nolint:unused
