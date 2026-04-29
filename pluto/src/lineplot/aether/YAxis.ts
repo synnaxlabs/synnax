@@ -14,7 +14,7 @@ import { line } from "@/vis/line/aether";
 import { rule } from "@/vis/rule/aether";
 
 export const yAxisStateZ = baseAxisStateZ.extend({
-  location: location.x.default("left"),
+  location: location.xZ.default("left"),
 });
 
 export interface YAxisProps extends AxisRenderProps {

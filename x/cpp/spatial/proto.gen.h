@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+#include <unordered_map>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -21,6 +23,78 @@
 #include "x/go/spatial/pb/spatial.pb.h"
 
 namespace x::spatial {
+
+inline std::pair<::x::spatial::pb::XLocation, x::errors::Error>
+x_location_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::XLocation> kMap = {
+        {X_LOCATION_LEFT, ::x::spatial::pb::X_LOCATION_LEFT},
+        {X_LOCATION_RIGHT, ::x::spatial::pb::X_LOCATION_RIGHT},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized XLocation value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+x_location_from_pb(::x::spatial::pb::XLocation pb) {
+    switch (pb) {
+        case ::x::spatial::pb::X_LOCATION_LEFT:
+            return {X_LOCATION_LEFT, x::errors::NIL};
+        case ::x::spatial::pb::X_LOCATION_RIGHT:
+            return {X_LOCATION_RIGHT, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized XLocation protobuf value")};
+    }
+}
+
+inline std::pair<::x::spatial::pb::YLocation, x::errors::Error>
+y_location_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::YLocation> kMap = {
+        {Y_LOCATION_TOP, ::x::spatial::pb::Y_LOCATION_TOP},
+        {Y_LOCATION_BOTTOM, ::x::spatial::pb::Y_LOCATION_BOTTOM},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized YLocation value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+y_location_from_pb(::x::spatial::pb::YLocation pb) {
+    switch (pb) {
+        case ::x::spatial::pb::Y_LOCATION_TOP:
+            return {Y_LOCATION_TOP, x::errors::NIL};
+        case ::x::spatial::pb::Y_LOCATION_BOTTOM:
+            return {Y_LOCATION_BOTTOM, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized YLocation protobuf value")};
+    }
+}
+
+inline std::pair<::x::spatial::pb::StickyUnit, x::errors::Error>
+sticky_unit_to_pb(const std::string &cpp) {
+    static const std::unordered_map<std::string, ::x::spatial::pb::StickyUnit> kMap = {
+        {STICKY_UNIT_PX, ::x::spatial::pb::STICKY_UNIT_PX},
+        {STICKY_UNIT_DECIMAL, ::x::spatial::pb::STICKY_UNIT_DECIMAL},
+    };
+    auto it = kMap.find(cpp);
+    if (it == kMap.end())
+        return {{}, x::errors::Error("unrecognized StickyUnit value: " + cpp)};
+    return {it->second, x::errors::NIL};
+}
+
+inline std::pair<std::string, x::errors::Error>
+sticky_unit_from_pb(::x::spatial::pb::StickyUnit pb) {
+    switch (pb) {
+        case ::x::spatial::pb::STICKY_UNIT_PX:
+            return {STICKY_UNIT_PX, x::errors::NIL};
+        case ::x::spatial::pb::STICKY_UNIT_DECIMAL:
+            return {STICKY_UNIT_DECIMAL, x::errors::NIL};
+        default:
+            return {"", x::errors::Error("unrecognized StickyUnit protobuf value")};
+    }
+}
 
 inline std::pair<::x::spatial::pb::XY, x::errors::Error> XY::to_proto() const {
     ::x::spatial::pb::XY pb;
@@ -33,6 +107,193 @@ inline std::pair<XY, x::errors::Error> XY::from_proto(const ::x::spatial::pb::XY
     XY cpp;
     cpp.x = pb.x();
     cpp.y = pb.y();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::CornerLocation, x::errors::Error>
+CornerLocation::to_proto() const {
+    ::x::spatial::pb::CornerLocation pb;
+    {
+        auto [v, err] = x_location_to_pb(this->x);
+        if (err) return {{}, err};
+        pb.set_x(v);
+    }
+    {
+        auto [v, err] = y_location_to_pb(this->y);
+        if (err) return {{}, err};
+        pb.set_y(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<CornerLocation, x::errors::Error>
+CornerLocation::from_proto(const ::x::spatial::pb::CornerLocation &pb) {
+    CornerLocation cpp;
+    {
+        auto [v, err] = x_location_from_pb(pb.x());
+        if (err) return {{}, err};
+        cpp.x = v;
+    }
+    {
+        auto [v, err] = y_location_from_pb(pb.y());
+        if (err) return {{}, err};
+        cpp.y = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::StickyUnits, x::errors::Error>
+StickyUnits::to_proto() const {
+    ::x::spatial::pb::StickyUnits pb;
+    {
+        auto [v, err] = sticky_unit_to_pb(this->x);
+        if (err) return {{}, err};
+        pb.set_x(v);
+    }
+    {
+        auto [v, err] = sticky_unit_to_pb(this->y);
+        if (err) return {{}, err};
+        pb.set_y(v);
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StickyUnits, x::errors::Error>
+StickyUnits::from_proto(const ::x::spatial::pb::StickyUnits &pb) {
+    StickyUnits cpp;
+    {
+        auto [v, err] = sticky_unit_from_pb(pb.x());
+        if (err) return {{}, err};
+        cpp.x = v;
+    }
+    {
+        auto [v, err] = sticky_unit_from_pb(pb.y());
+        if (err) return {{}, err};
+        cpp.y = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::StickyXY, x::errors::Error>
+StickyXY::to_proto() const {
+    ::x::spatial::pb::StickyXY pb;
+    pb.set_x(this->x);
+    pb.set_y(this->y);
+    {
+        auto [v, err] = this->root.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_root() = v;
+    }
+    {
+        auto [v, err] = this->units.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_units() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<StickyXY, x::errors::Error>
+StickyXY::from_proto(const ::x::spatial::pb::StickyXY &pb) {
+    StickyXY cpp;
+    cpp.x = pb.x();
+    cpp.y = pb.y();
+    {
+        auto [v, err] = CornerLocation::from_proto(pb.root());
+        if (err) return {{}, err};
+        cpp.root = v;
+    }
+    {
+        auto [v, err] = StickyUnits::from_proto(pb.units());
+        if (err) return {{}, err};
+        cpp.units = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
+Dimensions::to_proto() const {
+    ::x::spatial::pb::Dimensions pb;
+    pb.set_width(this->width);
+    pb.set_height(this->height);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Dimensions, x::errors::Error>
+Dimensions::from_proto(const ::x::spatial::pb::Dimensions &pb) {
+    Dimensions cpp;
+    cpp.width = pb.width();
+    cpp.height = pb.height();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::Viewport, x::errors::Error>
+Viewport::to_proto() const {
+    ::x::spatial::pb::Viewport pb;
+    pb.set_zoom(this->zoom);
+    {
+        auto [v, err] = this->position.to_proto();
+        if (err) return {{}, err};
+        *pb.mutable_position() = v;
+    }
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Viewport, x::errors::Error>
+Viewport::from_proto(const ::x::spatial::pb::Viewport &pb) {
+    Viewport cpp;
+    cpp.zoom = pb.zoom();
+    {
+        auto [v, err] = XY::from_proto(pb.position());
+        if (err) return {{}, err};
+        cpp.position = v;
+    }
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::SignedDimensions, x::errors::Error>
+SignedDimensions::to_proto() const {
+    ::x::spatial::pb::SignedDimensions pb;
+    pb.set_signed_width(this->signed_width);
+    pb.set_signed_height(this->signed_height);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<SignedDimensions, x::errors::Error>
+SignedDimensions::from_proto(const ::x::spatial::pb::SignedDimensions &pb) {
+    SignedDimensions cpp;
+    cpp.signed_width = pb.signed_width();
+    cpp.signed_height = pb.signed_height();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::ClientXY, x::errors::Error>
+ClientXY::to_proto() const {
+    ::x::spatial::pb::ClientXY pb;
+    pb.set_client_x(this->client_x);
+    pb.set_client_y(this->client_y);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<ClientXY, x::errors::Error>
+ClientXY::from_proto(const ::x::spatial::pb::ClientXY &pb) {
+    ClientXY cpp;
+    cpp.client_x = pb.client_x();
+    cpp.client_y = pb.client_y();
+    return {cpp, x::errors::NIL};
+}
+
+inline std::pair<::x::spatial::pb::Bounds, x::errors::Error> Bounds::to_proto() const {
+    ::x::spatial::pb::Bounds pb;
+    pb.set_lower(this->lower);
+    pb.set_upper(this->upper);
+    return {pb, x::errors::NIL};
+}
+
+inline std::pair<Bounds, x::errors::Error>
+Bounds::from_proto(const ::x::spatial::pb::Bounds &pb) {
+    Bounds cpp;
+    cpp.lower = pb.lower();
+    cpp.upper = pb.upper();
     return {cpp, x::errors::NIL};
 }
 

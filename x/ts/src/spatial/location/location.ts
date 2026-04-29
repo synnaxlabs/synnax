@@ -15,10 +15,11 @@ import {
   CENTER_LOCATIONS,
   type CenterLocation,
   centerLocationZ,
-  type CrudeLocation,
-  crudeLocation,
+  type CornerLocation,
+  cornerLocationZ,
   type Direction,
   DIRECTIONS,
+  directionZ,
   type Location,
   LOCATIONS,
   locationZ,
@@ -43,15 +44,18 @@ export {
   Y_LOCATIONS,
 };
 
-export const x = xLocationZ;
-export const y = yLocationZ;
-export const center = centerLocationZ;
+export const xZ = xLocationZ;
+export const yZ = yLocationZ;
+export const centerZ = centerLocationZ;
 export const outerZ = outerLocationZ;
+export const cornerZ = cornerLocationZ;
 
 export type X = XLocation;
 export type Y = YLocation;
 export type Outer = OuterLocation;
 export type Center = CenterLocation;
+export type Corner = CornerLocation;
+export type CornerString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
 const SWAPPED: Record<Location, Location> = {
   top: "bottom",
@@ -67,10 +71,12 @@ const ROTATIONS: Record<Outer, Record<AngularDirection, Outer>> = {
   bottom: { clockwise: "right", counterclockwise: "left" },
   left: { clockwise: "bottom", counterclockwise: "top" },
 };
-
-export const crude = crudeLocation;
-
-export type Crude = CrudeLocation;
+export const crudeZ = z.union([
+  directionZ,
+  z.enum([...OUTER_LOCATIONS, ...CENTER_LOCATIONS]),
+  z.instanceof(String),
+]);
+export type Crude = z.infer<typeof crudeZ>;
 
 export const construct = (cl: Crude): Location => {
   if (cl instanceof String) return cl as Location;
@@ -93,16 +99,13 @@ export const xy = z.object({
   x: xLocationZ.or(centerLocationZ),
   y: yLocationZ.or(centerLocationZ),
 });
-export const corner = z.object({ x: xLocationZ, y: yLocationZ });
-
 export type XY = z.infer<typeof xy>;
-export type CornerXY = z.infer<typeof corner>;
 export type CornerXYString = "topLeft" | "topRight" | "bottomLeft" | "bottomRight";
 
-export const TOP_LEFT: CornerXY = Object.freeze({ x: "left", y: "top" });
-export const TOP_RIGHT: CornerXY = Object.freeze({ x: "right", y: "top" });
-export const BOTTOM_LEFT: CornerXY = Object.freeze({ x: "left", y: "bottom" });
-export const BOTTOM_RIGHT: CornerXY = Object.freeze({ x: "right", y: "bottom" });
+export const TOP_LEFT: Corner = Object.freeze({ x: "left", y: "top" });
+export const TOP_RIGHT: Corner = Object.freeze({ x: "right", y: "top" });
+export const BOTTOM_LEFT: Corner = Object.freeze({ x: "left", y: "bottom" });
+export const BOTTOM_RIGHT: Corner = Object.freeze({ x: "right", y: "bottom" });
 export const CENTER: XY = Object.freeze({ x: "center", y: "center" });
 export const TOP_CENTER: XY = Object.freeze({ x: "center", y: "top" });
 export const BOTTOM_CENTER: XY = Object.freeze({ x: "center", y: "bottom" });

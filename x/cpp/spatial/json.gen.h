@@ -11,6 +11,8 @@
 
 #pragma once
 
+#include <string>
+
 #include "x/cpp/json/json.h"
 #include "x/cpp/spatial/types.gen.h"
 
@@ -27,6 +29,122 @@ inline x::json::json XY::to_json() const {
     x::json::json j;
     j["x"] = this->x;
     j["y"] = this->y;
+    return j;
+}
+
+inline CornerLocation CornerLocation::parse(x::json::Parser parser) {
+    return CornerLocation{
+        .x = parser.field<std::string>("x"),
+        .y = parser.field<std::string>("y"),
+    };
+}
+
+inline x::json::json CornerLocation::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    return j;
+}
+
+inline StickyUnits StickyUnits::parse(x::json::Parser parser) {
+    return StickyUnits{
+        .x = parser.field<std::string>("x"),
+        .y = parser.field<std::string>("y"),
+    };
+}
+
+inline x::json::json StickyUnits::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    return j;
+}
+
+inline StickyXY StickyXY::parse(x::json::Parser parser) {
+    return StickyXY{
+        .x = parser.field<double>("x"),
+        .y = parser.field<double>("y"),
+        .root = parser.field<CornerLocation>("root"),
+        .units = parser.field<StickyUnits>("units"),
+    };
+}
+
+inline x::json::json StickyXY::to_json() const {
+    x::json::json j;
+    j["x"] = this->x;
+    j["y"] = this->y;
+    j["root"] = this->root.to_json();
+    j["units"] = this->units.to_json();
+    return j;
+}
+
+inline Dimensions Dimensions::parse(x::json::Parser parser) {
+    return Dimensions{
+        .width = parser.field<double>("width"),
+        .height = parser.field<double>("height"),
+    };
+}
+
+inline x::json::json Dimensions::to_json() const {
+    x::json::json j;
+    j["width"] = this->width;
+    j["height"] = this->height;
+    return j;
+}
+
+inline Viewport Viewport::parse(x::json::Parser parser) {
+    return Viewport{
+        .zoom = parser.field<double>("zoom"),
+        .position = parser.field<XY>("position"),
+    };
+}
+
+inline x::json::json Viewport::to_json() const {
+    x::json::json j;
+    j["zoom"] = this->zoom;
+    j["position"] = this->position.to_json();
+    return j;
+}
+
+inline SignedDimensions SignedDimensions::parse(x::json::Parser parser) {
+    return SignedDimensions{
+        .signed_width = parser.field<double>("signed_width"),
+        .signed_height = parser.field<double>("signed_height"),
+    };
+}
+
+inline x::json::json SignedDimensions::to_json() const {
+    x::json::json j;
+    j["signed_width"] = this->signed_width;
+    j["signed_height"] = this->signed_height;
+    return j;
+}
+
+inline ClientXY ClientXY::parse(x::json::Parser parser) {
+    return ClientXY{
+        .client_x = parser.field<double>("client_x"),
+        .client_y = parser.field<double>("client_y"),
+    };
+}
+
+inline x::json::json ClientXY::to_json() const {
+    x::json::json j;
+    j["client_x"] = this->client_x;
+    j["client_y"] = this->client_y;
+    return j;
+}
+
+inline Bounds Bounds::parse(x::json::Parser parser) {
+    return Bounds{
+        .lower = parser.field<double>("lower"),
+        .upper = parser.field<double>("upper"),
+    };
+}
+
+inline x::json::json Bounds::to_json() const {
+    x::json::json j;
+    j["lower"] = this->lower;
+    j["upper"] = this->upper;
     return j;
 }
 

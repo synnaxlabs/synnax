@@ -46,7 +46,7 @@ var NumberPrimitives = set.New(
 
 // Constraints is the set of built-in constraint-only type names recognized by Oracle.
 // These are valid as type parameter constraints but cannot be used as field types.
-var Constraints = set.New("comparable")
+var Constraints = set.New("comparable", "numeric")
 
 // IsConstraint returns true if the name is a built-in constraint-only type.
 func IsConstraint(name string) bool { return Constraints.Contains(name) }

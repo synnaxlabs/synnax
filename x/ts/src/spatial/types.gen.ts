@@ -11,9 +11,53 @@
 
 import { z } from "zod";
 
+export const X_LOCATIONS = ["left", "right"] as const;
+export const xLocationZ = z.enum(X_LOCATIONS);
+export type XLocation = z.infer<typeof xLocationZ>;
+
+export const Y_LOCATIONS = ["top", "bottom"] as const;
+export const yLocationZ = z.enum(Y_LOCATIONS);
+export type YLocation = z.infer<typeof yLocationZ>;
+
+export const STICKY_UNITS = ["px", "decimal"] as const;
+export const stickyUnitZ = z.enum(STICKY_UNITS);
+export type StickyUnit = z.infer<typeof stickyUnitZ>;
+
 export const OUTER_LOCATIONS = ["top", "right", "bottom", "left"] as const;
 export const outerLocationZ = z.enum(OUTER_LOCATIONS);
 export type OuterLocation = z.infer<typeof outerLocationZ>;
+
+export const DIRECTIONS = ["x", "y"] as const;
+export const directionZ = z.enum(DIRECTIONS);
+export type Direction = z.infer<typeof directionZ>;
+
+export const ANGULAR_DIRECTIONS = ["clockwise", "counterclockwise"] as const;
+export const angularDirectionZ = z.enum(ANGULAR_DIRECTIONS);
+export type AngularDirection = z.infer<typeof angularDirectionZ>;
+
+export const CENTER_LOCATIONS = ["center"] as const;
+export const centerLocationZ = z.enum(CENTER_LOCATIONS);
+export type CenterLocation = z.infer<typeof centerLocationZ>;
+
+export const LOCATIONS = ["top", "right", "bottom", "left", "center"] as const;
+export const locationZ = z.enum(LOCATIONS);
+export type Location = z.infer<typeof locationZ>;
+
+export const ALIGNMENTS = ["start", "center", "end"] as const;
+export const alignmentZ = z.enum(ALIGNMENTS);
+export type Alignment = z.infer<typeof alignmentZ>;
+
+export const ORDERS = ["first", "last"] as const;
+export const orderZ = z.enum(ORDERS);
+export type Order = z.infer<typeof orderZ>;
+
+export const DIMENSIONS = ["width", "height"] as const;
+export const dimensionZ = z.enum(DIMENSIONS);
+export type Dimension = z.infer<typeof dimensionZ>;
+
+export const SIGNED_DIMENSIONS = ["signedWidth", "signedHeight"] as const;
+export const signedDimensionZ = z.enum(SIGNED_DIMENSIONS);
+export type SignedDimension = z.infer<typeof signedDimensionZ>;
 
 /**
  * XY is a 2D coordinate point with x and y values. Used for positioning
@@ -26,3 +70,97 @@ export const xyZ = z.object({
   y: z.number(),
 });
 export interface XY extends z.infer<typeof xyZ> {}
+
+/** CornerLocation is an anchor corner for positioning. */
+export const cornerLocationZ = z.object({
+  /** x is the horizontal anchor. */
+  x: xLocationZ,
+  /** y is the vertical anchor. */
+  y: yLocationZ,
+});
+export interface CornerLocation extends z.infer<typeof cornerLocationZ> {}
+
+/** StickyUnits specifies the measurement units for sticky positioning. */
+export const stickyUnitsZ = z.object({
+  /** x is the horizontal unit. */
+  x: stickyUnitZ,
+  /** y is the vertical unit. */
+  y: stickyUnitZ,
+});
+export interface StickyUnits extends z.infer<typeof stickyUnitsZ> {}
+
+/** Dimensions is a 2D size with width and height values. */
+export const dimensionsZ = z.object({
+  /** width is the width in pixels. */
+  width: z.number(),
+  /** height is the height in pixels. */
+  height: z.number(),
+});
+export interface Dimensions extends z.infer<typeof dimensionsZ> {}
+
+/**
+ * SignedDimensions is a 2D size whose width and height components carry sign, allowing
+ * negative values to express direction.
+ */
+export const signedDimensionsZ = z.object({
+  /** signedWidth is the signed width. */
+  signedWidth: z.number(),
+  /** signedHeight is the signed height. */
+  signedHeight: z.number(),
+});
+export interface SignedDimensions extends z.infer<typeof signedDimensionsZ> {}
+
+/**
+ * ClientXY is a 2D coordinate point expressed in client (viewport) space, matching
+ * the shape of DOM mouse events.
+ */
+export const clientXyZ = z.object({
+  /** clientX is the horizontal coordinate in client (viewport) space. */
+  clientX: z.number(),
+  /** clientY is the vertical coordinate in client (viewport) space. */
+  clientY: z.number(),
+});
+export interface ClientXY extends z.infer<typeof clientXyZ> {}
+
+/**
+ * Bounds is a closed-open interval [lower, upper) over an ordered numeric value
+ * space. The TypeScript binding is generic over T so callers can express
+ * bounds over either number or bigint values; other languages emit a
+ * concrete float64-based type.
+ */
+export const boundsZ = <T extends number | bigint = number>(t?: z.ZodType<T>) =>
+  z.object({
+    /** lower is the inclusive lower bound. */
+    lower: t ?? z.number(),
+    /** upper is the exclusive upper bound. */
+    upper: t ?? z.number(),
+  });
+export interface Bounds<T extends number | bigint = number> {
+  lower: T;
+  upper: T;
+}
+
+/** Viewport is the camera state of a viewport. */
+export const viewportZ = z.object({
+  /** zoom is the zoom level where 1.0 equals 100%. */
+  zoom: z.number().default(1),
+  /** position is the (x, y) pan offset of the viewport. */
+  position: xyZ,
+});
+export interface Viewport extends z.infer<typeof viewportZ> {}
+
+/**
+ * StickyXY is a position that can be anchored to different corners of a
+ * container with configurable units (pixels or decimal fractions).
+ */
+export const stickyXyZ = z.object({
+  /** x is the horizontal coordinate. */
+  x: z.number(),
+  /** y is the vertical coordinate. */
+  y: z.number(),
+  /** root is the optional anchor corner for the position. */
+  root: cornerLocationZ.optional(),
+  /** units is the optional unit specification for the coordinates. */
+  units: stickyUnitsZ.optional(),
+});
+export interface StickyXY extends z.infer<typeof stickyXyZ> {}

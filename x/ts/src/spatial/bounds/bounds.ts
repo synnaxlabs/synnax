@@ -9,9 +9,13 @@
 
 import { abs, add, equal as mathEqual, min as mathMin, sub } from "@/math/math";
 import { type numeric } from "@/numeric";
-import { type Bounds, boundsZ, type CrudeBounds } from "@/spatial/base";
+import { type Bounds, boundsZ, type NumberCouple } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
+
+export type CrudeBounds<T extends number | bigint = number> =
+  | Bounds<T>
+  | NumberCouple<T>;
 
 export type Crude<T extends numeric.Value = number> = CrudeBounds<T>;
 
