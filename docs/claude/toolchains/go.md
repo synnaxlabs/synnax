@@ -530,23 +530,46 @@ func (s *Service) Create(ctx context.Context, name string) (Channel, error) {
 func (s *Service) applyUpdate(u Update) { /* ... */ }
 ```
 
-Doc comments on exported identifiers (types, functions, constants, package-level vars)
-are a separate matter and follow standard Go conventions — this rule is about _in-body_
-comments. See Rule 2.
+Doc comments on identifier declarations (types, functions, constants, package-level
+vars) are a separate matter and follow standard Go conventions — this rule is about
+_in-body_ comments. See Rule 2.
 
-### Rule 2: Document exported identifiers from the caller's perspective
+### Rule 2: Document identifiers from the caller's perspective
 
-Comments explaining public function, method, constant, variable, or type definitions are
-**encouraged**. A good doc comment tells the caller what they need to know to use the
-identifier correctly: what it does, what the arguments mean, what is returned, what
-errors can occur, and any preconditions or side effects the caller must be aware of.
-Implementation details are **not** relevant unless they materially affect how the caller
-uses the API (e.g., "safe for concurrent use", "O(n) on the channel count", "blocks
-until the context is cancelled").
+Comments explaining functions, methods, constants, variables, or types are
+**encouraged** for both exported and unexported identifiers. A good doc comment tells
+the reader what they need to know to use the identifier correctly: what it does, what
+the arguments mean, what is returned, what errors can occur, and any preconditions or
+side effects.
+
+**Doc comments describe behavior, not implementation.** Do not narrate which
+collaborators are called, what underlying systems back the call, what data structures
+are used internally, the order of internal steps, or any other detail the reader could
+not observe by using the API. These details belong in the code itself, where they can
+change without leaving stale comments behind. The only implementation facts that earn a
+place in a doc comment are ones the caller's correctness depends on — concurrency
+safety, complexity, blocking behavior, ordering guarantees, lock discipline the caller
+must follow, or similar contracts. If you find yourself writing "calls X", "uses Y",
+"stores in Z", "then does W", stop: that information is not for the doc comment.
+
+**Narrow exception for extreme cases.** A brief note about an implementation choice is
+acceptable when the choice is genuinely **unintuitive or unconventional** and a reader
+would otherwise be confused, assume a bug, or "fix" it in a follow-up — a workaround for
+a known upstream issue, a deliberately non-standard algorithm chosen for a specific
+reason, an ordering that contradicts what a careful reader would expect. The bar is
+high: this is for choices the next reader will stop and question, not for ordinary
+judgment calls or for any implementation detail you happen to find interesting. Keep the
+note to a sentence or two and explain the _why_, not the mechanics. When in doubt, leave
+it out — the default is silence.
+
+This applies the same way to **unexported** identifiers. The "caller" of an unexported
+function or type is the rest of the package, and the doc comment exists for the next
+person who will read or use it — not as a transcript of the body. Internal narration is
+no more useful on unexported code than on exported code.
 
 Keep doc comments **short, tight, and focused**. One or two sentences is usually enough.
 Prefer adding a second paragraph or a bulleted list only when the API has real nuance
-the caller must understand.
+the reader must understand.
 
 Follow standard Go doc conventions:
 
@@ -593,6 +616,31 @@ func (s *Service) Create(ctx context.Context, name string) (Channel, error) { /*
 func (s *Service) Create(ctx context.Context, name string) (Channel, error) { /* ... */ }
 ```
 
+**Incorrect — narrates internal sequencing the caller cannot observe:**
+
+```go
+// Apply acquires s.mu, appends the update to the journal, signals the gossip
+// subsystem, and then releases the lock before returning.
+func (s *Service) Apply(u Update) error { /* ... */ }
+```
+
+The caller doesn't see the journal, the lock, or the gossip signal. They see a function
+that applies an update. If the locking is something the caller must coordinate with, say
+_that_ — not the internal sequence.
+
+**Incorrect — same standard applied to an unexported helper:**
+
+```go
+// resolveKey looks up the channel in s.cache, falls back to s.db.Get on miss,
+// and stores the result back in the cache before returning.
+func (s *Service) resolveKey(ctx context.Context, name string) (Key, error) { /* ... */ }
+```
+
+The caller of `resolveKey` (somewhere else in the package) needs to know it returns the
+key for a channel name and that it returns `ErrNotFound` if the name is unknown. The
+cache, the fallback, and the write-back are implementation choices that may change
+tomorrow.
+
 **Incorrect — doesn't start with the identifier name, uses the wrong comment style:**
 
 ```go
@@ -610,6 +658,19 @@ Keep field comments **tight, short, and focused** — usually a single line. Fol
 same Go doc conventions as Rule 2: `//` style, start with the field's name, complete
 sentence ending in a period, placed directly above the field with no blank line between.
 
+The same implementation-detail rule from Rule 2 applies here. A field comment should
+describe **what the field represents** — its semantic role, units, valid range, or
+invariants the rest of the package must uphold. Do **not** narrate when or how the field
+is mutated, which methods touch it, or what the methods do. Method bodies are the source
+of truth for that; a comment that restates them only goes stale.
+
+The exceptions are the same kinds of contracts Rule 2 calls out: lock discipline ("must
+hold `mu` to read or write"), invariants other fields depend on, or units and ranges
+that the type's name does not already convey. The same narrow extreme-case exception
+applies — a brief note on a genuinely unintuitive choice (e.g., a field intentionally
+typed wider than it needs to be to work around an upstream library bug) is acceptable,
+but the bar is high.
+
 **Correct:**
 
 ```go
@@ -621,17 +682,34 @@ type Writer struct {
     // strictly monotonic relative to Start.
     Start telem.TimeStamp
 
-    // db is the underlying storage handle. Closed when the Writer is closed.
+    // db is the underlying storage handle.
     db *pebble.DB
-    // mu guards pending and closed; acquired before any mutation of either.
+    // mu guards pending and closed.
     mu sync.Mutex
-    // pending buffers frames that have not yet been flushed to db.
+    // pending holds frames buffered for the next flush.
     pending []Frame
-    // closed is set to true on the first call to Close; subsequent calls are
-    // no-ops.
+    // closed reports whether the Writer has been closed.
     closed bool
 }
 ```
+
+**Incorrect — narrates when fields are mutated and what methods do:**
+
+```go
+type Writer struct {
+    // db is the underlying storage handle. Opened in NewWriter, closed in Close.
+    db *pebble.DB
+    // pending buffers frames that have not yet been flushed; appended to in
+    // Write, drained in flush, cleared after a successful Put.
+    pending []Frame
+    // closed is set to true on the first call to Close; subsequent Close calls
+    // see it as true and return nil immediately without touching db.
+    closed bool
+}
+```
+
+The names already say what these fields are. The behavior of `Close`, `Write`, and
+`flush` lives in those methods, not in the struct definition.
 
 **Incorrect — trailing inline comments instead of `//` blocks above the field:**
 
@@ -664,6 +742,56 @@ type Writer struct {
     Channels []ChannelKey
 }
 ```
+
+### Rule 4: Do not modify existing comments unless you are confident they should change
+
+Existing comments and annotations in the codebase represent decisions made by someone
+who had context you may not. Treat them as **load-bearing until proven otherwise**. Do
+not rewrite, "improve", reformat, or delete a comment as a side effect of editing the
+code around it. Drive-by comment churn is one of the easiest ways to silently destroy
+context — a one-line note explaining a non-obvious invariant or workaround is gone the
+moment someone "tightens the wording".
+
+You may modify or remove a comment only when you have a concrete reason and you are
+confident the change is correct. Acceptable reasons:
+
+- The code the comment describes has changed and the comment is now factually wrong.
+- The comment violates one of the rules above (Rules 1–3) and you have read it carefully
+  enough to be sure the information it conveys is either redundant or belongs elsewhere
+  — not just that it _looks_ like the kind of comment a rule would flag.
+- The user has explicitly asked you to revise the comment.
+
+If you are not sure whether a comment is still accurate or still earning its place,
+**leave it alone**. The cost of an out-of-date comment surviving one more PR is trivial;
+the cost of deleting a workaround note that turns out to have been the only record of a
+subtle bug is not.
+
+**Incorrect — drive-by rewrite while editing nearby code:**
+
+```go
+// Before (existing in the file):
+// Must hold s.mu before calling; gossip's ordering guarantee depends on the caller
+// serializing writes against incoming SIR updates.
+func (s *Service) applyUpdate(u Update) { /* ... */ }
+
+// After your unrelated edit:
+// applyUpdate applies an update to the service.   ❌ deleted real context
+func (s *Service) applyUpdate(u Update) { /* ... */ }
+```
+
+**Incorrect — deleting a comment because it "looks like" implementation narration:**
+
+```go
+// Before:
+// We poll every 50ms instead of using a ticker because the underlying clock
+// drifts on NI Linux Real-Time and a ticker accumulates the drift.
+for { /* ... */ }
+
+// After:                                          ❌ that wasn't narration; it was the why
+for { /* ... */ }
+```
+
+**Correct — leave it; if you suspect it's wrong, ask or verify before changing.**
 
 ## Testing with Ginkgo/Gomega
 
