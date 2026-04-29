@@ -183,14 +183,12 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const useNodeProps = (key: string): Base.NodeProps | undefined => {
-  const layoutKey = Base.useKey();
-  return useSelectNodeProps(layoutKey, key) as Base.NodeProps | undefined;
-};
+const useNodeProps = (key: string): Base.NodeProps | undefined =>
+  useSelectNodeProps(Base.useKey(), key);
 
 const useEdgeProps = (key: string): Base.EdgeProps | undefined => {
   const layoutKey = Base.useKey();
-  return useSelectEdgeProps(layoutKey, key) as Base.EdgeProps | undefined;
+  return useSelectEdgeProps(layoutKey, key);
 };
 
 const useSetElementProps = () => {

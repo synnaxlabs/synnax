@@ -9,7 +9,7 @@
 
 import "@/schematic/Schematic.css";
 
-import { TimeSpan } from "@synnaxlabs/x";
+import { type color, TimeSpan } from "@synnaxlabs/x";
 import { type FC, type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
@@ -34,7 +34,7 @@ export interface NodeProps extends Record<string, unknown> {
 export interface EdgeProps extends Record<string, unknown> {
   segments?: connector.Segment[];
   variant?: EdgeType;
-  color?: string;
+  color?: color.Crude;
 }
 
 export interface SchematicHooks {

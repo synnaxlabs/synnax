@@ -25,7 +25,7 @@ export const nodePropsZ = z.looseObject({
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const edgePropsZ = z.looseObject({
-  segments: z.array(z.unknown()).optional(),
+  segments: z.array(Schematic.Edge.connector.segmentZ).optional(),
   color: color.crudeZ.optional(),
   variant: Schematic.Edge.edgeTypeZ.optional(),
 });
