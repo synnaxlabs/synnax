@@ -7,7 +7,7 @@
 
 # 0 - Summary
 
-All `/` and `^` operations in Arc will return `f64` regardless of input type. Division
+All `/` and `**` operations in Arc will return `f64` regardless of input type. Division
 by zero will produce IEEE 754 values (`+Inf`, `-Inf`, `NaN`) instead of panicking and
 crashing the flow scheduler. The
 [trade study](0038-260425-divide-typecast-f64-trade-study.md) evaluates and justifies
@@ -26,9 +26,10 @@ Division and power should produce mathematically correct results by default, not
 silently truncate or panic. The `/` operator should behave the way it does in every
 language Arc's users already know.
 
-**Control safety.** Divide-by-zero must not crash the scheduler or silently activate
-control logic. IEEE 754 special values (`+Inf`, `-Inf`, `NaN`) are deterministic,
-visible in the UI, and non-truthy in Arc's control model.
+**Control safety.** Divide-by-zero must not crash the scheduler. IEEE 754 special values
+(`+Inf`, `-Inf`, `NaN`) are deterministic and visible in the UI. `NaN` (`0/0`) is
+non-truthy and will not trigger control logic. `+Inf` and `-Inf` are truthy, consistent
+with Python and JavaScript semantics.
 
 **Consistency.** Both execution contexts (flow nodes and WASM `func` blocks) should
 produce identical results for the same operation. Under the current behavior, a
@@ -38,12 +39,16 @@ divide-by-zero.
 # 2 - Non-Goals
 
 - **Integer division operators.** `//`, `math.quotient()`, and `math.floor_division()`
-  are future work if requested. This RFC only changes `/` and `^`.
+  are future work if requested. This RFC only changes `/` and `**`.
 - **Modulo type promotion.** `%` will not promote to `f64`. It returns the input type
   (int in, int out; float in, float out). It will be expanded to accept float inputs,
   matching numpy and LabVIEW.
 - **Overflow behavior.** Add, subtract, and multiply continue to return the input type.
   Overflow is a container-width problem, not a numeric-domain problem (see trade study).
+- **Sized integer types.** Whether Arc should keep sized integer types (`i8`, `u32`,
+  etc.) or collapse them into a single `int`/`number` is a separate language design
+  question. Sized types exist because Arc targets hardware telemetry, where channel
+  widths are fixed by the sensor/protocol. This RFC does not change that.
 - **New error handling infrastructure.** IEEE 754 handles divide-by-zero natively. No
   new error ABI, sentinel values, or skip-tick logic is needed.
 
@@ -55,7 +60,7 @@ divide-by-zero.
 | --------------------- | ------------------------- | --------------------------------------------- |
 | `1 / 2`               | `i64(0)`                  | `f64(0.5)`                                    |
 | `7 / 3`               | `i64(2)`                  | `f64(2.333...)`                               |
-| `2 ^ -1`              | `i64(0)`                  | `f64(0.5)`                                    |
+| `2 ** -1`             | `i64(0)`                  | `f64(0.5)`                                    |
 | `n / 0` (integer)     | panic (crashes scheduler) | `f64(+Inf)`                                   |
 | `0 / 0`               | panic (crashes scheduler) | `f64(NaN)`                                    |
 | `a / b * c` (all i64) | `i64` throughout          | `a / b` produces `f64`, `c` promoted to `f64` |
@@ -70,21 +75,38 @@ from integer inputs.
 
 ## 3.2 - Control Safety: `isSeriesTruthy`
 
-`+Inf`, `-Inf`, and `NaN` will all be treated as **non-truthy** values. This will
-prevent divide-by-zero results from triggering downstream control logic:
+`NaN` will be treated as **non-truthy**. `+Inf` and `-Inf` will be treated as
+**truthy**, consistent with Python and JavaScript semantics.
+
+`NaN` arises only from `0/0`, which is genuinely undefined. It has no meaningful
+magnitude, so non-truthy is the correct interpretation. `+Inf` and `-Inf` arise from
+`n/0` where `n ≠ 0`. They represent a real, if extreme, result and behave as truthy:
 
 ```arc
-// sensor_b is 0, so sensor_a / sensor_b = +Inf
-// +Inf is non-truthy, so the valve does NOT open
+// sensor_b is 0 and sensor_a is non-zero, so sensor_a / sensor_b = +Inf
+// +Inf is truthy, so the valve WILL open
+if sensor_a / sensor_b {
+    open_valve()
+}
+
+// sensor_a and sensor_b are both 0, so sensor_a / sensor_b = NaN
+// NaN is non-truthy, so the valve does NOT open
 if sensor_a / sensor_b {
     open_valve()
 }
 ```
 
-All three IEEE 754 special values (`+Inf`, `-Inf`, `NaN`) will follow this rule. A
-divide-by-zero will never silently activate a control path.
+Programs that divide by a potentially-zero denominator should guard explicitly if
+`+Inf`/`-Inf` triggering control is undesirable.
 
-## 3.3 - Future: Integer Division
+## 3.3 - Power Operator Syntax: `^` to `**`
+
+The power operator will change from `^` to `**`, matching Python. `^` is the
+conventional symbol for bitwise XOR in C-family languages, and reserving it for that
+future use avoids a breaking change later. `math.pow` has not been released publicly
+yet, so this is the opportune time to make the swap.
+
+## 3.4 - Future: Integer Division
 
 If integer division (truncating) is needed in the future, it can be added as a `//`
 operator or `math.quotient()` function without changing existing `/` behavior. This
@@ -109,7 +131,7 @@ mirrors the Python 3 distinction between `/` (float) and `//` (integer).
 
 Instead of emitting native WASM division opcodes (e.g. `i64.div_s`), the compiler will
 emit a call to the `math.divide` host function, which will accept operands in their
-native type and return `f64`. This is consistent with how `^` already uses a host
+native type and return `f64`. This is consistent with how `**` already uses a host
 function call.
 
 ## 4.2 - Scalar Power: Compiler
@@ -173,9 +195,15 @@ type. No-op for `f64`.
 
 **Files:** `arc/go/lsp/hover.go`
 
+- The `/` and `**` operators will have LSP hover documentation explicitly stating their
+  `f64` return type and IEEE 754 divide-by-zero behavior. This addresses the
+  discoverability gap between built-in operators and explicit function calls like
+  `math.derivative`, which can be hovered to inspect their return type.
 - `math.divide` hover doc will be updated to note f64 output and IEEE 754 divide-by-zero
   behavior.
 - `math.pow` hover doc will be updated to note f64 output.
+- Variable type inference is visible on hover: `x := 1 / 2` infers `x` as `f64`,
+  surfacing the return type at the assignment site.
 
 # 5 - Migration
 
@@ -240,12 +268,14 @@ New test scenarios required by this change:
 
 - **Division by zero**: `n/0` produces `+Inf`, `-n/0` produces `-Inf`, `0/0` produces
   `NaN` (instead of panicking)
-- **`isSeriesTruthy` on special values**: `+Inf`, `-Inf`, and `NaN` all return
-  non-truthy
+- **`isSeriesTruthy` on special values**: `NaN` returns non-truthy; `+Inf` and `-Inf`
+  return truthy
 - **Integer division output type**: `i32 / i32` returns `f64`, `i64 / i64` returns `f64`
 - **Series integer division output type**: `series<i64> / scalar` returns `series<f64>`
 - **Chained expressions**: `a / b * c` produces `f64` throughout when inputs are integer
-- **f32 precision gain**: `f32 / f32` computed in `f64` produces a more precise result
-- **Negative exponents**: `2 ^ -1` returns `f64(0.5)`, not `i64(0)`
+- **Reduced rounding error for non-64bit inputs**: `f32 / f32` computed in `f64` reduces
+  rounding error in the operation itself, producing a result closer to the true
+  mathematical value
+- **Negative exponents**: `2 ** -1` returns `f64(0.5)`, not `i64(0)`
 - **Type mismatch error**: Assigning `f64` division result to an `i32` channel produces
   a compile-time error

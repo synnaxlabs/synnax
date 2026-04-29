@@ -41,11 +41,18 @@ outputs must match inputs.**
 
 ### Type System Consistency
 
+**What "consistency" means here.** Option A's consistency is that each operator returns
+a type matching **what the operation actually represents**, not that every operator
+returns its input type. `+`, `-`, `*`, `%` stay in the integer domain because they
+produce exact integer results from integer inputs. `/` and `**` do not, so they return
+`f64`. The rule is in the math (like derivative), not in matching the input datatype,
+which ignores what the operators actually do.
+
 **"Divide and pow behave differently from add/subtract/multiply."**
 
 LabVIEW, numpy, and scipy all have separate divide (float) and quotient (integer)
 operations. This is standard. Both `divide` and `pow` can produce non-integer results
-from integer inputs (`1/2 = 0.5`, `2^-1 = 0.5`), unlike add, subtract, and multiply,
+from integer inputs (`1/2 = 0.5`, `2**-1 = 0.5`), unlike add, subtract, and multiply,
 which always produce exact integers from integer inputs.
 
 Arc already has precedent: `math.derivative` returns `f64` regardless of input type
@@ -53,6 +60,10 @@ because rate of change is inherently continuous. Division and power have the sam
 property.
 
 **"A user might expect `i32 / i32 → i32`."**
+
+Arc's users come from Python, LabVIEW, and MATLAB. In all of these environments, `/`
+produces a result in the continuous domain. Customer research confirms this expectation.
+A C-style integer truncation would surprise the majority of Arc's actual users.
 
 Two integer division variants can be added later if requested: `math.floor_division()`
 (round toward negative infinity, Python `//` semantics: `-7 // 2 = -4`) and
@@ -67,13 +78,32 @@ In Python, `int(1) / int(3)` returns `float(0.333...)`. In numpy,
 returns `float64(inf)`. The Synnax Python client's `Series.to_numpy()` returns
 `numpy.ndarray`, so when a user queries two integer series from Synnax and divides them,
 numpy casts to `float64` and produces `+/-Inf`/`NaN` on zero denominators. Option A
-makes Arc consistent with behavior that already exists in our own client library.
+makes Arc consistent with behavior that already exists in our own client library. The
+Python client can already write `+Inf`, `-Inf`, and `NaN` directly to `f64` channels:
+
+```python
+import synnax as sy
+import numpy as np
+
+client = sy.Synnax()
+
+idx = client.channels.retrieve("inf_nan_time")
+ch = client.channels.retrieve("inf_nan_f64")
+
+VALUES = [np.inf, -np.inf, np.nan]
+
+now = sy.TimeStamp.now()
+timestamps = [int(now + i * sy.TimeSpan.SECOND) for i in range(len(VALUES))]
+
+with client.open_writer(start=now, channels=[idx.key, ch.key]) as w:
+    w.write({idx.key: timestamps, ch.key: VALUES})
+```
 
 For power, numpy's `np.power(int, negative_int)` raises `ValueError` entirely rather
 than produce a wrong integer answer. `np.float_power` always returns `float64`. Option A
 uses `float_power` semantics for both `divide` and `pow`.
 
-### Precision
+### Precision Errors
 
 | Scenario       | Option A (`f64` output)  | Option B (integer output)   |
 | -------------- | ------------------------ | --------------------------- |
@@ -81,8 +111,9 @@ uses `float_power` semantics for both `divide` and `pow`.
 | `7 / 3`        | `2.333...`, correct      | `2`, 14% error (truncation) |
 | `(2^53+1) / 1` | loses 1 bit of precision | exact                       |
 
-Option B loses precision on every non-exact division. Option A only loses precision for
-integers exceeding 2^53 (~9 quadrillion), which is outside the range of any real sensor.
+Option B has increased error due to not having the ability to represent precision for a
+solution in the continuous domain. Option A only loses precision for integers exceeding
+2^53 (~9 quadrillion), which is outside the range of any real sensor.
 
 For `f32` inputs, promoting to `f64` is a free precision gain: `f32` has ~7 decimal
 digits of precision, while `f64` has ~15. `f32(1.0) / f32(3.0)` computed in `f64`
@@ -130,17 +161,21 @@ Every mainstream language treats these differently. Python 3: `int / int = float
 `int * int = int`. Rust, Go, C: multiplication wraps, division truncates. Nobody
 auto-promotes multiplication.
 
+Arc integer arithmetic wraps on overflow (two's complement, WASM semantics), the same as
+C and Go.
+
 **Overflow is a width problem. Division is a domain problem. Different problems,
-different solutions.**
+different solutions.** Overflow behavior is out of scope for this RFC and is an
+independent design decision that does not affect the case for Option A.
 
 ### Divide by Zero
 
-| Scenario             | Option A (`f64`)                                                     | Option B (integer)                               |
-| -------------------- | -------------------------------------------------------------------- | ------------------------------------------------ |
-| `n/0`, `-n/0`, `0/0` | `+Inf`, `-Inf`, `NaN`. Deterministic per IEEE 754.                   | Panic (current), or requires new error handling. |
-| Downstream impact    | `+Inf`, `-Inf`, and `NaN` are all non-truthy. Won't trigger control. | No output, possible cascade failure.             |
-| Debugging            | `+Inf`, `-Inf`, `NaN` visible in the Log view, traceable.            | Depends on resolution.                           |
-| Recovery             | System keeps running.                                                | Depends on resolution.                           |
+| Scenario             | Option A (`f64`)                                                                           | Option B (integer)                               |
+| -------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| `n/0`, `-n/0`, `0/0` | `+Inf`, `-Inf`, `NaN`. Deterministic per IEEE 754.                                         | Panic (current), or requires new error handling. |
+| Downstream impact    | `NaN` is non-truthy (won't trigger control). `+Inf`/`-Inf` are truthy, matching Python/JS. | No output, possible cascade failure.             |
+| Debugging            | `+Inf`, `-Inf`, `NaN` visible in the Log view, traceable.                                  | Depends on resolution.                           |
+| Recovery             | System keeps running.                                                                      | Depends on resolution.                           |
 
 #### What Option B actually requires
 
@@ -192,7 +227,7 @@ What does "reliable" mean for a telemetry language?
 
 The operations that preserve input type (add, subtract, multiply, min, max) do so
 because integer inputs always produce exact integer results. Division and power do not
-have that property: `1 / 2` is `0.5`, `2^-1` is `0.5`. Returning `f64` is the
+have that property: `1 / 2` is `0.5`, `2**-1` is `0.5`. Returning `f64` is the
 mathematically correct choice, consistent with how `math.derivative` already works.
 
 The counterargument is that low-level hardware engineers expect C-style integer
@@ -203,8 +238,10 @@ MATLAB, where division returns floats.
 
 `+Inf`, `-Inf`, and `NaN` are safe in Arc's control model:
 
-- **Non-truthy**: `isSeriesTruthy` treats `+Inf`, `-Inf`, and `NaN` as non-truthy. They
-  will not trigger control logic.
+- **Predictable truthiness**: `isSeriesTruthy` treats `NaN` as non-truthy (it is
+  genuinely undefined, since `0/0` has no magnitude). `+Inf` and `-Inf` are truthy,
+  consistent with Python and JavaScript. Programs that need to guard against
+  divide-by-zero triggering control should check the denominator explicitly.
 - **Visible**: `∞`/`Infinity`, `-∞`/`-Infinity`, and `NaN` already render in the UI.
   They are not silent.
 - **Consistent**: Both flow nodes and WASM functions produce the same values.
@@ -212,29 +249,28 @@ MATLAB, where division returns floats.
 Under Option B, either the system outputs incorrect data (sentinel value of 0), silently
 drops the output (no signal to the user), or behaves differently depending on whether
 the division is in a flow node or a `func` block. All three are worse for safety than a
-visible, non-truthy IEEE 754 value.
+visible IEEE 754 value with well-defined truthiness semantics.
 
 ---
 
 ## Trade Summary
 
-| Criterion            | Option A | Option B                        |
-| -------------------- | -------- | ------------------------------- |
-| Type strictness      | Wins     |                                 |
-| Type consistency     | Wins     |                                 |
-| Precision            | Wins     |                                 |
-| Timestamp precision  |          | Wins (not practically relevant) |
-| Overflow consistency | Wins     |                                 |
-| Divide by zero       | Wins     |                                 |
-| Language identity    | Wins     |                                 |
-| Reliability          | Wins     |                                 |
-| Safety               | Wins     |                                 |
+| Criterion            | Option A | Option B |
+| -------------------- | -------- | -------- |
+| Type strictness      | ✓        | ✓        |
+| Type consistency     | ✓        |          |
+| Precision            | ✓        |          |
+| Overflow consistency | ✓        |          |
+| Divide by zero       | ✓        |          |
+| Language identity    | ✓        |          |
+| Reliability          | ✓        |          |
+| Safety               | ✓        |          |
 
 ## Recommendation
 
 Option A is the recommended option. It wins on every criterion evaluated in this study
-except timestamp precision, where Option B preserves exact nanosecond values. Under
-Option A, the precision loss is ~2-4 nanoseconds on year-long time deltas.
+except the timestamp precision sub-topic, where Option B preserves exact nanosecond
+values. Under Option A, the precision loss is ~2-4 nanoseconds on year-long time deltas.
 
 The intuition behind Option B is reasonable. "The output type should match the input
 type" is a clean mental model, and integer division is familiar to anyone who has
