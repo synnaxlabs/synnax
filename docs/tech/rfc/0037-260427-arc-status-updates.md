@@ -3,8 +3,7 @@
 **Feature Name**: Arc Status Module Updates <br /> **Status**: Draft <br /> **Start
 Date**: 2026-04-27 <br /> **Authors**: Nico Alba <br />
 
-**Related:** [RFC 0030 - Arc Module System](./0030-260221-arc-modules.md),
-[RFC 0036 - Arc Ranges Module](./0036-260427-arc-ranges.md)
+**Related:** [RFC 0030 - Arc Module System](./0030-260221-arc-modules.md)
 
 # 0 - Summary
 
@@ -21,8 +20,14 @@ interfaces adapted from the Python and TypeScript Synnax clients.
   state across the platform.
 - **Variant**: The severity level of a status. One of `success`, `info`, `warning`,
   `error`, `loading`, or `disabled`.
-- **WASM Form**, **Flow Form**, **`ExecBoth`**, **String Handle**: See
-  [RFC 0036, Section 1](./0036-260427-arc-ranges.md#1---vocabulary).
+- **WASM Form**: An Arc symbol invoked inside a `func` block; compiled to WebAssembly
+  and called as a host function with positional arguments.
+- **Flow Form**: An Arc symbol invoked as a graph node with named curly-brace config
+  (e.g., `trigger -> status.set{identifier=..., ...}`).
+- **`ExecBoth`**: A symbol exec mode where the same function is exposed in both WASM and
+  Flow form, sharing one `Inputs` parameter list.
+- **String Handle**: A `u32` handle returned by host functions that allocate strings on
+  the WASM side. Handle 0 is the error sentinel.
 
 # 2 - Motivation
 
@@ -44,14 +49,25 @@ module in line with other Arc modules and the Python/TypeScript client interface
 - **Test campaign teardown**: Automated test sequences often create per-run statuses
   that should be cleaned up when the campaign completes.
 
+## 2.1 - Breaking Change
+
+This RFC replaces the existing `status.set` Flow config shape wholesale. The current
+`status_key`/`name`/`variant`/`message` fields collapse into the new `identifier`/
+`variant`/`message` shape, and the deprecated bare `set_status` symbol is removed.
+Existing Arc programs that use `status.set` will fail to compile until updated.
+
+This is acceptable because `status.set` is a recent addition with a small, controllable
+user population. We don't have customers depending on the old shape, so the cost of a
+migration tool or a compatibility shim outweighs the benefit. Carrying two shapes
+forward (the muddled `status_key`/`name` split and the new unified `identifier`) would
+entrench the inconsistency this RFC exists to remove.
+
 # 3 - Prerequisite: String Handle Error Sentinel
 
 `status.set` returns the status key as a string handle so the caller can reference the
 status later for updates or deletion by key (avoiding name-resolution overhead on
-repeated calls). The same handle 0 error sentinel convention from
-[RFC 0036, Section 3](./0036-260427-arc-ranges.md#3---prerequisite-string-handle-error-sentinel)
-applies: handle 0 is falsy in WASM conditional expressions, `Get(0)` returns
-`("", false)`, and host functions return 0 on failure.
+repeated calls). Handle 0 is the error sentinel: handle 0 is falsy in WASM conditional
+expressions, `Get(0)` returns `("", false)`, and host functions return 0 on failure.
 
 ```go
 key := status.set("Pressure Check", "success", "All nominal")
@@ -76,57 +92,49 @@ Creates or updates a status in the Synnax cluster.
 status.set(identifier: string, variant: string, message: string) -> string
 ```
 
-| Param        | Type     | Required | Description                                                        |
-| ------------ | -------- | -------- | ------------------------------------------------------------------ |
-| `identifier` | `string` | yes      | Status key or name (auto-detected)                                 |
-| `variant`    | `string` | yes      | `success`, `info`, `warning`, `error`, `loading`, or `disabled`    |
-| `message`    | `string` | yes      | Status message text                                                |
-| `status_key` | `string` | no       | Explicit key (Flow-only, alternative to name-based auto-detection) |
+| Param        | Type     | Required | Description                                                     |
+| ------------ | -------- | -------- | --------------------------------------------------------------- |
+| `identifier` | `string` | yes      | Status key (UUID) or name                                       |
+| `variant`    | `string` | yes      | `success`, `info`, `warning`, `error`, `loading`, or `disabled` |
+| `message`    | `string` | yes      | Status message text                                             |
 
 **Returns:** Status key string. In WASM form, returned as a string handle (handle 0 on
-failure; see Section 3).
+failure; see Section 3). In Flow form, `set` is a sink and the return value is
+discarded.
 
-`status_key` is only available in Flow form as an explicit alternative to `name`. In
-WASM form, the `identifier` argument handles both key and name via auto-detection.
+The signature is identical in both forms (`ExecBoth`): WASM passes the three arguments
+positionally; Flow passes them as named config fields with the same parameter names.
 
-**Backward compatibility**: The existing `status_key` Flow config field is preserved.
-Programs using `status.set{status_key="...", ...}` continue to work unchanged. The
-`name` config field is a new alternative for Flow form, not a replacement. WASM form
-introduces the unified `identifier` concept, which is new (there was no WASM form
-before).
+**Resolution logic:**
 
-**Resolution logic (WASM form):**
-
-1. Attempt exact key match via `WhereKeys(identifier)`.
-2. If not found, query by exact name match.
-3. If multiple statuses share the name, report a non-blocking error.
-4. If zero matches, create a new status with `identifier` as the name.
-
-**Resolution logic (Flow form):**
-
-Both `status_key` and `name` may be provided. When `status_key` is present, the status
-is identified by key directly and `name` is ignored. When only `name` is provided,
-resolution follows steps 2-4 of the WASM logic above. At least one of `status_key` or
-`name` must be provided.
+1. `uuid.Parse(identifier)`.
+   - Parseable: attempt key lookup via `WhereKeys(identifier)`.
+     - On success: update that row.
+     - On `gorp.ErrNotFound`: continue to step 2.
+     - On any other error: return handle 0.
+   - Not parseable: continue to step 2.
+2. Query `Where(Name == identifier)`.
+   - One match: update that row.
+   - Zero matches: create a new status with `Name = identifier`.
+   - More than one match: report a non-blocking error, return handle 0.
+   - On error: return handle 0.
+3. Return the status key (as a string handle in WASM).
 
 **Examples:**
 
 ```arc
-// WASM set by name (creates if not found, returns key for future use)
+// First call: pass a name. Creates the status, returns its key.
 key := status.set("Pressure Check", "success", "All nominal")
 
-// WASM update by key (avoids name-resolution on repeated calls)
+// Subsequent call: pass the returned key. Updates in place, no name query.
 status.set(key, "warning", "Pressure rising")
 
-// Flow set by name
-trigger -> status.set{name="Pressure Check", variant="success",
-    message="All nominal"}
+// Flow form: same parameter names as named config.
+trigger -> status.set{identifier="Pressure Check",
+    variant="success", message="All nominal"}
 
-// WASM set by key
-status.set("abc-123-def", "error", "Sensor offline")
-// Flow set by key
-trigger -> status.set{status_key="abc-123-def", variant="error",
-    message="Sensor offline"}
+trigger -> status.set{identifier="550e8400-e29b-41d4-a716-446655440000",
+    variant="error", message="Sensor offline"}
 ```
 
 ## 4.1 - `status.delete`
@@ -145,39 +153,40 @@ status.delete(identifier: string)
 
 **Returns:** Nothing.
 
+The signature is identical in both forms (`ExecBoth`): WASM passes `identifier`
+positionally; Flow passes it as a named config field with the same name.
+
 **Resolution logic:**
 
-1. Attempt exact key match. If found, delete that single status.
-2. Otherwise, treat as a name and query for all matches.
-3. If multiple statuses share the name, delete **all** and emit an info-level task
-   status.
-4. If no statuses match, emit a warning-level task status.
-
-In Flow form, `key` and `name` are explicit separate config fields instead of
-auto-detection. Exactly one must be provided.
+1. `uuid.Parse(identifier)`.
+   - Parseable: delete the row with that key. On `gorp.ErrNotFound`, emit a
+     warning-level task status. On any other error, report and return.
+   - Not parseable: continue to step 2.
+2. Query `Where(Name == identifier)`.
+   - One match: delete that row.
+   - Multiple matches: delete **all** and emit an info-level task status with the count.
+   - Zero matches: emit a warning-level task status.
 
 **Examples:**
 
 ```arc
-// WASM delete by key
-status.delete("abc-123-def")
-// Flow delete by key
-trigger -> status.delete{key="abc-123-def"}
-
-// WASM delete by name (all matches)
+// WASM
+status.delete("550e8400-e29b-41d4-a716-446655440000")
 status.delete("Pressure Check")
-// Flow delete by name (all matches)
-trigger -> status.delete{name="Pressure Check"}
+
+// Flow
+trigger -> status.delete{identifier="550e8400-e29b-41d4-a716-446655440000"}
+trigger -> status.delete{identifier="Pressure Check"}
 ```
 
 ## 4.2 - Client Interface Comparison
 
-| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                       | Arc Flow                                     |
-| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------ | -------------------------------------------- |
-| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `identifier, variant, message` | `status_key` or `name`, `variant`, `message` |
-| **Set return**    | `Status` object                            | `Status` object                      | key string                     | none (sink)                                  |
-| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `identifier` (key or name)     | `key` or `name`                              |
-| **Delete return** | `None`                                     | `void`                               | nothing                        | none (sink)                                  |
+| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                       | Arc Flow                       |
+| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------ | ------------------------------ |
+| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `identifier, variant, message` | `identifier, variant, message` |
+| **Set return**    | `Status` object                            | `Status` object                      | key string                     | none (sink)                    |
+| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `identifier` (key or name)     | `identifier` (key or name)     |
+| **Delete return** | `None`                                     | `void`                               | nothing                        | none (sink)                    |
 
 **Adaptations from client interface:**
 
@@ -240,9 +249,6 @@ var deleteType = types.Function(types.FunctionProperties{
 `status.set` has a single fixed-arity WASM signature (3 args). No compiler dispatch is
 needed; the symbol resolver provides the type directly.
 
-The deprecated bare `set_status` resolver remains unchanged and does not gain a WASM
-implementation. Its deprecation is out of scope for this RFC.
-
 ## 5.1 - WASM Host Functions
 
 Host functions are registered via `wazero.HostModuleBuilder("status")`:
@@ -264,8 +270,8 @@ Unlike Flow nodes, which have access to scheduler-level `ReportError` callbacks,
 host functions do not participate in the reactive error propagation system. Non-fatal
 errors (failed API calls, missing statuses) are logged at the appropriate level and the
 host function returns silently. Fatal errors (e.g., a bug in handle resolution) should
-panic via the `error.panic` mechanism. This convention matches RFC 0036 (ranges) and
-should be formalized as the standard WASM host function error reporting pattern.
+panic via the `error.panic` mechanism. This convention should be formalized as the
+standard WASM host function error reporting pattern.
 
 ### 5.1.0 - Set Host Function
 
@@ -276,25 +282,41 @@ func(ctx context.Context, identifierHandle, variantHandle, messageHandle uint32)
     message := strings.Get(messageHandle)
 
     var stat status.Status[any]
-    err := statusSvc.NewRetrieve().WhereKeys(identifier).Entry(&stat).Exec(ctx, nil)
-    if err != nil {
-        var results []status.Status[any]
-        if err := statusSvc.NewRetrieve().
-            Where(func(_ gorp.Context, s *status.Status[any]) (bool, error) {
-                return s.Name == identifier, nil
-            }).Entries(&results).Exec(ctx, nil); err != nil {
+    if _, err := uuid.Parse(identifier); err == nil {
+        err := statusSvc.NewRetrieve().WhereKeys(identifier).Entry(&stat).Exec(ctx, nil)
+        if err != nil && !errors.Is(err, gorp.ErrNotFound) {
             reportError(ctx, err)
             return 0
         }
-        if len(results) > 1 {
-            reportError(ctx, "multiple statuses named '%s'", identifier)
-            return 0
+        if err == nil {
+            // Key match.
+            stat.Variant = status.Variant(variant)
+            stat.Message = message
+            stat.Time = telem.Now()
+            if err := statusSvc.NewWriter(nil).Set(ctx, &stat); err != nil {
+                reportError(ctx, err)
+                return 0
+            }
+            return strings.Create(stat.Key)
         }
-        if len(results) == 1 {
-            stat = results[0]
-        } else {
-            stat.Name = identifier
-        }
+        // gorp.ErrNotFound falls through to name lookup.
+    }
+    var results []status.Status[any]
+    if err := statusSvc.NewRetrieve().
+        Where(func(_ gorp.Context, s *status.Status[any]) (bool, error) {
+            return s.Name == identifier, nil
+        }).Entries(&results).Exec(ctx, nil); err != nil {
+        reportError(ctx, err)
+        return 0
+    }
+    if len(results) > 1 {
+        reportError(ctx, "multiple statuses named '%s'", identifier)
+        return 0
+    }
+    if len(results) == 1 {
+        stat = results[0]
+    } else {
+        stat.Name = identifier
     }
     stat.Variant = status.Variant(variant)
     stat.Message = message
@@ -312,10 +334,12 @@ func(ctx context.Context, identifierHandle, variantHandle, messageHandle uint32)
 ```go
 func(ctx context.Context, identifierHandle uint32) {
     identifier := strings.Get(identifierHandle)
-    var stat status.Status[any]
-    if err := statusSvc.NewRetrieve().WhereKeys(identifier).
-        Entry(&stat).Exec(ctx, nil); err == nil {
-        if err := statusSvc.NewWriter(nil).Delete(ctx, stat.Key); err != nil {
+    if _, err := uuid.Parse(identifier); err == nil {
+        if err := statusSvc.NewWriter(nil).Delete(ctx, identifier); err != nil {
+            if errors.Is(err, gorp.ErrNotFound) {
+                reportWarning(ctx, "No status found with key '%s'", identifier)
+                return
+            }
             reportError(ctx, err)
         }
         return
@@ -356,31 +380,28 @@ The status module follows three established patterns:
 
 ### 5.2.0 - `setStatus` Node (updated)
 
-The existing `setStatus` node is updated to support name-based identification:
+The existing `setStatus` node is rewritten to take a single `identifier` config field
+matching the WASM signature:
 
-- Config accepts either `status_key` or `name` (exactly one required), plus `variant`
-  and `message`
-- When `name` is provided, `Next()` queries by name, reports error if multiple matches,
-  creates if zero matches
-- When `status_key` is provided, behavior is unchanged from today
+- Config: `identifier`, `variant`, `message` (All required)
+- `Next()` runs the same `uuid.Parse(identifier)`-then-name dispatch as the WASM host
+  function (Section 5.1.0).
 
 ### 5.2.1 - `deleteStatus` Node (new)
 
-- Constructed at factory time with either a key string or a name string
-- `Next()`: deletes by key (single call) or by name (query then delete all matches)
-- Config validation enforces exactly one of `key` or `name`
+- Config: `identifier` (Required)
+- `Next()` runs the same `uuid.Parse(identifier)`-then-name dispatch as the WASM host
+  function (Section 5.1.1).
 
 ### 5.2.2 - Error Handling
 
-| Phase                  | Error                                  | Behavior                                    |
-| ---------------------- | -------------------------------------- | ------------------------------------------- |
-| Factory (task startup) | Missing required config                | Task fails to start with error status       |
-| Factory (task startup) | Neither `status_key` nor `name` on set | Task fails to start                         |
-| Factory (task startup) | Both or neither `key`/`name` on delete | Task fails to start                         |
-| Runtime (`Next()`)     | API error on set/delete                | `ctx.ReportError(err)`, execution continues |
-| Runtime (`Next()`)     | Multiple statuses match name on set    | Error status, execution continues           |
-| Runtime (`Next()`)     | No match on delete-by-name             | Warning status, execution continues         |
-| Runtime (`Next()`)     | Multiple matches on delete-by-name     | All deleted, info status with count         |
+| Phase                  | Error                               | Behavior                                    |
+| ---------------------- | ----------------------------------- | ------------------------------------------- |
+| Factory (task startup) | Missing required config             | Task fails to start with error status       |
+| Runtime (`Next()`)     | API error on set/delete             | `ctx.ReportError(err)`, execution continues |
+| Runtime (`Next()`)     | Multiple statuses match name on set | Error status, execution continues           |
+| Runtime (`Next()`)     | No match on delete-by-name          | Warning status, execution continues         |
+| Runtime (`Next()`)     | Multiple matches on delete-by-name  | All deleted, info status with count         |
 
 ## 5.3 - Name Resolution
 
@@ -395,14 +416,18 @@ statusSvc.NewRetrieve().
 ```
 
 If name-based queries become common across the codebase, a `WhereNames` method should be
-added to `Retrieve` for consistency with other services (e.g., `ranger.Retrieve`). This
-is not required for the initial implementation.
+added to `Retrieve` for consistency with other services. This is not required for the
+initial implementation.
 
-**Performance note**: Every name-based `status.set` call in WASM form performs two
-queries: first an exact key lookup via `WhereKeys` (likely returning not-found), then a
-full table scan via `Where`. Status tables are expected to contain at most hundreds of
-entries in typical deployments, so this is acceptable. If deployments grow to thousands
-of statuses, the `WhereNames` improvement becomes more pressing.
+**Performance note**: Status keys are UUIDs, so the WASM host function discriminates via
+`uuid.Parse(identifier)` before issuing any query. The common name path (operator writes
+`status.set("Pressure Check", ...)`) hits exactly one query (the name scan), because the
+parse fails and `WhereKeys` is skipped entirely. The key path hits one query
+(`WhereKeys`) and only falls through to the name scan on `gorp.ErrNotFound`, which
+should not occur in practice for a key that was returned by a prior `set`. Status tables
+are expected to contain at most hundreds of entries in typical deployments, so the name
+scan is acceptable. If deployments grow to thousands of statuses, adding a `WhereNames`
+method to `Retrieve` becomes more pressing.
 
 ## 5.4 - Service Injection
 
@@ -419,15 +444,10 @@ field is sufficient.
 
 ## 5.5 - Architectural Boundaries
 
-Unlike the `ranges` module (which splits across `arc/go/stl/ranges/` and
-`core/pkg/service/arc/ranges/`), the status module keeps all code in
-`core/pkg/service/arc/status/`. This is because:
-
-- The status module already exists at that location with Flow node implementations
-- The WASM host functions require `*status.Service`, a server dependency, so there is no
-  benefit to placing them in the server-independent `arc/go/stl/` tree
-- The symbol resolver and type definitions can live alongside the host functions and
-  Flow nodes in the same package
+The status module keeps all code in `core/pkg/service/arc/status/`. The WASM host
+functions require `*status.Service`, a server dependency, so there is no benefit to
+placing them in the server-independent `arc/go/stl/` tree. The symbol resolver, type
+definitions, host functions, and Flow nodes all live in the same package.
 
 New files (`delete.go`) and modifications to existing files (`set.go`) stay within
 `core/pkg/service/arc/status/`.
@@ -436,19 +456,25 @@ New files (`delete.go`) and modifications to existing files (`set.go`) stay with
 
 ## 6.0 - Modified Files
 
-| File                                    | Change                                                                                                                       |
-| --------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `core/pkg/service/arc/status/set.go`    | Change `set` to `ExecBoth`, add WASM host function bindings, update symbol types, add name-based identification to Flow node |
-| `core/pkg/service/arc/status/delete.go` | New file: `delete` symbol, WASM host function, Flow node                                                                     |
-| `core/pkg/service/arc/runtime/task.go`  | Register status WASM host functions in WASM builder, pass `*status.Service` to host function closures                        |
+| File                                    | Change                                                                                                                                                                              |
+| --------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/pkg/service/arc/status/set.go`    | Change `set` to `ExecBoth` with single `identifier` input, add WASM host function bindings, update symbol type, rewrite Flow node to use the shared `uuid.Parse`-then-name dispatch |
+| `core/pkg/service/arc/status/delete.go` | New file: `delete` symbol (`ExecBoth`, single `identifier` input), WASM host function, Flow node                                                                                    |
+| `core/pkg/service/arc/runtime/task.go`  | Register status WASM host functions in WASM builder, pass `*status.Service` to host function closures                                                                               |
+| `driver/arc/status/status.h`            | Rewrite `SetStatus` Flow node to take a single `identifier` config field, add `DeleteStatus` Flow node with the same shape, register `delete` in `Module::handles` and `create`     |
 
 ## 6.1 - Implementation Sequence
 
 1. Update symbol registration in `set.go`: change `set` to `ExecBoth`, add `delete`
    member, update type definitions
 2. Add WASM host function bindings for `set` and `delete`
-3. Update existing `setStatus` Flow node for name-based identification
-4. Create `deleteStatus` Flow node in `delete.go`
+3. Rewrite the existing `setStatus` Flow node to take a single `identifier` config field
+   and run the same `uuid.Parse`-then-name dispatch as the WASM host function
+4. Create `deleteStatus` Flow node in `delete.go` with the same `identifier`-based shape
 5. Register WASM host functions in `task.go`, wiring `*status.Service` and
    `*strings.ProgramState` into closures
-6. Write tests
+6. Update the C++ Arc runtime in `driver/arc/status/status.h`: rewrite the `SetStatus`
+   Flow node to take a single `identifier` config field and run the
+   `uuid.Parse`-then-name dispatch, add a `DeleteStatus` Flow node with the same shape,
+   and register `delete` in `Module::handles` / `Module::create`
+7. Write tests
