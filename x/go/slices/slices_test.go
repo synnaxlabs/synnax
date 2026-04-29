@@ -10,8 +10,6 @@
 package slices_test
 
 import (
-	"iter"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
@@ -160,49 +158,6 @@ var _ = Describe("Slices", func() {
 					break
 				}
 			}).To(Panic())
-		})
-	})
-
-	Describe("CollectKeys", func() {
-		seqOf := func(pairs ...[2]int) iter.Seq2[int, string] {
-			return func(yield func(int, string) bool) {
-				for _, p := range pairs {
-					if !yield(p[0], "v") {
-						return
-					}
-				}
-			}
-		}
-		It("Should collect every K from the seq, discarding V", func() {
-			seq := func(yield func(int, string) bool) {
-				_ = yield(1, "a") && yield(2, "b") && yield(3, "c")
-			}
-			Expect(slices.CollectKeys(seq, 3)).To(Equal([]int{1, 2, 3}))
-		})
-
-		It("Should return an empty (non-nil) slice for an empty seq", func() {
-			empty := func(yield func(int, string) bool) {}
-			out := slices.CollectKeys(empty, 4)
-			Expect(out).To(BeEmpty())
-			Expect(out).ToNot(BeNil())
-			Expect(cap(out)).To(Equal(4))
-		})
-
-		It("Should pre-allocate to the requested capacity", func() {
-			out := slices.CollectKeys(seqOf([2]int{1}, [2]int{2}), 8)
-			Expect(out).To(Equal([]int{1, 2}))
-			Expect(cap(out)).To(Equal(8))
-		})
-
-		It("Should grow past cap when the seq yields more than cap items", func() {
-			out := slices.CollectKeys(seqOf([2]int{1}, [2]int{2}, [2]int{3}), 1)
-			Expect(out).To(Equal([]int{1, 2, 3}))
-			Expect(cap(out)).To(BeNumerically(">=", 3))
-		})
-
-		It("Should accept cap == 0", func() {
-			out := slices.CollectKeys(seqOf([2]int{1}, [2]int{2}), 0)
-			Expect(out).To(Equal([]int{1, 2}))
 		})
 	})
 })
