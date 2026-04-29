@@ -87,7 +87,7 @@ type Transition struct {
 	On Handle `json:"on" msgpack:"on"`
 	// TargetKey is the sibling step key to activate. Null when the transition exits the
 	// scope, yielding to the parent.
-	TargetKey *string `json:"target_key,omitempty" msgpack:"target_key,omitempty"`
+	TargetKey *string `json:"targetKey,omitempty" msgpack:"targetKey,omitempty"`
 }
 
 // Member is a tagged union representing a single child of a Scope. Exactly one of
@@ -96,7 +96,7 @@ type Transition struct {
 type Member struct {
 	// NodeKey is the key of the referenced node in IR.nodes. Null when this member is a
 	// nested scope.
-	NodeKey *string `json:"node_key,omitempty" msgpack:"node_key,omitempty"`
+	NodeKey *string `json:"nodeKey,omitempty" msgpack:"nodeKey,omitempty"`
 	// Scope is set when this member is a nested scope.
 	Scope *Scope `json:"scope,omitempty" msgpack:"scope,omitempty"`
 }

@@ -100,6 +100,14 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
 	}
+{{- else if .IsSoftOptionalStruct}}
+	if r.{{.GoName}} != ({{.GoTypeLiteral}}{}) {
+		{{lcFirst .GoName}}Val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = {{lcFirst .GoName}}Val
+	}
 {{- else}}
 	if r.{{.GoName}} != nil {
 {{- if .HasError}}
@@ -126,6 +134,7 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 {{- $goType := .GoType}}
 {{- $needsErr := false}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
+{{- range .OptionalFields}}{{if .IsSoftOptionalStruct}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
 	var err error
 {{- end}}
@@ -162,6 +171,13 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		v := {{.BackwardExpr}}
 		r.{{.GoName}} = &v
+	}
+{{- else if .IsSoftOptionalStruct}}
+	if pb.{{.PBName}} != nil {
+		r.{{.GoName}}, err = {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {
@@ -287,6 +303,14 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 		v := {{.ForwardExpr}}
 		pb.{{.PBName}} = &v
 	}
+{{- else if .IsSoftOptionalStruct}}
+	if r.{{.GoName}} != ({{.GoTypeLiteral}}{}) {
+		{{lcFirst .GoName}}Val, err := {{.ForwardExpr}}
+		if err != nil {
+			return nil, err
+		}
+		pb.{{.PBName}} = {{lcFirst .GoName}}Val
+	}
 {{- else}}
 	if r.{{.GoName}} != nil {
 {{- if .HasError}}
@@ -319,6 +343,7 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 {{- $needsErr := false}}
 {{- range .TypeParamFields}}{{$needsErr = true}}{{end}}
 {{- range .ErrorFields}}{{if .HasBackwardError}}{{$needsErr = true}}{{end}}{{end}}
+{{- range .OptionalFields}}{{if .IsSoftOptionalStruct}}{{$needsErr = true}}{{end}}{{end}}
 {{- if $needsErr}}
 	var err error
 {{- end}}
@@ -361,6 +386,13 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		v := {{.BackwardExpr}}
 		r.{{.GoName}} = &v
+	}
+{{- else if .IsSoftOptionalStruct}}
+	if pb.{{.PBName}} != nil {
+		r.{{.GoName}}, err = {{.BackwardExpr}}
+		if err != nil {
+			return {{$goType}}{}, err
+		}
 	}
 {{- else}}
 	if pb.{{.PBName}} != nil {

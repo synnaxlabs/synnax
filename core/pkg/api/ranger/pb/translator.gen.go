@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger"
 	serviceranger "github.com/synnaxlabs/synnax/pkg/service/ranger"
+	"github.com/synnaxlabs/x/color"
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	labelpb "github.com/synnaxlabs/x/label/pb"
 	telempb "github.com/synnaxlabs/x/telem/pb"
@@ -26,10 +27,6 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 	if err != nil {
 		return nil, err
 	}
-	colorVal, err := colorpb.ColorToPB(r.Color)
-	if err != nil {
-		return nil, err
-	}
 	labelsVal, err := labelpb.LabelsToPB(r.Labels)
 	if err != nil {
 		return nil, err
@@ -38,8 +35,14 @@ func RangeToPB(r ranger.Range) (*Range, error) {
 		Name:      r.Name,
 		Key:       r.Key.String(),
 		TimeRange: timeRangeVal,
-		Color:     colorVal,
 		Labels:    labelsVal,
+	}
+	if r.Color != (color.Color{}) {
+		colorVal, err := colorpb.ColorToPB(r.Color)
+		if err != nil {
+			return nil, err
+		}
+		pb.Color = colorVal
 	}
 	if r.Parent != nil {
 		var err error
@@ -67,15 +70,17 @@ func RangeFromPB(pb *Range) (ranger.Range, error) {
 	if err != nil {
 		return ranger.Range{}, err
 	}
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return ranger.Range{}, err
-	}
 	r.Labels, err = labelpb.LabelsFromPB(pb.Labels)
 	if err != nil {
 		return ranger.Range{}, err
 	}
 	r.Name = pb.Name
+	if pb.Color != nil {
+		r.Color, err = colorpb.ColorFromPB(pb.Color)
+		if err != nil {
+			return ranger.Range{}, err
+		}
+	}
 	if pb.Parent != nil {
 		val, err := RangeFromPB(pb.Parent)
 		if err != nil {
