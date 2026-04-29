@@ -519,7 +519,7 @@ func steadyStateReadsByKey(wc *workloadContext, workerID int) {
 		cursor++
 		var out workloadChannel
 		if err := wc.table.NewRetrieve().
-			WhereKeys(key).
+			Where(gorp.MatchKeys[uint32, workloadChannel](key)).
 			Entry(&out).
 			Exec(wc.ctx, wc.db); err != nil {
 			return
@@ -613,7 +613,7 @@ func churn(wc *workloadContext, workerID int) {
 			keys[i] = c.Key
 		}
 		if err := gorp.NewDelete[uint32, workloadChannel]().
-			WhereKeys(keys...).
+			Where(gorp.MatchKeys[uint32, workloadChannel](keys...)).
 			Exec(wc.ctx, wc.db); err != nil {
 			return
 		}

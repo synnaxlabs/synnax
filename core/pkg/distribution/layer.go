@@ -20,10 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	channelsignals "github.com/synnaxlabs/synnax/pkg/distribution/channel/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel/verification"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	groupsignals "github.com/synnaxlabs/synnax/pkg/distribution/group/signals"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	ontologysignals "github.com/synnaxlabs/synnax/pkg/distribution/ontology/signals"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -164,8 +164,9 @@ func (c LayerConfig) Validate() error {
 type Layer struct {
 	// DB is the database for storing cluster wide meta-data.
 	DB *gorp.DB
-	// Cluster provides information about the cluster topology. Nodes, keys, addresses, states, etc.
-	Cluster cluster.Cluster
+	// Cluster provides information about the cluster topology. Nodes, keys, addresses,
+	// states, etc.
+	Cluster node.Cluster
 	// Channel is for creating, deleting, and retrieving channels across the cluster.
 	Channel *channel.Service
 	// Framer is for reading, writing, and streaming frames of telemetry across the
@@ -260,17 +261,14 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		return nil, err
 	}
 
-	nodeOntologySvc := &cluster.NodeOntologyService{
-		Ontology: l.Ontology,
-		Cluster:  l.Cluster,
+	if _, err = node.NewService(ctx, node.ServiceConfig{
+		Instrumentation: cfg.Child("node"),
+		Cluster:         l.Cluster,
+		Ontology:        l.Ontology,
+		Search:          l.Search,
+	}); !ok(err, nil) {
+		return nil, err
 	}
-	clusterOntologySvc := &cluster.OntologyService{Cluster: l.Cluster}
-	l.Ontology.RegisterService(clusterOntologySvc)
-	l.Ontology.RegisterService(nodeOntologySvc)
-	l.Search.RegisterService(clusterOntologySvc)
-	l.Search.RegisterService(nodeOntologySvc)
-
-	nodeOntologySvc.ListenForChanges(ctx)
 
 	if l.Verification, err = verification.OpenService(ctx, verification.ServiceConfig{
 		Verifier:        cfg.Verifier,
@@ -336,7 +334,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}
 	}
 
-	if l.Cluster.HostKey() == cluster.NodeKeyBootstrapper {
+	if l.Cluster.HostKey() == node.KeyBootstrapper {
 		var ontologyCDCCloser io.Closer
 		if ontologyCDCCloser, err = ontologysignals.Publish(
 			ctx,

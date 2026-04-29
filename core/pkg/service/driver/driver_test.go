@@ -25,7 +25,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -35,7 +34,7 @@ var _ = Describe("Driver", func() {
 	embeddedRackKey := func(ctx context.Context) rack.Key {
 		var r rack.Rack
 		Expect(rackService.NewRetrieve().
-			Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+			Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 			Entry(&r).
 			Exec(ctx, nil)).To(Succeed())
 		return r.Key
@@ -86,7 +85,7 @@ var _ = Describe("Driver", func() {
 			openDriver(ctx, &mockFactory{name: "test"})
 			var racks []rack.Rack
 			Expect(rackService.NewRetrieve().
-				WhereKeys(embeddedRackKey(ctx)).
+				Where(rack.MatchKeys(embeddedRackKey(ctx))).
 				Entries(&racks).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(racks).To(HaveLen(1))
@@ -109,7 +108,7 @@ var _ = Describe("Driver", func() {
 			}))
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "opc"}))
@@ -145,7 +144,7 @@ var _ = Describe("Driver", func() {
 
 			var r rack.Rack
 			Expect(rackService.NewRetrieve().
-				Where(rack.MatchEmbedded(true), rack.MatchName("Node 1")).
+				Where(rack.And(rack.MatchEmbedded(true), rack.MatchNames("Node 1"))).
 				Entry(&r).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(r.Integrations).To(Equal([]string{"arc", "ni", "opc"}))
@@ -639,8 +638,8 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -665,8 +664,8 @@ var _ = Describe("Driver", func() {
 			var firstTime telem.TimeStamp
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -675,8 +674,8 @@ var _ = Describe("Driver", func() {
 
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -700,8 +699,8 @@ var _ = Describe("Driver", func() {
 			statusKey := rack.OntologyID(embeddedRackKey(ctx)).String()
 			Eventually(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses).To(HaveLen(1))
@@ -711,16 +710,16 @@ var _ = Describe("Driver", func() {
 
 			var lastTime telem.TimeStamp
 			var statuses []status.Status[any]
-			Expect(gorp.NewRetrieve[string, status.Status[any]]().
-				WhereKeys(statusKey).
+			Expect(statusSvc.NewRetrieve().
+				Where(status.MatchKeys[any](statusKey)).
 				Entries(&statuses).
 				Exec(ctx, dist.DB)).To(Succeed())
 			lastTime = statuses[0].Time
 
 			Consistently(func(g Gomega) {
 				var statuses []status.Status[any]
-				g.Expect(gorp.NewRetrieve[string, status.Status[any]]().
-					WhereKeys(statusKey).
+				g.Expect(statusSvc.NewRetrieve().
+					Where(status.MatchKeys[any](statusKey)).
 					Entries(&statuses).
 					Exec(ctx, dist.DB)).To(Succeed())
 				g.Expect(statuses[0].Time).To(Equal(lastTime))

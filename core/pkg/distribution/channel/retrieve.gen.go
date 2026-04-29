@@ -14,7 +14,7 @@ package channel
 import (
 	"context"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
@@ -94,14 +94,18 @@ func Not(f Filter) Filter {
 // Search sets a fuzzy search term that Retrieve will use to filter results.
 func (r Retrieve) Search(term string) Retrieve { r.searchTerm = term; return r }
 
-// WhereKeys filters for channels whose key matches any of the provided keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
+// MatchKeys returns a filter that restricts results to channels whose key
+// matches any of the provided values. Composing MatchKeys at the top level
+// of a Where clause (i.e. r.Where(MatchKeys(...))) dispatches Exec to the
+// multi-get fast path; composing inside Or / Not falls back to a full scan.
+func MatchKeys(keys ...Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Channel] {
+		return gorp.MatchKeys[Key, Channel](keys...)
+	}
 }
 
 // MatchLeaseholders returns a filter for channels whose Leaseholder matches any of the provided values.
-func MatchLeaseholders(vals ...cluster.NodeKey) Filter {
+func MatchLeaseholders(vals ...node.Key) Filter {
 	return func(r Retrieve) gorp.Filter[Key, Channel] {
 		return gorp.Match(func(_ gorp.Context, e *Channel) (bool, error) {
 			return lo.Contains(vals, e.Leaseholder), nil
@@ -136,15 +140,12 @@ func MatchInternal(v bool) Filter {
 	}
 }
 
-// Where applies the provided filters to the query, binding each filter to the
-// Retrieve so service-bound filters can read from r.indexes, r.label,
-// r.hostProvider, etc.
-func (r Retrieve) Where(filters ...Filter) Retrieve {
-	bound := make([]gorp.Filter[Key, Channel], len(filters))
-	for i, f := range filters {
-		bound[i] = f(r)
-	}
-	r.gorp = r.gorp.Where(bound...)
+// Where applies the provided filter to the query, binding it to the Retrieve
+// so service-bound filters can read from r.indexes, r.label, r.hostProvider,
+// etc. To compose multiple filters, chain Where calls or pass a combined
+// filter via And / Or.
+func (r Retrieve) Where(filter Filter) Retrieve {
+	r.gorp = r.gorp.Where(filter(r))
 	return r
 }
 
@@ -185,7 +186,7 @@ func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
 	if err != nil {
 		return Retrieve{}, err
 	}
-	return r.WhereKeys(keys...), nil
+	return r.Where(MatchKeys(keys...)), nil
 }
 
 // Exec executes the query against the provided transaction.

@@ -43,8 +43,20 @@ type TableConfig[K Key, E Entry[K]] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB                 *DB
-	indexes            []Index[K, E]
+	DB *DB
+	// keyPrefix is the gorp key prefix for entry type E, computed once at
+	// open time via newKeyPrefix[E]() and threaded through every Reader /
+	// Writer constructed by NewRetrieve / NewCreate / NewUpdate / NewDelete /
+	// OpenNexter so the codec doesn't have to recompute the prefix per call.
+	keyPrefix []byte
+	// indexes is the set of secondary indexes registered on this Table. The
+	// table-bound query builders (NewCreate / NewUpdate / NewDelete) pass
+	// this through to their underlying Writer so each Set / Delete stages
+	// the corresponding index mutation against the per-tx delta. Retrieve
+	// reads from index state via the idx.Filter helpers.
+	indexes []Index[K, E]
+	// disconnectObserver releases the index observer subscription installed
+	// at open time. Set only when len(indexes) > 0; called from Close.
 	disconnectObserver func()
 }
 
@@ -80,9 +92,13 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	t := &Table[K, E]{DB: cfg.DB, indexes: cfg.Indexes}
+	t := &Table[K, E]{
+		DB:        cfg.DB,
+		keyPrefix: newKeyPrefix[E](),
+		indexes:   cfg.Indexes,
+	}
 	if len(cfg.Indexes) > 0 {
-		if err = populateIndexes[K, E](ctx, cfg.DB, cfg.Indexes); err != nil {
+		if err = populateIndexes[K, E](ctx, cfg.DB, t.keyPrefix, cfg.Indexes); err != nil {
 			return nil, err
 		}
 		t.disconnectObserver = attachIndexObserver[K, E](
@@ -105,6 +121,7 @@ func OpenTable[K Key, E Entry[K]](
 func populateIndexes[K Key, E Entry[K]](
 	ctx context.Context,
 	db *DB,
+	keyPrefix []byte,
 	indexes []Index[K, E],
 ) (err error) {
 	inserts := make([]func(E), 0, len(indexes))
@@ -122,7 +139,7 @@ func populateIndexes[K Key, E Entry[K]](
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
-	nexter, closer, nexterErr := WrapReader[K, E](db).OpenNexter(ctx)
+	nexter, closer, nexterErr := wrapReader[K, E](db, keyPrefix).OpenNexter(ctx)
 	if nexterErr != nil {
 		return nexterErr
 	}
@@ -166,13 +183,17 @@ func attachIndexObserver[K Key, E Entry[K]](
 // Retrieve via idx.Filter in the same tx sees its own writes.
 func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
+	c.keyPrefix = t.keyPrefix
 	c.indexes = t.indexes
 	return c
 }
 
-// NewRetrieve returns a Retrieve query builder.
+// NewRetrieve returns a Retrieve query builder threaded with the table's
+// keyPrefix so the underlying Reader skips re-deriving the prefix per call.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
-	return NewRetrieve[K, E]()
+	r := NewRetrieve[K, E]()
+	r.keyPrefix = t.keyPrefix
+	return r
 }
 
 // NewUpdate returns an Update query builder bound to this Table's
@@ -180,6 +201,7 @@ func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 // mutations against each registered index's per-tx delta.
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
+	u.retrieve.keyPrefix = t.keyPrefix
 	u.indexes = t.indexes
 	return u
 }
@@ -189,6 +211,7 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 // removal against each registered index's per-tx delta.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
+	d.retrieve.keyPrefix = t.keyPrefix
 	d.indexes = t.indexes
 	return d
 }
@@ -196,14 +219,14 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return WrapReader[K, E](t.DB).OpenNexter(ctx)
+	return wrapReader[K, E](t.DB, t.keyPrefix).OpenNexter(ctx)
 }
 
 var normalizeKeysMigrationKey = "normalize_keys"
 
 func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 	return NewMigration(normalizeKeysMigrationKey, func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
-		kc := newKeyCodec[K, E]()
+		kc := newKeyCodec[K, E](nil)
 		oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 		if err != nil {
 			return err

@@ -23,7 +23,7 @@ var _ = Describe("DB", func() {
 				return gorp.NewCreate[int32, entry]().Entry(&entry{ID: 1, Data: "One"}).Exec(ctx, tx)
 			})).To(Succeed())
 			var res entry
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(1).Entry(&res).Exec(ctx, db)).To(Succeed())
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](1)).Entry(&res).Exec(ctx, db)).To(Succeed())
 			Expect(res).To(Equal(entry{ID: 1, Data: "One"}))
 		})
 		It("Should not commit the transaction if the callback returns an error", func(ctx SpecContext) {
@@ -32,7 +32,7 @@ var _ = Describe("DB", func() {
 			})).To(Succeed())
 			Expect(db.WithTx(ctx, func(_ gorp.Tx) error { return query.ErrNotFound })).
 				ToNot(Succeed())
-			Expect(gorp.NewRetrieve[int32, entry]().WhereKeys(2).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
+			Expect(gorp.NewRetrieve[int32, entry]().Where(gorp.MatchKeys[int32, entry](2)).Exec(ctx, db)).To(MatchError(query.ErrNotFound))
 		})
 	})
 

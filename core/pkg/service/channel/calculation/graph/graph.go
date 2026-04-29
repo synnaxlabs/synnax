@@ -339,7 +339,7 @@ func (s *Graph) reconcileQueued(
 				continue
 			}
 			refetched := nd.Channel
-			if err := s.distribution.NewRetrieve().WhereKeys(key).Entry(&refetched).Exec(ctx, tx); err != nil {
+			if err := s.distribution.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&refetched).Exec(ctx, tx); err != nil {
 				s.L.Warn("failed to refetch channel during reconciliation",
 					zap.Stringer("channel", key),
 					zap.Error(err),

@@ -21,9 +21,9 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
-	// indexes mirrors Create.indexes — propagated by Table.NewDelete so
-	// the writer built in Exec stages deletions against the Table's
-	// secondary indexes.
+	// indexes mirrors Create.indexes — propagated by Table.NewDelete so the
+	// writer built in Exec stages deletions against the Table's secondary
+	// indexes.
 	indexes []Index[K, E]
 }
 
@@ -32,10 +32,10 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 	return Delete[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-// Where adds the provided filter to the query. If filtering by the key of the Entry,
-// use the far more efficient WhereKeys method instead.
-func (d Delete[K, E]) Where(filters ...Filter[K, E]) Delete[K, E] {
-	d.retrieve = d.retrieve.Where(filters...)
+// Where adds the provided filter to the query. To delete by primary key,
+// compose MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))).
+func (d Delete[K, E]) Where(filter Filter[K, E]) Delete[K, E] {
+	d.retrieve = d.retrieve.Where(filter)
 	return d
 }
 
@@ -68,20 +68,12 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 	return d
 }
 
-// WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
-// this lookup is substantially faster than a general Where query.
-// If called in conjunction with Where, the WhereKeys filter will be applied first.
-// Subsequent calls to WhereKeys will append the keys to the existing filter.
-func (d Delete[K, E]) WhereKeys(keys ...K) Delete[K, E] {
-	d.retrieve = d.retrieve.WhereKeys(keys...)
-	return d
-}
-
-// Exec executes the query against the provided transaction. If any entries matching
-// WhereKeys do not exist in the database, Delete will assume that the keys do not
-// exist and do nothing.
+// Exec executes the query against the provided transaction. If the resolved
+// filter is bounded by primary keys and any of those keys do not exist,
+// Delete will assume the missing keys do not need to be deleted and continue
+// with the keys that do exist.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("DeleteChannel.Exec", tx)
+	checkForNilTx("Delete.Exec", tx)
 	var (
 		queryCtx = Context{Context: ctx, Tx: tx}
 		entries  []E
@@ -94,7 +86,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return newWriter(tx, d.indexes).Delete(ctx, keys...)
+	return wrapWriter[K, E](tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error

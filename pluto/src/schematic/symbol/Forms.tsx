@@ -9,7 +9,11 @@
 
 import "@/schematic/symbol/Forms.css";
 
-import { type channel } from "@synnaxlabs/client";
+import {
+  type channel,
+  type schematic as clientSchematic,
+  schematic,
+} from "@synnaxlabs/client";
 import {
   type bounds,
   color,
@@ -43,14 +47,25 @@ import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
+import { Theming } from "@/theming";
 import { Button as BaseButton } from "@/vis/button";
 import { type Input as BaseInput } from "@/vis/input";
 import { type Setpoint } from "@/vis/setpoint";
 import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
 import { type Toggle } from "@/vis/toggle";
 import { Value } from "@/vis/value";
+import { Workspace } from "@/workspace";
 
-export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {}
+const SelectTextLevel = ({
+  value,
+  onChange,
+}: Input.Control<Text.Level>): ReactElement => (
+  <Select.Text.Level value={value} onChange={onChange} />
+);
+
+export interface SymbolFormProps extends Pick<Tabs.TabsProps, "actions"> {
+  schematicKey?: clientSchematic.Key;
+}
 
 interface FormWrapperProps extends Flex.BoxProps {}
 
@@ -1150,15 +1165,103 @@ export const TextBoxForm = (): ReactElement => {
   );
 };
 
-export const OffPageReferenceForm = (): ReactElement => (
-  <FormWrapper x align="stretch">
-    <Flex.Box y grow>
-      <LabelControls path="label" omit={["maxInlineSize", "align", "direction"]} />
-      <ColorControl path="color" />
-    </Flex.Box>
-    <OrientationControl path="" hideOuter />
-  </FormWrapper>
+const CLICK_MODE_KEYS = ["single", "double"] as const;
+
+const ClickModeSelect = Component.renderProp(
+  ({
+    value,
+    onChange,
+  }: {
+    value: boolean;
+    onChange: (v: boolean) => void;
+  }): ReactElement => {
+    const handleChange = useCallback(
+      (v: string) => onChange(v === "double"),
+      [onChange],
+    );
+    return (
+      <Select.Buttons
+        value={value ? "double" : "single"}
+        onChange={handleChange}
+        keys={CLICK_MODE_KEYS}
+      >
+        <Select.Button itemKey="single">Single</Select.Button>
+        <Select.Button itemKey="double">Double</Select.Button>
+      </Select.Buttons>
+    );
+  },
 );
+
+const useHandlePageChange = (): ((v: string) => void) => {
+  const theme = Theming.use();
+  const ctx = Form.useContext();
+  return useCallback(
+    (v: string) => {
+      const prev = ctx.get<string>("page").value;
+      ctx.set("page", v);
+      const hadPage = prev != null && prev.length > 0;
+      const hasPage = v != null && v.length > 0;
+      if (!hadPage && hasPage) ctx.set("color", color.hex(theme.colors.primary.z));
+    },
+    [ctx, theme],
+  );
+};
+
+export const OffPageReferenceForm = ({
+  schematicKey,
+}: SymbolFormProps): ReactElement => {
+  const { data: siblings = [] } = Workspace.useRetrieveChildren({
+    resourceID: schematicKey != null ? schematic.ontologyID(schematicKey) : undefined,
+    types: ["schematic"],
+  });
+  const handlePageChange = useHandlePageChange();
+  return (
+    <FormWrapper x align="stretch">
+      <Flex.Box x grow align="stretch">
+        <Form.TextField path="label.label" label="Label" padHelpText={false} grow />
+        <Form.Field<string>
+          path="page"
+          label="Page"
+          padHelpText={false}
+          hideIfNull={false}
+          defaultValue=""
+          grow
+          className={CSS.BE("symbol-form", "page-field")}
+        >
+          {({ value }) => (
+            <Select.Static
+              value={value}
+              onChange={handlePageChange}
+              data={siblings}
+              resourceName="schematic"
+              emptyContent="No other schematics in this workspace"
+              allowNone
+            />
+          )}
+        </Form.Field>
+        <Form.Field<boolean>
+          path="dblClickNav"
+          label="Click Mode"
+          padHelpText={false}
+          hideIfNull={false}
+          defaultValue
+        >
+          {ClickModeSelect}
+        </Form.Field>
+        <Form.Field<Text.Level>
+          hideIfNull
+          path="label.level"
+          label="Label Size"
+          padHelpText={false}
+        >
+          {SelectTextLevel}
+        </Form.Field>
+        <ColorControl path="color" />
+      </Flex.Box>
+      <OrientationControl path="" hideOuter />
+    </FormWrapper>
+  );
+};
 
 export const CylinderForm = (): ReactElement => (
   <FormWrapper x align="stretch">

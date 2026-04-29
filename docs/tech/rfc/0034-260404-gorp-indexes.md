@@ -649,16 +649,20 @@ for directly.
    `filter.membership`. No-op for bare `Match` / `MatchRaw` filters.
 2. **OrderBy** (`r.execOrdered`). If the query has an `OrderQuery`, walk it, `GetMany`
    the resulting keys, run any post-filters, and return.
-3. **execKeys (fast path)** (`r.execKeys`). If `WhereKeys` was called or the resolved
-   filter has `Keys != nil`, fetch only those keys via `reader.GetMany` and run the
-   remaining `Eval` / `Raw` predicates as post-checks.
+3. **execKeys (fast path)** (`r.execKeys`). If the resolved filter has `Keys != nil`
+   (set directly via `MatchKeys` or produced by an index-backed `resolve`), fetch only
+   those keys via `reader.GetMany` and run the remaining `Eval` / `Raw` predicates as
+   post-checks.
 4. **execFilter (full scan)** (`r.execFilter`). Otherwise, iterate every entry in the
    table, applying `Raw` (pre-decode) and `Eval` (post-decode) predicates.
 
-`effectiveKeys` is the helper that combines `WhereKeys`-supplied keys with an indexed
-filter's `Keys`. When both are present, it walks the `WhereKeys` slice and probes the
-filter's typed O(1) membership predicate, which avoids `any` boxing on the per-key
-comparison.
+Primary-key matching is just another filter. `MatchKeys(keys...)` produces a
+`Filter[K, E]` with `Keys` set, which composes with `And` / `Or` / `Not` like any other
+filter. `And(MatchKeys, MatchNames)` propagates the bounded child's `Keys` and treats
+the unbounded sibling as a post-filter on the multi-get result.
+`Or(MatchKeys, MatchNames)` drops `Keys` and falls through to a full scan (an unbounded
+child can match entries outside the key set). Index-backed filters that produce `Keys`
+via their `resolve` closure compose by the same rules.
 
 Filter membership is materialized lazily. `Filter.membership` carries a
 `*lazyMembership[K]` that holds the keys slice plus a build function; the underlying map

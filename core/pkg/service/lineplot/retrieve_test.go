@@ -20,7 +20,7 @@ var _ = Describe("Retrieve", func() {
 		p := lineplot.LinePlot{Name: "test", Data: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &p)).To(Succeed())
 		var res lineplot.LinePlot
-		Expect(svc.NewRetrieve().WhereKeys(p.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(p.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(p))
 	})
 })

@@ -192,13 +192,13 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return err
 		}
 	}
-	return w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Group](keys...)).Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 	return w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Group](key)).
 		Change(func(_ gorp.Context, g Group) Group {
 			g.Name = name
 			return g

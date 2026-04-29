@@ -60,7 +60,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	k Key,
 ) (err error) {
-	if err = w.table.NewDelete().WhereKeys(k).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().Where(MatchKeys(k)).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	return w.otg.DeleteResource(ctx, OntologyID(k))

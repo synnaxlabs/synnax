@@ -102,7 +102,7 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(view.MatchKeys(req.Keys...))
 	}
 	if len(req.Types) != 0 {
 		q = q.Where(view.MatchTypes(req.Types...))

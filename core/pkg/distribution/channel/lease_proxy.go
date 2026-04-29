@@ -15,8 +15,8 @@ import (
 	"go/types"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -79,7 +79,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 					"local_index",
 				)
 			}
-			channels[i].Leaseholder = cluster.NodeKeyFree
+			channels[i].Leaseholder = node.KeyFree
 			channels[i].Virtual = true
 		} else if ch.LocalKey != 0 {
 			channels[i].LocalKey = 0
@@ -95,7 +95,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannels = append(indexChannels, indexCh)
@@ -116,7 +116,7 @@ func (s *Service) create(ctx context.Context, tx gorp.Tx, _channels *[]Channel, 
 	}
 	if len(batch.Free) > 0 {
 		if !s.cfg.HostResolver.HostKey().IsBootstrapper() {
-			remoteChannels, err := s.createRemote(ctx, cluster.NodeKeyBootstrapper, batch.Free, opts)
+			remoteChannels, err := s.createRemote(ctx, node.KeyBootstrapper, batch.Free, opts)
 			if err != nil {
 				return err
 			}
@@ -155,7 +155,7 @@ func (s *Service) createAndUpdateFreeVirtual(
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
 		if err := s.table.NewUpdate().
-			WhereKeys(existingKeys...).
+			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
 					idx := lo.IndexOf(keys, c.Key())
@@ -198,7 +198,7 @@ func (s *Service) createAndUpdateFreeVirtual(
 				DataType:    telem.TimeStampT,
 				IsIndex:     true,
 				Virtual:     true,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Internal:    ch.Internal,
 			}
 			indexChannelsForExisting = append(indexChannelsForExisting, indexCh)
@@ -268,7 +268,7 @@ func (s *Service) createAndUpdateFreeVirtual(
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
 			if err := s.table.NewUpdate().
-				WhereKeys(ch.Key()).
+				Where(gorp.MatchKeys[Key, Channel](ch.Key())).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
 					return c
@@ -450,7 +450,7 @@ func (s *Service) deleteOverwritten(
 	}
 	if len(keysToDelete) > 0 {
 		if err := s.table.NewDelete().
-			WhereKeys(keysToDelete...).
+			Where(gorp.MatchKeys[Key, Channel](keysToDelete...)).
 			Exec(ctx, tx); err != nil {
 			return err
 		}
@@ -534,7 +534,7 @@ func (s *Service) maybeSetResources(
 
 func (s *Service) createRemote(
 	ctx context.Context,
-	target cluster.NodeKey,
+	target node.Key,
 	channels []Channel,
 	opts CreateOptions,
 ) ([]Channel, error) {
@@ -569,7 +569,7 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
 		if err := s.newRetrieve().
-			WhereKeys(keys...).
+			Where(MatchKeys(keys...)).
 			Where(MatchInternal(true)).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
@@ -604,11 +604,11 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 }
 
 func (s *Service) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return s.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
+	return s.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](channels...)).Exec(ctx, tx)
 }
 
 func (s *Service) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := s.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+	if err := s.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](keys...)).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := s.maybeDeleteResources(ctx, tx, keys); err != nil {
@@ -638,7 +638,7 @@ func (s *Service) maybeDeleteResources(
 	return w.DeleteManyResources(ctx, ids)
 }
 
-func (s *Service) deleteRemote(ctx context.Context, target cluster.NodeKey, keys Keys) error {
+func (s *Service) deleteRemote(ctx context.Context, target node.Key, keys Keys) error {
 	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
@@ -654,7 +654,7 @@ type renameBatchEntry struct {
 
 var _ proxy.Entry = renameBatchEntry{}
 
-func (r renameBatchEntry) Lease() cluster.NodeKey { return r.key.Lease() }
+func (r renameBatchEntry) Lease() node.Key { return r.key.Lease() }
 
 func unzipRenameBatch(entries []renameBatchEntry) ([]Key, []string) {
 	return lo.UnzipBy2(entries, func(e renameBatchEntry) (Key, string) {
@@ -704,7 +704,7 @@ func (s *Service) rename(
 	return nil
 }
 
-func (s *Service) renameRemote(ctx context.Context, target cluster.NodeKey, keys Keys, names []string) error {
+func (s *Service) renameRemote(ctx context.Context, target node.Key, keys Keys, names []string) error {
 	addr, err := s.cfg.HostResolver.Resolve(target)
 	if err != nil {
 		return err
@@ -725,14 +725,14 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 
 func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
 	return s.table.NewUpdate().
-		WhereKeys(channels...).
+		Where(gorp.MatchKeys[Key, Channel](channels...)).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
 func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
 	if err := s.table.NewUpdate().
-		WhereKeys(keys...).
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {
 		return err

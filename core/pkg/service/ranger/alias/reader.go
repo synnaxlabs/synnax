@@ -40,7 +40,7 @@ func (r Reader) Retrieve(
 ) (string, error) {
 	var res Alias
 	err := r.table.NewRetrieve().
-		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
+		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
 		Entry(&res).
 		Exec(ctx, r.tx)
 	if errors.Is(err, query.ErrNotFound) {

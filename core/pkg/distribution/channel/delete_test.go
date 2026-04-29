@@ -56,7 +56,7 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists := MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
+					exists := MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 				})
 				It("Should not be able to retrieve the channel from the time-series DB", func(ctx SpecContext) {
@@ -80,10 +80,10 @@ var _ = Describe("Delete", Ordered, func() {
 				})
 				It("Should not be able to retrieve the channel after deletion", func(ctx SpecContext) {
 					Expect(mockCluster.Nodes[1].Channel.Delete(ctx, ch.Key(), true)).To(Succeed())
-					exists := MustSucceed(mockCluster.Nodes[2].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
+					exists := MustSucceed(mockCluster.Nodes[2].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 					Expect(exists).To(BeFalse())
 					Eventually(func(g Gomega) {
-						exists = MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().WhereKeys(ch.Key()).Exists(ctx, nil))
+						exists = MustSucceed(mockCluster.Nodes[1].Channel.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Exists(ctx, nil))
 						g.Expect(exists).To(BeFalse())
 					}).Should(Succeed())
 				})

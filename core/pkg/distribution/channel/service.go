@@ -14,8 +14,8 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -70,7 +70,7 @@ type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	HostResolver     cluster.HostResolver
+	HostResolver     node.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
 	Transport        Transport
@@ -165,7 +165,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
-	if cfg.HostResolver.HostKey() == cluster.NodeKeyBootstrapper {
+	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
 		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
 		if s.freeCounter, err = openCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {
 			return nil, err
@@ -253,7 +253,7 @@ func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
 		return key.String()
 	}
 	var ch Channel
-	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	if err := svc.NewRetrieve().Where(MatchKeys(key)).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

@@ -97,7 +97,7 @@ var _ = Describe("BytesLookup", func() {
 			Expect(toIdx.Get("x")).To(HaveLen(1))
 
 			Expect(gorp.NewDelete[[]byte, byteEntry]().
-				WhereKeys(e.GorpKey()).
+				Where(gorp.MatchKeys[[]byte, byteEntry](e.GorpKey())).
 				Exec(ctx, idxDB)).To(Succeed())
 			Expect(toIdx.Get("x")).To(BeEmpty())
 		})
@@ -225,7 +225,7 @@ var _ = Describe("BytesLookup", func() {
 			defer func() { Expect(tx.Close()).To(Succeed()) }()
 
 			Expect(table.NewDelete().
-				WhereKeys([]byte("a->x")).Exec(ctx, tx)).To(Succeed())
+				Where(gorp.MatchKeys[[]byte, byteEntry]([]byte("a->x"))).Exec(ctx, tx)).To(Succeed())
 
 			var res []byteEntry
 			Expect(table.NewRetrieve().

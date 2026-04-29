@@ -149,7 +149,7 @@ func (s *Service) Retrieve(
 		q = q.Where(ranger.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
 		q = q.Where(ranger.MatchLabels(req.HasLabels...))
@@ -186,7 +186,7 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
+			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}

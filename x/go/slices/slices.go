@@ -62,3 +62,14 @@ func IterEndlessly[T any](values []T) iter.Seq[T] {
 		}
 	}
 }
+
+// CollectKeys consumes seq and returns the K side of every yielded pair as a
+// slice. The V side is discarded. cap is used as the initial capacity of the
+// returned slice; pass 0 if the upper bound is unknown.
+func CollectKeys[K, V any](seq iter.Seq2[K, V], cap int) []K {
+	out := make([]K, 0, cap)
+	for k := range seq {
+		out = append(out, k)
+	}
+	return out
+}

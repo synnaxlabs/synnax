@@ -21,11 +21,17 @@ import (
 	"go.uber.org/zap"
 )
 
+// newObservable wraps an upstream kv.TxReader observable into an entry-typed
+// observable that emits change.Change[K, E] for entries belonging to E's
+// gorp prefix. src is decoupled from db so the index observer pipeline can
+// route a single source through multiple typed observables (one per entry
+// type / index registration) without re-subscribing the underlying KV
+// observer.
 func newObservable[K Key, E Entry[K]](
 	src observe.Observable[kv.TxReader],
 	db *DB,
 ) observe.Observable[iter.Seq[change.Change[K, E]]] {
-	kCodec := newKeyCodec[K, E]()
+	kCodec := newKeyCodec[K, E](nil)
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: src,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
@@ -52,7 +58,7 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
-	kCodec *keyCodec[K, E],
+	kCodec keyCodec[K, E],
 	codec encoding.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {

@@ -139,7 +139,7 @@ var _ = Describe("Index", func() {
 				Expect(nameIdx.Get("zeta")).To(ConsistOf(int32(12)))
 
 				Expect(gorp.NewDelete[int32, indexedEntry]().
-					WhereKeys(12).Exec(ctx, idxDB)).To(Succeed())
+					Where(gorp.MatchKeys[int32, indexedEntry](12)).Exec(ctx, idxDB)).To(Succeed())
 				Expect(nameIdx.Get("zeta")).To(BeEmpty())
 			})
 
@@ -416,7 +416,7 @@ var _ = Describe("Index", func() {
 				defer func() { Expect(tx.Close()).To(Succeed()) }()
 
 				Expect(table.NewDelete().
-					WhereKeys(1).Exec(ctx, tx)).To(Succeed())
+					Where(gorp.MatchKeys[int32, indexedEntry](1)).Exec(ctx, tx)).To(Succeed())
 
 				var res []indexedEntry
 				Expect(table.NewRetrieve().
@@ -508,7 +508,7 @@ var _ = Describe("Index", func() {
 					Entry(&indexedEntry{ID: 60, Name: "alpha"}).
 					Exec(ctx, tx)).To(Succeed())
 				Expect(table.NewDelete().
-					WhereKeys(60).Exec(ctx, tx)).To(Succeed())
+					Where(gorp.MatchKeys[int32, indexedEntry](60)).Exec(ctx, tx)).To(Succeed())
 
 				var res []indexedEntry
 				Expect(table.NewRetrieve().
@@ -816,7 +816,7 @@ var _ = Describe("Index", func() {
 			Expect(nameIdx.Get("delta")).To(ConsistOf(int32(4)))
 
 			tx := noopDB.OpenTx()
-			Expect(table.NewDelete().WhereKeys(4).Exec(ctx, tx)).To(Succeed())
+			Expect(table.NewDelete().Where(gorp.MatchKeys[int32, indexedEntry](4)).Exec(ctx, tx)).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
@@ -829,7 +829,7 @@ var _ = Describe("Index", func() {
 				Exec(ctx, noopDB)).To(Succeed())
 
 			tx := noopDB.OpenTx()
-			Expect(table.NewDelete().WhereKeys(5).Exec(ctx, tx)).To(Succeed())
+			Expect(table.NewDelete().Where(gorp.MatchKeys[int32, indexedEntry](5)).Exec(ctx, tx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
 			Expect(nameIdx.Get("epsilon")).To(ConsistOf(int32(5)))
@@ -841,7 +841,7 @@ var _ = Describe("Index", func() {
 				Exec(ctx, noopDB)).To(Succeed())
 			Expect(nameIdx.Get("zeta")).To(ConsistOf(int32(6)))
 
-			Expect(table.NewDelete().WhereKeys(6).Exec(ctx, noopDB)).To(Succeed())
+			Expect(table.NewDelete().Where(gorp.MatchKeys[int32, indexedEntry](6)).Exec(ctx, noopDB)).To(Succeed())
 			Expect(nameIdx.Get("zeta")).To(BeEmpty())
 		})
 	})

@@ -20,9 +20,9 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	changes  changes[K, E]
-	// indexes mirrors Create.indexes — propagated by Table.NewUpdate so
-	// the writer built in Exec stages mutations against the Table's
-	// secondary indexes.
+	// indexes mirrors Create.indexes — propagated by Table.NewUpdate so the
+	// writer built in Exec stages mutations against the Table's secondary
+	// indexes.
 	indexes []Index[K, E]
 }
 
@@ -31,8 +31,10 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
-	u.retrieve = u.retrieve.WhereKeys(keys...)
+// Where adds the provided filter to the query. To update by primary key,
+// compose MatchKeys into the filter (e.g. u.Where(MatchKeys(1, 2, 3))).
+func (u Update[K, E]) Where(filter Filter[K, E]) Update[K, E] {
+	u.retrieve = u.retrieve.Where(filter)
 	return u
 }
 
@@ -59,7 +61,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return newWriter(tx, u.indexes).Set(ctx, entries...)
+	return wrapWriter[K, E](tx, u.retrieve.keyPrefix, u.indexes).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)

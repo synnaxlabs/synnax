@@ -64,8 +64,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return w.table.NewUpdate().
-		WhereKeys(key).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Workspace](key)).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Name = name
 			return ws
@@ -77,8 +76,7 @@ func (w Writer) SetLayout(
 	key uuid.UUID,
 	layout map[string]any,
 ) error {
-	return w.table.NewUpdate().
-		WhereKeys(key).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Workspace](key)).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Layout = layout
 			return ws
@@ -89,7 +87,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Workspace](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

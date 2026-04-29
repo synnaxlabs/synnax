@@ -11,15 +11,34 @@ package gorp_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 )
 
 var errFilter = errors.New("filter error")
+
+// decodeCountingCodec wraps an encoding.Codec and counts every Decode call.
+// Retrieve.Exec only invokes Decode after the filter's raw pre-screen accepts
+// an entry, so decodeCount reveals whether raw composition skipped decode for
+// pre-screen-rejected entries.
+type decodeCountingCodec struct {
+	encoding.Codec
+	decodeCount int
+}
+
+func (c *decodeCountingCodec) Decode(ctx context.Context, data []byte, value any) error {
+	c.decodeCount++
+	return c.Codec.Decode(ctx, data, value)
+}
 
 func idLT(v int32) gorp.Filter[int32, entry] {
 	return gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
@@ -376,40 +395,68 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3)).
 				Where(gorp.Or(gorp.MatchRaw[int32, entry](containsDataRaw), neverMatch)).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(HaveLen(3))
 		})
 
-		It("Or of raw-only children should compose Raw to pre-screen", func() {
-			or := gorp.Or(
-				gorp.MatchRaw[int32, entry](alwaysFalseRaw),
-				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
+		Describe("Pre-screening optimization", func() {
+			var (
+				codec      *decodeCountingCodec
+				countingDB *gorp.DB
+				countingTx gorp.Tx
 			)
-			Expect(or.Raw).NotTo(BeNil())
-			Expect(or.Eval).To(BeNil())
-		})
+			BeforeEach(func(ctx SpecContext) {
+				codec = &decodeCountingCodec{Codec: orc.NewCodec(msgpack.Codec)}
+				countingDB = gorp.Wrap(memkv.New(), gorp.WithCodec(codec))
+				countingTx = countingDB.OpenTx()
+				es := make([]entry, 10)
+				for i := range 10 {
+					es[i] = entry{ID: int32(i), Data: "data"}
+				}
+				Expect(gorp.NewCreate[int32, entry]().
+					Entries(&es).Exec(ctx, countingTx)).To(Succeed())
+				codec.decodeCount = 0
+			})
+			AfterEach(func() {
+				Expect(countingTx.Close()).To(Succeed())
+				Expect(countingDB.Close()).To(Succeed())
+			})
 
-		It("Or with a non-raw child should not compose Raw", func() {
-			or := gorp.Or(
-				gorp.MatchRaw[int32, entry](alwaysTrueRaw),
-				neverMatch,
+			DescribeTable("decode count reflects whether the composed filter pre-screens",
+				func(ctx SpecContext, filter gorp.Filter[int32, entry], wantResults, wantDecodes int) {
+					var res []entry
+					Expect(gorp.NewRetrieve[int32, entry]().
+						Entries(&res).
+						Where(filter).
+						Exec(ctx, countingTx)).To(Succeed())
+					Expect(res).To(HaveLen(wantResults))
+					Expect(codec.decodeCount).To(Equal(wantDecodes))
+				},
+				Entry("Or of raw-only children pre-screens, so both rejecting yields no decodes",
+					gorp.Or(
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+					),
+					0, 0,
+				),
+				Entry("Or with a non-raw child cannot pre-screen, so every entry is decoded",
+					gorp.Or(
+						gorp.MatchRaw[int32, entry](alwaysFalseRaw),
+						neverMatch,
+					),
+					0, 10,
+				),
+				Entry("Not of a raw-only child pre-screens, so inverted raw rejection yields no decodes",
+					gorp.Not(gorp.MatchRaw[int32, entry](alwaysTrueRaw)),
+					0, 0,
+				),
+				Entry("Not of a non-raw child cannot pre-screen, so every entry is decoded",
+					gorp.Not(neverMatch),
+					10, 10,
+				),
 			)
-			Expect(or.Raw).To(BeNil())
-			Expect(or.Eval).NotTo(BeNil())
-		})
-
-		It("Not of a raw-only child should compose Raw to pre-screen", func() {
-			not := gorp.Not(gorp.MatchRaw[int32, entry](alwaysFalseRaw))
-			Expect(not.Raw).NotTo(BeNil())
-			Expect(not.Eval).To(BeNil())
-		})
-
-		It("Not of a non-raw child should not compose Raw", func() {
-			not := gorp.Not(neverMatch)
-			Expect(not.Raw).To(BeNil())
-			Expect(not.Eval).NotTo(BeNil())
 		})
 	})
 
@@ -468,7 +515,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(idGT(3)).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[4], entries[5]}))
@@ -478,7 +525,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(gorp.Or(idEQ(1), idEQ(5))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[5]}))
@@ -488,7 +535,7 @@ var _ = Describe("Filter Combinators", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereKeys(1, 2, 3, 4, 5).
+				Where(gorp.MatchKeys[int32, entry](1, 2, 3, 4, 5)).
 				Where(gorp.Not(idEQ(3))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(Equal([]entry{entries[1], entries[2], entries[4], entries[5]}))
@@ -538,11 +585,11 @@ var _ = Describe("Filter Combinators", func() {
 				Where(gorp.Or(idEQ(0), idEQ(9))).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(0).Exists(ctx, tx)).To(BeFalse())
+				Where(gorp.MatchKeys[int32, entry](0)).Exists(ctx, tx)).To(BeFalse())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(9).Exists(ctx, tx)).To(BeFalse())
+				Where(gorp.MatchKeys[int32, entry](9)).Exists(ctx, tx)).To(BeFalse())
 			Expect(gorp.NewRetrieve[int32, entry]().
-				WhereKeys(5).Exists(ctx, tx)).To(BeTrue())
+				Where(gorp.MatchKeys[int32, entry](5)).Exists(ctx, tx)).To(BeTrue())
 		})
 
 		It("Should delete entries matching a Not filter", func(ctx SpecContext) {
@@ -579,17 +626,20 @@ var _ = Describe("Filter Combinators", func() {
 				return false, fmt.Errorf("raw filter error")
 			})
 		}
-		// matchEvalAndRaw returns a filter with both Eval and Raw populated, to
-		// verify And composes the two stages independently.
+		// matchEvalAndRaw returns a filter with both eval and raw populated by
+		// AND-composing a Match (eval) and a MatchRaw (raw). Through And's
+		// composition, the result is equivalent to a single Filter carrying
+		// both fields: raw stays as a pre-decode pre-screen and eval runs at
+		// decode time, with neither stage masking the other.
 		matchEvalAndRaw := func(idBelow int32, sub []byte) gorp.Filter[int32, entry] {
-			return gorp.Filter[int32, entry]{
-				Eval: func(_ gorp.Context, e *entry, _, _ []byte) (bool, error) {
+			return gorp.And(
+				gorp.Match(func(_ gorp.Context, e *entry) (bool, error) {
 					return e.ID < idBelow, nil
-				},
-				Raw: func(_, data []byte) (bool, error) {
+				}),
+				gorp.MatchRaw[int32, entry](func(_, data []byte) (bool, error) {
 					return bytes.Contains(data, sub), nil
-				},
-			}
+				}),
+			)
 		}
 
 		Describe("MatchRaw", func() {

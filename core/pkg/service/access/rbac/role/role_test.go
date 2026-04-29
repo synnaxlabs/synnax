@@ -125,7 +125,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, roles[0].Key)).To(Succeed())
 
 			var r role.Role
-			err := svc.NewRetrieve().WhereKeys(roles[0].Key).Entry(&r).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(role.MatchKeys(roles[0].Key)).Entry(&r).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -139,7 +139,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Delete(ctx, r.Key)).To(Succeed())
 
 			var retrieved role.Role
-			err := svc.NewRetrieve().WhereKeys(r.Key).Entry(&retrieved).Exec(ctx, tx)
+			err := svc.NewRetrieve().Where(role.MatchKeys(r.Key)).Entry(&retrieved).Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
 		})
 
@@ -275,7 +275,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve a single role by key", func(ctx SpecContext) {
 			var r role.Role
 			Expect(svc.NewRetrieve().
-				WhereKeys(roles[0].Key).
+				Where(role.MatchKeys(roles[0].Key)).
 				Entry(&r).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(r.Key).To(Equal(roles[0].Key))
@@ -285,7 +285,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve multiple roles by keys", func(ctx SpecContext) {
 			var rs []role.Role
 			Expect(svc.NewRetrieve().
-				WhereKeys(roles[0].Key, roles[1].Key).
+				Where(role.MatchKeys(roles[0].Key, roles[1].Key)).
 				Entries(&rs).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(rs).To(HaveLen(2))
@@ -294,7 +294,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return error when key not found", func(ctx SpecContext) {
 			var r role.Role
 			err := svc.NewRetrieve().
-				WhereKeys(uuid.New()).
+				Where(role.MatchKeys(uuid.New())).
 				Entry(&r).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))

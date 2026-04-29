@@ -117,7 +117,7 @@ func (s *Service) Retrieve(
 	)
 	q := s.device.NewRetrieve()
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(device.MatchKeys(req.Keys...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -148,7 +148,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

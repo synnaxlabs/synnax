@@ -88,7 +88,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				WhereKeys(created[0].Key()).
+				Where(channel.MatchKeys(created[0].Key())).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(resChannels).To(HaveLen(1))
@@ -141,7 +141,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			var resChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				WhereKeys(435).
+				Where(channel.MatchKeys(435)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(MatchError(ContainSubstring("Channels with keys [435] not found")))
 		})
@@ -175,7 +175,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 			var resChannels []channel.Channel
 			Expect(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				WhereKeys(0).
+				Where(channel.MatchKeys(0)).
 				Entries(&resChannels).
 				Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
@@ -249,7 +249,7 @@ var _ = Describe("Retrieve", Ordered, func() {
 
 			exists := MustSucceed(mockCluster.Nodes[1].Channel.
 				NewRetrieve().
-				WhereKeys(created[0].Key()).
+				Where(channel.MatchKeys(created[0].Key())).
 				Exists(ctx, nil))
 			Expect(exists).To(BeTrue())
 		})

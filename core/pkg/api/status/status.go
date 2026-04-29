@@ -140,7 +140,7 @@ func (s *Service) Retrieve(
 		q = q.Where(status.MatchVariants[any](req.Variants...))
 	}
 	if len(req.Keys) != 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
 	if err = q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err

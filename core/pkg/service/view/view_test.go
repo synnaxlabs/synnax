@@ -71,7 +71,7 @@ var _ = Describe("View", func() {
 				s.Name = "Updated Name"
 				Expect(w.Create(ctx, s)).To(Succeed())
 				var retrieved view.View
-				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(s.Key)).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved.Name).To(Equal("Updated Name"))
 			})
 		})
@@ -93,10 +93,10 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 
 				var retrieved []view.View
-				Expect(svc.NewRetrieve().WhereKeys(
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(
 					views[0].Key,
 					views[1].Key,
-				).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
+				)).Entries(&retrieved).Exec(ctx, tx)).To(Succeed())
 				Expect(retrieved).To(HaveLen(2))
 			})
 		})
@@ -111,7 +111,7 @@ var _ = Describe("View", func() {
 				Expect(w.Create(ctx, s)).To(Succeed())
 				Expect(w.Delete(ctx, s.Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&view.View{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(s.Key)).Entry(&view.View{}).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 
 			It("Should be idempotent", func(ctx SpecContext) {
@@ -136,7 +136,7 @@ var _ = Describe("View", func() {
 				Expect(w.CreateMany(ctx, &views)).To(Succeed())
 				Expect(w.DeleteMany(ctx, views[0].Key, views[1].Key)).To(Succeed())
 
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(views[0].Key, views[1].Key)).Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 			})
 		})
 	})
@@ -169,14 +169,14 @@ var _ = Describe("View", func() {
 		Describe("WhereKeys", func() {
 			It("Should retrieve view by key", func(ctx SpecContext) {
 				var s view.View
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key).Entry(&s).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(views[0].Key)).Entry(&s).Exec(ctx, tx)).To(Succeed())
 				Expect(s.Key).To(Equal(views[0].Key))
 				Expect(s.Name).To(Equal("View A"))
 			})
 
 			It("Should retrieve multiple views by keys", func(ctx SpecContext) {
 				var resViews []view.View
-				Expect(svc.NewRetrieve().WhereKeys(views[0].Key, views[1].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.MatchKeys(views[0].Key, views[1].Key)).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(2))
 			})
 		})
@@ -189,7 +189,7 @@ var _ = Describe("View", func() {
 			})
 			It("Should also retrieve views by type and key", func(ctx SpecContext) {
 				var resViews []view.View
-				Expect(svc.NewRetrieve().Where(view.MatchTypes("testa")).WhereKeys(views[0].Key).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.NewRetrieve().Where(view.MatchTypes("testa")).Where(view.MatchKeys(views[0].Key)).Entries(&resViews).Exec(ctx, tx)).To(Succeed())
 				Expect(resViews).To(HaveLen(1))
 				Expect(resViews[0].Key).To(Equal(views[0].Key))
 			})

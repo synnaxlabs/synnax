@@ -10,9 +10,7 @@
 package rack
 
 import (
-	"slices"
-
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -21,17 +19,8 @@ type Retrieve struct {
 	baseTX       gorp.Tx
 	search       *search.Index
 	gorp         gorp.Retrieve[Key, Rack]
-	hostProvider cluster.HostProvider
+	hostProvider node.HostProvider
 	searchTerm   string
-}
-
-// MatchName returns a filter that matches racks whose Name matches the provided value.
-func MatchName(name string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
-		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
-			return name == rack.Name, nil
-		})
-	}
 }
 
 // MatchNodeIsHost returns a filter that matches racks whose node is (or is
@@ -43,18 +32,8 @@ func MatchNodeIsHost(v bool) Filter {
 	})
 }
 
-// MatchIntegration returns a filter that matches racks that support the given
-// integration.
-func MatchIntegration(integration string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Rack] {
-		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
-			return slices.Contains(rack.Integrations, integration), nil
-		})
-	}
-}
-
 // MatchNode returns a filter that matches racks on the given cluster node.
-func MatchNode(node cluster.NodeKey) Filter {
+func MatchNode(node node.Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Rack] {
 		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
 			return rack.Key.Node() == node, nil

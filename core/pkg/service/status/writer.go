@@ -52,7 +52,7 @@ func (w Writer[D]) SetWithParent(
 	if err := w.validate(*s); err != nil {
 		return err
 	}
-	exists, err := gorp.NewRetrieve[string, status.Status[D]]().WhereKeys(s.Key).Exists(ctx, w.tx)
+	exists, err := gorp.NewRetrieve[string, status.Status[D]]().Where(gorp.MatchKeys[string, status.Status[D]](s.Key)).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -125,7 +125,7 @@ func (w Writer[D]) SetManyWithParent(
 // Delete deletes the status with the given key. Delete is idempotent.
 func (w Writer[D]) Delete(ctx context.Context, key string) error {
 	if err := gorp.NewDelete[string, status.Status[D]]().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[string, status.Status[D]](key)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}

@@ -73,7 +73,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 	}
 	var stat status.Status[any]
 	if err := m.stat.NewRetrieve().
-		WhereKeys(nodeCfg.StatusKey).
+		Where(status.MatchKeys[any](nodeCfg.StatusKey)).
 		Entry(&stat).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return nil, err

@@ -14,6 +14,7 @@ import (
 	"go/types"
 
 	"github.com/google/uuid"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -96,10 +97,16 @@ func (s *Service) RetrievePolicy(
 ) (res RetrievePolicyResponse, err error) {
 	q := s.internal.Policy.NewRetrieve()
 	if len(req.Subjects) > 0 {
-		q = q.Where(policy.MatchSubjects(req.Subjects...))
-	}
-	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		subjectKeys, err := s.internal.Policy.ResolveSubjects(ctx, nil, req.Subjects...)
+		if err != nil {
+			return RetrievePolicyResponse{}, err
+		}
+		if len(req.Keys) > 0 {
+			subjectKeys = lo.Intersect(subjectKeys, req.Keys)
+		}
+		q = q.Where(policy.MatchKeys(subjectKeys...))
+	} else if len(req.Keys) > 0 {
+		q = q.Where(policy.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -199,7 +206,7 @@ func (s *Service) RetrieveRole(
 	var res RetrieveRoleResponse
 	q := s.internal.Role.NewRetrieve()
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(role.MatchKeys(req.Keys...))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)

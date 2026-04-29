@@ -73,7 +73,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, err
 	}
 	var schematic Schematic
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&schematic).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&schematic).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(schematic), nil
