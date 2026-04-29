@@ -98,20 +98,20 @@ export const selectSelectedElementsProps = (
   if (schematic == null) return [];
   const selected = new Set(schematic.selected);
   const nodes: ElementInfo[] = schematic.nodes
-    .filter((node) => selected.has(node.key))
+    .filter((node) => selected.has(node.key) && schematic.props[node.key] != null)
     .map((node) => ({
       key: node.key,
       type: "node",
       node,
-      props: (schematic.props[node.key] ?? {}) as NodeProps,
+      props: schematic.props[node.key] as NodeProps,
     }));
   const edges: ElementInfo[] = schematic.edges
-    .filter((edge) => selected.has(edge.key))
+    .filter((edge) => selected.has(edge.key) && schematic.props[edge.key] != null)
     .map((edge) => ({
       key: edge.key,
       type: "edge",
       edge,
-      props: (schematic.props[edge.key] ?? {}) as EdgeProps,
+      props: schematic.props[edge.key] as EdgeProps,
     }));
   return [...nodes, ...edges];
 };

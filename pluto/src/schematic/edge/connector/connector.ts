@@ -603,7 +603,7 @@ export interface UpdateSegmentsForPositionChangesProps {
     source: { node: string };
     target: { node: string };
   }>;
-  props: Record<string, unknown>;
+  props: Record<string, { segments?: Segment[] } | undefined>;
   changes: NodePositionChange[];
 }
 
@@ -630,8 +630,7 @@ export const updateSegmentsForPositionChanges = ({
       xy.equals(sourceDelta, targetDelta, 0.001)
     )
       continue;
-    const edgeProps = props[edge.key] as { segments?: Segment[] } | undefined;
-    let segments = edgeProps?.segments ?? [];
+    let segments = props[edge.key]?.segments ?? [];
     if (segments.length === 0) continue;
     if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
       segments = moveSourceNode({ delta: sourceDelta, segments });

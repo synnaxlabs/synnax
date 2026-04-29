@@ -9,6 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type Diagram } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { selectNodeProps } from "@/schematic/selectors";
@@ -148,10 +149,9 @@ describe("Schematic Slice", () => {
     });
 
     it("should update nodes without replacing all", () => {
-      // Add initial nodes
       const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
+        { key: "valve-1", position: { x: 0, y: 0 } },
+        { key: "valve-2", position: { x: 150, y: 0 } },
       ];
 
       store.dispatch(
@@ -162,12 +162,7 @@ describe("Schematic Slice", () => {
         }),
       );
 
-      // Update one node
-      const updatedNode = {
-        key: "valve-1",
-        position: { x: 50, y: 50 },
-        selected: true,
-      };
+      const updatedNode = { key: "valve-1", position: { x: 50, y: 50 } };
 
       store.dispatch(
         actions.setNodes({
@@ -185,8 +180,8 @@ describe("Schematic Slice", () => {
       const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
 
       expect(node1?.position).toEqual({ x: 50, y: 50 });
-      // TODO(sy-4140): selection moved to top-level state.selected; rewrite this assertion.
       expect(node2?.position).toEqual({ x: 150, y: 0 });
+      expect(schematic.selected).toEqual([]);
     });
   });
 
@@ -581,20 +576,28 @@ describe("Schematic Slice", () => {
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { variant: "offPageReference", page: "target-page", color: "#ff0000" },
+          props: {
+            variant: "offPageReference",
+            page: "target-page",
+            color: color.construct("#ff0000"),
+          },
         }),
       );
       store.dispatch(
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { variant: "offPageReference", page: "target-page", color: "#00ff00" },
+          props: {
+            variant: "offPageReference",
+            page: "target-page",
+            color: color.construct("#00ff00"),
+          },
         }),
       );
 
       const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
       expect(props?.page).toBe("target-page");
-      expect(props?.color).toBe("#00ff00");
+      expect(props?.color).toEqual(color.construct("#00ff00"));
     });
   });
 });

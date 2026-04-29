@@ -197,7 +197,7 @@ const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void 
   const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
   const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
   if (sourceProps?.color == null || sourceProps.color !== targetProps?.color) return;
-  const existing = (schematic.props[edge.key] ?? {}) as EdgeProps;
+  const existing = schematic.props[edge.key] as EdgeProps | undefined;
   schematic.props[edge.key] = { ...existing, color: sourceProps.color };
 };
 
@@ -316,10 +316,7 @@ export const { actions, reducer } = createSlice({
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { layoutKey, key, props } = payload;
       const schematic = state.schematics[layoutKey];
-      schematic.props[key] = {
-        ...(schematic.props[key] ?? {}),
-        ...props,
-      } as Props;
+      schematic.props[key] = { ...schematic.props[key], ...props } as Props;
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
