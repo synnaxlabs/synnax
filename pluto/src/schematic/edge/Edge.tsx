@@ -9,12 +9,7 @@
 
 import "@/schematic/edge/Edge.css";
 
-import {
-  type Diagram,
-  Schematic as Base,
-  selectNodeBox,
-} from "@synnaxlabs/pluto";
-import { box, color, direction, location, type Triggers, xy } from "@synnaxlabs/x";
+import { box, color, direction, location, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
   type DragEvent,
@@ -25,17 +20,17 @@ import {
   useRef,
   useState,
 } from "react";
-import { useDispatch } from "react-redux";
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { useSelectEdgeProps } from "@/schematic/selectors";
-import { setElementProps } from "@/schematic/slice";
-
-const { connector, DefaultPath, PATHS } = Base.Edge;
+import { connector } from "@/schematic/edge/connector";
+import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
+import { type Key } from "@/triggers/triggers";
+import { type diagram } from "@/vis/diagram/aether";
+import { selectNodeBox } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
-  segments: Base.Edge.connector.Segment[];
+  segments: connector.Segment[];
   index: number;
 }
 
@@ -44,7 +39,7 @@ export const ConnectionLine = ({
   target,
   style,
   status,
-}: Diagram.ConnectionLineProps): ReactElement => {
+}: diagram.ConnectionLineProps): ReactElement => {
   const connectedHandle = document.querySelector(".react-flow__handle-connecting");
   const toNodeHandle = connectedHandle?.className.match(/react-flow__handle-(\w+)/);
   if (toNodeHandle != null) {
@@ -81,8 +76,11 @@ export const ConnectionLine = ({
   );
 };
 
-export interface EdgeProps extends Diagram.EdgeProps {
-  layoutKey: string;
+export interface EdgeProps extends diagram.EdgeProps {
+  segments?: connector.Segment[];
+  variant?: EdgeType;
+  color?: color.Crude;
+  onSegmentsChange: (segments: connector.Segment[]) => void;
 }
 
 export const Edge = ({
@@ -92,20 +90,15 @@ export const Edge = ({
   sourceNode,
   targetNode,
   selected = false,
-  layoutKey,
+  segments: middleSegments = [],
+  variant = "pipe",
+  color: edgeColor = "var(--pluto-gray-l11)",
+  onSegmentsChange,
 }: EdgeProps): ReactElement | null => {
-  const edgeProps = useSelectEdgeProps(layoutKey, edgeKey);
-  const {
-    segments: middleSegments = [] as Base.Edge.connector.Segment[],
-    color: edgeColor = "var(--pluto-gray-l11)",
-    variant = "pipe",
-  } = edgeProps ?? {};
-
   const flow = useReactFlow();
-  const dispatch = useDispatch();
 
   const visualSegments = useMemo(() => {
-    if ((middleSegments as Base.Edge.connector.Segment[]).length === 0)
+    if (middleSegments.length === 0)
       return connector.buildNew({
         sourcePos: source.position,
         targetPos: target.position,
@@ -119,7 +112,7 @@ export const Edge = ({
       targetOrientation: target.orientation,
       sourcePos: source.position,
       targetPos: target.position,
-      middleSegments: middleSegments as Base.Edge.connector.Segment[],
+      middleSegments,
     });
   }, [
     source.position.x,
@@ -132,26 +125,18 @@ export const Edge = ({
   ]);
 
   const persistMiddle = useCallback(
-    (segs: Base.Edge.connector.Segment[]) => {
+    (segs: connector.Segment[]) => {
       const middle = connector.extractMiddle(
         segs,
         source.orientation,
         target.orientation,
       );
-      dispatch(
-        setElementProps({
-          layoutKey,
-          key: edgeKey,
-          props: { segments: middle, variant, color: edgeColor },
-        }),
-      );
+      onSegmentsChange(middle);
     },
-    [layoutKey, edgeKey, variant, edgeColor, dispatch, source.orientation, target.orientation],
+    [source.orientation, target.orientation, onSegmentsChange],
   );
 
-  const [dragOverride, setDragOverride] = useState<
-    Base.Edge.connector.Segment[] | null
-  >(null);
+  const [dragOverride, setDragOverride] = useState<connector.Segment[] | null>(null);
   const dragOverrideRef = useRef(dragOverride);
   dragOverrideRef.current = dragOverride;
 
@@ -160,7 +145,7 @@ export const Edge = ({
 
   const dragStart = useCursorDrag({
     onStart: useCallback(
-      (_: xy.XY, __: Triggers.Key, e: DragEvent) => {
+      (_: xy.XY, __: Key, e: DragEvent) => {
         dragRef.current = {
           index: Number(e.currentTarget.id.split("-")[1]),
           segments: [...segments],

@@ -7,13 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Button,
-  Component,
   Control,
   Diagram,
   Flex,
@@ -45,11 +43,11 @@ import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { ConnectionLine, Edge as SchematicEdge } from "@/schematic/edge";
 import {
   selectNodeProps,
   selectOptional,
   selectRequired,
+  useSelectEdgeProps,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -186,52 +184,32 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-interface SymbolRendererProps extends Diagram.NodeProps {
-  layoutKey: string;
-  dispatch: Dispatch<UnknownAction>;
-}
+const useNodeProps = (key: string): Base.NodeProps | undefined => {
+  const layoutKey = Base.useKey();
+  return useSelectNodeProps(layoutKey, key) as Base.NodeProps | undefined;
+};
 
-const SymbolRenderer = ({
-  nodeKey,
-  position,
-  selected,
-  draggable,
-  layoutKey,
-  dispatch,
-}: SymbolRendererProps): ReactElement | null => {
-  const props = useSelectNodeProps(layoutKey, nodeKey);
-  const variant = props?.variant;
-  const handleChange = useCallback(
-    (next: object) => {
-      if (variant == null) return;
-      dispatch(
-        setElementProps({
-          layoutKey,
-          key: nodeKey,
-          props: { variant, ...next },
-        }),
-      );
+const useEdgeProps = (key: string): Base.EdgeProps | undefined => {
+  const layoutKey = Base.useKey();
+  return useSelectEdgeProps(layoutKey, key) as Base.EdgeProps | undefined;
+};
+
+const useSetElementProps = () => {
+  const layoutKey = Base.useKey();
+  const dispatch = useDispatch();
+  return useCallback(
+    (key: string, props: Record<string, unknown>) => {
+      dispatch(setElementProps({ layoutKey, key, props }));
     },
-    [nodeKey, layoutKey, variant, dispatch],
-  );
-
-  if (props == null || variant == null) return null;
-  const C = Base.Symbol.REGISTRY[variant];
-  if (C == null) throw new Error(`Symbol ${variant} not found`);
-  const { variant: _, ...rest } = props;
-
-  return (
-    <C.Symbol
-      key={variant}
-      nodeKey={nodeKey}
-      position={position}
-      selected={selected}
-      draggable={draggable}
-      onChange={handleChange}
-      data={rest}
-    />
+    [layoutKey, dispatch],
   );
 };
+
+const SchematicComponent = Base.create({
+  useNodeProps,
+  useEdgeProps,
+  useSetElementProps,
+});
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CContextMenu.Menu>
@@ -318,19 +296,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-  const SchematicComponent = useMemo(
-    () =>
-      Base.create({
-        node: Component.renderProp((p: Diagram.NodeProps) => (
-          <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...p} />
-        )),
-        edge: Component.renderProp((p: Diagram.EdgeProps) => (
-          <SchematicEdge layoutKey={layoutKey} {...p} />
-        )),
-        connectionLine: Component.renderProp(ConnectionLine),
-      }),
-    [layoutKey, undoableDispatch],
-  );
 
   const ref = useRef<HTMLDivElement>(null);
 
@@ -473,6 +438,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         authority={state.authority}
         onStatusChange={handleControlStatusChange}
       >
+       <Base.Provider value={layoutKey}>
         <SchematicComponent
           onViewportChange={handleViewportChange}
           viewportMode={mode}
@@ -510,6 +476,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
             </Flex.Box>
           </Controls>
         </SchematicComponent>
+       </Base.Provider>
         {legendVisible && (
           <Control.Legend
             position={legendPosition}

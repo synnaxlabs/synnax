@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export { connector } from "@/schematic/edge/connector";
+export { ConnectionLine, Edge, type EdgeProps } from "@/schematic/edge/Edge";
 export {
   DefaultPath,
   type EdgeType,
