@@ -27,20 +27,14 @@ import (
 )
 
 const (
-	addSymbolName        = "add"
 	avgSymbolName        = "avg"
 	countConfigParam     = "count"
 	derivativeSymbolName = "derivative"
-	divSymbolName        = "divide"
 	durationConfigParam  = "duration"
 	maxSymbolName        = "max"
 	minSymbolName        = "min"
-	modSymbolName        = "mod"
-	mulSymbolName        = "multiply"
-	negSymbolName        = "neg"
 	powSymbolName        = "pow"
 	resetInputParam      = "reset"
-	subSymbolName        = "subtract"
 )
 
 var numConstraint = types.NumericConstraint()
@@ -126,12 +120,6 @@ var moduleMembers = symbol.MapResolver{
 	minSymbolName:        minSymbol,
 	maxSymbolName:        maxSymbol,
 	derivativeSymbolName: derivativeSymbol,
-	addSymbolName:        addSymbol,
-	subSymbolName:        subSymbol,
-	mulSymbolName:        mulSymbol,
-	divSymbolName:        divSymbol,
-	modSymbolName:        modSymbol,
-	negSymbolName:        negSymbol,
 }
 
 var SymbolResolver = symbol.CompoundResolver{
@@ -185,18 +173,6 @@ func NewModule(
 func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
 	if nodeCfg.Node.Type == derivativeSymbolName {
 		return createDerivative(nodeCfg)
-	}
-	if cat, ok := arithmeticOps[nodeCfg.Node.Type]; ok {
-		return &arithmeticBinary{
-			State: nodeCfg.State,
-			op:    cat[nodeCfg.State.Input(0).DataType],
-		}, nil
-	}
-	if cat, ok := arithmeticUnaryOps[nodeCfg.Node.Type]; ok {
-		return &arithmeticUnary{
-			State: nodeCfg.State,
-			op:    cat[nodeCfg.State.Input(0).DataType],
-		}, nil
 	}
 	reductionMap, ok := ops[nodeCfg.Node.Type]
 	if !ok {
@@ -429,179 +405,6 @@ func (d *derivativeNode) Next(ctx node.Context) {
 	d.Output(0).TimeRange = inputData.TimeRange
 	d.OutputTime(0).Alignment = inputData.Alignment
 	d.OutputTime(0).TimeRange = inputData.TimeRange
-	ctx.MarkChanged(0)
-}
-
-func createArithmeticSymbol(name string) symbol.Symbol {
-	constraint := types.NumericConstraint()
-	return symbol.Symbol{
-		Name:     name,
-		Kind:     symbol.KindFunction,
-		Exec:     symbol.ExecFlow,
-		Internal: true,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{
-				{Name: ir.LHSInputParam, Type: types.Variable("T", &constraint)},
-				{Name: ir.RHSInputParam, Type: types.Variable("T", &constraint)},
-			},
-			Outputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
-			},
-		}),
-	}
-}
-
-func createNegateSymbol(name string) symbol.Symbol {
-	constraint := types.SignedNumericConstraint()
-	return symbol.Symbol{
-		Name:     name,
-		Kind:     symbol.KindFunction,
-		Exec:     symbol.ExecBoth,
-		Internal: true,
-		Type: types.Function(types.FunctionProperties{
-			Inputs: types.Params{
-				{Name: ir.DefaultInputParam, Type: types.Variable("T", &constraint)},
-			},
-			Outputs: types.Params{
-				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &constraint)},
-			},
-		}),
-	}
-}
-
-var (
-	addSymbol = createArithmeticSymbol(addSymbolName)
-	subSymbol = createArithmeticSymbol(subSymbolName)
-	mulSymbol = createArithmeticSymbol(mulSymbolName)
-	divSymbol = createArithmeticSymbol(divSymbolName)
-	modSymbol = createArithmeticSymbol(modSymbolName)
-	negSymbol = createNegateSymbol(negSymbolName)
-)
-
-var (
-	arithmeticOps = map[string]map[telem.DataType]op.Binary{
-		addSymbolName: {
-			telem.Float64T: op.AddF64,
-			telem.Float32T: op.AddF32,
-			telem.Int64T:   op.AddI64,
-			telem.Int32T:   op.AddI32,
-			telem.Int16T:   op.AddI16,
-			telem.Int8T:    op.AddI8,
-			telem.Uint64T:  op.AddU64,
-			telem.Uint32T:  op.AddU32,
-			telem.Uint16T:  op.AddU16,
-			telem.Uint8T:   op.AddU8,
-		},
-		subSymbolName: {
-			telem.Float64T: op.SubtractF64,
-			telem.Float32T: op.SubtractF32,
-			telem.Int64T:   op.SubtractI64,
-			telem.Int32T:   op.SubtractI32,
-			telem.Int16T:   op.SubtractI16,
-			telem.Int8T:    op.SubtractI8,
-			telem.Uint64T:  op.SubtractU64,
-			telem.Uint32T:  op.SubtractU32,
-			telem.Uint16T:  op.SubtractU16,
-			telem.Uint8T:   op.SubtractU8,
-		},
-		mulSymbolName: {
-			telem.Float64T: op.MultiplyF64,
-			telem.Float32T: op.MultiplyF32,
-			telem.Int64T:   op.MultiplyI64,
-			telem.Int32T:   op.MultiplyI32,
-			telem.Int16T:   op.MultiplyI16,
-			telem.Int8T:    op.MultiplyI8,
-			telem.Uint64T:  op.MultiplyU64,
-			telem.Uint32T:  op.MultiplyU32,
-			telem.Uint16T:  op.MultiplyU16,
-			telem.Uint8T:   op.MultiplyU8,
-		},
-		divSymbolName: {
-			telem.Float64T: op.DivideF64,
-			telem.Float32T: op.DivideF32,
-			telem.Int64T:   op.DivideI64,
-			telem.Int32T:   op.DivideI32,
-			telem.Int16T:   op.DivideI16,
-			telem.Int8T:    op.DivideI8,
-			telem.Uint64T:  op.DivideU64,
-			telem.Uint32T:  op.DivideU32,
-			telem.Uint16T:  op.DivideU16,
-			telem.Uint8T:   op.DivideU8,
-		},
-		modSymbolName: {
-			telem.Float64T: op.ModuloF64,
-			telem.Float32T: op.ModuloF32,
-			telem.Int64T:   op.ModuloI64,
-			telem.Int32T:   op.ModuloI32,
-			telem.Int16T:   op.ModuloI16,
-			telem.Int8T:    op.ModuloI8,
-			telem.Uint64T:  op.ModuloU64,
-			telem.Uint32T:  op.ModuloU32,
-			telem.Uint16T:  op.ModuloU16,
-			telem.Uint8T:   op.ModuloU8,
-		},
-	}
-	arithmeticUnaryOps = map[string]map[telem.DataType]op.Unary{
-		negSymbolName: {
-			telem.Float64T: op.NegateF64,
-			telem.Float32T: op.NegateF32,
-			telem.Int64T:   op.NegateI64,
-			telem.Int32T:   op.NegateI32,
-			telem.Int16T:   op.NegateI16,
-			telem.Int8T:    op.NegateI8,
-			telem.Uint64T:  op.NegateU64,
-			telem.Uint32T:  op.NegateU32,
-			telem.Uint16T:  op.NegateU16,
-			telem.Uint8T:   op.NegateU8,
-		},
-	}
-)
-
-type arithmeticBinary struct {
-	*node.State
-	op op.Binary
-}
-
-func (n *arithmeticBinary) Next(ctx node.Context) {
-	if !n.RefreshInputs() {
-		return
-	}
-	lhs, rhs := n.Input(0), n.Input(1)
-	n.op(lhs, rhs, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(0)
-	alignment := lhs.Alignment + rhs.Alignment
-	timeRange := telem.TimeRange{Start: lhs.TimeRange.Start, End: lhs.TimeRange.End}
-	if !rhs.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || rhs.TimeRange.Start < timeRange.Start) {
-		timeRange.Start = rhs.TimeRange.Start
-	}
-	if rhs.TimeRange.End > timeRange.End {
-		timeRange.End = rhs.TimeRange.End
-	}
-	n.Output(0).Alignment = alignment
-	n.Output(0).TimeRange = timeRange
-	n.OutputTime(0).Alignment = alignment
-	n.OutputTime(0).TimeRange = timeRange
-	ctx.MarkChanged(0)
-}
-
-type arithmeticUnary struct {
-	*node.State
-	op op.Unary
-}
-
-var _ node.Node = (*arithmeticUnary)(nil)
-
-func (n *arithmeticUnary) Next(ctx node.Context) {
-	if !n.RefreshInputs() {
-		return
-	}
-	input := n.Input(0)
-	n.op(input, n.Output(0))
-	*n.OutputTime(0) = n.InputTime(0)
-	n.Output(0).Alignment = input.Alignment
-	n.Output(0).TimeRange = input.TimeRange
-	n.OutputTime(0).Alignment = input.Alignment
-	n.OutputTime(0).TimeRange = input.TimeRange
 	ctx.MarkChanged(0)
 }
 
