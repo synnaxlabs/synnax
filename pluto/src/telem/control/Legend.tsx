@@ -115,7 +115,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 interface LegendEntryProps {
   entryKey: string;
   name: string;
-  color: color.Crude;
+  color: color.Color;
   isSelf: boolean;
   onColorChange: (key: string, color: color.Color) => void;
   onColorPickerVisibleChange: state.Setter<boolean>;
