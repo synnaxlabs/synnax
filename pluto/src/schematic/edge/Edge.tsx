@@ -84,7 +84,6 @@ export interface EdgeProps extends diagram.EdgeProps {
 }
 
 export const Edge = ({
-  edgeKey,
   source,
   target,
   sourceNode,

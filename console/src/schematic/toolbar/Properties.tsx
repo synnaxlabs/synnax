@@ -30,7 +30,6 @@ import { useDispatch, useStore } from "react-redux";
 import { Layout } from "@/layout";
 import {
   type ElementInfo,
-  selectElementProps,
   selectViewport,
   useSelectEdgeProps,
   useSelectRequiredNodeProps,
@@ -40,7 +39,7 @@ import {
 import { setElementProps, setNodePositions } from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { nodePropsZ } from "@/schematic/types/v6";
+import { type nodePropsZ } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
@@ -158,7 +157,7 @@ const EdgeProperties = ({
       <Input.Item label="Color" align="start">
         <Color.Swatch
           value={swatchColor}
-          onChange={(v: color.Color) => onChange(edgeKey, { color: color.hex(v) })}
+          onChange={(color: color.Color) => onChange(edgeKey, { color })}
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
@@ -377,8 +376,8 @@ const MultiElementProperties = ({
             <Color.Swatch
               key={elements[0].key}
               value={hex}
-              onChange={(v: color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
+              onChange={(color: color.Color) => {
+                elements.forEach((e) => onChange(e.key, { color }));
               }}
             />
           ))}

@@ -620,32 +620,24 @@ export const updateSegmentsForPositionChanges = ({
       deltas.set(change.key, xy.translation(node.position, change.newPos));
   }
   const updates: EdgeSegmentUpdate[] = [];
-  let currentProps = { ...props };
-  for (const change of changes) {
-    const delta = deltas.get(change.key);
-    if (delta == null || xy.equals(delta, xy.ZERO)) continue;
-    for (const edge of edges) {
-      const isSource = edge.source.node === change.key;
-      const isTarget = edge.target.node === change.key;
-      if (!isSource && !isTarget) continue;
-      const otherKey = isSource ? edge.target.node : edge.source.node;
-      const otherDelta = deltas.get(otherKey);
-      if (otherDelta != null && xy.equals(delta, otherDelta, 0.001)) continue;
-      const edgeProps = currentProps[edge.key] as { segments?: Segment[] } | undefined;
-      const segments = edgeProps?.segments ?? [];
-      if (segments.length === 0) continue;
-      const updated = isSource
-        ? moveSourceNode({ delta, segments })
-        : moveTargetNode({ delta: xy.scale(delta, -1), segments });
-      updates.push({ key: edge.key, segments: updated });
-      currentProps = {
-        ...currentProps,
-        [edge.key]: {
-          ...(currentProps[edge.key] as Record<string, unknown>),
-          segments: updated,
-        },
-      };
-    }
+  for (const edge of edges) {
+    const sourceDelta = deltas.get(edge.source.node);
+    const targetDelta = deltas.get(edge.target.node);
+    if (sourceDelta == null && targetDelta == null) continue;
+    if (
+      sourceDelta != null &&
+      targetDelta != null &&
+      xy.equals(sourceDelta, targetDelta, 0.001)
+    )
+      continue;
+    const edgeProps = props[edge.key] as { segments?: Segment[] } | undefined;
+    let segments = edgeProps?.segments ?? [];
+    if (segments.length === 0) continue;
+    if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
+      segments = moveSourceNode({ delta: sourceDelta, segments });
+    if (targetDelta != null && !xy.equals(targetDelta, xy.ZERO))
+      segments = moveTargetNode({ delta: xy.scale(targetDelta, -1), segments });
+    updates.push({ key: edge.key, segments });
   }
   return updates;
 };

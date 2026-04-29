@@ -52,11 +52,10 @@ export const selectSelectedElementDigests = (
   layoutKey: string,
 ): ElementDigest[] => {
   const arc = select(state, layoutKey);
-  const selectedSet = new Set(arc.graph.selected);
   const nodeKeys = new Set(arc.graph.nodes.map((n) => n.key));
   return arc.graph.selected.map((key) => ({
     key,
-    type: nodeKeys.has(key) ? ("node" as const) : ("edge" as const),
+    type: nodeKeys.has(key) ? "node" : "edge",
   }));
 };
 

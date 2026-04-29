@@ -152,6 +152,18 @@ export const calculatePos = (
   return s.pos(cursor);
 };
 
+const setActiveTabFromSelection = (
+  state: latest.SliceState,
+  layoutKey: string,
+  hasSelection: boolean,
+): void => {
+  if (hasSelection) {
+    if (state.toolbar.activeTab !== "properties")
+      clearOtherSelections(state, layoutKey);
+    state.toolbar.activeTab = "properties";
+  } else state.toolbar.activeTab = "stages";
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -219,6 +231,7 @@ export const { actions, reducer } = createSlice({
         ...nextNodes.map((n) => n.key),
         ...nextEdges.map((e) => e.key),
       ];
+      setActiveTabFromSelection(state, layoutKey, arc.graph.selected.length > 0);
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
       const { key: layoutKey } = payload;
@@ -280,11 +293,7 @@ export const { actions, reducer } = createSlice({
       const { key: layoutKey, selected } = payload;
       const arc = state.arcs[layoutKey];
       arc.graph.selected = selected;
-      if (selected.length > 0) {
-        if (state.toolbar.activeTab !== "properties")
-          clearOtherSelections(state, layoutKey);
-        state.toolbar.activeTab = "properties";
-      } else state.toolbar.activeTab = "stages";
+      setActiveTabFromSelection(state, layoutKey, selected.length > 0);
     },
     setActiveToolbarTab: (
       state,
@@ -330,6 +339,7 @@ export const { actions, reducer } = createSlice({
         ...arc.graph.nodes.map((n) => n.key),
         ...arc.graph.edges.map((e) => e.key),
       ];
+      setActiveTabFromSelection(state, layoutKey, arc.graph.selected.length > 0);
     },
     setRawText: (state, { payload }: PayloadAction<SetRawTextPayload>) => {
       const { key: layoutKey, raw } = payload;
@@ -344,7 +354,7 @@ export const { actions, reducer } = createSlice({
     applyNodeChanges: (state, { payload }: PayloadAction<ApplyNodeChangesPayload>) => {
       const { key: layoutKey, changes } = payload;
       const arc = state.arcs[layoutKey];
-      for (const change of changes) {
+      for (const change of changes)
         switch (change.type) {
           case "position": {
             const node = arc.graph.nodes.find((n) => n.key === change.key);
@@ -366,12 +376,11 @@ export const { actions, reducer } = createSlice({
             break;
           }
         }
-      }
     },
     applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
       const { key: layoutKey, changes } = payload;
       const arc = state.arcs[layoutKey];
-      for (const change of changes) {
+      for (const change of changes)
         switch (change.type) {
           case "add":
             arc.graph.edges.push(change.edge);
@@ -381,7 +390,6 @@ export const { actions, reducer } = createSlice({
             arc.graph.selected = arc.graph.selected.filter((k) => k !== change.key);
             break;
         }
-      }
     },
   },
 });

@@ -193,6 +193,14 @@ const setActiveTabFromSelection = (
   } else schematic.toolbar.activeTab = "symbols";
 };
 
+const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void => {
+  const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
+  const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
+  if (sourceProps?.color == null || sourceProps.color !== targetProps?.color) return;
+  const existing = (schematic.props[edge.key] ?? {}) as EdgeProps;
+  schematic.props[edge.key] = { ...existing, color: sourceProps.color };
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
@@ -337,20 +345,10 @@ export const { actions, reducer } = createSlice({
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
       const { key: layoutKey, edges } = payload;
       const schematic = state.schematics[layoutKey];
-      // For new edges, sync color from source/target node when both colors match.
       const prevKeys = new Set(schematic.edges.map((edge) => edge.key));
-      const newEdges = edges.filter((edge) => !prevKeys.has(edge.key));
-      newEdges.forEach((edge) => {
-        const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
-        const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
-        if (sourceProps?.color != null && sourceProps.color === targetProps?.color) {
-          const existing = (schematic.props[edge.key] ?? {}) as EdgeProps;
-          schematic.props[edge.key] = {
-            ...existing,
-            color: sourceProps.color,
-          };
-        }
-      });
+      edges
+        .filter((edge) => !prevKeys.has(edge.key))
+        .forEach((edge) => syncEdgeColorFromEndpoints(schematic, edge));
       schematic.edges = edges;
     },
     applyNodeChanges: (state, { payload }: PayloadAction<ApplyNodeChangesPayload>) => {
@@ -385,6 +383,7 @@ export const { actions, reducer } = createSlice({
       for (const change of changes)
         switch (change.type) {
           case "add":
+            syncEdgeColorFromEndpoints(schematic, change.edge);
             schematic.edges.push(change.edge);
             break;
           case "remove":

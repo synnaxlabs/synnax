@@ -126,8 +126,8 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const selected = useSelectSelected(layoutKey);
 
   const handleSelectionChange = useCallback(
-    (selected: string[]) => undoableDispatch(setSelected({ key: layoutKey, selected })),
-    [layoutKey, undoableDispatch],
+    (selected: string[]) => dispatch(setSelected({ key: layoutKey, selected })),
+    [layoutKey, dispatch],
   );
 
   const handleNodesChange = useCallback(
