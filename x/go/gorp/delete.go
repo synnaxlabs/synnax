@@ -21,9 +21,9 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
-	// indexes mirrors Create.indexes — propagated by Table.NewDelete so the
-	// writer built in Exec stages deletions against the Table's secondary
-	// indexes.
+	// indexes is the set of secondary indexes that the executed query
+	// stages deletions against. Nil means deletions are not staged to
+	// any per-tx index delta.
 	indexes []Index[K, E]
 }
 

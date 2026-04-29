@@ -9,7 +9,11 @@
 
 package gorp
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/synnaxlabs/x/set"
+)
 
 // deltaEntry is the per-key staged state of an index under an open
 // transaction. value is the indexed field's current staged value for
@@ -30,14 +34,14 @@ type deltaEntry[V comparable] struct {
 // value-to-key inverse for fast resolve.
 type delta[SK comparable, V comparable] struct {
 	state   map[SK]deltaEntry[V]
-	forward map[V]map[SK]struct{}
+	forward map[V]set.Set[SK]
 }
 
 //nolint:unused
 func newDelta[SK comparable, V comparable]() *delta[SK, V] {
 	return &delta[SK, V]{
 		state:   make(map[SK]deltaEntry[V]),
-		forward: make(map[V]map[SK]struct{}),
+		forward: make(map[V]set.Set[SK]),
 	}
 }
 
@@ -65,10 +69,10 @@ func (d *delta[SK, V]) stageDelete(key SK) {
 func (d *delta[SK, V]) addToForward(key SK, value V) {
 	bucket, ok := d.forward[value]
 	if !ok {
-		bucket = make(map[SK]struct{})
+		bucket = set.New[SK]()
 		d.forward[value] = bucket
 	}
-	bucket[key] = struct{}{}
+	bucket.Add(key)
 }
 
 //nolint:unused
@@ -90,44 +94,33 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 	if d.isEmpty() {
 		return committedKeys
 	}
-	result := make(map[SK]struct{}, len(committedKeys))
-	for _, k := range committedKeys {
-		result[k] = struct{}{}
-	}
-	valueSet := make(map[V]struct{}, len(values))
-	for _, v := range values {
-		valueSet[v] = struct{}{}
-	}
+	result := set.New(committedKeys...)
+	valueSet := set.New(values...)
 	for k, entry := range d.state {
 		if entry.deleted {
-			delete(result, k)
+			result.Remove(k)
 			continue
 		}
-		if _, wanted := valueSet[entry.value]; !wanted {
-			delete(result, k)
+		if !valueSet.Contains(entry.value) {
+			result.Remove(k)
 		}
 	}
 	for _, v := range values {
 		for k := range d.forward[v] {
-			result[k] = struct{}{}
+			result.Add(k)
 		}
 	}
-	out := make([]SK, 0, len(result))
-	for k := range result {
-		out = append(out, k)
-	}
-	return out
+	return result.Slice()
 }
 
-// deltaOverlay manages per-tx delta state for a single secondary
-// index. It owns the txDeltas map and mutex, the loadOrCreate
-// lifecycle, and the resolve merge. Embedded in Lookup, Sorted, and
-// BytesLookup so the staging pattern is written once.
+// deltaOverlay tracks per-tx delta state for a single secondary index.
+// stage / unstage record pending mutations against the open
+// transaction; resolve merges the staged state into a committed result
+// set under read-your-own-writes semantics.
 //
-// flush, when non-nil, is called from the per-tx cleanup hook on
-// successful commit with the final delta state. The owning index
-// uses it to promote staged mutations into committed storage with
-// no decode round-trip, since the indexed value is already in hand.
+// flush, when non-nil, runs after a successful commit with the final
+// delta state. Owners can use it to promote staged mutations into
+// committed storage; no flush runs on rollback.
 type deltaOverlay[SK comparable, V comparable] struct {
 	deltaMu  sync.Mutex
 	txDeltas map[*txState]*delta[SK, V]

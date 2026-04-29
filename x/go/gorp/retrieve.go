@@ -51,13 +51,11 @@ func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
 // GetEntries returns the entries binding for the query.
 func (r *Retrieve[K, E]) GetEntries() *Entries[K, E] { return &r.entries }
 
-// Where adds the provided filter to the query, ANDing it with any existing
-// filter. To restrict by primary key, compose MatchKeys into the filter
-// (e.g. r.Where(MatchKeys(1, 2, 3))). To compose with an indexed filter,
-// pass it through the same Where call: r.Where(idx.Filter(value)). And
-// across the two paths intersects their candidate key sets via
-// intersectKeys, so MatchKeys + indexed filter still routes through the
-// execKeys fast path.
+// Where adds the provided filter to the query, ANDing it with any
+// existing filter. To restrict by primary key, compose MatchKeys into
+// the filter (e.g. r.Where(MatchKeys(1, 2, 3))). To compose with an
+// indexed filter, pass it through the same Where call:
+// r.Where(idx.Filter(value)).
 func (r Retrieve[K, E]) Where(filter Filter[K, E]) Retrieve[K, E] {
 	if r.filter.present() {
 		filter = And(r.filter, filter)
@@ -130,11 +128,6 @@ func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 // OrderBy walks the results in the order defined by the given OrderQuery,
 // typically obtained from Sorted.Ordered(dir) (optionally with .After(cursor)
 // chained for cursor-based pagination). Combine with Limit for paged walks.
-//
-// The cursor lives inside the SortedQuery handle that satisfies OrderQuery,
-// captured at construction time when V is statically known. Retrieve stores
-// the V-erased OrderQuery interface; the typed cursor never crosses the
-// boundary as a value, so there's no `any` boxing on the pagination path.
 func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
 	r.orderBy = o
 	return r
@@ -180,10 +173,8 @@ func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
 	return r
 }
 
-// isBareKeys reports whether the filter is exactly Where(MatchKeys(...)) with
-// no eval or raw constraints layered on top. Used by Exec to decide whether
-// missing keys should surface as query.ErrNotFound (bare keys) or just be
-// silently omitted (any other shape, including indexed filters).
+// isBareKeys reports whether the filter is exactly Where(MatchKeys(...))
+// with no eval, raw, or resolver layered on top.
 func (r Retrieve[K, E]) isBareKeys() bool {
 	return r.filter.keys != nil &&
 		r.filter.eval == nil &&
@@ -193,17 +184,12 @@ func (r Retrieve[K, E]) isBareKeys() bool {
 
 // Exec executes the query against the provided transaction.
 //
-// Dispatch order:
-//   - Resolve indexed filter (if deferred) → populate filter.keys
-//   - OrderBy → execOrdered
-//   - filter has keys (from MatchKeys or an indexed filter) → execKeys (fast path)
-//   - otherwise → execFilter (full table scan)
-//
-// If the filter is bare keys (Where(MatchKeys(...)) only) and any requested
-// key is missing, Exec returns query.ErrNotFound joined with any other error
-// the execKeys path produced. Indexed filters or composed (keys + eval/raw)
-// filters do not surface ErrNotFound for missing keys — a missing key is
-// just an empty slot in the result set.
+// If the filter is bare keys (Where(MatchKeys(...)) only) and any
+// requested key is missing, Exec returns query.ErrNotFound joined with
+// any other error encountered. Other filter shapes treat missing keys
+// as a normal empty slot in the result set, except that a single-entry
+// bound query with an empty result returns ErrNotFound regardless of
+// filter shape.
 func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Retriever.Exec", tx)
 	if err := r.resolveFilter(ctx, tx); err != nil {
@@ -214,14 +200,6 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	}
 	if r.HasFilterKeys() {
 		notFound, err := r.execKeys(ctx, tx)
-		// Any keys that were looked up but missing from the DB. For a
-		// user-supplied MatchKeys filter this means "you asked for keys
-		// that don't exist"; for an indexed filter (where keys come from
-		// a resolver) it indicates index/DB drift. Either way, surface
-		// as ErrNotFound joined with any validator/exec error so callers
-		// can match on both. Mirrors rc's WhereKeys contract: any missing
-		// key in the input set is an error regardless of single- or
-		// multi-entry binding.
 		if len(notFound) > 0 {
 			return errors.Join(err, errors.Wrapf(
 				query.ErrNotFound,
@@ -233,13 +211,6 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 		if err != nil {
 			return err
 		}
-		// Indexed-filter path with an empty resolve: no candidate keys
-		// were produced at all (e.g., name lookup on a deleted channel).
-		// For single-entry bound queries this mirrors execFilter's
-		// contract — surface as ErrNotFound so callers (e.g., the Arc
-		// symbol resolver) see "not found" rather than a silent zero
-		// entry. Multi-entry or unbound queries treat empty as a normal
-		// empty result.
 		if r.entries.Bound() && !r.entries.isMultiple && r.entries.changes == 0 {
 			return errors.Wrapf(
 				query.ErrNotFound,
@@ -252,13 +223,9 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	return r.execFilter(ctx, tx)
 }
 
-// resolveFilter invokes the filter's deferred resolver, if any, and
-// populates r.filter.keys + r.filter.membership with the merge of
-// committed index state and per-tx staged mutations. No-op for bare
-// Match/MatchRaw filters and for composed filters whose children are
-// all eager. Called from Exec/Exists/Count before dispatch so the rest
-// of the pipeline sees read-your-own-writes semantics through the
-// normal keys/membership fields.
+// resolveFilter materializes the filter's deferred resolver against
+// the open tx, merging committed index state with any per-tx staged
+// mutations. No-op when the filter has no resolver.
 func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	if r.filter.resolve == nil {
 		return nil
@@ -276,12 +243,8 @@ func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	return nil
 }
 
-// Exists checks whether records matching the query exist in the DB. Exists
-// returns true if any record passes the filter; for bare-keys queries this
-// degenerates to "every requested key exists".
-//
-// Dispatch mirrors Exec: filters with resolved keys (from MatchKeys or an
-// indexed filter) route through execKeys, otherwise execFilter.
+// Exists returns true if any record passes the filter. For bare-keys
+// queries this degenerates to "every requested key exists".
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	if err := r.resolveFilter(ctx, tx); err != nil {
 		return false, err
@@ -309,9 +272,7 @@ func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
 	return len(e) > 0, nil
 }
 
-// Count returns the number of records matching the query. Indexed filters
-// route through execKeys so the candidate set comes from the index rather
-// than a full table scan.
+// Count returns the number of records matching the query.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
 	if err := r.resolveFilter(ctx, tx); err != nil {
@@ -371,10 +332,9 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	return count, err
 }
 
-// match runs the filter's eval/keys-membership predicate against a decoded
-// entry. Returns true if no filter is set. The keys-path passes nil for the
-// rawKey since the keys are already known and key-shape pre-screening is
-// moot; the iterator path passes the actual key bytes.
+// match runs the filter's predicates against a decoded entry. Returns
+// true if no filter is set. key may be nil when the caller does not
+// have the raw key bytes available.
 func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error) {
 	if !r.filter.present() {
 		return true, nil
@@ -385,19 +345,11 @@ func (r Retrieve[K, E]) match(ctx Context, e *E, key, value []byte) (bool, error
 	if r.filter.eval != nil {
 		return r.filter.eval(ctx, e, key, value)
 	}
-	// No eval. raw was already enforced by matchRaw at the pre-decode
-	// pre-screen on the iterator path; the keys path doesn't run matchRaw
-	// (decode happens unconditionally inside reader.get). Either way an
-	// entry that reached here passes; honor the keys constraint above
-	// (already checked) and accept.
 	return true, nil
 }
 
-// matchRaw runs the filter's raw-byte pre-screen, used by execFilter and
-// Count to skip decode for entries the filter rejects on raw bytes alone.
-// The keys path doesn't call this — reader.get always decodes — so raw-only
-// filters layered onto MatchKeys still work, just without the decode-skip
-// optimization.
+// matchRaw runs the filter's raw-byte pre-screen against key/value.
+// Returns true (don't skip) when no raw filter is set.
 func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 	if r.filter.raw == nil {
 		return true, nil
@@ -405,15 +357,9 @@ func (r Retrieve[K, E]) matchRaw(key, value []byte) (bool, error) {
 	return r.filter.raw(key, value)
 }
 
-// execKeys streams the candidate key set per-key, fetching one entry at a
-// time and immediately running match against it. Returns the slice of keys
-// that were not found in the underlying KV store; the caller (Exec) decides
-// whether to surface that as query.ErrNotFound or silently skip.
-//
-// The per-key streaming approach avoids the [][]byte allocation a batched
-// fetch would require: each iteration borrows the entry's raw bytes from
-// the kv.Closer, runs match, then closes the closer before moving on.
-// Memory pressure stays at O(1) regardless of how many keys are requested.
+// execKeys fetches and matches each candidate key in turn. Returns the
+// keys that were not found in the underlying KV store; the caller
+// decides whether to surface that as query.ErrNotFound.
 func (r *Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
 		keys       = r.filter.keys
@@ -512,14 +458,9 @@ func (r *Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 	return err
 }
 
-// execOrdered walks a Sorted index via the configured OrderQuery handle,
-// fetching matching entries per-key in walk order. Any Where filters are
-// applied as post-filters after each fetch.
-//
-// Like execKeys, this path streams per-key without allocating a batched
-// raws slice. The walk is driven by the typed SortedQuery (which satisfies
-// OrderQuery) captured at OrderBy time; the cursor lives inside that
-// handle, so this path involves no `any` boxing.
+// execOrdered walks the configured OrderQuery, fetching entries per-key
+// in walk order. Any Where filter is applied as a post-filter against
+// each fetched entry.
 func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 	if r.orderBy == nil {
 		return nil

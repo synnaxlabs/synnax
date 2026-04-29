@@ -20,9 +20,9 @@ import (
 type Update[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	changes  changes[K, E]
-	// indexes mirrors Create.indexes — propagated by Table.NewUpdate so the
-	// writer built in Exec stages mutations against the Table's secondary
-	// indexes.
+	// indexes is the set of secondary indexes that the executed query
+	// stages writes against. Nil means writes are not staged to any
+	// per-tx index delta.
 	indexes []Index[K, E]
 }
 

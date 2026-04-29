@@ -21,10 +21,9 @@ type Create[K Key, E Entry[K]] struct {
 	entries   Entries[K, E]
 	onUpdate  onUpdate[K, E]
 	keyPrefix []byte
-	// indexes, when non-nil, are propagated into the writer constructed by
-	// Exec so secondary-index delta overlays see every write. Set by
-	// Table.NewCreate from t.indexes; left nil by the standalone NewCreate
-	// constructor.
+	// indexes is the set of secondary indexes that the executed query
+	// stages writes against. Nil means writes are not staged to any
+	// per-tx index delta.
 	indexes []Index[K, E]
 }
 

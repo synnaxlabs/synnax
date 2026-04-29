@@ -22,27 +22,26 @@ import (
 type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
-	// populate transitions the index into the populated state and returns
-	// (init error, insert closure, finish closure). The caller invokes insert
-	// once for every existing entry in the table, then invokes finish exactly
-	// once after the last insert. The implementation may hold a write lock
-	// across the entire populate phase, so finish is mandatory; failing to
-	// call it leaks the lock.
+	// populate returns an insert closure and a finish closure for the
+	// populate phase. The caller must invoke insert once for every existing
+	// entry in the table and then invoke finish exactly once. finish is
+	// mandatory: implementations may hold a write lock across the populate
+	// phase, and skipping finish leaks it.
 	populate() (func(entry E), func(), error)
-	// set is invoked by the Table observer when an entry is created or
-	// updated. The index extracts the new indexed value from entry, removes
-	// any stale mapping for key, and inserts the new one.
+	// set records that the entry for key is now entry, replacing any prior
+	// mapping for the same key in committed index state.
 	set(key K, entry E)
-	// delete is invoked by the Table observer when an entry is deleted. The
-	// index uses its reverse map to locate and remove the stale mapping.
+	// delete removes any committed mapping for key.
 	delete(key K)
-	// stageSet is invoked by a table-bound Writer after a tx-scoped Set,
-	// before the tx commits. It records the pending insert or update in a
-	// per-tx delta keyed off tx.txIdentity(). If the tx has no identity (DB
-	// acting as Tx), it is a no-op. The committed index is not touched.
+	// stageSet records a pending insert or update of entry under key
+	// against tx's per-tx delta. Committed index state is not modified
+	// until tx commits. When tx has no per-tx identity (a DB used
+	// directly), the mutation applies to committed state immediately.
 	stageSet(tx Tx, key K, entry E)
-	// stageDelete is the delete analogue of stageSet. It records a pending
-	// deletion in the per-tx delta. The committed index is not touched.
+	// stageDelete records a pending deletion of key against tx's per-tx
+	// delta. Committed index state is not modified until tx commits.
+	// When tx has no per-tx identity, the deletion applies to committed
+	// state immediately.
 	stageDelete(tx Tx, key K)
 }
 
@@ -137,9 +136,7 @@ func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
 	l.overlay.unstage(tx, key)
 }
 
-// flushTx promotes the staged tx delta into committed index state on
-// successful commit. The staged value is used directly, avoiding the
-// extract round-trip the observer's set path performs after decoding.
+// flushTx promotes the staged tx delta into committed index state.
 func (l *Lookup[K, E, V]) flushTx(d *delta[K, V]) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -176,9 +173,6 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if len(values) == 1 {
-		// Single-value fast path: avoid the append-grow loop. Allocate the
-		// result slice with the exact size and copy directly. This is the
-		// dominant case for index-backed exact-match queries.
 		src := l.storage.get(values[0])
 		out := make([]K, len(src))
 		copy(out, src)
@@ -191,21 +185,12 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns a Filter[K, E] whose Keys are resolved at
-// Retrieve.Exec time against the passed transaction. The resolver
-// overlays any per-tx delta staged against this index on top of the
-// committed index state, so an indexed Retrieve inside the same write
-// tx that created / updated / deleted an entry sees those pending
-// changes (read-your-own-writes). When the tx has no per-tx scoping
-// (DB passed directly) or no staged mutations, the resolver falls
-// through to the committed-only path and returns the same keys that
-// the pre-overlay Filter would have returned.
-//
-// The returned Filter carries `resolve` instead of an eager `Keys`
-// field. Retrieve.Exec / Exists / Count invoke the resolver before
-// dispatch and assign the result to `Keys` + `membership` on the
-// local filter copy, after which the rest of the pipeline works
-// unchanged (execKeys fast path, composition with And/Or, etc.).
+// Filter returns a Filter[K, E] matching entries whose indexed field is
+// any of values. The filter sees read-your-own-writes: an indexed
+// Retrieve inside a write tx that created, updated, or deleted an
+// entry observes those pending changes alongside committed index
+// state. A Retrieve against a DB used directly returns committed
+// state only.
 func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
@@ -231,15 +216,15 @@ func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) []K {
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from
-// entries of type E. V is constrained to cmp.Ordered so the storage can use
-// the native `<` operator without a caller-supplied comparator. Sorted
-// supports exact-match lookups via Filter (same semantics as Lookup) and
-// ordered cursor-based pagination via Retrieve.OrderBy.
+// entries of type E. V is constrained to cmp.Ordered so the storage can
+// compare values without a caller-supplied comparator. Sorted supports
+// exact-match lookups via Filter (same semantics as Lookup) and ordered
+// cursor-based pagination via Retrieve.OrderBy.
 //
-// Tx delta overlay is v1-scoped to equality Filter. Ordered cursor
-// iteration via Retrieve.OrderBy / SortedQuery.walkOrder does NOT
-// reflect uncommitted tx writes — it reads the committed sorted slice
-// directly.
+// Read-your-own-writes is v1-scoped to equality Filter. Ordered cursor
+// iteration via Retrieve.OrderBy does NOT reflect uncommitted tx
+// writes; an open write tx that staged inserts or deletes will not
+// see those changes during ordered iteration.
 type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 	name    string
 	extract func(e *E) V
@@ -272,11 +257,6 @@ func (s *Sorted[K, E, V]) Name() string { return s.name }
 //nolint:unused
 func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
 	s.mu.Lock()
-	// Bulk-load: append every entry to the storage's tail without maintaining
-	// the sort invariant per insert (the per-insert path is O(N) due to slice
-	// shifting). Sort once at finish for an O(N log N) populate instead of
-	// O(N²). The write lock is held across the whole phase, so concurrent
-	// reads can never observe the partially sorted state.
 	insert := func(entry E) {
 		key := entry.GorpKey()
 		value := s.extract(&entry)
@@ -338,8 +318,7 @@ func (s *Sorted[K, E, V]) stageDelete(tx Tx, key K) {
 	s.overlay.unstage(tx, key)
 }
 
-// flushTx promotes the staged tx delta into committed index state on
-// successful commit. See Lookup.flushTx for semantics.
+// flushTx promotes the staged tx delta into committed index state.
 func (s *Sorted[K, E, V]) flushTx(d *delta[K, V]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -388,11 +367,10 @@ func (s *Sorted[K, E, V]) Get(values ...V) []K {
 	return out
 }
 
-// Filter returns an exact-match Filter[K, E] against the sorted index.
-// Like Lookup.Filter, the returned filter carries a deferred resolver
-// that merges committed index state with any per-tx delta at
-// Retrieve.Exec time. Ordered cursor iteration (Sorted.Ordered / OrderBy)
-// is not covered by the delta overlay in v1; only equality Filter.
+// Filter returns an exact-match Filter[K, E] matching entries whose
+// indexed field is any of values. Read-your-own-writes semantics
+// match Lookup.Filter. Ordered cursor iteration (Sorted.Ordered /
+// OrderBy) is not covered; only equality Filter.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{

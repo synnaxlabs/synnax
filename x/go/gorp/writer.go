@@ -16,29 +16,21 @@ import "context"
 type Writer[K Key, E Entry[K]] struct {
 	tx       Tx
 	keyCodec keyCodec[K, E]
-	// indexes, if non-nil, is the set of secondary indexes that receive
-	// staged mutations for each Set / Delete call. Set only by table-bound
-	// queries (Table.NewCreate / NewUpdate / NewDelete) which carry the
-	// owning Table's index list. WrapWriter leaves this nil, so writes
-	// through a bare DB-wrapped writer skip staging and rely on the
-	// commit-time DB observer to update global index state.
+	// indexes is the set of secondary indexes that receive staged
+	// mutations for each Set / Delete call. Nil means no per-write index
+	// staging.
 	indexes []Index[K, E]
 }
 
-// WrapWriter wraps the given Tx to provide a strongly typed Writer. The
-// returned writer does not stage mutations against any secondary indexes —
-// that path is only triggered by table-bound queries that thread the
-// Table's index list through wrapWriter. Direct WrapWriter usage is
-// preserved for tests and for writer patterns that predate the index
-// delta overlay.
+// WrapWriter wraps the given Tx to provide a strongly typed Writer that
+// does not stage mutations against any secondary indexes.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
 	return wrapWriter[K, E](tx, nil, nil)
 }
 
-// wrapWriter is the internal Writer constructor. It accepts a precomputed
-// keyCodec prefix (nil falls back to types.Name[E]()) and an optional
-// index list to stage mutations against. Table-bound queries pass both;
-// bare WrapWriter passes nil for each.
+// wrapWriter constructs a Writer with an optional precomputed key prefix
+// (nil falls back to types.Name[E]()) and an optional index list to
+// stage mutations against on each Set / Delete.
 func wrapWriter[K Key, E Entry[K]](
 	tx Tx,
 	prefix []byte,

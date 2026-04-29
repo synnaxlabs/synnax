@@ -44,19 +44,12 @@ type TableConfig[K Key, E Entry[K]] struct {
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
 	DB *DB
-	// keyPrefix is the gorp key prefix for entry type E, computed once at
-	// open time via newKeyPrefix[E]() and threaded through every Reader /
-	// Writer constructed by NewRetrieve / NewCreate / NewUpdate / NewDelete /
-	// OpenNexter so the codec doesn't have to recompute the prefix per call.
+	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes registered on this Table. The
-	// table-bound query builders (NewCreate / NewUpdate / NewDelete) pass
-	// this through to their underlying Writer so each Set / Delete stages
-	// the corresponding index mutation against the per-tx delta. Retrieve
-	// reads from index state via the idx.Filter helpers.
+	// indexes is the set of secondary indexes registered on this Table.
 	indexes []Index[K, E]
-	// disconnectObserver releases the index observer subscription installed
-	// at open time. Set only when len(indexes) > 0; called from Close.
+	// disconnectObserver releases the index observer subscription, or
+	// nil if no observer was installed.
 	disconnectObserver func()
 }
 
@@ -102,7 +95,7 @@ func OpenTable[K Key, E Entry[K]](
 			return nil, err
 		}
 		t.disconnectObserver = attachIndexObserver[K, E](
-			override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.options.IndexObservable),
+			override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
 			cfg.DB,
 			cfg.Indexes,
 		)
@@ -110,14 +103,10 @@ func OpenTable[K Key, E Entry[K]](
 	return t, nil
 }
 
-// populateIndexes performs a single sequential scan over every entry in the
-// table and feeds each decoded entry into every registered index.
-//
-// Each index returns an insert closure and a finish closure from populate;
-// the orchestrator collects them, scans the table once, fans every decoded
-// entry through every insert closure, and runs the finish closures at the
-// end. If any index fails to start, finish is invoked on every index that
-// already started so the populate-phase write locks are released cleanly.
+// populateIndexes populates every registered index from the current
+// table contents in a single sequential scan. If any index fails to
+// start, finish runs on every index that did start so populate-phase
+// locks are released regardless of which step failed.
 func populateIndexes[K Key, E Entry[K]](
 	ctx context.Context,
 	db *DB,
@@ -153,9 +142,9 @@ func populateIndexes[K Key, E Entry[K]](
 	return nil
 }
 
-// attachIndexObserver subscribes to src and fans every set/delete into every
-// registered index. db is used only for entry decoding. The returned disconnect
-// function unregisters the observer; it is invoked by Table.Close.
+// attachIndexObserver subscribes to src and propagates every set and
+// delete change into every registered index. The returned function
+// unregisters the subscription.
 func attachIndexObserver[K Key, E Entry[K]](
 	src observe.Observable[kv.TxReader],
 	db *DB,
@@ -178,10 +167,9 @@ func attachIndexObserver[K Key, E Entry[K]](
 		})
 }
 
-// NewCreate returns a Create query builder bound to this Table's
-// secondary indexes. Writes through the returned query stage
-// mutations against each registered index's per-tx delta, so a
-// Retrieve via idx.Filter in the same tx sees its own writes.
+// NewCreate returns a Create query builder bound to this Table. Writes
+// through the returned query are visible to a Retrieve via idx.Filter
+// in the same tx (read-your-own-writes).
 func (t *Table[K, E]) NewCreate() Create[K, E] {
 	c := NewCreate[K, E]()
 	c.keyPrefix = t.keyPrefix
@@ -189,17 +177,16 @@ func (t *Table[K, E]) NewCreate() Create[K, E] {
 	return c
 }
 
-// NewRetrieve returns a Retrieve query builder threaded with the table's
-// keyPrefix so the underlying Reader skips re-deriving the prefix per call.
+// NewRetrieve returns a Retrieve query builder bound to this Table.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
 	r := NewRetrieve[K, E]()
 	r.keyPrefix = t.keyPrefix
 	return r
 }
 
-// NewUpdate returns an Update query builder bound to this Table's
-// secondary indexes. Writes through the returned query stage
-// mutations against each registered index's per-tx delta.
+// NewUpdate returns an Update query builder bound to this Table. Writes
+// through the returned query are visible to a Retrieve via idx.Filter
+// in the same tx (read-your-own-writes).
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	u := NewUpdate[K, E]()
 	u.retrieve.keyPrefix = t.keyPrefix
@@ -207,9 +194,9 @@ func (t *Table[K, E]) NewUpdate() Update[K, E] {
 	return u
 }
 
-// NewDelete returns a Delete query builder bound to this Table's
-// secondary indexes. Deletions through the returned query stage
-// removal against each registered index's per-tx delta.
+// NewDelete returns a Delete query builder bound to this Table.
+// Deletions through the returned query are visible to a Retrieve via
+// idx.Filter in the same tx (read-your-own-writes).
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
 	d := NewDelete[K, E]()
 	d.retrieve.keyPrefix = t.keyPrefix
