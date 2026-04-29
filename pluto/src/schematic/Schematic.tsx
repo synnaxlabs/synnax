@@ -14,13 +14,14 @@ import { type FC, type ReactElement, useCallback } from "react";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
+import { useKey } from "@/schematic/Context";
 import { type connector } from "@/schematic/edge/connector";
 import { ConnectionLine, Edge } from "@/schematic/edge/Edge";
 import { type EdgeType } from "@/schematic/edge/paths";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { REGISTRY, type Variant } from "@/schematic/symbol/registry";
-import { type diagram } from "@/vis/diagram/aether";
 import { Diagram } from "@/vis/diagram";
+import { type diagram } from "@/vis/diagram/aether";
 
 export interface SchematicProps extends Omit<
   Diagram.DiagramProps,
@@ -34,16 +35,18 @@ export interface NodeProps extends Record<string, unknown> {
 export interface EdgeProps extends Record<string, unknown> {
   segments?: connector.Segment[];
   variant?: EdgeType;
-  color?: color.Crude;
+  color?: color.Color;
 }
 
 export interface SchematicHooks {
   /** Called inside the node renderer to read node props for the given key. */
-  useNodeProps: (key: string) => NodeProps | undefined;
+  useNodeProps: (entryKey: string, nodeKey: string) => NodeProps | undefined;
   /** Called inside the edge renderer to read edge props for the given key. */
-  useEdgeProps: (key: string) => EdgeProps | undefined;
+  useEdgeProps: (entryKey: string, edgeKey: string) => EdgeProps | undefined;
   /** Returns a stable callback for persisting a partial props update. */
-  useSetElementProps: () => (key: string, props: Record<string, unknown>) => void;
+  useSetElementProps: (
+    entryKey: string,
+  ) => (key: string, props: NodeProps | EdgeProps) => void;
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
@@ -55,8 +58,9 @@ export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
     selected,
     draggable,
   }: Diagram.NodeProps): ReactElement | null => {
-    const props = hooks.useNodeProps(nodeKey);
-    const setElementProps = hooks.useSetElementProps();
+    const entryKey = useKey();
+    const props = hooks.useNodeProps(entryKey, nodeKey);
+    const setElementProps = hooks.useSetElementProps(entryKey);
     const variant = props?.variant;
     const handleChange = useCallback(
       (next: object) => {
@@ -81,18 +85,21 @@ export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
     );
   };
 
-  const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
-    const edgeProps = hooks.useEdgeProps(props.edgeKey);
-    const setElementProps = hooks.useSetElementProps();
+  const EdgeRenderer = ({
+    edgeKey,
+    ...rest
+  }: diagram.EdgeProps): ReactElement | null => {
+    const entryKey = useKey();
+    const edgeProps = hooks.useEdgeProps(entryKey, edgeKey);
+    const setElementProps = hooks.useSetElementProps(entryKey);
     const handleSegmentsChange = useCallback(
-      (segments: connector.Segment[]) => {
-        setElementProps(props.edgeKey, { segments });
-      },
-      [props.edgeKey, setElementProps],
+      (segments: connector.Segment[]) => setElementProps(edgeKey, { segments }),
+      [edgeKey, setElementProps],
     );
     return (
       <Edge
-        {...props}
+        {...rest}
+        edgeKey={edgeKey}
         segments={edgeProps?.segments}
         variant={edgeProps?.variant}
         color={edgeProps?.color}

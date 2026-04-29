@@ -31,7 +31,7 @@ import {
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
-  type ComponentPropsWithoutRef,
+  type ComponentPropsWithRef,
   type FC,
   memo,
   type ReactElement,
@@ -113,7 +113,7 @@ const PRO_OPTIONS: ProOptions = {
 
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithoutRef<"div">, "onError">,
+    Omit<ComponentPropsWithRef<"div">, "onError">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -218,6 +218,7 @@ export const create = ({
   };
 
   const Base = ({
+    ref,
     aetherKey,
     onNodesChange,
     onEdgesChange,
@@ -240,6 +241,7 @@ export const create = ({
     viewportMode,
     onViewportModeChange,
     autoRenderInterval,
+    onDoubleClick,
     ...rest
   }: DiagramProps): ReactElement => {
     const [{ path }, , setState] = Aether.use({
@@ -439,47 +441,53 @@ export const create = ({
     );
 
     return (
-      <Context value={ctxValue}>
-        <Aether.Composite path={path}>
-          {visible && (
-            <ReactFlow
-              {...triggerProps}
-              className={CSS(
-                className,
-                CSS.B("diagram"),
-                CSS.editable(editable),
-                CSS.BE("symbol", "container"),
-              )}
-              nodes={rfNodes}
-              edges={rfEdges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              ref={combinedRefs}
-              fitView
-              onNodesChange={handleNodesChange}
-              onEdgesChange={handleEdgesChange}
-              onConnect={handleConnect}
-              connectionLineComponent={ConnectionLine}
-              defaultViewport={defautlViewport}
-              elevateEdgesOnSelect
-              defaultEdgeOptions={defaultEdgeOptions}
-              minZoom={fitViewOptions.minZoom}
-              maxZoom={fitViewOptions.maxZoom}
-              isValidConnection={isValidConnection}
-              connectionMode={ConnectionMode.Loose}
-              fitViewOptions={fitViewOptions}
-              selectionMode={SelectionMode.Partial}
-              proOptions={PRO_OPTIONS}
-              deleteKeyCode={DELETE_KEY_CODES}
-              snapToGrid={snapToGrid}
-              {...rest}
-              {...editableProps}
-              nodesDraggable={editable}
-              onInit={handleInit}
-            />
-          )}
-        </Aether.Composite>
-      </Context>
+      <div
+        className={CSS.BE("diagram", "container")}
+        ref={ref}
+        onDoubleClick={onDoubleClick}
+      >
+        <Context value={ctxValue}>
+          <Aether.Composite path={path}>
+            {visible && (
+              <ReactFlow
+                {...triggerProps}
+                className={CSS(
+                  className,
+                  CSS.B("diagram"),
+                  CSS.editable(editable),
+                  CSS.BE("symbol", "container"),
+                )}
+                nodes={rfNodes}
+                edges={rfEdges}
+                nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
+                ref={combinedRefs}
+                fitView
+                onNodesChange={handleNodesChange}
+                onEdgesChange={handleEdgesChange}
+                onConnect={handleConnect}
+                connectionLineComponent={ConnectionLine}
+                defaultViewport={defautlViewport}
+                elevateEdgesOnSelect
+                defaultEdgeOptions={defaultEdgeOptions}
+                minZoom={fitViewOptions.minZoom}
+                maxZoom={fitViewOptions.maxZoom}
+                isValidConnection={isValidConnection}
+                connectionMode={ConnectionMode.Loose}
+                fitViewOptions={fitViewOptions}
+                selectionMode={SelectionMode.Partial}
+                proOptions={PRO_OPTIONS}
+                deleteKeyCode={DELETE_KEY_CODES}
+                snapToGrid={snapToGrid}
+                {...rest}
+                {...editableProps}
+                nodesDraggable={editable}
+                onInit={handleInit}
+              />
+            )}
+          </Aether.Composite>
+        </Context>
+      </div>
     );
   };
 

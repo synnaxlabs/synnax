@@ -183,28 +183,18 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const useNodeProps = (key: string): Base.NodeProps | undefined =>
-  useSelectNodeProps(Base.useKey(), key);
-
-const useEdgeProps = (key: string): Base.EdgeProps | undefined => {
-  const layoutKey = Base.useKey();
-  return useSelectEdgeProps(layoutKey, key);
-};
-
-const useSetElementProps = () => {
-  const layoutKey = Base.useKey();
+const useSetElementProps = (layoutKey: string) => {
   const dispatch = useDispatch();
   return useCallback(
-    (key: string, props: Record<string, unknown>) => {
-      dispatch(setElementProps({ layoutKey, key, props }));
-    },
+    (key: string, props: Base.NodeProps | Base.EdgeProps) =>
+      dispatch(setElementProps({ layoutKey, key, props })),
     [layoutKey, dispatch],
   );
 };
 
 const SchematicComponent = Base.create({
-  useNodeProps,
-  useEdgeProps,
+  useNodeProps: useSelectNodeProps,
+  useEdgeProps: useSelectEdgeProps,
   useSetElementProps,
 });
 
@@ -415,64 +405,56 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   });
 
   return (
-    <div
-      ref={ref}
-      onDoubleClick={handleDoubleClick}
-      style={{ width: "inherit", height: "inherit", position: "relative" }}
-    >
-      <Controller resourceKey={layoutKey} authority={state.authority}>
-        <Base.Provider value={layoutKey}>
-          <SchematicComponent
-            onViewportChange={handleViewportChange}
-            viewportMode={mode}
-            onViewportModeChange={handleViewportModeChange}
-            edges={state.edges}
-            nodes={state.nodes}
-            selected={selected}
-            onSelectionChange={handleSelectionChange}
-            // Turns out that setting the zoom value to 1 here doesn't have any negative
-            // effects on the schematic sizing and ensures that we position all the lines
-            // in the correct place.
-            viewport={{ ...state.viewport, zoom: 1 }}
-            onEdgesChange={handleEdgesChange}
-            onNodesChange={handleNodesChange}
-            onEditableChange={handleEditableChange}
-            editable={canEdit}
-            triggers={triggers}
-            onDoubleClick={handleDoubleClick}
-            onNodeClick={handleNodeClick}
-            onNodeDoubleClick={handleNodeDoubleClick}
-            fitViewOnResize={state.fitViewOnResize}
-            setFitViewOnResize={handleSetFitViewOnResize}
-            visible={visible}
-            {...dropProps}
-          >
-            <Diagram.Background />
-            <Controls x>
-              <Diagram.Controls.SelectViewportMode />
-              <Diagram.Controls.FitView />
-              <Flex.Box x pack>
-                {hasUpdatePermission && (
-                  <Diagram.Controls.ToggleEdit
-                    disabled={state.control === "acquired"}
-                  />
-                )}
-                {!state.snapshot && <ControlToggleButton control={state.control} />}
-              </Flex.Box>
-            </Controls>
-          </SchematicComponent>
-        </Base.Provider>
-        {legendVisible && (
-          <Control.Legend
-            position={legendPosition}
-            onPositionChange={handleLegendPositionChange}
-            colors={state.legend.colors}
-            onColorsChange={handleLegendColorsChange}
-            allowVisibleChange={false}
-          />
-        )}
-      </Controller>
-    </div>
+    <Controller resourceKey={layoutKey} authority={state.authority}>
+      <Base.Provider value={layoutKey}>
+        <SchematicComponent
+          onViewportChange={handleViewportChange}
+          viewportMode={mode}
+          onViewportModeChange={handleViewportModeChange}
+          edges={state.edges}
+          nodes={state.nodes}
+          selected={selected}
+          onSelectionChange={handleSelectionChange}
+          // Turns out that setting the zoom value to 1 here doesn't have any negative
+          // effects on the schematic sizing and ensures that we position all the lines
+          // in the correct place.
+          viewport={{ ...state.viewport, zoom: 1 }}
+          onEdgesChange={handleEdgesChange}
+          onNodesChange={handleNodesChange}
+          onEditableChange={handleEditableChange}
+          editable={canEdit}
+          triggers={triggers}
+          onDoubleClick={handleDoubleClick}
+          onNodeClick={handleNodeClick}
+          onNodeDoubleClick={handleNodeDoubleClick}
+          fitViewOnResize={state.fitViewOnResize}
+          setFitViewOnResize={handleSetFitViewOnResize}
+          visible={visible}
+          {...dropProps}
+        >
+          <Diagram.Background />
+          <Controls x>
+            <Diagram.Controls.SelectViewportMode />
+            <Diagram.Controls.FitView />
+            <Flex.Box x pack>
+              {hasUpdatePermission && (
+                <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
+              )}
+              {!state.snapshot && <ControlToggleButton control={state.control} />}
+            </Flex.Box>
+          </Controls>
+        </SchematicComponent>
+      </Base.Provider>
+      {legendVisible && (
+        <Control.Legend
+          position={legendPosition}
+          onPositionChange={handleLegendPositionChange}
+          colors={state.legend.colors}
+          onColorsChange={handleLegendColorsChange}
+          allowVisibleChange={false}
+        />
+      )}
+    </Controller>
   );
 };
 

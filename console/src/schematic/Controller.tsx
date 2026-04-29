@@ -21,10 +21,7 @@ export interface ControllerProps extends Omit<
   resourceKey: string;
 }
 
-export const Controller = ({
-  resourceKey,
-  ...rest
-}: ControllerProps): ReactElement => {
+export const Controller = ({ resourceKey, ...rest }: ControllerProps): ReactElement => {
   const name = Layout.useSelectRequiredName(resourceKey);
   const dispatch = useDispatch();
   const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });

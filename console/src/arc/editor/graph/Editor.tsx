@@ -265,42 +265,36 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   return (
     <Provider value={ctxValue}>
-      <div
-        ref={ref}
+      <ArcDiagram
+        viewportMode={viewportMode}
+        onViewportModeChange={handleViewportModeChange}
+        onViewportChange={handleViewportChange}
+        edges={state.graph.edges}
+        nodes={state.graph.nodes}
+        // Turns out that setting the zoom value to 1 here doesn't have any negative
+        // effects on the arc sizing and ensures that we position all the lines
+        // in the correct place.
+        viewport={{ ...state.graph.viewport, zoom: 1 }}
+        selected={selected}
+        onSelectionChange={handleSelectionChange}
+        onEdgesChange={handleEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEditableChange={handleEditableChange}
+        editable={canEdit}
+        triggers={triggers}
         onDoubleClick={handleDoubleClick}
-        style={{ width: "inherit", height: "inherit", position: "relative" }}
+        fitViewOnResize={state.graph.fitViewOnResize}
+        setFitViewOnResize={handleSetFitViewOnResize}
+        visible={visible}
+        {...dropProps}
       >
-        <ArcDiagram
-          viewportMode={viewportMode}
-          onViewportModeChange={handleViewportModeChange}
-          onViewportChange={handleViewportChange}
-          edges={state.graph.edges}
-          nodes={state.graph.nodes}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the arc sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.graph.viewport, zoom: 1 }}
-          selected={selected}
-          onSelectionChange={handleSelectionChange}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          fitViewOnResize={state.graph.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.Background />
-          <BaseControls x>
-            <Diagram.Controls.FitView />
-            {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
-          </BaseControls>
-        </ArcDiagram>
-        <Controls state={state} />
-      </div>
+        <Diagram.Background />
+        <BaseControls x>
+          <Diagram.Controls.FitView />
+          {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
+        </BaseControls>
+      </ArcDiagram>
+      <Controls state={state} />
     </Provider>
   );
 };

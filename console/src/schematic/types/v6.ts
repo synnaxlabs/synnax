@@ -19,14 +19,14 @@ export const VERSION = "6.0.0";
 
 export const nodePropsZ = z.looseObject({
   variant: Schematic.Symbol.variantZ,
-  color: color.crudeZ.optional(),
+  color: color.colorZ.optional(),
   label: v0.labelZ.optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const edgePropsZ = z.looseObject({
   segments: z.array(Schematic.Edge.connector.segmentZ).optional(),
-  color: color.crudeZ.optional(),
+  color: color.colorZ.optional(),
   variant: Schematic.Edge.edgeTypeZ.optional(),
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
@@ -93,9 +93,12 @@ const migrateEdge = (edge: v0.Edge): { edge: Diagram.Edge; edgeProps?: EdgeProps
     | undefined;
   if (data == null) return { edge: next };
   const edgeProps: EdgeProps = {};
-  if (Array.isArray(data.segments)) edgeProps.segments = data.segments;
-  if (data.color != null) edgeProps.color = data.color as color.Crude;
-  if (data.variant != null) edgeProps.variant = data.variant as Schematic.Edge.EdgeType;
+  const segments = z.array(Schematic.Edge.connector.segmentZ).safeParse(data.segments);
+  if (segments.success) edgeProps.segments = segments.data;
+  const parsedColor = color.colorZ.safeParse(data.color);
+  if (parsedColor.success) edgeProps.color = parsedColor.data;
+  const parsedVariant = Schematic.Edge.edgeTypeZ.safeParse(data.variant);
+  if (parsedVariant.success) edgeProps.variant = parsedVariant.data;
   return { edge: next, edgeProps };
 };
 

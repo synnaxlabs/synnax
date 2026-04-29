@@ -452,7 +452,7 @@ export const { actions, reducer } = createSlice({
       Object.values(state.schematics).forEach((schematic) => {
         Object.values(schematic.props).forEach((p) => {
           if ("color" in p && p.color != null && shouldChange(p.color))
-            p.color = theme.colors.gray.l11;
+            p.color = color.construct(theme.colors.gray.l11);
         });
       });
     },
