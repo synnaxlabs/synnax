@@ -21,6 +21,7 @@ import * as v2 from "@/schematic/types/v2";
 import * as v3 from "@/schematic/types/v3";
 import * as v4 from "@/schematic/types/v4";
 import * as v5 from "@/schematic/types/v5";
+import * as v6 from "@/schematic/types/v6";
 
 describe("migrations", () => {
   describe("state", () => {
@@ -31,6 +32,7 @@ describe("migrations", () => {
       v3.ZERO_STATE,
       v4.ZERO_STATE,
       v5.ZERO_STATE,
+      v6.ZERO_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
@@ -38,7 +40,72 @@ describe("migrations", () => {
         expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
       });
     });
+
+    it("should rename nodePropsZ.key to .variant when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        props: {
+          n1: { key: "valve", color: "#ff0000" } as v0.NodeProps,
+          n2: { key: "tank" } as v0.NodeProps,
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.props.n1).toMatchObject({ variant: "valve", color: "#ff0000" });
+      expect(migrated.props.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.props.n1).not.toHaveProperty("key");
+    });
+
+    it("should reshape edge endpoints to Handle objects when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: "1",
+            targetHandle: "2",
+          } as v0.Edge,
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.edges[0]).toEqual({
+        key: "e1",
+        source: { node: "n1", param: "1" },
+        target: { node: "n2", param: "2" },
+      });
+    });
+
+    it("should move edge.data segments/color/variant into the props record", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            data: {
+              segments: [{ direction: "x", length: 10 }],
+              color: "#00ff00",
+              variant: "pipe",
+            },
+          } as unknown as v0.Edge,
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.props.e1).toMatchObject({
+        segments: [{ direction: "x", length: 10 }],
+        color: "#00ff00",
+        variant: "pipe",
+      });
+    });
+
+    it("should add an empty selected array when migrating to v6", () => {
+      const migrated = migrateState(v5.ZERO_STATE);
+      expect(migrated.selected).toEqual([]);
+    });
   });
+
   describe("slice", () => {
     const STATES = [
       v0.ZERO_SLICE_STATE,
@@ -47,6 +114,7 @@ describe("migrations", () => {
       v3.ZERO_SLICE_STATE,
       v4.ZERO_SLICE_STATE,
       v5.ZERO_SLICE_STATE,
+      v6.ZERO_SLICE_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {

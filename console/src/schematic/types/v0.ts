@@ -7,19 +7,42 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  control,
-  Diagram,
-  Flex,
-  Schematic,
-  Text,
-  Value,
-  Viewport,
-} from "@synnaxlabs/pluto";
+import { control, Flex, Schematic, Text, Value, Viewport } from "@synnaxlabs/pluto";
 import { color, direction, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
+
+// These schemas are a frozen snapshot of the diagram node/edge/viewport shapes
+// that shipped at state version 0.0.0. Do NOT replace with Diagram.nodeZ /
+// Diagram.edgeZ / Diagram.viewportZ — those references drift with Pluto
+// refactors (the diagram edge reshape on this branch turned `source` from a
+// string into `{node, param}`) and cause migration parsing to reject or drop
+// real historical persisted state.
+export const nodeZ = z.looseObject({
+  key: z.string(),
+  position: xy.xyZ,
+  zIndex: z.number().optional(),
+  type: z.string().optional(),
+  measured: z
+    .object({ width: z.number().optional(), height: z.number().optional() })
+    .optional(),
+});
+export interface Node extends z.infer<typeof nodeZ> {}
+
+export const edgeZ = z.looseObject({
+  key: z.string(),
+  source: z.string(),
+  target: z.string(),
+  sourceHandle: z.string().nullable().optional(),
+  targetHandle: z.string().nullable().optional(),
+});
+export interface Edge extends z.infer<typeof edgeZ> {}
+
+const viewportZ = z.object({
+  position: xy.xyZ,
+  zoom: z.number(),
+});
 
 export const labelZ = z.looseObject({
   label: z.string().optional(),
@@ -39,7 +62,7 @@ export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const edgePropsZ = z.object({
   color: color.crudeZ.optional(),
-  variant: Schematic.edgeTypeZ.optional(),
+  variant: Schematic.Edge.edgeTypeZ.optional(),
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
@@ -49,21 +72,21 @@ export const stateZ = z.object({
   fitViewOnResize: z.boolean(),
   snapshot: z.boolean(),
   remoteCreated: z.boolean(),
-  viewport: Diagram.viewportZ,
+  viewport: viewportZ,
   nodes: z
     .array(z.unknown())
-    .transform((nodes) => nodes.filter((node) => Diagram.nodeZ.safeParse(node).success))
-    .pipe(z.array(Diagram.nodeZ)),
+    .transform((nodes) => nodes.filter((node) => nodeZ.safeParse(node).success))
+    .pipe(z.array(nodeZ)),
   edges: z
     .array(z.unknown())
-    .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
-    .pipe(z.array(Diagram.edgeZ)),
+    .transform((edges) => edges.filter((edge) => edgeZ.safeParse(edge).success))
+    .pipe(z.array(edgeZ)),
   props: z.record(z.string(), nodePropsZ).transform((p) => {
-    for (const key in p)
-      if (p[key].key === "value") {
-        p[key].redline = Value.ZERO_READLINE;
-        p[key].stalenessTimeout = 5;
-        p[key].stalenessColor = color.ZERO;
+    for (const k in p)
+      if (p[k].key === "value") {
+        p[k].redline = Value.ZERO_READLINE;
+        p[k].stalenessTimeout = 5;
+        p[k].stalenessColor = color.ZERO;
       }
     return p;
   }),
@@ -85,8 +108,8 @@ export const ZERO_STATE: State = {
 
 export const copyBufferZ = z.object({
   pos: xy.xyZ,
-  nodes: z.array(Diagram.nodeZ),
-  edges: z.array(Diagram.edgeZ),
+  nodes: z.array(nodeZ),
+  edges: z.array(edgeZ),
   props: z.record(z.string(), nodePropsZ),
 });
 export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
