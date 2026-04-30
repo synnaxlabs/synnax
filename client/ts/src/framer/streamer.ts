@@ -46,9 +46,6 @@ const intermediateStreamerConfigZ = z.object({
   downsampleFactor: z.int().default(1),
   /** Optional throttle rate in Hz to limit the rate of frames sent to the client. Defaults to 0 (no throttling). */
   throttleRate: Rate.z.default(new Rate(0)),
-  /** useHighPerformanceCodec sets whether the writer will use the Synnax frame encoder
-   as opposed to the standard JSON encoding mechanisms for frames. */
-  useHighPerformanceCodec: z.boolean().default(true),
   /** excludeGroups sets writer group IDs whose frames should be filtered out by the
    Core. Used for telemetry bypass deduplication. */
   excludeGroups: z.uint32().array().default([]),
@@ -112,8 +109,7 @@ export const createStreamOpener =
   async (config) => {
     const cfg = streamerConfigZ.parse(config);
     const adapter = await ReadAdapter.open(retriever, cfg.channels);
-    if (cfg.useHighPerformanceCodec)
-      client = client.withCodec(new WSStreamerCodec(adapter.codec));
+    client = client.withCodec(new WSStreamerCodec(adapter.codec));
     const stream = await client.stream("/frame/stream", reqZ, resZ);
     const streamer = new BaseStreamer(
       stream,

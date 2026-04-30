@@ -79,7 +79,6 @@ class Client:
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
         err_on_extra_chans: bool = True,
-        use_experimental_codec: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
 
@@ -128,7 +127,6 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
-            use_experimental_codec=use_experimental_codec,
         )
 
     def open_iterator(
@@ -302,7 +300,6 @@ class Client:
         channels: channel.Params,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
-        use_experimental_codec: bool = True,
         exclude_groups: list[int] | None = None,
     ) -> Streamer:
         """Opens a new streamer on the given channels. The streamer will immediately
@@ -323,7 +320,6 @@ class Client:
             client=self.__stream_client,
             downsample_factor=downsample_factor,
             throttle_rate=throttle_rate,
-            use_experimental_codec=use_experimental_codec,
             exclude_groups=exclude_groups,
         )
 

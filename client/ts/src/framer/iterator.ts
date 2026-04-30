@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Stream, type StreamClient } from "@synnaxlabs/freighter";
+import { type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
 import {
   type CrudeTimeRange,
   type CrudeTimeSpan,
@@ -21,31 +21,15 @@ import { z } from "zod";
 
 import { channel } from "@/channel";
 import { ReadAdapter } from "@/framer/adapter";
+import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
+import { IteratorCommand, IteratorResponseVariant } from "@/framer/types.gen";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
-enum Command {
-  Open = 0,
-  Next = 1,
-  Prev = 2,
-  SeekFirst = 3,
-  SeekLast = 4,
-  SeekLE = 5,
-  SeekGE = 6,
-  Valid = 7,
-  Error = 8,
-}
-
-enum ResponseVariant {
-  None = 0,
-  Ack = 1,
-  Data = 2,
-}
-
-const reqZ = z.object({
-  command: z.enum(Command),
+export const iteratorReqZ = z.object({
+  command: z.enum(IteratorCommand),
   span: TimeSpan.z.optional(),
   bounds: TimeRange.z.optional(),
   stamp: TimeStamp.z.optional(),
@@ -53,15 +37,18 @@ const reqZ = z.object({
   chunkSize: z.number().optional(),
   downsampleFactor: z.int().optional(),
 });
-interface Request extends z.infer<typeof reqZ> {}
 
-const resZ = z.object({
-  variant: z.enum(ResponseVariant),
+export interface IteratorRequest extends z.infer<typeof iteratorReqZ> {}
+
+export const iteratorResZ = z.object({
+  variant: z.enum(IteratorResponseVariant),
   ack: z.boolean(),
-  command: z.enum(Command),
+  command: z.enum(IteratorCommand),
   error: errors.payloadZ.optional().nullable(),
   frame: frameZ.optional(),
 });
+
+export interface IteratorResponse extends z.infer<typeof iteratorResZ> {}
 
 export interface IteratorConfig {
   /** chunkSize is the maximum number of samples contained per channel in the frame
@@ -84,11 +71,14 @@ export interface IteratorConfig {
  *  telemetry between two timestamps, see the SegmentClient.read method.
  */
 export class Iterator {
-  private readonly stream: StreamProxy<typeof reqZ, typeof resZ>;
+  private readonly stream: StreamProxy<typeof iteratorReqZ, typeof iteratorResZ>;
   private readonly adapter: ReadAdapter;
   value: Frame;
 
-  private constructor(stream: Stream<typeof reqZ, typeof resZ>, adapter: ReadAdapter) {
+  private constructor(
+    stream: Stream<typeof iteratorReqZ, typeof iteratorResZ>,
+    adapter: ReadAdapter,
+  ) {
     this.stream = new StreamProxy("Iterator", stream);
     this.value = new Frame();
     this.adapter = adapter;
@@ -109,14 +99,15 @@ export class Iterator {
     tr: CrudeTimeRange,
     channels: channel.Params,
     retriever: channel.Retriever,
-    client: StreamClient,
+    client: WebSocketClient,
     opts: IteratorConfig = {},
   ): Promise<Iterator> {
     const adapter = await ReadAdapter.open(retriever, channels);
-    const stream = await client.stream("/frame/iterate", reqZ, resZ);
+    client = client.withCodec(new WSIteratorCodec(adapter.codec));
+    const stream = await client.stream("/frame/iterate", iteratorReqZ, iteratorResZ);
     const iter = new Iterator(stream, adapter);
     await iter.execute({
-      command: Command.Open,
+      command: IteratorCommand.Open,
       keys: Array.from(adapter.keys),
       bounds: new TimeRange(tr),
       chunkSize: opts.chunkSize ?? 1e5,
@@ -137,7 +128,10 @@ export class Iterator {
    * particular channel or the iterator has accumulated an error.
    */
   async next(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Next, span: new TimeSpan(span) });
+    return await this.execute({
+      command: IteratorCommand.Next,
+      span: new TimeSpan(span),
+    });
   }
 
   /**
@@ -152,7 +146,10 @@ export class Iterator {
    * channel or the iterator has accumulated an error.
    */
   async prev(span: CrudeTimeSpan = AUTO_SPAN): Promise<boolean> {
-    return await this.execute({ command: Command.Prev, span: new TimeSpan(span) });
+    return await this.execute({
+      command: IteratorCommand.Prev,
+      span: new TimeSpan(span),
+    });
   }
 
   /**
@@ -164,7 +161,7 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekFirst(): Promise<boolean> {
-    return await this.execute({ command: Command.SeekFirst });
+    return await this.execute({ command: IteratorCommand.SeekFirst });
   }
 
   /** Seeks the iterator to the last segment in the time range, but does not read it.
@@ -175,7 +172,7 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekLast(): Promise<boolean> {
-    return await this.execute({ command: Command.SeekLast });
+    return await this.execute({ command: IteratorCommand.SeekLast });
   }
 
   /**
@@ -187,7 +184,10 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekLE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekLE, stamp: new TimeStamp(stamp) });
+    return await this.execute({
+      command: IteratorCommand.SeekLE,
+      stamp: new TimeStamp(stamp),
+    });
   }
 
   /**
@@ -199,7 +199,10 @@ export class Iterator {
    * channel or has accumulated an error.
    */
   async seekGE(stamp: CrudeTimeStamp): Promise<boolean> {
-    return await this.execute({ command: Command.SeekGE, stamp: new TimeStamp(stamp) });
+    return await this.execute({
+      command: IteratorCommand.SeekGE,
+      stamp: new TimeStamp(stamp),
+    });
   }
 
   /**
@@ -208,7 +211,7 @@ export class Iterator {
    * an error.
    */
   async valid(): Promise<boolean> {
-    return await this.execute({ command: Command.Valid });
+    return await this.execute({ command: IteratorCommand.Valid });
   }
 
   /**
@@ -224,12 +227,12 @@ export class Iterator {
     return new IteratorIterator(this);
   }
 
-  private async execute(request: Request): Promise<boolean> {
+  private async execute(request: IteratorRequest): Promise<boolean> {
     this.stream.send(request);
     this.value = new Frame();
     while (true) {
       const res = await this.stream.receive();
-      if (res.variant === ResponseVariant.Ack) return res.ack;
+      if (res.variant === IteratorResponseVariant.Ack) return res.ack;
       this.value.push(this.adapter.adapt(new Frame(res.frame)));
     }
   }

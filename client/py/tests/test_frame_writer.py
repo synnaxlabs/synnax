@@ -418,11 +418,7 @@ class TestWriter:
     ):
         """Should allow the caller to call close() as many times as they want"""
         idx_ch, data_ch = indexed_pair
-        w = client.open_writer(
-            start=1 * sy.TimeSpan.SECOND,
-            channels=indexed_pair,
-            use_experimental_codec=True,
-        )
+        w = client.open_writer(start=1 * sy.TimeSpan.SECOND, channels=indexed_pair)
         w.write(
             {
                 idx_ch.key: 2 * sy.TimeSpan.SECOND,

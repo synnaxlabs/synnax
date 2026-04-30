@@ -268,17 +268,15 @@ class Codec:
         keys = list()
         series_list = list()
 
-        for key in state.keys:
-            if not flags.all_channels_present:
-                if idx >= len(buffer):
-                    break
-                frame_key = struct.unpack_from("<I", buffer, idx)[0]
-                if frame_key != key:
-                    continue
-                idx += KEY_SIZE
-            data_type = state.data_types[key]
+        def decode_series(key: channel.Key) -> bool:
+            nonlocal idx
+            data_type = state.data_types.get(key)
+            if data_type is None:
+                return False
             curr_len = data_len
             if not flags.eq_len:
+                if idx + DATA_LENGTH_SIZE > len(buffer):
+                    return False
                 curr_len = struct.unpack_from("<I", buffer, idx)[0]
                 idx += DATA_LENGTH_SIZE
 
@@ -286,6 +284,8 @@ class Codec:
             if not data_type.is_variable:
                 data_byte_len = curr_len * data_type.density
 
+            if idx + data_byte_len > len(buffer):
+                return False
             series_data = bytes(buffer[idx : idx + data_byte_len])
             idx += data_byte_len
 
@@ -294,12 +294,16 @@ class Codec:
             elif flags.eq_tr:
                 tr = TimeRange(start=start_time, end=end_time)
             else:
+                if idx + TIME_RANGE_SIZE > len(buffer):
+                    return False
                 s, e = struct.unpack_from("<QQ", buffer, idx)
                 tr = TimeRange(start=s, end=e)
                 idx += TIME_RANGE_SIZE
 
             curr_alignment = alignment
             if not flags.eq_align and not flags.zero_alignments:
+                if idx + ALIGNMENT_SIZE > len(buffer):
+                    return False
                 curr_alignment = Alignment(struct.unpack_from("<Q", buffer, idx)[0])
                 idx += ALIGNMENT_SIZE
 
@@ -312,6 +316,18 @@ class Codec:
                     alignment=curr_alignment,
                 )
             )
+            return True
+
+        if flags.all_channels_present:
+            for key in state.keys:
+                if not decode_series(key):
+                    break
+        else:
+            while idx + KEY_SIZE <= len(buffer):
+                frame_key = struct.unpack_from("<I", buffer, idx)[0]
+                idx += KEY_SIZE
+                if not decode_series(frame_key):
+                    break
 
         return FramePayload(keys=keys, series=series_list)
 
