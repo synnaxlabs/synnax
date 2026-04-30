@@ -55,7 +55,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
   migrate: (state) => ({
     ...state,
     version: VERSION,
-    legend: { ...state.legend, colors: migrateColors(state.legend.colors) },
+    legend: { ...state.legend, colors: migrateColors(state.legend.colors ?? {}) },
   }),
 });
 
