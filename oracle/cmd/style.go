@@ -12,6 +12,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 )
@@ -176,4 +177,122 @@ func printFormattingDone(formatted int) {
 		c,
 		word,
 	)
+}
+
+// printFormatPlan announces the format pass: how many generated files
+// need to run through the formatter chain and how many are short-
+// circuited by the on-disk cache. Emitted once, immediately before the
+// format batch runs, so the user sees activity even though the batch
+// itself takes a few seconds and is silent internally.
+func printFormatPlan(toFormat, cached int) {
+	if toFormat == 0 {
+		fmt.Printf(
+			"  %s %s",
+			dimStyle.Render("formatting"),
+			dimStyle.Render(fmt.Sprintf("%d cached, nothing to do\n", cached)),
+		)
+		return
+	}
+	c := countStyle.Render(fmt.Sprintf("%d", toFormat))
+	word := "file"
+	if toFormat != 1 {
+		word = "files"
+	}
+	suffix := ""
+	if cached > 0 {
+		suffix = dimStyle.Render(fmt.Sprintf(" (%d cached)", cached))
+	}
+	fmt.Printf("  %s %s %s%s\n", dimStyle.Render("formatting"), c, word, suffix)
+}
+
+// printFormatDone reports duration of the format batch.
+func printFormatDone(d time.Duration) {
+	fmt.Printf(
+		"    %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("done in"),
+		dimStyle.Render(fmtDuration(d)),
+	)
+}
+
+// printWritePlan announces the parallel write pass after formatting.
+// Files whose canonical bytes already match the on-disk file are
+// reported as "unchanged" and not rewritten.
+func printWritePlan(toWrite, unchanged int) {
+	if toWrite == 0 && unchanged == 0 {
+		return
+	}
+	if toWrite == 0 {
+		fmt.Printf(
+			"  %s %s\n",
+			dimStyle.Render("writing"),
+			dimStyle.Render(fmt.Sprintf("%d unchanged, nothing to write", unchanged)),
+		)
+		return
+	}
+	c := countStyle.Render(fmt.Sprintf("%d", toWrite))
+	word := "file"
+	if toWrite != 1 {
+		word = "files"
+	}
+	suffix := ""
+	if unchanged > 0 {
+		suffix = dimStyle.Render(fmt.Sprintf(" (%d unchanged)", unchanged))
+	}
+	fmt.Printf("  %s %s %s%s\n", dimStyle.Render("writing"), c, word, suffix)
+}
+
+// printBufGenerateStart announces the start of the buf-generate step.
+// When the input-content stamp matches the cache the call exits in
+// microseconds, so we only print this banner when work is expected.
+func printBufGenerateStart(changedProtos int) {
+	if changedProtos == 0 {
+		fmt.Printf(
+			"  %s %s\n",
+			dimStyle.Render("buf generate"),
+			dimStyle.Render("(checking stamp)"),
+		)
+		return
+	}
+	c := countStyle.Render(fmt.Sprintf("%d", changedProtos))
+	word := "proto"
+	if changedProtos != 1 {
+		word = "protos"
+	}
+	fmt.Printf(
+		"  %s %s %s %s\n",
+		dimStyle.Render("buf generate"),
+		dimStyle.Render("over"),
+		c,
+		word,
+	)
+}
+
+// printBufGenerateDone reports the outcome: cache hit or actual run
+// with elapsed time. cached=true means the input-content stamp was
+// unchanged and no protoc plugins were invoked.
+func printBufGenerateDone(cached bool, d time.Duration) {
+	if cached {
+		fmt.Printf(
+			"    %s %s\n",
+			infoStyle.Render(symbolArrow),
+			dimStyle.Render("cached"),
+		)
+		return
+	}
+	fmt.Printf(
+		"    %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("done in"),
+		dimStyle.Render(fmtDuration(d)),
+	)
+}
+
+// fmtDuration renders a duration in a tight, human-friendly form: ms
+// under a second, decimal seconds otherwise.
+func fmtDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }

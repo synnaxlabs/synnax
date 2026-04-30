@@ -16,6 +16,7 @@ import (
 	"runtime"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/synnaxlabs/oracle/analyzer"
 	"github.com/synnaxlabs/oracle/format"
@@ -215,17 +216,21 @@ func (r *generateResult) syncFiles(
 	cache.PruneRawTo(keep)
 
 	if len(toFormat) == 0 {
+		printFormatPlan(0, len(result.Skipped))
 		return result, nil
 	}
 
+	printFormatPlan(len(toFormat), len(result.Skipped))
 	batch := make([]format.File, len(toFormat))
 	for i, p := range toFormat {
 		batch[i] = format.File{Path: p.AbsPath, Content: p.Raw}
 	}
+	formatStart := time.Now()
 	formatted, err := formatters.FormatBatch(ctx, batch, workers)
 	if err != nil {
 		return nil, err
 	}
+	printFormatDone(time.Since(formatStart))
 
 	var mu sync.Mutex
 	eg, gctx := errgroup.WithContext(ctx)
@@ -265,5 +270,6 @@ func (r *generateResult) syncFiles(
 	if err := eg.Wait(); err != nil {
 		return nil, err
 	}
+	printWritePlan(len(result.Written), len(result.Unchanged))
 	return result, nil
 }

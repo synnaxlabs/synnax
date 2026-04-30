@@ -40,18 +40,26 @@ const BufGenerateStampKey = "buf-generate"
 // changedProtos contains repo-relative paths to generated `.proto`
 // files that the format step actually wrote (or that we already know
 // must be regenerated). Pass nil to force a full repo regeneration.
+// RunBufGenerateResult carries information the caller needs to log
+// the outcome.
+type RunBufGenerateResult struct {
+	// Cached is true when the input-content stamp matched and no
+	// `buf generate` invocation was needed.
+	Cached bool
+}
+
 func RunBufGenerate(
 	ctx context.Context,
 	repoRoot string,
 	changedProtos []string,
 	cache *format.Cache,
-) error {
+) (RunBufGenerateResult, error) {
 	stamp, err := bufInputStamp(ctx, repoRoot)
 	if err != nil {
-		return errors.Wrap(err, "compute buf input stamp")
+		return RunBufGenerateResult{}, errors.Wrap(err, "compute buf input stamp")
 	}
 	if cached, ok := cache.LookupStamp(BufGenerateStampKey); ok && cached == stamp && len(changedProtos) == 0 {
-		return nil
+		return RunBufGenerateResult{Cached: true}, nil
 	}
 	args := []string{"generate"}
 	for _, p := range changedProtos {
@@ -60,10 +68,10 @@ func RunBufGenerate(
 	c := osexec.CommandContext(ctx, "buf", args...)
 	c.Dir = repoRoot
 	if out, err := c.CombinedOutput(); err != nil {
-		return errors.Wrapf(err, "buf generate failed: %s", string(out))
+		return RunBufGenerateResult{}, errors.Wrapf(err, "buf generate failed: %s", string(out))
 	}
 	cache.PutStamp(BufGenerateStampKey, stamp)
-	return nil
+	return RunBufGenerateResult{Cached: false}, nil
 }
 
 // bufInputStamp returns a content-derived stamp covering every input

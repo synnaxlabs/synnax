@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -141,9 +142,13 @@ func runSync(cmd *cobra.Command) error {
 	}
 
 	if changedProtos := syncResult.ByPlugin["pb/types"]; len(changedProtos) > 0 || hasNeverRunBufStamp(cache) {
-		if err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache); err != nil {
+		printBufGenerateStart(len(changedProtos))
+		bufStart := time.Now()
+		bufResult, err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache)
+		if err != nil {
 			return errors.Wrap(err, "buf generate")
 		}
+		printBufGenerateDone(bufResult.Cached, time.Since(bufStart))
 		if err := cache.Save(); err != nil {
 			printDim(fmt.Sprintf("save cache: %v", err))
 		}
