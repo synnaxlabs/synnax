@@ -105,7 +105,7 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 	}
 	pb := &Node{
 		Key:      r.Key,
-		ZIndex:   r.ZIndex,
+		ZIndex:   int32(r.ZIndex),
 		Position: positionVal,
 	}
 	return pb, nil
@@ -123,7 +123,7 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 		return schematic.Node{}, err
 	}
 	r.Key = pb.Key
-	r.ZIndex = pb.ZIndex
+	r.ZIndex = int16(pb.ZIndex)
 	return r, nil
 }
 

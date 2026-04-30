@@ -82,11 +82,17 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
 				},
 				Colors: map[string]color.Color{"test_11": {
 					R: 13,
@@ -100,8 +106,8 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+					Root:  nil,
+					Units: nil,
 				},
 				Colors: nil,
 			}),
@@ -110,11 +116,17 @@ var _ = Describe("Codec", func() {
 				Position: spatial.StickyXY{
 					X: 3.5,
 					Y: 4.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
 				},
 				Colors: map[string]color.Color{},
 			}),
@@ -164,11 +176,17 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 8.5,
 						Y: 9.5,
-						Root: spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+						Root: func() *spatial.CornerLocation {
+							v := spatial.CornerLocation{
+								X: spatial.XLocation("left"),
+								Y: spatial.YLocation("top"),
+							}
+							return &v
+						}(),
+						Units: func() *spatial.StickyUnits {
+							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+							return &v
+						}(),
 					},
 					Colors: map[string]color.Color{"test_16": {
 						R: 18,
@@ -203,8 +221,8 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X:     0,
 						Y:     0,
-						Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+						Root:  nil,
+						Units: nil,
 					},
 					Colors: nil,
 				},
@@ -222,11 +240,17 @@ var _ = Describe("Codec", func() {
 					Position: spatial.StickyXY{
 						X: 8.5,
 						Y: 9.5,
-						Root: spatial.CornerLocation{
-							X: spatial.XLocation("left"),
-							Y: spatial.YLocation("top"),
-						},
-						Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+						Root: func() *spatial.CornerLocation {
+							v := spatial.CornerLocation{
+								X: spatial.XLocation("left"),
+								Y: spatial.YLocation("top"),
+							}
+							return &v
+						}(),
+						Units: func() *spatial.StickyUnits {
+							v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+							return &v
+						}(),
 					},
 					Colors: map[string]color.Color{},
 				},
@@ -282,11 +306,17 @@ func BenchmarkEncodeDecodeLegend(b *testing.B) {
 		Position: spatial.StickyXY{
 			X: 3.5,
 			Y: 4.5,
-			Root: spatial.CornerLocation{
-				X: spatial.XLocation("left"),
-				Y: spatial.YLocation("top"),
-			},
-			Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+			Root: func() *spatial.CornerLocation {
+				v := spatial.CornerLocation{
+					X: spatial.XLocation("left"),
+					Y: spatial.YLocation("top"),
+				}
+				return &v
+			}(),
+			Units: func() *spatial.StickyUnits {
+				v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+				return &v
+			}(),
 		},
 		Colors: map[string]color.Color{"test_11": {
 			R: 13,
@@ -342,11 +372,17 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 			Position: spatial.StickyXY{
 				X: 8.5,
 				Y: 9.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+				Root: func() *spatial.CornerLocation {
+					v := spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}
+					return &v
+				}(),
+				Units: func() *spatial.StickyUnits {
+					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+					return &v
+				}(),
 			},
 			Colors: map[string]color.Color{"test_16": {
 				R: 18,
@@ -493,11 +529,17 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+				Root: func() *spatial.CornerLocation {
+					v := spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}
+					return &v
+				}(),
+				Units: func() *spatial.StickyUnits {
+					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+					return &v
+				}(),
 			},
 			Colors: map[string]color.Color{"test_11": {
 				R: 13,
@@ -518,8 +560,8 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X:     0,
 				Y:     0,
-				Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+				Root:  nil,
+				Units: nil,
 			},
 			Colors: nil,
 		}
@@ -535,11 +577,17 @@ func FuzzDecodeLegend(f *testing.F) {
 			Position: spatial.StickyXY{
 				X: 3.5,
 				Y: 4.5,
-				Root: spatial.CornerLocation{
-					X: spatial.XLocation("left"),
-					Y: spatial.YLocation("top"),
-				},
-				Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+				Root: func() *spatial.CornerLocation {
+					v := spatial.CornerLocation{
+						X: spatial.XLocation("left"),
+						Y: spatial.YLocation("top"),
+					}
+					return &v
+				}(),
+				Units: func() *spatial.StickyUnits {
+					v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+					return &v
+				}(),
 			},
 			Colors: map[string]color.Color{},
 		}
@@ -644,11 +692,17 @@ func FuzzDecodeSchematic(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 8.5,
 					Y: 9.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
 				},
 				Colors: map[string]color.Color{"test_16": {
 					R: 18,
@@ -690,8 +744,8 @@ func FuzzDecodeSchematic(f *testing.F) {
 				Position: spatial.StickyXY{
 					X:     0,
 					Y:     0,
-					Root:  spatial.CornerLocation{X: spatial.XLocation(""), Y: spatial.YLocation("")},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit(""), Y: spatial.StickyUnit("")},
+					Root:  nil,
+					Units: nil,
 				},
 				Colors: nil,
 			},
@@ -716,11 +770,17 @@ func FuzzDecodeSchematic(f *testing.F) {
 				Position: spatial.StickyXY{
 					X: 8.5,
 					Y: 9.5,
-					Root: spatial.CornerLocation{
-						X: spatial.XLocation("left"),
-						Y: spatial.YLocation("top"),
-					},
-					Units: spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")},
+					Root: func() *spatial.CornerLocation {
+						v := spatial.CornerLocation{
+							X: spatial.XLocation("left"),
+							Y: spatial.YLocation("top"),
+						}
+						return &v
+					}(),
+					Units: func() *spatial.StickyUnits {
+						v := spatial.StickyUnits{X: spatial.StickyUnit("px"), Y: spatial.StickyUnit("px")}
+						return &v
+					}(),
 				},
 				Colors: map[string]color.Color{},
 			},

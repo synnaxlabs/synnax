@@ -65,7 +65,8 @@ var _ = Describe("v55 -> current Schematic migration", func() {
 
 		var got schematic.Schematic
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal("Tank Farm"))
 		Expect(got.Authority).To(BeEquivalentTo(7))
@@ -111,7 +112,8 @@ var _ = Describe("v55 -> current Schematic migration", func() {
 
 		var got schematic.Schematic
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[schematic.Key, schematic.Schematic](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
 		Expect(got.Edges[0].Target).To(Equal(schematic.Handle{Node: "n2", Param: "in"}))
 		Expect(got.Authority).To(BeEquivalentTo(1))

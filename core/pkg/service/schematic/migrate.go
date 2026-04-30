@@ -129,12 +129,16 @@ func migrateLegend(l v1.Legend) Legend {
 		},
 	}
 	if l.Position.Units != nil {
-		out.Position.Units.X = spatial.StickyUnit(l.Position.Units.X)
-		out.Position.Units.Y = spatial.StickyUnit(l.Position.Units.Y)
+		out.Position.Units = &spatial.StickyUnits{
+			X: spatial.StickyUnit(l.Position.Units.X),
+			Y: spatial.StickyUnit(l.Position.Units.Y),
+		}
 	}
 	if l.Position.Root != nil {
-		out.Position.Root.X = spatial.XLocation(l.Position.Root.X)
-		out.Position.Root.Y = spatial.YLocation(l.Position.Root.Y)
+		out.Position.Root = &spatial.CornerLocation{
+			X: spatial.XLocation(l.Position.Root.X),
+			Y: spatial.YLocation(l.Position.Root.Y),
+		}
 	}
 	if len(l.Colors) > 0 {
 		out.Colors = make(map[string]color.Color, len(l.Colors))
