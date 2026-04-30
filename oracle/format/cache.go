@@ -18,6 +18,7 @@ import (
 	"sync"
 
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // CacheVersion is the on-disk cache schema version. Bump this whenever
@@ -122,11 +123,11 @@ func (c *Cache) PutStamp(key, value string) {
 
 // PruneRawTo drops every raw-content entry whose key is not in keep.
 // This removes stale entries for files that are no longer generated.
-func (c *Cache) PruneRawTo(keep map[string]struct{}) {
+func (c *Cache) PruneRawTo(keep set.Set[string]) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for k := range c.data.Hashes {
-		if _, ok := keep[k]; !ok {
+		if !keep.Contains(k) {
 			delete(c.data.Hashes, k)
 		}
 	}

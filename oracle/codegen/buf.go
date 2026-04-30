@@ -23,6 +23,7 @@ import (
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -144,22 +145,14 @@ func readIfExists(paths ...string) ([][]byte, error) {
 // findProtoFiles walks repoRoot for .proto files, skipping common
 // vendor / build / .git directories.
 func findProtoFiles(repoRoot string) ([]string, error) {
-	skipDir := map[string]struct{}{
-		".git":         {},
-		"node_modules": {},
-		"dist":         {},
-		"build":        {},
-		"target":       {},
-		"vendor":       {},
-		".oracle":      {},
-	}
+	skipDir := set.New(".git", "node_modules", "dist", "build", "target", "vendor", ".oracle")
 	var out []string
 	err := filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if d.IsDir() {
-			if _, skip := skipDir[d.Name()]; skip {
+			if skipDir.Contains(d.Name()) {
 				return filepath.SkipDir
 			}
 			return nil

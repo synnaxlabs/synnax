@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/format"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -62,7 +63,7 @@ var _ = Describe("Cache", func() {
 		c.PutRaw("a", "1")
 		c.PutRaw("b", "2")
 		c.PutRaw("c", "3")
-		c.PruneRawTo(map[string]struct{}{"a": {}, "c": {}})
+		c.PruneRawTo(set.New("a", "c"))
 
 		_, ok := c.LookupRaw("a")
 		Expect(ok).To(BeTrue())

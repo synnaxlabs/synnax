@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -106,13 +107,13 @@ func topoLevels(registry *plugin.Registry) [][]plugin.Plugin {
 		remaining[p.Name()] = p
 	}
 	var levels [][]plugin.Plugin
-	placed := make(map[string]struct{})
+	placed := set.New[string]()
 	for len(remaining) > 0 {
 		var level []plugin.Plugin
 		for _, p := range remaining {
 			satisfied := true
 			for _, dep := range p.Requires() {
-				if _, ok := placed[dep]; ok {
+				if placed.Contains(dep) {
 					continue
 				}
 				if _, exists := remaining[dep]; exists {
@@ -131,7 +132,7 @@ func topoLevels(registry *plugin.Registry) [][]plugin.Plugin {
 		}
 		sort.Slice(level, func(i, j int) bool { return level[i].Name() < level[j].Name() })
 		for _, p := range level {
-			placed[p.Name()] = struct{}{}
+			placed.Add(p.Name())
 			delete(remaining, p.Name())
 		}
 		levels = append(levels, level)
@@ -182,13 +183,13 @@ func (r *generateResult) syncFiles(
 		Existing []byte
 	}
 
-	keep := make(map[string]struct{})
+	keep := set.New[string]()
 	var toFormat []pending
 	for pluginName, files := range r.Files {
 		for _, f := range files {
 			absPath := filepath.Join(repoRoot, f.Path)
 			rawHash := format.Hash(f.Content)
-			keep[f.Path] = struct{}{}
+			keep.Add(f.Path)
 
 			cachedHash, hit := cache.LookupRaw(f.Path)
 			if hit && cachedHash == rawHash {
