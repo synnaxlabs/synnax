@@ -318,4 +318,95 @@ describe("useStaticData", () => {
       expect(result.current.getItem("2")).toBeDefined();
     });
   });
+
+  describe("heterogeneous item keys", () => {
+    interface HeteroItemA {
+      key: string;
+      name: string;
+    }
+
+    interface HeteroItemB {
+      key: string;
+      name: string;
+      searchTerms: string;
+    }
+
+    type HeteroItem = HeteroItemA | HeteroItemB;
+
+    const heteroData: HeteroItem[] = [
+      { key: "1", name: "Valve" },
+      { key: "2", name: "Embed", searchTerms: "video stream camera" },
+      { key: "3", name: "Pump" },
+    ];
+
+    it("should search fields that only exist on some items", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, HeteroItem>({ data: heteroData }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "video" });
+      });
+
+      expect(result.current.data).toContain("2");
+      expect(result.current.data).not.toContain("1");
+      expect(result.current.data).not.toContain("3");
+    });
+
+    it("should still match on shared fields across heterogeneous items", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, HeteroItem>({ data: heteroData }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "Valve" });
+      });
+
+      expect(result.current.data).toContain("1");
+    });
+  });
+
+  describe("ignoreLocation search behavior", () => {
+    const locationData: TestItem[] = [
+      { key: "1", name: "video stream camera", category: "media", value: 1 },
+      { key: "2", name: "photo gallery", category: "media", value: 2 },
+      { key: "3", name: "text editor", category: "tools", value: 3 },
+    ];
+
+    it("should match substrings in the middle of values", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: locationData }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "stream" });
+      });
+
+      expect(result.current.data).toContain("1");
+    });
+
+    it("should match substrings at the end of values", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: locationData }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "camera" });
+      });
+
+      expect(result.current.data).toContain("1");
+    });
+
+    it("should match substrings at the end of compound terms", () => {
+      const { result } = renderHook(() =>
+        useStaticData<string, TestItem>({ data: locationData }),
+      );
+
+      act(() => {
+        result.current.retrieve({ searchTerm: "gallery" });
+      });
+
+      expect(result.current.data).toContain("2");
+    });
+  });
 });

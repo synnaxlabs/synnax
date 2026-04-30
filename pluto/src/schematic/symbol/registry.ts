@@ -24,8 +24,10 @@ import {
   CommonToggleForm,
   CylinderForm,
   GaugeForm,
+  IframeEmbedForm,
   InputForm,
   LightForm,
+  MediaEmbedForm,
   OffPageReferenceForm,
   SelectForm,
   SetpointForm,
@@ -154,6 +156,9 @@ import {
   type HeatExchangerStraightTubeProps,
   HelicalAgitator,
   type HelicalAgitatorProps,
+  IframeEmbed,
+  IframeEmbedPreview,
+  type IframeEmbedProps,
   Input,
   InputPreview,
   type InputProps,
@@ -172,6 +177,9 @@ import {
   type LiquidRingCompressorProps,
   ManualValve,
   type ManualValveProps,
+  MediaEmbed,
+  MediaEmbedPreview,
+  type MediaEmbedProps,
   NeedleValve,
   type NeedleValveProps,
   Nozzle,
@@ -268,6 +276,7 @@ export interface Spec<P extends object = object> {
   defaultProps: (t: Theming.Theme) => P;
   Preview: FC<PreviewProps<P>>;
   zIndex: number;
+  searchTerms?: string;
 }
 
 const Z_INDEX_UPPER = 4;
@@ -374,6 +383,8 @@ const VARIANTS = [
   "strainerCone",
   "customActuator",
   "customStatic",
+  "mediaEmbed",
+  "iframeEmbed",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -472,6 +483,8 @@ const zeroLabel = (label: string): zeroLabelReturn => ({
 const ZERO_DIMENSIONS = { width: 125, height: 200 };
 
 const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
+
+const ZERO_EMBED_DIMENSIONS = { width: 320, height: 180 };
 
 const ZERO_BOX_BORDER_RADIUS = 3;
 
@@ -1930,6 +1943,71 @@ const customStatic: Spec<CustomStaticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const withSuffix = (suffix: string, ...terms: string[]): string =>
+  terms.map((t) => `${t} ${suffix}`).join(" ");
+
+const mediaEmbed: Spec<MediaEmbedProps> = {
+  name: "Media Embed",
+  key: "mediaEmbed",
+  Form: MediaEmbedForm,
+  Symbol: MediaEmbed,
+  defaultProps: () => ({
+    url: "",
+    ...zeroLabel("Media Embed"),
+    dimensions: ZERO_EMBED_DIMENSIONS,
+    ...ZERO_PROPS,
+  }),
+  Preview: MediaEmbedPreview,
+  zIndex: Z_INDEX_LOWER,
+  searchTerms: withSuffix(
+    "embed",
+    "video",
+    "image",
+    "gif",
+    "svg",
+    "mjpeg",
+    "stream",
+    "camera",
+    "picture",
+    "png",
+    "url",
+    "jpeg",
+    "jpg",
+    "webcam",
+    "ip",
+    "feed",
+    "photo",
+  ),
+};
+
+const iframeEmbed: Spec<IframeEmbedProps> = {
+  name: "Iframe Embed",
+  key: "iframeEmbed",
+  Form: IframeEmbedForm,
+  Symbol: IframeEmbed,
+  defaultProps: () => ({
+    url: "",
+    blockCookies: true,
+    ...zeroLabel("Iframe Embed"),
+    dimensions: ZERO_EMBED_DIMENSIONS,
+    ...ZERO_PROPS,
+  }),
+  Preview: IframeEmbedPreview,
+  zIndex: Z_INDEX_LOWER,
+  searchTerms: withSuffix(
+    "embed",
+    "google",
+    "iframe",
+    "webpage",
+    "website",
+    "dashboard",
+    "grafana",
+    "widget",
+    "html",
+    "web",
+  ),
+};
+
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
   gauge,
@@ -2031,6 +2109,8 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   strainerCone,
   customActuator,
   customStatic,
+  mediaEmbed,
+  iframeEmbed,
 };
 
 export interface Group extends group.Group {
@@ -2187,5 +2267,11 @@ export const GROUPS: Group[] = [
       "strainerCone",
       "flowStraightener",
     ],
+  },
+  {
+    key: "containers",
+    name: "Containers",
+    Icon: Icon.Visualize,
+    symbols: ["mediaEmbed", "iframeEmbed"],
   },
 ];

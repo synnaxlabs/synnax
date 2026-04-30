@@ -1450,7 +1450,6 @@ export interface TankProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
   color?: color.Crude;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   backgroundColor?: color.Crude;
   strokeWidth?: number;
@@ -3200,7 +3199,6 @@ export interface CylinderProps extends DivProps {
   dimensions?: dimensions.Dimensions;
   borderRadius?: BorderRadius;
   color?: color.Crude;
-  onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
   backgroundColor?: color.Crude;
 }
@@ -4857,6 +4855,48 @@ export const StateIndicator = ({
         <Text.Text level="p" color={textColor} variant="code">
           {label}
         </Text.Text>
+      </div>
+    </Div>
+  );
+};
+
+export interface EmbedProps extends DivProps {
+  dimensions?: dimensions.Dimensions;
+  color?: color.Crude;
+  placeholder?: string;
+}
+
+const DEFAULT_EMBED_DIMENSIONS = { width: 320, height: 180 };
+
+export const Embed = ({
+  className,
+  dimensions: dims = DEFAULT_EMBED_DIMENSIONS,
+  color: colorVal,
+  placeholder = "Embed",
+  children,
+  ...rest
+}: EmbedProps): ReactElement => {
+  const t = Theming.use();
+  const borderColor = color.cssString(colorVal ?? t.colors.gray.l5);
+  const textColor = color.cssString(t.colors.gray.l9);
+  return (
+    <Div
+      className={CSS(CSS.B("embed"), className)}
+      {...rest}
+      style={{ ...dims, borderColor }}
+    >
+      <HandleBoundary orientation="left">
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={0} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={100} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("embed", "content")}>
+        {children ?? (
+          <Text.Text level="small" color={textColor}>
+            {placeholder}
+          </Text.Text>
+        )}
       </div>
     </Div>
   );

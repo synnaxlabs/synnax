@@ -22,7 +22,13 @@ import {
   type location,
   type xy,
 } from "@synnaxlabs/x";
-import { type CSSProperties, type FC, type ReactElement, useCallback } from "react";
+import {
+  type CSSProperties,
+  type FC,
+  type ReactElement,
+  type ReactNode,
+  useCallback,
+} from "react";
 
 import { Button } from "@/button";
 import { Channel } from "@/channel";
@@ -1633,3 +1639,82 @@ export const StateIndicatorForm = (): ReactElement => {
   const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
   return <Tabs.Tabs {...props} grow />;
 };
+
+const EmbedFormBase = ({ children }: { children: ReactNode }): ReactElement => (
+  <FormWrapper x align="stretch" className={CSS.B("embed-form")}>
+    <Flex.Box y grow>
+      <LabelControls path="label" />
+      <Flex.Box x>
+        <Form.Field<number> path="dimensions.width" label="Width" grow>
+          {({ value, ...rest }) => (
+            <Input.Numeric
+              value={value ?? 320}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...rest}
+            />
+          )}
+        </Form.Field>
+        <Form.Field<number> path="dimensions.height" label="Height" grow>
+          {({ value, ...rest }) => (
+            <Input.Numeric
+              value={value ?? 180}
+              dragScale={DIMENSIONS_DRAG_SCALE}
+              bounds={DIMENSIONS_BOUNDS}
+              endContent="px"
+              {...rest}
+            />
+          )}
+        </Form.Field>
+        {children}
+      </Flex.Box>
+    </Flex.Box>
+    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
+  </FormWrapper>
+);
+
+export const MediaEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
+      {(props) => <Input.Text {...props} placeholder="http://localhost:8554/stream" />}
+    </Form.Field>
+  </EmbedFormBase>
+);
+
+export const IframeEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <>
+      <Form.Field<number> path="scale" label="Scale" grow>
+        {({ value, onChange, ...rest }) => (
+          <Input.Numeric
+            value={Math.round((value ?? 1) * 100)}
+            onChange={(v) => onChange(parseFloat((v / 100).toFixed(2)))}
+            dragScale={SCALE_CONTROL_DRAG_SCALE}
+            bounds={SCALE_CONTROL_BOUNDS}
+            endContent="%"
+            {...rest}
+          />
+        )}
+      </Form.Field>
+      <Form.Field<string> path="url" label="URL" padHelpText={false} grow>
+        {(props) => (
+          <Input.Text
+            {...props}
+            placeholder="https://grafana.local/dashboard"
+            title="Target URL must allow/enable iframe embedding."
+          />
+        )}
+      </Form.Field>
+      <Form.SwitchField path="blockCookies" label="Block Cookies" />
+    </>
+  </EmbedFormBase>
+);
+
+export const PageEmbedForm = (): ReactElement => (
+  <EmbedFormBase>
+    <Form.Field<string> path="pageKey" label="Page" padHelpText={false} grow>
+      {(props) => <Input.Text {...props} placeholder="Select a page" disabled />}
+    </Form.Field>
+  </EmbedFormBase>
+);

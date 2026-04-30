@@ -89,6 +89,7 @@ import {
   MdBorderColor,
   MdCalculate,
   MdCalendarToday,
+  MdCode,
   MdComment,
   MdCommit,
   MdContentCut,
@@ -460,6 +461,7 @@ export const Heart = wrapSVGIcon(IoMdHeart, "heart");
 export const StrokeWidth = wrapSVGIcon(BsBorderWidth, "stroke-width");
 export const Downsample = wrapSVGIcon(MdBlurLinear, "downsample");
 export const Terminal = wrapSVGIcon(IoTerminal, "terminal");
+export const Code = wrapSVGIcon(MdCode, "code");
 export const Map = wrapSVGIcon(MdOutlineMap, "map");
 export const Linear = wrapSVGIcon(MdOutlineLinearScale, "linear");
 export const None = wrapSVGIcon(TbCircleDashed, "none");

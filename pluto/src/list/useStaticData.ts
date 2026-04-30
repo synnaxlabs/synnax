@@ -53,9 +53,11 @@ export const useStaticData = <
   }, [data, filter, sort]);
   const fuse = useMemo(() => {
     if (filteredData.length === 0) return null;
+    const keys = new Set(filteredData.flatMap(Object.keys));
     return new Fuse(filteredData, {
-      keys: Object.keys(filteredData[0]),
+      keys: [...keys],
       threshold: 0.3,
+      ignoreLocation: true,
     });
   }, [filteredData]);
   const [params, setParams] = useState<RetrieveParams>({});

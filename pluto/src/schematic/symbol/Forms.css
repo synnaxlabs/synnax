@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.pluto-embed-form {
+    .pluto-field__dimensions-width,
+    .pluto-field__dimensions-height,
+    .pluto-field__scale {
+        max-width: 125px;
+    }
+}
+
 .pluto-symbol-form {
     height: 100%;
     overflow-y: auto;

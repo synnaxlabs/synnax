@@ -13,6 +13,7 @@ import {
   type bounds,
   box,
   color,
+  type dimensions,
   direction,
   location,
   type record,
@@ -24,12 +25,14 @@ import {
   type CSSProperties,
   type FC,
   type ReactElement,
+  useEffect,
   useMemo,
   useState,
 } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { Icon } from "@/icon";
 import {
   DRAG_HANDLE_CLASS,
   Grid,
@@ -97,6 +100,19 @@ const labelGridItem = (
     location: orientation,
   };
 };
+
+export const dimensionsOnResize = (dims: dimensions.Dimensions) => ({
+  dimensions: dims,
+});
+export const sideLengthOnResize = ({ width }: dimensions.Dimensions) => ({
+  sideLength: width / 2,
+});
+export const radiusOnResize = ({ width }: dimensions.Dimensions) => ({
+  radius: width / 2,
+});
+export const inlineSizeOnResize = ({ width }: dimensions.Dimensions) => ({
+  inlineSize: width,
+});
 
 export type SymbolProps<P extends object = record.Unknown> = P & {
   symbolKey: string;
@@ -217,13 +233,14 @@ type LabeledProps<P extends object = record.Unknown> = P & {
   orientation?: location.Outer;
 };
 
-interface LabeledOverrides {
-  grid: Partial<Omit<GridProps, "editable">>;
+interface LabeledOverrides<P> {
+  grid?: Partial<Omit<GridProps, "editable">>;
+  onResize?: (dims: { width: number; height: number }) => Partial<P>;
 }
 
 export const createLabeled = <P extends object = record.Unknown>(
   BaseSymbol: FC<P>,
-  overrides?: LabeledOverrides,
+  overrides?: LabeledOverrides<P>,
 ) => {
   const C = ({
     symbolKey,
@@ -255,9 +272,14 @@ export const createLabeled = <P extends object = record.Unknown>(
               label: { ...label, orientation: loc },
             } as Partial<LabeledProps<P>>);
         }}
+        onResize={
+          overrides?.onResize
+            ? (dims) => onChange(overrides.onResize!(dims))
+            : undefined
+        }
       >
         {/* @ts-expect-error - typescript with HOCs */}
-        <BaseSymbol orientation={orientation} {...rest} />
+        <BaseSymbol orientation={orientation} onChange={onChange} {...rest} />
       </Grid>
     );
   };
@@ -548,14 +570,12 @@ export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius">
 export const Tank = createLabeled(
   ({
     backgroundColor,
-    onChange,
     orientation,
     color,
     dimensions,
     borderRadius,
   }: SymbolProps<TankProps>): ReactElement => (
     <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -563,7 +583,10 @@ export const Tank = createLabeled(
       backgroundColor={backgroundColor}
     />
   ),
-  { grid: { allowCenter: true, allowRotate: false } },
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
 );
 
 export const TankPreview = (props: TankProps): ReactElement => (
@@ -593,6 +616,9 @@ export const Triangle = createLabeled(
       {...rest}
     />
   ),
+  {
+    onResize: sideLengthOnResize,
+  },
 );
 export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
 
@@ -618,6 +644,9 @@ export const PolygonSymbol = createLabeled(
       {...rest}
     />
   ),
+  {
+    onResize: sideLengthOnResize,
+  },
 );
 
 export const Circle = createLabeled(
@@ -636,21 +665,22 @@ export const Circle = createLabeled(
       {...rest}
     />
   ),
-  { grid: { allowRotate: false } },
+  {
+    grid: { allowRotate: false },
+    onResize: radiusOnResize,
+  },
 );
 
 export const Box = createLabeled(
   ({
     backgroundColor,
     borderRadius,
-    onChange,
     orientation,
     color,
     dimensions,
     strokeWidth,
   }: SymbolProps<BoxProps>): ReactElement => (
     <Primitives.Tank
-      onResize={(dims) => onChange({ dimensions: dims })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -659,7 +689,10 @@ export const Box = createLabeled(
       strokeWidth={strokeWidth}
     />
   ),
-  { grid: { allowCenter: true, allowRotate: false } },
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
 );
 
 export const BoxPreview = (props: BoxProps): ReactElement => (
@@ -878,6 +911,7 @@ export const Value = ({
       symbolKey={symbolKey}
       items={gridItems}
       allowRotate={false}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1117,6 +1151,8 @@ export const Light = ({
       allowRotate={false}
       editable={selected}
       symbolKey={symbolKey}
+      // 51.2 = Light SVG width (64) * BASE_SCALE (0.8) from Primitives.tsx
+      onResize={({ width }) => onChange({ scale: width / 51.2 })}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1173,16 +1209,8 @@ export const OffPageReferencePreview = ({
 export const Cylinder = createLabeled<
   SymbolProps<Omit<Primitives.CylinderProps, "onChange">>
 >(
-  ({
-    backgroundColor,
-    onChange,
-    orientation,
-    color,
-    dimensions,
-    borderRadius,
-  }): ReactElement => (
+  ({ backgroundColor, orientation, color, dimensions, borderRadius }): ReactElement => (
     <Primitives.Cylinder
-      onResize={(dimensions) => onChange({ dimensions })}
       orientation={orientation}
       color={color}
       dimensions={dimensions}
@@ -1190,6 +1218,9 @@ export const Cylinder = createLabeled<
       backgroundColor={backgroundColor}
     />
   ),
+  {
+    onResize: dimensionsOnResize,
+  },
 );
 export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChange">>;
 
@@ -1269,6 +1300,7 @@ export const Select = ({
       allowRotate={false}
       editable={selected && !draggable}
       items={gridItems}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1337,6 +1369,7 @@ export const StateIndicator = ({
       allowRotate={false}
       editable={selected && !draggable}
       symbolKey={symbolKey}
+      onResize={(dims) => onChange(inlineSizeOnResize(dims))}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
         onChange({ label: { ...label, orientation: loc } });
@@ -1360,4 +1393,117 @@ export const StateIndicatorPreview = ({
     options={[{ key: "1", name: "Active", value: 1 }]}
     color={colorVal}
   />
+);
+
+export interface MediaEmbedProps extends Primitives.EmbedProps {
+  url: string;
+  label?: LabelExtensionProps;
+}
+
+export const MediaEmbedBase = ({
+  dimensions: dims,
+  color: colorVal,
+  url,
+  onChange,
+}: SymbolProps<MediaEmbedProps>): ReactElement => {
+  const hasURL = url != null && url.length > 0;
+  useEffect(() => {
+    if (!hasURL) return;
+    const img = new Image();
+    img.onload = () =>
+      onChange({ dimensions: { width: img.naturalWidth, height: img.naturalHeight } });
+    img.src = url;
+    return () => {
+      img.onload = null;
+    };
+  }, [url, onChange]);
+
+  return (
+    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+      {hasURL ? (
+        <img
+          src={url}
+          style={{ width: "100%", height: "100%", objectFit: "contain" }}
+        />
+      ) : undefined}
+    </Primitives.Embed>
+  );
+};
+
+export const MediaEmbed = createLabeled(MediaEmbedBase, {
+  grid: { allowCenter: true, allowRotate: false },
+  onResize: dimensionsOnResize,
+});
+
+export const MediaEmbedPreview = (): ReactElement => (
+  <Icon.Play style={{ fontSize: 36 }} />
+);
+
+export interface IframeEmbedProps extends MediaEmbedProps {
+  blockCookies: boolean;
+  scale?: number;
+}
+
+// IMPORTANT: If postMessage communication with the iframe is ever added, always
+// validate event.origin before acting on messages to prevent cross-origin attacks.
+// NOTE: When blockCookies is false, sandbox="allow-scripts allow-same-origin" is
+// used. A same-origin embedded page could remove its own sandbox via
+// window.frameElement.removeAttribute("sandbox"). This is acceptable because
+// same-origin content is already fully trusted; cross-origin content cannot
+// access window.frameElement (returns null).
+export const iframeScaleStyle = (scale: number): CSSProperties => ({
+  width: `${100 / scale}%`,
+  height: `${100 / scale}%`,
+  border: "none",
+  transform: `scale(${scale})`,
+  transformOrigin: "0 0",
+  position: "absolute",
+  top: 0,
+  left: 0,
+});
+
+export const IframeEmbedBase = ({
+  dimensions: dims,
+  color: colorVal,
+  url,
+  blockCookies,
+  scale = 1,
+}: SymbolProps<IframeEmbedProps>): ReactElement => (
+  <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
+    {url != null && url.length > 0 ? (
+      <iframe
+        src={url}
+        sandbox={blockCookies ? "allow-scripts" : "allow-scripts allow-same-origin"}
+        style={iframeScaleStyle(scale)}
+      />
+    ) : undefined}
+  </Primitives.Embed>
+);
+
+export const IframeEmbed = createLabeled(IframeEmbedBase, {
+  grid: { allowCenter: true, allowRotate: false },
+  onResize: dimensionsOnResize,
+});
+
+export const IframeEmbedPreview = (): ReactElement => (
+  <Icon.Code style={{ fontSize: 36 }} />
+);
+
+export interface PageEmbedProps extends Primitives.EmbedProps {
+  pageKey: string;
+  label?: LabelExtensionProps;
+}
+
+export const PageEmbed = createLabeled(
+  ({ dimensions: dims, color: colorVal }: SymbolProps<PageEmbedProps>) => (
+    <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Select a page" />
+  ),
+  {
+    grid: { allowCenter: true, allowRotate: false },
+    onResize: dimensionsOnResize,
+  },
+);
+
+export const PageEmbedPreview = (): ReactElement => (
+  <Icon.Workspace style={{ fontSize: 36 }} />
 );

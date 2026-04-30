@@ -44,6 +44,7 @@
     "windows": [
       {
         "label": "main",
+        "create": false,
         "fullscreen": false,
         "height": 810,
         "resizable": true,

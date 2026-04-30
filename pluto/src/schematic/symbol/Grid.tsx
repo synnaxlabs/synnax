@@ -9,6 +9,12 @@
 
 import { location } from "@synnaxlabs/x";
 import {
+  type ControlLinePosition,
+  type ControlPosition,
+  NodeResizeControl,
+  ResizeControlVariant,
+} from "@xyflow/react";
+import {
   cloneElement,
   type CSSProperties,
   type DragEvent,
@@ -50,6 +56,7 @@ export interface GridProps extends PropsWithChildren<{}> {
   onRotate?: () => void;
   allowCenter?: boolean;
   allowRotate?: boolean;
+  onResize?: (dimensions: { width: number; height: number }) => void;
 }
 
 interface GridElProps {
@@ -58,6 +65,29 @@ interface GridElProps {
   items: GridItem[];
   onLocationChange: (key: string, loc: location.Location) => void;
 }
+
+export const roundResizeDims = (
+  width: number,
+  height: number,
+): { width: number; height: number } => ({
+  width: Math.round(width),
+  height: Math.round(height),
+});
+
+const RESIZE_CONTROLS: {
+  position: ControlLinePosition | ControlPosition;
+  variant?: ResizeControlVariant;
+  keepAspectRatio?: boolean;
+}[] = [
+  { position: "top", variant: ResizeControlVariant.Line },
+  { position: "right", variant: ResizeControlVariant.Line },
+  { position: "bottom", variant: ResizeControlVariant.Line },
+  { position: "left", variant: ResizeControlVariant.Line },
+  { position: "top-left", keepAspectRatio: true },
+  { position: "top-right", keepAspectRatio: true },
+  { position: "bottom-left", keepAspectRatio: true },
+  { position: "bottom-right", keepAspectRatio: true },
+];
 
 const HAUL_TYPE = "Schematic.Grid";
 
@@ -172,6 +202,7 @@ export const Grid = ({
   allowCenter,
   onRotate,
   symbolKey,
+  onResize,
   ...rest
 }: GridProps) => {
   const prevEditable = useRef(editable);
@@ -224,6 +255,18 @@ export const Grid = ({
           <Icon.Rotate />
         </Button.Button>
       )}
+      {onResize != null &&
+        editable &&
+        RESIZE_CONTROLS.map(({ position, ...rest }) => (
+          <NodeResizeControl
+            key={position}
+            position={position}
+            onResize={(_event, { width, height }) =>
+              onResize?.(roundResizeDims(width, height))
+            }
+            {...rest}
+          />
+        ))}
       <div className={DRAG_HANDLE_CLASS}>{children}</div>
     </>
   );
