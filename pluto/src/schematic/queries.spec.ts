@@ -19,6 +19,23 @@ import { Workspace } from "@/workspace";
 
 const client = createTestClient();
 
+const newSchematic = (name: string): schematic.New => ({
+  name,
+  legend: {
+    visible: true,
+    position: {
+      x: 50,
+      y: 50,
+      root: { x: "left", y: "top" },
+      units: { x: "px", y: "px" },
+    },
+    colors: {},
+  },
+  nodes: [],
+  edges: [],
+  props: {},
+});
+
 describe("schematic queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -31,13 +48,10 @@ describe("schematic queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "retrieve_test",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic("retrieve_test"),
+      );
 
       const { result } = renderHook(
         () => Schematic.useRetrieve({ key: schematic.key }),
@@ -57,13 +71,10 @@ describe("schematic queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "cached_schematic",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic("cached_schematic"),
+      );
 
       const { result: result1 } = renderHook(
         () => Schematic.useRetrieve({ key: schematic.key }),
@@ -92,13 +103,9 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
+          ...newSchematic("created_schematic"),
           key,
           workspace: workspace.key,
-          name: "created_schematic",
-          legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-          nodes: [],
-          edges: [],
-          props: {},
         });
       });
 
@@ -123,13 +130,9 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
+          ...newSchematic("stored_schematic"),
           key,
           workspace: workspace.key,
-          name: "stored_schematic",
-          legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-          nodes: [],
-          edges: [],
-          props: {},
         });
       });
 
@@ -148,13 +151,10 @@ describe("schematic queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "original_name",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic("original_name"),
+      );
 
       const { result } = renderHook(
         () => {
@@ -186,13 +186,10 @@ describe("schematic queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "cache_original",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic("cache_original"),
+      );
 
       const { result } = renderHook(
         () => ({
@@ -222,13 +219,10 @@ describe("schematic queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
-        name: "delete_single",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic = await client.schematics.create(
+        workspace.key,
+        newSchematic("delete_single"),
+      );
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
@@ -246,20 +240,14 @@ describe("schematic queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const schematic1 = await client.schematics.create(workspace.key, {
-        name: "delete_multi_1",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
-      const schematic2 = await client.schematics.create(workspace.key, {
-        name: "delete_multi_2",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const schematic1 = await client.schematics.create(
+        workspace.key,
+        newSchematic("delete_multi_1"),
+      );
+      const schematic2 = await client.schematics.create(
+        workspace.key,
+        newSchematic("delete_multi_2"),
+      );
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
@@ -284,20 +272,8 @@ describe("schematic queries", () => {
         name: "opr_sibling_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, {
-        name: "Current",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
-      const s2 = await client.schematics.create(ws.key, {
-        name: "Sibling",
-        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
-      });
+      const s1 = await client.schematics.create(ws.key, newSchematic("Current"));
+      const s2 = await client.schematics.create(ws.key, newSchematic("Sibling"));
 
       const { result } = renderHook(
         () =>
