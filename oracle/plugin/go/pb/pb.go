@@ -1180,18 +1180,20 @@ func (p *Plugin) generateTypeDefConversion(
 		typedefPrefix = data.parentAlias + "."
 	}
 
+	resolvedGoName := naming.GetGoName(resolved)
+
 	if baseType.Name == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolved.Name)
+		backwardCast = fmt.Sprintf("%s%s", typedefPrefix, resolvedGoName)
 		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(baseType.Name)
 
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolved.Name, pbField)
+	backward = fmt.Sprintf("%s%s(%s)", typedefPrefix, resolvedGoName, pbField)
 
 	return forward, backward, "", false
 }
@@ -1220,18 +1222,20 @@ func (p *Plugin) generateAliasConversion(
 		aliasPrefix = data.parentAlias + "."
 	}
 
+	resolvedGoName := naming.GetGoName(resolved)
+
 	// Handle uuid specially
 	if primitiveName == "uuid" {
 		data.imports.AddExternal("github.com/google/uuid")
 		forward = fmt.Sprintf("%s.String()", goField)
 		backward = fmt.Sprintf("uuid.Parse(%s)", pbField)
-		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolved.Name)
+		backwardCast = fmt.Sprintf("%s%s", aliasPrefix, resolvedGoName)
 		return forward, backward, backwardCast, true
 	}
 
 	protoType := primitiveToProtoType(primitiveName)
 	forward = fmt.Sprintf("%s(%s)", protoType, goField)
-	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolved.Name, pbField)
+	backward = fmt.Sprintf("%s%s(%s)", aliasPrefix, resolvedGoName, pbField)
 	return forward, backward, "", false
 }
 

@@ -16,25 +16,115 @@ import (
 	"github.com/tetratelabs/wazero"
 
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	xmath "github.com/synnaxlabs/x/math"
+	"github.com/synnaxlabs/x/query"
+	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/telem/op"
+	"github.com/synnaxlabs/x/zyn"
+)
+
+const (
+	avgSymbolName        = "avg"
+	countConfigParam     = "count"
+	derivativeSymbolName = "derivative"
+	durationConfigParam  = "duration"
+	maxSymbolName        = "max"
+	minSymbolName        = "min"
+	powSymbolName        = "pow"
+	resetInputParam      = "reset"
 )
 
 var numConstraint = types.NumericConstraint()
 
-var SymbolResolver = &symbol.ModuleResolver{
-	Name: "math",
-	Members: symbol.MapResolver{
-		"pow": {
-			Name: "pow",
-			Kind: symbol.KindFunction,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
-			}),
-		},
-	},
+type (
+	reductionFn  = func(telem.Series, int64, *telem.Series) int64
+	derivativeFn = func(
+		telem.Series,
+		telem.Series,
+		*float64,
+		*telem.TimeStamp,
+		*bool,
+		*telem.Series,
+		*telem.Series,
+	)
+)
+
+func createBaseSymbol(name string) symbol.Symbol {
+	return symbol.Symbol{
+		Name: name,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Config: types.Params{
+				{Name: durationConfigParam, Type: types.TimeSpan(), Value: telem.TimeSpanZero},
+				{Name: countConfigParam, Type: types.I64(), Value: 0},
+			},
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
+				{Name: resetInputParam, Type: types.U8(), Value: 0},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)},
+			},
+		}),
+	}
+}
+
+var (
+	powSymbol = symbol.Symbol{
+		Name:     powSymbolName,
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "base", Type: types.Variable("T", &numConstraint)}, {Name: "exp", Type: types.Variable("T", &numConstraint)}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", &numConstraint)}},
+		}),
+	}
+	avgSymbol        = createBaseSymbol(avgSymbolName)
+	minSymbol        = createBaseSymbol(minSymbolName)
+	maxSymbol        = createBaseSymbol(maxSymbolName)
+	derivativeSymbol = symbol.Symbol{
+		Name: derivativeSymbolName,
+		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: ir.DefaultInputParam, Type: types.Variable("T", &numConstraint)},
+			},
+			Outputs: types.Params{
+				{Name: ir.DefaultOutputParam, Type: types.F64()},
+			},
+		}),
+	}
+)
+
+func deprecated(sym symbol.Symbol, replacement string) symbol.Symbol {
+	sym.Deprecated = replacement
+	return sym
+}
+
+var deprecatedBareResolver = symbol.MapResolver{
+	avgSymbolName:        deprecated(avgSymbol, "math.avg"),
+	minSymbolName:        deprecated(minSymbol, "math.min"),
+	maxSymbolName:        deprecated(maxSymbol, "math.max"),
+	derivativeSymbolName: deprecated(derivativeSymbol, "math.derivative"),
+}
+
+var moduleMembers = symbol.MapResolver{
+	powSymbolName:        powSymbol,
+	avgSymbolName:        avgSymbol,
+	minSymbolName:        minSymbol,
+	maxSymbolName:        maxSymbol,
+	derivativeSymbolName: derivativeSymbol,
+}
+
+var SymbolResolver = symbol.CompoundResolver{
+	deprecatedBareResolver,
+	&symbol.ModuleResolver{Name: "math", Members: moduleMembers},
 }
 
 type Module struct{}
@@ -66,10 +156,256 @@ func NewModule(
 		WithFunc(func(_ context.Context, base float64, exp float64) float64 {
 			return math.Pow(base, exp)
 		}).Export("pow_f64")
+
+	builder = bindI32Unary[int8](builder, "neg", "i8", func(a int8) int8 { return -a })
+	builder = bindI32Unary[int16](builder, "neg", "i16", func(a int16) int16 { return -a })
+	builder = bindI32Unary[int32](builder, "neg", "i32", func(a int32) int32 { return -a })
+	builder = bindI64Unary[int64](builder, "neg", "i64", func(a int64) int64 { return -a })
+	builder = bindF32Unary(builder, "neg", func(a float32) float32 { return -a })
+	builder = bindF64Unary(builder, "neg", func(a float64) float64 { return -a })
+
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+func (m *Module) Create(_ context.Context, nodeCfg node.Config) (node.Node, error) {
+	if nodeCfg.Node.Type == derivativeSymbolName {
+		return createDerivative(nodeCfg)
+	}
+	reductionMap, ok := ops[nodeCfg.Node.Type]
+	if !ok {
+		return nil, query.ErrNotFound
+	}
+	var (
+		inputData   = nodeCfg.State.Input(0)
+		reductionFn = reductionMap[inputData.DataType]
+		resetIdx    = -1
+	)
+	if _, found := nodeCfg.Program.Edges.FindByTarget(ir.Handle{
+		Node:  nodeCfg.Node.Key,
+		Param: resetInputParam,
+	}); found {
+		resetIdx = 1
+		nodeCfg.State.InitInput(
+			resetIdx,
+			telem.NewSeriesV[uint8](0),
+			telem.NewSeriesV[telem.TimeStamp](1),
+		)
+	}
+	var cfg WindowConfig
+	if err := windowConfigSchema.Parse(nodeCfg.Node.Config.ValueMap(), &cfg); err != nil {
+		return nil, err
+	}
+	return &avgNode{
+		State:       nodeCfg.State,
+		resetIdx:    resetIdx,
+		process:     reductionFn,
+		sampleCount: 0,
+		cfg:         cfg,
+	}, nil
+}
+
+type WindowConfig struct {
+	Duration telem.TimeSpan `json:"duration" msgpack:"duration"`
+	Count    int64          `json:"count" msgpack:"count"`
+}
+
+var windowConfigSchema = zyn.Object(map[string]zyn.Schema{
+	durationConfigParam: zyn.Int64().Optional().Coerce(),
+	countConfigParam:    zyn.Int64().Optional().Coerce(),
+})
+
+type avgNode struct {
+	*node.State
+	process       reductionFn
+	cfg           WindowConfig
+	resetIdx      int
+	sampleCount   int64
+	startTime     telem.TimeStamp
+	lastResetTime telem.TimeStamp
+}
+
+var _ node.Node = (*avgNode)(nil)
+
+func (r *avgNode) Reset() {
+	r.State.Reset()
+	r.sampleCount = 0
+	r.startTime = 0
+	r.lastResetTime = 0
+}
+
+func (r *avgNode) Next(ctx node.Context) {
+	if !r.RefreshInputs() {
+		return
+	}
+
+	inputTime := r.InputTime(0)
+	if r.startTime == 0 && inputTime.Len() > 0 {
+		r.startTime = telem.ValueAt[telem.TimeStamp](inputTime, 0)
+	}
+
+	shouldReset := false
+
+	if r.resetIdx >= 0 {
+		resetData := r.Input(r.resetIdx)
+		resetTime := r.InputTime(r.resetIdx)
+		for i := int64(0); i < resetData.Len(); i++ {
+			ts := telem.ValueAt[telem.TimeStamp](resetTime, int(i))
+			if ts > r.lastResetTime && telem.ValueAt[uint8](resetData, int(i)) == 1 {
+				shouldReset = true
+				break
+			}
+		}
+		if resetTime.Len() > 0 {
+			r.lastResetTime = telem.ValueAt[telem.TimeStamp](resetTime, -1)
+		}
+	}
+
+	if r.cfg.Duration > 0 && inputTime.Len() > 0 {
+		currentTime := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		if telem.TimeSpan(currentTime-r.startTime) >= r.cfg.Duration {
+			shouldReset = true
+			r.startTime = currentTime
+		}
+	}
+
+	if r.cfg.Count > 0 && r.sampleCount >= r.cfg.Count {
+		shouldReset = true
+	}
+
+	if shouldReset {
+		r.sampleCount = 0
+		r.Output(0).Resize(0)
+		inputTime = r.InputTime(0)
+	}
+	inputData := r.Input(0)
+	if inputData.Len() == 0 {
+		return
+	}
+	r.sampleCount = r.process(inputData, r.sampleCount, r.Output(0))
+	if inputTime.Len() > 0 {
+		lastTimestamp := telem.ValueAt[telem.TimeStamp](inputTime, -1)
+		*r.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](lastTimestamp)
+	}
+	alignment := inputData.Alignment
+	timeRange := inputData.TimeRange
+	if r.resetIdx >= 0 {
+		resetData := r.Input(r.resetIdx)
+		alignment += resetData.Alignment
+		if !resetData.TimeRange.Start.IsZero() && (timeRange.Start.IsZero() || resetData.TimeRange.Start < timeRange.Start) {
+			timeRange.Start = resetData.TimeRange.Start
+		}
+		if resetData.TimeRange.End > timeRange.End {
+			timeRange.End = resetData.TimeRange.End
+		}
+	}
+	r.Output(0).Alignment = alignment
+	r.Output(0).TimeRange = timeRange
+	r.OutputTime(0).Alignment = alignment
+	r.OutputTime(0).TimeRange = timeRange
+	ctx.MarkChanged(0)
+}
+
+var (
+	ops = map[string]map[telem.DataType]reductionFn{
+		avgSymbolName: {
+			telem.Float64T: op.AvgF64,
+			telem.Float32T: op.AvgF32,
+			telem.Int64T:   op.AvgI64,
+			telem.Int32T:   op.AvgI32,
+			telem.Int16T:   op.AvgI16,
+			telem.Int8T:    op.AvgI8,
+			telem.Uint64T:  op.AvgU64,
+			telem.Uint32T:  op.AvgU32,
+			telem.Uint16T:  op.AvgU16,
+			telem.Uint8T:   op.AvgU8,
+		},
+		minSymbolName: {
+			telem.Float64T: op.MinF64,
+			telem.Float32T: op.MinF32,
+			telem.Int64T:   op.MinI64,
+			telem.Int32T:   op.MinI32,
+			telem.Int16T:   op.MinI16,
+			telem.Int8T:    op.MinI8,
+			telem.Uint64T:  op.MinU64,
+			telem.Uint32T:  op.MinU32,
+			telem.Uint16T:  op.MinU16,
+			telem.Uint8T:   op.MinU8,
+		},
+		maxSymbolName: {
+			telem.Float64T: op.MaxF64,
+			telem.Float32T: op.MaxF32,
+			telem.Int64T:   op.MaxI64,
+			telem.Int32T:   op.MaxI32,
+			telem.Int16T:   op.MaxI16,
+			telem.Int8T:    op.MaxI8,
+			telem.Uint64T:  op.MaxU64,
+			telem.Uint32T:  op.MaxU32,
+			telem.Uint16T:  op.MaxU16,
+			telem.Uint8T:   op.MaxU8,
+		},
+	}
+	derivOps = map[telem.DataType]derivativeFn{
+		telem.Float64T: op.DerivativeF64,
+		telem.Float32T: op.DerivativeF32,
+		telem.Int64T:   op.DerivativeI64,
+		telem.Int32T:   op.DerivativeI32,
+		telem.Int16T:   op.DerivativeI16,
+		telem.Int8T:    op.DerivativeI8,
+		telem.Uint64T:  op.DerivativeU64,
+		telem.Uint32T:  op.DerivativeU32,
+		telem.Uint16T:  op.DerivativeU16,
+		telem.Uint8T:   op.DerivativeU8,
+	}
+)
+
+func createDerivative(cfg node.Config) (node.Node, error) {
+	inputData := cfg.State.Input(0)
+	derivFn, ok := derivOps[inputData.DataType]
+	if !ok {
+		return nil, query.ErrNotFound
+	}
+	return &derivativeNode{State: cfg.State, process: derivFn}, nil
+}
+
+type derivativeNode struct {
+	*node.State
+	process       derivativeFn
+	prevValue     float64
+	prevTimestamp telem.TimeStamp
+	hasPrev       bool
+}
+
+var _ node.Node = (*derivativeNode)(nil)
+
+func (d *derivativeNode) Reset() {
+	d.State.Reset()
+	d.prevValue = 0
+	d.prevTimestamp = 0
+	d.hasPrev = false
+}
+
+func (d *derivativeNode) Next(ctx node.Context) {
+	if !d.RefreshInputs() {
+		return
+	}
+	inputData := d.Input(0)
+	inputTime := d.InputTime(0)
+	if inputData.Len() == 0 {
+		return
+	}
+	d.process(
+		inputData, inputTime,
+		&d.prevValue, &d.prevTimestamp, &d.hasPrev,
+		d.Output(0), d.OutputTime(0),
+	)
+	d.Output(0).Alignment = inputData.Alignment
+	d.Output(0).TimeRange = inputData.TimeRange
+	d.OutputTime(0).Alignment = inputData.Alignment
+	d.OutputTime(0).TimeRange = inputData.TimeRange
+	ctx.MarkChanged(0)
 }
 
 type i32Powable interface {
@@ -99,4 +435,32 @@ func bindI64Pow[T i64Powable](builder wazero.HostModuleBuilder, suffix string) w
 		WithFunc(func(_ context.Context, base uint64, exp uint64) uint64 {
 			return uint64(xmath.IntPow(T(base), int(exp)))
 		}).Export("pow_" + suffix)
+}
+
+func bindI32Unary[T i32Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint32) uint32 {
+			return uint32(fn(T(a)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindI64Unary[T i64Powable](builder wazero.HostModuleBuilder, name, suffix string, fn func(T) T) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a uint64) uint64 {
+			return uint64(fn(T(a)))
+		}).Export(name + "_" + suffix)
+}
+
+func bindF32Unary(builder wazero.HostModuleBuilder, name string, fn func(float32) float32) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float32) float32 {
+			return fn(a)
+		}).Export(name + "_f32")
+}
+
+func bindF64Unary(builder wazero.HostModuleBuilder, name string, fn func(float64) float64) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, a float64) float64 {
+			return fn(a)
+		}).Export(name + "_f64")
 }

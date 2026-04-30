@@ -17,11 +17,11 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
@@ -225,7 +225,7 @@ func peerOnlyScenario(ctx context.Context) scenario {
 	builder := mock.ProvisionCluster(ctx, 4)
 	dist := builder.Nodes[1]
 	for i := range channels {
-		channels[i].Leaseholder = cluster.NodeKey(i + 2)
+		channels[i].Leaseholder = node.Key(i + 2)
 	}
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
@@ -252,7 +252,7 @@ func mixedScenario(ctx context.Context) scenario {
 	builder := mock.ProvisionCluster(ctx, 3)
 	dist := builder.Nodes[1]
 	for i := range channels {
-		channels[i].Leaseholder = cluster.NodeKey(i + 1)
+		channels[i].Leaseholder = node.Key(i + 1)
 	}
 	Expect(dist.Channel.NewWriter(nil).CreateMany(ctx, &channels)).To(Succeed())
 	keys := channel.KeysFromChannels(channels)
