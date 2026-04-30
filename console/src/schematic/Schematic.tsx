@@ -27,7 +27,7 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
+import { box, type color, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
 import {
   type ReactElement,
   useCallback,
@@ -361,7 +361,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleLegendColorsChange = useCallback(
-    (colors: Record<string, string>) =>
+    (colors: Record<string, color.Color>) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { colors } })),
     [layoutKey, syncDispatch],
   );
@@ -466,7 +466,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...v }),
+  actionCreator: (v) => internalCreate({ ...ZERO_STATE, ...v }),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {

@@ -74,7 +74,7 @@ var _ = Describe("MigrateSchematic", func() {
 	Describe("older wire formats", func() {
 		It("Should chain a v0 blob through every step migration", func(ctx SpecContext) {
 			snap := v55.Schematic{
-				Key:  uuid.New(),
+				Key: uuid.New(),
 				Data: jsonMap(`{
 					"version": "0.0.0",
 					"nodes": [{"key": "n1", "position": {"x": 0, "y": 0}}],

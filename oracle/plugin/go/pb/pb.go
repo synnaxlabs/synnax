@@ -984,9 +984,15 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
 			fmt.Sprintf("int8(%s)", pbField), false, false
+	case "int16":
+		return fmt.Sprintf("int32(%s)", goField),
+			fmt.Sprintf("int16(%s)", pbField), false, false
 	case "uint8":
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("uint8(%s)", pbField), false, false
+	case "uint16":
+		return fmt.Sprintf("uint32(%s)", goField),
+			fmt.Sprintf("uint16(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}

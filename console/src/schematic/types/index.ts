@@ -25,7 +25,7 @@ export type State = v6.State;
 export type SliceState = v6.SliceState;
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
-export type LegendState = v1.LegendState;
+export type LegendState = v6.Legend;
 export type CopyBuffer = v6.CopyBuffer;
 export type AnyState =
   | v0.State

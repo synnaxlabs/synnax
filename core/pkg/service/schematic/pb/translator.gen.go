@@ -19,7 +19,6 @@ import (
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/spatial"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -109,13 +108,6 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 		ZIndex:   r.ZIndex,
 		Position: positionVal,
 	}
-	if r.Measured != (spatial.Dimensions{}) {
-		measuredVal, err := spatialpb.DimensionsToPB(r.Measured)
-		if err != nil {
-			return nil, err
-		}
-		pb.Measured = measuredVal
-	}
 	return pb, nil
 }
 
@@ -132,12 +124,6 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 	}
 	r.Key = pb.Key
 	r.ZIndex = pb.ZIndex
-	if pb.Measured != nil {
-		r.Measured, err = spatialpb.DimensionsFromPB(pb.Measured)
-		if err != nil {
-			return schematic.Node{}, err
-		}
-	}
 	return r, nil
 }
 

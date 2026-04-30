@@ -34,21 +34,18 @@ Legend struct {
 }
 
 Node struct {
-    key      string              {
+    key      string     {
         @doc value "is the unique node identifier within the schematic."
     }
-    position spatial.XY          {
+    position spatial.XY {
         @doc value "is the top-left position of the node."
     }
-    z_index  int32               {
+    z_index  int16?     {
         @doc value """
             is the stacking order of the node within the schematic. Higher
             values render above lower values. Set by the user via
             send-to-back / bring-to-front actions.
         """
-    }
-    measured spatial.Dimensions? {
-        @doc value "contains the measured dimensions from rendering."
     }
 
     @doc value "is a diagram node representing a symbol in the schematic."

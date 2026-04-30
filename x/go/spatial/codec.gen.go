@@ -39,23 +39,6 @@ func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
 	return nil
 }
 
-func (d Dimensions) EncodeOrc(w *orc.Writer) error {
-	w.Float64(float64(d.Width))
-	w.Float64(float64(d.Height))
-	return nil
-}
-
-func (d *Dimensions) DecodeOrc(r *orc.Reader) error {
-	var err error
-	if d.Width, err = r.Float64(); err != nil {
-		return err
-	}
-	if d.Height, err = r.Float64(); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
 	w.String(string(su.X))
 	w.String(string(su.Y))

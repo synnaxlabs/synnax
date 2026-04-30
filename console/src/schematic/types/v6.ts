@@ -123,14 +123,13 @@ const migrateEdge = (edge: v0.Edge): { edge: Edge; edgeProps?: EdgeProps } => {
   if (parsedColor.success) edgeProps.color = parsedColor.data;
   const parsedVariant = Schematic.Edge.edgeTypeZ.safeParse(data.variant);
   if (parsedVariant.success) edgeProps.variant = parsedVariant.data;
-  return { edge: next, edgeProps: edgeProps as EdgeProps };
+  return { edge: next, edgeProps: edgePropsZ.parse(edgeProps) };
 };
 
 const migrateNode = (node: v0.Node): Node => ({
   key: node.key,
   position: node.position,
   zIndex: node.zIndex ?? 0,
-  measured: node.measured,
 });
 
 const migrateLegendColors = (
@@ -170,7 +169,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
       nodes,
       edges,
       props,
-      legend: { ...state.legend, colors: migrateLegendColors(state.legend.colors) },
+      legend: { ...state.legend, colors: migrateLegendColors(state.legend?.colors) },
       selected: [],
     };
   },

@@ -197,7 +197,7 @@ const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void 
   const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
   const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
   if (sourceProps?.color == null || sourceProps.color !== targetProps?.color) return;
-  const existing = schematic.props[edge.key] as EdgeProps | undefined;
+  const existing = schematic.props[edge.key];
   schematic.props[edge.key] = { ...existing, color: sourceProps.color };
 };
 
@@ -367,11 +367,6 @@ export const { actions, reducer } = createSlice({
             schematic.selected = schematic.selected.filter((k) => k !== change.key);
             break;
           }
-          case "dimensions": {
-            const node = schematic.nodes.find((n) => n.key === change.key);
-            if (node != null) node.measured = change.dimensions;
-            break;
-          }
         }
     },
     applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
@@ -380,6 +375,7 @@ export const { actions, reducer } = createSlice({
       for (const change of changes)
         switch (change.type) {
           case "add":
+            schematic.props[change.edge.key] ??= {};
             syncEdgeColorFromEndpoints(schematic, change.edge);
             schematic.edges.push(change.edge);
             break;
@@ -441,9 +437,10 @@ export const { actions, reducer } = createSlice({
     fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
       const { theme } = payload;
       const bgColor = color.construct(theme.colors.gray.l0);
-      const shouldChange = (crude: color.Crude): boolean => {
-        const c = color.construct(crude);
-        return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
+      const shouldChange = (crude: unknown): boolean => {
+        const c = color.colorZ.safeParse(crude);
+        if (!c.success) return false;
+        return color.grayness(c.data) > 0.85 && color.contrast(c.data, bgColor) < 1.3;
       };
       Object.values(state.schematics).forEach((schematic) => {
         Object.values(schematic.props).forEach((p) => {

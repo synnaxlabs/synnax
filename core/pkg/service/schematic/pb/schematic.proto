@@ -40,8 +40,6 @@ message Node {
   // z_index is the stacking order of the node within the schematic. Higher values render
   // above lower values. Set by the user via send-to-back / bring-to-front actions.
   int32 z_index = 3;
-  // measured contains the measured dimensions from rendering.
-  .x.spatial.pb.Dimensions measured = 4;
 }
 
 // Handle is a reference to a specific connection point on a specific node. For

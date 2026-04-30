@@ -96,9 +96,9 @@ describe("schematic queries", () => {
           workspace: workspace.key,
           name: "created_schematic",
           legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
+          nodes: [],
+          edges: [],
+          props: {},
         });
       });
 
@@ -127,9 +127,9 @@ describe("schematic queries", () => {
           workspace: workspace.key,
           name: "stored_schematic",
           legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
-        nodes: [],
-        edges: [],
-        props: {},
+          nodes: [],
+          edges: [],
+          props: {},
         });
       });
 

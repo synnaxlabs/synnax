@@ -135,13 +135,11 @@ var _ = Describe("Codec", func() {
 				Key:      "test_1",
 				Position: spatial.XY{X: 3.5, Y: 4.5},
 				ZIndex:   6,
-				Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 			}),
 			Entry("zero values", schematic.Node{
 				Key:      "",
 				Position: spatial.XY{X: 0, Y: 0},
 				ZIndex:   0,
-				Measured: spatial.Dimensions{Width: 0, Height: 0},
 			}),
 		)
 	})
@@ -184,17 +182,16 @@ var _ = Describe("Codec", func() {
 						Key:      "test_22",
 						Position: spatial.XY{X: 24.5, Y: 25.5},
 						ZIndex:   27,
-						Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
 					},
 				},
 				Edges: []schematic.Edge{
 					{
-						Key:    "test_31",
-						Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-						Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+						Key:    "test_28",
+						Source: schematic.Handle{Node: "test_30", Param: "test_31"},
+						Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 					},
 				},
-				Props: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+				Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:       uuid.Nil,
@@ -318,7 +315,6 @@ func BenchmarkEncodeDecodeNode(b *testing.B) {
 		Key:      "test_1",
 		Position: spatial.XY{X: 3.5, Y: 4.5},
 		ZIndex:   6,
-		Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -364,17 +360,16 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Key:      "test_22",
 				Position: spatial.XY{X: 24.5, Y: 25.5},
 				ZIndex:   27,
-				Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
 			},
 		},
 		Edges: []schematic.Edge{
 			{
-				Key:    "test_31",
-				Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-				Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+				Key:    "test_28",
+				Source: schematic.Handle{Node: "test_30", Param: "test_31"},
+				Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 			},
 		},
-		Props: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+		Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -589,7 +584,6 @@ func FuzzDecodeNode(f *testing.F) {
 			Key:      "test_1",
 			Position: spatial.XY{X: 3.5, Y: 4.5},
 			ZIndex:   6,
-			Measured: spatial.Dimensions{Width: 7.5, Height: 8.5},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -602,7 +596,6 @@ func FuzzDecodeNode(f *testing.F) {
 			Key:      "",
 			Position: spatial.XY{X: 0, Y: 0},
 			ZIndex:   0,
-			Measured: spatial.Dimensions{Width: 0, Height: 0},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -669,17 +662,16 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Key:      "test_22",
 					Position: spatial.XY{X: 24.5, Y: 25.5},
 					ZIndex:   27,
-					Measured: spatial.Dimensions{Width: 28.5, Height: 29.5},
 				},
 			},
 			Edges: []schematic.Edge{
 				{
-					Key:    "test_31",
-					Source: schematic.Handle{Node: "test_33", Param: "test_34"},
-					Target: schematic.Handle{Node: "test_36", Param: "test_37"},
+					Key:    "test_28",
+					Source: schematic.Handle{Node: "test_30", Param: "test_31"},
+					Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 				},
 			},
-			Props: map[string]msgpack.EncodedJSON{"test_38": {"key_38": "value_38"}},
+			Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

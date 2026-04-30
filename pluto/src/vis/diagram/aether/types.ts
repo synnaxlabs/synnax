@@ -36,7 +36,6 @@ export const nodeZ = z.object({
   key: z.string(),
   position: xy.xyZ,
   zIndex: z.number().optional(),
-  type: z.string().optional(),
   measured: z
     .object({ width: z.number().optional(), height: z.number().optional() })
     .optional(),

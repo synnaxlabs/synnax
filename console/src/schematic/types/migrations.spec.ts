@@ -105,6 +105,37 @@ describe("migrations", () => {
       const migrated = migrateState(v5.ZERO_STATE);
       expect(migrated.selected).toEqual([]);
     });
+
+    it("should widen v5 legend string colors to color.Color when migrating to v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...v5.ZERO_STATE.legend,
+          colors: { a: "#ff0000", b: "#00ff00" },
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.legend.colors.a).toEqual(color.construct("#ff0000"));
+      expect(migrated.legend.colors.b).toEqual(color.construct("#00ff00"));
+    });
+
+    it("should migrate a v5 state whose legend has no colors", () => {
+      const { colors: _colors, ...legendWithoutColors } = v5.ZERO_STATE.legend;
+      const state = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...legendWithoutColors,
+          position: { x: 123, y: 456, units: { x: "px", y: "px" } },
+        },
+      } as unknown as v5.State;
+      const migrated = migrateState(state);
+      expect(migrated.legend.colors).toEqual({});
+      expect(migrated.legend.position).toEqual({
+        x: 123,
+        y: 456,
+        units: { x: "px", y: "px" },
+      });
+    });
   });
 
   describe("slice", () => {
