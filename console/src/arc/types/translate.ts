@@ -26,10 +26,7 @@ export const translateGraphToConsole = (module: arc.graph.Graph): GraphState => 
   props: Object.fromEntries(
     module.nodes.map((n) => [n.key, { key: n.type, ...n.config }]),
   ),
-  viewport: {
-    position: xy.ZERO,
-    zoom: 1,
-  },
+  viewport: { position: xy.ZERO, zoom: 1 },
   selected: [],
   editable: false,
   fitViewOnResize: false,
@@ -41,8 +38,8 @@ export const translateGraphToServer = (state: GraphState): arc.graph.Graph => ({
     return { key: n.key, type, config, position: n.position };
   }),
   edges: state.edges.map((e) => ({
-    source: { node: e.source.node, param: e.source.param },
-    target: { node: e.target.node, param: e.target.param },
+    source: e.source,
+    target: e.target,
     kind: arc.ir.EdgeKind.continuous,
   })),
   viewport: { position: xy.ZERO, zoom: 1 },
