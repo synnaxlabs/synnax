@@ -92,4 +92,21 @@ var _ = Describe("License", func() {
 		Expect(string(out)).ToNot(ContainSubstring("1999"))
 		Expect(string(out)).To(HavePrefix("// Copyright"))
 	})
+
+	It("Should replace a stale block-comment header on a CSS file", func(ctx SpecContext) {
+		l := MustSucceed(format.NewLicense(repoRoot))
+		stale := []byte("/*\n * Copyright 1999 Synnax Labs, Inc.\n *\n * Governed by BSL.\n */\n\n.cls { color: red; }\n")
+		out := MustSucceed(l.Format(ctx, stale, "/abs/foo.css"))
+		Expect(string(out)).ToNot(ContainSubstring("1999"))
+		Expect(string(out)).To(HavePrefix("/*\n * Copyright"))
+		Expect(string(out)).To(HaveSuffix(".cls { color: red; }\n"))
+	})
+
+	It("Should leave a non-Synnax block comment alone in CSS", func(ctx SpecContext) {
+		l := MustSucceed(format.NewLicense(repoRoot))
+		raw := []byte("/* Reset */\n.cls { color: red; }\n")
+		out := MustSucceed(l.Format(ctx, raw, "/abs/foo.css"))
+		Expect(string(out)).To(HavePrefix("/*\n * Copyright"))
+		Expect(string(out)).To(ContainSubstring("/* Reset */"))
+	})
 })
