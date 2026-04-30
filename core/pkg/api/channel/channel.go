@@ -18,8 +18,8 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
@@ -137,7 +137,7 @@ type RetrieveRequest struct {
 	Offset int `json:"offset" msgpack:"offset"`
 	// NodeKey is an optional parameter that queries a Channel by its node
 	// Name.
-	NodeKey cluster.NodeKey `json:"node_key" msgpack:"node_key"`
+	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
 	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
 }
@@ -279,7 +279,7 @@ func translateChannelsBackward(
 	for i, ch := range channels {
 		tCh := channel.Channel{
 			Name:        ch.Name,
-			Leaseholder: cluster.NodeKey(ch.Leaseholder),
+			Leaseholder: node.Key(ch.Leaseholder),
 			DataType:    ch.DataType,
 			IsIndex:     ch.IsIndex,
 			LocalIndex:  ch.Index.LocalKey(),

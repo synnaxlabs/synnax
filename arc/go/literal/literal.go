@@ -418,3 +418,25 @@ func IsExactInteger(value float64) bool {
 	// Use relative tolerance: difference should be tiny compared to the magnitude
 	return math.Abs(value-rounded)/math.Abs(rounded) < 1e-9
 }
+
+// Negate negates a parsed literal value. Supports the numeric types produced by Parse.
+func Negate(v any) any {
+	switch val := v.(type) {
+	case int8:
+		return -val
+	case int16:
+		return -val
+	case int32:
+		return -val
+	case int64:
+		return -val
+	case float32:
+		return -val
+	case float64:
+		return -val
+	case telem.TimeSpan:
+		return -val
+	default:
+		return v
+	}
+}

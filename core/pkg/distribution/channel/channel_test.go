@@ -15,7 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/math"
@@ -29,16 +29,16 @@ var _ = Describe("Channel Tests", func() {
 	Describe("Key Tests", func() {
 		Describe("Construction", func() {
 			It("Should return the correct leaseholder for the key", func() {
-				k := channel.NewKey(cluster.NodeKey(1), 1)
-				Expect(k.Leaseholder()).To(Equal(cluster.NodeKey(1)))
+				k := channel.NewKey(node.Key(1), 1)
+				Expect(k.Leaseholder()).To(Equal(node.Key(1)))
 			})
 			It("Should return the correct localKey for the key", func() {
-				k := channel.NewKey(cluster.NodeKey(1), 2)
+				k := channel.NewKey(node.Key(1), 2)
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(2)))
 			})
 			It("Should correctly handle the maximum value of a 12 bit node key and 20 bit cesium key", func() {
-				k := channel.NewKey(cluster.NodeKey(math.MaxUint12), channel.LocalKey(math.MaxUint20))
-				Expect(k.Leaseholder()).To(Equal(cluster.NodeKey(math.MaxUint12)))
+				k := channel.NewKey(node.Key(math.MaxUint12), channel.LocalKey(math.MaxUint20))
+				Expect(k.Leaseholder()).To(Equal(node.Key(math.MaxUint12)))
 				Expect(k.LocalKey()).To(Equal(channel.LocalKey(math.MaxUint20)))
 			})
 		})
@@ -56,26 +56,26 @@ var _ = Describe("Channel Tests", func() {
 		})
 		Describe("Lease", func() {
 			It("Should return the leaseholder node Name", func() {
-				k := channel.NewKey(cluster.NodeKey(1), 1)
+				k := channel.NewKey(node.Key(1), 1)
 				Expect(k.Lease()).To(Equal(k.Leaseholder()))
 			})
 		})
 		Describe("OntologyID", func() {
 			It("Should return the ontology Name for the channel", func() {
-				ok := channel.OntologyID(channel.NewKey(cluster.NodeKey(1), 2))
+				ok := channel.OntologyID(channel.NewKey(node.Key(1), 2))
 				Expect(ok).To(Equal(ontology.ID{
 					Type: "channel",
-					Key:  channel.NewKey(cluster.NodeKey(1), 2).String(),
+					Key:  channel.NewKey(node.Key(1), 2).String(),
 				}))
 			})
 		})
 		Describe("Free", func() {
 			It("Should return true if the channel is a free channel", func() {
-				k := channel.NewKey(cluster.NodeKeyFree, 1)
+				k := channel.NewKey(node.KeyFree, 1)
 				Expect(k.Free()).To(BeTrue())
 			})
 			It("Should return false if the channel is not a free channel", func() {
-				k := channel.NewKey(cluster.NodeKey(1), 1)
+				k := channel.NewKey(node.Key(1), 1)
 				Expect(k.Free()).To(BeFalse())
 			})
 		})
@@ -89,8 +89,8 @@ var _ = Describe("Channel Tests", func() {
 				}
 				keys := channel.KeysFromChannels(channels)
 				Expect(keys).To(Equal(channel.Keys{
-					channel.NewKey(cluster.NodeKey(1), 1),
-					channel.NewKey(cluster.NodeKey(1), 2),
+					channel.NewKey(node.Key(1), 1),
+					channel.NewKey(node.Key(1), 2),
 				}))
 			})
 		})
@@ -132,11 +132,11 @@ var _ = Describe("Channel Tests", func() {
 		Describe("UniqueLeaseholders", func() {
 			It("Should return a slice of the unique node ids for a set of keys", func() {
 				ids := channel.Keys{
-					channel.NewKey(cluster.NodeKey(1), 2),
-					channel.NewKey(cluster.NodeKey(3), 4),
-					channel.NewKey(cluster.NodeKey(1), 2),
+					channel.NewKey(node.Key(1), 2),
+					channel.NewKey(node.Key(3), 4),
+					channel.NewKey(node.Key(1), 2),
 				}
-				Expect(ids.UniqueLeaseholders()).To(ConsistOf([]cluster.NodeKey{1, 3}))
+				Expect(ids.UniqueLeaseholders()).To(ConsistOf([]node.Key{1, 3}))
 			})
 		})
 		Describe("Uint32", func() {
@@ -174,20 +174,20 @@ var _ = Describe("Channel Tests", func() {
 			var c channel.Channel
 			Expect(json.Unmarshal(data, &c)).To(Succeed())
 			Expect(c.Name).To(Equal(channel.Name("test")))
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(5)))
+			Expect(c.Leaseholder).To(Equal(node.Key(5)))
 			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
 		})
 		It("Should fall back to node_id when leaseholder is absent", func() {
 			data := []byte(`{"name":"test","node_id":7,"local_key":2}`)
 			var c channel.Channel
 			Expect(json.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(7)))
+			Expect(c.Leaseholder).To(Equal(node.Key(7)))
 		})
 		It("Should prefer leaseholder over node_id when both are present", func() {
 			data := []byte(`{"leaseholder":3,"node_id":9,"local_key":1}`)
 			var c channel.Channel
 			Expect(json.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(3)))
+			Expect(c.Leaseholder).To(Equal(node.Key(3)))
 		})
 		It("Should return an error for invalid JSON", func() {
 			Expect(json.Unmarshal([]byte(`not json`), &channel.Channel{})).To(HaveOccurred())
@@ -256,7 +256,7 @@ var _ = Describe("Channel Tests", func() {
 			var c channel.Channel
 			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
 			Expect(c.Name).To(Equal(channel.Name("test")))
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(5)))
+			Expect(c.Leaseholder).To(Equal(node.Key(5)))
 			Expect(c.LocalKey).To(Equal(channel.LocalKey(1)))
 		})
 		It("Should fall back to node_id when leaseholder is absent", func() {
@@ -266,7 +266,7 @@ var _ = Describe("Channel Tests", func() {
 			}))
 			var c channel.Channel
 			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(7)))
+			Expect(c.Leaseholder).To(Equal(node.Key(7)))
 		})
 		It("Should prefer leaseholder over node_id when both are present", func() {
 			data := MustSucceed(msgpack.Marshal(map[string]any{
@@ -275,7 +275,7 @@ var _ = Describe("Channel Tests", func() {
 			}))
 			var c channel.Channel
 			Expect(msgpack.Unmarshal(data, &c)).To(Succeed())
-			Expect(c.Leaseholder).To(Equal(cluster.NodeKey(3)))
+			Expect(c.Leaseholder).To(Equal(node.Key(3)))
 		})
 		It("Should return an error for invalid msgpack", func() {
 			Expect(msgpack.Unmarshal([]byte{0xff}, &channel.Channel{})).To(HaveOccurred())

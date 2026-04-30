@@ -29,6 +29,7 @@ var userSymbols = symbol.MapResolver{
 	"on": {
 		Name: "on",
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.Variable("T", nil)}},
 			Config:  types.Params{{Name: "channel", Type: types.ReadChan(types.Variable("T", nil))}},
@@ -37,6 +38,7 @@ var userSymbols = symbol.MapResolver{
 	"write": {
 		Name: "write",
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
@@ -49,6 +51,7 @@ var hostSymbols = symbol.MapResolver{
 	"read": {
 		Name:     "read",
 		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: "ch", Type: types.I32()}},
@@ -58,6 +61,7 @@ var hostSymbols = symbol.MapResolver{
 	"write": {
 		Name:     "write",
 		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
 		Internal: true,
 		Type: types.Function(types.FunctionProperties{
 			Inputs: types.Params{{Name: "ch", Type: types.I32()}, {Name: "value", Type: types.Variable("T", &numConstraint)}},

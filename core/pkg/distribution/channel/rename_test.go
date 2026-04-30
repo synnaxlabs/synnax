@@ -17,8 +17,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/telem"
 )
 
@@ -96,7 +96,7 @@ var _ = Describe("Rename", Ordered, func() {
 				{
 					Name:        channel.NewRandomName(),
 					DataType:    telem.StringT,
-					Leaseholder: cluster.NodeKeyFree,
+					Leaseholder: node.KeyFree,
 					Virtual:     true,
 				},
 			}
@@ -134,7 +134,7 @@ var _ = Describe("Rename", Ordered, func() {
 			ch3 := channel.Channel{
 				Name:        fmt.Sprintf("young_newton_%s", id),
 				DataType:    telem.StringT,
-				Leaseholder: cluster.NodeKeyFree,
+				Leaseholder: node.KeyFree,
 				Virtual:     true,
 			}
 			channels := []channel.Channel{ch1, ch2, ch3}
