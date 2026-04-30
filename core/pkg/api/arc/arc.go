@@ -123,10 +123,10 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	)
 
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(arc.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(arc.MatchNames(req.Names...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)

@@ -34,7 +34,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, ws.Key, "test2")).To(Succeed())
 			var res workspace.Workspace
-			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(workspace.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
@@ -44,7 +44,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetLayout(ctx, ws.Key, map[string]any{"key": "data"})).To(Succeed())
 			var res workspace.Workspace
-			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(workspace.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Layout["key"]).To(Equal("data"))
 		})
 	})
@@ -54,7 +54,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ws)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, ws.Key)).To(Succeed())
 			var res workspace.Workspace
-			Expect(svc.NewRetrieve().WhereKeys(ws.Key).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
+			Expect(svc.NewRetrieve().Where(workspace.MatchKeys(ws.Key)).Entry(&res).Exec(ctx, tx)).ToNot(Succeed())
 		})
 	})
 })

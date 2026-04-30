@@ -11,11 +11,9 @@ package gorp
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"iter"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
@@ -28,31 +26,45 @@ import (
 // entries from the DB. Reader only accesses entries that match its type arguments.
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
-	keyCodec *keyCodec[K, E]
+	keyCodec keyCodec[K, E]
 	tx       Tx
 }
 
-// WrapReader wraps the given BaseReader to provide a strongly typed interface for reading
-// entries from the DB.
+// WrapReader wraps the given Tx to provide a strongly typed Reader.
 func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
-	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
+	return wrapReader[K, E](tx, nil)
+}
+
+func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) *Reader[K, E] {
+	return &Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
 
 // Get retrieves a single entry from the database. If the entry does not exist,
 // query.ErrNotFound is returned.
-func (r Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
+func (r *Reader[K, E]) Get(ctx context.Context, key K) (E, error) {
 	var e E
+	_, closer, err := r.get(ctx, key, &e)
+	if err != nil {
+		var zero E
+		return zero, err
+	}
+	return e, closer.Close()
+}
+
+func (r *Reader[K, E]) get(ctx context.Context, key K, entry *E) ([]byte, io.Closer, error) {
 	b, closer, err := r.tx.Get(ctx, r.keyCodec.encode(key))
 	if err != nil {
-		return e, err
+		return nil, nil, err
 	}
-	err = r.tx.Decode(ctx, b, &e)
-	return e, errors.Combine(err, closer.Close())
+	if err := r.tx.Decode(ctx, b, entry); err != nil {
+		return nil, nil, errors.Combine(err, closer.Close())
+	}
+	return b, closer, nil
 }
 
 // GetMany retrieves isMultiple entries from the database. Entries that are not
 // found are simply omitted from the returned slice.
-func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
+func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	var (
 		entries  = make([]E, 0, len(keys))
 		notFound []K
@@ -73,7 +85,9 @@ func (r Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	if len(notFound) > 0 {
 		return entries, errors.Wrapf(
 			query.ErrNotFound,
-			fmt.Sprintf("%s with keys %v not found", types.PluralName[E](), notFound),
+			"%s with keys %v not found",
+			types.PluralName[E](),
+			notFound,
 		)
 	}
 	return entries, nil
@@ -84,7 +98,7 @@ type IterOptions struct {
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
+func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
@@ -92,7 +106,7 @@ func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err err
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+func (r *Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
 		return nil, nil, err
@@ -137,13 +151,13 @@ func (k *Iterator[E]) Value(ctx context.Context) (entry *E) {
 
 // Error returns the error accumulated by the Iterator.
 func (k *Iterator[E]) Error() error {
-	return lo.Ternary(k.err != nil, k.err, k.Iterator.Error())
+	return errors.Join(k.err, k.Iterator.Error())
 }
 
 // Valid returns true if the current iterator Value is pointing
 // to a valid entry and the iterator has not accumulated an error.
 func (k *Iterator[E]) Valid() bool {
-	return lo.Ternary(k.err != nil, false, k.Iterator.Valid())
+	return k.err == nil && k.Iterator.Valid()
 }
 
 type TxReader[K Key, E Entry[K]] = iter.Seq[change.Change[K, E]]

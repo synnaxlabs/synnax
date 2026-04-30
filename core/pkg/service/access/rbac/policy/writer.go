@@ -49,7 +49,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	return w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Policy](keys...)).Exec(ctx, w.tx)
 }
 
 func (w Writer) SetOnRole(

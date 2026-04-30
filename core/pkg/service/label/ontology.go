@@ -102,7 +102,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, err
 	}
 	var l Label
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(l), nil

@@ -88,7 +88,7 @@ var _ = Describe("Migration v0", func() {
 		// Verify the status is readable with the correct typed key.
 		var restoredStatus rack.Status
 		Expect(status.NewRetrieve[rack.StatusDetails](stat).
-			WhereKeys(rack.OntologyID(rackKey).String()).
+			Where(status.MatchKeys[rack.StatusDetails](rack.OntologyID(rackKey).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Rack).To(Equal(rackKey))

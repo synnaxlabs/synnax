@@ -122,7 +122,7 @@ export class StateProvider extends aether.Composite<
     return this.obs.onChange(cb);
   }
 
-  setColorOverrides(overrides: Record<string, string>): void {
+  setColorOverrides(overrides: Record<string, color.Color>): void {
     const entries = Object.entries(overrides);
     if (
       entries.length === this.colorOverrides.size &&
