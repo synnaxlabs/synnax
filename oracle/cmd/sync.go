@@ -121,10 +121,16 @@ func runSync(cmd *cobra.Command) error {
 	}
 
 	if verbose && len(syncResult.Written) > 0 {
+		pluginByPath := make(map[string]string, len(syncResult.Written))
+		for name, files := range syncResult.ByPlugin {
+			for _, f := range files {
+				pluginByPath[f] = name
+			}
+		}
 		writtenSorted := append([]string(nil), syncResult.Written...)
 		sort.Strings(writtenSorted)
 		for _, f := range writtenSorted {
-			printFileWritten(pluginForPath(syncResult, f), f)
+			printFileWritten(pluginByPath[f], f)
 		}
 	}
 
@@ -165,19 +171,6 @@ func runSync(cmd *cobra.Command) error {
 func hasNeverRunBufStamp(c *format.Cache) bool {
 	_, ok := c.LookupStamp(codegen.BufGenerateStampKey)
 	return !ok
-}
-
-// pluginForPath returns the name of the plugin that produced the given
-// repo-relative path. It's used only for verbose output.
-func pluginForPath(r *syncResult, path string) string {
-	for name, files := range r.ByPlugin {
-		for _, f := range files {
-			if f == path {
-				return name
-			}
-		}
-	}
-	return ""
 }
 
 // expandGlobs expands glob patterns to actual file paths.

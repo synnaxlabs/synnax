@@ -96,11 +96,13 @@ func bufInputStamp(ctx context.Context, repoRoot string) (string, error) {
 	sort.Strings(protos)
 
 	hashes := make([]string, len(protos))
-	eg, _ := errgroup.WithContext(ctx)
+	eg, gctx := errgroup.WithContext(ctx)
 	eg.SetLimit(8)
 	for i, p := range protos {
-		i, p := i, p
 		eg.Go(func() error {
+			if err := gctx.Err(); err != nil {
+				return err
+			}
 			b, err := os.ReadFile(p)
 			if err != nil {
 				return errors.Wrapf(err, "read %s", p)

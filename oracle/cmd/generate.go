@@ -146,11 +146,10 @@ type generateResult struct {
 }
 
 type syncResult struct {
-	ByPlugin   map[string][]string
-	Written    []string
-	Unchanged  []string
-	Skipped    []string // skipped via cache hit
-	WrittenAbs []string // absolute paths of written files, for downstream steps
+	ByPlugin  map[string][]string
+	Written   []string
+	Unchanged []string
+	Skipped   []string // skipped via cache hit
 }
 
 // syncFiles formats every generated file and writes those whose canonical
@@ -167,11 +166,10 @@ func (r *generateResult) syncFiles(
 	workers int,
 ) (*syncResult, error) {
 	result := &syncResult{
-		Written:    make([]string, 0),
-		Unchanged:  make([]string, 0),
-		Skipped:    make([]string, 0),
-		WrittenAbs: make([]string, 0),
-		ByPlugin:   make(map[string][]string),
+		Written:   make([]string, 0),
+		Unchanged: make([]string, 0),
+		Skipped:   make([]string, 0),
+		ByPlugin:  make(map[string][]string),
 	}
 
 	type pending struct {
@@ -261,7 +259,6 @@ func (r *generateResult) syncFiles(
 			}
 			mu.Lock()
 			result.Written = append(result.Written, p.RelPath)
-			result.WrittenAbs = append(result.WrittenAbs, p.AbsPath)
 			result.ByPlugin[p.Plugin] = append(result.ByPlugin[p.Plugin], p.RelPath)
 			cache.PutRaw(p.RelPath, p.RawHash)
 			mu.Unlock()

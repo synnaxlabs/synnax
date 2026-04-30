@@ -159,7 +159,7 @@ func stripExistingLicenseHeader(content []byte, ext string) []byte {
 }
 
 func stripLineHeader(content []byte, prefix string) []byte {
-	lines := bytes.SplitN(content, []byte("\n"), 32)
+	lines := bytes.Split(content, []byte("\n"))
 	if len(lines) == 0 {
 		return content
 	}
@@ -169,24 +169,20 @@ func stripLineHeader(content []byte, prefix string) []byte {
 	if !bytes.Contains(lines[0], []byte("Copyright")) || !bytes.Contains(lines[0], []byte("Synnax Labs")) {
 		return content
 	}
-	var end int
+	// Walk forward until we leave the contiguous prefix-or-blank
+	// comment block. end is the first non-header line index, or
+	// len(lines) when the file is nothing but header.
+	end := len(lines)
 	for i, line := range lines {
 		if !bytes.HasPrefix(line, []byte(prefix)) && len(line) != 0 {
 			end = i
 			break
 		}
-		if i == len(lines)-1 {
-			end = i
-		}
-	}
-	if end == 0 {
-		return content
 	}
 	if end < len(lines) && len(lines[end]) == 0 {
 		end++
 	}
-	rest := bytes.Join(lines[end:], []byte("\n"))
-	return rest
+	return bytes.Join(lines[end:], []byte("\n"))
 }
 
 func stripBlockHeader(content []byte) []byte {

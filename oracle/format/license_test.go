@@ -84,4 +84,12 @@ var _ = Describe("License", func() {
 		out := MustSucceed(l.Format(ctx, []byte("body"), "/abs/foo.unknown"))
 		Expect(string(out)).To(Equal("body"))
 	})
+
+	It("Should refresh a header on a file that is nothing but the header", func(ctx SpecContext) {
+		l := MustSucceed(format.NewLicense(repoRoot))
+		stub := []byte("// Copyright 1999 Synnax Labs, Inc.\n//\n// Governed by BSL.\n")
+		out := MustSucceed(l.Format(ctx, stub, "/abs/foo.go"))
+		Expect(string(out)).ToNot(ContainSubstring("1999"))
+		Expect(string(out)).To(HavePrefix("// Copyright"))
+	})
 })
