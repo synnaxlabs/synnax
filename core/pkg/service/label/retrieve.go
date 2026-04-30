@@ -43,15 +43,24 @@ func (r Retrieve) Entry(label *label.Label) Retrieve { r.gorp = r.gorp.Entry(lab
 // Entries binds a slice that Retrieve will fill results into.
 func (r Retrieve) Entries(labels *[]label.Label) Retrieve { r.gorp = r.gorp.Entries(labels); return r }
 
-// WhereKeys filters for labels whose Name attribute matches the provided key.
-func (r Retrieve) WhereKeys(keys ...label.Key) Retrieve { r.gorp = r.gorp.WhereKeys(keys...); return r }
-
-// WhereNames filters for labels whose Name attribute matches the provided name.
-func (r Retrieve) WhereNames(names ...string) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, label *label.Label) (bool, error) {
-		return lo.Contains(names, label.Name), nil
-	})
+// Where applies the provided filter to the query. To compose multiple filters,
+// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
+func (r Retrieve) Where(filter gorp.Filter[label.Key, label.Label]) Retrieve {
+	r.gorp = r.gorp.Where(filter)
 	return r
+}
+
+// MatchKeys returns a filter that restricts results to labels whose key matches
+// any of the provided values.
+func MatchKeys(keys ...label.Key) gorp.Filter[label.Key, label.Label] {
+	return gorp.MatchKeys[label.Key, label.Label](keys...)
+}
+
+// MatchNames returns a filter for labels whose Name matches any of the provided values.
+func MatchNames(names ...string) gorp.Filter[label.Key, label.Label] {
+	return gorp.Match(func(_ gorp.Context, l *label.Label) (bool, error) {
+		return lo.Contains(names, l.Name), nil
+	})
 }
 
 // Exec executes the Retrieve query. If a tx is provided, Exec will use it to execute
@@ -72,7 +81,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		r.gorp = r.gorp.WhereKeys(keys...)
+		r.gorp = r.gorp.Where(MatchKeys(keys...))
 	}
 	return r.gorp.Exec(ctx, tx)
 }
@@ -100,7 +109,7 @@ func (s *Service) RetrieveFor(
 	}
 	labels := make([]label.Label, 0, len(keys))
 	return labels, s.NewRetrieve().
-		WhereKeys(keys...).
+		Where(MatchKeys(keys...)).
 		Entries(&labels).
 		Exec(ctx, tx)
 }

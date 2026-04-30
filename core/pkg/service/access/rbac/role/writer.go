@@ -51,7 +51,7 @@ func (w Writer) Create(
 // Delete removes a role from the database. It will fail if the role is builtin
 // or if any users are assigned to the role.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	return w.table.NewDelete().WhereKeys(key).Guard(func(_ gorp.Context, r Role) error {
+	return w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Role](key)).Guard(func(_ gorp.Context, r Role) error {
 		if r.Internal && !w.allowInternal {
 			return errors.Wrap(validate.ErrValidation, "cannot delete builtin role")
 		}

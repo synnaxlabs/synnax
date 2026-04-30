@@ -21,6 +21,7 @@ import * as v2 from "@/schematic/types/v2";
 import * as v3 from "@/schematic/types/v3";
 import * as v4 from "@/schematic/types/v4";
 import * as v5 from "@/schematic/types/v5";
+import * as v6 from "@/schematic/types/v6";
 
 describe("migrations", () => {
   describe("state", () => {
@@ -31,11 +32,29 @@ describe("migrations", () => {
       v3.ZERO_STATE,
       v4.ZERO_STATE,
       v5.ZERO_STATE,
+      v6.ZERO_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
         expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
+      });
+    });
+    it("should migrate a v5 state whose legend has no colors", () => {
+      const { colors: _colors, ...legendWithoutColors } = v5.ZERO_STATE.legend;
+      const state = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...legendWithoutColors,
+          position: { x: 123, y: 456, units: { x: "px", y: "px" } },
+        },
+      } as unknown as v5.State;
+      const migrated = migrateState(state);
+      expect(migrated.legend.colors).toEqual({});
+      expect(migrated.legend.position).toEqual({
+        x: 123,
+        y: 456,
+        units: { x: "px", y: "px" },
       });
     });
   });
@@ -47,6 +66,7 @@ describe("migrations", () => {
       v3.ZERO_SLICE_STATE,
       v4.ZERO_SLICE_STATE,
       v5.ZERO_SLICE_STATE,
+      v6.ZERO_SLICE_STATE,
     ];
     STATES.forEach((state) => {
       it(`should migrate slice from ${state.version} to latest`, () => {

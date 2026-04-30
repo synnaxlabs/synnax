@@ -165,7 +165,7 @@ func (s *Service) RetrieveResource(
 	}
 	var res Alias
 	if err = s.table.NewRetrieve().
-		WhereKeys(Alias{Range: rangeKey, Channel: channelKey}.GorpKey()).
+		Where(gorp.MatchKeys[string, Alias](Alias{Range: rangeKey, Channel: channelKey}.GorpKey())).
 		Entry(&res).
 		Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err

@@ -427,7 +427,7 @@ func (s *Service) validateChannelKeys(ctx context.Context, keys channel.Keys) ([
 	if err := s.cfg.Channel.
 		NewRetrieve().
 		Entries(&channels).
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Exec(ctx, nil); err != nil {
 		return nil, err
 	}
