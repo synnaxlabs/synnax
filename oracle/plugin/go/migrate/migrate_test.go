@@ -140,6 +140,108 @@ var _ = Describe("Go Migrate Plugin", func() {
 			})
 		})
 
+		Context("enum value-set changes", func() {
+			It("Should not generate a migration when a string enum value is removed", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = "a"  b = "b"  c = "c" }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = "a"  b = "b" }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(resp.Files).To(BeEmpty())
+			})
+
+			It("Should not generate a migration when a string enum value is added", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = "a"  b = "b" }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = "a"  b = "b"  c = "c" }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(resp.Files).To(BeEmpty())
+			})
+
+			It("Should not generate a migration when an int enum value is added", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = 1  b = 2 }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = 1  b = 2  c = 3 }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(resp.Files).To(BeEmpty())
+			})
+
+			It("Should generate a migration when an int enum renumbers an existing name", func() {
+				oldSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = 1  b = 2 }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				newSchema := `
+					@go output "out"
+					Key = uuid
+					Mode enum { a = 1  b = 3 }
+					Entry struct {
+						key Key {@key}
+						mode Mode
+						@go migrate
+					}
+				`
+				resp := MustSucceed(generate(ctx, oldSchema, newSchema, "test", loader, p, 1))
+				Expect(resp.Files).ToNot(BeEmpty())
+			})
+		})
+
 		Context("field addition", func() {
 			var resp *plugin.Response
 

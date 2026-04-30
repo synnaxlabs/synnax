@@ -124,7 +124,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 	}); err != nil {
 		return res, err
 	}
-	if err = s.internal.NewRetrieve().WhereKeys(req.Keys...).Entries(&res.LinePlots).
+	if err = s.internal.NewRetrieve().Where(lineplot.MatchKeys(req.Keys...)).Entries(&res.LinePlots).
 		Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
 	}

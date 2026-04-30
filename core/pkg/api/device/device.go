@@ -117,13 +117,13 @@ func (s *Service) Retrieve(
 	)
 	q := s.device.NewRetrieve()
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(device.MatchKeys(req.Keys...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(device.MatchNames(req.Names...))
 	}
 	if hasLimit {
 		q = q.Limit(req.Limit)
@@ -132,23 +132,23 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if hasMakes {
-		q = q.WhereMakes(req.Makes...)
+		q = q.Where(device.MatchMakes(req.Makes...))
 	}
 	if hasLocations {
-		q = q.WhereLocations(req.Locations...)
+		q = q.Where(device.MatchLocations(req.Locations...))
 	}
 	if hasModels {
-		q = q.WhereModels(req.Models...)
+		q = q.Where(device.MatchModels(req.Models...))
 	}
 	if hasRacks {
-		q = q.WhereRacks(req.Racks...)
+		q = q.Where(device.MatchRacks(req.Racks...))
 	}
 	retErr := q.Entries(&res.Devices).Exec(ctx, nil)
 
 	if req.IncludeStatus {
 		statuses := make([]device.Status, 0, len(res.Devices))
 		if err := status.NewRetrieve[device.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...).
+			Where(status.MatchKeys[device.StatusDetails](ontology.IDsToKeys(device.OntologyIDsFromDevices(res.Devices))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

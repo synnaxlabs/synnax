@@ -76,7 +76,7 @@ func (w Writer) Create(ctx context.Context, device *Device) error {
 	var existing Device
 	err := w.table.
 		NewRetrieve().
-		WhereKeys(device.Key).
+		Where(gorp.MatchKeys[string, Device](device.Key)).
 		Entry(&existing).
 		Exec(ctx, w.tx)
 	isNotFound := errors.Is(err, query.ErrNotFound)
@@ -135,5 +135,5 @@ func (w Writer) Delete(ctx context.Context, key string) error {
 	if err := w.status.Delete(ctx, OntologyID(key).String()); err != nil {
 		return err
 	}
-	return w.table.NewDelete().WhereKeys(key).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[string, Device](key)).Exec(ctx, w.tx)
 }

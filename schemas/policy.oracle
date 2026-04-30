@@ -25,6 +25,7 @@ Policy struct {
     }
     name     string          {
         @doc value "is a human-readable name for the policy."
+        @filter
     }
     objects  ontology.ID[]   {
         @doc value "is the list of ontology resources this policy applies to."
@@ -37,9 +38,10 @@ Policy struct {
             is true if this is a built-in system policy that cannot be deleted.
         """
         @validate default false
+        @filter
     }
 
-    @doc value     """
+    @doc value       """
         is an access control policy that defines which actions are permitted on
         which resources. Policies are attached to roles, and roles are assigned
         to users via ontology relationships.
@@ -47,7 +49,8 @@ Policy struct {
     @py omit
     @go marshal
     @go migrate
-    @ontology type "policy"
+    @ontology type   "policy"
+    @retrieve custom
 }
 
 New struct extends Policy {

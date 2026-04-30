@@ -18,8 +18,9 @@ import (
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
-	entries  *Entries[K, E]
-	onUpdate onUpdate[K, E]
+	entries   *Entries[K, E]
+	onUpdate  onUpdate[K, E]
+	keyPrefix []byte
 }
 
 // NewCreate opens a new Create query.
@@ -54,11 +55,11 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := WrapWriter[K, E](tx)
+	w := wrapWriter[K, E](tx, c.keyPrefix)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}
-	r := WrapReader[K, E](tx)
+	r := wrapReader[K, E](tx, c.keyPrefix)
 	all := c.entries.All()
 	toWrite := make([]E, 0, len(all))
 	for _, entry := range all {

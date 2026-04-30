@@ -29,6 +29,7 @@ View struct {
         @doc value """
             is the view type identifier (e.g., 'lineplot', 'table', 'schematic').
         """
+        @filter
     }
     query record {
         @doc value """
@@ -43,6 +44,8 @@ View struct {
         types.
     """
     @ontology type "view"
+    @retrieve
+    @search
 }
 
 New struct extends View {
