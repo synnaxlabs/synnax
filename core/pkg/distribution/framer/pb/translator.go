@@ -15,13 +15,13 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/deleter"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/relay"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/control"
 	controlpb "github.com/synnaxlabs/x/control/pb"
@@ -118,7 +118,7 @@ func (WriterResponseTranslator) Backward(
 	return writer.Response{
 		Command:    writer.Command(res.Command),
 		SeqNum:     int(res.SeqNum),
-		NodeKey:    cluster.NodeKey(res.NodeKey),
+		NodeKey:    node.Key(res.NodeKey),
 		Authorized: res.Authorized,
 		End:        telem.TimeStamp(res.End),
 	}, nil
@@ -193,7 +193,7 @@ func (IteratorResponseTranslator) Backward(
 	}
 	return iterator.Response{
 		Variant: iterator.ResponseVariant(res.Variant),
-		NodeKey: cluster.NodeKey(res.NodeKey),
+		NodeKey: node.Key(res.NodeKey),
 		Ack:     res.Ack,
 		SeqNum:  int(res.SeqNum),
 		Command: iterator.Command(res.Command),

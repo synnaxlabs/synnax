@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/alamos"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
@@ -46,7 +46,7 @@ type IntOverflowChecker = func(types.Uint20) error
 
 type ServiceConfig struct {
 	alamos.Instrumentation
-	HostResolver     cluster.HostResolver
+	HostResolver     node.HostResolver
 	ClusterDB        *gorp.DB
 	TSChannel        *ts.DB
 	Transport        Transport

@@ -508,6 +508,8 @@ func KindToPB(v types.Kind) (Kind, error) {
 		return Kind_KIND_FLOAT_CONSTANT, nil
 	case types.KindExactIntegerFloatConstant:
 		return Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT, nil
+	case types.KindSignedNumericConstant:
+		return Kind_KIND_SIGNED_NUMERIC_CONSTANT, nil
 	case types.KindFunction:
 		return Kind_KIND_FUNCTION, nil
 	case types.KindSequence:
@@ -560,6 +562,8 @@ func KindFromPB(v Kind) (types.Kind, error) {
 		return types.KindFloatConstant, nil
 	case Kind_KIND_EXACT_INTEGER_FLOAT_CONSTANT:
 		return types.KindExactIntegerFloatConstant, nil
+	case Kind_KIND_SIGNED_NUMERIC_CONSTANT:
+		return types.KindSignedNumericConstant, nil
 	case Kind_KIND_FUNCTION:
 		return types.KindFunction, nil
 	case Kind_KIND_SEQUENCE:

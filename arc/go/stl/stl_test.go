@@ -56,6 +56,26 @@ var _ = Describe("SymbolResolver", func() {
 				strings.Join(violations, "\n  "))
 	})
 
+	It("Should set ExecContext on every KindFunction symbol", func() {
+		var violations []string
+		for _, mod := range collectModuleResolvers(stl.SymbolResolver) {
+			for name, sym := range mod.Members {
+				if sym.Kind != symbol.KindFunction {
+					continue
+				}
+				if sym.Exec == 0 {
+					violations = append(violations, fmt.Sprintf(
+						"%s.%s (Exec is 0, must be ExecWASM, ExecFlow, or ExecBoth)",
+						mod.Name, name,
+					))
+				}
+			}
+		}
+		Expect(violations).To(BeEmpty(),
+			"KindFunction symbols with unset ExecContext:\n  "+
+				strings.Join(violations, "\n  "))
+	})
+
 	It("Should use DefaultOutputParam on user-callable single-output functions", func() {
 		var violations []string
 		for _, mod := range collectModuleResolvers(stl.SymbolResolver) {

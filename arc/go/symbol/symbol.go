@@ -57,6 +57,31 @@ import (
 	"github.com/synnaxlabs/arc/types"
 )
 
+// ExecContext indicates which execution context a symbol is valid in.
+type ExecContext int
+
+const (
+	// ExecWASM marks a symbol as only usable in func blocks (WASM compilation).
+	ExecWASM ExecContext = 1 << iota
+	// ExecFlow marks a symbol as only usable in flow statements (graph nodes).
+	ExecFlow
+	// ExecBoth marks a symbol as usable in both contexts.
+	ExecBoth = ExecWASM | ExecFlow
+)
+
+// Compatible reports whether a symbol with exec context e is visible in a
+// context that filters for target. An untagged symbol (e == 0) is never
+// visible. An unset filter (target == 0) shows all tagged symbols.
+func (e ExecContext) Compatible(target ExecContext) bool {
+	if e == 0 {
+		return false
+	}
+	if target == 0 {
+		return true
+	}
+	return e&target != 0
+}
+
 // Kind categorizes symbols by their role in the Arc program.
 type Kind int
 
@@ -128,4 +153,12 @@ type Symbol struct {
 	// remain visible to the compiler's resolve.Resolver which queries the
 	// symbol.Resolver interface directly.
 	Internal bool
+	// Exec indicates which execution context this symbol is valid in (WASM, Flow,
+	// or Both). A zero value is invalid and will cause resolution to fail, forcing
+	// every symbol to be explicitly tagged.
+	Exec ExecContext
+	// Deprecated holds the qualified replacement name for deprecated symbols.
+	// Empty means not deprecated. When set, analysis helpers can automatically
+	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
+	Deprecated string
 }
