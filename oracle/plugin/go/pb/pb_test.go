@@ -769,7 +769,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("uint64(r.CreatedAt)").
-					ToContain("telem.timestamp(pb.CreatedAt)")
+					ToContain("telem.Timestamp(pb.CreatedAt)")
 			})
 
 			It("Should convert timespan typedef via int64", func(ctx SpecContext) {
@@ -787,7 +787,7 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("int64(r.Duration)").
-					ToContain("telem.timespan(pb.Duration)")
+					ToContain("telem.Timespan(pb.Duration)")
 			})
 		})
 

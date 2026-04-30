@@ -590,6 +590,54 @@ var _ = Describe("Routing Table Runtime", func() {
 		})
 	})
 
+	Describe("Routing with selector.select{}", func() {
+		It("Should use selector.select to route a boolean channel using qualified name", func(ctx SpecContext) {
+			resolver := channelSymbols(map[string]channelDef{
+				"flag":     {types.U8(), 100},
+				"open_cmd": {types.U8(), 200},
+				"shut_cmd": {types.U8(), 300},
+			})
+			h := newRuntimeHarness(ctx, `
+				flag -> selector.select{} -> {
+					true: open_valve,
+					false: shut_valve
+				}
+
+				sequence open_valve {
+					stage active {
+						1 -> open_cmd
+					}
+				}
+
+				sequence shut_valve {
+					stage active {
+						1 -> shut_cmd
+					}
+				}
+			`, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 200, DataType: telem.Uint8T},
+				channel.Digest{Key: 300, DataType: telem.Uint8T},
+			)
+			defer h.Close(ctx)
+
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			h.Tick(ctx, telem.Millisecond)
+			h.channelState.ClearReads()
+
+			selectTrue := h.Output("selector.select_0", 0)
+			Expect(selectTrue.Len()).To(Equal(int64(1)))
+			selectFalse := h.Output("selector.select_0", 1)
+			Expect(selectFalse.Len()).To(Equal(int64(0)))
+
+			out, changed := h.Flush()
+			Expect(changed).To(BeTrue())
+			Expect(out.Get(200).Series).To(HaveLen(1))
+			Expect(telem.UnmarshalSeries[uint8](out.Get(200).Series[0])).To(Equal([]uint8{1}))
+			Expect(out.Get(300).Series).To(HaveLen(0))
+		})
+	})
+
 	Describe("Routing to Stages", func() {
 		It("Should compile and execute a routing table that targets a stage within the same sequence", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{

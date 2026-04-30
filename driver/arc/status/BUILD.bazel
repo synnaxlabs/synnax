@@ -20,6 +20,7 @@ cc_test(
     deps = [
         ":status",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//client/cpp/testutil",
         "//x/cpp/test",

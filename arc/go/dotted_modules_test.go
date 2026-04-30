@@ -18,7 +18,7 @@ import (
 )
 
 // Behavioral coverage for the dotted module syntax added in SY-3964
-// (time.now, math.pow, etc.). These tests invoke a dotted module from
+// (time.now, math.avg, etc.). These tests invoke a dotted module from
 // within a user function and assert that the call dispatches correctly,
 // returns the right type, and produces sane values.
 var _ = Describe("Dotted modules", func() {

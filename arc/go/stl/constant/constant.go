@@ -27,6 +27,7 @@ var (
 	sym        = symbol.Symbol{
 		Name: symName,
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecFlow,
 		Type: types.Function(types.FunctionProperties{
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: typeVar}},
 			Config:  types.Params{{Name: "value", Type: typeVar}},
