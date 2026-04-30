@@ -391,19 +391,13 @@ func processField(field resolution.Field, data *templateData) fieldData {
 }
 
 // jsonTagName returns the wire name used for the JSON / msgpack tag of a Go
-// field. Schema fields whose names begin with a lowercase letter are
-// preserved verbatim so snake_case stays snake_case ("data_type") and
-// camelCase stays camelCase ("clientX"), letting Go round-trip directly with
-// the TypeScript zod schema. Names that begin with an uppercase letter
-// (PascalCase, screaming-case, single-letter caps) are routed through
-// SnakeCase to keep the existing lowercase wire convention for those forms
-// ("WASM" -> "wasm", "OutputMemoryBases" -> "output_memory_bases").
+// field. The wire format is canonically snake_case across all languages, so
+// every schema field name is routed through SnakeCase regardless of how it
+// is spelled in the schema ("clientX" -> "client_x", "targetKey" ->
+// "target_key", "WASM" -> "wasm", "data_type" -> "data_type"). TypeScript
+// callers convert at the boundary via x/ts caseconv.
 func jsonTagName(fieldName string) string {
 	if fieldName == "" {
-		return fieldName
-	}
-	first := fieldName[0]
-	if first >= 'a' && first <= 'z' {
 		return fieldName
 	}
 	return lo.SnakeCase(fieldName)

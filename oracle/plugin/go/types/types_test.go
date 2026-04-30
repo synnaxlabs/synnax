@@ -1274,19 +1274,12 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("regression tests", func() {
-			It("Should preserve lowercase-leading field names in JSON struct tags", func(ctx SpecContext) {
-				// JSON / msgpack tag rules:
-				//
-				//   - Schema fields whose names start with a lowercase letter are
-				//     preserved verbatim (snake_case stays snake_case, camelCase
-				//     stays camelCase) so the wire format matches the TypeScript
-				//     zod schema, which uses the schema field name as the
-				//     property key.
-				//   - Schema fields whose names start with an uppercase letter
-				//     are routed through SnakeCase ("WASM" -> "wasm",
-				//     "OutputMemoryBases" -> "output_memory_bases") to keep the
-				//     existing lowercase wire convention for screaming and
-				//     PascalCase forms.
+			It("Should emit snake_case JSON struct tags regardless of schema field casing", func(ctx SpecContext) {
+				// The wire format is canonically snake_case across every
+				// language. Schema field names are routed through SnakeCase
+				// regardless of how they're spelled in the schema. TypeScript
+				// converts at the boundary via x/ts caseconv, so it can use
+				// camelCase locally without changing the wire format.
 				source := `
 					@go output "arc/go/compiler"
 
@@ -1296,6 +1289,9 @@ var _ = Describe("Go Types Plugin", func() {
 						camelCaseField string
 						PascalCaseField int32
 						already_snake_case bool
+						clientX float64
+						signedWidth float64
+						targetKey string
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
@@ -1311,42 +1307,12 @@ var _ = Describe("Go Types Plugin", func() {
 				content := string(resp.Files[0].Content)
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
 				Expect(content).To(ContainSubstring(`json:"output_memory_bases"`))
-				Expect(content).To(ContainSubstring(`json:"camelCaseField"`))
+				Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
-			})
-
-			It("Should match TypeScript wire keys for camelCase fields modelling DOM events", func(ctx SpecContext) {
-				// Regression for the ClientXY / SignedDimensions Greptile finding:
-				// schema fields named after DOM properties (clientX, signedWidth)
-				// have to round-trip through direct JSON / msgpack with the
-				// TypeScript zod schema, which preserves the schema name as the
-				// property key. The Go tag must do the same instead of mangling
-				// to client_x / signed_width.
-				source := `
-					@go output "x/go/spatial"
-
-					ClientXY struct {
-						clientX float64
-						clientY float64
-					}
-
-					SignedDimensions struct {
-						signedWidth  float64
-						signedHeight float64
-					}
-				`
-				table, diag := analyzer.AnalyzeSource(ctx, source, "spatial", loader)
-				Expect(diag.Ok()).To(BeTrue())
-
-				resp, err := goPlugin.Generate(&plugin.Request{Resolutions: table})
-				Expect(err).To(BeNil())
-
-				content := string(resp.Files[0].Content)
-				Expect(content).To(ContainSubstring("ClientX float64 `json:\"clientX\" msgpack:\"clientX\"`"))
-				Expect(content).To(ContainSubstring("ClientY float64 `json:\"clientY\" msgpack:\"clientY\"`"))
-				Expect(content).To(ContainSubstring("SignedWidth float64 `json:\"signedWidth\" msgpack:\"signedWidth\"`"))
-				Expect(content).To(ContainSubstring("SignedHeight float64 `json:\"signedHeight\" msgpack:\"signedHeight\"`"))
+				Expect(content).To(ContainSubstring(`json:"client_x"`))
+				Expect(content).To(ContainSubstring(`json:"signed_width"`))
+				Expect(content).To(ContainSubstring(`json:"target_key"`))
 			})
 
 			It("Should use alias type name in struct fields instead of expanded target", func(ctx SpecContext) {
