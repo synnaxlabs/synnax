@@ -25,8 +25,7 @@ var _ = Describe("C++ JSON Plugin", func() {
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
 		jsonPlugin = json.New(json.Options{
-			FileNamePattern:  "json.gen.h",
-			DisableFormatter: true,
+			FileNamePattern: "json.gen.h",
 		})
 	})
 
@@ -647,10 +646,8 @@ var _ = Describe("C++ JSON Plugin", func() {
 				Expect(opts.FileNamePattern).To(Equal("json.gen.h"))
 			})
 
-			It("Should report nil for Check and PostWrite when formatter is disabled", func() {
+			It("Should report nil for Check", func() {
 				Expect(jsonPlugin.Check(nil)).To(Succeed())
-				Expect(jsonPlugin.PostWrite(nil)).To(Succeed())
-				Expect(jsonPlugin.PostWrite([]string{})).To(Succeed())
 			})
 		})
 	})

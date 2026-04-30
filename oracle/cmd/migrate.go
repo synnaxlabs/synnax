@@ -19,6 +19,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/analyzer"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
 	gomigrate "github.com/synnaxlabs/oracle/plugin/go/migrate"
@@ -145,12 +146,20 @@ func runMigrate(cmd *cobra.Command) error {
 		return errors.Wrap(err, "migration generation failed")
 	}
 
-	// Write generated files and track what was generated.
+	formatters, err := format.Default(repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "build formatter registry")
+	}
+
 	written := 0
 	var templates []string
 	for _, f := range resp.Files {
 		fullPath := filepath.Join(repoRoot, f.Path)
-		if err := writeFileIfChanged(fullPath, f.Content); err != nil {
+		canonical, err := formatters.Format(f.Content, fullPath)
+		if err != nil {
+			return errors.Wrapf(err, "format %s", f.Path)
+		}
+		if err := writeFileIfChanged(fullPath, canonical); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)
 		}
 		if strings.HasSuffix(f.Path, "/migrate.go") && !strings.Contains(f.Path, "/migrations/") {
@@ -174,23 +183,6 @@ func runMigrate(cmd *cobra.Command) error {
 		}
 		if verbose {
 			printDim(fmt.Sprintf("  moved %s", d))
-		}
-	}
-
-	// Run post-write hooks (gofmt).
-	if written > 0 {
-		absPaths := make([]string, 0, len(resp.Files))
-		for _, f := range resp.Files {
-			absPaths = append(absPaths, filepath.Join(repoRoot, f.Path))
-		}
-		p := registry.Get("go/migrate")
-		if pw, ok := p.(plugin.PostWriter); ok {
-			if err := pw.PostWrite(absPaths); err != nil {
-				printDim(fmt.Sprintf("post-write hook failed: %v", err))
-			}
-		}
-		if err := updateLicenseHeaders(repoRoot, absPaths); err != nil {
-			return errors.Wrapf(err, "failed to update license headers")
 		}
 	}
 

@@ -17,6 +17,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/oracle/codegen"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/formatter"
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/plugin"
@@ -59,7 +61,6 @@ func runSync(cmd *cobra.Command) error {
 	if err != nil {
 		return err
 	}
-
 	if len(schemaFiles) == 0 {
 		return errors.New("no schema files found")
 	}
@@ -95,6 +96,11 @@ func runSync(cmd *cobra.Command) error {
 	}
 	printFormattingDone(formatted)
 
+	formatters, err := format.Default(repoRoot)
+	if err != nil {
+		return errors.Wrap(err, "build formatter registry")
+	}
+	cache := format.LoadCache(repoRoot)
 	registry := buildPluginRegistry()
 
 	result, diag := generate(ctx, normalizedFiles, repoRoot, registry)
@@ -105,26 +111,22 @@ func runSync(cmd *cobra.Command) error {
 		}
 	}
 
-	syncResult, err := result.syncFiles(repoRoot)
+	syncResult, err := result.syncFiles(ctx, repoRoot, formatters, cache, 0)
 	if err != nil {
 		return errors.Wrap(err, "failed to sync files")
 	}
-	if len(syncResult.Written) > 0 {
-		absPaths := make([]string, len(syncResult.Written))
-		for i, f := range syncResult.Written {
-			absPaths[i] = filepath.Join(repoRoot, f)
-		}
-		if err = updateLicenseHeaders(repoRoot, absPaths); err != nil {
-			return errors.Wrapf(err, "failed to update license headers")
-		}
+	if err := cache.Save(); err != nil {
+		printDim(fmt.Sprintf("save cache: %v", err))
 	}
+
 	if verbose && len(syncResult.Written) > 0 {
-		for pluginName, files := range syncResult.ByPlugin {
-			for _, f := range files {
-				printFileWritten(pluginName, f)
-			}
+		writtenSorted := append([]string(nil), syncResult.Written...)
+		sort.Strings(writtenSorted)
+		for _, f := range writtenSorted {
+			printFileWritten(pluginForPath(syncResult, f), f)
 		}
 	}
+
 	for pluginName, files := range syncResult.ByPlugin {
 		p := registry.Get(pluginName)
 		if pw, ok := p.(plugin.PostWriter); ok {
@@ -137,14 +139,40 @@ func runSync(cmd *cobra.Command) error {
 			}
 		}
 	}
-	// Update copyright headers on protobuf-generated files
-	if _, hasPB := syncResult.ByPlugin["pb/types"]; hasPB {
-		if err = updateLicenseHeaders(repoRoot, []string{"*.pb.go"}); err != nil {
-			return errors.Wrapf(err, "failed to update license headers on .pb.go files")
+
+	if changedProtos := syncResult.ByPlugin["pb/types"]; len(changedProtos) > 0 || hasNeverRunBufStamp(cache) {
+		if err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache); err != nil {
+			return errors.Wrap(err, "buf generate")
+		}
+		if err := cache.Save(); err != nil {
+			printDim(fmt.Sprintf("save cache: %v", err))
 		}
 	}
-	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged))
+
+	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged)+len(syncResult.Skipped))
 	return nil
+}
+
+// hasNeverRunBufStamp returns true if the cache has no buf-generate
+// stamp recorded, in which case a sync must run buf generate at least
+// once to produce a valid stamp even when no proto files were rewritten
+// (e.g. first sync after a fresh clone, or after the cache was wiped).
+func hasNeverRunBufStamp(c *format.Cache) bool {
+	_, ok := c.LookupStamp(codegen.BufGenerateStampKey)
+	return !ok
+}
+
+// pluginForPath returns the name of the plugin that produced the given
+// repo-relative path. It's used only for verbose output.
+func pluginForPath(r *syncResult, path string) string {
+	for name, files := range r.ByPlugin {
+		for _, f := range files {
+			if f == path {
+				return name
+			}
+		}
+	}
+	return ""
 }
 
 // expandGlobs expands glob patterns to actual file paths.

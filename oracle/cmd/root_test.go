@@ -11,11 +11,13 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/plugin"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -407,13 +409,19 @@ var _ = Describe("buildPluginRegistry", func() {
 })
 
 var _ = Describe("generateResult.syncFiles", func() {
-	var tmpDir string
+	var (
+		tmpDir     string
+		formatters *format.Registry
+		cache      *format.Cache
+	)
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "sync"))
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(tmpDir)).To(Succeed())
 		})
+		formatters = format.NewRegistry()
+		cache = format.LoadCache(tmpDir)
 	})
 
 	It("should write new files and report them", func() {
@@ -424,7 +432,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.Unchanged).To(BeEmpty())
 
@@ -444,7 +452,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(BeEmpty())
 		Expect(sr.Unchanged).To(HaveLen(1))
 	})
@@ -461,8 +469,24 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.ByPlugin["test"]).To(HaveLen(1))
+	})
+
+	It("should skip via cache on second sync with identical raw bytes", func() {
+		result := &generateResult{
+			Files: map[string][]plugin.File{
+				"test": {
+					{Path: "out/types.gen.go", Content: []byte("package out")},
+				},
+			},
+		}
+		sr1 := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		Expect(sr1.Written).To(HaveLen(1))
+
+		sr2 := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		Expect(sr2.Written).To(BeEmpty())
+		Expect(sr2.Skipped).To(HaveLen(1))
 	})
 })
