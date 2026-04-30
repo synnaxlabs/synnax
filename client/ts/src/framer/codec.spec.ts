@@ -23,8 +23,7 @@ import {
 } from "@/framer/codec";
 import { Frame } from "@/framer/frame";
 import { type IteratorResponse } from "@/framer/iterator";
-import { IteratorResponseVariant } from "@/framer/types.gen";
-import { WriterCommand } from "@/framer/types.gen";
+import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
 describe("encoder", () => {
