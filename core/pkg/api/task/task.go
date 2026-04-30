@@ -116,19 +116,19 @@ func (s *Service) Retrieve(
 	)
 	q := s.task.NewRetrieve()
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal, gorp.Required())
+		q = q.Where(task.MatchInternal(*req.Internal))
 	}
 	if req.Snapshot != nil {
-		q = q.WhereSnapshot(*req.Snapshot, gorp.Required())
+		q = q.Where(task.MatchSnapshot(*req.Snapshot))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(task.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(task.MatchKeys(req.Keys...))
 	}
 	if hasTypes {
-		q = q.WhereTypes(req.Types...)
+		q = q.Where(task.MatchTypes(req.Types...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -140,7 +140,7 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if !req.Rack.IsZero() {
-		q = q.WhereRacks(req.Rack)
+		q = q.Where(task.MatchRacks(req.Rack))
 	}
 	err := q.Entries(&res.Tasks).Exec(ctx, nil)
 	if err != nil {
@@ -150,7 +150,7 @@ func (s *Service) Retrieve(
 	if req.IncludeStatus {
 		statuses := make([]task.Status, 0, len(res.Tasks))
 		if err = status.NewRetrieve[task.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...).
+			Where(status.MatchKeys[task.StatusDetails](ontology.IDsToKeys(task.OntologyIDsFromTasks(res.Tasks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err

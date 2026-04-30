@@ -112,10 +112,10 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.Keys) != 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(label.MatchKeys(req.Keys...))
 	}
 	if len(req.Names) != 0 {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(label.MatchNames(req.Names...))
 	}
 
 	if err = q.Entries(&res.Labels).Exec(ctx, nil); err != nil {

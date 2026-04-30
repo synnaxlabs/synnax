@@ -154,8 +154,7 @@ func (s *Service) createAndUpdateFreeVirtual(
 	// Filter out zero keys (channels that don't exist yet)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
-		if err := s.table.NewUpdate().
-			WhereKeys(existingKeys...).
+		if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
 					idx := lo.IndexOf(keys, c.Key())
@@ -267,8 +266,7 @@ func (s *Service) createAndUpdateFreeVirtual(
 	// Update existing calculated channels with their new LocalIndex values
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
-			if err := s.table.NewUpdate().
-				WhereKeys(ch.Key()).
+			if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](ch.Key())).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
 					return c
@@ -309,9 +307,9 @@ func (s *Service) validateChannelNames(
 	}
 	var conflictingChannels []Channel
 	if err := s.table.NewRetrieve().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			return namesSeen.Contains(c.Name), nil
-		}).
+		})).
 		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
 		return errors.Skip(err, query.ErrNotFound)
 	}
@@ -357,7 +355,7 @@ func (s *Service) retrieveExistingAndAssignKeys(
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = s.table.NewRetrieve().Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		if err = s.table.NewRetrieve().Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			v := lo.IndexOf(names, c.Name)
 			exists := v != -1
 			if exists {
@@ -369,7 +367,7 @@ func (s *Service) retrieveExistingAndAssignKeys(
 				}
 			}
 			return exists, nil
-		}).Exec(ctx, tx); err != nil {
+		})).Exec(ctx, tx); err != nil {
 			return
 		}
 	}
@@ -402,7 +400,7 @@ func (s *Service) deleteOverwritten(
 ) error {
 	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
 	if err := s.table.NewDelete().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
 				return ch.Name == c.Name && ch.Key() != c.Key()
 			})
@@ -415,7 +413,7 @@ func (s *Service) deleteOverwritten(
 				(*channels)[i] = *c
 			}
 			return shouldDelete, nil
-		}).Exec(ctx, tx); err != nil {
+		})).Exec(ctx, tx); err != nil {
 		return err
 	}
 	return s.cfg.TSChannel.DeleteChannels(storageToDelete)
@@ -515,9 +513,9 @@ func (s *Service) createRemote(
 
 func (s *Service) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := s.table.NewRetrieve().Entries(&res).Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+	if err := s.table.NewRetrieve().Entries(&res).Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
 		return lo.Contains(names, c.Name), nil
-	}).Exec(ctx, tx); err != nil {
+	})).Exec(ctx, tx); err != nil {
 		return err
 	}
 	keys := KeysFromChannels(res)
@@ -527,11 +525,10 @@ func (s *Service) deleteByName(ctx context.Context, tx gorp.Tx, names []string, 
 func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
-		if err := s.table.NewRetrieve().
-			WhereKeys(keys...).
-			Where(func(ctx gorp.Context, c *Channel) (bool, error) {
+		if err := s.table.NewRetrieve().Where(gorp.MatchKeys[Key, Channel](keys...)).
+			Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
 				return c.Internal, nil
-			}).
+			})).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
 			return err
@@ -565,11 +562,11 @@ func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowIntern
 }
 
 func (s *Service) deleteFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys) error {
-	return s.table.NewDelete().WhereKeys(channels...).Exec(ctx, tx)
+	return s.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](channels...)).Exec(ctx, tx)
 }
 
 func (s *Service) deleteGateway(ctx context.Context, tx gorp.Tx, keys Keys) error {
-	if err := s.table.NewDelete().WhereKeys(keys...).Exec(ctx, tx); err != nil {
+	if err := s.table.NewDelete().Where(gorp.MatchKeys[Key, Channel](keys...)).Exec(ctx, tx); err != nil {
 		return err
 	}
 	if err := s.maybeDeleteResources(ctx, tx, keys); err != nil {
@@ -685,15 +682,13 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 }
 
 func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return s.table.NewUpdate().
-		WhereKeys(channels...).
+	return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](channels...)).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
 func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
-	if err := s.table.NewUpdate().
-		WhereKeys(keys...).
+	if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {
 		return err

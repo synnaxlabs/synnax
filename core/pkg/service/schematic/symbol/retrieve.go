@@ -28,10 +28,17 @@ type Retrieve struct {
 	searchTerm string
 }
 
-// WhereKeys filters the symbols by the given keys.
-func (r Retrieve) WhereKeys(keys ...uuid.UUID) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
+// Where applies the provided filter to the query. To compose multiple filters,
+// chain Where calls or pass a combined filter via gorp.And / gorp.Or.
+func (r Retrieve) Where(filter gorp.Filter[uuid.UUID, Symbol]) Retrieve {
+	r.gorp = r.gorp.Where(filter)
 	return r
+}
+
+// MatchKeys returns a filter that restricts results to symbols whose key
+// matches any of the provided values.
+func MatchKeys(keys ...uuid.UUID) gorp.Filter[uuid.UUID, Symbol] {
+	return gorp.MatchKeys[uuid.UUID, Symbol](keys...)
 }
 
 // Search sets a fuzzy search term that Retrieve will use to filter results.
@@ -70,7 +77,7 @@ func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
 		if err != nil {
 			return err
 		}
-		r = r.WhereKeys(keys...)
+		r = r.Where(MatchKeys(keys...))
 	}
 	return r.gorp.Exec(ctx, tx)
 }

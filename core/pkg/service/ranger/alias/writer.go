@@ -37,7 +37,7 @@ func (w Writer) Set(
 	al string,
 ) error {
 	exists, err := w.channel.NewRetrieve().
-		WhereKeys(ch).Exists(ctx, w.tx)
+		Where(channel.MatchKeys(ch)).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -66,6 +66,6 @@ func (w Writer) Delete(
 ) error {
 	return w.table.
 		NewDelete().
-		WhereKeys(Alias{Range: rng, Channel: ch}.GorpKey()).
+		Where(gorp.MatchKeys[string, Alias](Alias{Range: rng, Channel: ch}.GorpKey())).
 		Exec(ctx, w.tx)
 }

@@ -145,9 +145,9 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}
 	var externalNonVirtualChannels []Channel
 	if err = s.table.NewRetrieve().
-		Where(func(_ gorp.Context, c *Channel) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
 			return !c.Internal && !c.Virtual, nil
-		}).
+		})).
 		Entries(&externalNonVirtualChannels).
 		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
 		return nil, err
@@ -183,10 +183,9 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:                      s.table.NewRetrieve(),
-		tx:                        s.db,
-		search:                    s.cfg.Search,
-		validateRetrievedChannels: s.validateChannels,
+		baseTX: s.db,
+		gorp:   s.table.NewRetrieve().Validate(s.validateChannels),
+		search: s.cfg.Search,
 	}
 }
 
@@ -200,20 +199,24 @@ func (s *Service) CountExternalNonVirtual() uint32 {
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
-	res := make([]Channel, 0, len(channels))
+// validateChannels runs after every Retrieve.Exec and fails the query if any
+// retrieved external non-virtual channel would push the uint20 channel index
+// past the configured overflow limit. Attached via Validate on NewRetrieve so
+// it propagates through the generated Exec/Count/Exists pipeline.
+func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	for i, key := range KeysFromChannels(channels) {
-		if s.mu.externalNonVirtualSet.Contains(key) {
-			channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
-			if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
-				return nil, err
-			}
+	for _, ch := range channels {
+		key := ch.GorpKey()
+		if !s.mu.externalNonVirtualSet.Contains(key) {
+			continue
 		}
-		res = append(res, channels[i])
+		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
+		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+			return err
+		}
 	}
-	return res, nil
+	return nil
 }
 
 func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
@@ -221,7 +224,7 @@ func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
 		return key.String()
 	}
 	var ch Channel
-	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	if err := svc.NewRetrieve().Where(MatchKeys(key)).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

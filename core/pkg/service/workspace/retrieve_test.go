@@ -23,7 +23,7 @@ var _ = Describe("Retrieve", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, &ws1)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, &ws2)).To(Succeed())
 			var res []workspace.Workspace
-			Expect(svc.NewRetrieve().WhereAuthor(author.Key).Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(workspace.MatchAuthor(author.Key)).Entries(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res).To(ConsistOf(ws1, ws2))
 		})
 	})
