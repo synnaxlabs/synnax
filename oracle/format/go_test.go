@@ -25,32 +25,32 @@ var _ = Describe("Go formatter", func() {
 		}
 	})
 
-	It("Should format unformatted Go source", func() {
+	It("Should format unformatted Go source", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo()    int {return  1}\n")
-		out := MustSucceed(format.NewGo().Format(raw, "/x/foo.go"))
+		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
 		Expect(string(out)).To(ContainSubstring("func Foo() int { return 1 }"))
 	})
 
-	It("Should be idempotent", func() {
+	It("Should be idempotent", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo()    int {return  1}\n")
-		first := MustSucceed(format.NewGo().Format(raw, "/x/foo.go"))
-		second := MustSucceed(format.NewGo().Format(first, "/x/foo.go"))
+		first := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
+		second := MustSucceed(format.NewGo().Format(ctx, first, "/x/foo.go"))
 		Expect(string(first)).To(Equal(string(second)))
 	})
 
-	It("Should apply -s simplification", func() {
+	It("Should apply -s simplification", func(ctx SpecContext) {
 		raw := []byte(`package x
 
 type T struct{ V int }
 
 var Vs = []T{T{V: 1}, T{V: 2}}
 `)
-		out := MustSucceed(format.NewGo().Format(raw, "/x/foo.go"))
+		out := MustSucceed(format.NewGo().Format(ctx, raw, "/x/foo.go"))
 		Expect(string(out)).To(ContainSubstring("[]T{{V: 1}, {V: 2}}"))
 	})
 
-	It("Should surface errors on invalid Go input", func() {
+	It("Should surface errors on invalid Go input", func(ctx SpecContext) {
 		raw := []byte("package x\n\nfunc Foo( {\n")
-		Expect(format.NewGo().Format(raw, "/x/foo.go")).Error().To(MatchError(ContainSubstring("gofmt")))
+		Expect(format.NewGo().Format(ctx, raw, "/x/foo.go")).Error().To(MatchError(ContainSubstring("gofmt")))
 	})
 })

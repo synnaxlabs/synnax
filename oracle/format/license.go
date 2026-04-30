@@ -11,6 +11,7 @@ package format
 
 import (
 	"bytes"
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -77,9 +78,10 @@ func NewLicense(repoRoot string) (*License, error) {
 	}, nil
 }
 
-// Format prepends or refreshes the license header on content. Files with
-// extensions outside the supported set pass through unchanged.
-func (l *License) Format(content []byte, absPath string) ([]byte, error) {
+// Format prepends or refreshes the license header on content. Files
+// with extensions outside the supported set pass through unchanged.
+// The context is unused; License is in-process and pure CPU.
+func (l *License) Format(_ context.Context, content []byte, absPath string) ([]byte, error) {
 	header, ok := l.headersByExt[filepath.Ext(absPath)]
 	if !ok {
 		return content, nil

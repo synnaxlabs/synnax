@@ -155,7 +155,7 @@ func runMigrate(cmd *cobra.Command) error {
 	var templates []string
 	for _, f := range resp.Files {
 		fullPath := filepath.Join(repoRoot, f.Path)
-		canonical, err := formatters.Format(f.Content, fullPath)
+		canonical, err := formatters.Format(ctx, f.Content, fullPath)
 		if err != nil {
 			return errors.Wrapf(err, "format %s", f.Path)
 		}

@@ -20,7 +20,10 @@ type Clang struct{}
 func NewClang() *Clang { return &Clang{} }
 
 // Format runs clang-format with content on stdin.
-func (c *Clang) Format(content []byte, absPath string) ([]byte, error) {
-	args := []string{"--assume-filename=" + absPath}
-	return runStdin(context.Background(), "clang-format", args, content)
+func (c *Clang) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+	return stdinRun{
+		Name:  "clang-format",
+		Args:  []string{"--assume-filename=" + absPath},
+		Stdin: content,
+	}.run(ctx)
 }

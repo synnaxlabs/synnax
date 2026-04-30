@@ -9,38 +9,50 @@
 
 package format
 
-import "context"
+import (
+	"context"
+	"path/filepath"
+)
 
-// Ruff is a Formatter that runs `ruff format` followed by `ruff check --fix`
-// over its input via stdin. Ruff is a single statically-linked Rust binary
-// with sub-30ms cold start, so per-file invocation is cheap.
+// Ruff is a Formatter that runs `ruff format` followed by
+// `ruff check --fix` over its input via stdin. The command runs from
+// the nearest pyproject.toml directory so `uv run` resolves the
+// package-local ruff binary and the package's configuration applies.
 type Ruff struct {
-	// Bin is the ruff binary. Defaults to "uv" with Args=["run", "ruff"] for
-	// compatibility with the existing post-hook configuration.
+	// Bin is the ruff binary.
 	Bin string
 	// Args are extra args inserted before the subcommand.
 	Args []string
 }
 
-// NewRuff returns a Ruff formatter using `uv run ruff` for compatibility
-// with the existing post-hook configuration.
+// NewRuff returns a Ruff formatter using `uv run ruff`.
 func NewRuff() *Ruff {
 	return &Ruff{Bin: "uv", Args: []string{"run", "ruff"}}
 }
 
 // Format runs `ruff format` then `ruff check --fix` with content on stdin.
-//
-// `--exit-zero` is passed to `ruff check` so that lint findings without an
-// auto-fix don't fail the sync (matching the legacy behavior of the post-
-// hook, which also tolerated such findings).
-func (r *Ruff) Format(content []byte, absPath string) ([]byte, error) {
+func (r *Ruff) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
+	dir := findPyProjectDir(absPath)
+	if dir == "" {
+		dir = filepath.Dir(absPath)
+	}
 	formatArgs := append([]string{}, r.Args...)
 	formatArgs = append(formatArgs, "format", "--stdin-filename", absPath, "-")
-	formatted, err := runStdin(context.Background(), r.Bin, formatArgs, content)
+	formatted, err := stdinRun{
+		Name:  r.Bin,
+		Args:  formatArgs,
+		Dir:   dir,
+		Stdin: content,
+	}.run(ctx)
 	if err != nil {
 		return nil, err
 	}
 	checkArgs := append([]string{}, r.Args...)
 	checkArgs = append(checkArgs, "check", "--fix", "--exit-zero", "--stdin-filename", absPath, "-")
-	return runStdin(context.Background(), r.Bin, checkArgs, formatted)
+	return stdinRun{
+		Name:  r.Bin,
+		Args:  checkArgs,
+		Dir:   dir,
+		Stdin: formatted,
+	}.run(ctx)
 }

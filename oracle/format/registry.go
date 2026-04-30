@@ -46,9 +46,10 @@ func (r *Registry) Register(ext string, f Formatter) {
 	r.byExt[ext] = append(r.byExt[ext], f)
 }
 
-// Format runs all formatters registered for the file's extension, chaining
-// their output. Returns content unchanged if no formatter is registered.
-func (r *Registry) Format(content []byte, absPath string) ([]byte, error) {
+// Format runs all formatters registered for the file's extension,
+// chaining their output. Returns content unchanged if no formatter is
+// registered.
+func (r *Registry) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
 	ext := filepath.Ext(absPath)
 	formatters, ok := r.byExt[ext]
 	if !ok {
@@ -56,7 +57,7 @@ func (r *Registry) Format(content []byte, absPath string) ([]byte, error) {
 	}
 	current := content
 	for _, f := range formatters {
-		out, err := f.Format(current, absPath)
+		out, err := f.Format(ctx, current, absPath)
 		if err != nil {
 			return nil, errors.Wrapf(err, "format %s", absPath)
 		}
@@ -91,7 +92,7 @@ func (r *Registry) FormatBatch(ctx context.Context, files []File, workers int) (
 			if err := ctx.Err(); err != nil {
 				return err
 			}
-			content, err := r.Format(f.Content, f.Path)
+			content, err := r.Format(ctx, f.Content, f.Path)
 			if err != nil {
 				return errors.Wrapf(err, "format %s", f.Path)
 			}

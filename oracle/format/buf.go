@@ -30,7 +30,7 @@ type BufFormat struct{}
 func NewBufFormat() *BufFormat { return &BufFormat{} }
 
 // Format writes content to a temp file and returns `buf format`'s stdout.
-func (b *BufFormat) Format(content []byte, absPath string) ([]byte, error) {
+func (b *BufFormat) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
 	dir, err := os.MkdirTemp("", "oracle-buf-format-*")
 	if err != nil {
 		return nil, errors.Wrap(err, "create temp dir")
@@ -40,7 +40,7 @@ func (b *BufFormat) Format(content []byte, absPath string) ([]byte, error) {
 	if err := os.WriteFile(tmpFile, content, 0644); err != nil {
 		return nil, errors.Wrap(err, "write temp proto")
 	}
-	c := exec.CommandContext(context.Background(), "buf", "format", tmpFile)
+	c := exec.CommandContext(ctx, "buf", "format", tmpFile)
 	var stdout, stderr bytes.Buffer
 	c.Stdout = &stdout
 	c.Stderr = &stderr

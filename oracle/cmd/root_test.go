@@ -11,7 +11,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -424,7 +423,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 		cache = format.LoadCache(tmpDir)
 	})
 
-	It("should write new files and report them", func() {
+	It("should write new files and report them", func(ctx SpecContext) {
 		result := &generateResult{
 			Files: map[string][]plugin.File{
 				"test": {
@@ -432,7 +431,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.Unchanged).To(BeEmpty())
 
@@ -440,7 +439,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 		Expect(content).To(Equal("package out"))
 	})
 
-	It("should skip unchanged files", func() {
+	It("should skip unchanged files", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("package out"), 0644)).To(Succeed())
@@ -452,12 +451,12 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(BeEmpty())
 		Expect(sr.Unchanged).To(HaveLen(1))
 	})
 
-	It("should overwrite files with different content", func() {
+	It("should overwrite files with different content", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0644)).To(Succeed())
@@ -469,12 +468,12 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.ByPlugin["test"]).To(HaveLen(1))
 	})
 
-	It("should skip via cache on second sync with identical raw bytes", func() {
+	It("should skip via cache on second sync with identical raw bytes", func(ctx SpecContext) {
 		result := &generateResult{
 			Files: map[string][]plugin.File{
 				"test": {
@@ -482,10 +481,10 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr1 := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		sr1 := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr1.Written).To(HaveLen(1))
 
-		sr2 := MustSucceed(result.syncFiles(context.Background(), tmpDir, formatters, cache, 1))
+		sr2 := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr2.Written).To(BeEmpty())
 		Expect(sr2.Skipped).To(HaveLen(1))
 	})

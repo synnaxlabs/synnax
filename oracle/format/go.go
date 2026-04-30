@@ -12,14 +12,12 @@ package format
 import "context"
 
 // Go is a Formatter that runs `gofmt -s` over its input via stdin/stdout.
-// Cold start of gofmt is in the single-millisecond range so a per-file
-// invocation is acceptable.
 type Go struct{}
 
 // NewGo returns a Go formatter.
 func NewGo() *Go { return &Go{} }
 
 // Format runs gofmt -s with content on stdin.
-func (g *Go) Format(content []byte, _ string) ([]byte, error) {
-	return runStdin(context.Background(), "gofmt", []string{"-s"}, content)
+func (g *Go) Format(ctx context.Context, content []byte, _ string) ([]byte, error) {
+	return stdinRun{Name: "gofmt", Args: []string{"-s"}, Stdin: content}.run(ctx)
 }
