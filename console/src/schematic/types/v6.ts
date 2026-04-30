@@ -34,13 +34,24 @@ export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 export const propsZ = z.union([nodePropsZ, edgePropsZ]);
 export type Props = z.infer<typeof propsZ>;
 
+export const legendStateZ = v1.legendStateZ
+  .omit({ colors: true })
+  .extend({ colors: z.record(z.string(), color.colorZ).default({}) });
+export interface LegendState extends z.infer<typeof legendStateZ> {}
+const ZERO_LEGEND_STATE: LegendState = {
+  visible: true,
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+  colors: {},
+};
+
 export const stateZ = v5.stateZ
-  .omit({ version: true, nodes: true, edges: true, props: true })
+  .omit({ version: true, nodes: true, edges: true, props: true, legend: true })
   .extend({
     version: z.literal(VERSION),
     nodes: z.array(Diagram.nodeZ),
     edges: z.array(Diagram.edgeZ),
     props: z.record(z.string(), propsZ),
+    legend: legendStateZ,
     selected: z.array(z.string()).default([]),
   });
 export interface State extends z.infer<typeof stateZ> {}
@@ -50,6 +61,7 @@ export const ZERO_STATE: State = {
   nodes: [],
   edges: [],
   props: {},
+  legend: ZERO_LEGEND_STATE,
   selected: [],
 };
 
@@ -110,6 +122,18 @@ const migrateNode = (node: v0.Node): Diagram.Node => ({
   measured: node.measured,
 });
 
+const migrateLegendColors = (
+  colors: Record<string, string> | undefined,
+): LegendState["colors"] => {
+  if (colors == null) return {};
+  const out: LegendState["colors"] = {};
+  for (const [k, v] of Object.entries(colors)) {
+    const parsed = color.colorZ.safeParse(v);
+    if (parsed.success) out[k] = parsed.data;
+  }
+  return out;
+};
+
 const migrateProps = (props: Record<string, v0.NodeProps>): Record<string, Props> =>
   Object.fromEntries(
     Object.entries(props).map(([k, p]) => {
@@ -135,6 +159,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
       nodes,
       edges,
       props,
+      legend: { ...state.legend, colors: migrateLegendColors(state.legend?.colors) },
       selected: [],
     };
   },

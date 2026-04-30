@@ -140,7 +140,7 @@ func concreteTypeForHint(t types.Type) string {
 		switch t.Constraint.Kind {
 		case types.KindIntegerConstant:
 			return "i64"
-		case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+		case types.KindFloatConstant, types.KindNumericConstant, types.KindSignedNumericConstant, types.KindExactIntegerFloatConstant:
 			return "f64"
 		}
 	}
@@ -206,6 +206,16 @@ func (s *System) unifyTypeVariableWithVisited(
 	visiting set.Set[string],
 ) error {
 	if existing, exists := s.Substitutions[tv.Name]; exists {
+		// If the type variable has a SignedNumericConstraint and the existing
+		// substitution is the signed promotion of the incoming type, the
+		// unification already succeeded on a prior iteration.
+		if tv.Constraint != nil && tv.Constraint.Kind == types.KindSignedNumericConstant &&
+			existing.IsNumeric() && other.IsNumeric() {
+			promoted := types.PromoteUnsignedToSigned(other)
+			if types.Equal(existing, promoted) || types.Equal(existing, other) {
+				return nil
+			}
+		}
 		// Type variable already has a substitution
 		// If we're in a compatible context with numeric types, we may need to promote
 		// BUT: Only promote if both are CONCRETE types. If either is a type variable,
@@ -255,6 +265,15 @@ func (s *System) unifyTypeVariableWithVisited(
 				other,
 			)
 		}
+	} else if tv.Constraint.Kind == types.KindSignedNumericConstant {
+		if !checkType.IsNumeric() {
+			return errors.Wrapf(
+				ErrConstraintViolation,
+				"%v does not satisfy numeric constraint",
+				other,
+			)
+		}
+		other = types.PromoteUnsignedToSigned(other)
 	} else if tv.Constraint.Kind == types.KindIntegerConstant {
 		// Integer constraint: accepts any numeric type (for literal coercion)
 		// Integer literals can be coerced to floats: `x f32 := 42` is valid
@@ -291,6 +310,7 @@ func (s *System) unifyTypeVariableWithVisited(
 	isConstraintKind := tv.Constraint != nil && (tv.Constraint.Kind == types.KindIntegerConstant ||
 		tv.Constraint.Kind == types.KindFloatConstant ||
 		tv.Constraint.Kind == types.KindNumericConstant ||
+		tv.Constraint.Kind == types.KindSignedNumericConstant ||
 		tv.Constraint.Kind == types.KindExactIntegerFloatConstant)
 
 	if !isConstraintKind && tv.Constraint != nil && !types.Equal(*tv.Constraint, other) {
@@ -317,7 +337,7 @@ func defaultTypeForConstraint(constraint types.Type) types.Type {
 	switch constraint.Kind {
 	case types.KindIntegerConstant:
 		return types.I64()
-	case types.KindFloatConstant, types.KindNumericConstant, types.KindExactIntegerFloatConstant:
+	case types.KindFloatConstant, types.KindNumericConstant, types.KindSignedNumericConstant, types.KindExactIntegerFloatConstant:
 		return types.F64()
 	default:
 		return constraint

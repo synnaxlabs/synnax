@@ -41,7 +41,7 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(MatchKeys(s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, s Symbol) Symbol {
+	return w.table.NewUpdate().Where(MatchKeys(key)).Change(func(_ gorp.Context, s Symbol) Symbol {
 		s.Name = name
 		return s
 	}).Exec(ctx, w.tx)
@@ -80,7 +80,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(MatchKeys(keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}
