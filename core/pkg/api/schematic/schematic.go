@@ -121,7 +121,7 @@ type (
 
 func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
 	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.Schematics).Exec(ctx, nil)
+		Where(schematic.MatchKeys(req.Keys...)).Entries(&res.Schematics).Exec(ctx, nil)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}
@@ -230,7 +230,7 @@ type (
 func (s *Service) RetrieveSymbol(ctx context.Context, req RetrieveSymbolRequest) (res RetrieveSymbolResponse, err error) {
 	q := s.internal.Symbol.NewRetrieve()
 	if len(req.Keys) > 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(symbol.MatchKeys(req.Keys...))
 	}
 	if req.SearchTerm != "" {
 		q = q.Search(req.SearchTerm)

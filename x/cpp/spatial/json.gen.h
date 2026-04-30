@@ -64,8 +64,8 @@ inline StickyXY StickyXY::parse(x::json::Parser parser) {
     return StickyXY{
         .x = parser.field<double>("x"),
         .y = parser.field<double>("y"),
-        .root = parser.field<CornerLocation>("root"),
-        .units = parser.field<StickyUnits>("units"),
+        .root = parser.field<std::optional<CornerLocation>>("root"),
+        .units = parser.field<std::optional<StickyUnits>>("units"),
     };
 }
 
@@ -73,8 +73,8 @@ inline x::json::json StickyXY::to_json() const {
     x::json::json j;
     j["x"] = this->x;
     j["y"] = this->y;
-    j["root"] = this->root.to_json();
-    j["units"] = this->units.to_json();
+    if (this->root.has_value()) j["root"] = this->root->to_json();
+    if (this->units.has_value()) j["units"] = this->units->to_json();
     return j;
 }
 

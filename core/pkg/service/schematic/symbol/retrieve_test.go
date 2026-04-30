@@ -51,7 +51,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve a single symbol by key", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(sym1.Key).
+				Where(symbol.MatchKeys(sym1.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(sym1.Key))
@@ -62,7 +62,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should retrieve multiple symbols by keys", func(ctx SpecContext) {
 			var retrieved []symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(sym1.Key, sym3.Key).
+				Where(symbol.MatchKeys(sym1.Key, sym3.Key)).
 				Entries(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved).To(HaveLen(2))
@@ -74,7 +74,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should return error when symbol not found", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			err := svc.NewRetrieve().
-				WhereKeys(uuid.New()).
+				Where(symbol.MatchKeys(uuid.New())).
 				Entry(&retrieved).
 				Exec(ctx, tx)
 			Expect(err).To(MatchError(query.ErrNotFound))
@@ -85,7 +85,7 @@ var _ = Describe("Retrieve", func() {
 		It("Should execute with provided transaction", func(ctx SpecContext) {
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(sym1.Key).
+				Where(symbol.MatchKeys(sym1.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(sym1.Key))
@@ -101,7 +101,7 @@ var _ = Describe("Retrieve", func() {
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(symNoTx.Key).
+				Where(symbol.MatchKeys(symNoTx.Key)).
 				Entry(&retrieved).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Key).To(Equal(symNoTx.Key))
@@ -148,7 +148,7 @@ var _ = Describe("Retrieve", func() {
 
 			var retrieved symbol.Symbol
 			Expect(svc.NewRetrieve().
-				WhereKeys(largeSym.Key).
+				Where(symbol.MatchKeys(largeSym.Key)).
 				Entry(&retrieved).
 				Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Data["svg"]).To(Equal(largeData["svg"]))

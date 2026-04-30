@@ -119,7 +119,7 @@ type (
 
 func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res RetrieveResponse, err error) {
 	err = s.internal.NewRetrieve().
-		WhereKeys(req.Keys...).Entries(&res.Logs).Exec(ctx, nil)
+		Where(log.MatchKeys(req.Keys...)).Entries(&res.Logs).Exec(ctx, nil)
 	if err != nil {
 		return RetrieveResponse{}, err
 	}

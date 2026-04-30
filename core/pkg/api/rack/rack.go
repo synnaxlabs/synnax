@@ -122,10 +122,10 @@ func (s *Service) Retrieve(
 	resRacks := make([]rack.Rack, 0, len(req.Keys)+len(req.Names))
 	q := s.rack.NewRetrieve()
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(rack.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names)
+		q = q.Where(rack.MatchNames(req.Names...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -137,13 +137,13 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if req.Embedded != nil {
-		q = q.WhereEmbedded(*req.Embedded)
+		q = q.Where(rack.MatchEmbedded(*req.Embedded))
 	}
 	if req.HostIsNode != nil {
-		q = q.WhereNodeIsHost(*req.HostIsNode)
+		q = q.Where(rack.MatchNodeIsHost(*req.HostIsNode))
 	}
 	if hasIntegration {
-		q = q.WhereIntegration(req.Integration)
+		q = q.Where(rack.MatchIntegration(req.Integration))
 	}
 	if err := q.Entries(&resRacks).Exec(ctx, nil); err != nil {
 		return res, err
@@ -156,7 +156,7 @@ func (s *Service) Retrieve(
 		}
 		statuses := make([]rack.Status, 0, len(resRacks))
 		if err := status.NewRetrieve[rack.StatusDetails](s.status).
-			WhereKeys(ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...).
+			Where(status.MatchKeys[rack.StatusDetails](ontology.IDsToKeys(rack.OntologyIDsFromRacks(resRacks))...)).
 			Entries(&statuses).
 			Exec(ctx, nil); err != nil {
 			return res, err
@@ -201,7 +201,7 @@ func (s *Service) Delete(
 		return res, err
 	}
 	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
-		exists, err := s.device.NewRetrieve().WhereRacks(req.Keys...).Exists(ctx, tx)
+		exists, err := s.device.NewRetrieve().Where(device.MatchRacks(req.Keys...)).Exists(ctx, tx)
 		if err != nil {
 			return err
 		}
@@ -212,8 +212,7 @@ func (s *Service) Delete(
 			)
 		}
 		exists, err = s.task.NewRetrieve().
-			WhereInternal(false, gorp.Required()).
-			WhereRacks(req.Keys...).
+			Where(task.And(task.MatchInternal(false), task.MatchRacks(req.Keys...))).
 			Exists(ctx, tx)
 		if err != nil {
 			return err

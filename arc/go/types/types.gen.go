@@ -44,6 +44,7 @@ const (
 	KindFunction
 	KindSequence
 	KindStage
+	KindSignedNumericConstant
 )
 
 // ChanDirection indicates read/write direction for channel-typed config parameters.

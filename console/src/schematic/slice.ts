@@ -196,8 +196,13 @@ const setActiveTabFromSelection = (
 const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void => {
   const sourceProps = schematic.props[edge.source.node] as NodeProps | undefined;
   const targetProps = schematic.props[edge.target.node] as NodeProps | undefined;
-  if (sourceProps?.color == null || sourceProps.color !== targetProps?.color) return;
-  const existing = schematic.props[edge.key];
+  if (
+    sourceProps?.color == null ||
+    targetProps?.color == null ||
+    !color.equals(sourceProps.color, targetProps.color)
+  )
+    return;
+  const existing = schematic.props[edge.key] as EdgeProps | undefined;
   schematic.props[edge.key] = { ...existing, color: sourceProps.color };
 };
 

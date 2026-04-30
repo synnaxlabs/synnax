@@ -33,7 +33,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
 			var res schematic.Schematic
-			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
@@ -47,7 +47,9 @@ var _ = Describe("Writer", func() {
 				Nodes:     []schematic.Node{{Key: "n1"}},
 			})).To(Succeed())
 			var res schematic.Schematic
-			Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test"))
 			Expect(res.Authority).To(BeEquivalentTo(5))
 			Expect(res.Nodes).To(HaveLen(1))

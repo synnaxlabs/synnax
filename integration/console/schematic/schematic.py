@@ -33,7 +33,7 @@ class SchematicProperties(TypedDict):
     show_control_legend: bool
 
 
-SCHEMATIC_VERSION = "5.0.0"
+SCHEMATIC_VERSION = "6.0.0"
 
 AlignmentType = Literal[
     "vertical",

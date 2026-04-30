@@ -13,52 +13,47 @@ package gorp
 import (
 	"context"
 
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/types"
 )
 
 // RawFilter is a predicate that operates on the raw encoded bytes of an entry
-// before it is decoded. Returning false skips the entry without allocating a
-// decoded value. Returning true allows normal decode + filter processing.
+// before decoding. Returning false skips the entry.
 type RawFilter func(data []byte) (bool, error)
+
+// Validator is a batch check that runs on the final result set after Exec
+// populates entries. A non-nil error from any validator causes Exec to return
+// that error. Validators cannot filter results — use Where for that.
+type Validator[K Key, E Entry[K]] func(ctx Context, entries []E) error
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries    *Entries[K, E]
+	entries    Entries[K, E]
 	limit      int
 	offset     int
-	keys       *[]K
 	prefix     []byte
-	filters    filters[K, E]
-	rawFilters rawFilters
+	filter     *Filter[K, E]
+	validators []Validator[K, E]
+	keyPrefix  []byte
 }
 
 // NewRetrieve opens a new Retrieve query.
 func NewRetrieve[K Key, E Entry[K]]() Retrieve[K, E] {
-	return Retrieve[K, E]{entries: new(Entries[K, E])}
+	return Retrieve[K, E]{}
 }
 
-type filterOptions struct {
-	required bool
-}
+// GetEntries returns the entries binding for the query.
+func (r *Retrieve[K, E]) GetEntries() *Entries[K, E] { return &r.entries }
 
-type FilterOption func(*filterOptions)
-
-func Required() FilterOption {
-	return func(o *filterOptions) { o.required = true }
-}
-
-type FilterFunc[K Key, E Entry[K]] = func(ctx Context, e *E) (bool, error)
-
-// GetEntries returns the entries bound to the query.
-func (r Retrieve[K, E]) GetEntries() *Entries[K, E] { return r.entries }
-
-// Where adds the provided filter to the query. If filtering by the key of the Entry,
-// use the far more efficient WhereKeys method instead.
-func (r Retrieve[K, E]) Where(filter FilterFunc[K, E], opts ...FilterOption) Retrieve[K, E] {
-	r.filters = append(r.filters, newFilter(filter, opts))
+// Where adds the provided filter to the query, ANDing it with any existing
+// filter. To restrict by primary key, compose MatchKeys into the filter
+// (e.g. r.Where(MatchKeys(1, 2, 3))).
+func (r Retrieve[K, E]) Where(filter Filter[K, E]) Retrieve[K, E] {
+	if r.filter != nil {
+		filter = And(*r.filter, filter)
+	}
+	r.filter = &filter
 	return r
 }
 
@@ -68,19 +63,32 @@ func (r Retrieve[K, E]) HasLimit() bool { return r.limit > 0 }
 // HasOffset returns true if an offset was set on the query.
 func (r Retrieve[K, E]) HasOffset() bool { return r.offset > 0 }
 
-// HasWhereKeys returns true if WhereKeys was called on the query.
-func (r Retrieve[K, E]) HasWhereKeys() bool { return r.keys != nil }
+// HasFilters returns true if any Where filters were added to the query.
+func (r Retrieve[K, E]) HasFilters() bool { return r.filter != nil }
 
-// GetWhereKeys returns the keys set by WhereKeys, or nil if not set.
-func (r Retrieve[K, E]) GetWhereKeys() []K {
-	if r.keys != nil {
-		return *r.keys
-	}
-	return nil
+// HasNonKeyFilters returns true if any Where filter that requires running
+// the query (an Eval or Raw filter) was added. A query whose only filter
+// is MatchKeys returns false — its key set already determines the result
+// without consulting gorp, which lets routing layers (e.g. ontology
+// traversal) skip the lookup entirely.
+func (r Retrieve[K, E]) HasNonKeyFilters() bool {
+	return r.filter != nil && (r.filter.eval != nil || r.filter.raw != nil)
 }
 
-// HasFilters returns true if any Where filters were added to the query.
-func (r Retrieve[K, E]) HasFilters() bool { return len(r.filters) > 0 }
+// HasFilterKeys returns true if the resolved filter is bounded by a primary
+// key set (i.e. Where(MatchKeys(...)) was called).
+func (r Retrieve[K, E]) HasFilterKeys() bool {
+	return r.filter != nil && r.filter.keys != nil
+}
+
+// GetFilterKeys returns the resolved filter's primary key set, or nil if the
+// query is not bounded by keys.
+func (r Retrieve[K, E]) GetFilterKeys() []K {
+	if r.filter == nil {
+		return nil
+	}
+	return r.filter.keys
+}
 
 // WherePrefix filters entries whose key starts with the given prefix.
 func (r Retrieve[K, E]) WherePrefix(prefix []byte) Retrieve[K, E] {
@@ -103,32 +111,36 @@ func (r Retrieve[K, E]) Offset(offset int) Retrieve[K, E] {
 
 // WhereRaw adds a raw byte filter that is evaluated before decoding each entry.
 // Entries whose raw bytes cause the filter to return false are skipped without
-// being decoded. Supports the same options as Where (e.g. Required).
-func (r Retrieve[K, E]) WhereRaw(filter RawFilter, opts ...FilterOption) Retrieve[K, E] {
-	o := &filterOptions{}
-	for _, opt := range opts {
-		opt(o)
-	}
-	r.rawFilters = append(r.rawFilters, rawFilter{f: filter, filterOptions: *o})
+// being decoded.
+func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
+	return r.Where(MatchRaw[K, E](filter))
+}
+
+// Validate attaches a batch validator that runs on the final result set after
+// Exec populates entries. A non-nil error from any validator causes Exec to
+// return that error. Multiple Validate calls accumulate and run in order. The
+// first error wins.
+func (r Retrieve[K, E]) Validate(f Validator[K, E]) Retrieve[K, E] {
+	r.validators = append(r.validators, f)
 	return r
 }
 
-// WhereKeys queries the DB for Entries with the provided keys. Although more targeted,
-// this lookup is substantially faster than a general Where query. If called in
-// conjunction with Where, the WhereKeys filter will be applied first. Subsequent calls
-// to WhereKeys will append the keys to the existing set.
-func (r Retrieve[K, E]) WhereKeys(keys ...K) Retrieve[K, E] {
-	if r.keys == nil {
-		r.keys = new([]K)
+func (r Retrieve[K, E]) runValidators(ctx Context, entries []E) error {
+	for _, v := range r.validators {
+		if v == nil {
+			continue
+		}
+		if err := v(ctx, entries); err != nil {
+			return err
+		}
 	}
-	*r.keys = append(*r.keys, keys...)
-	return r
+	return nil
 }
 
 // Entries binds a slice that the Params will fill results into. Repeated calls to Entry
 // or Entries will override all previous calls to Entries or Entry.
 func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
-	r.entries = multipleEntries(entries)
+	r.entries.bindMultiple(entries)
 	return r
 }
 
@@ -136,56 +148,72 @@ func (r Retrieve[K, E]) Entries(entries *[]E) Retrieve[K, E] {
 // or Entries will override All previous calls to Entries or Entry. If  isMultiple results
 // are returned by the query, entry will be set to the last result.
 func (r Retrieve[K, E]) Entry(entry *E) Retrieve[K, E] {
-	r.entries = singleEntry(entry)
+	r.entries.bindSingle(entry)
 	return r
 }
 
-// Exec executes the Params against the provided Writer. If the WhereKeys method is set on
-// the query, Retrieve will return a query.ErrNotFound  error if ANY of the keys do not
-// exist in the database. If Where is set on the query, Retrieve will return a query.ErrNotFound
-// if NO keys pass the Where filter.
-func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("Retriever.Exec", tx)
-	f := lo.Ternary(r.HasWhereKeys(), r.execKeys, r.execFilter)
-	return f(ctx, tx)
+func (r Retrieve[K, E]) isBareKeys() bool {
+	return r.filter != nil &&
+		r.filter.keys != nil &&
+		r.filter.eval == nil &&
+		r.filter.raw == nil
 }
 
-// Exists checks whether records matching the query exist in the DB. If the WhereKeys method is
-// set on the query, Exists will return true if ANY of the keys exist in the database. If
-// Where is set on the query, Exists will return true if ANY keys pass the Where filter.
+// Exec executes the query against the provided transaction. If the query is
+// filtered only by primary key (Where(MatchKeys(...)) with no other filters),
+// Exec returns query.ErrNotFound if any of the requested keys do not exist.
+func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
+	checkForNilTx("Retriever.Exec", tx)
+	if r.HasFilterKeys() {
+		notFound, err := r.execKeys(ctx, tx)
+		if r.isBareKeys() && notFound != nil {
+			return errors.Join(err, errors.Wrapf(
+				query.ErrNotFound,
+				"%s with keys %v not found",
+				types.PluralName[E](),
+				notFound,
+			))
+		}
+		return err
+	}
+	return r.execFilter(ctx, tx)
+}
+
+// Exists returns true if any record matching the query exists in the DB.
 func (r Retrieve[K, E]) Exists(ctx context.Context, tx Tx) (bool, error) {
-	if r.HasWhereKeys() {
-		e := make([]E, 0, len(*r.keys))
-		r.entries = multipleEntries(&e)
-		if err := r.execKeys(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
+	if r.HasFilterKeys() {
+		keys := r.filter.keys
+		e := make([]E, 0, len(keys))
+		r.entries.bindMultiple(&e)
+		if _, err := r.execKeys(ctx, tx); err != nil {
 			return false, err
 		}
-		return len(e) == len(*r.keys), nil
+		if r.isBareKeys() {
+			return len(e) == len(keys), nil
+		}
+		return len(e) > 0, nil
 	}
 	e := make([]E, 0, 1)
-	r.entries = multipleEntries(&e)
+	r.entries.bindMultiple(&e)
 	if err := r.execFilter(ctx, tx); errors.Skip(err, query.ErrNotFound) != nil {
 		return false, err
 	}
 	return len(e) > 0, nil
 }
 
-// Count returns the number of records matching the query. If the WhereKeys method is
-// set on the query, Count will return the number of existing keys. If Where is set
-// on the query, Count will return the number of records that pass the Where filter.
+// Count returns the number of records matching the query.
 func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error) {
 	checkForNilTx("Retriever.Count", tx)
-	if r.HasWhereKeys() {
-		// For key-based queries, we can optimize by only retrieving the keys
-		e := make([]E, 0, len(*r.keys))
-		r.entries = multipleEntries(&e)
-		if err := r.execKeys(ctx, tx); err != nil && !errors.Is(err, query.ErrNotFound) {
+	if r.HasFilterKeys() {
+		e := make([]E, 0, len(r.filter.keys))
+		r.entries.bindMultiple(&e)
+		if _, err := r.execKeys(ctx, tx); err != nil {
 			return 0, err
 		}
 		return len(r.entries.All()), nil
 	}
 
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{
+	iter, err := wrapReader[K, E](tx, r.keyPrefix).OpenIterator(IterOptions{
 		prefix: r.prefix,
 	})
 	if err != nil {
@@ -194,10 +222,16 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 	defer func() {
 		err = errors.Combine(err, iter.Close())
 	}()
+	gorpCtx := Context{Context: ctx, Tx: tx}
+	var matched []E
+	if len(r.validators) > 0 {
+		matched = make([]E, 0)
+	}
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
-		if err != nil {
-			return 0, err
+		rawBytes := iter.Iterator.Value()
+		rawMatched, rErr := r.matchRaw(rawBytes)
+		if rErr != nil {
+			return 0, rErr
 		}
 		if !rawMatched {
 			continue
@@ -206,121 +240,89 @@ func (r Retrieve[K, E]) Count(ctx context.Context, tx Tx) (count int, err error)
 		if err = iter.Error(); err != nil {
 			return 0, err
 		}
-		var match bool
-		match, err = r.filters.exec(Context{
-			Context: ctx,
-			Tx:      tx,
-		}, v)
-		if err != nil {
-			return 0, err
+		match, fErr := r.match(gorpCtx, v, rawBytes)
+		if fErr != nil {
+			return 0, fErr
 		}
 		if match {
 			count++
+			if matched != nil {
+				matched = append(matched, *v)
+			}
+		}
+	}
+	if matched != nil {
+		if vErr := r.runValidators(gorpCtx, matched); vErr != nil {
+			return 0, vErr
 		}
 	}
 	return count, err
 }
 
-type rawFilter struct {
-	f RawFilter
-	filterOptions
-}
-
-type rawFilters []rawFilter
-
-func (rf rawFilters) exec(data []byte) (bool, error) {
-	if len(rf) == 0 {
+func (r Retrieve[K, E]) match(ctx Context, e *E, raw []byte) (bool, error) {
+	if r.filter == nil || r.filter.eval == nil {
 		return true, nil
 	}
-	match := false
-	for _, f := range rf {
-		ok, err := f.f(data)
-		if err != nil {
-			return false, err
-		}
-		if ok {
-			match = true
-		} else if f.required {
-			return false, nil
-		}
-	}
-	return match, nil
+	return r.filter.eval(ctx, e, raw)
 }
 
-type filter[K Key, E Entry[K]] struct {
-	f FilterFunc[K, E]
-	filterOptions
-}
-
-type filters[K Key, E Entry[K]] []filter[K, E]
-
-func (f filters[K, E]) exec(ctx Context, entry *E) (bool, error) {
-	if len(f) == 0 {
+func (r Retrieve[K, E]) matchRaw(data []byte) (bool, error) {
+	if r.filter == nil || r.filter.raw == nil {
 		return true, nil
 	}
-	match := false
-	for _, fil := range f {
-		iMatch, err := fil.f(ctx, entry)
-		if err != nil {
-			return false, err
-		}
-		if iMatch {
-			match = true
-		} else if fil.required {
-			return false, err
-		}
-	}
-	return match, nil
+	return r.filter.raw(data)
 }
 
-func newFilter[K Key, E Entry[K]](
-	filterFunc FilterFunc[K, E],
-	options []FilterOption,
-) filter[K, E] {
-	opts := &filterOptions{}
-	for _, o := range options {
-		o(opts)
-	}
-	return filter[K, E]{f: filterFunc, filterOptions: *opts}
-}
-
-func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) error {
+func (r Retrieve[K, E]) execKeys(ctx context.Context, tx Tx) ([]K, error) {
 	var (
-		reader             = WrapReader[K, E](tx)
-		keysResult, getErr = reader.GetMany(ctx, *r.keys)
-		toReplace          = make([]E, 0, len(keysResult))
-		validCount         int
+		keys       = r.filter.keys
+		reader     = wrapReader[K, E](tx, r.keyPrefix)
+		notFound   []K
+		validCount int
+		gorpCtx    = Context{Context: ctx, Tx: tx}
+		e          E
+		zero       E
 	)
-	// We don't return early even if getErr fails with a not found result in order
-	// to do a best effort retrieval of available items.
-	if getErr != nil && !errors.Is(getErr, query.ErrNotFound) {
-		return getErr
-	}
-	for _, e := range keysResult {
-		if !reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
-			continue
-		}
-		match, err := r.filters.exec(Context{Context: ctx, Tx: tx}, &e)
+	r.entries.ensureCap(len(keys))
+	for _, k := range keys {
+		e = zero
+		b, closer, err := reader.get(ctx, k, &e)
 		if err != nil {
-			return err
+			if errors.Is(err, query.ErrNotFound) {
+				notFound = append(notFound, k)
+				continue
+			}
+			return nil, err
 		}
-		if match {
-			validCount += 1
-			if (validCount > r.offset) && (r.limit == 0 || validCount <= r.limit+r.offset) {
-				toReplace = append(toReplace, e)
+		if reader.keyCodec.matchPrefix(r.prefix, e.GorpKey()) {
+			match, mErr := r.match(gorpCtx, &e, b)
+			if mErr != nil {
+				return nil, errors.Combine(mErr, closer.Close())
+			}
+			if match {
+				validCount++
+				if validCount > r.offset && (r.limit == 0 || validCount <= r.limit+r.offset) {
+					r.entries.Add(e)
+				}
 			}
 		}
+		if cErr := closer.Close(); cErr != nil {
+			return nil, cErr
+		}
 	}
-	r.entries.Replace(toReplace)
-	return getErr
+	if len(r.validators) == 0 {
+		return notFound, nil
+	}
+	return notFound, r.runValidators(gorpCtx, r.entries.All())
 }
 
 func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 	var (
 		validCount int
 		match      bool
+		gorpCtx    = Context{Context: ctx, Tx: tx}
 	)
-	iter, err := WrapReader[K, E](tx).OpenIterator(IterOptions{prefix: r.prefix})
+	iter, err := wrapReader[K, E](tx, r.keyPrefix).OpenIterator(IterOptions{prefix: r.prefix})
 	if err != nil {
 		return err
 	}
@@ -328,9 +330,10 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		err = errors.Combine(err, iter.Close())
 	}()
 	for iter.First(); iter.Valid(); iter.Next() {
-		rawMatched, err := r.rawFilters.exec(iter.Iterator.Value())
-		if err != nil {
-			return err
+		rawBytes := iter.Iterator.Value()
+		rawMatched, rErr := r.matchRaw(rawBytes)
+		if rErr != nil {
+			return rErr
 		}
 		if !rawMatched {
 			continue
@@ -339,7 +342,7 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 		if err = iter.Error(); err != nil {
 			return err
 		}
-		match, err = r.filters.exec(Context{Context: ctx, Tx: tx}, v)
+		match, err = r.match(gorpCtx, v, rawBytes)
 		if err != nil {
 			return err
 		}
@@ -349,6 +352,9 @@ func (r Retrieve[K, E]) execFilter(ctx context.Context, tx Tx) error {
 				r.entries.Add(*v)
 			}
 		}
+	}
+	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
+		return vErr
 	}
 	if r.entries.isMultiple || !r.entries.Bound() {
 		return err

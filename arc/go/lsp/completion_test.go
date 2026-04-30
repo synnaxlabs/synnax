@@ -119,7 +119,7 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 
 			Expect(HasCompletion(completions.Items, "len")).To(BeTrue(), "Should show 'len' function in expression context")
-			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(), "Should show 'now' function in expression context")
+			Expect(HasCompletion(completions.Items, "time.now")).To(BeTrue(), "Should show 'time.now' function in expression context")
 		})
 
 		It("should show function keywords at statement start inside func body", func(ctx SpecContext) {
@@ -706,18 +706,20 @@ var _ = Describe("Completion", func() {
 			})
 		})
 
-		It("Should return module members for 'math.p' prefix", func(ctx SpecContext) {
+		It("Should return module members for 'math.a' prefix", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() {\n    math.p\n}"
+			content := "math.a"
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 1, 10)
+			completions := Completion(server, ctx, uri, 0, 6)
 			Expect(completions).ToNot(BeNil())
-			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "avg")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "add")).To(BeFalse(),
+				"Internal symbol math.add should not appear in module-qualified completion")
 		})
 
 		It("Should return all members for bare 'math.' prefix", func(ctx SpecContext) {
@@ -726,15 +728,19 @@ var _ = Describe("Completion", func() {
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() {\n    math.\n}"
+			content := "math."
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
-			Expect(HasCompletion(completions.Items, "pow")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "avg")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
+				"Internal symbol math.pow should not appear in module-qualified completion")
+			Expect(HasCompletion(completions.Items, "add")).To(BeFalse(),
+				"Internal symbol math.add should not appear in module-qualified completion")
 		})
 
-		It("Should return all time module members for 'time.' prefix", func(ctx SpecContext) {
+		It("Should return only WASM time members for 'time.' prefix in func block", func(ctx SpecContext) {
 			server = MustSucceed(lsp.New(lsp.Config{
 				GlobalResolver: stl.SymbolResolver,
 			}))
@@ -745,9 +751,12 @@ var _ = Describe("Completion", func() {
 
 			completions := Completion(server, ctx, uri, 1, 9)
 			Expect(completions).ToNot(BeNil())
-			Expect(HasCompletion(completions.Items, "now")).To(BeTrue())
-			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue())
-			Expect(HasCompletion(completions.Items, "wait")).To(BeTrue())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
+				"WASM function time.now should appear in func block")
+			Expect(HasCompletion(completions.Items, "interval")).To(BeFalse(),
+				"Flow function time.interval should not appear in func block")
+			Expect(HasCompletion(completions.Items, "wait")).To(BeFalse(),
+				"Flow function time.wait should not appear in func block")
 		})
 
 		It("Should return error module members for 'error.' prefix", func(ctx SpecContext) {
@@ -770,15 +779,15 @@ var _ = Describe("Completion", func() {
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() {\n    math.\n}"
+			content := "math."
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
-			item, found := FindCompletion(completions.Items, "pow")
+			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
-			Expect(item.FilterText).To(Equal("math.pow"))
+			Expect(item.FilterText).To(Equal("math.avg"))
 		})
 
 		It("Should set TextEdit that replaces the full module prefix", func(ctx SpecContext) {
@@ -787,18 +796,18 @@ var _ = Describe("Completion", func() {
 			}))
 			server.SetClient(&MockClient{})
 
-			content := "func test() {\n    math.\n}"
+			content := "math."
 			OpenArcDocument(server, ctx, uri, content)
 
-			completions := Completion(server, ctx, uri, 1, 9)
+			completions := Completion(server, ctx, uri, 0, 5)
 			Expect(completions).ToNot(BeNil())
 
-			item, found := FindCompletion(completions.Items, "pow")
+			item, found := FindCompletion(completions.Items, "avg")
 			Expect(found).To(BeTrue())
 			Expect(item.TextEdit).ToNot(BeNil())
-			Expect(item.TextEdit.NewText).To(Equal("math.pow"))
-			Expect(item.TextEdit.Range.Start.Character).To(Equal(uint32(4)))
-			Expect(item.TextEdit.Range.End.Character).To(Equal(uint32(9)))
+			Expect(item.TextEdit.NewText).To(Equal("math.avg"))
+			Expect(item.TextEdit.Range.Start.Character).To(Equal(uint32(0)))
+			Expect(item.TextEdit.Range.End.Character).To(Equal(uint32(5)))
 		})
 
 		It("Should exclude channel symbols from module-qualified results", func(ctx SpecContext) {
@@ -860,6 +869,98 @@ var _ = Describe("Completion", func() {
 			Expect(completions).ToNot(BeNil())
 			Expect(HasCompletion(completions.Items, "temperature_sensor")).To(BeTrue(),
 				"Unqualified prefix should still show channels")
+		})
+	})
+
+	Describe("ExecContext Filtering", func() {
+		It("should not show internal symbols inside func block", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    math.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
+				"Internal symbol math.pow should not appear in module-qualified completion")
+		})
+
+		It("should not show flow functions inside func block", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    time.\n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 9)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
+				"WASM function time.now should appear in func block")
+			Expect(HasCompletion(completions.Items, "interval")).To(BeFalse(),
+				"Flow function time.interval should not appear in func block")
+			Expect(HasCompletion(completions.Items, "wait")).To(BeFalse(),
+				"Flow function time.wait should not appear in func block")
+		})
+
+		It("should show flow functions at top level", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "time."
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 5)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "interval")).To(BeTrue(),
+				"Flow function time.interval should appear at top level")
+			Expect(HasCompletion(completions.Items, "wait")).To(BeTrue(),
+				"Flow function time.wait should appear at top level")
+		})
+
+		It("should show ExecBoth functions at top level", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "time."
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 5)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
+				"ExecBoth function time.now should appear at top level")
+		})
+
+		It("should not show WASM-only functions at top level", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "math."
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 0, 5)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
+				"WASM-only function math.pow should not appear at top level")
+		})
+
+		It("should not show unqualified flow-only functions in func block", func(ctx SpecContext) {
+			server = MustSucceed(lsp.New(lsp.Config{GlobalResolver: stl.SymbolResolver}))
+			server.SetClient(&MockClient{})
+
+			content := "func test() {\n    \n}"
+			OpenArcDocument(server, ctx, uri, content)
+
+			completions := Completion(server, ctx, uri, 1, 4)
+			Expect(completions).ToNot(BeNil())
+			Expect(HasCompletion(completions.Items, "interval")).To(BeFalse(),
+				"Flow-only function interval should not appear in func block")
+			Expect(HasCompletion(completions.Items, "wait")).To(BeFalse(),
+				"Flow-only function wait should not appear in func block")
+			Expect(HasCompletion(completions.Items, "now")).To(BeTrue(),
+				"ExecBoth function now should appear in func block")
+			Expect(HasCompletion(completions.Items, "pow")).To(BeFalse(),
+				"Internal symbol pow should not appear in unqualified completion")
 		})
 	})
 

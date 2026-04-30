@@ -790,9 +790,9 @@ type StickyXY struct {
 	// y is the vertical coordinate.
 	Y float64 `protobuf:"fixed64,2,opt,name=y,proto3" json:"y,omitempty"`
 	// root is the optional anchor corner for the position.
-	Root *CornerLocation `protobuf:"bytes,3,opt,name=root,proto3" json:"root,omitempty"`
+	Root *CornerLocation `protobuf:"bytes,3,opt,name=root,proto3,oneof" json:"root,omitempty"`
 	// units is the optional unit specification for the coordinates.
-	Units         *StickyUnits `protobuf:"bytes,4,opt,name=units,proto3" json:"units,omitempty"`
+	Units         *StickyUnits `protobuf:"bytes,4,opt,name=units,proto3,oneof" json:"units,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1147,12 +1147,14 @@ const file_x_go_spatial_pb_spatial_proto_rawDesc = "" +
 	"\x01y\x18\x02 \x01(\x0e2\x17.x.spatial.pb.YLocationR\x01y\"]\n" +
 	"\vStickyUnits\x12&\n" +
 	"\x01x\x18\x01 \x01(\x0e2\x18.x.spatial.pb.StickyUnitR\x01x\x12&\n" +
-	"\x01y\x18\x02 \x01(\x0e2\x18.x.spatial.pb.StickyUnitR\x01y\"\x89\x01\n" +
+	"\x01y\x18\x02 \x01(\x0e2\x18.x.spatial.pb.StickyUnitR\x01y\"\xa6\x01\n" +
 	"\bStickyXY\x12\f\n" +
 	"\x01x\x18\x01 \x01(\x01R\x01x\x12\f\n" +
-	"\x01y\x18\x02 \x01(\x01R\x01y\x120\n" +
-	"\x04root\x18\x03 \x01(\v2\x1c.x.spatial.pb.CornerLocationR\x04root\x12/\n" +
-	"\x05units\x18\x04 \x01(\v2\x19.x.spatial.pb.StickyUnitsR\x05units\":\n" +
+	"\x01y\x18\x02 \x01(\x01R\x01y\x125\n" +
+	"\x04root\x18\x03 \x01(\v2\x1c.x.spatial.pb.CornerLocationH\x00R\x04root\x88\x01\x01\x124\n" +
+	"\x05units\x18\x04 \x01(\v2\x19.x.spatial.pb.StickyUnitsH\x01R\x05units\x88\x01\x01B\a\n" +
+	"\x05_rootB\b\n" +
+	"\x06_units\":\n" +
 	"\n" +
 	"Dimensions\x12\x14\n" +
 	"\x05width\x18\x01 \x01(\x01R\x05width\x12\x16\n" +
@@ -1271,6 +1273,7 @@ func file_x_go_spatial_pb_spatial_proto_init() {
 	if File_x_go_spatial_pb_spatial_proto != nil {
 		return
 	}
+	file_x_go_spatial_pb_spatial_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

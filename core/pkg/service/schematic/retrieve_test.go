@@ -20,7 +20,7 @@ var _ = Describe("Retrieve", func() {
 		s := schematic.Schematic{Name: "test", Authority: 1}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res schematic.Schematic
-		Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(s))
 	})
 })

@@ -156,6 +156,7 @@ Schematic struct {
         symbols, connection handles, and dynamic state visualization.
     """
     @ontology type "schematic"
+    @retrieve
     @go marshal
     @go migrate
 }

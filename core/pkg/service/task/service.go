@@ -182,7 +182,7 @@ func (s *Service) CommandChannelKey() channel.Key {
 // we want to hide internal tasks from the user.
 func (s *Service) cleanupInternalOntologyResources(ctx context.Context) {
 	var tasks []Task
-	if err := s.NewRetrieve().WhereInternal(true).Entries(&tasks).Exec(ctx, nil); err != nil {
+	if err := s.NewRetrieve().Where(MatchInternal(true)).Entries(&tasks).Exec(ctx, nil); err != nil {
 		s.cfg.L.Warn("unable to retrieve internal tasks for cleanup", zap.Error(err))
 	}
 	ids := make([]ontology.ID, 0, len(tasks))
@@ -218,7 +218,7 @@ func (s *Service) NewRetrieve() Retrieve {
 
 func (s *Service) onSuspectRack(ctx context.Context, rackStat rack.Status) {
 	var tasks []Task
-	if err := s.NewRetrieve().WhereRacks(rackStat.Details.Rack).
+	if err := s.NewRetrieve().Where(MatchRacks(rackStat.Details.Rack)).
 		Entries(&tasks).
 		Exec(ctx, nil); err != nil {
 		s.cfg.L.Error("failed to retrieve tasks on suspect rack", zap.Error(err))
