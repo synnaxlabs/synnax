@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Clang formatter", func() {
+var _ = Describe("Clang Formatter", func() {
 	BeforeEach(func() {
 		if _, err := exec.LookPath("clang-format"); err != nil {
 			Skip("clang-format not on PATH")

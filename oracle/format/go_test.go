@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Go formatter", func() {
+var _ = Describe("Go Formatter", func() {
 	BeforeEach(func() {
 		if _, err := exec.LookPath("gofmt"); err != nil {
 			Skip("gofmt not on PATH")

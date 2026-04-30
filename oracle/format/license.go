@@ -20,9 +20,9 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// LicenseTemplatePath is the repo-relative path to the source-of-truth
+// licenseTemplatePath is the repo-relative path to the source-of-truth
 // license header template, with `{{YEAR}}` as the year placeholder.
-const LicenseTemplatePath = "licenses/headers/template.txt"
+const licenseTemplatePath = "licenses/headers/template.txt"
 
 // License is a Formatter that prepends a per-extension license header.
 // The header is read once from licenses/headers/template.txt at
@@ -44,7 +44,7 @@ type License struct {
 // substitutes the current year, and returns a License formatter ready to
 // apply that header to files of any of the supported extensions.
 func NewLicense(repoRoot string) (*License, error) {
-	tmplPath := filepath.Join(repoRoot, LicenseTemplatePath)
+	tmplPath := filepath.Join(repoRoot, licenseTemplatePath)
 	raw, err := os.ReadFile(tmplPath)
 	if err != nil {
 		return nil, errors.Wrapf(err, "read license template %s", tmplPath)

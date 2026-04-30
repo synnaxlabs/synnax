@@ -18,7 +18,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("BufFormat formatter", func() {
+var _ = Describe("Buf Formatter", func() {
 	BeforeEach(func() {
 		if _, err := exec.LookPath("buf"); err != nil {
 			Skip("buf not on PATH")

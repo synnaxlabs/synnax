@@ -50,7 +50,7 @@ var _ = Describe("Registry", func() {
 		Expect(string(out)).To(Equal("ts source"))
 	})
 
-	It("Has reports whether an extension is registered", func() {
+	It("Should report whether an extension is registered", func() {
 		r := format.NewRegistry()
 		Expect(r.Has(".go")).To(BeFalse())
 		r.Register(".go", &fakeFormatter{tag: "x"})

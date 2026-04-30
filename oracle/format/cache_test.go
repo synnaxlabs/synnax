@@ -31,7 +31,6 @@ var _ = Describe("Cache", func() {
 
 	It("Should return an empty cache when none exists on disk", func() {
 		c := format.LoadCache(repoRoot)
-		Expect(c).ToNot(BeNil())
 		_, ok := c.LookupRaw("foo")
 		Expect(ok).To(BeFalse())
 	})
@@ -42,9 +41,7 @@ var _ = Describe("Cache", func() {
 		Expect(c.Save()).To(Succeed())
 
 		c2 := format.LoadCache(repoRoot)
-		v, ok := c2.LookupRaw("foo/bar.go")
-		Expect(ok).To(BeTrue())
-		Expect(v).To(Equal("deadbeef"))
+		Expect(MustBeOk(c2.LookupRaw("foo/bar.go"))).To(Equal("deadbeef"))
 	})
 
 	It("Should round-trip stamps through Save/Load", func() {
@@ -53,27 +50,23 @@ var _ = Describe("Cache", func() {
 		Expect(c.Save()).To(Succeed())
 
 		c2 := format.LoadCache(repoRoot)
-		v, ok := c2.LookupStamp("buf-generate")
-		Expect(ok).To(BeTrue())
-		Expect(v).To(Equal("abc123"))
+		Expect(MustBeOk(c2.LookupStamp("buf-generate"))).To(Equal("abc123"))
 	})
 
-	It("PruneRawTo should drop entries not in the keep set", func() {
+	It("Should drop entries not in the keep set when pruned", func() {
 		c := format.LoadCache(repoRoot)
 		c.PutRaw("a", "1")
 		c.PutRaw("b", "2")
 		c.PutRaw("c", "3")
 		c.PruneRawTo(set.New("a", "c"))
 
-		_, ok := c.LookupRaw("a")
-		Expect(ok).To(BeTrue())
-		_, ok = c.LookupRaw("b")
+		Expect(MustBeOk(c.LookupRaw("a"))).To(Equal("1"))
+		_, ok := c.LookupRaw("b")
 		Expect(ok).To(BeFalse())
-		_, ok = c.LookupRaw("c")
-		Expect(ok).To(BeTrue())
+		Expect(MustBeOk(c.LookupRaw("c"))).To(Equal("3"))
 	})
 
-	It("Hash should be stable for identical content", func() {
+	It("Should produce stable hashes for identical content", func() {
 		Expect(format.Hash([]byte("hello"))).To(Equal(format.Hash([]byte("hello"))))
 		Expect(format.Hash([]byte("hello"))).ToNot(Equal(format.Hash([]byte("world"))))
 	})

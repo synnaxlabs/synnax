@@ -19,7 +19,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Default registry", func() {
+var _ = Describe("Default Registry", func() {
 	var repoRoot string
 
 	BeforeEach(func() {
@@ -29,13 +29,13 @@ var _ = Describe("Default registry", func() {
 		})
 		Expect(os.MkdirAll(filepath.Join(repoRoot, "licenses", "headers"), 0755)).To(Succeed())
 		Expect(os.WriteFile(
-			filepath.Join(repoRoot, format.LicenseTemplatePath),
+			filepath.Join(repoRoot, "licenses/headers/template.txt"),
 			[]byte("Copyright {{YEAR}} Synnax Labs, Inc.\n"), 0644,
 		)).To(Succeed())
 	})
 
 	It("Should propagate license-template read errors", func() {
-		Expect(os.Remove(filepath.Join(repoRoot, format.LicenseTemplatePath))).To(Succeed())
+		Expect(os.Remove(filepath.Join(repoRoot, "licenses/headers/template.txt"))).To(Succeed())
 		Expect(format.Default(repoRoot)).Error().To(MatchError(ContainSubstring("license template")))
 	})
 

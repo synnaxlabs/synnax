@@ -36,7 +36,7 @@ line-length = 88
 	return filepath.Join(src, "foo.py"), root
 }
 
-var _ = Describe("Ruff formatter", func() {
+var _ = Describe("Ruff Formatter", func() {
 	BeforeEach(func() {
 		if _, err := exec.LookPath("ruff"); err != nil {
 			Skip("ruff not on PATH")
