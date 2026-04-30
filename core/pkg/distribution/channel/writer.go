@@ -59,7 +59,7 @@ func (w Writer) CreateMany(ctx context.Context, channels *[]Channel, opts ...Cre
 	for _, opt := range opts {
 		opt(&o)
 	}
-	return w.svc.proxy.create(ctx, w.tx, channels, o)
+	return w.svc.create(ctx, w.tx, channels, o)
 }
 
 func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
@@ -67,7 +67,7 @@ func (w Writer) Delete(ctx context.Context, key Key, allowInternal bool) error {
 }
 
 func (w Writer) DeleteMany(ctx context.Context, keys []Key, allowInternal bool) error {
-	return w.svc.proxy.delete(ctx, w.tx, keys, allowInternal)
+	return w.svc.delete(ctx, w.tx, keys, allowInternal)
 }
 
 func (w Writer) DeleteByName(ctx context.Context, name string, allowInternal bool) error {
@@ -75,7 +75,7 @@ func (w Writer) DeleteByName(ctx context.Context, name string, allowInternal boo
 }
 
 func (w Writer) DeleteManyByNames(ctx context.Context, names []string, allowInternal bool) error {
-	return w.svc.proxy.deleteByName(ctx, w.tx, names, allowInternal)
+	return w.svc.deleteByName(ctx, w.tx, names, allowInternal)
 }
 
 func (w Writer) MapRename(ctx context.Context, names map[string]string, allowInternal bool) error {
@@ -107,5 +107,5 @@ func (w Writer) RenameMany(
 	newNames []string,
 	allowInternal bool,
 ) error {
-	return w.svc.proxy.rename(ctx, w.tx, keys, newNames, allowInternal)
+	return w.svc.rename(ctx, w.tx, keys, newNames, allowInternal)
 }
