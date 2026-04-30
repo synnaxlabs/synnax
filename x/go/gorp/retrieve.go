@@ -200,7 +200,7 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 	}
 	if r.HasFilterKeys() {
 		notFound, err := r.execKeys(ctx, tx)
-		if len(notFound) > 0 {
+		if r.isBareKeys() && len(notFound) > 0 {
 			return errors.Join(err, errors.Wrapf(
 				query.ErrNotFound,
 				"%s with keys %v not found",
