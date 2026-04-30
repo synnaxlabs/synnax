@@ -22,7 +22,6 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -129,8 +128,8 @@ var _ = Describe("Router", func() {
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Encoder:  fhttp.JSONCodec,
+					Decoders: []fhttp.Decoder{fhttp.JSONCodec},
 				},
 			))
 			res := MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
@@ -169,7 +168,7 @@ var _ = Describe("Router", func() {
 			}).WithPolling(time.Millisecond).Should(Succeed())
 
 			client := MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
-				fhttp.StreamClientConfig{Codec: json.Codec},
+				fhttp.StreamClientConfig{Codec: fhttp.JSONCodec},
 			))
 			stream := MustSucceed(client.Stream(specCtx, addr+"/stream"))
 			Eventually(handlerEntered).Should(BeClosed())
@@ -214,8 +213,8 @@ var _ = Describe("Router", func() {
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Encoder:  fhttp.JSONCodec,
+					Decoders: []fhttp.Decoder{fhttp.JSONCodec},
 				},
 			))
 			MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
@@ -255,8 +254,8 @@ var _ = Describe("Router", func() {
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Encoder:  fhttp.JSONCodec,
+					Decoders: []fhttp.Decoder{fhttp.JSONCodec},
 				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
@@ -309,8 +308,8 @@ var _ = Describe("Router", func() {
 
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
-					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Encoder:  fhttp.JSONCodec,
+					Decoders: []fhttp.Decoder{fhttp.JSONCodec},
 				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{

@@ -33,14 +33,42 @@ type Decoder interface {
 }
 
 // Codec is both an Encoder and a Decoder for the same content type. The stream
-// transport uses one Codec for both directions of a websocket connection; the unary
+// transport uses one Codec for both directions of a Websocket connection; the unary
 // transport uses Codec values as defaults for both Encoder and Decoder registries.
 type Codec interface {
 	Encoder
 	Decoder
 }
 
-var codecs = []Codec{json.Codec, msgpack.Codec}
+// codecWithContentType pairs a content-type-agnostic encoding.Codec with the HTTP
+// content type it represents. It lets the Freighter HTTP transport own the
+// HTTP-specific ContentType association without leaking it into the underlying
+// encoding packages, which are used in non-HTTP contexts (Pebble, file IO, etc.).
+type codecWithContentType struct {
+	encoding.Codec
+	contentType string
+}
+
+func (c codecWithContentType) ContentType() string { return c.contentType }
+
+// JSONCodec is the JSON Codec used by default for unary HTTP requests and responses,
+// and as one of the default stream-server codecs. It wraps json.Codec from the
+// x/encoding package with the application/json content type.
+var JSONCodec Codec = codecWithContentType{
+	Codec:       json.Codec,
+	contentType: "application/json",
+}
+
+// MsgPackCodec is the MessagePack Codec used by default for unary HTTP requests and
+// responses, the default unary client encoder, and the default stream client codec. It
+// wraps msgpack.Codec from the x/encoding package with the application/msgpack content
+// type.
+var MsgPackCodec Codec = codecWithContentType{
+	Codec:       msgpack.Codec,
+	contentType: "application/msgpack",
+}
+
+var codecs = []Codec{JSONCodec, MsgPackCodec}
 
 // defaultDecoders is the registered codecs as Decoders, used to seed a unary server's
 // decoder registry. Read-only after init; callers replace the slice rather than

@@ -19,12 +19,9 @@ import (
 )
 
 // Codec is a JSON implementation of encoding.Codec.
-var Codec = &codec{}
+var Codec encoding.Codec = &codec{}
 
 type codec struct{}
-
-// ContentType implements http.Codec to return the http content type for the codec.
-func (c *codec) ContentType() string { return "application/json" }
 
 // Encode implements the encoding.Encoder interface.
 func (c *codec) Encode(_ context.Context, value any) ([]byte, error) {

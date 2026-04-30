@@ -47,8 +47,8 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		server = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
 		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 			fhttp.UnaryClientConfig{
-				Encoder:  json.Codec,
-				Decoders: []fhttp.Decoder{json.Codec},
+				Encoder:  fhttp.JSONCodec,
+				Decoders: []fhttp.Decoder{fhttp.JSONCodec},
 			},
 		))
 		router.BindTo(app)

@@ -20,7 +20,6 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -43,7 +42,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		})
 		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
-			fhttp.StreamClientConfig{Codec: json.Codec},
+			fhttp.StreamClientConfig{Codec: fhttp.JSONCodec},
 		))
 		router.BindTo(app)
 		go func() {

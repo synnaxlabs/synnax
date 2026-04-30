@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -54,11 +53,6 @@ func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
 	c.Encoder = override.Nil(c.Encoder, other.Encoder)
 	c.Decoders = override.Slice(c.Decoders, other.Decoders)
 	return c
-}
-
-var defaultUnaryClientConfig = UnaryClientConfig{
-	Encoder:  msgpack.Codec,
-	Decoders: defaultDecoders,
 }
 
 // NewUnaryClient builds a freighter.UnaryClient using the merged config (left to right)

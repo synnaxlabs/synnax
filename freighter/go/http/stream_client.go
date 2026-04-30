@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
-	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
@@ -55,8 +54,6 @@ func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfi
 	return c
 }
 
-var defaultStreamClientConfig = StreamClientConfig{Codec: msgpack.Codec}
-
 // NewStreamClient builds a freighter.StreamClient using the merged config (left to
 // right) layered on top of the default config. Returns an error if the merged config
 // fails to validate. The returned client opens a websocket connection per call to
@@ -64,7 +61,7 @@ var defaultStreamClientConfig = StreamClientConfig{Codec: msgpack.Codec}
 func NewStreamClient[RQ, RS freighter.Payload](
 	configs ...StreamClientConfig,
 ) (freighter.StreamClient[RQ, RS], error) {
-	cfg, err := config.New(defaultStreamClientConfig, configs...)
+	cfg, err := config.New(StreamClientConfig{Codec: MsgPackCodec}, configs...)
 	if err != nil {
 		return nil, err
 	}
