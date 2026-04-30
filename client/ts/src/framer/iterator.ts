@@ -24,10 +24,7 @@ import { ReadAdapter } from "@/framer/adapter";
 import { WSIteratorCodec } from "@/framer/codec";
 import { Frame, frameZ } from "@/framer/frame";
 import { StreamProxy } from "@/framer/streamProxy";
-import {
-  IteratorCommand,
-  IteratorResponseVariant,
-} from "@/framer/types.gen";
+import { IteratorCommand, IteratorResponseVariant } from "@/framer/types.gen";
 
 export const AUTO_SPAN = new TimeSpan(-1);
 
