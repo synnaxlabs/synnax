@@ -1270,13 +1270,15 @@ var _ = Describe("Go PB Plugin", func() {
 					ToContain("Name: r.Name")
 			})
 
-			It("Should guard soft optional struct conversion with a zero-value check", func(ctx SpecContext) {
-				// A struct field with a single "?" keeps its Go type as a value
-				// (not a pointer), but the proto field is nullable on the wire.
-				// ToPB must skip the inner conversion when the struct is unset to
-				// avoid feeding zero-value enums to the conversion, and FromPB
-				// must guard on the nullable proto pointer so a missing message
-				// leaves the Go value at its zero state.
+			It("Should round-trip a soft optional struct as a non-nullable wire field", func(ctx SpecContext) {
+				// A struct field with a single "?" keeps its Go type as a
+				// value, and the proto field is plain (no `optional` keyword).
+				// The translator converts unconditionally in both directions:
+				// no zero-value guard on the Go side, no nil-check carve-out
+				// on the proto side. AnchorFromPB's own pb == nil guard makes
+				// the unconditional FromPB call safe even when the proto
+				// pointer is unset. Enum translators tolerate the Go zero, so
+				// converting a zero-valued Anchor does not error.
 				source := `
 					@go output "core/test"
 					@pb
@@ -1299,57 +1301,16 @@ var _ = Describe("Go PB Plugin", func() {
 
 				ExpectContent(resp, "translator.gen.go").
 					ToContain(
-						"if r.Anchor != (test.Anchor{}) {",
 						"anchorVal, err := AnchorToPB(r.Anchor)",
-						"pb.Anchor = anchorVal",
-						"if pb.Anchor != nil {",
+						"Anchor: anchorVal",
 						"r.Anchor, err = AnchorFromPB(pb.Anchor)",
 					).
-					ToPreserveOrder(
-						// The zero-value guard must come before the inner
-						// conversion call; otherwise we are back to the
-						// broken pre-fix shape where AnchorToPB runs even
-						// when r.Anchor is zero.
+					ToNotContain(
 						"if r.Anchor != (test.Anchor{}) {",
-						"anchorVal, err := AnchorToPB(r.Anchor)",
-						"pb.Anchor = anchorVal",
-					)
-			})
-
-			It("Should handle soft optional struct from another namespace", func(ctx SpecContext) {
-				loader.Add("schemas/spatial", `
-					@go output "x/go/spatial"
-					@pb
-
-					Side enum {
-						left  = "left"
-						right = "right"
-					}
-
-					Anchor struct {
-						side Side
-					}
-				`)
-
-				source := `
-					import "schemas/spatial"
-
-					@go output "core/test"
-					@pb
-
-					Test struct {
-						key    uuid
-						anchor spatial.Anchor?
-					}
-				`
-				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
-
-				ExpectContent(resp, "translator.gen.go").
-					ToContain(
-						"if r.Anchor != (spatial.Anchor{}) {",
 						"if pb.Anchor != nil {",
 					)
 			})
+
 		})
 
 		Context("cross-namespace struct reference", func() {

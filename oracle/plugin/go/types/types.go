@@ -383,24 +383,11 @@ func processField(field resolution.Field, data *templateData) fieldData {
 	return fieldData{
 		GoName:         naming.GetFieldName(field),
 		GoType:         goType,
-		JSONName:       jsonTagName(field.Name),
+		JSONName:       lo.SnakeCase(field.Name),
 		IsOptional:     field.IsOptional || field.IsHardOptional,
 		IsHardOptional: field.IsHardOptional,
 		Doc:            doc.Get(field.Domains),
 	}
-}
-
-// jsonTagName returns the wire name used for the JSON / msgpack tag of a Go
-// field. The wire format is canonically snake_case across all languages, so
-// every schema field name is routed through SnakeCase regardless of how it
-// is spelled in the schema ("clientX" -> "client_x", "targetKey" ->
-// "target_key", "WASM" -> "wasm", "data_type" -> "data_type"). TypeScript
-// callers convert at the boundary via x/ts caseconv.
-func jsonTagName(fieldName string) string {
-	if fieldName == "" {
-		return fieldName
-	}
-	return lo.SnakeCase(fieldName)
 }
 
 func buildGenericType(baseName string, typeArgs []resolution.TypeRef, targetType *resolution.Type, data *templateData) string {
