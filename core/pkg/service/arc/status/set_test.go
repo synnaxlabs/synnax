@@ -14,6 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -34,6 +35,12 @@ var _ = Describe("SymbolResolver", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 
+		It("Should resolve status.set by qualified name", func(ctx SpecContext) {
+			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.set"))
+			Expect(sym.Name).To(Equal("set"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
+
 		It("Should return an error for an unknown name", func(ctx SpecContext) {
 			Expect(arcstatus.SymbolResolver.Resolve(ctx, "unknown")).
 				Error().To(MatchError(query.ErrNotFound))
@@ -47,6 +54,14 @@ var _ = Describe("SymbolResolver", func() {
 			Expect(results[0].Name).To(Equal("set_status"))
 		})
 
+		It("Should include the qualified member when searching with a matching term", func(ctx SpecContext) {
+			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set"))
+			Expect(results).To(HaveLen(2))
+			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
+			Expect(names).To(ContainElement("set_status"))
+			Expect(names).To(ContainElement("set"))
+		})
+
 		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
 			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "nonexistent"))
 			Expect(results).To(BeEmpty())
@@ -55,14 +70,12 @@ var _ = Describe("SymbolResolver", func() {
 
 	Describe("Type Signature", func() {
 		It("Should have the correct function type", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
+			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
 			Expect(sym.Type.Kind).To(Equal(types.KindFunction))
 		})
 
 		It("Should have four config parameters", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
+			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
 			Expect(sym.Type.Config).To(HaveLen(4))
 			Expect(sym.Type.Config[0].Name).To(Equal("status_key"))
 			Expect(sym.Type.Config[1].Name).To(Equal("variant"))
@@ -71,8 +84,7 @@ var _ = Describe("SymbolResolver", func() {
 		})
 
 		It("Should have a single u8 input parameter", func(ctx SpecContext) {
-			sym, ok := arcstatus.SymbolResolver["set_status"]
-			Expect(ok).To(BeTrue())
+			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
 			Expect(sym.Type.Inputs).To(HaveLen(1))
 			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
 			Expect(sym.Type.Inputs[0].Type).To(Equal(types.U8()))
@@ -94,6 +106,12 @@ var _ = Describe("Module", func() {
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 
+		It("Should resolve status.set", func(ctx SpecContext) {
+			sym := MustSucceed(mod.Resolve(ctx, "status.set"))
+			Expect(sym.Name).To(Equal("set"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		})
+
 		It("Should return an error for an unknown symbol", func(ctx SpecContext) {
 			Expect(mod.Resolve(ctx, "nonexistent")).
 				Error().To(MatchError(query.ErrNotFound))
@@ -105,6 +123,14 @@ var _ = Describe("Module", func() {
 			results := MustSucceed(mod.Search(ctx, "set_status"))
 			Expect(results).To(HaveLen(1))
 			Expect(results[0].Name).To(Equal("set_status"))
+		})
+
+		It("Should include the qualified member for a matching term", func(ctx SpecContext) {
+			results := MustSucceed(mod.Search(ctx, "set"))
+			Expect(results).To(HaveLen(2))
+			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
+			Expect(names).To(ContainElement("set_status"))
+			Expect(names).To(ContainElement("set"))
 		})
 
 		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
@@ -171,6 +197,21 @@ var _ = Describe("Module", func() {
 				},
 			}
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
+		})
+
+		It("Should create a node with the qualified member type", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{
+					Type: "set",
+					Config: types.Params{
+						{Name: "status_key", Value: "test_alarm"},
+						{Name: "variant", Value: "success"},
+						{Name: "message", Value: "All systems nominal"},
+					},
+				},
+			}
+			n := MustSucceed(mod.Create(ctx, cfg))
+			Expect(n).ToNot(BeNil())
 		})
 
 		It("Should populate the status from an existing entry in the service", func(ctx SpecContext) {

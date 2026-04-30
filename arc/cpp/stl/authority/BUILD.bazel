@@ -2,8 +2,8 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 load("@rules_cc//cc:cc_test.bzl", "cc_test")
 
 cc_library(
-    name = "control",
-    hdrs = ["control.h"],
+    name = "authority",
+    hdrs = ["authority.h"],
     copts = select({
         "@platforms//os:windows": ["/wd4201"],
         "//conditions:default": [],
@@ -20,13 +20,13 @@ cc_library(
 )
 
 cc_test(
-    name = "control_test",
-    srcs = ["control_test.cpp"],
+    name = "authority_test",
+    srcs = ["authority_test.cpp"],
     deps = [
         "//arc/cpp/ir",
         "//arc/cpp/runtime/errors",
         "//arc/cpp/runtime/state",
-        "//arc/cpp/stl/control",
+        "//arc/cpp/stl/authority",
         "//x/cpp/test",
         "@googletest//:gtest_main",
     ],

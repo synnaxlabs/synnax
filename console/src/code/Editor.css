@@ -95,6 +95,7 @@
 /* Hover content wrapper */
 .monaco-editor .monaco-hover .monaco-hover-content {
     padding: 0 !important;
+    max-width: 450px !important;
 }
 
 /* Individual hover rows */
@@ -119,7 +120,6 @@
 .monaco-editor .monaco-hover .marker.hover-contents {
     display: block !important;
     width: calc(100% - 1px) !important;
-    max-width: 450px !important;
     padding: 1.5rem 2rem !important;
     background: var(--pluto-error-z-10) !important;
     border: 1px solid var(--pluto-error-z-70) !important;
@@ -274,7 +274,7 @@
     border-bottom-right-radius: 1rem !important;
     border-bottom-left-radius: 1rem !important;
     color: var(--pluto-gray-l9) !important;
-    min-width: 350px !important;
+    min-width: 0 !important;
     & > div {
         padding: 0.5rem;
         white-space: nowrap !important;

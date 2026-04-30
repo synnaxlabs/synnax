@@ -31,14 +31,14 @@ func event_log{msg str} () {
     lifecycle_log = msg
 }
 
-press_pt -> check_high_pressure{} -> stable_for{500ms} -> select{} -> {
-    true: set_status{
+press_pt -> check_high_pressure{} -> stable.for{500ms} -> selector.select{} -> {
+    true: status.set{
         status_key="lifecycle_press_alarm",
         name="Lifecycle Press Alarm",
         variant="warning",
         message="Pressure stable above 25 PSI"
     },
-    false: set_status{
+    false: status.set{
         status_key="lifecycle_press_normal",
         name="Lifecycle Press Normal",
         variant="warning",
