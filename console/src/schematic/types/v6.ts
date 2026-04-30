@@ -49,16 +49,6 @@ export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 export const propsZ = z.union([nodePropsZ, edgePropsZ]);
 export type Props = z.infer<typeof propsZ>;
 
-export const legendStateZ = v1.legendStateZ
-  .omit({ colors: true })
-  .extend({ colors: z.record(z.string(), color.colorZ).default({}) });
-export interface LegendState extends z.infer<typeof legendStateZ> {}
-const ZERO_LEGEND_STATE: LegendState = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
 export const stateZ = v5.stateZ
   .omit({ version: true, nodes: true, edges: true, props: true, legend: true })
   .extend({
@@ -147,18 +137,6 @@ const migrateLegendColors = (
 ): Legend["colors"] => {
   if (colors == null) return {};
   const out: Legend["colors"] = {};
-  for (const [k, v] of Object.entries(colors)) {
-    const parsed = color.colorZ.safeParse(v);
-    if (parsed.success) out[k] = parsed.data;
-  }
-  return out;
-};
-
-const migrateLegendColors = (
-  colors: Record<string, string> | undefined,
-): LegendState["colors"] => {
-  if (colors == null) return {};
-  const out: LegendState["colors"] = {};
   for (const [k, v] of Object.entries(colors)) {
     const parsed = color.colorZ.safeParse(v);
     if (parsed.success) out[k] = parsed.data;
