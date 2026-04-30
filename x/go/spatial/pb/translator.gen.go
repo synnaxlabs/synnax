@@ -190,19 +190,19 @@ func StickyXYToPB(r spatial.StickyXY) (*StickyXY, error) {
 		X: r.X,
 		Y: r.Y,
 	}
-	if r.Root != (spatial.CornerLocation{}) {
-		rootVal, err := CornerLocationToPB(r.Root)
+	if r.Root != nil {
+		var err error
+		pb.Root, err = CornerLocationToPB(*r.Root)
 		if err != nil {
 			return nil, err
 		}
-		pb.Root = rootVal
 	}
-	if r.Units != (spatial.StickyUnits{}) {
-		unitsVal, err := StickyUnitsToPB(r.Units)
+	if r.Units != nil {
+		var err error
+		pb.Units, err = StickyUnitsToPB(*r.Units)
 		if err != nil {
 			return nil, err
 		}
-		pb.Units = unitsVal
 	}
 	return pb, nil
 }
@@ -213,20 +213,21 @@ func StickyXYFromPB(pb *StickyXY) (spatial.StickyXY, error) {
 	if pb == nil {
 		return r, nil
 	}
-	var err error
 	r.X = pb.X
 	r.Y = pb.Y
 	if pb.Root != nil {
-		r.Root, err = CornerLocationFromPB(pb.Root)
+		val, err := CornerLocationFromPB(pb.Root)
 		if err != nil {
 			return spatial.StickyXY{}, err
 		}
+		r.Root = &val
 	}
 	if pb.Units != nil {
-		r.Units, err = StickyUnitsFromPB(pb.Units)
+		val, err := StickyUnitsFromPB(pb.Units)
 		if err != nil {
 			return spatial.StickyXY{}, err
 		}
+		r.Units = &val
 	}
 	return r, nil
 }
