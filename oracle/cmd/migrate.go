@@ -157,7 +157,7 @@ func runMigrate(cmd *cobra.Command) error {
 		fullPath := filepath.Join(repoRoot, f.Path)
 		canonical, err := formatters.Format(ctx, f.Content, fullPath)
 		if err != nil {
-			return errors.Wrapf(err, "format %s", f.Path)
+			return err
 		}
 		if err := writeFileIfChanged(fullPath, canonical); err != nil {
 			return errors.Wrapf(err, "failed to write %s", f.Path)

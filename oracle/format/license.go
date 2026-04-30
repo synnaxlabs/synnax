@@ -38,8 +38,6 @@ type License struct {
 	// headersByExt is the rendered header (including trailing blank
 	// line) for each supported extension.
 	headersByExt map[string]string
-	// year is the substituted year, used for staleness detection.
-	year string
 }
 
 // NewLicense reads the template at <repoRoot>/licenses/headers/template.txt,
@@ -51,14 +49,12 @@ func NewLicense(repoRoot string) (*License, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "read license template %s", tmplPath)
 	}
-	year := time.Now().Format("2006")
-	body := strings.ReplaceAll(string(raw), "{{YEAR}}", year)
+	body := strings.ReplaceAll(string(raw), "{{YEAR}}", time.Now().Format("2006"))
 	body = strings.TrimRight(body, "\n")
 	lineHash := renderLineComment(body, "#", 2)
 	lineSlash := renderLineComment(body, "//", 1)
 	block := renderBlockComment(body)
 	return &License{
-		year: year,
 		headersByExt: map[string]string{
 			".go":     lineSlash,
 			".ts":     lineSlash,

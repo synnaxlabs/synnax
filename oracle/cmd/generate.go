@@ -50,7 +50,6 @@ func generate(
 	for _, level := range levels {
 		eg, gctx := errgroup.WithContext(ctx)
 		for _, p := range level {
-			p := p
 			eg.Go(func() error {
 				if err := gctx.Err(); err != nil {
 					return err
@@ -238,7 +237,6 @@ func (r *generateResult) syncFiles(
 	}
 	eg.SetLimit(workers)
 	for i, p := range toFormat {
-		i, p := i, p
 		eg.Go(func() error {
 			if err := gctx.Err(); err != nil {
 				return err

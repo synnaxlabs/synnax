@@ -36,7 +36,7 @@ func NewPrettier() *Prettier {
 func (p *Prettier) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
 	args := append([]string{}, p.Args...)
 	args = append(args, "--stdin-filepath", absPath)
-	dir := findPackageJSONDir(absPath)
+	dir := findProjectDir(absPath, "package.json")
 	if dir == "" {
 		dir = filepath.Dir(absPath)
 	}

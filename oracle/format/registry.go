@@ -84,17 +84,16 @@ func (r *Registry) FormatBatch(ctx context.Context, files []File, workers int) (
 		workers = runtime.GOMAXPROCS(0)
 	}
 	out := make([]File, len(files))
-	eg, ctx := errgroup.WithContext(ctx)
+	eg, gctx := errgroup.WithContext(ctx)
 	eg.SetLimit(workers)
 	for i, f := range files {
-		i, f := i, f
 		eg.Go(func() error {
-			if err := ctx.Err(); err != nil {
+			if err := gctx.Err(); err != nil {
 				return err
 			}
-			content, err := r.Format(ctx, f.Content, f.Path)
+			content, err := r.Format(gctx, f.Content, f.Path)
 			if err != nil {
-				return errors.Wrapf(err, "format %s", f.Path)
+				return err
 			}
 			out[i] = File{Path: f.Path, Content: content}
 			return nil

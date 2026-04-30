@@ -42,15 +42,10 @@ func NewESLint() *ESLint {
 }
 
 type eslintReport struct {
-	FilePath     string `json:"filePath"`
-	Output       string `json:"output"`
-	ErrorCount   int    `json:"errorCount"`
-	WarningCount int    `json:"warningCount"`
-	Messages     []struct {
-		Severity int    `json:"severity"`
-		RuleID   string `json:"ruleId"`
-		Message  string `json:"message"`
-		Fatal    bool   `json:"fatal"`
+	Output   string `json:"output"`
+	Messages []struct {
+		Message string `json:"message"`
+		Fatal   bool   `json:"fatal"`
 	} `json:"messages"`
 }
 
@@ -69,7 +64,7 @@ func (e *ESLint) Format(ctx context.Context, content []byte, absPath string) ([]
 		"--stdin",
 		"--stdin-filename", absPath,
 	)
-	dir := findPackageJSONDir(absPath)
+	dir := findProjectDir(absPath, "package.json")
 	if dir == "" {
 		dir = filepath.Dir(absPath)
 	}

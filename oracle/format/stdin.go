@@ -57,31 +57,15 @@ func (r stdinRun) run(ctx context.Context) ([]byte, error) {
 	return stdout.Bytes(), nil
 }
 
-// findPackageJSONDir walks up from the directory containing absPath and
-// returns the first directory that holds a package.json. Returns "" if
-// no package.json is found before reaching the filesystem root, in which
-// case the caller can fall back to the file's containing directory.
-func findPackageJSONDir(absPath string) string {
+// findProjectDir walks up from the directory containing absPath and
+// returns the first directory that holds the named marker file
+// (e.g. "package.json" for npm projects, "pyproject.toml" for uv).
+// Returns "" if no such file exists before the filesystem root, in
+// which case the caller falls back to the file's containing directory.
+func findProjectDir(absPath, marker string) string {
 	dir := filepath.Dir(absPath)
 	for {
-		if _, err := os.Stat(filepath.Join(dir, "package.json")); err == nil {
-			return dir
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			return ""
-		}
-		dir = parent
-	}
-}
-
-// findPyProjectDir walks up from the directory containing absPath and
-// returns the first directory that holds a pyproject.toml. Returns ""
-// if none is found before reaching the filesystem root.
-func findPyProjectDir(absPath string) string {
-	dir := filepath.Dir(absPath)
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "pyproject.toml")); err == nil {
+		if _, err := os.Stat(filepath.Join(dir, marker)); err == nil {
 			return dir
 		}
 		parent := filepath.Dir(dir)

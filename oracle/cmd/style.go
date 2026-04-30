@@ -185,34 +185,12 @@ func printFormattingDone(formatted int) {
 // format batch runs, so the user sees activity even though the batch
 // itself takes a few seconds and is silent internally.
 func printFormatPlan(toFormat, cached int) {
-	if toFormat == 0 {
-		fmt.Printf(
-			"  %s %s",
-			dimStyle.Render("formatting"),
-			dimStyle.Render(fmt.Sprintf("%d cached, nothing to do\n", cached)),
-		)
-		return
-	}
-	c := countStyle.Render(fmt.Sprintf("%d", toFormat))
-	word := "file"
-	if toFormat != 1 {
-		word = "files"
-	}
-	suffix := ""
-	if cached > 0 {
-		suffix = dimStyle.Render(fmt.Sprintf(" (%d cached)", cached))
-	}
-	fmt.Printf("  %s %s %s%s\n", dimStyle.Render("formatting"), c, word, suffix)
+	printPlan("formatting", toFormat, "file", cached, "cached")
 }
 
 // printFormatDone reports duration of the format batch.
 func printFormatDone(d time.Duration) {
-	fmt.Printf(
-		"    %s %s %s\n",
-		infoStyle.Render(symbolArrow),
-		dimStyle.Render("done in"),
-		dimStyle.Render(fmtDuration(d)),
-	)
+	printArrowDone(d)
 }
 
 // printWritePlan announces the parallel write pass after formatting.
@@ -222,49 +200,22 @@ func printWritePlan(toWrite, unchanged int) {
 	if toWrite == 0 && unchanged == 0 {
 		return
 	}
-	if toWrite == 0 {
-		fmt.Printf(
-			"  %s %s\n",
-			dimStyle.Render("writing"),
-			dimStyle.Render(fmt.Sprintf("%d unchanged, nothing to write", unchanged)),
-		)
-		return
-	}
-	c := countStyle.Render(fmt.Sprintf("%d", toWrite))
-	word := "file"
-	if toWrite != 1 {
-		word = "files"
-	}
-	suffix := ""
-	if unchanged > 0 {
-		suffix = dimStyle.Render(fmt.Sprintf(" (%d unchanged)", unchanged))
-	}
-	fmt.Printf("  %s %s %s%s\n", dimStyle.Render("writing"), c, word, suffix)
+	printPlan("writing", toWrite, "file", unchanged, "unchanged")
 }
 
 // printBufGenerateStart announces the start of the buf-generate step.
-// When the input-content stamp matches the cache the call exits in
-// microseconds, so we only print this banner when work is expected.
+// When changedProtos is 0 the cache decides whether to run; the
+// banner is suppressed in that case to avoid noise.
 func printBufGenerateStart(changedProtos int) {
 	if changedProtos == 0 {
-		fmt.Printf(
-			"  %s %s\n",
-			dimStyle.Render("buf generate"),
-			dimStyle.Render("(checking stamp)"),
-		)
+		fmt.Printf("  %s\n", dimStyle.Render("buf generate"))
 		return
 	}
-	c := countStyle.Render(fmt.Sprintf("%d", changedProtos))
-	word := "proto"
-	if changedProtos != 1 {
-		word = "protos"
-	}
 	fmt.Printf(
-		"  %s %s %s %s\n",
+		"  %s %s %s\n",
 		dimStyle.Render("buf generate"),
 		dimStyle.Render("over"),
-		c,
-		word,
+		countWord(changedProtos, "proto"),
 	)
 }
 
@@ -273,19 +224,52 @@ func printBufGenerateStart(changedProtos int) {
 // unchanged and no protoc plugins were invoked.
 func printBufGenerateDone(cached bool, d time.Duration) {
 	if cached {
+		fmt.Printf("    %s %s\n", infoStyle.Render(symbolArrow), dimStyle.Render("cached"))
+		return
+	}
+	printArrowDone(d)
+}
+
+// printPlan renders a "<verb> <n> <noun>(s) (<aux> <m>)" line. The
+// auxiliary clause is omitted when m == 0; when n == 0 the auxiliary
+// drives the message instead. Used for "formatting / writing"
+// announcements that share a shape but differ in nouns.
+func printPlan(verb string, n int, noun string, aux int, auxLabel string) {
+	if n == 0 {
 		fmt.Printf(
-			"    %s %s\n",
-			infoStyle.Render(symbolArrow),
-			dimStyle.Render("cached"),
+			"  %s %s\n",
+			dimStyle.Render(verb),
+			dimStyle.Render(fmt.Sprintf("%d %s, nothing to do", aux, auxLabel)),
 		)
 		return
 	}
+	suffix := ""
+	if aux > 0 {
+		suffix = dimStyle.Render(fmt.Sprintf(" (%d %s)", aux, auxLabel))
+	}
+	fmt.Printf("  %s %s%s\n", dimStyle.Render(verb), countWord(n, noun), suffix)
+}
+
+// printArrowDone renders the post-step "→ done in <duration>" line
+// shared by every timed phase.
+func printArrowDone(d time.Duration) {
 	fmt.Printf(
 		"    %s %s %s\n",
 		infoStyle.Render(symbolArrow),
 		dimStyle.Render("done in"),
 		dimStyle.Render(fmtDuration(d)),
 	)
+}
+
+// countWord renders "<n> <singular>" or "<n> <singular>s" with n in
+// the count style. The singular form is the bare noun ("file",
+// "proto", "schema"); the plural is formed by appending "s".
+func countWord(n int, singular string) string {
+	noun := singular
+	if n != 1 {
+		noun = singular + "s"
+	}
+	return countStyle.Render(fmt.Sprintf("%d", n)) + " " + noun
 }
 
 // fmtDuration renders a duration in a tight, human-friendly form: ms

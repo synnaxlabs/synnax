@@ -86,7 +86,7 @@ func runSync(cmd *cobra.Command) error {
 		}
 		result, err := formatter.Format(string(source))
 		if err != nil {
-			return errors.Wrapf(err, "failed to format %s", err)
+			return errors.Wrapf(err, "failed to format %s", f)
 		}
 		if result != string(source) {
 			if err := os.WriteFile(f, []byte(result), 0644); err != nil {
@@ -147,30 +147,20 @@ func runSync(cmd *cobra.Command) error {
 		}
 	}
 
-	if changedProtos := syncResult.ByPlugin["pb/types"]; len(changedProtos) > 0 || hasNeverRunBufStamp(cache) {
-		printBufGenerateStart(len(changedProtos))
-		bufStart := time.Now()
-		bufResult, err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache)
-		if err != nil {
-			return errors.Wrap(err, "buf generate")
-		}
-		printBufGenerateDone(bufResult.Cached, time.Since(bufStart))
-		if err := cache.Save(); err != nil {
-			printDim(fmt.Sprintf("save cache: %v", err))
-		}
+	changedProtos := syncResult.ByPlugin["pb/types"]
+	printBufGenerateStart(len(changedProtos))
+	bufStart := time.Now()
+	bufResult, err := codegen.RunBufGenerate(ctx, repoRoot, changedProtos, cache)
+	if err != nil {
+		return errors.Wrap(err, "buf generate")
+	}
+	printBufGenerateDone(bufResult.Cached, time.Since(bufStart))
+	if err := cache.Save(); err != nil {
+		printDim(fmt.Sprintf("save cache: %v", err))
 	}
 
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged)+len(syncResult.Skipped))
 	return nil
-}
-
-// hasNeverRunBufStamp returns true if the cache has no buf-generate
-// stamp recorded, in which case a sync must run buf generate at least
-// once to produce a valid stamp even when no proto files were rewritten
-// (e.g. first sync after a fresh clone, or after the cache was wiped).
-func hasNeverRunBufStamp(c *format.Cache) bool {
-	_, ok := c.LookupStamp(codegen.BufGenerateStampKey)
-	return !ok
 }
 
 // expandGlobs expands glob patterns to actual file paths.

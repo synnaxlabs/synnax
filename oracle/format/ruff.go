@@ -32,7 +32,7 @@ func NewRuff() *Ruff {
 
 // Format runs `ruff format` then `ruff check --fix` with content on stdin.
 func (r *Ruff) Format(ctx context.Context, content []byte, absPath string) ([]byte, error) {
-	dir := findPyProjectDir(absPath)
+	dir := findProjectDir(absPath, "pyproject.toml")
 	if dir == "" {
 		dir = filepath.Dir(absPath)
 	}
