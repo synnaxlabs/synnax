@@ -81,6 +81,39 @@ var _ = Describe("gRPC Framer Translators", func() {
 			Expect(cdec.Initialized()).To(BeTrue())
 		})
 
+		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
+			cdec := codec.NewDynamic(dist.Channel)
+			rt := frameStreamerRequestTranslator{codec: cdec}
+			pbReq := MustSucceed(rt.Forward(ctx, apifra.StreamerRequest{}))
+			MustSucceed(rt.Backward(ctx, pbReq))
+			Expect(cdec.Initialized()).To(BeFalse())
+		})
+
+		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+			Expect(cdec.Update(ctx, keys)).To(Succeed())
+
+			rt := frameStreamerRequestTranslator{codec: cdec}
+			pbReq := MustSucceed(rt.Forward(ctx, apifra.StreamerRequest{}))
+			MustSucceed(rt.Backward(ctx, pbReq))
+
+			st := frameStreamerResponseTranslator{codec: cdec}
+			res := apifra.StreamerResponse{
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
+			}
+			pbRes := MustSucceed(st.Forward(ctx, res))
+			Expect(pbRes.Buffer).ToNot(BeEmpty())
+			out := MustSucceed(st.Backward(ctx, pbRes))
+			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int64](1, 2, 3)))
+		})
+
+		It("Should not panic when the codec is nil and the request has no keys", func(ctx SpecContext) {
+			rt := frameStreamerRequestTranslator{}
+			pbReq := MustSucceed(rt.Forward(ctx, apifra.StreamerRequest{}))
+			MustSucceed(rt.Backward(ctx, pbReq))
+		})
+
 		It("Should encode a streamer response into the buffer when the codec is initialized", func(ctx SpecContext) {
 			keys := createVirtualChannels(ctx, telem.Int64T, 1)
 			cdec := codec.NewDynamic(dist.Channel)

@@ -248,6 +248,9 @@ func (c *Codec) decodeStreamRequest(
 	if v.Type != fhttp.WSMessageTypeData {
 		return nil
 	}
+	if len(v.Payload.Keys) == 0 {
+		return nil
+	}
 	return c.Update(ctx, v.Payload.Keys)
 }
 

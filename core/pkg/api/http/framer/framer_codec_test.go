@@ -176,6 +176,53 @@ var _ = Describe("FramerCodec", func() {
 			Expect(resMsg.Type).To(Equal(fhttp.WSMessageTypeData))
 			Expect(resMsg.Payload.Keys).To(Equal(keys))
 		})
+
+		It("Should not call Update when the request has no keys", func(ctx SpecContext) {
+			cdec := codec.NewDynamic(dist.Channel)
+			v := httpframer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
+			msg := fhttp.WSMessage[framer.StreamerRequest]{
+				Type:    "data",
+				Payload: framer.StreamerRequest{},
+			}
+			encoded := MustSucceed(v.Encode(ctx, msg))
+			var resMsg fhttp.WSMessage[framer.StreamerRequest]
+			Expect(v.Decode(ctx, encoded, &resMsg)).To(Succeed())
+			Expect(cdec.Initialized()).To(BeFalse())
+		})
+
+		It("Should preserve the existing codec state when a later request has no keys", func(ctx SpecContext) {
+			channels := []channel.Channel{
+				{
+					Name:     channel.NewRandomName(),
+					DataType: telem.Int64T,
+					Virtual:  true,
+				},
+			}
+			Expect(dist.Channel.CreateMany(ctx, &channels)).To(Succeed())
+			keys := channel.KeysFromChannels(channels)
+			cdec := codec.NewDynamic(dist.Channel)
+			Expect(cdec.Update(ctx, keys)).To(Succeed())
+			v := httpframer.Codec{Codec: cdec, LowerPerfCodec: json.Codec}
+
+			emptyMsg := fhttp.WSMessage[framer.StreamerRequest]{
+				Type:    "data",
+				Payload: framer.StreamerRequest{},
+			}
+			encoded := MustSucceed(v.Encode(ctx, emptyMsg))
+			var decoded fhttp.WSMessage[framer.StreamerRequest]
+			Expect(v.Decode(ctx, encoded, &decoded)).To(Succeed())
+
+			res := framer.StreamerResponse{
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](7, 8, 9)}),
+			}
+			resMsg := fhttp.WSMessage[framer.StreamerResponse]{Type: "data", Payload: res}
+			resEncoded := MustSucceed(v.Encode(ctx, resMsg))
+			Expect(resEncoded[0]).To(Equal(uint8(255)))
+			var resDecoded fhttp.WSMessage[framer.StreamerResponse]
+			Expect(v.Decode(ctx, resEncoded, &resDecoded)).To(Succeed())
+			Expect(resDecoded.Payload.Frame.SeriesAt(0)).
+				To(telem.MatchSeriesData(telem.NewSeriesV[int64](7, 8, 9)))
+		})
 	})
 
 	Describe("Frame Stream Response", func() {

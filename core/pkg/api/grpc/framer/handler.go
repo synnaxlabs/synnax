@@ -297,8 +297,10 @@ func (t frameStreamerRequestTranslator) Backward(
 		ThrottleRate:     telem.Rate(msg.ThrottleRateHz),
 		ExcludeGroups:    msg.ExcludeGroups,
 	}
-	if err := t.codec.Update(ctx, rq.Keys); err != nil {
-		return apifra.StreamerRequest{}, err
+	if t.codec != nil && len(rq.Keys) > 0 {
+		if err := t.codec.Update(ctx, rq.Keys); err != nil {
+			return apifra.StreamerRequest{}, err
+		}
 	}
 	return rq, nil
 }
