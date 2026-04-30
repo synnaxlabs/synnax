@@ -16,11 +16,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/stl/control"
+	"github.com/synnaxlabs/arc/stl"
+	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -340,6 +342,75 @@ var _ = Describe("Text", func() {
 				}
 			})
 
+			It("Should handle negated integer config value", func(ctx SpecContext) {
+				source := `
+				func processor{
+					threshold i64
+				} () i64 {
+					return threshold
+				}
+
+				func print{} () {
+				}
+
+				processor{threshold=-100} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "processor_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("threshold"))
+				Expect(node.Config[0].Value).To(Equal(int64(-100)))
+			})
+
+			It("Should handle negated float config value", func(ctx SpecContext) {
+				source := `
+				func scaler{
+					factor f64
+				} () f64 {
+					return factor
+				}
+
+				func print{} () {
+				}
+
+				scaler{factor=-2.5} -> print{}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, nil)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				node := findNodeByKey(inter.Nodes, "scaler_0")
+				Expect(node.Config).To(HaveLen(1))
+				Expect(node.Config[0].Name).To(Equal("factor"))
+				Expect(node.Config[0].Value).To(Equal(-2.5))
+			})
+
+			It("Should handle negated time unit config value", func(ctx SpecContext) {
+				source := `
+				time_trigger -> time.wait{duration=-3h} -> wait_out
+				`
+				resolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"time_trigger": {Name: "time_trigger", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+						"wait_out":     {Name: "wait_out", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10043},
+					},
+					stl.SymbolResolver,
+				}
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				waitNode := findNodeByType(inter.Nodes, "time.wait")
+				Expect(waitNode).ToNot(BeNil())
+				Expect(waitNode.Config).To(HaveLen(1))
+				Expect(waitNode.Config[0].Name).To(Equal("duration"))
+				threeHoursNanos := int64(3*60*60) * int64(telem.Second)
+				Expect(waitNode.Config[0].Value).To(Equal(telem.TimeSpan(-threeHoursNanos)))
+			})
+
 			It("Should resolve channel name to channel ID in config parameter", func(ctx SpecContext) {
 				resolver := symbol.MapResolver{
 					"temp_sensor": {Name: "temp_sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 10042},
@@ -406,7 +477,7 @@ var _ = Describe("Text", func() {
 
 			It("Should reject read channel for config param requiring write channel", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
-					control.SymbolResolver,
+					authority.SymbolResolver,
 					symbol.MapResolver{
 						"read_sensor": {
 							Name: "read_sensor",
@@ -425,6 +496,338 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
 				Expect(diagnostics.Ok()).To(BeFalse())
+			})
+
+			It("Should reject read channel for qualified authority.set config param", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					authority.SymbolResolver,
+					symbol.MapResolver{
+						"read_sensor": {
+							Name: "read_sensor",
+							Kind: symbol.KindChannel,
+							Type: types.ReadChan(types.F64()),
+							ID:   10056,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> authority.set{value=200, channel=read_sensor}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeFalse())
+			})
+
+			It("Should emit deprecation warning for deprecated bare function name", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					authority.SymbolResolver,
+					symbol.MapResolver{
+						"write_ch": {
+							Name: "write_ch",
+							Kind: symbol.KindChannel,
+							Type: types.WriteChan(types.U8()),
+							ID:   10060,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> set_authority{value=200, channel=write_ch}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("authority.set"))
+			})
+
+			It("Should not emit deprecation warning for qualified function name", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					authority.SymbolResolver,
+					symbol.MapResolver{
+						"write_ch": {
+							Name: "write_ch",
+							Kind: symbol.KindChannel,
+							Type: types.WriteChan(types.U8()),
+							ID:   10060,
+						},
+					},
+				}
+				source := `
+				func source{} () u8 {
+					return 1
+				}
+
+				source{} -> authority.set{value=200, channel=write_ch}
+				`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare avg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> avg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.avg"))
+			})
+
+			It("Should not emit deprecation warning for qualified math.avg", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> math.avg{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare select", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"flag":   {Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `flag -> select{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("selector.select"))
+			})
+
+			It("Should not emit deprecation warning for qualified selector.select", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"flag":   {Name: "flag", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `flag -> selector.select{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare stable_for", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `sensor -> stable_for{duration=1s} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("stable.for"))
+			})
+
+			It("Should not emit deprecation warning for qualified stable.for", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `sensor -> stable.for{duration=1s} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare set_status", func(ctx SpecContext) {
+				statusResolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"set_status": {
+							Name:       "set_status",
+							Kind:       symbol.KindFunction,
+							Exec:       symbol.ExecFlow,
+							Deprecated: "status.set",
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "status_key", Type: types.String()},
+									{Name: "variant", Type: types.String()},
+									{Name: "message", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U8()},
+								},
+							}),
+						},
+					},
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					},
+				}
+				source := `sensor -> set_status{status_key="alarm", variant="error", message="Bad"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("status.set"))
+			})
+
+			It("Should not emit deprecation warning for qualified status.set", func(ctx SpecContext) {
+				statusResolver := symbol.CompoundResolver{
+					symbol.MapResolver{
+						"set_status": {
+							Name: "set_status",
+							Kind: symbol.KindFunction,
+							Exec: symbol.ExecFlow,
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "status_key", Type: types.String()},
+									{Name: "variant", Type: types.String()},
+									{Name: "message", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.U8()},
+								},
+							}),
+						},
+					},
+					&symbol.ModuleResolver{
+						Name: "status",
+						Members: symbol.MapResolver{
+							"set": {
+								Name: "set",
+								Kind: symbol.KindFunction,
+								Exec: symbol.ExecFlow,
+								Type: types.Function(types.FunctionProperties{
+									Config: types.Params{
+										{Name: "status_key", Type: types.String()},
+										{Name: "variant", Type: types.String()},
+										{Name: "message", Type: types.String()},
+									},
+									Inputs: types.Params{
+										{Name: ir.DefaultOutputParam, Type: types.U8()},
+									},
+								}),
+							},
+						},
+					},
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+					},
+				}
+				source := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, statusResolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare derivative", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F64()), ID: 100},
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.F64()), ID: 200},
+					},
+				}
+				source := `sensor -> derivative{} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("math.derivative"))
+			})
+
+			It("Should emit deprecation warning for bare interval", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `interval{period=100ms} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("time.interval"))
+			})
+
+			It("Should not emit deprecation warning for qualified time.interval", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `time.interval{period=100ms} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
+			})
+
+			It("Should emit deprecation warning for bare wait", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `wait{duration=500ms} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(HaveLen(1))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
+				Expect(diags.Warnings()[0].Message).To(ContainSubstring("time.wait"))
+			})
+
+			It("Should not emit deprecation warning for qualified time.wait", func(ctx SpecContext) {
+				resolver := symbol.CompoundResolver{
+					stl.SymbolResolver,
+					symbol.MapResolver{
+						"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 200},
+					},
+				}
+				source := `time.wait{duration=500ms} -> output`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				_, diags := text.Analyze(ctx, parsedText, resolver)
+				Expect(diags.Ok()).To(BeTrue())
+				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
 			It("Should resolve channel name for write operations and add to Channels.Write", func(ctx SpecContext) {
@@ -2410,6 +2813,111 @@ var _ = Describe("Text", func() {
 
 			module := MustSucceed(text.Compile(ctx, ir))
 			Expect(module.Output.WASM).ToNot(BeEmpty())
+		})
+	})
+
+	Describe("ExecContext", func() {
+		It("Should reject a WASM-only function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func print{} () {
+			}
+
+			sensor -> error.panic{} -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.String()).To(ContainSubstring("cannot be used as a flow statement"))
+		})
+
+		It("Should allow a flow function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			}
+			source := `
+			func print{} () {
+			}
+
+			sensor -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow an ExecBoth user function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 10042},
+			}
+			source := `
+			func handler{} () {
+			}
+
+			sensor -> handler{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow a flow-only STL function in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func print{} () {
+			}
+
+			interval{100ms} -> print{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should allow an ExecBoth STL function (time.now) in a flow statement", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+					"ts_out": {Name: "ts_out", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10043},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			interval{100ms} -> time.now{} -> ts_out
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
+		It("Should reject a flow-only function called in a func body at analysis time", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 10042},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			func test() {
+				interval()
+			}
+
+			sensor -> test{}
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse())
+			Expect(diagnostics.Errors()[0].Message).To(ContainSubstring("cannot be called inside a func block"))
 		})
 	})
 })

@@ -301,14 +301,6 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 	r.EmitCall(w, wID, "string.len", ct)
 }
 
-// EmitNow emits a call to time.now.
-func (r *Resolver) EmitNow(w *wasm.Writer, wID int) {
-	ct := types.Function(types.FunctionProperties{
-		Outputs: types.Params{{Type: types.I64()}},
-	})
-	r.EmitCall(w, wID, "time.now", ct)
-}
-
 // EmitMathPow emits a call to math.pow for the given type.
 func (r *Resolver) EmitMathPow(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{
