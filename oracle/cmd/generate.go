@@ -13,6 +13,7 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"sync"
 
@@ -229,10 +230,9 @@ func (r *generateResult) syncFiles(
 	var mu sync.Mutex
 	eg, gctx := errgroup.WithContext(ctx)
 	if workers <= 0 {
-		eg.SetLimit(0)
-	} else {
-		eg.SetLimit(workers)
+		workers = runtime.GOMAXPROCS(0)
 	}
+	eg.SetLimit(workers)
 	for i, p := range toFormat {
 		i, p := i, p
 		eg.Go(func() error {
