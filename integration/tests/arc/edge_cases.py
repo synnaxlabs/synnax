@@ -237,7 +237,7 @@ interval{100ms} -> bad{}
 ARC_WASM_IN_FLOW = """
 func print{} () {
 }
-ch1 -> math.pow{} -> print{}
+ch1 -> len{} -> print{}
 """
 
 
