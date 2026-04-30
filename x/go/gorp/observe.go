@@ -22,7 +22,7 @@ import (
 )
 
 func newObservable[K Key, E Entry[K]](db *DB) observe.Observable[iter.Seq[change.Change[K, E]]] {
-	kCodec := newKeyCodec[K, E]()
+	kCodec := newKeyCodec[K, E](nil)
 	return observe.Translator[kv.TxReader, TxReader[K, E]]{
 		Observable: db,
 		Translate: func(ctx context.Context, reader kv.TxReader) (TxReader[K, E], bool) {
@@ -49,7 +49,7 @@ func (t *Table[K, E]) Observe() observe.Observable[iter.Seq[change.Change[K, E]]
 func wrapMatchedChanges[K Key, E Entry[K]](
 	ctx context.Context,
 	changes []kv.Change,
-	kCodec *keyCodec[K, E],
+	kCodec keyCodec[K, E],
 	codec encoding.Codec,
 ) TxReader[K, E] {
 	return func(yield func(change.Change[K, E]) bool) {

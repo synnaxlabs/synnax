@@ -42,7 +42,7 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Schematic](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -88,7 +88,7 @@ func (w Writer) Rename(
 	key uuid.UUID,
 	name string,
 ) error {
-	return w.table.NewUpdate().WhereKeys(key).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Name = name
 			return s
@@ -107,7 +107,7 @@ func (w Writer) Copy(
 ) error {
 	newKey := uuid.New()
 	if err := w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Key = newKey
 			s.Name = name
@@ -142,7 +142,7 @@ func (w Writer) SetData(
 	key uuid.UUID,
 	data map[string]any,
 ) error {
-	return w.table.NewUpdate().WhereKeys(key).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
@@ -157,7 +157,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Schematic](keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

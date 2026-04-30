@@ -76,7 +76,7 @@ var _ = Describe("Migrate", func() {
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
 			Expect(w.Set(ctx, entryV1{ID: 2, Data: "two"})).To(Succeed())
-			migration := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			migration := gorp.NewEntryMigration(
 				"add_suffix",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{ID: old.ID, Data: old.Data + "_migrated"}, nil
@@ -93,7 +93,7 @@ var _ = Describe("Migrate", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "one"})).To(Succeed())
-			migration := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			migration := gorp.NewEntryMigration(
 				"post_transform",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{ID: old.ID, Data: "post:" + old.Data}, nil
@@ -163,13 +163,13 @@ var _ = Describe("Migrate", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "chain"})).To(Succeed())
-			m1 := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			m1 := gorp.NewEntryMigration(
 				"add_suffix",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{ID: old.ID, Data: old.Data + "_v2"}, nil
 				},
 			)
-			m2 := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			m2 := gorp.NewEntryMigration(
 				"add_suffix_2",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{ID: old.ID, Data: old.Data + "_v3"}, nil
@@ -185,7 +185,7 @@ var _ = Describe("Migrate", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 1, Data: "mixed"})).To(Succeed())
-			m1 := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			m1 := gorp.NewEntryMigration(
 				"typed_transform",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{ID: old.ID, Data: old.Data + "_typed"}, nil
@@ -402,7 +402,7 @@ var _ = Describe("Migrate", func() {
 			defer func() { Expect(testDB.Close()).To(Succeed()) }()
 			w := gorp.WrapWriter[int32, entryV1](testDB)
 			Expect(w.Set(ctx, entryV1{ID: 42, Data: "bad"})).To(Succeed())
-			migration := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			migration := gorp.NewEntryMigration(
 				"fail_transform",
 				func(_ context.Context, old entryV1) (entryV1, error) {
 					return entryV1{}, errors.New("transform broke")
@@ -420,7 +420,7 @@ var _ = Describe("Migrate", func() {
 			copy(key, prefix)
 			stdbinary.BigEndian.PutUint32(key[len(prefix):], 1)
 			Expect(testDB.Set(ctx, key, []byte("not valid msgpack"))).To(Succeed())
-			migration := gorp.NewEntryMigration[int32, int32, entryV1, entryV1](
+			migration := gorp.NewEntryMigration(
 				"fail_decode",
 				func(ctx context.Context, old entryV1) (entryV1, error) {
 					return old, nil
