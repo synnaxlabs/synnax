@@ -90,7 +90,7 @@ func (s *Service) RetrieveResource(
 	tx gorp.Tx,
 ) (ontology.Resource, error) {
 	var d Device
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&d).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&d).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(d), nil

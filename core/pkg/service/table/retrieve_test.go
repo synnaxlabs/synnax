@@ -20,7 +20,7 @@ var _ = Describe("Retrieve", func() {
 		s := table.Table{Name: "test", Data: map[string]any{"key": "data"}}
 		Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 		var res table.Table
-		Expect(svc.NewRetrieve().WhereKeys(s.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+		Expect(svc.NewRetrieve().Where(table.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(s))
 	})
 })

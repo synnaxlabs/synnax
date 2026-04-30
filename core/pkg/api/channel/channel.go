@@ -167,7 +167,7 @@ func (s *Service) Retrieve(
 
 	var resRng ranger.Range
 	if req.RangeKey != uuid.Nil {
-		err := s.ranger.NewRetrieve().WhereKeys(req.RangeKey).Entry(&resRng).Exec(ctx, nil)
+		err := s.ranger.NewRetrieve().Where(ranger.MatchKeys(req.RangeKey)).Entry(&resRng).Exec(ctx, nil)
 		isNotFound := errors.Is(err, query.ErrNotFound)
 		if err != nil && !isNotFound {
 			return RetrieveResponse{}, err
@@ -180,29 +180,29 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			aliasChannels = make([]channel.Channel, 0, len(keys))
-			err = s.internal.NewRetrieve().WhereKeys(keys...).Entries(&aliasChannels).Exec(ctx, nil)
+			err = s.internal.NewRetrieve().Where(channel.MatchKeys(keys...)).Entries(&aliasChannels).Exec(ctx, nil)
 			if err != nil {
 				return RetrieveResponse{}, err
 			}
 		}
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
 	}
 	if req.NodeKey != 0 {
-		q = q.WhereNodeKey(req.NodeKey)
+		q = q.Where(channel.MatchLeaseholders(req.NodeKey))
 	}
 	if hasDataTypes {
-		q = q.WhereDataTypes(req.DataTypes...)
+		q = q.Where(channel.MatchDataTypes(req.DataTypes...))
 	}
 	if hasNotDataTypes {
-		q = q.WhereNotDataTypes(req.NotDataTypes...)
+		q = q.Where(channel.Not(channel.MatchDataTypes(req.NotDataTypes...)))
 	}
 	if req.Limit > 0 {
 		q = q.Limit(req.Limit)
@@ -211,13 +211,13 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if req.Virtual != nil {
-		q = q.WhereVirtual(*req.Virtual)
+		q = q.Where(channel.MatchVirtual(*req.Virtual))
 	}
 	if req.IsIndex != nil {
-		q = q.WhereIsIndex(*req.IsIndex)
+		q = q.Where(channel.MatchIsIndex(*req.IsIndex))
 	}
 	if req.Internal != nil {
-		q = q.WhereInternal(*req.Internal)
+		q = q.Where(channel.MatchInternal(*req.Internal))
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err
@@ -326,7 +326,7 @@ func (s *Service) Delete(
 			if err := s.
 				internal.
 				NewRetrieve().
-				WhereNames(req.Names...).
+				Where(channel.MatchNames(req.Names...)).
 				Entries(&res).
 				Exec(ctx, tx); err != nil {
 				return err

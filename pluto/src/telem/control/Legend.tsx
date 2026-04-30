@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError } from "@synnaxlabs/client";
-import { color, unique } from "@synnaxlabs/x";
+import { type color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
 import { Aether } from "@/aether";
@@ -36,8 +36,8 @@ const parseSubjectName = (name: string): ParsedName => {
 };
 
 export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
-  colors?: Record<string, string>;
-  onColorsChange?: (colors: Record<string, string>) => void;
+  colors?: Record<string, color.Color>;
+  onColorsChange?: (colors: Record<string, color.Color>) => void;
 }
 
 export const Legend = (props: LegendProps): ReactElement | null => {
@@ -63,8 +63,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   } = restProps;
 
   const handleColorChange = useCallback(
-    (key: string, c: color.Crude) =>
-      onColorsChange?.({ ...colors, [key]: color.hex(c) }),
+    (key: string, c: color.Color) => onColorsChange?.({ ...colors, [key]: c }),
     [colors, onColorsChange],
   );
 
@@ -116,9 +115,9 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 interface LegendEntryProps {
   entryKey: string;
   name: string;
-  color: color.Crude;
+  color: color.Color;
   isSelf: boolean;
-  onColorChange: (key: string, color: color.Crude) => void;
+  onColorChange: (key: string, color: color.Color) => void;
   onColorPickerVisibleChange: state.Setter<boolean>;
 }
 
@@ -132,7 +131,7 @@ const LegendEntry = ({
 }: LegendEntryProps): ReactElement => {
   const parsed = parseSubjectName(name);
   const handleColorChange = useCallback(
-    (c: color.Crude) => onColorChange(entryKey, c),
+    (c: color.Color) => onColorChange(entryKey, c),
     [entryKey, onColorChange],
   );
   return (

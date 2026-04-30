@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -92,32 +93,32 @@ var _ = Describe("User", Ordered, func() {
 	Describe("Retrieve", func() {
 		It("Should retrieve a user by its key", func(ctx SpecContext) {
 			var u user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
 			Expect(u).To(Equal(users[0]))
 		})
 		It("Should retrieve multiple users by keys", func(ctx SpecContext) {
 			var ret []user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[0].Key, users[1].Key).Entries(&ret).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key, users[1].Key)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
 		It("Should return an error if the user does not exist", func(ctx SpecContext) {
-			err := svc.NewRetrieve().WhereKeys(uuid.New()).Entry(nil).Exec(ctx, nil)
+			err := svc.NewRetrieve().Where(user.MatchKeys(uuid.New())).Entry(nil).Exec(ctx, nil)
 			Expect(err).To(HaveOccurred())
 		})
 		It("Should retrieve a user by its username", func(ctx SpecContext) {
-			var user user.User
-			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username).Entry(&user).Exec(ctx, nil)).To(Succeed())
-			Expect(user).To(Equal(users[0]))
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames(users[0].Username)).Entry(&u).Exec(ctx, nil)).To(Succeed())
+			Expect(u).To(Equal(users[0]))
 		})
 		It("Should retrieve multiple users by usernames", func(ctx SpecContext) {
 			var ret []user.User
-			Expect(svc.NewRetrieve().WhereUsernames(users[0].Username, users[1].Username).Entries(&ret).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames(users[0].Username, users[1].Username)).Entries(&ret).Exec(ctx, nil)).To(Succeed())
 			Expect(ret).To(ConsistOf(users[0], users[1]))
 		})
 		It("Should return an error if the user does not exist", func(ctx SpecContext) {
-			var user user.User
-			err := svc.NewRetrieve().WhereUsernames("test5").Entry(&user).Exec(ctx, nil)
-			Expect(err).To(HaveOccurred())
+			var u user.User
+			Expect(svc.NewRetrieve().Where(user.MatchUsernames("test5")).Entry(&u).Exec(ctx, nil)).
+				To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("UsernameExists", func() {
@@ -146,7 +147,7 @@ var _ = Describe("User", Ordered, func() {
 			newLastName := "Star"
 			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, newLastName)).To(Succeed())
 			var u user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
 			Expect(u.FirstName).To(Equal(newFirstName))
 			Expect(u.LastName).To(Equal(newLastName))
 			Expect(u.Username).To(Equal(users[0].Username))
@@ -158,7 +159,7 @@ var _ = Describe("User", Ordered, func() {
 			newFirstName := "Spongebob"
 			Expect(w.ChangeName(ctx, users[0].Key, newFirstName, "")).To(Succeed())
 			var u user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(Succeed())
 			Expect(u.FirstName).To(Equal(newFirstName))
 			Expect(u.LastName).To(Equal(users[0].LastName))
 			Expect(u.Username).To(Equal(users[0].Username))
@@ -171,15 +172,15 @@ var _ = Describe("User", Ordered, func() {
 			Expect(w.Delete(ctx, users[0].Key)).To(Succeed())
 			Expect(svc.UsernameExists(ctx, users[0].Username)).To(BeFalse())
 			var u user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[0].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[0].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 		})
 		It("Should delete multiple users", func(ctx SpecContext) {
 			Expect(w.Delete(ctx, users[1].Key, users[2].Key)).To(Succeed())
 			Expect(svc.UsernameExists(ctx, users[1].Username)).To(BeFalse())
 			Expect(svc.UsernameExists(ctx, users[2].Username)).To(BeFalse())
 			var u user.User
-			Expect(svc.NewRetrieve().WhereKeys(users[1].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
-			Expect(svc.NewRetrieve().WhereKeys(users[2].Key).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[1].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
+			Expect(svc.NewRetrieve().Where(user.MatchKeys(users[2].Key)).Entry(&u).Exec(ctx, nil)).To(HaveOccurred())
 		})
 		It("Should not delete the root user", func(ctx SpecContext) {
 			u := &user.User{Username: "root", RootUser: true}
@@ -214,7 +215,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		}))
 
 		var rootUser user.User
-		Expect(svc.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
+		Expect(svc.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
 		Expect(rootUser.RootUser).To(BeTrue())
 		Expect(rootUser.Key).ToNot(Equal(uuid.Nil))
 	})
@@ -235,7 +236,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		}))
 
 		var rootUser user.User
-		Expect(svc1.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
+		Expect(svc1.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser).Exec(ctx, nil)).To(Succeed())
 		firstKey := rootUser.Key
 		Expect(svc1.Close()).To(Succeed())
 
@@ -245,7 +246,7 @@ var _ = Describe("ProvisionRootUser", func() {
 		}))
 
 		var rootUser2 user.User
-		Expect(svc2.NewRetrieve().WhereUsernames("synnax").Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
+		Expect(svc2.NewRetrieve().Where(user.MatchUsernames("synnax")).Entry(&rootUser2).Exec(ctx, nil)).To(Succeed())
 		Expect(rootUser2.Key).To(Equal(firstKey))
 	})
 
