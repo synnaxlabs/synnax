@@ -9,6 +9,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <memory>
 #include <numeric>
 
@@ -171,6 +172,44 @@ public:
     }
 };
 
+struct NowConfig {
+    static std::pair<NowConfig, x::errors::Error> create(const types::Params &) {
+        return {NowConfig{}, x::errors::NIL};
+    }
+};
+
+/// @brief Outputs the current wall-clock timestamp when triggered.
+class Now : public runtime::node::Node {
+    runtime::state::Node state;
+    x::telem::MonoClock *clock;
+
+public:
+    explicit Now(
+        const NowConfig &,
+        runtime::state::Node &&state,
+        x::telem::MonoClock *clock
+    ):
+        state(std::move(state)), clock(clock) {}
+
+    x::errors::Error next(runtime::node::Context &ctx) override {
+        const auto ts = this->clock->now();
+        const auto &o = this->state.output(0);
+        const auto &o_time = this->state.output_time(0);
+        o->resize(1);
+        o_time->resize(1);
+        o->set(0, ts);
+        o_time->set(0, ts);
+        ctx.mark_changed(0);
+        return x::errors::NIL;
+    }
+
+    void reset() override {}
+
+    [[nodiscard]] bool is_output_truthy(size_t output_idx) const override {
+        return state.is_output_truthy(output_idx);
+    }
+};
+
 class Module : public stl::Module {
     x::telem::TimeSpan base = UNSET_BASE_INTERVAL;
     x::telem::MonoClock clock;
@@ -181,18 +220,12 @@ public:
     [[nodiscard]] x::telem::TimeSpan base_interval() const { return this->base; }
 
     bool handles(const std::string &node_type) const override {
-        return node_type == "interval" || node_type == "time.interval" ||
-               node_type == "wait" || node_type == "time.wait";
+        return node_type == "interval" || node_type == "wait" || node_type == "now";
     }
 
-    /// The qualified prefix ("time.interval", "time.wait") is needed because the
-    /// compiler emits the module-qualified name as the IR node type when users write
-    /// time.interval{} or time.wait{}. Stripping the prefix in the compiler would be
-    /// cleaner but risks breaking WASM host function resolution — this is safer and
-    /// inexpensive since time is the only STL module with a node factory.
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {
-        if (cfg.node.type == "interval" || cfg.node.type == "time.interval") {
+        if (cfg.node.type == "interval") {
             auto [node_cfg, err] = IntervalConfig::create(cfg.node.config);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.interval);
@@ -201,12 +234,20 @@ public:
                 x::errors::NIL
             };
         }
-        if (cfg.node.type == "wait" || cfg.node.type == "time.wait") {
+        if (cfg.node.type == "wait") {
             auto [node_cfg, err] = WaitConfig::create(cfg.node.config);
             if (err) return {nullptr, err};
             this->update_base_interval(node_cfg.duration);
             return {
                 std::make_unique<Wait>(node_cfg, std::move(cfg.state)),
+                x::errors::NIL
+            };
+        }
+        if (cfg.node.type == "now") {
+            auto [node_cfg, err] = NowConfig::create(cfg.node.config);
+            if (err) return {nullptr, err};
+            return {
+                std::make_unique<Now>(node_cfg, std::move(cfg.state), &this->clock),
                 x::errors::NIL
             };
         }

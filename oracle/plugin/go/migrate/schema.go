@@ -68,12 +68,26 @@ func typesEqual(
 		return true
 	case resolution.EnumForm:
 		newForm, ok := new.Form.(resolution.EnumForm)
-		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum || len(oldForm.Values) != len(newForm.Values) {
+		if !ok || oldForm.IsIntEnum != newForm.IsIntEnum {
 			return false
 		}
-		for i := range oldForm.Values {
-			if oldForm.Values[i].Name != newForm.Values[i].Name || oldForm.Values[i].Value != newForm.Values[i].Value {
-				return false
+		// Enum value adds, removes, and renames are wire-format-compatible:
+		// the underlying representation is the string (or int) itself, and old
+		// records still deserialize into the underlying type even when their
+		// stored value is no longer a named constant. The only enum delta that
+		// breaks wire format is renumbering an int enum — a name that exists in
+		// both versions assigned a different integer. Anything else is purely a
+		// source-level / application-semantic change and must not propagate
+		// through field references as a structural type change.
+		if oldForm.IsIntEnum {
+			newByName := make(map[string]int64, len(newForm.Values))
+			for _, v := range newForm.Values {
+				newByName[v.Name] = v.IntValue()
+			}
+			for _, ov := range oldForm.Values {
+				if newVal, exists := newByName[ov.Name]; exists && newVal != ov.IntValue() {
+					return false
+				}
 			}
 		}
 		return true

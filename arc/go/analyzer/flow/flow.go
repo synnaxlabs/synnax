@@ -94,7 +94,7 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 
 	if prevIDNode := prevNode.Identifier(); prevIDNode != nil {
 		idName := prevIDNode.IDENTIFIER().GetText()
-		idSym, err := ctx.Scope.Resolve(ctx, idName)
+		idSym, err := ctx.Resolve(idName)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, prevIDNode))
 			return
@@ -213,7 +213,7 @@ func analyzeIdentifier(
 	isLastNode bool,
 ) {
 	name := ctx.AST.IDENTIFIER().GetText()
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	sym, err := ctx.Resolve(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
@@ -256,7 +256,7 @@ func resolveFunc[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	name string,
 ) *symbol.Scope {
-	sym, err := ctx.Scope.Resolve(ctx, name)
+	sym, err := ctx.Resolve(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return nil
@@ -635,7 +635,7 @@ func analyzeRoutingTargetWithParam(
 		}
 	} else if idNode := ctx.AST.Identifier(); idNode != nil {
 		idName := idNode.IDENTIFIER().GetText()
-		idSym, err := ctx.Scope.Resolve(ctx, idName)
+		idSym, err := ctx.Resolve(idName)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return

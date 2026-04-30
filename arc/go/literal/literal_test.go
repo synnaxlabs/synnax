@@ -333,6 +333,29 @@ var _ = Describe("Literal Parser", func() {
 		})
 	})
 
+	Describe("Negate", func() {
+		DescribeTable("should negate numeric values",
+			func(input any, expected any) {
+				Expect(literal.Negate(input)).To(Equal(expected))
+			},
+			Entry("int8", int8(42), int8(-42)),
+			Entry("int16", int16(1000), int16(-1000)),
+			Entry("int32", int32(100000), int32(-100000)),
+			Entry("int64", int64(5000000000), int64(-5000000000)),
+			Entry("float32", float32(3.14), float32(-3.14)),
+			Entry("float64", float64(2.718), float64(-2.718)),
+			Entry("TimeSpan", telem.Second, -telem.Second),
+			Entry("negative int64 becomes positive", int64(-42), int64(42)),
+			Entry("negative float64 becomes positive", float64(-1.5), float64(1.5)),
+			Entry("zero int64", int64(0), int64(0)),
+			Entry("zero float64", float64(0), float64(0)),
+		)
+
+		It("Should return non-numeric types unchanged", func() {
+			Expect(literal.Negate("hello")).To(Equal("hello"))
+		})
+	})
+
 	Describe("IsExactInteger", func() {
 		DescribeTable("should correctly identify exact integers",
 			func(value float64, expected bool) {

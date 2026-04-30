@@ -93,7 +93,7 @@ func analyzeEntry(
 			))
 			return
 		}
-		sym, err := ctx.Scope.Resolve(ctx, name)
+		sym, err := ctx.Resolve(name)
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Errorf(
 				entry,
