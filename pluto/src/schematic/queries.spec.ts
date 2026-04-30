@@ -33,7 +33,10 @@ describe("schematic queries", () => {
       });
       const schematic = await client.schematics.create(workspace.key, {
         name: "retrieve_test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -56,7 +59,10 @@ describe("schematic queries", () => {
       });
       const schematic = await client.schematics.create(workspace.key, {
         name: "cached_schematic",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result: result1 } = renderHook(
@@ -89,7 +95,10 @@ describe("schematic queries", () => {
           key,
           workspace: workspace.key,
           name: "created_schematic",
-          data: {},
+          legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
         });
       });
 
@@ -117,7 +126,10 @@ describe("schematic queries", () => {
           key,
           workspace: workspace.key,
           name: "stored_schematic",
-          data: {},
+          legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
         });
       });
 
@@ -138,7 +150,10 @@ describe("schematic queries", () => {
       });
       const schematic = await client.schematics.create(workspace.key, {
         name: "original_name",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -173,7 +188,10 @@ describe("schematic queries", () => {
       });
       const schematic = await client.schematics.create(workspace.key, {
         name: "cache_original",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(
@@ -206,7 +224,10 @@ describe("schematic queries", () => {
       });
       const schematic = await client.schematics.create(workspace.key, {
         name: "delete_single",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
@@ -227,11 +248,17 @@ describe("schematic queries", () => {
       });
       const schematic1 = await client.schematics.create(workspace.key, {
         name: "delete_multi_1",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       const schematic2 = await client.schematics.create(workspace.key, {
         name: "delete_multi_2",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
@@ -259,11 +286,17 @@ describe("schematic queries", () => {
       });
       const s1 = await client.schematics.create(ws.key, {
         name: "Current",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       const s2 = await client.schematics.create(ws.key, {
         name: "Sibling",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
 
       const { result } = renderHook(

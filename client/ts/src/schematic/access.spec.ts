@@ -30,7 +30,10 @@ describe("schematic", () => {
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         name: "test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       await expect(
         userClient.schematics.retrieve({ key: randomSchematic.key }),
@@ -49,7 +52,10 @@ describe("schematic", () => {
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         name: "test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       const retrieved = await userClient.schematics.retrieve({
         key: randomSchematic.key,
@@ -70,7 +76,10 @@ describe("schematic", () => {
       });
       await userClient.schematics.create(ws.key, {
         name: "test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
     });
 
@@ -87,7 +96,10 @@ describe("schematic", () => {
       await expect(
         userClient.schematics.create(ws.key, {
           name: "test",
-          data: {},
+          legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+          nodes: [],
+          edges: [],
+          props: {},
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -104,7 +116,10 @@ describe("schematic", () => {
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         name: "test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       await userClient.schematics.delete(randomSchematic.key);
       await expect(
@@ -124,7 +139,10 @@ describe("schematic", () => {
       });
       const randomSchematic = await client.schematics.create(ws.key, {
         name: "test",
-        data: {},
+        legend: { visible: true, position: { x: 50, y: 50 }, colors: {} },
+        nodes: [],
+        edges: [],
+        props: {},
       });
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toThrow(
         AuthError,

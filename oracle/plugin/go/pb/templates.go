@@ -92,7 +92,15 @@ func {{.Name}}ToPB(r {{.GoType}}) (*{{.PBType}}, error) {
 	if r.{{.GoName}} != nil {
 		pb.{{.PBName}} = make({{.MapValueConversion.PBMapType}}, len(r.{{.GoName}}))
 		for k, v := range r.{{.GoName}} {
+{{- if .MapValueConversion.ForwardHasError}}
+			converted, err := {{.MapValueConversion.ForwardValueExpr}}
+			if err != nil {
+				return nil, err
+			}
+			pb.{{.PBName}}[k] = converted
+{{- else}}
 			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
@@ -164,7 +172,15 @@ func {{.Name}}FromPB(pb *{{.PBType}}) ({{.GoType}}, error) {
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.BackwardHasError}}
+			converted, err := {{.MapValueConversion.BackwardValueExpr}}
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+			r.{{.GoName}}[k] = converted
+{{- else}}
 			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
@@ -295,7 +311,15 @@ func {{.Name}}ToPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}, 
 	if r.{{.GoName}} != nil {
 		pb.{{.PBName}} = make({{.MapValueConversion.PBMapType}}, len(r.{{.GoName}}))
 		for k, v := range r.{{.GoName}} {
+{{- if .MapValueConversion.ForwardHasError}}
+			converted, err := {{.MapValueConversion.ForwardValueExpr}}
+			if err != nil {
+				return nil, err
+			}
+			pb.{{.PBName}}[k] = converted
+{{- else}}
 			pb.{{.PBName}}[k] = {{.MapValueConversion.ForwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}
@@ -379,7 +403,15 @@ func {{.Name}}FromPB{{if .TypeParams}}[{{range $i, $tp := .TypeParams}}{{if $i}}
 	if pb.{{.PBName}} != nil {
 		r.{{.GoName}} = make({{.MapValueConversion.GoMapType}}, len(pb.{{.PBName}}))
 		for k, v := range pb.{{.PBName}} {
+{{- if .MapValueConversion.BackwardHasError}}
+			converted, err := {{.MapValueConversion.BackwardValueExpr}}
+			if err != nil {
+				return {{$goType}}{}, err
+			}
+			r.{{.GoName}}[k] = converted
+{{- else}}
 			r.{{.GoName}}[k] = {{.MapValueConversion.BackwardValueExpr}}
+{{- end}}
 		}
 	}
 {{- else if .NeedsPtrConversion}}

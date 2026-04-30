@@ -181,15 +181,7 @@ const loadSchematic = async (
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(
-    Schematic.create({
-      ...schematic.data,
-      key: schematic.key,
-      name: schematic.name,
-      snapshot: schematic.snapshot,
-      editable: false,
-    }),
-  );
+  placeLayout(Schematic.create({ ...schematic, editable: false }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -219,9 +211,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
-        name: schematic.name,
-        ...schematic.data,
-        key,
+        ...schematic,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
       }),
