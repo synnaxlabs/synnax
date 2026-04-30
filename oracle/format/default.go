@@ -15,9 +15,15 @@ package format
 //
 //	.go              license, gofmt -s
 //	.cpp / .h        license, clang-format
-//	.ts / .tsx       license, prettier, eslint --fix
+//	.ts / .tsx       license, eslint --fix, prettier
 //	.py              license, ruff format, ruff check --fix
 //	.proto           license, buf format
+//
+// For TS, eslint --fix runs before prettier so that simple-import-sort
+// reorders imports first; prettier then normalises the whitespace it
+// leaves behind (e.g. `import { a,b }` -> `import { a, b }`). Running
+// prettier first and eslint second produces the inverse output that
+// never converges across syncs.
 //
 // Files with extensions not listed pass through with header only (or
 // unchanged if the extension is also unknown to the License formatter).
@@ -38,8 +44,8 @@ func Default(repoRoot string) (*Registry, error) {
 	eslint := NewESLint()
 	for _, ext := range []string{".ts", ".tsx"} {
 		r.Register(ext, license)
-		r.Register(ext, prettier)
 		r.Register(ext, eslint)
+		r.Register(ext, prettier)
 	}
 	r.Register(".py", license)
 	r.Register(".py", NewRuff())
