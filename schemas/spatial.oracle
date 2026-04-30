@@ -92,16 +92,16 @@ StickyUnits struct {
 }
 
 StickyXY struct {
-    x     float64         {
+    x     float64          {
         @doc value "is the horizontal coordinate."
     }
-    y     float64         {
+    y     float64          {
         @doc value "is the vertical coordinate."
     }
-    root  CornerLocation? {
+    root  CornerLocation?? {
         @doc value "is the optional anchor corner for the position."
     }
-    units StickyUnits?    {
+    units StickyUnits??    {
         @doc value "is the optional unit specification for the coordinates."
     }
 
