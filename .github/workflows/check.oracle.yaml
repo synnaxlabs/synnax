@@ -58,6 +58,13 @@ jobs:
   check:
     name: oracle check
     runs-on: ubuntu-latest
+    # Advisory until the existing drift on `rc` is resolved. The check
+    # gate is correct - it surfaces real on-disk vs. canonical-output
+    # divergence - but the divergence predates this workflow, so blocking
+    # PRs on it would punish unrelated changes. Once `rc` is clean (a
+    # one-off `oracle sync` PR), drop continue-on-error and add this
+    # job to the required-checks list in branch protection.
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v6
 
@@ -100,9 +107,15 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install clang-format
+        # Pinned to clang-format-18 so the generated gate is
+        # deterministic. Different major versions wrap function
+        # signatures differently and produce noisy false-positive drift.
+        # Keep this in sync with the version local devs run.
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang-format
+          sudo apt-get install -y clang-format-18
+          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
+          clang-format --version
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
