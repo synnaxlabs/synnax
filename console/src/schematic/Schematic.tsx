@@ -423,8 +423,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleCopySelection = useCallback(
-    (_cursor: xy.XY) => dispatch(copySelection({})),
-    [dispatch],
+    (_cursor: xy.XY) => dispatch(copySelection({ key: layoutKey })),
+    [dispatch, layoutKey],
   );
 
   const handleCutSelection = useCallback(

@@ -594,7 +594,7 @@ describe("Schematic Slice", () => {
 
     describe("copySelection", () => {
       it("should copy selected nodes into the copy buffer", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.copy.nodes).toHaveLength(2);
@@ -603,7 +603,7 @@ describe("Schematic Slice", () => {
       });
 
       it("should copy node props into the copy buffer", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.copy.props["valve-1"]).toEqual({ key: "valve", color: "#ff0000" });
@@ -611,14 +611,14 @@ describe("Schematic Slice", () => {
       });
 
       it("should compute the centroid position of copied nodes", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.copy.pos).toEqual({ x: 200, y: 300 });
       });
 
       it("should not remove nodes from the schematic", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.schematics[schematicKey].nodes).toHaveLength(2);
@@ -634,7 +634,7 @@ describe("Schematic Slice", () => {
           }),
         );
 
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.copy.nodes).toHaveLength(1);
@@ -643,7 +643,7 @@ describe("Schematic Slice", () => {
 
       it("should handle no selected nodes", () => {
         store.dispatch(actions.clearSelection({ key: schematicKey }));
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const state = store.getState()[SLICE_NAME];
         expect(state.copy.nodes).toHaveLength(0);
@@ -695,7 +695,7 @@ describe("Schematic Slice", () => {
 
     describe("pasteSelection", () => {
       it("should paste copied nodes at the given position", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({
             key: schematicKey,
@@ -709,7 +709,7 @@ describe("Schematic Slice", () => {
       });
 
       it("should generate new keys for pasted nodes", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({
             key: schematicKey,
@@ -724,7 +724,7 @@ describe("Schematic Slice", () => {
       });
 
       it("should offset pasted nodes relative to the paste position", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         // Centroid is (200, 300), paste at (400, 500) → offset (200, 200)
         store.dispatch(
           actions.pasteSelection({
@@ -745,7 +745,7 @@ describe("Schematic Slice", () => {
       });
 
       it("should select only the pasted nodes", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({
             key: schematicKey,
@@ -766,7 +766,7 @@ describe("Schematic Slice", () => {
       });
 
       it("should copy props to pasted nodes", () => {
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({
             key: schematicKey,
@@ -1616,7 +1616,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const after = store.getState()[SLICE_NAME];
         const copyKeys = after.copy.nodes.map((n) => n.key);
@@ -1644,7 +1644,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const after = store.getState()[SLICE_NAME];
         expect(after.copy.props[groupKey]).toBeDefined();
@@ -1662,7 +1662,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
 
         const after = store.getState()[SLICE_NAME];
         expect(after.copy.nodes).toHaveLength(1);
@@ -1746,7 +1746,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({ key: schematicKey, pos: { x: 500, y: 500 } }),
         );
@@ -1796,7 +1796,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({ key: schematicKey, pos: { x: 500, y: 500 } }),
         );
@@ -1825,7 +1825,7 @@ describe("Schematic Slice", () => {
             mode: "update",
           }),
         );
-        store.dispatch(actions.copySelection({}));
+        store.dispatch(actions.copySelection({ key: schematicKey }));
         store.dispatch(
           actions.pasteSelection({ key: schematicKey, pos: { x: 500, y: 500 } }),
         );

@@ -124,7 +124,9 @@ export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
 
-export interface CopySelectionPayload {}
+export interface CopySelectionPayload {
+  key: string;
+}
 
 export interface CutSelectionPayload {
   key: string;
@@ -172,37 +174,36 @@ export interface SetSelectedSymbolGroupPayload {
   group: string;
 }
 
-const copySelectedToBuffer = (state: SliceState): void => {
+const copySelectedToBuffer = (state: SliceState, layoutKey: string): void => {
+  const schematic = state.schematics[layoutKey];
+  const { nodes, edges, props } = schematic;
+  const selectedNodes = nodes.filter((node) => node.selected);
+  const groupKeys = selectedGroupKeys(selectedNodes, props);
+  const groupMembers = nodes.filter((node) => {
+    if (node.selected) return false;
+    const gid = props[node.key]?.groupId;
+    return gid != null && groupKeys.has(gid);
+  });
+  const allNodes = [...selectedNodes, ...groupMembers];
+  const selectedEdges = edges.filter((edge) => edge.selected);
   const copyBuffer: latest.CopyBuffer = {
-    nodes: [],
-    edges: [],
+    nodes: allNodes,
+    edges: selectedEdges,
     props: {},
     pos: xy.ZERO,
   };
-  Object.values(state.schematics).forEach((schematic) => {
-    const { nodes, edges, props } = schematic;
-    const selectedNodes = nodes.filter((node) => node.selected);
-    const groupKeys = selectedGroupKeys(selectedNodes, props);
-    const groupMembers = nodes.filter((node) => {
-      if (node.selected) return false;
-      const gid = props[node.key]?.groupId;
-      return gid != null && groupKeys.has(gid);
-    });
-    const allNodes = [...selectedNodes, ...groupMembers];
-    const selectedEdges = edges.filter((edge) => edge.selected);
-    copyBuffer.nodes = [...copyBuffer.nodes, ...allNodes];
-    copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-    allNodes.forEach((node) => {
-      copyBuffer.props[node.key] = props[node.key];
-    });
-    selectedEdges.forEach((edge) => {
-      copyBuffer.props[edge.key] = props[edge.key];
-    });
+  allNodes.forEach((node) => {
+    copyBuffer.props[node.key] = props[node.key];
   });
-  const { nodes } = copyBuffer;
-  if (nodes.length > 0) {
-    const pos = nodes.reduce((acc, node) => xy.translate(acc, node.position), xy.ZERO);
-    copyBuffer.pos = xy.scale(pos, 1 / nodes.length);
+  selectedEdges.forEach((edge) => {
+    copyBuffer.props[edge.key] = props[edge.key];
+  });
+  if (allNodes.length > 0) {
+    const pos = allNodes.reduce(
+      (acc, node) => xy.translate(acc, node.position),
+      xy.ZERO,
+    );
+    copyBuffer.pos = xy.scale(pos, 1 / allNodes.length);
   }
   state.copy = copyBuffer;
 };
@@ -211,14 +212,17 @@ export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
-    copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
-      copySelectedToBuffer(state);
+    copySelection: (
+      state,
+      { payload: { key: layoutKey } }: PayloadAction<CopySelectionPayload>,
+    ) => {
+      copySelectedToBuffer(state, layoutKey);
     },
     // Copies the selected nodes and edges into the copy buffer, then removes
     // them from the schematic.
     cutSelection: (state, { payload }: PayloadAction<CutSelectionPayload>) => {
-      copySelectedToBuffer(state);
       const { key: layoutKey } = payload;
+      copySelectedToBuffer(state, layoutKey);
       const schematic = state.schematics[layoutKey];
       const { nodes, edges } = state.copy;
       const nodeKeys = new Set(nodes.map((n) => n.key));
