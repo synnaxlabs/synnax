@@ -151,6 +151,18 @@ func runSync(cmd *cobra.Command) error {
 		printDim(fmt.Sprintf("save cache: %v", err))
 	}
 
+	// buf generate emits .pb.go and _grpc.pb.go files alongside their
+	// .proto sources without a license header. Run them through the
+	// same formatter chain the oracle plugin outputs use so the header
+	// is added and gofmt is applied. Idempotent on cached / unchanged
+	// files because the license formatter no-ops when a header is
+	// already present and gofmt is stable.
+	if !bufResult.Cached {
+		if _, err := codegen.FormatBufOutputs(ctx, repoRoot, formatters, 0); err != nil {
+			return errors.Wrap(err, "format buf outputs")
+		}
+	}
+
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged)+len(syncResult.Skipped))
 	return nil
 }

@@ -20,6 +20,7 @@ import (
 	osexec "os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/x/errors"
@@ -147,6 +148,19 @@ func readIfExists(paths ...string) ([][]byte, error) {
 // findProtoFiles walks repoRoot for .proto files, skipping common
 // vendor / build / .git directories.
 func findProtoFiles(repoRoot string) ([]string, error) {
+	return walkExtensions(repoRoot, []string{".proto"}, nil)
+}
+
+// findPbGoFiles walks repoRoot for the .pb.go and _grpc.pb.go outputs
+// `buf generate` emits next to their .proto sources, skipping the same
+// vendor / build / .git directories findProtoFiles skips.
+func findPbGoFiles(repoRoot string) ([]string, error) {
+	return walkExtensions(repoRoot, []string{".go"}, func(name string) bool {
+		return strings.HasSuffix(name, ".pb.go") || strings.HasSuffix(name, "_grpc.pb.go")
+	})
+}
+
+func walkExtensions(repoRoot string, exts []string, namePred func(string) bool) ([]string, error) {
 	skipDir := set.New(".git", "node_modules", "dist", "build", "target", "vendor", ".oracle")
 	var out []string
 	err := filepath.WalkDir(repoRoot, func(path string, d os.DirEntry, err error) error {
@@ -159,13 +173,79 @@ func findProtoFiles(repoRoot string) ([]string, error) {
 			}
 			return nil
 		}
-		if filepath.Ext(path) == ".proto" {
-			out = append(out, path)
+		ext := filepath.Ext(path)
+		matchExt := false
+		for _, e := range exts {
+			if e == ext {
+				matchExt = true
+				break
+			}
 		}
+		if !matchExt {
+			return nil
+		}
+		if namePred != nil && !namePred(filepath.Base(path)) {
+			return nil
+		}
+		out = append(out, path)
 		return nil
 	})
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
+}
+
+// FormatBufOutputs runs the configured formatter chain over every
+// .pb.go and _grpc.pb.go file `buf generate` produced in the repo,
+// writing back any whose canonical bytes differ. This restores the
+// license header (and re-applies gofmt) to protoc's raw output, which
+// otherwise lands on disk header-less.
+//
+// Returns the count of files actually rewritten. The walk is bounded
+// by the same skip-list as findProtoFiles, so vendor / .oracle /
+// build directories are not touched.
+//
+// Idempotent: re-running over already-canonical files is a no-op
+// because the license formatter detects an existing header (any year)
+// and returns the content unchanged, and gofmt is stable.
+func FormatBufOutputs(
+	ctx context.Context,
+	repoRoot string,
+	formatters *format.Registry,
+	workers int,
+) (int, error) {
+	files, err := findPbGoFiles(repoRoot)
+	if err != nil {
+		return 0, errors.Wrap(err, "scan .pb.go files")
+	}
+	if len(files) == 0 {
+		return 0, nil
+	}
+
+	batch := make([]format.File, len(files))
+	for i, path := range files {
+		raw, err := os.ReadFile(path)
+		if err != nil {
+			return 0, errors.Wrapf(err, "read %s", path)
+		}
+		batch[i] = format.File{Path: path, Content: raw}
+	}
+
+	formatted, err := formatters.FormatBatch(ctx, batch, workers)
+	if err != nil {
+		return 0, errors.Wrap(err, "format buf outputs")
+	}
+
+	written := 0
+	for i, f := range formatted {
+		if string(batch[i].Content) == string(f.Content) {
+			continue
+		}
+		if err := os.WriteFile(files[i], f.Content, 0644); err != nil {
+			return written, errors.Wrapf(err, "write %s", files[i])
+		}
+		written++
+	}
+	return written, nil
 }
