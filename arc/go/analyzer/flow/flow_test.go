@@ -497,8 +497,9 @@ int_chan -> consumer{}`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("unknown config parameter 'extra' for func 'simple'"))
 		})
 
 		It("Should detect type mismatch in func config parameters", func(bCtx SpecContext) {
@@ -660,8 +661,9 @@ sensor_chan > threshold -> alarm{}`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(Equal("undefined symbol: threshold"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("undefined symbol: threshold"))
 		})
 	})
 
@@ -788,8 +790,9 @@ sequence main {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("does not have named outputs"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("does not have named outputs"))
 		})
 
 		It("Should detect when routing to non-existent output", func(bCtx SpecContext) {
@@ -884,12 +887,13 @@ sequence main {
 
 		It("Should warn about unassigned outputs", func(bCtx SpecContext) {
 			ast := MustSucceed(parser.Parse(`
-			func incomplete{} (value f32) (high f32, low f32) {
-			    if (value > 100.0) {
-			        high = value
-			    }
-			    // 'low' is never assigned
-			}`))
+			func _incomplete{} (value f32) (high f32, low f32) {
+				if (value > 100.0) {
+					high = value
+				}
+				// 'low' is never assigned
+			}
+			`))
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
@@ -1108,8 +1112,9 @@ sequence main {
 				ctx := context.CreateRoot(bCtx, ast, resolver)
 				analyzer.AnalyzeProgram(ctx)
 				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("last element in input routing entry must be a parameter name"))
+				errs := ctx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(1))
+				Expect(errs[0].Message).To(ContainSubstring("last element in input routing entry must be a parameter name"))
 			})
 		})
 	})
@@ -1162,9 +1167,10 @@ sequence main {
 			ctx := context.CreateRoot(bCtx, ast, resolver)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("standalone function"))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("required input"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("standalone function"))
+			Expect(errs[0].Message).To(ContainSubstring("required input"))
 		})
 
 		It("Should allow standalone function with inputs that have default values", func(bCtx SpecContext) {

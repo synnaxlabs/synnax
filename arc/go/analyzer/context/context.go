@@ -48,6 +48,7 @@ import (
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/set"
 )
 
 // ChannelMapping records the actual channel passed for a chan-typed parameter at a
@@ -96,6 +97,11 @@ type Context[AST antlr.ParserRuleContext] struct {
 	TypeMap map[antlr.ParserRuleContext]types.Type
 	// CallEdges tracks function call relationships for post-analysis channel propagation.
 	CallEdges *[]CallEdge
+	// ReferencedSymbols tracks symbol scopes that were looked up from a use-site
+	// during analysis. The unused-declaration analyzer consults this set to
+	// decide whether a declaration is unreferenced. Shared via pointer so child
+	// contexts mutate the same set.
+	ReferencedSymbols *set.Set[*symbol.Scope]
 	// AST is the current AST node being analyzed.
 	AST AST
 	// TypeHint is the expected type from surrounding context for type inference.
@@ -112,6 +118,15 @@ type Context[AST antlr.ParserRuleContext] struct {
 func (c Context[AST]) WithScope(scope *symbol.Scope) Context[AST] {
 	c.Scope = scope
 	return c
+}
+
+// MarkReferenced records that scope was looked up from a use-site. The call
+// is a no-op when ReferencedSymbols is nil (e.g., in isolated sub-pass
+// tests that hand-build a Context without wiring the shared state).
+func (c Context[AST]) MarkReferenced(scope *symbol.Scope) {
+	if c.ReferencedSymbols != nil {
+		c.ReferencedSymbols.Add(scope)
+	}
 }
 
 // WithTypeHint returns a new context with an updated type hint. The original context
@@ -159,16 +174,17 @@ func CreateRoot[ASTNode antlr.ParserRuleContext](
 	ast ASTNode,
 	resolver symbol.Resolver,
 ) Context[ASTNode] {
+	refs := set.New[*symbol.Scope]()
 	return Context[ASTNode]{
-		Context:     ctx,
-		Scope:       symbol.CreateRootScope(resolver),
-		Diagnostics: &diagnostics.Diagnostics{},
-		Constraints: constraints.New(),
-		TypeMap:     make(map[antlr.ParserRuleContext]types.Type),
-		CallEdges:   &[]CallEdge{},
-		AST:         ast,
+		Context:           ctx,
+		Scope:             symbol.CreateRootScope(resolver),
+		Diagnostics:       &diagnostics.Diagnostics{},
+		Constraints:       constraints.New(),
+		TypeMap:           make(map[antlr.ParserRuleContext]types.Type),
+		CallEdges:         &[]CallEdge{},
+		ReferencedSymbols: &refs,
+		AST:               ast,
 	}
-
 }
 
 // Child creates a new child context for a different AST node. Child is the primary
@@ -188,6 +204,7 @@ func Child[P, N antlr.ParserRuleContext](ctx Context[P], next N) Context[N] {
 		Constraints:         ctx.Constraints,
 		TypeMap:             ctx.TypeMap,
 		CallEdges:           ctx.CallEdges,
+		ReferencedSymbols:   ctx.ReferencedSymbols,
 		AST:                 next,
 		TypeHint:            ctx.TypeHint,
 		InTypeInferenceMode: ctx.InTypeInferenceMode,

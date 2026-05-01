@@ -35,9 +35,10 @@ var _ = Describe("Diagnostic Locations", func() {
 		ctx := context.CreateRoot(bCtx, prog, nil)
 		analyzer.AnalyzeProgram(ctx)
 		Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-		Expect(*ctx.Diagnostics).To(HaveLen(1))
+		errs := ctx.Diagnostics.Errors()
+		Expect(errs).To(HaveLen(1))
 
-		diag := (*ctx.Diagnostics)[0]
+		diag := errs[0]
 		Expect(diag.Message).To(ContainSubstring(tc.expectedMsg))
 		if tc.expectedLine > 0 {
 			Expect(diag.Start.Line).To(Equal(tc.expectedLine))
@@ -283,15 +284,14 @@ func test() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(2))
 
-			diag := (*ctx.Diagnostics)[0]
-			Expect(diag.Message).To(ContainSubstring("undefined symbol: undefined1"))
-			Expect(diag.Start.Line).To(Equal(3))
+			Expect(errs[0].Message).To(ContainSubstring("undefined symbol: undefined1"))
+			Expect(errs[0].Start.Line).To(Equal(3))
 
-			diag2 := (*ctx.Diagnostics)[1]
-			Expect(diag2.Message).To(ContainSubstring("undefined symbol: undefined2"))
-			Expect(diag2.Start.Line).To(Equal(4))
+			Expect(errs[1].Message).To(ContainSubstring("undefined symbol: undefined2"))
+			Expect(errs[1].Start.Line).To(Equal(4))
 		})
 	})
 

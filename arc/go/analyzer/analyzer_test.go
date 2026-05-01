@@ -57,9 +57,9 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			diagnostic := (*ctx.Diagnostics)[0]
-			Expect(diagnostic.Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(Equal("name dog conflicts with existing symbol at line 2, col 4"))
 		})
 
 		It("Should allow variable declaration from a function parameter", func(bCtx SpecContext) {
@@ -286,8 +286,9 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined symbol: unknownFunc"))
 		})
 	})
 
@@ -640,7 +641,7 @@ var _ = Describe("Analyzer Integration", func() {
 					cycle_a()
 				}
 			`, chResolver)
-			for _, d := range *ctx.Diagnostics {
+			for _, d := range ctx.Diagnostics.Errors() {
 				Expect(d.Message).ToNot(ContainSubstring("wrapper"))
 			}
 		})
@@ -879,8 +880,9 @@ var _ = Describe("Analyzer Integration", func() {
 					a()
 				}
 			`, resolver)
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			msg := (*ctx.Diagnostics)[0].Message
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			msg := errs[0].Message
 			Expect(msg).To(ContainSubstring("circular function call"))
 			Expect(msg).To(ContainSubstring("a"))
 			Expect(msg).To(ContainSubstring("c"))
@@ -1153,9 +1155,10 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined1"))
-			Expect((*ctx.Diagnostics)[1].Message).To(ContainSubstring("undefined2"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(2))
+			Expect(errs[0].Message).To(ContainSubstring("undefined1"))
+			Expect(errs[1].Message).To(ContainSubstring("undefined2"))
 		})
 
 		It("Should not cascade undefined errors for poisoned symbols", func(bCtx SpecContext) {
@@ -1169,8 +1172,9 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no "undefined x" cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined_var"))
 		})
 
 		It("Should not cascade type errors when operands are Invalid", func(bCtx SpecContext) {
@@ -1184,8 +1188,9 @@ var _ = Describe("Analyzer Integration", func() {
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			// Only the original error - no type mismatch cascade
-			Expect(*ctx.Diagnostics).To(HaveLen(1))
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined_var"))
+			errs := ctx.Diagnostics.Errors()
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Message).To(ContainSubstring("undefined_var"))
 		})
 
 		It("Should report all errors in if/else branches", func(bCtx SpecContext) {
@@ -1201,7 +1206,7 @@ var _ = Describe("Analyzer Integration", func() {
 			ctx := context.CreateRoot(bCtx, prog, nil)
 			analyzer.AnalyzeProgram(ctx)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect(*ctx.Diagnostics).To(HaveLen(2))
+			Expect(ctx.Diagnostics.Errors()).To(HaveLen(2))
 		})
 	})
 })

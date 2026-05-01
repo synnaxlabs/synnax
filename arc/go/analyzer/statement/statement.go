@@ -1033,6 +1033,7 @@ func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return
 	}
+	ctx.MarkReferenced(varScope)
 
 	if varScope.Kind == symbol.KindLoopVariable {
 		ctx.Diagnostics.Add(diagnostics.Errorf(

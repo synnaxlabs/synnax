@@ -32,19 +32,24 @@ func analyzeProgram(bCtx SpecContext, src string, resolver symbol.Resolver) cont
 	return ctx
 }
 
-// analyzeExpectSuccess parses and analyzes code, asserting no diagnostics.
+// analyzeExpectSuccess parses and analyzes code, asserting no errors. Warnings
+// from passes orthogonal to the function analyzer (e.g., unused-declaration
+// warnings on helper functions declared purely as test fixtures) are ignored.
 func analyzeExpectSuccess(bCtx SpecContext, src string, resolver symbol.Resolver) context.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(bCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(BeEmpty(), ctx.Diagnostics.String())
+	ExpectWithOffset(1, ctx.Diagnostics.Errors()).To(BeEmpty(), ctx.Diagnostics.String())
 	return ctx
 }
 
-// analyzeExpectError parses and analyzes code, asserting a diagnostic error.
+// analyzeExpectError parses and analyzes code, asserting exactly one error
+// whose message matches msgMatcher. Warnings from passes orthogonal to the
+// function analyzer are ignored.
 func analyzeExpectError(bCtx SpecContext, src string, resolver symbol.Resolver, msgMatcher OmegaMatcher) context.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(bCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	errs := ctx.Diagnostics.Errors()
+	ExpectWithOffset(1, errs).To(HaveLen(1), ctx.Diagnostics.String())
+	ExpectWithOffset(1, errs[0].Message).To(msgMatcher)
+	ExpectWithOffset(1, errs[0].Severity).To(Equal(diagnostics.SeverityError))
 	return ctx
 }
 
@@ -192,8 +197,9 @@ var _ = Describe("Function Analyzer", func() {
 		Describe("error conditions", func() {
 			It("should fail on duplicate function names", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `func foo() {} func foo() {}`, nil)
-				Expect(*ctx.Diagnostics).To(HaveLen(1))
-				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("conflicts with existing symbol"))
+				errs := ctx.Diagnostics.Errors()
+				Expect(errs).To(HaveLen(1))
+				Expect(errs[0].Message).To(ContainSubstring("conflicts with existing symbol"))
 			})
 			It("should add functions to root scope", func(bCtx SpecContext) {
 				ctx := analyzeExpectSuccess(bCtx, `func outer() { } func inner() { }`, nil)
@@ -533,7 +539,7 @@ var _ = Describe("Function Analyzer", func() {
 						return ox_pt_1
 					}
 					func process() {
-						x := readSensor()
+						readSensor()
 					}
 				`, resolver)
 
@@ -918,8 +924,7 @@ var _ = Describe("Function Analyzer", func() {
 		Context("output assignment warnings", func() {
 			It("should warn when named output is never assigned", func(bCtx SpecContext) {
 				ctx := analyzeProgram(bCtx, `
-					func compute() (result f64) {
-						x := 42.0
+					func _compute() (result f64) {
 					}
 				`, nil)
 				Expect(*ctx.Diagnostics).To(HaveLen(1))
@@ -949,7 +954,6 @@ var _ = Describe("Function Analyzer", func() {
 				analyzeExpectSuccess(bCtx, `
 					func compute() (result f64) {
 						if (1 < 0) {
-							x := 1
 						} else if (1 > 0) {
 							result = 42.0
 						}
@@ -961,7 +965,6 @@ var _ = Describe("Function Analyzer", func() {
 				analyzeExpectSuccess(bCtx, `
 					func compute() (result f64) {
 						if (1 < 0) {
-							x := 1
 						} else {
 							result = 42.0
 						}

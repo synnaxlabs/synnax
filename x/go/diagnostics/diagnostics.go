@@ -58,6 +58,21 @@ type Note struct {
 	Start   Position `json:"start"`
 }
 
+// Tag is supplementary metadata about a diagnostic. Mirrors LSP's
+// DiagnosticTag: clients use it to render the diagnostic differently
+// (e.g., faded text for unnecessary code, strike-through for deprecated).
+type Tag int
+
+const (
+	// TagUnnecessary marks code that is unused or unnecessary. Clients
+	// typically render the range with reduced opacity instead of a
+	// warning squiggle.
+	TagUnnecessary Tag = 1
+	// TagDeprecated marks code that is deprecated. Clients typically
+	// render the range with strike-through.
+	TagDeprecated Tag = 2
+)
+
 // HintProvider is implemented by errors that include a hint for fixing the issue.
 type HintProvider interface {
 	GetHint() string
@@ -72,18 +87,34 @@ type Diagnostic struct {
 	Start    Position  `json:"start"`
 	End      Position  `json:"end"`
 	Notes    []Note    `json:"notes,omitempty"`
+	Tags     []Tag     `json:"tags,omitempty"`
 	// File identifies which source file this diagnostic belongs to. Used by
 	// multi-file analysis passes to route diagnostics to the correct LSP document.
 	File string `json:"file,omitempty"`
 }
 
-// SetRange sets the Start and End positions from an ANTLR parser rule context.
-func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
-	if ctx == nil {
+// SetRange sets the Start and End positions from an ANTLR parse tree node.
+// Accepts either a ParserRuleContext (full rule range) or a TerminalNode
+// (single-token range), so callers can narrow a diagnostic to just an
+// IDENTIFIER without going through its enclosing rule.
+func (d *Diagnostic) SetRange(node antlr.Tree) {
+	if node == nil {
 		return
 	}
-	start := ctx.GetStart()
-	stop := ctx.GetStop()
+	var start, stop antlr.Token
+	switch n := node.(type) {
+	case antlr.ParserRuleContext:
+		start = n.GetStart()
+		stop = n.GetStop()
+	case antlr.TerminalNode:
+		start = n.GetSymbol()
+		stop = start
+	default:
+		return
+	}
+	if start == nil {
+		return
+	}
 	d.Start = Position{Line: start.GetLine(), Col: start.GetColumn()}
 	if stop != nil {
 		d.End = Position{Line: stop.GetLine(), Col: stop.GetColumn() + len(stop.GetText())}
@@ -94,9 +125,9 @@ func (d *Diagnostic) SetRange(ctx antlr.ParserRuleContext) {
 
 // Error creates an error diagnostic from an existing error. If the error implements
 // HintProvider, the hint is automatically extracted and added as a note.
-func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
+func Error(err error, node antlr.Tree) Diagnostic {
 	d := Diagnostic{Severity: SeverityError, Message: err.Error()}
-	d.SetRange(ctx)
+	d.SetRange(node)
 	if hp, ok := err.(HintProvider); ok {
 		if hint := hp.GetHint(); hint != "" {
 			d.Notes = append(d.Notes, Note{Message: hint})
@@ -106,30 +137,30 @@ func Error(err error, ctx antlr.ParserRuleContext) Diagnostic {
 }
 
 // Errorf creates an error diagnostic with a formatted message.
-func Errorf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+func Errorf(node antlr.Tree, format string, args ...any) Diagnostic {
 	d := Diagnostic{Severity: SeverityError, Message: fmt.Sprintf(format, args...)}
-	d.SetRange(ctx)
+	d.SetRange(node)
 	return d
 }
 
 // Warningf creates a warning diagnostic with a formatted message.
-func Warningf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+func Warningf(node antlr.Tree, format string, args ...any) Diagnostic {
 	d := Diagnostic{Severity: SeverityWarning, Message: fmt.Sprintf(format, args...)}
-	d.SetRange(ctx)
+	d.SetRange(node)
 	return d
 }
 
 // Infof creates an info diagnostic with a formatted message.
-func Infof(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+func Infof(node antlr.Tree, format string, args ...any) Diagnostic {
 	d := Diagnostic{Severity: SeverityInfo, Message: fmt.Sprintf(format, args...)}
-	d.SetRange(ctx)
+	d.SetRange(node)
 	return d
 }
 
 // Hintf creates a hint diagnostic with a formatted message.
-func Hintf(ctx antlr.ParserRuleContext, format string, args ...any) Diagnostic {
+func Hintf(node antlr.Tree, format string, args ...any) Diagnostic {
 	d := Diagnostic{Severity: SeverityHint, Message: fmt.Sprintf(format, args...)}
-	d.SetRange(ctx)
+	d.SetRange(node)
 	return d
 }
 
@@ -152,6 +183,14 @@ func (d Diagnostic) WithNoteAt(note string, pos Position) Diagnostic {
 	if note != "" {
 		d.Notes = append(d.Notes, Note{Message: note, Start: pos})
 	}
+	return d
+}
+
+// WithTags returns a copy of the diagnostic with the given tags appended.
+// Tags are surfaced over LSP so clients can render the diagnostic
+// differently (e.g., faded text for TagUnnecessary).
+func (d Diagnostic) WithTags(tags ...Tag) Diagnostic {
+	d.Tags = append(d.Tags, tags...)
 	return d
 }
 

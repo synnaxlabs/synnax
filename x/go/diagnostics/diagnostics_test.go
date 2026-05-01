@@ -431,4 +431,46 @@ var _ = Describe("Diagnostics", func() {
 			Expect(d[0].Notes).To(BeEmpty())
 		})
 	})
+
+	Describe("Tags", func() {
+		It("Should attach a single tag via WithTags", func() {
+			d := diagnostics.Warningf(nil, "unused").WithTags(diagnostics.TagUnnecessary)
+			Expect(d.Tags).To(Equal([]diagnostics.Tag{diagnostics.TagUnnecessary}))
+		})
+
+		It("Should attach multiple tags in a single call", func() {
+			d := diagnostics.Warningf(nil, "unused deprecated").
+				WithTags(diagnostics.TagUnnecessary, diagnostics.TagDeprecated)
+			Expect(d.Tags).To(Equal([]diagnostics.Tag{
+				diagnostics.TagUnnecessary,
+				diagnostics.TagDeprecated,
+			}))
+		})
+
+		It("Should append tags across multiple WithTags calls", func() {
+			d := diagnostics.Warningf(nil, "x").
+				WithTags(diagnostics.TagUnnecessary).
+				WithTags(diagnostics.TagDeprecated)
+			Expect(d.Tags).To(Equal([]diagnostics.Tag{
+				diagnostics.TagUnnecessary,
+				diagnostics.TagDeprecated,
+			}))
+		})
+
+		It("Should leave Tags nil when WithTags is not called", func() {
+			d := diagnostics.Warningf(nil, "x")
+			Expect(d.Tags).To(BeNil())
+		})
+
+		It("Should be a value-style builder that does not mutate the receiver", func() {
+			base := diagnostics.Warningf(nil, "x")
+			tagged := base.WithTags(diagnostics.TagUnnecessary)
+			Expect(base.Tags).To(BeNil())
+			Expect(tagged.Tags).To(HaveLen(1))
+		})
+
+		It("Should expose distinct values for TagUnnecessary and TagDeprecated", func() {
+			Expect(diagnostics.TagUnnecessary).ToNot(Equal(diagnostics.TagDeprecated))
+		})
+	})
 })

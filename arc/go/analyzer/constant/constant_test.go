@@ -35,16 +35,21 @@ func analyzeProgram(
 	return ctx
 }
 
+// analyzeExpectSuccess parses and analyzes code, asserting no errors. Warnings
+// from passes orthogonal to the constant analyzer (e.g., unused-declaration
+// warnings on constants declared purely as test fixtures) are ignored.
 func analyzeExpectSuccess(
 	specCtx context.Context,
 	src string,
 	resolver symbol.Resolver,
 ) acontext.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(specCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(BeEmpty(), ctx.Diagnostics.String())
+	ExpectWithOffset(1, ctx.Diagnostics.Errors()).To(BeEmpty(), ctx.Diagnostics.String())
 	return ctx
 }
 
+// analyzeExpectError parses and analyzes code, asserting exactly one error
+// whose message matches msgMatcher.
 func analyzeExpectError(
 	specCtx context.Context,
 	src string,
@@ -52,9 +57,10 @@ func analyzeExpectError(
 	msgMatcher OmegaMatcher,
 ) acontext.Context[parser.IProgramContext] {
 	ctx := analyzeProgram(specCtx, src, resolver)
-	ExpectWithOffset(1, *ctx.Diagnostics).To(HaveLen(1))
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Message).To(msgMatcher)
-	ExpectWithOffset(1, (*ctx.Diagnostics)[0].Severity).To(Equal(diagnostics.SeverityError))
+	errs := ctx.Diagnostics.Errors()
+	ExpectWithOffset(1, errs).To(HaveLen(1), ctx.Diagnostics.String())
+	ExpectWithOffset(1, errs[0].Message).To(msgMatcher)
+	ExpectWithOffset(1, errs[0].Severity).To(Equal(diagnostics.SeverityError))
 	return ctx
 }
 
@@ -126,7 +132,7 @@ var _ = Describe("Global Constant Analyzer", func() {
 			It("should coexist with functions", func(specCtx SpecContext) {
 				ctx := analyzeExpectSuccess(specCtx, `
 					MAX := 100
-					func foo() {}
+					func _foo() {}
 				`, nil)
 				Expect(ctx.Scope.Children).To(HaveLen(2))
 				consts := ctx.Scope.FilterChildrenByKind(symbol.KindGlobalConstant)
@@ -193,36 +199,36 @@ var _ = Describe("Global Constant Analyzer", func() {
 		It("should resolve constant in function body", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				MAX := 100
-				func check(x i64) i64 {
+				func _check(x i64) i64 {
 					return x + MAX
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 
 		It("should use constant in expression", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				PI := 3.14159
-				func area(r f64) f64 {
+				func _area(r f64) f64 {
 					return r * r * PI
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "area"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_area"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 
 		It("should allow constant in condition", func(specCtx SpecContext) {
 			ctx := analyzeExpectSuccess(specCtx, `
 				THRESHOLD := 100
-				func check(x i64) i64 {
+				func _check(x i64) i64 {
 					if (x > THRESHOLD) {
 						return 1
 					}
 					return 0
 				}
 			`, nil)
-			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "check"))
+			funcScope := MustSucceed(ctx.Scope.Resolve(ctx, "_check"))
 			Expect(funcScope.Kind).To(Equal(symbol.KindFunction))
 		})
 	})

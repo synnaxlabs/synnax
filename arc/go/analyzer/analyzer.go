@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/function"
 	"github.com/synnaxlabs/arc/analyzer/sequence"
 	"github.com/synnaxlabs/arc/analyzer/statement"
+	"github.com/synnaxlabs/arc/analyzer/unused"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -43,6 +44,7 @@ func AnalyzeProgram(ctx acontext.Context[parser.IProgramContext]) {
 		applyTypeSubstitutionsToSymbols(ctx, ctx.Scope)
 		substituteTypeMap(ctx)
 	}
+	unused.Analyze(ctx)
 }
 
 func substituteTypeMap(ctx acontext.Context[parser.IProgramContext]) {

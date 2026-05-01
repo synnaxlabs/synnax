@@ -23,6 +23,19 @@ import (
 	"github.com/synnaxlabs/x/observe"
 )
 
+// errorDiags returns only the Error-severity entries in a diagnostic slice.
+// Tests that assert on a specific error's properties use this to avoid
+// coupling to unrelated warnings from the analyzer's lint passes.
+func errorDiags(ds []protocol.Diagnostic) []protocol.Diagnostic {
+	var out []protocol.Diagnostic
+	for _, d := range ds {
+		if d.Severity == protocol.DiagnosticSeverityError {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 var _ = Describe("Server Diagnostics", func() {
 	var (
 		server *lsp.Server
@@ -36,7 +49,7 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Range", func() {
 		It("Should publish diagnostics with correct end position for undefined symbol", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := undefined_var\n}")
+			OpenArcDocument(server, ctx, uri, "func _test() {\n\tx := undefined_var\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			diag := client.Diagnostics()[0]
@@ -48,7 +61,7 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with correct end position for short identifier", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := y\n}")
+			OpenArcDocument(server, ctx, uri, "func _test() {\n\tx := y\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			diag := client.Diagnostics()[0]
@@ -60,7 +73,7 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should publish diagnostics with fallback end position when no stop token", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() i32 {\n\tx := 1\n}")
+			OpenArcDocument(server, ctx, uri, "func _test() i32 {\n\t_x := 1\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			diag := client.Diagnostics()[0]
@@ -70,7 +83,7 @@ var _ = Describe("Server Diagnostics", func() {
 		})
 
 		It("Should handle multiple diagnostics with correct ranges", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n\ta := undefined1\n\tb := undefined2\n}")
+			OpenArcDocument(server, ctx, uri, "func _test() {\n\ta := undefined1\n\tb := undefined2\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(2))
 
@@ -100,7 +113,7 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Severity", func() {
 		It("Should set correct severity for errors", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}")
+			OpenArcDocument(server, ctx, uri, "func _test() {\n\tx := undefined\n}")
 
 			Expect(client.Diagnostics()).To(HaveLen(1))
 			Expect(client.Diagnostics()[0].Severity).To(Equal(protocol.DiagnosticSeverityError))
@@ -109,27 +122,30 @@ var _ = Describe("Server Diagnostics", func() {
 
 	Describe("Diagnostic Error Codes", func() {
 		It("Should include error code for function argument count mismatch", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc _test() { _z := add(1) }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3001"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Code).To(Equal("ARC3001"))
 		})
 
 		It("Should include error code for function argument type mismatch", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc test() { z := process(\"hello\") }")
+			OpenArcDocument(server, ctx, uri, "func process(x i32) i32 { return x }\nfunc _test() { _z := process(\"hello\") }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].Code).To(Equal("ARC3002"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].Code).To(Equal("ARC3002"))
 		})
 	})
 
 	Describe("Diagnostic Related Information", func() {
 		It("Should include function signature in related information for argument errors", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc test() { z := add(1) }")
+			OpenArcDocument(server, ctx, uri, "func add(x i64, y i64) i64 { return x + y }\nfunc _test() { _z := add(1) }")
 
-			Expect(client.Diagnostics()).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].RelatedInformation).To(HaveLen(1))
-			Expect(client.Diagnostics()[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
+			errs := errorDiags(client.Diagnostics())
+			Expect(errs).To(HaveLen(1))
+			Expect(errs[0].RelatedInformation).To(HaveLen(1))
+			Expect(errs[0].RelatedInformation[0].Message).To(ContainSubstring("add(x i64, y i64) i64"))
 		})
 	})
 })
@@ -149,10 +165,10 @@ var _ = Describe("Debounced Diagnostics", func() {
 	})
 
 	It("Should publish diagnostics after debounce delay", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func _test() {}")
 		baseline := client.PublishCount()
 
-		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
+		ChangeDocument(server, ctx, uri, "func _test() {\n\tx := undefined\n}", 2)
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
 		Expect(client.Diagnostics()).To(HaveLen(1))
@@ -160,11 +176,11 @@ var _ = Describe("Debounced Diagnostics", func() {
 	})
 
 	It("Should coalesce rapid changes into a single publish", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func _test() {}")
 		baseline := client.PublishCount()
 
 		for i := 2; i <= 6; i++ {
-			ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", int32(i))
+			ChangeDocument(server, ctx, uri, "func _test() {\n\tx := undefined\n}", int32(i))
 		}
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
@@ -174,10 +190,10 @@ var _ = Describe("Debounced Diagnostics", func() {
 	})
 
 	It("Should force-flush on DidSave", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func _test() {}")
 		baseline := client.PublishCount()
 
-		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
+		ChangeDocument(server, ctx, uri, "func _test() {\n\tx := undefined\n}", 2)
 		// Immediately save - should flush without waiting for debounce
 		Expect(server.DidSave(ctx, &protocol.DidSaveTextDocumentParams{
 			TextDocument: protocol.TextDocumentIdentifier{URI: uri},
@@ -188,7 +204,7 @@ var _ = Describe("Debounced Diagnostics", func() {
 	})
 
 	It("Should refresh semantic tokens after debounced analysis", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func _test() {}")
 		baseline := client.SemanticRefreshCount()
 
 		ChangeDocument(server, ctx, uri, "func dog() {}", 2)
@@ -197,12 +213,12 @@ var _ = Describe("Debounced Diagnostics", func() {
 	})
 
 	It("Should cancel stale analysis when new change arrives", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {}")
+		OpenArcDocument(server, ctx, uri, "func _test() {}")
 		baseline := client.PublishCount()
 
 		// Send invalid code, then quickly send valid code
-		ChangeDocument(server, ctx, uri, "func test() {\n\tx := undefined\n}", 2)
-		ChangeDocument(server, ctx, uri, "func test() {\n\tx := 42\n}", 3)
+		ChangeDocument(server, ctx, uri, "func _test() {\n\tx := undefined\n}", 2)
+		ChangeDocument(server, ctx, uri, "func _test() {\n\t_x := 42\n}", 3)
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
 		time.Sleep(50 * time.Millisecond)
@@ -226,7 +242,7 @@ var _ = Describe("Incremental Sync", func() {
 	})
 
 	It("Should apply incremental changes correctly", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 42\n}")
+		OpenArcDocument(server, ctx, uri, "func _test() {\n\tx := 42\n}")
 		baseline := client.PublishCount()
 
 		// Send an incremental change: replace "42" with "undefined"
@@ -253,7 +269,7 @@ var _ = Describe("Incremental Sync", func() {
 	})
 
 	It("Should not treat a newline insertion at position (0,0) as a full replacement", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := 42\n}")
+		OpenArcDocument(server, ctx, uri, "func _test() {\n\t_x := 42\n}")
 		Expect(client.Diagnostics()).To(BeEmpty())
 		baseline := client.PublishCount()
 
@@ -279,7 +295,7 @@ var _ = Describe("Incremental Sync", func() {
 		})).To(Succeed())
 
 		Expect(client.WaitForDiagnostics(baseline, 500*time.Millisecond)).To(BeTrue())
-		// The document should now be "\nfunc test() {\n\tx := 42\n}".
+		// The document should now be "\nfunc _test() {\n\tx := 42\n}".
 		// If IsFullReplacement incorrectly fires, it becomes just "\n"
 		// and semantic tokens will be empty.
 		tokens := SemanticTokens(server, ctx, uri)
@@ -341,7 +357,7 @@ var _ = Describe("External Change Notifications", func() {
 	})
 
 	It("Should republish diagnostics when external state changes", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		OpenArcDocument(server, ctx, uri, "func _test() {\n\t_x := my_channel\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		Expect(client.Diagnostics()[0].Message).To(ContainSubstring("undefined symbol: my_channel"))
 		resolver["my_channel"] = symbol.Symbol{
@@ -354,7 +370,7 @@ var _ = Describe("External Change Notifications", func() {
 	})
 
 	It("Should refresh semantic tokens when external state changes", func(ctx SpecContext) {
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := my_channel\n}")
+		OpenArcDocument(server, ctx, uri, "func _test() {\n\tx := my_channel\n}")
 		baseline := client.SemanticRefreshCount()
 
 		resolver["my_channel"] = symbol.Symbol{
@@ -373,7 +389,7 @@ var _ = Describe("External Change Notifications", func() {
 			Kind: symbol.KindChannel,
 			Type: types.Chan(types.F64()),
 		}
-		OpenArcDocument(server, ctx, uri, "func test() {\n\tx := sensor\n}")
+		OpenArcDocument(server, ctx, uri, "func _test() {\n\t_x := sensor\n}")
 		Expect(client.Diagnostics()).To(BeEmpty())
 		delete(resolver, "sensor")
 		observer.Notify(ctx, struct{}{})
@@ -383,8 +399,8 @@ var _ = Describe("External Change Notifications", func() {
 
 	It("Should republish diagnostics for multiple open documents", func(ctx SpecContext) {
 		uri2 := protocol.DocumentURI("file:///test2.arc")
-		OpenArcDocument(server, ctx, uri, "func test1() {\n\tx := channel_a\n}")
-		OpenArcDocument(server, ctx, uri2, "func test2() {\n\ty := channel_b\n}")
+		OpenArcDocument(server, ctx, uri, "func _test1() {\n\t_x := channel_a\n}")
+		OpenArcDocument(server, ctx, uri2, "func _test2() {\n\t_y := channel_b\n}")
 		Expect(client.Diagnostics()).To(HaveLen(1))
 		resolver["channel_a"] = symbol.Symbol{
 			Name: "channel_a",

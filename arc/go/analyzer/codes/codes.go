@@ -12,6 +12,7 @@
 //   - Category 2xxx: Type system errors
 //   - Category 3xxx: Function-related errors
 //   - Category 4xxx: Symbol/scope errors
+//   - Category 5xxx: Unused / unreachable code (warnings)
 package codes
 
 import "github.com/synnaxlabs/x/diagnostics"
@@ -31,4 +32,29 @@ const (
 	SymbolUndefined diagnostics.ErrorCode = "ARC4001"
 	// SymbolRedefined indicates a symbol was declared more than once in the same scope.
 	SymbolRedefined diagnostics.ErrorCode = "ARC4002"
+
+	// UnusedVariable indicates a local or stateful variable (including a channel alias)
+	// was declared but never referenced. Prefix the name with an underscore to suppress.
+	UnusedVariable diagnostics.ErrorCode = "ARC5101"
+	// UncalledFunction indicates a function was declared but never invoked from any
+	// call site (flow statement, stage body, routing table, or function-body
+	// expression). Prefix the name with an underscore to suppress.
+	UncalledFunction diagnostics.ErrorCode = "ARC5102"
+	// UnusedGlobalConstant indicates a top-level constant was declared but never
+	// referenced from any expression. Prefix the name with an underscore to suppress.
+	UnusedGlobalConstant diagnostics.ErrorCode = "ARC5103"
+
+	// UnreachableStage indicates a stage inside a reachable sequence that has no
+	// incoming `=>` transition and is not the sequence's entry stage. Prefix the
+	// stage name with an underscore to suppress.
+	UnreachableStage diagnostics.ErrorCode = "ARC5201"
+	// UnstartedSequence indicates a named sequence that is never activated by any
+	// reachable `=>` transition. Prefix the sequence name with an underscore to
+	// suppress.
+	UnstartedSequence diagnostics.ErrorCode = "ARC5202"
+	// UnreachableCode indicates a statement appears after an earlier statement in
+	// the same block that always returns, so it can never execute. Applies only
+	// inside function bodies; stage bodies are reactive parallel flows, not
+	// sequential statements.
+	UnreachableCode diagnostics.ErrorCode = "ARC5203"
 )
