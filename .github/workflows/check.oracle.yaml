@@ -21,6 +21,7 @@ on:
       - "**/*.proto"
       - licenses/headers/**
       - .clang-format
+      - scripts/install_clang_format.sh
       - buf.gen.yaml
       - buf.yaml
       - eslint.config.ts
@@ -39,6 +40,7 @@ on:
       - "**/*.proto"
       - licenses/headers/**
       - .clang-format
+      - scripts/install_clang_format.sh
       - buf.gen.yaml
       - buf.yaml
       - eslint.config.ts
@@ -107,15 +109,10 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install clang-format
-        # Pinned to clang-format-18 so the generated gate is
-        # deterministic. Different major versions wrap function
-        # signatures differently and produce noisy false-positive drift.
-        # Keep this in sync with the version local devs run.
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y clang-format-18
-          sudo update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-18 100
-          clang-format --version
+        # Uses the team-standard install script (pins clang-format-22)
+        # so this workflow stays in lockstep with test.arc /
+        # test.freighter.cpp / test.client / etc.
+        run: scripts/install_clang_format.sh
 
       - name: Install workspace dependencies
         run: pnpm install --frozen-lockfile
