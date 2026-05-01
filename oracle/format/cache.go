@@ -121,6 +121,19 @@ func (c *Cache) PutStamp(key, value string) {
 	c.data.Stamps[key] = value
 }
 
+// RawKeys returns the repo-relative paths of every cached raw entry.
+// Used by check.OrphanGate to compare cached entries against the current
+// run's produced set; not used during normal sync.
+func (c *Cache) RawKeys() []string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	keys := make([]string, 0, len(c.data.Hashes))
+	for k := range c.data.Hashes {
+		keys = append(keys, k)
+	}
+	return keys
+}
+
 // PruneRawTo drops every raw-content entry whose key is not in keep.
 // This removes stale entries for files that are no longer generated.
 func (c *Cache) PruneRawTo(keep set.Set[string]) {

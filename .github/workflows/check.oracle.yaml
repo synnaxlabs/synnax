@@ -1,0 +1,136 @@
+name: Check - Oracle
+
+# Runs `oracle check` against the repository to gate every PR on:
+#   - schemas being canonically formatted
+#   - schemas passing semantic analysis
+#   - on-disk generated outputs matching what `oracle sync` would produce
+#   - no orphaned generated files
+#   - sync cache being internally consistent
+#
+# The job triggers on any change that could legitimately produce drift:
+#   schemas, oracle source, plugin source, formatter configs, the workflow
+#   itself. Pure docs/code changes outside these paths skip the job.
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/check.oracle.yaml
+      - oracle/**
+      - schemas/**
+      - "**/*.gen.*"
+      - "**/*.proto"
+      - licenses/headers/**
+      - .clang-format
+      - buf.gen.yaml
+      - buf.yaml
+      - eslint.config.ts
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pyproject.toml
+  push:
+    branches:
+      - main
+      - rc
+    paths:
+      - .github/workflows/check.oracle.yaml
+      - oracle/**
+      - schemas/**
+      - "**/*.gen.*"
+      - "**/*.proto"
+      - licenses/headers/**
+      - .clang-format
+      - buf.gen.yaml
+      - buf.yaml
+      - eslint.config.ts
+      - pnpm-lock.yaml
+      - pnpm-workspace.yaml
+      - pyproject.toml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: check-oracle-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: oracle check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # The full formatter chain runs during the `generated` gate, so we
+      # need every formatter the chain dispatches: gofmt (Go),
+      # clang-format (C++), prettier + eslint (TS), ruff (Python),
+      # buf (Proto). Each setup step lives in the same shape across other
+      # workflows so this is the canonical superset.
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: oracle/go.mod
+          cache-dependency-path: |
+            oracle/go.mod
+            oracle/go.sum
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v5
+
+      - name: Set up Node
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: package.json
+          cache: pnpm
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: pyproject.toml
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v8.1.0
+        with:
+          enable-cache: true
+
+      - name: Set up buf
+        uses: bufbuild/buf-setup-action@v1
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+
+      - name: Install workspace dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Python dependencies
+        run: uv sync
+
+      - name: Build oracle
+        working-directory: oracle
+        run: go build -o ../oracle-bin .
+
+      - name: Run oracle check
+        id: check
+        # The exit code carries the specific gate that failed (10 format,
+        # 11 analyze, 12 generated, 13 orphans, 14 cache; contract in
+        # oracle/check/check.go). The text findings in the log point at
+        # the exact files; we also archive a JSON report on failure so
+        # consumers can post-process it.
+        run: ./oracle-bin check --diff
+
+      - name: Generate JSON report on failure
+        if: failure() && steps.check.conclusion == 'failure'
+        run: ./oracle-bin check --format=json > oracle-check.json || true
+
+      - name: Archive JSON report
+        if: failure() && steps.check.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: oracle-check-report
+          path: oracle-check.json
+          if-no-files-found: ignore

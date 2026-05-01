@@ -51,11 +51,19 @@ func NewRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// Execute runs the root command.
+// Execute runs the root command. Commands that fail with an
+// exitCodeError are routed to that specific exit code so CI consumers
+// can attribute failures (e.g. `oracle check` returns 12 on generated
+// drift). Every other failure exits with 1.
 func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
-		os.Exit(1)
+	err := NewRootCmd().Execute()
+	if err == nil {
+		return
 	}
+	if ec, ok := err.(*exitCodeError); ok {
+		os.Exit(ec.code)
+	}
+	os.Exit(1)
 }
 
 func initConfig() {
