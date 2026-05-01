@@ -395,16 +395,16 @@ const MultiElementProperties = ({
         <Input.Item label="Align">
           <Flex.Box x>
             <Button.Button
-              tooltip="Align symbols vertically"
-              onClick={() => handleAlignAlongDirection("x")}
-            >
-              <Icon.Align.YCenter />
-            </Button.Button>
-            <Button.Button
               tooltip="Align symbols horizontally"
               onClick={() => handleAlignAlongDirection("y")}
             >
               <Icon.Align.XCenter />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols vertically"
+              onClick={() => handleAlignAlongDirection("x")}
+            >
+              <Icon.Align.YCenter />
             </Button.Button>
             <Divider.Divider direction="y" />
             <Button.Button
