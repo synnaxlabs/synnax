@@ -362,14 +362,12 @@ var _ = Describe("Select", func() {
 			Expect(sym.Name).To(Equal("select"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
-		It("Should resolve qualified selector.select symbol", func(ctx SpecContext) {
-			sym := MustSucceed(selector.SymbolResolver.Resolve(ctx, "selector.select"))
-			Expect(sym.Name).To(Equal("select"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+		It("Should not resolve qualified selector.select symbol", func(ctx SpecContext) {
+			Expect(selector.SymbolResolver.Resolve(ctx, "selector.select")).Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 	Describe("Factory", func() {
-		It("Should create node for selector.select via CompoundFactory", func(ctx SpecContext) {
+		It("Should create node for bare select via CompoundFactory", func(ctx SpecContext) {
 			g := graph.Graph{
 				Nodes: []graph.Node{
 					{Key: "source", Type: "source"},
@@ -405,7 +403,7 @@ var _ = Describe("Select", func() {
 			s := node.New(analyzed)
 			compound := node.CompoundFactory{selector.NewModule()}
 			cfg := node.Config{
-				Node:  ir.Node{Key: "select", Type: "selector.select"},
+				Node:  ir.Node{Key: "select", Type: "select"},
 				State: s.Node("select"),
 			}
 			n := MustSucceed(compound.Create(ctx, cfg))

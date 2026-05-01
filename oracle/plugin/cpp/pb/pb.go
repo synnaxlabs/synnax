@@ -16,7 +16,6 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	"github.com/synnaxlabs/oracle/plugin/domain"
@@ -31,8 +30,7 @@ import (
 type Plugin struct{ Options Options }
 
 type Options struct {
-	FileNamePattern  string
-	DisableFormatter bool
+	FileNamePattern string
 }
 
 func DefaultOptions() Options {
@@ -50,18 +48,6 @@ func (p *Plugin) Domains() []string { return []string{"cpp", "pb"} }
 func (p *Plugin) Requires() []string { return []string{"cpp/types", "pb/types"} }
 
 func (p *Plugin) Check(*plugin.Request) error { return nil }
-
-var cppPostWriter = &exec.PostWriter{
-	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
-	Commands:   [][]string{{"clang-format", "-i"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter {
-		return nil
-	}
-	return cppPostWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}
