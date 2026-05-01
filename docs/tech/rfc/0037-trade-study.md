@@ -24,14 +24,16 @@ record-update, lenses) replacing optional-field dispatch. It recommends a path f
 omitted fields preserve. If the name doesn't exist, create.
 
 ```go
-// WASM
-status.set("Pressure Alert")                                       // touch
-status.set("Pressure Alert", variant: "error")                     // partial
-status.set("Pressure Alert", message: "High Pressure")             // partial
-status.set("Pressure Alert", message: "High", variant: "error")    // full
+// WASM (positional only; see RFC §4.0)
+status.set("Pressure Alert")                                  // touch
+status.set("Pressure Alert", "High Pressure")                 // partial (message only)
+status.set("Pressure Alert", "High Pressure", "error")        // full
+// variant-only is not expressible in WASM today (no skip-middle, no name=value
+// inside parens); use the Flow form below.
 
 // Flow
 trigger -> status.set{identifier="Pressure Alert", message="High Pressure"}
+trigger -> status.set{identifier="Pressure Alert", variant="error"}
 trigger -> status.set{identifier="Pressure Alert"}
 ```
 

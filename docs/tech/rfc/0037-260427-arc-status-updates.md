@@ -186,6 +186,34 @@ anywhere the caller wants to record that the status's condition is current witho
 changing what it says. On the first call for a name that does not yet exist, the same
 shape registers the status with default message and variant.
 
+**WASM positional constraint:**
+
+Arc's WASM call form is strictly positional today: a caller can omit _trailing_ optional
+arguments, but cannot skip a middle one, and cannot use `name = value` syntax inside
+`(...)`. This is a pre-existing language-wide property, not something this RFC
+introduces. It is enforced at three layers:
+
+- Parser ([arc/parser/ArcParser.g4](../../../arc/parser/ArcParser.g4)): `argumentList`
+  accepts bare expressions only; `name = value` is reserved for Flow-form curly-brace
+  config (`namedConfigValues`).
+- Analyzer ([arc/go/analyzer/expression.go](../../../arc/go/analyzer/expression.go)):
+  `validateFunctionCall` matches arguments by positional index, with no name lookup.
+- Compiler ([arc/go/compiler/compiler.go](../../../arc/go/compiler/compiler.go)):
+  `compileFunctionCallExpr` only fills trailing defaults (positions `actualCount`
+  through `totalCount-1`).
+
+With the parameter order `(identifier, message?, variant?)`, this means
+`set(identifier)` and `set(identifier, message)` work as expected, but a WASM caller
+cannot express a variant-only update. The Flow form covers this case via named config:
+`trigger -> status.set{identifier="Pressure Check", variant="error"}`.
+
+**Future Arc work:** Adding `name = value` syntax to `argumentList` would let WASM
+callers express variant-only updates as `status.set("Pressure Check", variant="error")`,
+with no change to the `status.set` symbol's type signature. That change is cross-cutting
+Arc compiler work (parser, analyzer, compiler) and is out of scope for this RFC.
+Status's design here is forward-compatible: when the language gains the syntax, the gap
+closes for free.
+
 **Resolution logic:**
 
 1. `uuid.Parse(identifier)`.
@@ -445,12 +473,13 @@ caller omits an optional argument at the Arc call site, the compiler emits handl
 that position. The host function preserves the corresponding existing field on update,
 or substitutes a literal default (`""` for message, `"info"` for variant) on create.
 
-The host function composes existing and new methods on the status service rather than
-opening retrieve/write transactions directly. The by-key path delegates to a new
-`Writer[D].Update` method (see Section 5.5) which wraps `gorp.NewUpdate` and handles the
-retrieve-modify-write atomically. The by-name path resolves the name to a key via
-`Retrieve.WhereNames` (Section 5.4) and dispatches to `Update` on a match or `Set` on a
-miss.
+The host function composes service-level methods rather than opening retrieve/write
+transactions directly. The by-key path delegates to a new `Writer[D].Update` method
+(Section 5.5) which wraps `gorp.NewUpdate` and handles the retrieve-modify-write
+atomically. The by-name path delegates to a new `Writer[D].UpsertByName` method (Section
+5.5) which scopes the retrieve and the subsequent update or create inside a single gorp
+transaction, matching the channel service's pattern for analogous name-uniqueness checks
+(see "Concurrency on by-name create" below).
 
 ```go
 func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32) uint32 {
@@ -484,35 +513,17 @@ func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32)
         return strings.Create(identifier)
     }
 
-    // By-name path: resolve name → key, then update existing or create new.
-    var matches []status.Status[any]
-    if err := statusSvc.NewRetrieve().
-        WhereNames(identifier).Entries(&matches).Exec(ctx, nil); err != nil {
-        reportError(ctx, err)
-        return 0
-    }
-    if len(matches) > 1 {
+    // By-name path: retrieve and update-or-create are scoped inside a single tx.
+    key, err := statusSvc.NewWriter(nil).UpsertByName(ctx, identifier, overlay)
+    if errors.Is(err, errMultipleMatches) {
         reportError(ctx, "multiple statuses named '%s'", identifier)
         return 0
     }
-    if len(matches) == 1 {
-        if err := statusSvc.NewWriter(nil).Update(ctx, matches[0].Key, overlay); err != nil {
-            reportError(ctx, err)
-            return 0
-        }
-        return strings.Create(matches[0].Key)
-    }
-    // Create new with literal defaults; overlay applies supplied fields and refreshes time.
-    stat := status.Status[any]{Name: identifier, Variant: "info", Message: ""}
-    if err := overlay(&stat); err != nil {
+    if err != nil {
         reportError(ctx, err)
         return 0
     }
-    if err := statusSvc.NewWriter(nil).Set(ctx, &stat); err != nil {
-        reportError(ctx, err)
-        return 0
-    }
-    return strings.Create(stat.Key)
+    return strings.Create(key)
 }
 ```
 
@@ -521,6 +532,33 @@ re-persists the row to refresh its `time` field. This is the "touch" path that
 `set(identifier)` with no other arguments produces against an existing status. When the
 same shape hits the create branch, the row is persisted with default message and
 variant: this is the first-call "register on touch" path.
+
+**Concurrency on by-name create:**
+
+The by-name path's retrieve-then-create sequence races: two concurrent
+`set("Pressure Check", ...)` callers can both observe zero matches under `WhereNames`
+and both proceed to create distinct rows with the same `Name`. The result is two rows
+sharing the name; subsequent name-based `set` and `delete` calls hit the multi-match
+branch on each invocation.
+
+I think the right resolution here follows the established pattern the channel service
+already uses for the analogous name-uniqueness check on create
+([`validateChannelNames` in core/pkg/distribution/channel/lease_proxy.go](../../../core/pkg/distribution/channel/lease_proxy.go)):
+wrap the by-name retrieve and the subsequent update or create in a single gorp
+transaction, so the two operations are atomic with respect to other callers on the same
+node. Section 5.5 introduces an `UpsertByName` method on `Writer[D]` that encapsulates
+this scoping; the host function in 5.2.1 dispatches to it on the by-name path. This
+serializes concurrent callers on one node through the transaction's commit ordering,
+matching the guarantee level the channel service provides today.
+
+The cross-node case is not eliminated by per-node transactions: `gorp.Tx` is bound to
+the local node's lease holders, and Aspen does not provide CAS or distributed locks
+across leaseholders, so two callers on different nodes can still both observe zero
+matches and both commit. The existing multi-match handling (Section 5.3.0) is the
+recovery path for that residual case: subsequent `set` calls return an error-level task
+status and handle 0, and `delete` removes all matching rows in one call and emits an
+info-level status with the count. Operators recover by deleting the duplicates by name
+and re-creating the status fresh.
 
 ### 5.2.2 - Delete Host Function
 
@@ -631,15 +669,18 @@ key path hits one query (`WhereKeys`) and returns an error on `gorp.ErrNotFound`
 than falling through to a name scan. Status tables are expected to contain at most
 hundreds of entries in typical deployments, so the name scan is acceptable.
 
-## 5.5 - Status Service Update Method
+## 5.5 - Status Service Methods for Upsert
 
 The current status service in
 [core/pkg/service/status/writer.go](../../../core/pkg/service/status/writer.go) exposes
 `Set` (which already does upsert-by-key via `gorp.NewCreate[...].Entry(s)`), `Delete`,
-and their multi-row variants, but no `Update`. The host function in 5.2.1 needs an
-atomic retrieve-modify-write for the by-key path; rather than open-coding that pattern
-in the host function, this RFC adds an `Update` method to the status `Writer[D]` builder
-that wraps `gorp.NewUpdate`:
+and their multi-row variants, but no by-key `Update` and no by-name upsert. The host
+function in 5.2.1 needs both: an atomic retrieve-modify-write for the by-key path, and a
+transaction-scoped retrieve-then-update-or-create for the by-name path. Rather than
+open-coding either pattern in the host function, this RFC adds two methods to the status
+`Writer[D]` builder.
+
+**`Update`** wraps `gorp.NewUpdate` for the by-key path:
 
 ```go
 // Update finds the status with the given key, applies the change function to it,
@@ -662,14 +703,63 @@ func (w Writer[D]) Update(
 
 `gorp.NewUpdate` performs the retrieve, applies the change function, and writes the
 modified row inside a single transaction, so the host function does not re-implement
-that pattern. The status service is the only abstraction layer that touches gorp
-directly; callers (Arc host functions, future Flow nodes, the existing client API)
-compose service-level methods.
+that pattern.
 
-The host function in 5.2.1 dispatches to `Update` on the by-key path and on the by-name
-path's match branch. The by-name path's miss branch falls through to the existing `Set`
-method (which already does upsert-by-key on a fresh row, creating it because no row with
-the new key exists). No new method is required for the create case.
+**`UpsertByName`** scopes the by-name retrieve and the subsequent update or create
+inside a single gorp transaction:
+
+```go
+// UpsertByName finds the status whose Name matches the supplied identifier and applies
+// the change function to it, or creates a new status with that name if none exists. The
+// retrieve and the subsequent update or create are scoped inside a single gorp
+// transaction so they are atomic with respect to other callers on the same node. If
+// more than one row already shares the name, returns errMultipleMatches without
+// modifying any row. Returns the resulting status's key on success.
+func (w Writer[D]) UpsertByName(
+    ctx context.Context,
+    name string,
+    change func(*Status[D]) error,
+) (string, error) {
+    var key string
+    err := w.db.WithTx(ctx, func(tx gorp.Tx) error {
+        scoped := w.WithTx(tx)
+        var matches []Status[D]
+        if err := scoped.NewRetrieve().
+            WhereNames(name).Entries(&matches).Exec(ctx, tx); err != nil {
+            return err
+        }
+        if len(matches) > 1 {
+            return errMultipleMatches
+        }
+        if len(matches) == 1 {
+            key = matches[0].Key
+            return scoped.Update(ctx, key, change)
+        }
+        s := Status[D]{Name: name, Variant: "info", Message: ""}
+        if err := change(&s); err != nil {
+            return err
+        }
+        if err := scoped.Set(ctx, &s); err != nil {
+            return err
+        }
+        key = s.Key
+        return nil
+    })
+    return key, err
+}
+```
+
+The transaction serializes concurrent callers on the same node through commit ordering:
+a second caller's `WhereNames` runs only after the first transaction has committed, so
+it observes the row the first caller created and falls into the update-existing branch
+instead of creating a duplicate. The cross-node case is not serialized by this
+transaction (gorp transactions are local to a node's lease holder); the multi-match path
+(Section 5.3.0) is the recovery for the residual cross-node race. This pattern matches
+what the channel service does for its analogous name-uniqueness check on create.
+
+The status service is the only abstraction layer that touches gorp directly; callers
+(Arc host functions, future Flow nodes, the existing client API) compose service-level
+methods.
 
 ## 5.6 - Service Injection
 
@@ -698,7 +788,7 @@ package, in `set.go` and `delete.go` respectively.
 | File                                    | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `core/pkg/service/status/retrieve.go`   | Add `WhereNames(names ...string) Retrieve[D]` method per Section 5.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `core/pkg/service/status/writer.go`     | Add `Update(ctx, key, change func(*Status[D]) error) error` method that wraps `gorp.NewUpdate` and returns `query.ErrNotFound` on by-key miss, per Section 5.5                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `core/pkg/service/status/writer.go`     | Add `Update(ctx, key, change func(*Status[D]) error) error` (wraps `gorp.NewUpdate`, returns `query.ErrNotFound` on by-key miss) and `UpsertByName(ctx, name, change func(*Status[D]) error) (string, error)` (transaction-scoped retrieve + update-or-create, returns `errMultipleMatches` when multiple rows share the name), per Section 5.5                                                                                                                                                                                                                                      |
 | `core/pkg/service/arc/status/set.go`    | Change `set` to `ExecBoth` with `identifier` required and `message` + `variant` optional (preserve-on-omit on update / literal-default on create, encoded as handle 0); add WASM host function binding, update symbol type, rewrite Flow node to share host-function logic and to upsert (create on by-name miss)                                                                                                                                                                                                                                                                    |
 | `core/pkg/service/arc/status/delete.go` | New file: `delete` symbol (`ExecBoth`, single `identifier` input), WASM host function, `deleteStatus` Flow node                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | `core/pkg/service/arc/runtime/task.go`  | Register `set` and `delete` WASM host functions in the WASM builder; pass `*status.Service` and `*strings.ProgramState` into both closures                                                                                                                                                                                                                                                                                                                                                                                                                                           |
@@ -712,17 +802,19 @@ package, in `set.go` and `delete.go` respectively.
 2. Land the language-level prerequisite from Section 3: extend the Arc compiler so an
    empty string is non-truthy in conditional expressions
 3. Extend the status service: add `WhereNames` to `core/pkg/service/status/retrieve.go`
-   per Section 5.4 and `Update` to `core/pkg/service/status/writer.go` per Section 5.5
+   per Section 5.4, and `Update` plus `UpsertByName` to
+   `core/pkg/service/status/writer.go` per Section 5.5
 4. Register the two `ExecBoth` symbols (`set`, `delete`) in the `status` module resolver
    and define their type signatures per Section 5.1, with `message`/`variant`
    optionality on `set` (`Optional: true`)
 5. Update `setStatus` in `set.go` to take `identifier` required plus optional
    `message`/`variant` and run the `uuid.Parse`-then-name dispatch from Sections 4.0 and
-   5.2.1; the by-key path delegates to the new `Writer.Update` method (Section 5.5); on
-   by-key miss emit an error-level task status and return handle 0; on by-name miss
-   create a new status with literal defaults for omitted fields via the existing
-   `Writer.Set` method; the touch path (no `message` or `variant` supplied against an
-   existing status) refreshes only the row's `time`
+   5.2.1; the by-key path delegates to `Writer.Update`; the by-name path delegates to
+   `Writer.UpsertByName` (Section 5.5), which scopes the retrieve and the subsequent
+   update or create inside a single gorp transaction; on by-key miss emit an error-level
+   task status and return handle 0; on by-name multi-match (errMultipleMatches) emit an
+   error-level task status and return handle 0; the touch path (no `message` or
+   `variant` supplied against an existing status) refreshes only the row's `time`
 6. Implement `deleteStatus` in `delete.go` with `identifier` config and the dispatch
    from Sections 4.1 and 5.2.2
 7. Add WASM host function bindings for `set` and `delete` matching the pseudocode in
@@ -742,5 +834,7 @@ package, in `set.go` and `delete.go` respectively.
    on existing status (timestamp refresh, message and variant preserved); `set`
    preserve-on-omit per field on update (message-only, variant-only, full overwrite);
    `set` by-key miss (returns handle 0, error-level task status); `set` by-name
-   multi-match (returns handle 0, error-level task status); `delete`-by-name multi-match
-   (deletes all rows, info-level task status with count)
+   multi-match (returns handle 0, error-level task status); same-node concurrent
+   `set("Same Name", ...)` callers serialize through `UpsertByName`'s transaction and
+   produce exactly one row (no duplicate); `delete`-by-name multi-match (deletes all
+   rows, info-level task status with count)
