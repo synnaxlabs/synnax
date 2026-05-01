@@ -423,24 +423,32 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleCopySelection = useCallback(
-    (_cursor: xy.XY) => dispatch(copySelection({ key: layoutKey })),
-    [dispatch, layoutKey],
+    (_cursor: xy.XY) => {
+      if (!canEdit) return;
+      dispatch(copySelection({ key: layoutKey }));
+    },
+    [canEdit, dispatch, layoutKey],
   );
 
   const handleCutSelection = useCallback(
-    (_cursor: xy.XY) => undoableDispatch(cutSelection({ key: layoutKey })),
-    [undoableDispatch, layoutKey],
+    (_cursor: xy.XY) => {
+      if (!canEdit) return;
+      undoableDispatch(cutSelection({ key: layoutKey }));
+    },
+    [canEdit, undoableDispatch, layoutKey],
   );
 
   const handlePasteSelection = useCallback(
-    (cursor: xy.XY) =>
+    (cursor: xy.XY) => {
+      if (!canEdit) return;
       dispatch(
         pasteSelection({
           pos: calculateCursorPosition(cursor),
           key: layoutKey,
         }),
-      ),
-    [dispatch, calculateCursorPosition, layoutKey],
+      );
+    },
+    [canEdit, dispatch, calculateCursorPosition, layoutKey],
   );
 
   const handleSelectAll = useCallback(
@@ -533,6 +541,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           itemKey="cut"
           trigger={["Control", "X"]}
           triggerIndicator
+          disabled={!canEdit}
           onClick={() => handleCutSelection(canvasMenuProps.cursor)}
         >
           <Icon.Cut />
@@ -542,6 +551,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           itemKey="copy"
           trigger={["Control", "C"]}
           triggerIndicator
+          disabled={!canEdit}
           onClick={() => handleCopySelection(canvasMenuProps.cursor)}
         >
           <Icon.Copy />
@@ -551,6 +561,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           itemKey="paste"
           trigger={["Control", "V"]}
           triggerIndicator
+          disabled={!canEdit}
           onClick={() => handlePasteSelection(canvasMenuProps.cursor)}
         >
           <Icon.Paste />
