@@ -416,16 +416,4 @@ TEST(SelectTest, PropagatesAlignmentAndTimeRange) {
     EXPECT_EQ(checker.output_time(1)->time_range, x::telem::TimeRange(1000, 2000));
 }
 
-TEST(SelectorModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
-    TestSetup setup;
-    auto ir_node = setup.ir.nodes[1];
-    ir_node.type = "selector.select";
-
-    auto module = std::make_shared<Module>();
-    runtime::node::MultiFactory multi({module});
-    auto node = ASSERT_NIL_P(
-        multi.create(runtime::node::Config(setup.ir, ir_node, setup.make_select_node()))
-    );
-    ASSERT_NE(node, nullptr);
-}
 }

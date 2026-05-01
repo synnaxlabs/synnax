@@ -43,7 +43,7 @@ export const axisStateZ = z.object({
   key: axisKeyZ,
   label: z.string(),
   labelDirection: direction.directionZ,
-  bounds: bounds.boundsZ,
+  bounds: bounds.boundsZ(),
   autoBounds: z.object({ lower: z.boolean(), upper: z.boolean() }),
   tickSpacing: z.number(),
   labelLevel: Text.levelZ,
