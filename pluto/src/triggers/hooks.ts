@@ -92,7 +92,10 @@ const filterInRegion = (
   return added.filter((t) => {
     const rg = regionMustBeElement ?? t.some((v) => v.includes("Mouse"));
     if (rg) return box.contains(b, cursor) && target === region.current;
-    return box.contains(b, cursor);
+    return (
+      box.contains(b, cursor) &&
+      (region.current!.contains(target) || target.contains(region.current))
+    );
   });
 };
 
