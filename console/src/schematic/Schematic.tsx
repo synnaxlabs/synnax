@@ -452,14 +452,14 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const handlePasteSelection = useCallback(
     (cursor: xy.XY) => {
       if (!canEdit) return;
-      dispatch(
+      undoableDispatch(
         pasteSelection({
           pos: calculateCursorPosition(cursor),
           key: layoutKey,
         }),
       );
     },
-    [canEdit, dispatch, calculateCursorPosition, layoutKey],
+    [canEdit, undoableDispatch, calculateCursorPosition, layoutKey],
   );
 
   const handleSelectAll = useCallback(

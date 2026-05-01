@@ -181,6 +181,8 @@ const copySelectedToBuffer = (state: SliceState, layoutKey: string): void => {
   const schematic = state.schematics[layoutKey];
   const { nodes, edges, props } = schematic;
   const selectedNodes = nodes.filter((node) => node.selected);
+  // Expand symbol copy to group & members
+  // (prevents stale groupId references on paste)
   const allNodes = expandSelectionToGroups(selectedNodes, nodes, props);
   const selectedEdges = edges.filter((edge) => edge.selected);
   const copyBuffer: latest.CopyBuffer = {
@@ -236,7 +238,7 @@ export const { actions, reducer } = createSlice({
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
         const key: string = id.create();
-        schematic.props[key] = state.copy.props[node.key];
+        schematic.props[key] = { ...state.copy.props[node.key] };
         keys[node.key] = key;
         return {
           ...node,

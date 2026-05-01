@@ -1850,6 +1850,57 @@ describe("Schematic Slice", () => {
       });
     });
 
+    describe("repeated paste", () => {
+      it("should preserve group structure on the second paste", () => {
+        store.dispatch(actions.clearSelection({ key: schematicKey }));
+        const state = store.getState()[SLICE_NAME];
+        store.dispatch(
+          actions.setNodes({
+            key: schematicKey,
+            nodes: [
+              {
+                key: groupKey,
+                position: state.schematics[schematicKey].nodes.find(
+                  (n) => n.key === groupKey,
+                )!.position,
+                selected: true,
+              },
+            ],
+            mode: "update",
+          }),
+        );
+        store.dispatch(actions.copySelection({ key: schematicKey }));
+
+        // First paste
+        store.dispatch(
+          actions.pasteSelection({ key: schematicKey, pos: { x: 500, y: 500 } }),
+        );
+        // Second paste
+        store.dispatch(
+          actions.pasteSelection({ key: schematicKey, pos: { x: 800, y: 800 } }),
+        );
+
+        const after = store.getState()[SLICE_NAME];
+        const allProps = after.schematics[schematicKey].props as Record<
+          string,
+          NodeProps
+        >;
+        // Find both pasted group nodes (exclude the original group)
+        const pastedGroupNodes = after.schematics[schematicKey].nodes.filter(
+          (n) => n.key !== groupKey && allProps[n.key]?.key === "group",
+        );
+        expect(pastedGroupNodes).toHaveLength(2);
+
+        // Each pasted group should have exactly 2 members pointing to it
+        for (const pg of pastedGroupNodes) {
+          const members = after.schematics[schematicKey].nodes.filter(
+            (n) => allProps[n.key]?.groupId === pg.key,
+          );
+          expect(members).toHaveLength(2);
+        }
+      });
+    });
+
     describe("cut then paste", () => {
       it("should preserve group structure after cut and paste", () => {
         store.dispatch(actions.clearSelection({ key: schematicKey }));
@@ -2046,7 +2097,7 @@ describe("Schematic Slice", () => {
       expect(allProps[groupKey]).toBeUndefined();
     });
 
-    it("should not affect nodes when a non-group node is deleted", () => {
+    it("should cascade-delete the entire group when a member is deleted", () => {
       const before = store.getState()[SLICE_NAME];
       const nodesWithoutValve1 = before.schematics[schematicKey].nodes.filter(
         (n) => n.key !== "valve-1",
@@ -2055,14 +2106,10 @@ describe("Schematic Slice", () => {
         actions.setNodes({ key: schematicKey, nodes: nodesWithoutValve1 }),
       );
       const after = store.getState()[SLICE_NAME];
-      // valve-1 removed, but group and valve-2 remain
-      expect(after.schematics[schematicKey].nodes).toHaveLength(2);
-      expect(after.schematics[schematicKey].nodes.some((n) => n.key === groupKey)).toBe(
-        true,
-      );
-      expect(
-        after.schematics[schematicKey].nodes.some((n) => n.key === "valve-2"),
-      ).toBe(true);
+      expect(after.schematics[schematicKey].nodes).toHaveLength(0);
+      expect(after.schematics[schematicKey].props["valve-1"]).toBeUndefined();
+      expect(after.schematics[schematicKey].props["valve-2"]).toBeUndefined();
+      expect(after.schematics[schematicKey].props[groupKey]).toBeUndefined();
     });
 
     it("should not cascade when using update mode", () => {
