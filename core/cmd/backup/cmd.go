@@ -14,20 +14,24 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Flag names used by the backup command.
+// Flag names used by the backup command. FlagData intentionally matches the flag
+// used by "synnax start", so that the same value can be supplied via --data, the
+// SYNNAX_DATA environment variable, or the YAML config file the user already uses
+// to launch a Synnax Core.
 const (
+	FlagData      = "data"
 	FlagNoData    = "no-data"
 	FlagOverwrite = "overwrite"
 )
 
 var Cmd = &cobra.Command{
-	Use:   "backup <src> <dst>",
+	Use:   "backup <dst>",
 	Short: "Copy a Synnax data directory to a backup location",
 	Long: `Copy a Synnax data directory to a backup location.
 
-The source must be the path to a Synnax data directory (the same path passed to
-"synnax start --data"). The destination is the path where the directory will be
-copied.
+The source defaults to the Synnax data directory configured via the --data flag,
+the SYNNAX_DATA environment variable, or the YAML config file (the same source
+"synnax start" reads). Pass --data to override.
 
 Use --no-data to skip channel data files so that only the cluster configuration
 (channels, users, ranges, workspaces, and channel metadata) is copied. This is
@@ -36,15 +40,18 @@ its telemetry.
 
 The Synnax Core should be stopped before running backup. Copying a live data
 directory may produce an inconsistent snapshot.`,
-	Args: cobra.ExactArgs(2),
+	Example: `  synnax backup ./backup
+  synnax backup --data /mnt/ssd1 /mnt/backup
+  synnax backup --no-data ./config-only`,
+	Args: cobra.ExactArgs(1),
 	PreRunE: func(cmd *cobra.Command, _ []string) error {
 		return viper.BindPFlags(cmd.Flags())
 	},
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.SilenceUsage = true
 		return Backup(Config{
-			Src:       args[0],
-			Dst:       args[1],
+			Src:       viper.GetString(FlagData),
+			Dst:       args[0],
 			NoData:    viper.GetBool(FlagNoData),
 			Overwrite: viper.GetBool(FlagOverwrite),
 		})
@@ -52,6 +59,12 @@ directory may produce an inconsistent snapshot.`,
 }
 
 func init() {
+	Cmd.Flags().StringP(
+		FlagData,
+		"d",
+		"synnax-data",
+		"Source Synnax data directory (also read from SYNNAX_DATA / config file)",
+	)
 	Cmd.Flags().Bool(
 		FlagNoData,
 		false,

@@ -15,6 +15,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/spf13/viper"
 	"github.com/synnaxlabs/synnax/cmd/backup"
 	. "github.com/synnaxlabs/x/testutil"
 )
@@ -216,17 +217,28 @@ var _ = Describe("Backup", func() {
 	})
 
 	Describe("Cmd", func() {
-		It("Should run via the cobra command", func() {
-			backup.Cmd.SetArgs([]string{src, dst})
+		AfterEach(func() {
+			viper.Reset()
+		})
+
+		It("Should run via the cobra command using --data", func() {
+			backup.Cmd.SetArgs([]string{"--data", src, dst})
 			Expect(backup.Cmd.Execute()).To(Succeed())
 			mustExist(filepath.Join(dst, "kv", "CURRENT"))
 		})
 
 		It("Should respect the --no-data flag", func() {
-			backup.Cmd.SetArgs([]string{src, dst, "--no-data"})
+			backup.Cmd.SetArgs([]string{"--data", src, "--no-data", dst})
 			Expect(backup.Cmd.Execute()).To(Succeed())
 			mustNotExist(filepath.Join(dst, "cesium", "1", "1.domain"))
 			mustExist(filepath.Join(dst, "cesium", "1", "meta.json"))
+		})
+
+		It("Should read the source from viper when --data is omitted", func() {
+			viper.Set(backup.FlagData, src)
+			backup.Cmd.SetArgs([]string{dst})
+			Expect(backup.Cmd.Execute()).To(Succeed())
+			mustExist(filepath.Join(dst, "kv", "CURRENT"))
 		})
 	})
 })
