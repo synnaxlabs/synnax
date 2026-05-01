@@ -37,3 +37,201 @@ XY struct {
         elements in two-dimensional space.
     """
 }
+
+Direction enum {
+    x = "x"
+    y = "y"
+
+    @doc value "is a 2D axis direction."
+}
+
+XLocation enum {
+    left  = "left"
+    right = "right"
+
+    @doc value "is a horizontal-axis location at the left or right edge."
+}
+
+YLocation enum {
+    top    = "top"
+    bottom = "bottom"
+
+    @doc value "is a vertical-axis location at the top or bottom edge."
+}
+
+StickyUnit enum {
+    px      = "px"
+    decimal = "decimal"
+
+    @doc value """
+        is the measurement unit for a sticky coordinate, either pixels or a
+        decimal fraction of the container.
+    """
+}
+
+CornerLocation struct {
+    x XLocation {
+        @doc value "is the horizontal anchor."
+    }
+    y YLocation {
+        @doc value "is the vertical anchor."
+    }
+
+    @doc value "is an anchor corner for positioning."
+}
+
+StickyUnits struct {
+    x StickyUnit {
+        @doc value "is the horizontal unit."
+    }
+    y StickyUnit {
+        @doc value "is the vertical unit."
+    }
+
+    @doc value "specifies the measurement units for sticky positioning."
+}
+
+StickyXY struct {
+    x     float64          {
+        @doc value "is the horizontal coordinate."
+    }
+    y     float64          {
+        @doc value "is the vertical coordinate."
+    }
+    root  CornerLocation?? {
+        @doc value "is the optional anchor corner for the position."
+    }
+    units StickyUnits??    {
+        @doc value "is the optional unit specification for the coordinates."
+    }
+
+    @doc value """
+        is a position that can be anchored to different corners of a
+        container with configurable units (pixels or decimal fractions).
+    """
+}
+
+Dimensions struct {
+    width  float64 {
+        @doc value "is the width in pixels."
+    }
+    height float64 {
+        @doc value "is the height in pixels."
+    }
+
+    @doc value "is a 2D size with width and height values."
+}
+
+Viewport struct {
+    zoom     float64 {
+        @validate default 1
+        @doc value        "is the zoom level where 1.0 equals 100%."
+    }
+    position XY      {
+        @doc value "is the (x, y) pan offset of the viewport."
+    }
+
+    @doc value "is the camera state of a viewport."
+}
+
+AngularDirection enum {
+    clockwise        = "clockwise"
+    counterclockwise = "counterclockwise"
+
+    @doc value "is a rotational direction in 2D space."
+}
+
+CenterLocation enum {
+    center = "center"
+
+    @doc value "is a location at the center of a container."
+}
+
+Location enum {
+    top    = "top"
+    right  = "right"
+    bottom = "bottom"
+    left   = "left"
+    center = "center"
+
+    @doc value """
+        is a position indicator covering the four outer edges of a container
+        and its center.
+    """
+}
+
+Alignment enum {
+    start  = "start"
+    center = "center"
+    end    = "end"
+
+    @doc value """
+        is a positioning indicator for aligning content along an axis within a
+        container.
+    """
+}
+
+Order enum {
+    first = "first"
+    last  = "last"
+
+    @doc value "is a positional ordering indicator for elements in a sequence."
+}
+
+Dimension enum {
+    width  = "width"
+    height = "height"
+
+    @doc value "is the name of a 2D size axis."
+}
+
+SignedDimension enum {
+    signedWidth  = "signedWidth"
+    signedHeight = "signedHeight"
+
+    @doc value "is the name of a 2D signed size axis."
+}
+
+SignedDimensions struct {
+    signedWidth  float64 {
+        @doc value "is the signed width."
+    }
+    signedHeight float64 {
+        @doc value "is the signed height."
+    }
+
+    @doc value """
+        is a 2D size whose width and height components carry sign, allowing
+        negative values to express direction.
+    """
+}
+
+ClientXY struct {
+    clientX float64 {
+        @doc value "is the horizontal coordinate in client (viewport) space."
+    }
+    clientY float64 {
+        @doc value "is the vertical coordinate in client (viewport) space."
+    }
+
+    @doc value """
+        is a 2D coordinate point expressed in client (viewport) space, matching
+        the shape of DOM mouse events.
+    """
+}
+
+Bounds struct<T extends numeric = float64> {
+    lower T {
+        @doc value "is the inclusive lower bound."
+    }
+    upper T {
+        @doc value "is the exclusive upper bound."
+    }
+
+    @doc value """
+        is a closed-open interval [lower, upper) over an ordered numeric value
+        space. The TypeScript binding is generic over T so callers can express
+        bounds over either number or bigint values; other languages emit a
+        concrete float64-based type.
+    """
+}

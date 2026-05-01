@@ -12,19 +12,19 @@ import { z } from "zod";
 import {
   type AngularDirection,
   type ClientXY,
-  clientXyZ,
-  type CrudeDirection,
+  clientXYZ,
   dimensionsZ,
   type Direction,
   type NumberCouple,
   numberCouple,
   signedDimensionsZ,
+  type XY,
+  xyZ,
 } from "@/spatial/base";
-import { direction as dir } from "@/spatial/direction";
+import { direction as dir, type direction } from "@/spatial/direction";
 import { type location } from "@/spatial/location";
-import { type XY, xyZ } from "@/spatial/types.gen";
 
-export { type ClientXY as Client, clientXyZ, type XY, xyZ };
+export { type ClientXY as Client, clientXYZ, type XY, xyZ };
 
 /** A crude representation of a {@link XY} coordinate as a zod schema. */
 export const crudeZ = z.union([
@@ -33,7 +33,7 @@ export const crudeZ = z.union([
   numberCouple,
   dimensionsZ,
   signedDimensionsZ,
-  clientXyZ,
+  clientXYZ,
 ]);
 
 /** A crude representation of a {@link XY} coordinate. */
@@ -141,7 +141,7 @@ export const translate: Translate = (a, b, v, ...cb): XY => {
  * @returns the given coordinate the given direction set to the given value.
  * @example set({ x: 1, y: 2 }, "x", 3) // { x: 3, y: 2 }
  */
-export const set = (c: Crude, direction: CrudeDirection, value: number): XY => {
+export const set = (c: Crude, direction: direction.Crude, value: number): XY => {
   const xy = construct(c);
   const d = dir.construct(direction);
   if (d === "x") return { x: value, y: xy.y };

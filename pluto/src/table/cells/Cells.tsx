@@ -26,7 +26,7 @@ export const textPropsZ = z.object({
   value: z.string(),
   level: BaseText.levelZ,
   weight: BaseText.weightZ,
-  align: location.x.or(location.center),
+  align: location.xZ.or(location.centerZ),
   backgroundColor: color.crudeZ,
 });
 export type TextProps = z.infer<typeof textPropsZ>;

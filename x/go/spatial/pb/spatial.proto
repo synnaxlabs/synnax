@@ -15,6 +15,25 @@ package x.spatial.pb;
 
 option go_package = "github.com/synnaxlabs/x/spatial/pb";
 
+// XLocation is a horizontal-axis location at the left or right edge.
+enum XLocation {
+  X_LOCATION_LEFT = 0;
+  X_LOCATION_RIGHT = 1;
+}
+
+// YLocation is a vertical-axis location at the top or bottom edge.
+enum YLocation {
+  Y_LOCATION_TOP = 0;
+  Y_LOCATION_BOTTOM = 1;
+}
+
+// StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
+// decimal fraction of the container.
+enum StickyUnit {
+  STICKY_UNIT_PX = 0;
+  STICKY_UNIT_DECIMAL = 1;
+}
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 enum OuterLocation {
@@ -24,6 +43,59 @@ enum OuterLocation {
   OUTER_LOCATION_LEFT = 3;
 }
 
+// Direction is a 2D axis direction.
+enum Direction {
+  DIRECTION_X = 0;
+  DIRECTION_Y = 1;
+}
+
+// AngularDirection is a rotational direction in 2D space.
+enum AngularDirection {
+  ANGULAR_DIRECTION_CLOCKWISE = 0;
+  ANGULAR_DIRECTION_COUNTERCLOCKWISE = 1;
+}
+
+// CenterLocation is a location at the center of a container.
+enum CenterLocation {
+  CENTER_LOCATION_CENTER = 0;
+}
+
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+enum Location {
+  LOCATION_TOP = 0;
+  LOCATION_RIGHT = 1;
+  LOCATION_BOTTOM = 2;
+  LOCATION_LEFT = 3;
+  LOCATION_CENTER = 4;
+}
+
+// Alignment is a positioning indicator for aligning content along an axis within a
+// container.
+enum Alignment {
+  ALIGNMENT_START = 0;
+  ALIGNMENT_CENTER = 1;
+  ALIGNMENT_END = 2;
+}
+
+// Order is a positional ordering indicator for elements in a sequence.
+enum Order {
+  ORDER_FIRST = 0;
+  ORDER_LAST = 1;
+}
+
+// Dimension is the name of a 2D size axis.
+enum Dimension {
+  DIMENSION_WIDTH = 0;
+  DIMENSION_HEIGHT = 1;
+}
+
+// SignedDimension is the name of a 2D signed size axis.
+enum SignedDimension {
+  SIGNED_DIMENSION_SIGNED_WIDTH = 0;
+  SIGNED_DIMENSION_SIGNED_HEIGHT = 1;
+}
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 message XY {
@@ -31,4 +103,77 @@ message XY {
   double x = 1;
   // y is the vertical coordinate.
   double y = 2;
+}
+
+// CornerLocation is an anchor corner for positioning.
+message CornerLocation {
+  // x is the horizontal anchor.
+  XLocation x = 1;
+  // y is the vertical anchor.
+  YLocation y = 2;
+}
+
+// StickyUnits specifies the measurement units for sticky positioning.
+message StickyUnits {
+  // x is the horizontal unit.
+  StickyUnit x = 1;
+  // y is the vertical unit.
+  StickyUnit y = 2;
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+message StickyXY {
+  // x is the horizontal coordinate.
+  double x = 1;
+  // y is the vertical coordinate.
+  double y = 2;
+  // root is the optional anchor corner for the position.
+  optional CornerLocation root = 3;
+  // units is the optional unit specification for the coordinates.
+  optional StickyUnits units = 4;
+}
+
+// Dimensions is a 2D size with width and height values.
+message Dimensions {
+  // width is the width in pixels.
+  double width = 1;
+  // height is the height in pixels.
+  double height = 2;
+}
+
+// Viewport is the camera state of a viewport.
+message Viewport {
+  // zoom is the zoom level where 1.0 equals 100%.
+  double zoom = 1;
+  // position is the (x, y) pan offset of the viewport.
+  XY position = 2;
+}
+
+// SignedDimensions is a 2D size whose width and height components carry sign, allowing
+// negative values to express direction.
+message SignedDimensions {
+  // signed_width is the signed width.
+  double signed_width = 1;
+  // signed_height is the signed height.
+  double signed_height = 2;
+}
+
+// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
+// shape of DOM mouse events.
+message ClientXY {
+  // client_x is the horizontal coordinate in client (viewport) space.
+  double client_x = 1;
+  // client_y is the vertical coordinate in client (viewport) space.
+  double client_y = 2;
+}
+
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+message Bounds {
+  // lower is the inclusive lower bound.
+  double lower = 1;
+  // upper is the exclusive upper bound.
+  double upper = 2;
 }

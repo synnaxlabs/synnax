@@ -417,12 +417,12 @@ export class Scale<T extends numeric.Value = number> {
 export class XY {
   x: Scale<number>;
   y: Scale<number>;
-  currRoot: location.CornerXY | null;
+  currRoot: location.Corner | null;
 
   constructor(
     x: Scale<number> = new Scale<number>(),
     y: Scale<number> = new Scale<number>(),
-    root: location.CornerXY | null = null,
+    root: location.Corner | null = null,
   ) {
     this.x = x;
     this.y = y;
