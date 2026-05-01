@@ -11,6 +11,7 @@ import { type Diagram } from "@synnaxlabs/pluto";
 import { describe, expect, it } from "vitest";
 
 import {
+  auditGroups,
   calculateGroupBoundingBox,
   expandGroupPositions,
   groupKeyOf,
@@ -106,6 +107,30 @@ describe("groups", () => {
       expect(result[2].position).toEqual({ x: 110, y: 120 });
     });
 
+    it("should propagate drag to members of all dragged groups", () => {
+      const prev = [
+        node("gA", { x: 0, y: 0 }),
+        node("a1", { x: 50, y: 50 }),
+        node("gB", { x: 200, y: 200 }),
+        node("b1", { x: 250, y: 250 }),
+      ];
+      const curr = [
+        node("gA", { x: 0, y: 0 }),
+        node("a1", { x: 60, y: 70 }, { dragging: true } as Partial<Diagram.Node>),
+        node("gB", { x: 210, y: 220 }, { dragging: true } as Partial<Diagram.Node>),
+        node("b1", { x: 250, y: 250 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        gA: { key: "group" } as NodeProps,
+        a1: { key: "valve", groupId: "gA" } as NodeProps,
+        gB: { key: "group" } as NodeProps,
+        b1: { key: "valve", groupId: "gB" } as NodeProps,
+      };
+      const result = propagateGroupDrag(curr, prev, props);
+      expect(result[0].position).toEqual({ x: 10, y: 20 });
+      expect(result[3].position).toEqual({ x: 260, y: 270 });
+    });
+
     it("should not move nodes belonging to a different group", () => {
       const prev = [node("n1", { x: 0, y: 0 }), node("n2", { x: 100, y: 100 })];
       const curr = [
@@ -170,12 +195,12 @@ describe("groups", () => {
       expect(props["new-n1"].groupId).toBe("new-g1");
     });
 
-    it("should not modify props whose groupId is not in the keyMap", () => {
+    it("should clear groupId when the group is not in the keyMap", () => {
       const props: Record<string, NodeProps> = {
         "new-n1": { key: "valve", groupId: "unknown" } as NodeProps,
       };
       remapGroupIds(props, { "old-n1": "new-n1" });
-      expect(props["new-n1"].groupId).toBe("unknown");
+      expect(props["new-n1"].groupId).toBeUndefined();
     });
 
     it("should not modify props without a groupId", () => {
@@ -466,6 +491,90 @@ describe("groups", () => {
       };
       const result = selectedGroupKeys(nodes, props);
       expect(result).toEqual(new Set(["g1"]));
+    });
+  });
+
+  describe("auditGroups", () => {
+    it("should remove a group with zero members", () => {
+      const nodes = [node("g1", { x: 0, y: 0 }), node("n1", { x: 50, y: 50 })];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve" } as NodeProps,
+      };
+      const result = auditGroups(nodes, props);
+      expect(result).toHaveLength(1);
+      expect(result[0].key).toBe("n1");
+      expect(props.g1).toBeUndefined();
+    });
+
+    it("should ungroup a single-member group", () => {
+      const nodes = [node("g1", { x: 0, y: 0 }), node("n1", { x: 50, y: 50 })];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const result = auditGroups(nodes, props);
+      expect(result).toHaveLength(1);
+      expect(result[0].key).toBe("n1");
+      expect(props.n1.groupId).toBeUndefined();
+      expect(props.g1).toBeUndefined();
+    });
+
+    it("should keep a group with two or more members and recalculate its bounding box", () => {
+      const nodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }, { measured: { width: 20, height: 20 } }),
+        node("n2", { x: 100, y: 100 }, { measured: { width: 20, height: 20 } }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const result = auditGroups(nodes, props);
+      expect(result).toHaveLength(3);
+      expect(props.n1.groupId).toBe("g1");
+      expect(props.n2.groupId).toBe("g1");
+      expect(result[0].position).toEqual({
+        x: 50 - GROUP_PADDING,
+        y: 50 - GROUP_PADDING,
+      });
+      expect((props.g1 as Record<string, unknown>).dimensions).toEqual({
+        width: 100 + 20 - 50 + 2 * GROUP_PADDING,
+        height: 100 + 20 - 50 + 2 * GROUP_PADDING,
+      });
+    });
+
+    it("should return the same array when no groups need cleanup", () => {
+      const nodes = [node("n1", { x: 0, y: 0 }), node("n2", { x: 100, y: 100 })];
+      const props: Record<string, NodeProps> = {
+        n1: { key: "valve" } as NodeProps,
+        n2: { key: "valve" } as NodeProps,
+      };
+      const result = auditGroups(nodes, props);
+      expect(result).toBe(nodes);
+    });
+
+    it("should handle multiple groups with mixed member counts", () => {
+      const nodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("g2", { x: 200, y: 200 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+        node("n3", { x: 250, y: 250 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        g2: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+        n3: { key: "valve", groupId: "g2" } as NodeProps,
+      };
+      const result = auditGroups(nodes, props);
+      expect(result).toHaveLength(4);
+      expect(result.map((n) => n.key)).toEqual(["g1", "n1", "n2", "n3"]);
+      expect(props.n3.groupId).toBeUndefined();
+      expect(props.g2).toBeUndefined();
     });
   });
 });

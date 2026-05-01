@@ -38,25 +38,25 @@ export const propagateGroupDrag = (
 
   const prevByKey = new Map(prevNodes.map((n) => [n.key, n]));
   let delta: xy.XY | null = null;
-  let activeGroupKey: string | null = null;
-
   for (const node of dragging) {
-    const p = props[node.key];
-    if (p == null) continue;
-    const gk = groupKeyOf(node.key, p);
-    if (gk == null) continue;
     const prev = prevByKey.get(node.key);
     if (prev == null) continue;
     delta = {
       x: node.position.x - prev.position.x,
       y: node.position.y - prev.position.y,
     };
-    activeGroupKey = gk;
     break;
   }
+  if (delta == null || (delta.x === 0 && delta.y === 0)) return nodes;
 
-  if (delta == null || activeGroupKey == null || (delta.x === 0 && delta.y === 0))
-    return nodes;
+  const activeGroupKeys = new Set<string>();
+  for (const node of dragging) {
+    const p = props[node.key];
+    if (p == null) continue;
+    const gk = groupKeyOf(node.key, p);
+    if (gk != null) activeGroupKeys.add(gk);
+  }
+  if (activeGroupKeys.size === 0) return nodes;
 
   const dx = delta.x;
   const dy = delta.y;
@@ -66,7 +66,8 @@ export const propagateGroupDrag = (
     if (draggingKeys.has(node.key)) return node;
     const p = props[node.key];
     if (p == null) return node;
-    if (groupKeyOf(node.key, p) !== activeGroupKey) return node;
+    const gk = groupKeyOf(node.key, p);
+    if (gk == null || !activeGroupKeys.has(gk)) return node;
     changed = true;
     return {
       ...node,
@@ -76,14 +77,18 @@ export const propagateGroupDrag = (
   return changed ? result : nodes;
 };
 
-/** remapGroupIds updates groupId references in props after a paste operation. */
+/** remapGroupIds updates groupId references in props after a paste operation. If a
+ * member is pasted without its group container, the stale groupId is cleared so the
+ * pasted node doesn't inadvertently join the original group. */
 export const remapGroupIds = (
   props: Record<string, NodeProps>,
   keyMap: Record<string, string>,
 ): void => {
   for (const newKey of Object.values(keyMap)) {
     const p = props[newKey];
-    if (p?.groupId != null && keyMap[p.groupId] != null) p.groupId = keyMap[p.groupId];
+    if (p?.groupId == null) continue;
+    if (keyMap[p.groupId] != null) p.groupId = keyMap[p.groupId];
+    else delete p.groupId;
   }
 };
 
@@ -152,6 +157,47 @@ export const cascadeGroupDeletes = (
     }
     return true;
   });
+};
+
+/** Removes empty group containers, ungroups single-member groups, and recalculates
+ * bounding boxes for surviving groups in one pass. */
+export const auditGroups = (
+  nodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): Diagram.Node[] => {
+  const members = new Map<string, Diagram.Node[]>();
+  for (const node of nodes) {
+    const gid = props[node.key]?.groupId;
+    if (gid == null) continue;
+    const list = members.get(gid);
+    if (list != null) list.push(node);
+    else members.set(gid, [node]);
+  }
+  const toRemove = new Set<string>();
+  const toResize = new Set<string>();
+  for (const node of nodes) {
+    if (props[node.key]?.key !== "group") continue;
+    const count = members.get(node.key)?.length ?? 0;
+    if (count <= 1) toRemove.add(node.key);
+    else toResize.add(node.key);
+  }
+  if (toRemove.size === 0 && toResize.size === 0) return nodes;
+  for (const node of nodes) {
+    const p = props[node.key];
+    if (p?.groupId != null && toRemove.has(p.groupId)) delete p.groupId;
+  }
+  for (const key of toRemove) delete props[key];
+  const result = toRemove.size > 0 ? nodes.filter((n) => !toRemove.has(n.key)) : nodes;
+  for (const groupKey of toResize) {
+    const memberNodes = members.get(groupKey);
+    if (memberNodes == null) continue;
+    const { position, dimensions } = calculateGroupBoundingBox(memberNodes);
+    const groupNode = result.find((n) => n.key === groupKey);
+    if (groupNode != null) groupNode.position = position;
+    const p = props[groupKey];
+    if (p != null) (p as Record<string, unknown>).dimensions = dimensions;
+  }
+  return result;
 };
 
 /** calculateGroupBoundingBox computes the bounding box for a set of member nodes. */

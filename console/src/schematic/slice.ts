@@ -17,6 +17,7 @@ import {
 import { color, id, xy } from "@synnaxlabs/x";
 
 import {
+  auditGroups,
   calculateGroupBoundingBox,
   cascadeGroupDeletes,
   remapGroupIds,
@@ -513,6 +514,7 @@ export const { actions, reducer } = createSlice({
           ...schematic.props[node.key],
           groupId: groupKey,
         };
+      schematic.nodes = auditGroups(schematic.nodes, schematic.props);
     },
     ungroupSelection: (state, { payload }: PayloadAction<{ key: string }>) => {
       const { key: layoutKey } = payload;
@@ -532,6 +534,7 @@ export const { actions, reducer } = createSlice({
           delete schematic.props[key];
       }
       schematic.nodes = schematic.nodes.filter((n) => !groupKeysToRemove.has(n.key));
+      schematic.nodes = auditGroups(schematic.nodes, schematic.props);
     },
   },
 });
