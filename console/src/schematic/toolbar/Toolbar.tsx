@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/toolbar/Toolbar.css";
+
 import { schematic } from "@synnaxlabs/client";
 import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
@@ -14,6 +16,7 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -108,7 +111,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={value}>
-      <Base.Content>
+      <Base.Content className={CSS.B("schematic-toolbar")}>
         <Base.Header>
           <Breadcrumb.Breadcrumb level="h5">
             <Breadcrumb.Segment weight={500} color={10} level="h5">

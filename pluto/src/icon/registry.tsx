@@ -102,6 +102,7 @@ import {
   MdFeedback,
   MdFiberManualRecord,
   MdFilterCenterFocus,
+  MdFolderOff,
   MdHardware,
   MdHive,
   MdHorizontalDistribute,
@@ -290,6 +291,7 @@ export const Node = wrapSVGIcon(MdOutlineDeviceHub, "node");
 export const Channel = wrapSVGIcon(MdSensors, "channel");
 export const Resources = wrapSVGIcon(AiFillFolder, "resources");
 export const Group = wrapSVGIcon(AiFillFolder, "group");
+export const Ungroup = wrapSVGIcon(MdFolderOff, "ungroup");
 export const Workspace = wrapSVGIcon(MdWorkspacesFilled, "workspace");
 export const Box = wrapSVGIcon(AiOutlineBorder, "box");
 export const Python = wrapSVGIcon(SiPython, "python");
@@ -537,6 +539,7 @@ const icons = {
   Channel,
   Resources,
   Group,
+  Ungroup,
   Workspace,
   Box,
   Python,

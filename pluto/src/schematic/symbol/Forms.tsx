@@ -1634,8 +1634,9 @@ export const StateIndicatorForm = (): ReactElement => {
   return <Tabs.Tabs {...props} grow />;
 };
 
-export const GroupForm = (): ReactElement => (
+export const GroupForm = ({ actions }: SymbolFormProps): ReactElement => (
   <FormWrapper x align="stretch">
     <LabelControls path="label" />
+    {actions}
   </FormWrapper>
 );
