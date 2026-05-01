@@ -9,7 +9,12 @@
 
 package instrumentation
 
-import "github.com/spf13/cobra"
+import (
+	_ "embed"
+
+	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/synnax/cmd/flagdef"
+)
 
 // Flag names used for configuring instrumentation.
 const (
@@ -22,13 +27,13 @@ const (
 	FlagLogFileCompress   = "log-file-compress"
 )
 
+//go:embed flags.json
+var flagsJSON []byte
+
+// FlagDefs are the parsed flag definitions for the instrumentation flag set.
+var FlagDefs = flagdef.MustParse(flagsJSON)
+
 // AddFlags adds the instrumentation flags to the given command.
 func AddFlags(cmd *cobra.Command) {
-	cmd.Flags().BoolP(FlagVerbose, "v", false, "Enable verbose debugging")
-	cmd.Flags().Bool(FlagDebug, false, "Enable debug logging")
-	cmd.Flags().String(FlagLogFilePath, "./synnax-logs/synnax.log", "Log file path")
-	cmd.Flags().Int(FlagLogFileMaxSize, 50, "Maximum size of log file in MB")
-	cmd.Flags().Int(FlagLogFileMaxBackups, 5, "Maximum number of log files to keep")
-	cmd.Flags().Int(FlagLogFileMaxAge, 30, "Maximum age of log files in days")
-	cmd.Flags().Bool(FlagLogFileCompress, false, "Compress log files")
+	flagdef.MustRegister(cmd, FlagDefs)
 }

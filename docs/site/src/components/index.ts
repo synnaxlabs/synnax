@@ -9,6 +9,7 @@
 
 export { Analytics } from "@/components/analytics";
 export { Article } from "@/components/article";
+export { Cli } from "@/components/cli";
 export { Client } from "@/components/client";
 export { Code } from "@/components/code";
 export { Console } from "@/components/console";

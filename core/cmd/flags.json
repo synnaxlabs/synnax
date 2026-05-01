@@ -1,0 +1,16 @@
+[
+  {
+    "name": "config",
+    "short": "c",
+    "type": "string",
+    "default": "/usr/local/synnax/config.yaml",
+    "description": "Path to a JSON, YAML, or TOML configuration file used to set the Core's configuration in place of flags or environment variables.",
+    "persistent": true
+  },
+  {
+    "name": "version",
+    "type": "bool",
+    "default": false,
+    "description": "Print the installed version of Synnax."
+  }
+]

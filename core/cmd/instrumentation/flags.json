@@ -1,0 +1,45 @@
+[
+  {
+    "name": "verbose",
+    "short": "v",
+    "type": "bool",
+    "default": false,
+    "description": "Enable human-readable logging."
+  },
+  {
+    "name": "debug",
+    "type": "bool",
+    "default": false,
+    "description": "Enable debug logging output. Not recommended in production due to high log volume."
+  },
+  {
+    "name": "log-file-path",
+    "type": "string",
+    "default": "./synnax-logs/synnax.log",
+    "description": "Path to the file in which the Core stores its logs."
+  },
+  {
+    "name": "log-file-max-size",
+    "type": "int",
+    "default": 50,
+    "description": "Maximum size (in MB) of a log file before it is rotated."
+  },
+  {
+    "name": "log-file-max-backups",
+    "type": "int",
+    "default": 5,
+    "description": "Maximum number of rotated log files to keep before the oldest is deleted."
+  },
+  {
+    "name": "log-file-max-age",
+    "type": "int",
+    "default": 30,
+    "description": "Maximum age (in days) that rotated log files are kept before they are removed."
+  },
+  {
+    "name": "log-file-compress",
+    "type": "bool",
+    "default": false,
+    "description": "Compress rotated log files on disk."
+  }
+]

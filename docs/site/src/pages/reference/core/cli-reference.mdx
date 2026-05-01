@@ -9,10 +9,32 @@ prevURL: "/reference/core/requirements"
 ---
 
 import { Divider } from "@synnaxlabs/pluto";
-import { Table, Tabs } from "@/components";
+import { Cli, Table, Tabs } from "@/components";
 import VersionOutput from "@/components/core/VersionOutput.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
+import rootFlags from "../../../../../../core/cmd/flags.json";
+import certFlags from "../../../../../../core/cmd/cert/flags.json";
+import instrumentationFlags from "../../../../../../core/cmd/instrumentation/flags.json";
+import startFlags from "../../../../../../core/cmd/start/flags.json";
 export const components = mdxOverrides;
+export const allStartFlags = [
+  ...rootFlags,
+  ...startFlags,
+  ...certFlags,
+  ...instrumentationFlags,
+];
+export const serviceInstallFlagNames = [
+  "listen",
+  "peers",
+  "data",
+  "insecure",
+  "username",
+  "password",
+  "auto-cert",
+  "no-driver",
+  "enable-integrations",
+  "disable-integrations",
+];
 
 ## Start
 
@@ -38,184 +60,7 @@ synnax start -l localhost:9090 -im
     { key: "default", name: "Default", type: "code" },
     { key: "description", name: "Description", type: "html" },
   ]}
-  data={[
-    {
-      option: "--listen/-l",
-      default: '"localhost:9090"',
-      description: `A reachable address and port to listen on for incoming client connections and RPCs from other nodes.`,
-    },
-    {
-      option: "--peers/-p",
-      default: "[]",
-      description: `A list of comma-separated peer Cores in an existing cluster. If this list is not empty, the Core will
-            attempt to join the cluster by connecting to each peer in the list. If the list is empty and no existing cluster
-            data is found, the Core will bootstrap a new cluster.`,
-    },
-    {
-      option: "--data/-d",
-      default: '"synnax-data"',
-      description: "The file path to the folder where Synnax will keep its data.",
-    },
-    {
-      option: "--verbose/-v",
-      default: "false",
-      description: "Enables human-readable logging.",
-    },
-    {
-      option: "--insecure/-i",
-      default: "false",
-      description:
-        "Starts the node without TLS encryption. This is not recommended for production use.",
-    },
-    {
-      option: "--mem/-m",
-      default: "false",
-      description: `Starts the node with an in-memory data store. In this mode, all data will
-                kept in memory, will not be stored on disk, and will be lost when the node is
-                restarted. This can be useful for testing and development, but is not recommended
-                for production use.`,
-    },
-    {
-      option: "--help/-h",
-      default: "false",
-      description: "Prints the help message for the start command.",
-    },
-    {
-      option: "--config/c",
-      default: '"/usr/local/synnax/config.yaml"',
-      description: `Path to a JSON, YAML, or TOML configuration file that can
-                be used to set the node's configuration instead of using flags or environment variables.
-                See <a href="#configuration-files">Configuration Files</a> for more information.`,
-    },
-    {
-      option: "--auto-cert",
-      default: "false",
-      description: "Automatically generate self-signed certificates for the node.",
-    },
-    {
-      option: "--certs-dir",
-      default: '"/usr/local/synnax/certs"',
-      description:
-        "Path to the directory containing the TLS certificates for the node.",
-    },
-    {
-      option: "--ca-cert",
-      default: '"ca.crt"',
-      description: "Path to the CA certificate file relative to `--certs-dir`.",
-    },
-    {
-      option: "--node-cert",
-      default: '"node.crt"',
-      description: "Path to the node certificate file relative to `--certs-dir`.",
-    },
-    {
-      option: "--node-key",
-      default: '"node.key"',
-      description: "Path to the node key file relative to `--certs-dir`.",
-    },
-    {
-      option: "--username",
-      default: '"synnax"',
-      description: "Username for the database root user.",
-    },
-    {
-      option: "--password",
-      default: '"seldon"',
-      description: "Password for the database root user.",
-    },
-    {
-      option: "--license-key",
-      default: '""',
-      description: "License key to use Synnax outside of demo mode.",
-    },
-    {
-      option: "--debug",
-      default: "false",
-      description:
-        "Enables debug logging output. We recommend against using this in production, as it generates a very large amount of output.",
-    },
-    {
-      option: "--slow-consumer-timeout",
-      default: "2500000000",
-      description:
-        "The duration, in ns, after which a telemetry streamer will be closed by the Core if it stops receiving messages. It's rarely necessary to change this value. The default is 2.5s.",
-    },
-    {
-      option: "--no-driver",
-      default: "false",
-      description:
-        "Disables the embedded Synnax Driver for the Synnax Core. This is useful when you want to run Synnax without any device integration.",
-    },
-    {
-      option: "--disable-integrations",
-      default: "[]",
-      description:
-        "List of device integrations to disable. This is useful when you don't want particular integrations. All integrations are enabled by default. Options are: arc, ethercat, labjack, modbus, ni, opc",
-    },
-    {
-      option: "--enable-integrations",
-      default: "[]",
-      description:
-        "List of device integrations to enable. This is useful when you only want particular integrations. All integrations are enabled by default. Options are: arc, ethercat, labjack, modbus, ni, opc",
-    },
-    {
-      option: "--task-op-timeout",
-      default: '"60s"',
-      description:
-        "Duration before reporting stuck task operations in the embedded driver. This is useful for debugging tasks that may be blocking.",
-    },
-    {
-      option: "--task-poll-interval",
-      default: '"1s"',
-      description: "Interval between task timeout checks in the embedded driver.",
-    },
-    {
-      option: "--task-shutdown-timeout",
-      default: '"30s"',
-      description:
-        "Maximum time to wait for task workers during embedded driver shutdown. After this timeout, stuck workers will be detached.",
-    },
-    {
-      option: "--task-worker-count",
-      default: "4",
-      description:
-        "Number of worker threads for task operations in the embedded driver. Valid range is 1-64.",
-    },
-    {
-      option: "--log-file-path",
-      default: '"./synnax-logs/synnax.log"',
-      description:
-        "The path to the file in which the Synnax Core should store its logs",
-    },
-    {
-      option: "--log-file-max-size",
-      default: "50",
-      description: "The maximum size (in MB) before a log file gets rotated.",
-    },
-    {
-      option: "--log-file-max-backups",
-      default: "5",
-      description:
-        "The maximum number of log files that should be kept before they are deleted",
-    },
-    {
-      option: "--log-file-max-age",
-      default: "30",
-      description:
-        "The maximum age (in days) that log files should be kept before they are removed",
-    },
-    {
-      option: "--log-file-compress",
-      default: "false",
-      description: "Whether to compress log files on disk.",
-    },
-    {
-      option: "--disable-channel-name-validation",
-      default: "false",
-      description:
-        "Disables channel name validation. When enabled, channels can be created with any name including special characters and spaces. By default, channel names must contain only letters, digits, and underscores, and cannot start with a digit.",
-    },
-  ]}
+  data={Cli.flagRows(allStartFlags)}
 />
 
 ### Environment Variable Equivalents
@@ -229,40 +74,7 @@ Command line flags will take precedence over environment variables.
     { key: "option", name: "Flag", type: "code" },
     { key: "env", name: "Environment Variable", type: "code" },
   ]}
-  data={[
-    { option: "--listen/-l", env: "SYNNAX_LISTEN" },
-    { option: "--peers/-p", env: "SYNNAX_PEERS" },
-    { option: "--data/-d", env: "SYNNAX_DATA" },
-    { option: "--verbose/-v", env: "SYNNAX_VERBOSE" },
-    { option: "--insecure/-i", env: "SYNNAX_INSECURE" },
-    { option: "--mem/-m", env: "SYNNAX_MEM" },
-    { option: "--config/c", env: "SYNNAX_CONFIG" },
-    { option: "--certs-dir", env: "SYNNAX_CERTS_DIR" },
-    { option: "--ca-cert", env: "SYNNAX_CA_CERT" },
-    { option: "--node-cert", env: "SYNNAX_NODE_CERT" },
-    { option: "--node-key", env: "SYNNAX_NODE_KEY" },
-    { option: "--username", env: "SYNNAX_USERNAME" },
-    { option: "--password", env: "SYNNAX_PASSWORD" },
-    { option: "--license-key", env: "SYNNAX_LICENSE_KEY" },
-    { option: "--debug", env: "SYNNAX_DEBUG" },
-    { option: "--slow-consumer-timeout", env: "SYNNAX_SLOW_CONSUMER_TIMEOUT" },
-    { option: "--no-driver", env: "SYNNAX_NO_DRIVER" },
-    { option: "--disable-integrations", env: "SYNNAX_DISABLE_INTEGRATIONS" },
-    { option: "--enable-integrations", env: "SYNNAX_ENABLE_INTEGRATIONS" },
-    { option: "--task-op-timeout", env: "SYNNAX_TASK_OP_TIMEOUT" },
-    { option: "--task-poll-interval", env: "SYNNAX_TASK_POLL_INTERVAL" },
-    { option: "--task-shutdown-timeout", env: "SYNNAX_TASK_SHUTDOWN_TIMEOUT" },
-    { option: "--task-worker-count", env: "SYNNAX_TASK_WORKER_COUNT" },
-    { option: "--log-file-path", env: "SYNNAX_LOG_FILE_PATH" },
-    { option: "--log-file-max-size", env: "SYNNAX_LOG_FILE_MAX_SIZE" },
-    { option: "--log-file-max-backups", env: "SYNNAX_LOG_FILE_MAX_BACKUPS" },
-    { option: "--log-file-max-age", env: "SYNNAX_LOG_FILE_MAX_AGE" },
-    { option: "--log-file-compress", env: "SYNNAX_LOG_FILE_COMPRESS" },
-    {
-      option: "--disable-channel-name-validation",
-      env: "SYNNAX_DISABLE_CHANNEL_NAME_VALIDATION",
-    },
-  ]}
+  data={Cli.envRows(allStartFlags)}
 />
 
 ### Configuration Files
@@ -296,11 +108,15 @@ Here are example configuration files in various formats:
     "mem": false,
     "config": "/usr/local/synnax/config.yaml",
     "certs-dir": "/usr/local/synnax/certs",
+    "ca-key": "ca.key",
     "ca-cert": "ca.crt",
     "node-cert": "node.crt",
     "node-key": "node.key",
+    "allow-key-reuse": false,
+    "key-size": 2048,
     "username": "synnax",
     "password": "seldon",
+    "auto-cert": false,
     "license-key": "000000-00000000-0000000000",
     "debug": false,
     "slow-consumer-timeout": "2.5s",
@@ -328,16 +144,22 @@ peers:
   - localhost:9092
 data: /usr/local/synnax/data
 verbose: true
+debug: false
 insecure: false
 mem: false
 config: /usr/local/synnax/config.yaml
 certs-dir: /usr/local/synnax/certs
+ca-key: ca.key
 ca-cert: ca.crt
 node-cert: node.crt
 node-key: node.key
+allow-key-reuse: false
+key-size: 2048
 username: synnax
 password: seldon
+auto-cert: false
 license-key: 000000-00000000-0000000000
+slow-consumer-timeout: 2.5s
 no-driver: false
 disable-integrations: []
 enable-integrations: []
@@ -359,16 +181,22 @@ listen = "localhost:9090"
 peers = ["localhost:9091", "localhost:9092"]
 data = "/usr/local/synnax/data"
 verbose = true
+debug = false
 insecure = false
 mem = false
 config = "/usr/local/synnax/config.yaml"
 certs-dir = "/usr/local/synnax/certs"
+ca-key = "ca.key"
 ca-cert = "ca.crt"
 node-cert = "node.crt"
 node-key = "node.key"
+allow-key-reuse = false
+key-size = 2048
 username = "synnax"
 password = "seldon"
+auto-cert = false
 license-key = "000000-00000000-0000000000"
+slow-consumer-timeout = "2.5s"
 no-driver = false
 disable-integrations = []
 enable-integrations = []
@@ -449,6 +277,10 @@ synnax service install --auto-start=false --insecure
 
 #### Flags
 
+The `install` command accepts every flag listed under [Start &rarr; Flags](#flags) above
+in addition to the service-specific flags below. Common flags are reproduced here for
+convenience.
+
 <Table.Data
   client:only="react"
   columns={[
@@ -467,58 +299,7 @@ synnax service install --auto-start=false --insecure
       default: "false",
       description: "Delay service start until after Windows startup completes.",
     },
-    {
-      option: "--listen/-l",
-      default: '"localhost:9090"',
-      description: "The address to listen for client connections.",
-    },
-    {
-      option: "--data/-d",
-      default: '"C:\\ProgramData\\Synnax\\data"',
-      description: "Directory where Synnax will store its data.",
-    },
-    {
-      option: "--insecure/-i",
-      default: "false",
-      description: "Disable encryption, authentication, and authorization.",
-    },
-    {
-      option: "--username",
-      default: '"synnax"',
-      description: "Username for the admin user.",
-    },
-    {
-      option: "--password",
-      default: '"seldon"',
-      description: "Password for the admin user.",
-    },
-    {
-      option: "--auto-cert",
-      default: "false",
-      description: "Automatically generate self-signed certificates.",
-    },
-    {
-      option: "--no-driver",
-      default: "false",
-      description: "Disable the embedded Synnax driver.",
-    },
-    {
-      option: "--enable-integrations",
-      default: "[]",
-      description:
-        "Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc).",
-    },
-    {
-      option: "--disable-integrations",
-      default: "[]",
-      description:
-        "Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc).",
-    },
-    {
-      option: "--peers/-p",
-      default: "[]",
-      description: "Addresses of additional peers in the cluster.",
-    },
+    ...Cli.flagRows(Cli.filterFlags(allStartFlags, serviceInstallFlagNames)),
   ]}
 />
 
@@ -545,4 +326,13 @@ Stops the running Synnax Windows Service.
 
 ```cmd
 synnax service stop
+```
+
+### service status
+
+Shows the current status of the installed Synnax Windows Service, including its config
+file location, data directory, log file, and recent warnings or errors when stopped.
+
+```cmd
+synnax service status
 ```

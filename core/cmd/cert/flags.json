@@ -1,0 +1,44 @@
+[
+  {
+    "name": "certs-dir",
+    "type": "string",
+    "default": "/usr/local/synnax/certs",
+    "description": "Directory containing the TLS certificates for the Core."
+  },
+  {
+    "name": "ca-key",
+    "type": "string",
+    "default": "ca.key",
+    "description": "Path to the CA private key file, relative to certs-dir."
+  },
+  {
+    "name": "ca-cert",
+    "type": "string",
+    "default": "ca.crt",
+    "description": "Path to the CA certificate file, relative to certs-dir."
+  },
+  {
+    "name": "node-key",
+    "type": "string",
+    "default": "node.key",
+    "description": "Path to the node private key file, relative to certs-dir."
+  },
+  {
+    "name": "node-cert",
+    "type": "string",
+    "default": "node.crt",
+    "description": "Path to the node certificate file, relative to certs-dir."
+  },
+  {
+    "name": "allow-key-reuse",
+    "type": "bool",
+    "default": false,
+    "description": "Allow reusing existing CA keys when generating certificates."
+  },
+  {
+    "name": "key-size",
+    "type": "int",
+    "default": 2048,
+    "description": "Size (in bits) used when generating new certificate keys."
+  }
+]

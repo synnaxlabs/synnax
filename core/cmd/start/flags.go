@@ -10,10 +10,11 @@
 package start
 
 import (
-	"time"
+	_ "embed"
 
 	"github.com/spf13/cobra"
 	"github.com/synnaxlabs/synnax/cmd/cert"
+	"github.com/synnaxlabs/synnax/cmd/flagdef"
 	"github.com/synnaxlabs/x/encoding/base64"
 )
 
@@ -38,82 +39,16 @@ const (
 	FlagDisableChannelNameValidation = "disable-channel-name-validation"
 )
 
+//go:embed flags.json
+var flagsJSON []byte
+
+// FlagDefs are the parsed flag definitions for the start flag set.
+var FlagDefs = flagdef.MustParse(flagsJSON)
+
 // AddFlags adds the start flags to the given command.
 func AddFlags(cmd *cobra.Command) {
 	cert.AddFlags(cmd)
-	cmd.Flags().StringP(
-		FlagListen,
-		"l",
-		"localhost:9090",
-		"The address to listen for client connections",
-	)
-	cmd.Flags().StringSliceP(
-		FlagPeers,
-		"p",
-		nil,
-		"Addresses of additional peers in the cluster",
-	)
-	cmd.Flags().StringSlice(
-		FlagEnableIntegrations,
-		nil,
-		"Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc)",
-	)
-	cmd.Flags().StringSlice(
-		FlagDisableIntegrations,
-		nil,
-		"Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc)",
-	)
-	cmd.Flags().StringP(
-		FlagData,
-		"d",
-		"synnax-data",
-		"Directory where the Core will store its data",
-	)
-	cmd.Flags().BoolP(FlagMem, "m", false, "Use in-memory storage")
-	cmd.Flags().BoolP(
-		FlagInsecure,
-		"i",
-		false,
-		"Disable encryption, authentication, and authorization",
-	)
-	cmd.Flags().String(FlagUsername, "synnax", "Username for the admin user")
-	cmd.Flags().String(FlagPassword, "seldon", "Password for the admin user")
-	cmd.Flags().Bool(
-		FlagAutoCert,
-		false,
-		"Automatically generate self-signed certificates",
-	)
-	cmd.Flags().Bool(FlagNoDriver, false, "Disable the embedded Driver")
-	cmd.Flags().Duration(
-		FlagSlowConsumerTimeout,
-		2500*time.Millisecond,
-		"Terminate slow consumers of the relay after this timeout",
-	)
-	cmd.Flags().Duration(
-		FlagTaskOpTimeout,
-		60*time.Second,
-		"Duration before reporting stuck task operations in the embedded Driver",
-	)
-	cmd.Flags().Duration(
-		FlagTaskPollInterval,
-		1*time.Second,
-		"Interval between task timeout checks in the embedded Driver",
-	)
-	cmd.Flags().Duration(
-		FlagTaskShutdownTimeout,
-		30*time.Second,
-		"Max time to wait for task workers during embedded Driver shutdown",
-	)
-	cmd.Flags().Int(
-		FlagTaskWorkerCount,
-		4,
-		"Number of worker threads for task operations in the embedded Driver (1-64)",
-	)
-	cmd.Flags().Bool(
-		FlagDisableChannelNameValidation,
-		false,
-		"Disable channel name validation (allows special characters, spaces, etc.)",
-	)
+	flagdef.MustRegister(cmd, FlagDefs)
 	cmd.Flags().String(FlagDecoded, "", usage)
 }
 

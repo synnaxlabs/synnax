@@ -1,0 +1,109 @@
+[
+  {
+    "name": "listen",
+    "short": "l",
+    "type": "string",
+    "default": "localhost:9090",
+    "description": "Reachable address and port to listen on for incoming client connections and RPCs from other nodes."
+  },
+  {
+    "name": "peers",
+    "short": "p",
+    "type": "stringSlice",
+    "default": [],
+    "description": "Comma-separated list of peer Cores in an existing cluster. If non-empty, the Core attempts to join the cluster by connecting to each peer; otherwise it bootstraps a new cluster when no existing data is found."
+  },
+  {
+    "name": "data",
+    "short": "d",
+    "type": "string",
+    "default": "synnax-data",
+    "description": "Directory where the Core will store its data."
+  },
+  {
+    "name": "mem",
+    "short": "m",
+    "type": "bool",
+    "default": false,
+    "description": "Use an in-memory data store. Data will be lost on restart; not recommended for production."
+  },
+  {
+    "name": "insecure",
+    "short": "i",
+    "type": "bool",
+    "default": false,
+    "description": "Disable TLS encryption, authentication, and authorization. Not recommended for production."
+  },
+  {
+    "name": "username",
+    "type": "string",
+    "default": "synnax",
+    "description": "Username for the admin user."
+  },
+  {
+    "name": "password",
+    "type": "string",
+    "default": "seldon",
+    "description": "Password for the admin user."
+  },
+  {
+    "name": "auto-cert",
+    "type": "bool",
+    "default": false,
+    "description": "Automatically generate self-signed certificates for the Core."
+  },
+  {
+    "name": "no-driver",
+    "type": "bool",
+    "default": false,
+    "description": "Disable the embedded Synnax Driver. Useful when running the Core without any device integration."
+  },
+  {
+    "name": "slow-consumer-timeout",
+    "type": "duration",
+    "default": "2.5s",
+    "description": "Duration after which a telemetry streamer is closed if it stops consuming messages from the relay. Rarely needs adjustment."
+  },
+  {
+    "name": "enable-integrations",
+    "type": "stringSlice",
+    "default": [],
+    "description": "Device integrations to enable (arc, ethercat, labjack, modbus, ni, opc). All integrations are enabled by default."
+  },
+  {
+    "name": "disable-integrations",
+    "type": "stringSlice",
+    "default": [],
+    "description": "Device integrations to disable (arc, ethercat, labjack, modbus, ni, opc). All integrations are enabled by default."
+  },
+  {
+    "name": "task-op-timeout",
+    "type": "duration",
+    "default": "60s",
+    "description": "Duration before reporting stuck task operations in the embedded Driver. Useful for debugging tasks that may be blocking."
+  },
+  {
+    "name": "task-poll-interval",
+    "type": "duration",
+    "default": "1s",
+    "description": "Interval between task timeout checks in the embedded Driver."
+  },
+  {
+    "name": "task-shutdown-timeout",
+    "type": "duration",
+    "default": "30s",
+    "description": "Maximum time to wait for task workers during embedded Driver shutdown. Stuck workers are detached after this timeout."
+  },
+  {
+    "name": "task-worker-count",
+    "type": "int",
+    "default": 4,
+    "description": "Number of worker threads for task operations in the embedded Driver. Valid range is 1-64."
+  },
+  {
+    "name": "disable-channel-name-validation",
+    "type": "bool",
+    "default": false,
+    "description": "Allow channels to be created with any name, including special characters and spaces. By default, channel names must contain only letters, digits, and underscores, and may not start with a digit."
+  }
+]

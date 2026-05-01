@@ -7,25 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package cmd
-
-import (
-	_ "embed"
-
-	"github.com/spf13/cobra"
-	"github.com/synnaxlabs/synnax/cmd/flagdef"
-)
-
-const (
-	flagVersion = "version"
-	flagConfig  = "config"
-)
-
-//go:embed flags.json
-var flagsJSON []byte
-
-var flagDefs = flagdef.MustParse(flagsJSON)
-
-func addFlags(cmd *cobra.Command) {
-	flagdef.MustRegister(cmd, flagDefs)
-}
+export * as Cli from "@/components/cli/external";
