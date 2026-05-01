@@ -54,6 +54,19 @@ var _ = Describe("Writer", func() {
 			Expect(res.Authority).To(BeEquivalentTo(5))
 			Expect(res.Nodes).To(HaveLen(1))
 		})
+		It("Should preserve the Snapshot flag against caller overrides", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "test", Authority: 1}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, s.Key, schematic.Schematic{
+				Authority: 5,
+				Snapshot:  true,
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().
+				Where(schematic.MatchKeys(s.Key)).
+				Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Snapshot).To(BeFalse())
+		})
 	})
 
 	Describe("Copy", func() {

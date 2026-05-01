@@ -1635,12 +1635,7 @@
       "variant": "value"
     },
     "Czhkq14bwKL": {
-      "color": [
-        171,
-        0,
-        255,
-        1
-      ],
+      "color": [171, 0, 255, 1],
       "label": {
         "align": "center",
         "label": "To Engine",
@@ -1662,12 +1657,7 @@
       "variant": "pipe"
     },
     "DeV37ebNkgE": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 0,
       "color": "#d20000",
       "dimensions": {
@@ -2093,12 +2083,7 @@
       "variant": "solenoidValve"
     },
     "JjPiK1XPeF6": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -2310,12 +2295,7 @@
       "variant": "pipe"
     },
     "OABTFTzErmB": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -2337,12 +2317,7 @@
       "variant": "tank"
     },
     "OOkLb5RngOz": {
-      "color": [
-        0,
-        121,
-        255,
-        1
-      ],
+      "color": [0, 121, 255, 1],
       "label": {
         "align": "center",
         "label": "To OX",
@@ -2530,12 +2505,7 @@
       "variant": "orifice"
     },
     "QWGklzcRmcV": {
-      "color": [
-        210,
-        0,
-        0,
-        1
-      ],
+      "color": [210, 0, 0, 1],
       "label": {
         "align": "center",
         "label": "To FUEL",
@@ -2961,12 +2931,7 @@
       "variant": "staticMixer"
     },
     "UOdnd6Aha36": {
-      "color": [
-        0,
-        152,
-        39,
-        1
-      ],
+      "color": [0, 152, 39, 1],
       "label": {
         "align": "center",
         "label": "From Press",
@@ -3071,12 +3036,7 @@
       "variant": "value"
     },
     "XajoNRDoFqn": {
-      "color": [
-        0,
-        176,
-        255,
-        1
-      ],
+      "color": [0, 176, 255, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -3187,19 +3147,9 @@
       "variant": "pipe"
     },
     "bvLG286CeYr": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
-      "color": [
-        210,
-        0,
-        0,
-        1
-      ],
+      "color": [210, 0, 0, 1],
       "dimensions": {
         "height": 38,
         "width": 108
@@ -3263,12 +3213,7 @@
       "variant": "pipe"
     },
     "fNn6627SLuM": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 0,
       "color": "#00b0ff",
       "dimensions": {
@@ -3382,12 +3327,7 @@
       "variant": "solenoidValve"
     },
     "i3O5NYaw7U8": {
-      "color": [
-        0,
-        152,
-        39,
-        1
-      ],
+      "color": [0, 152, 39, 1],
       "label": {
         "align": "center",
         "label": "From Press",
@@ -3469,12 +3409,7 @@
       "variant": "pipe"
     },
     "kzoCoaFsLXm": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
       "color": "#00b0ff",
       "dimensions": {
@@ -3552,12 +3487,7 @@
       "variant": "pipe"
     },
     "rPpCZ6MD5As": {
-      "color": [
-        171,
-        0,
-        255,
-        1
-      ],
+      "color": [171, 0, 255, 1],
       "label": {
         "align": "center",
         "label": "To Engine",
@@ -3830,12 +3760,7 @@
       "variant": "pipe"
     },
     "s6dSeA0idmI": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -4089,12 +4014,7 @@
       "variant": "value"
     },
     "uD0n1qxXf9L": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -4394,12 +4314,7 @@
       "variant": "value"
     },
     "wqAUB77dleH": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -4431,12 +4346,7 @@
       "variant": "pipe"
     },
     "zPngCTpi3wa": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
       "color": "#d20000",
       "dimensions": {
@@ -4455,12 +4365,7 @@
       "variant": "box"
     },
     "zv17pHUEYJq": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
