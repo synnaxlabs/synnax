@@ -16,6 +16,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/synnaxlabs/synnax/cmd/backup"
 	"github.com/synnaxlabs/synnax/cmd/cert"
 	"github.com/synnaxlabs/synnax/cmd/start"
 	"github.com/synnaxlabs/synnax/cmd/version"
@@ -37,7 +38,7 @@ var Cmd = &cobra.Command{
 
 func init() {
 	addFlags(Cmd)
-	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd)
+	Cmd.AddCommand(version.Cmd, cert.Cmd, start.Cmd, backup.Cmd)
 	lo.Must0(viper.BindPFlags(Cmd.PersistentFlags()))
 	lo.Must0(viper.BindPFlags(Cmd.Flags()))
 	cobra.OnInitialize(initConfig)
