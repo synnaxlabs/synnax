@@ -19,7 +19,6 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/domain/omit"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -60,28 +59,6 @@ func (p *Plugin) Domains() []string { return []string{"pb"} }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
-
-var (
-	bufFormatCmd   = []string{"buf", "format", "-w"}
-	bufGenerateCmd = []string{"buf", "generate"}
-)
-
-func (p *Plugin) PostWrite(files []string) error {
-	if len(files) == 0 {
-		return nil
-	}
-	firstFile := files[0]
-	repoRoot := gomod.FindRepoRoot(firstFile)
-	if repoRoot == "" {
-		return errors.New("could not determine repo root from file paths")
-	}
-	// buf format -w and buf generate don't accept file arguments - they operate
-	// on the entire directory. Run both without file arguments from the repo root.
-	if err := exec.OnFiles(bufGenerateCmd, nil, repoRoot); err != nil {
-		return err
-	}
-	return exec.OnFiles(bufFormatCmd, nil, repoRoot)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	resp := &plugin.Response{Files: make([]plugin.File, 0)}

@@ -1131,7 +1131,7 @@ var _ = Describe("Graph", func() {
 	})
 
 	Describe("Qualified Module Names", func() {
-		It("Should analyze selector.select with qualified name", func(ctx SpecContext) {
+		It("Should analyze bare select", func(ctx SpecContext) {
 			g := arc.Graph{
 				Functions: []ir.Function{
 					{
@@ -1152,7 +1152,7 @@ var _ = Describe("Graph", func() {
 					},
 					{
 						Key:  "sel",
-						Type: "selector.select",
+						Type: "select",
 					},
 				},
 				Edges: []ir.Edge{

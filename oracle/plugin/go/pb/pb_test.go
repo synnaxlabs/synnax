@@ -1001,19 +1001,6 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 
-	Describe("PostWrite", func() {
-		It("Should return nil for empty file list", func() {
-			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
-			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
-		})
-
-		It("Should filter to only Go files", func() {
-			// PostWrite filters non-.go files internally
-			err := pbPlugin.PostWrite([]string{"test.proto", "config.yaml"})
-			Expect(err).To(Succeed())
-		})
-	})
-
 	Describe("primitive type conversions", func() {
 		It("Should widen uint8 to uint32", func(ctx SpecContext) {
 			source := `

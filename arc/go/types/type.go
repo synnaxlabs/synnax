@@ -250,7 +250,7 @@ func (t Type) String() string {
 			return t.Constraint.String()
 		}
 		return "unknown"
-	case KindNumericConstant, KindSignedNumericConstant:
+	case KindNumericConstant:
 		return "numeric"
 	case KindIntegerConstant:
 		return "integer"
@@ -391,33 +391,6 @@ func FloatConstraint() Type { return Type{Kind: KindFloatConstant} }
 // exact integers (like 5.0, 0.0).
 func ExactIntegerFloatConstraint() Type { return Type{Kind: KindExactIntegerFloatConstant} }
 
-// SignedNumericConstraint returns a constraint accepting any numeric type, but
-// unsigned integer types are implicitly promoted to their wider signed equivalents
-// (u8->i16, u16->i32, u32->i64, u64->f64) during type unification.
-func SignedNumericConstraint() Type { return Type{Kind: KindSignedNumericConstant} }
-
-// PromoteUnsignedToSigned returns the signed promotion target for an unsigned
-// integer type. Signed integers and floats are returned unchanged.
-//
-//	u8  -> i16   (i8 can't hold 255)
-//	u16 -> i32
-//	u32 -> i64
-//	u64 -> f64   (no i128 in WASM)
-func PromoteUnsignedToSigned(t Type) Type {
-	switch t.Kind {
-	case KindU8:
-		return I16()
-	case KindU16:
-		return I32()
-	case KindU32:
-		return I64()
-	case KindU64:
-		return F64()
-	default:
-		return t
-	}
-}
-
 // Sequence returns a sequence (state machine) type.
 func Sequence() Type { return Type{Kind: KindSequence} }
 
@@ -437,7 +410,6 @@ func (t Type) IsNumeric() bool {
 			return false
 		}
 		if unwrapped.Constraint.Kind == KindNumericConstant ||
-			unwrapped.Constraint.Kind == KindSignedNumericConstant ||
 			unwrapped.Constraint.Kind == KindIntegerConstant ||
 			unwrapped.Constraint.Kind == KindFloatConstant ||
 			unwrapped.Constraint.Kind == KindExactIntegerFloatConstant {
@@ -449,7 +421,7 @@ func (t Type) IsNumeric() bool {
 	case KindU8, KindU16, KindU32, KindU64,
 		KindI8, KindI16, KindI32, KindI64,
 		KindF32, KindF64,
-		KindNumericConstant, KindSignedNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant:
+		KindNumericConstant, KindIntegerConstant, KindFloatConstant, KindExactIntegerFloatConstant:
 		return true
 	default:
 		return false
