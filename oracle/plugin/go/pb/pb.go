@@ -351,32 +351,21 @@ func (p *Plugin) processFieldForTranslation(
 	pbName := lo.PascalCase(lo.SnakeCase(field.Name))
 
 	isHardOptional := field.IsHardOptional
-	isStruct := isStructType(field.Type, data.table)
-	// A single "?" on a struct field keeps the Go type as a value (no pointer
-	// like a "??" hard-optional would emit), but the proto field is still
-	// nullable on the wire. Route through OptionalFields with a zero-value
-	// guard so ToPB skips the conversion when the struct is unset and FromPB
-	// only converts when the proto pointer is non-nil.
-	isSoftOptionalStruct := !isHardOptional && field.IsOptional && isStruct
-	isOptional := isHardOptional || isSoftOptionalStruct
-	isOptionalStruct := isHardOptional && isStruct
+	isOptional := isHardOptional
+	isOptionalStruct := isOptional && isStructType(field.Type, data.table)
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
 	fd := fieldTranslatorData{
-		GoName:               goName,
-		PBName:               pbName,
-		ForwardExpr:          forwardExpr,
-		BackwardExpr:         backwardExpr,
-		BackwardCast:         backwardCast,
-		IsOptional:           isOptional,
-		IsOptionalStruct:     isOptionalStruct,
-		IsSoftOptionalStruct: isSoftOptionalStruct,
-		HasError:             hasError,
-		HasBackwardError:     hasBackwardError,
-	}
-	if isSoftOptionalStruct {
-		fd.GoTypeLiteral = p.resolveGoTypeLiteral(field.Type, data)
+		GoName:           goName,
+		PBName:           pbName,
+		ForwardExpr:      forwardExpr,
+		BackwardExpr:     backwardExpr,
+		BackwardCast:     backwardCast,
+		IsOptional:       isOptional,
+		IsOptionalStruct: isOptionalStruct,
+		HasError:         hasError,
+		HasBackwardError: hasBackwardError,
 	}
 
 	typeRef := field.Type
@@ -541,9 +530,7 @@ func (p *Plugin) processGenericFieldForTranslation(
 	typeRef := field.Type
 
 	isHardOptional := field.IsHardOptional
-	isStruct := isStructType(typeRef, data.table)
-	isSoftOptionalStruct := !isHardOptional && field.IsOptional && isStruct
-	isOptional := isHardOptional || isSoftOptionalStruct
+	isOptional := isHardOptional
 
 	goFieldName := "r." + goName
 	pbFieldName := "pb." + pbName
@@ -592,22 +579,17 @@ func (p *Plugin) processGenericFieldForTranslation(
 
 	forwardExpr, backwardExpr, backwardCast, hasError, hasBackwardError := p.generateFieldConversion(field, data, parentStruct)
 
-	fd := fieldTranslatorData{
-		GoName:               goName,
-		PBName:               pbName,
-		ForwardExpr:          forwardExpr,
-		BackwardExpr:         backwardExpr,
-		BackwardCast:         backwardCast,
-		IsOptional:           isOptional,
-		IsOptionalStruct:     isHardOptional && isStruct,
-		IsSoftOptionalStruct: isSoftOptionalStruct,
-		HasError:             hasError,
-		HasBackwardError:     hasBackwardError,
-	}
-	if isSoftOptionalStruct {
-		fd.GoTypeLiteral = p.resolveGoTypeLiteral(typeRef, data)
-	}
-	return fd, false
+	return fieldTranslatorData{
+		GoName:           goName,
+		PBName:           pbName,
+		ForwardExpr:      forwardExpr,
+		BackwardExpr:     backwardExpr,
+		BackwardCast:     backwardCast,
+		IsOptional:       isOptional,
+		IsOptionalStruct: isHardOptional && isStructType(typeRef, data.table),
+		HasError:         hasError,
+		HasBackwardError: hasBackwardError,
+	}, false
 }
 
 func (p *Plugin) processDelegationTranslator(
@@ -1644,29 +1626,6 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
-// resolveGoTypeLiteral returns the qualified Go type expression for typeRef as it
-// would be written from the translator file, registering any required import.
-// Used to emit a zero-value comparison (e.g. "spatial.CornerLocation{}") for
-// soft-optional struct fields.
-func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
-	resolved, ok := typeRef.Resolve(data.table)
-	if !ok {
-		return ""
-	}
-	goName := naming.GetGoName(resolved)
-	goOutput := output.GetPath(resolved, "go")
-	if goOutput == "" || goOutput == data.ParentGoPath {
-		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
-	}
-	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
-	if err != nil {
-		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
-	}
-	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
-	data.imports.AddInternal(alias, importPath)
-	return fmt.Sprintf("%s.%s", alias, goName)
-}
-
 type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table
@@ -1719,14 +1678,6 @@ type fieldTranslatorData struct {
 	BackwardCast     string
 	IsOptional       bool
 	IsOptionalStruct bool
-	// IsSoftOptionalStruct is true for struct-typed fields declared with a single "?"
-	// in the schema. The Go domain type stays a value type, so the translator must
-	// guard the forward conversion with a zero-value check rather than a nil check;
-	// FromPB still receives a nullable proto pointer that must be nil-checked.
-	IsSoftOptionalStruct bool
-	// GoTypeLiteral is the qualified Go type used for the zero-value comparison in
-	// soft-optional struct fields (e.g. "spatial.CornerLocation").
-	GoTypeLiteral string
 	// NeedsPtrConversion is true when a hard-optional primitive needs type conversion
 	// (e.g., *uint8 <-> *uint32). The template must dereference, convert, and re-address.
 	NeedsPtrConversion bool
