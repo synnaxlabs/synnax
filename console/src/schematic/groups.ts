@@ -27,6 +27,31 @@ export const selectedGroupKeys = (
 export const groupKeyOf = (nodeKey: string, props: NodeProps): string | undefined =>
   props.key === "group" ? nodeKey : props.groupId;
 
+/** Expands a set of selected nodes to include all members and containers of any
+ * groups touched by the selection. */
+export const expandSelectionToGroups = (
+  selectedNodes: Diagram.Node[],
+  allNodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): Diagram.Node[] => {
+  const activeGroupKeys = new Set<string>();
+  for (const node of selectedNodes) {
+    const p = props[node.key];
+    if (p == null) continue;
+    if (p.key === "group") activeGroupKeys.add(node.key);
+    if (p.groupId != null) activeGroupKeys.add(p.groupId);
+  }
+  if (activeGroupKeys.size === 0) return selectedNodes;
+  const selectedKeys = new Set(selectedNodes.map((n) => n.key));
+  const extra = allNodes.filter((node) => {
+    if (selectedKeys.has(node.key)) return false;
+    const p = props[node.key];
+    if (p?.key === "group") return activeGroupKeys.has(node.key);
+    return p?.groupId != null && activeGroupKeys.has(p.groupId);
+  });
+  return extra.length === 0 ? selectedNodes : [...selectedNodes, ...extra];
+};
+
 /** When a group container is selected, selects all its member nodes. */
 export const propagateGroupSelection = (
   nodes: Diagram.Node[],
@@ -181,27 +206,20 @@ export const expandGroupPositions = (
   return result;
 };
 
-/** Removes children of deleted group nodes from the node list and cleans up props. */
+/** Expands deleted nodes to full groups, then removes them and cleans up props. */
 export const cascadeGroupDeletes = (
   prevNodes: Diagram.Node[],
   nextNodes: Diagram.Node[],
   props: Record<string, NodeProps>,
 ): Diagram.Node[] => {
   const nextKeys = new Set(nextNodes.map((n) => n.key));
-  const removedGroupKeys = new Set<string>();
-  for (const node of prevNodes)
-    if (!nextKeys.has(node.key) && props[node.key]?.key === "group")
-      removedGroupKeys.add(node.key);
-  if (removedGroupKeys.size === 0) return nextNodes;
-  for (const key of removedGroupKeys) delete props[key];
-  return nextNodes.filter((n) => {
-    const gid = props[n.key]?.groupId;
-    if (gid != null && removedGroupKeys.has(gid)) {
-      delete props[n.key];
-      return false;
-    }
-    return true;
-  });
+  const removed = prevNodes.filter((n) => !nextKeys.has(n.key));
+  if (removed.length === 0) return nextNodes;
+  const allRemoved = expandSelectionToGroups(removed, prevNodes, props);
+  if (allRemoved.length === removed.length) return nextNodes;
+  const removeKeys = new Set(allRemoved.map((n) => n.key));
+  for (const key of removeKeys) delete props[key];
+  return nextNodes.filter((n) => !removeKeys.has(n.key));
 };
 
 /** Removes empty group containers, ungroups single-member groups, and recalculates

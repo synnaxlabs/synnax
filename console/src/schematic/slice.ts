@@ -20,6 +20,7 @@ import {
   auditGroups,
   calculateGroupBoundingBox,
   cascadeGroupDeletes,
+  expandSelectionToGroups,
   remapGroupIds,
   selectedGroupKeys,
 } from "@/schematic/groups";
@@ -180,13 +181,7 @@ const copySelectedToBuffer = (state: SliceState, layoutKey: string): void => {
   const schematic = state.schematics[layoutKey];
   const { nodes, edges, props } = schematic;
   const selectedNodes = nodes.filter((node) => node.selected);
-  const groupKeys = selectedGroupKeys(selectedNodes, props);
-  const groupMembers = nodes.filter((node) => {
-    if (node.selected) return false;
-    const gid = props[node.key]?.groupId;
-    return gid != null && groupKeys.has(gid);
-  });
-  const allNodes = [...selectedNodes, ...groupMembers];
+  const allNodes = expandSelectionToGroups(selectedNodes, nodes, props);
   const selectedEdges = edges.filter((edge) => edge.selected);
   const copyBuffer: latest.CopyBuffer = {
     nodes: allNodes,

@@ -13,7 +13,9 @@ import { describe, expect, it } from "vitest";
 import {
   auditGroups,
   calculateGroupBoundingBox,
+  cascadeGroupDeletes,
   expandGroupPositions,
+  expandSelectionToGroups,
   groupKeyOf,
   propagateGroupDrag,
   propagateGroupSelection,
@@ -573,6 +575,85 @@ describe("groups", () => {
     });
   });
 
+  describe("expandSelectionToGroups", () => {
+    it("should include group container and siblings when a member is selected", () => {
+      const allNodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const selected = [allNodes[1]]; // only n1
+      const result = expandSelectionToGroups(selected, allNodes, props);
+      expect(result.map((n) => n.key).sort()).toEqual(["g1", "n1", "n2"]);
+    });
+
+    it("should include all members when group container is selected", () => {
+      const allNodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const selected = [allNodes[0]]; // only g1
+      const result = expandSelectionToGroups(selected, allNodes, props);
+      expect(result.map((n) => n.key).sort()).toEqual(["g1", "n1", "n2"]);
+    });
+
+    it("should return selected nodes unchanged when no groups are involved", () => {
+      const allNodes = [node("n1", { x: 0, y: 0 }), node("n2", { x: 100, y: 100 })];
+      const props: Record<string, NodeProps> = {
+        n1: { key: "valve" } as NodeProps,
+        n2: { key: "valve" } as NodeProps,
+      };
+      const selected = [allNodes[0]];
+      const result = expandSelectionToGroups(selected, allNodes, props);
+      expect(result).toBe(selected);
+    });
+
+    it("should not include nodes from a different group", () => {
+      const allNodes = [
+        node("gA", { x: 0, y: 0 }),
+        node("a1", { x: 50, y: 50 }),
+        node("gB", { x: 200, y: 200 }),
+        node("b1", { x: 250, y: 250 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        gA: { key: "group" } as NodeProps,
+        a1: { key: "valve", groupId: "gA" } as NodeProps,
+        gB: { key: "group" } as NodeProps,
+        b1: { key: "valve", groupId: "gB" } as NodeProps,
+      };
+      const selected = [allNodes[1]]; // only a1
+      const result = expandSelectionToGroups(selected, allNodes, props);
+      expect(result.map((n) => n.key).sort()).toEqual(["a1", "gA"]);
+    });
+
+    it("should not duplicate already-selected nodes", () => {
+      const allNodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const selected = [allNodes[0], allNodes[1], allNodes[2]]; // all selected
+      const result = expandSelectionToGroups(selected, allNodes, props);
+      expect(result).toBe(selected);
+    });
+  });
+
   describe("auditGroups", () => {
     it("should remove a group with zero members", () => {
       const nodes = [node("g1", { x: 0, y: 0 }), node("n1", { x: 50, y: 50 })];
@@ -654,6 +735,99 @@ describe("groups", () => {
       expect(result.map((n) => n.key)).toEqual(["g1", "n1", "n2", "n3"]);
       expect(props.n3.groupId).toBeUndefined();
       expect(props.g2).toBeUndefined();
+    });
+  });
+
+  describe("cascadeGroupDeletes", () => {
+    it("should remove the entire group when a member is deleted", () => {
+      const prev = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      // React Flow removed n1, leaving g1 and n2
+      const next = [prev[0], prev[2]];
+      const result = cascadeGroupDeletes(prev, next, props);
+      expect(result).toHaveLength(0);
+      expect(props.g1).toBeUndefined();
+      expect(props.n2).toBeUndefined();
+    });
+
+    it("should remove all members when the group container is deleted", () => {
+      const prev = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      // React Flow removed g1, leaving n1 and n2
+      const next = [prev[1], prev[2]];
+      const result = cascadeGroupDeletes(prev, next, props);
+      expect(result).toHaveLength(0);
+      expect(props.n1).toBeUndefined();
+      expect(props.n2).toBeUndefined();
+    });
+
+    it("should not affect ungrouped nodes", () => {
+      const prev = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+        node("n3", { x: 200, y: 200 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+        n3: { key: "valve" } as NodeProps,
+      };
+      // React Flow removed n1, leaving g1, n2, n3
+      const next = [prev[0], prev[2], prev[3]];
+      const result = cascadeGroupDeletes(prev, next, props);
+      expect(result).toHaveLength(1);
+      expect(result[0].key).toBe("n3");
+    });
+
+    it("should return nextNodes unchanged when no nodes were removed", () => {
+      const prev = [node("n1", { x: 0, y: 0 }), node("n2", { x: 100, y: 100 })];
+      const props: Record<string, NodeProps> = {
+        n1: { key: "valve" } as NodeProps,
+        n2: { key: "valve" } as NodeProps,
+      };
+      const result = cascadeGroupDeletes(prev, prev, props);
+      expect(result).toBe(prev);
+    });
+
+    it("should only cascade to the affected group", () => {
+      const prev = [
+        node("gA", { x: 0, y: 0 }),
+        node("a1", { x: 50, y: 50 }),
+        node("gB", { x: 200, y: 200 }),
+        node("b1", { x: 250, y: 250 }),
+        node("b2", { x: 300, y: 300 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        gA: { key: "group" } as NodeProps,
+        a1: { key: "valve", groupId: "gA" } as NodeProps,
+        gB: { key: "group" } as NodeProps,
+        b1: { key: "valve", groupId: "gB" } as NodeProps,
+        b2: { key: "valve", groupId: "gB" } as NodeProps,
+      };
+      // React Flow removed a1, leaving gA, gB, b1, b2
+      const next = [prev[0], prev[2], prev[3], prev[4]];
+      const result = cascadeGroupDeletes(prev, next, props);
+      expect(result.map((n) => n.key).sort()).toEqual(["b1", "b2", "gB"]);
+      expect(props.gA).toBeUndefined();
+      expect(props.gB).toBeDefined();
     });
   });
 });
