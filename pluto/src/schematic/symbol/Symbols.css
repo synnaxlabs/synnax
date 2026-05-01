@@ -114,6 +114,11 @@
     display: none;
 }
 
+.pluto-group-box--highlighted .pluto-group-box,
+.react-flow__node.selected .pluto-group-box {
+    border-color: var(--pluto-primary-z) !important;
+}
+
 .pluto-diagram.pluto--editable {
     .pluto-group-box {
         border-color: var(--pluto-gray-l9);

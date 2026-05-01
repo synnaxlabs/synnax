@@ -27,6 +27,51 @@ export const selectedGroupKeys = (
 export const groupKeyOf = (nodeKey: string, props: NodeProps): string | undefined =>
   props.key === "group" ? nodeKey : props.groupId;
 
+/** When a group container is selected, selects all its member nodes. */
+export const propagateGroupSelection = (
+  nodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): Diagram.Node[] => {
+  const groupKeys = selectedGroupKeys(nodes, props);
+  if (groupKeys.size === 0) return nodes;
+  let changed = false;
+  const result = nodes.map((node) => {
+    if (node.selected) return node;
+    const p = props[node.key];
+    if (p?.groupId != null && groupKeys.has(p.groupId)) {
+      changed = true;
+      return { ...node, selected: true };
+    }
+    return node;
+  });
+  return changed ? result : nodes;
+};
+
+const HIGHLIGHTED_CLASS = "pluto-group-box--highlighted";
+
+/** Toggles a highlight class on group container DOM nodes when any of their
+ * children are selected. Uses direct DOM class toggling instead of propagating
+ * selection state to avoid interfering with multi-select behavior within groups. */
+export const syncGroupHighlight = (
+  nodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): void => {
+  const highlightedGroups = new Set<string>();
+  for (const node of nodes) {
+    if (!node.selected) continue;
+    const p = props[node.key];
+    if (p?.groupId != null) highlightedGroups.add(p.groupId);
+  }
+  for (const node of nodes) {
+    const p = props[node.key];
+    if (p?.key !== "group") continue;
+    const el = document.querySelector(`[data-id="${node.key}"]`);
+    if (el == null) continue;
+    if (highlightedGroups.has(node.key)) el.classList.add(HIGHLIGHTED_CLASS);
+    else el.classList.remove(HIGHLIGHTED_CLASS);
+  }
+};
+
 /** Applies the drag delta of a single group member to all other members. */
 export const propagateGroupDrag = (
   nodes: Diagram.Node[],

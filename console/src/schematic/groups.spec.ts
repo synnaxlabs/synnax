@@ -16,6 +16,7 @@ import {
   expandGroupPositions,
   groupKeyOf,
   propagateGroupDrag,
+  propagateGroupSelection,
   remapGroupIds,
   resolveAlignmentKey,
   selectedGroupKeys,
@@ -431,6 +432,84 @@ describe("groups", () => {
         width: 40 + 2 * GROUP_PADDING,
         height: 40 + 2 * GROUP_PADDING,
       });
+    });
+  });
+
+  describe("propagateGroupSelection", () => {
+    it("should select all members when the group container is selected", () => {
+      const nodes = [
+        node("g1", { x: 0, y: 0 }, { selected: true }),
+        node("n1", { x: 50, y: 50 }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const result = propagateGroupSelection(nodes, props);
+      expect(result[1].selected).toBe(true);
+      expect(result[2].selected).toBe(true);
+    });
+
+    it("should not select members when only a sibling member is selected", () => {
+      const nodes = [
+        node("g1", { x: 0, y: 0 }),
+        node("n1", { x: 50, y: 50 }, { selected: true }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const result = propagateGroupSelection(nodes, props);
+      expect(result).toBe(nodes);
+    });
+
+    it("should return nodes unchanged when no group containers are selected", () => {
+      const nodes = [
+        node("n1", { x: 0, y: 0 }, { selected: true }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        n1: { key: "valve" } as NodeProps,
+        n2: { key: "valve" } as NodeProps,
+      };
+      const result = propagateGroupSelection(nodes, props);
+      expect(result).toBe(nodes);
+    });
+
+    it("should not affect nodes in a different group", () => {
+      const nodes = [
+        node("gA", { x: 0, y: 0 }, { selected: true }),
+        node("a1", { x: 50, y: 50 }),
+        node("b1", { x: 200, y: 200 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        gA: { key: "group" } as NodeProps,
+        a1: { key: "valve", groupId: "gA" } as NodeProps,
+        b1: { key: "valve", groupId: "gB" } as NodeProps,
+      };
+      const result = propagateGroupSelection(nodes, props);
+      expect(result[1].selected).toBe(true);
+      expect(result[2].selected).toBe(false);
+    });
+
+    it("should preserve already-selected members without cloning them", () => {
+      const nodes = [
+        node("g1", { x: 0, y: 0 }, { selected: true }),
+        node("n1", { x: 50, y: 50 }, { selected: true }),
+        node("n2", { x: 100, y: 100 }),
+      ];
+      const props: Record<string, NodeProps> = {
+        g1: { key: "group" } as NodeProps,
+        n1: { key: "valve", groupId: "g1" } as NodeProps,
+        n2: { key: "valve", groupId: "g1" } as NodeProps,
+      };
+      const result = propagateGroupSelection(nodes, props);
+      expect(result[1]).toBe(nodes[1]);
+      expect(result[2].selected).toBe(true);
     });
   });
 

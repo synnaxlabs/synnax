@@ -46,7 +46,11 @@ import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { propagateGroupDrag } from "@/schematic/groups";
+import {
+  propagateGroupDrag,
+  propagateGroupSelection,
+  syncGroupHighlight,
+} from "@/schematic/groups";
 import {
   selectNodeProps,
   selectOptional,
@@ -276,6 +280,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
+  useEffect(
+    () => syncGroupHighlight(state.nodes, state.props),
+    [state.nodes, state.props],
+  );
+
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
   const canEdit = hasUpdatePermission && state.editable;
@@ -287,11 +296,13 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes, changes) => {
-      const processed = propagateGroupDrag(nodes, state.nodes, state.props);
+      let processed = propagateGroupDrag(nodes, state.nodes, state.props);
+      const hasSelection = changes.some((c) => c.type === "select");
+      if (hasSelection) processed = propagateGroupSelection(processed, state.props);
       if (
         // @ts-expect-error - Sometimes, the nodes do have dragging
         processed.some((n) => n.dragging) ||
-        changes.some((c) => c.type === "select")
+        hasSelection
       )
         // don't remember dragging a node or selecting an element
         syncDispatch(setNodes({ key: layoutKey, nodes: processed }));
