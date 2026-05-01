@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/spf13/cobra"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/plugin"
 
 	. "github.com/onsi/ginkgo/v2"
@@ -407,16 +408,22 @@ var _ = Describe("buildPluginRegistry", func() {
 })
 
 var _ = Describe("generateResult.syncFiles", func() {
-	var tmpDir string
+	var (
+		tmpDir     string
+		formatters *format.Registry
+		cache      *format.Cache
+	)
 
 	BeforeEach(func() {
 		tmpDir = MustSucceed(os.MkdirTemp("", "sync"))
 		DeferCleanup(func() {
 			Expect(os.RemoveAll(tmpDir)).To(Succeed())
 		})
+		formatters = format.NewRegistry()
+		cache = format.LoadCache(tmpDir)
 	})
 
-	It("should write new files and report them", func() {
+	It("should write new files and report them", func(ctx SpecContext) {
 		result := &generateResult{
 			Files: map[string][]plugin.File{
 				"test": {
@@ -424,7 +431,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.Unchanged).To(BeEmpty())
 
@@ -432,7 +439,7 @@ var _ = Describe("generateResult.syncFiles", func() {
 		Expect(content).To(Equal("package out"))
 	})
 
-	It("should skip unchanged files", func() {
+	It("should skip unchanged files", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("package out"), 0644)).To(Succeed())
@@ -444,12 +451,12 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(BeEmpty())
 		Expect(sr.Unchanged).To(HaveLen(1))
 	})
 
-	It("should overwrite files with different content", func() {
+	It("should overwrite files with different content", func(ctx SpecContext) {
 		outDir := filepath.Join(tmpDir, "out")
 		Expect(os.MkdirAll(outDir, 0755)).To(Succeed())
 		Expect(os.WriteFile(filepath.Join(outDir, "types.gen.go"), []byte("old"), 0644)).To(Succeed())
@@ -461,8 +468,24 @@ var _ = Describe("generateResult.syncFiles", func() {
 				},
 			},
 		}
-		sr := MustSucceed(result.syncFiles(tmpDir))
+		sr := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
 		Expect(sr.Written).To(HaveLen(1))
 		Expect(sr.ByPlugin["test"]).To(HaveLen(1))
+	})
+
+	It("should skip via cache on second sync with identical raw bytes", func(ctx SpecContext) {
+		result := &generateResult{
+			Files: map[string][]plugin.File{
+				"test": {
+					{Path: "out/types.gen.go", Content: []byte("package out")},
+				},
+			},
+		}
+		sr1 := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
+		Expect(sr1.Written).To(HaveLen(1))
+
+		sr2 := MustSucceed(result.syncFiles(ctx, tmpDir, formatters, cache, 1))
+		Expect(sr2.Written).To(BeEmpty())
+		Expect(sr2.Skipped).To(HaveLen(1))
 	})
 })

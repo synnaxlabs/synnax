@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/cpp/keywords"
 	cppprimitives "github.com/synnaxlabs/oracle/plugin/cpp/primitives"
@@ -42,8 +41,6 @@ type Plugin struct{ Options Options }
 
 type Options struct {
 	FileNamePattern string
-	// DisableFormatter skips running clang-format if true.
-	DisableFormatter bool
 }
 
 func DefaultOptions() Options {
@@ -174,18 +171,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	}
 
 	return resp, nil
-}
-
-var cppPostWriter = &exec.PostWriter{
-	Extensions: []string{".h", ".hpp", ".cpp", ".cc"},
-	Commands:   [][]string{{"clang-format", "-i"}},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	if p.Options.DisableFormatter {
-		return nil
-	}
-	return cppPostWriter.PostWrite(files)
 }
 
 func (p *Plugin) generateFile(

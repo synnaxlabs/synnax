@@ -32,8 +32,7 @@ var _ = Describe("C++ PB Plugin", func() {
 	BeforeEach(func() {
 		loader = NewMockFileLoader()
 		pbPlugin = pb.New(pb.Options{
-			FileNamePattern:  "proto.gen.h",
-			DisableFormatter: true,
+			FileNamePattern: "proto.gen.h",
 		})
 	})
 
@@ -61,13 +60,6 @@ var _ = Describe("C++ PB Plugin", func() {
 	Describe("Check", func() {
 		It("Should return nil", func() {
 			Expect(pbPlugin.Check(nil)).To(Succeed())
-		})
-	})
-
-	Describe("PostWrite", func() {
-		It("Should return nil with formatter disabled", func() {
-			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
-			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
 		})
 	})
 
