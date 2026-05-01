@@ -131,6 +131,29 @@ export const expandGroupPositions = (
   return result;
 };
 
+/** Removes children of deleted group nodes from the node list and cleans up props. */
+export const cascadeGroupDeletes = (
+  prevNodes: Diagram.Node[],
+  nextNodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): Diagram.Node[] => {
+  const nextKeys = new Set(nextNodes.map((n) => n.key));
+  const removedGroupKeys = new Set<string>();
+  for (const node of prevNodes)
+    if (!nextKeys.has(node.key) && props[node.key]?.key === "group")
+      removedGroupKeys.add(node.key);
+  if (removedGroupKeys.size === 0) return nextNodes;
+  for (const key of removedGroupKeys) delete props[key];
+  return nextNodes.filter((n) => {
+    const gid = props[n.key]?.groupId;
+    if (gid != null && removedGroupKeys.has(gid)) {
+      delete props[n.key];
+      return false;
+    }
+    return true;
+  });
+};
+
 /** calculateGroupBoundingBox computes the bounding box for a set of member nodes. */
 export const calculateGroupBoundingBox = (
   memberNodes: Diagram.Node[],

@@ -258,7 +258,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   Diagram.useTriggers({
     onCopy: handleCopySelection,
-    onCut: handleCopySelection,  // required by UseTriggersProps
+    onCut: handleCopySelection, // required by UseTriggersProps
     onPaste: handlePasteSelection,
     onSelectAll: handleSelectAll,
     onClear: handleClearSelection,

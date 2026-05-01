@@ -18,6 +18,7 @@ import { color, id, xy } from "@synnaxlabs/x";
 
 import {
   calculateGroupBoundingBox,
+  cascadeGroupDeletes,
   remapGroupIds,
   selectedGroupKeys,
 } from "@/schematic/groups";
@@ -329,7 +330,8 @@ export const { actions, reducer } = createSlice({
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
       const schematic = state.schematics[layoutKey];
-      if (mode === "replace") schematic.nodes = nodes;
+      if (mode === "replace")
+        schematic.nodes = cascadeGroupDeletes(schematic.nodes, nodes, schematic.props);
       else {
         const keys = nodes.map((node) => node.key);
         schematic.nodes = [

@@ -1988,4 +1988,94 @@ describe("Schematic Slice", () => {
       );
     });
   });
+
+  describe("cascade group deletes", () => {
+    const schematicKey = "test-schematic";
+    const groupProps: NodeProps = { key: "group" } as NodeProps;
+    let groupKey: string;
+
+    beforeEach(() => {
+      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "valve-1",
+          props: { key: "valve" },
+          node: { position: { x: 0, y: 0 } },
+        }),
+      );
+      store.dispatch(
+        actions.addElement({
+          key: schematicKey,
+          elKey: "valve-2",
+          props: { key: "valve" },
+          node: { position: { x: 100, y: 100 } },
+        }),
+      );
+      // Select both and group them
+      store.dispatch(
+        actions.setNodes({
+          key: schematicKey,
+          nodes: [
+            { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
+            { key: "valve-2", position: { x: 100, y: 100 }, selected: true },
+          ],
+          mode: "update",
+        }),
+      );
+      store.dispatch(actions.groupSelection({ key: schematicKey, props: groupProps }));
+      const state = store.getState()[SLICE_NAME];
+      groupKey = state.schematics[schematicKey].nodes.find(
+        (n) =>
+          (state.schematics[schematicKey].props[n.key] as NodeProps)?.key === "group",
+      )!.key;
+    });
+
+    it("should remove group children when the group node is deleted", () => {
+      const before = store.getState()[SLICE_NAME];
+      const nodesWithoutGroup = before.schematics[schematicKey].nodes.filter(
+        (n) => n.key !== groupKey,
+      );
+      // Simulate React Flow removing only the group node
+      store.dispatch(actions.setNodes({ key: schematicKey, nodes: nodesWithoutGroup }));
+      const after = store.getState()[SLICE_NAME];
+      expect(after.schematics[schematicKey].nodes).toHaveLength(0);
+      const allProps = after.schematics[schematicKey].props;
+      expect(allProps["valve-1"]).toBeUndefined();
+      expect(allProps["valve-2"]).toBeUndefined();
+      expect(allProps[groupKey]).toBeUndefined();
+    });
+
+    it("should not affect nodes when a non-group node is deleted", () => {
+      const before = store.getState()[SLICE_NAME];
+      const nodesWithoutValve1 = before.schematics[schematicKey].nodes.filter(
+        (n) => n.key !== "valve-1",
+      );
+      store.dispatch(
+        actions.setNodes({ key: schematicKey, nodes: nodesWithoutValve1 }),
+      );
+      const after = store.getState()[SLICE_NAME];
+      // valve-1 removed, but group and valve-2 remain
+      expect(after.schematics[schematicKey].nodes).toHaveLength(2);
+      expect(after.schematics[schematicKey].nodes.some((n) => n.key === groupKey)).toBe(
+        true,
+      );
+      expect(
+        after.schematics[schematicKey].nodes.some((n) => n.key === "valve-2"),
+      ).toBe(true);
+    });
+
+    it("should not cascade when using update mode", () => {
+      // Update mode merges, not replaces — cascade only applies to replace
+      store.dispatch(
+        actions.setNodes({
+          key: schematicKey,
+          nodes: [{ key: "valve-1", position: { x: 50, y: 50 } }],
+          mode: "update",
+        }),
+      );
+      const after = store.getState()[SLICE_NAME];
+      expect(after.schematics[schematicKey].nodes).toHaveLength(3);
+    });
+  });
 });
