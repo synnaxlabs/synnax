@@ -437,16 +437,16 @@ const MultiElementProperties = ({
           <Input.Item label="Spacing">
             <Flex.Box x>
               <Button.Button
-                tooltip="Distribute symbol spacing horizontally"
-                onClick={() => handleDistribute("x")}
-              >
-                <Icon.Distribute.X />
-              </Button.Button>
-              <Button.Button
                 tooltip="Distribute symbol spacing vertically"
                 onClick={() => handleDistribute("y")}
               >
                 <Icon.Distribute.Y />
+              </Button.Button>
+              <Button.Button
+                tooltip="Distribute symbol spacing horizontally"
+                onClick={() => handleDistribute("x")}
+              >
+                <Icon.Distribute.X />
               </Button.Button>
             </Flex.Box>
           </Input.Item>
