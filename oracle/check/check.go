@@ -31,6 +31,7 @@ import (
 	"time"
 
 	"github.com/synnaxlabs/oracle/pipeline"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Checker is one validation gate. Name is a stable identifier used for
@@ -192,17 +193,12 @@ func Run(
 	checkers []Checker,
 	gates []string,
 ) *Report {
-	want := make(map[string]struct{}, len(gates))
-	for _, g := range gates {
-		want[g] = struct{}{}
-	}
+	want := set.New(gates...)
 	report := &Report{}
 	start := time.Now()
 	for _, c := range checkers {
 		gr := GateReport{Gate: c.Name(), Status: StatusSkipped}
-		if len(want) == 0 {
-			gr = c.Run(ctx, p, env)
-		} else if _, ok := want[c.Name()]; ok {
+		if len(want) == 0 || want.Contains(c.Name()) {
 			gr = c.Run(ctx, p, env)
 		}
 		sortFindings(gr.Findings)

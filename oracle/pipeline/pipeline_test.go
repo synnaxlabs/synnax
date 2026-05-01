@@ -17,6 +17,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -80,11 +81,11 @@ Thing struct {
 
 		Expect(result.Diagnostics.Ok()).To(BeTrue())
 		Expect(result.Resolutions).NotTo(BeNil())
-		paths := make(map[string]bool)
+		paths := set.New[string]()
 		for _, f := range result.Outputs["stub"] {
-			paths[f.Path] = true
+			paths.Add(f.Path)
 		}
-		Expect(paths).To(HaveKey("out/widget_Thing.gen.go"))
+		Expect(paths.Contains("out/widget_Thing.gen.go")).To(BeTrue())
 	})
 
 	It("does not double-register types when a schema imports another", func(ctx SpecContext) {

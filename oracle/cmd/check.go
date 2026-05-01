@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/oracle/paths"
 	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 )
 
 // Flag names for the check command. Constants so test code can set them
@@ -202,24 +203,19 @@ func (e *exitCodeError) ExitCode() int { return e.code }
 // subset?". Empty set means "all gates" (no --gates filter passed).
 type gateSet struct {
 	all bool
-	in  map[string]struct{}
+	in  set.Set[string]
 }
 
 func wantedSet(gates []string) gateSet {
 	if len(gates) == 0 {
 		return gateSet{all: true}
 	}
-	in := make(map[string]struct{}, len(gates))
-	for _, g := range gates {
-		in[g] = struct{}{}
-	}
-	return gateSet{in: in}
+	return gateSet{in: set.New(gates...)}
 }
 
 func (s gateSet) has(name string) bool {
 	if s.all {
 		return true
 	}
-	_, ok := s.in[name]
-	return ok
+	return s.in.Contains(name)
 }
