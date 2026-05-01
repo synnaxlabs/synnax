@@ -179,6 +179,10 @@ export interface SetRangeAnnotationsVisiblePayload {
   visible: boolean;
 }
 
+export interface SetAlignPayload {
+  key: string;
+  align: boolean;
+}
 export const typedLineKeyToString = (key: TypedLineKey): string =>
   `${key.yAxis}---${key.xAxis}---${key.range}---${key.channels.x}---${key.channels.y}`;
 
@@ -382,6 +386,9 @@ export const { actions, reducer } = createSlice({
     ) => {
       state.plots[payload.key].annotations.visible = payload.visible;
     },
+    setAlign: (state, { payload }: PayloadAction<SetAlignPayload>) => {
+      state.plots[payload.key].align = payload.align;
+    },
   },
 });
 
@@ -406,6 +413,7 @@ export const {
   setSelection,
   setMeasureMode,
   setRangeAnnotationsVisible,
+  setAlign,
   create: internalCreate,
 } = actions;
 

@@ -9,7 +9,7 @@
 
 import "@/vis/legend/Grouped.css";
 
-import { Fragment, type ReactElement, useState } from "react";
+import { Fragment, type PropsWithChildren, type ReactElement, useState } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
@@ -26,7 +26,10 @@ export interface GroupData {
 export interface GroupedProps
   extends
     Omit<ContainerProps, "value" | "onChange" | "background" | "draggable" | "gap">,
-    Pick<EntriesProps, "background" | "allowVisibleChange" | "onEntryChange"> {
+    Pick<
+      EntriesProps,
+      "background" | "allowVisibleChange" | "onEntryChange" | "highlightedSubGroupIndex"
+    > {
   data: GroupData[];
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
@@ -39,8 +42,10 @@ export const Grouped = ({
   onEntryChange,
   position,
   onPositionChange,
+  highlightedSubGroupIndex,
+  children,
   ...rest
-}: GroupedProps): ReactElement | null => {
+}: PropsWithChildren<GroupedProps>): ReactElement | null => {
   const [pickerVisible, setPickerVisible] = useState(false);
   if (data.length === 0) return null;
   return (
@@ -72,11 +77,13 @@ export const Grouped = ({
               allowVisibleChange={allowVisibleChange}
               background={background}
               entryProps={entryProps}
+              highlightedSubGroupIndex={highlightedSubGroupIndex}
             />
           </Flex.Box>
           {i !== data.length - 1 && <div className={CSS.B("legend-divider")} />}
         </Fragment>
       ))}
+      {children}
     </Container>
   );
 };

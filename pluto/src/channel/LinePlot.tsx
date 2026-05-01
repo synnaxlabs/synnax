@@ -16,6 +16,7 @@ import {
   location as loc,
   type TimeRange,
   type TimeSpan,
+  TimeStamp,
   type xy,
 } from "@synnaxlabs/x";
 import {
@@ -56,6 +57,9 @@ export interface BaseLineProps {
   label?: string;
   downsample?: number;
   downsampleMode?: telem.DownsampleMode;
+  timeOffset?: number;
+  subGroup?: { key: string; name: string };
+  subGroupIndex?: number;
 }
 
 export interface StaticLineProps extends BaseLineProps {
@@ -307,7 +311,7 @@ interface YAxisProps extends Pick<
   axis: AxisProps;
 }
 
-const lineKey = ({ channels: { x, y } }: LineProps): string => `${x ?? 0}-${y}`;
+const lineKey = (l: LineProps): string => l.key;
 
 const YAxis = ({
   lines,
@@ -406,6 +410,25 @@ const DynamicLine = ({
   );
 };
 
+// A static range has fixed start/end timestamps, but its end may be in the future
+// (e.g. a range set to 10:00-10:30 while it's currently 10:15). In that case, new
+// data is still being written within the range's bounds. We use a streaming telem
+// source so the plot updates in real-time, with keepFor set to the full range
+// duration so data from the start is never garbage collected.
+export const rangeIsIncomplete = (timeRange: TimeRange): boolean =>
+  Number(timeRange.end) > Number(TimeStamp.now());
+
+export const incompleteRangeTelemSpec = (
+  timeRange: TimeRange,
+  channel: channel.Key | channel.Name,
+  useIndexOfChannel: boolean = false,
+): telem.SeriesSourceSpec => {
+  const now = Number(TimeStamp.now());
+  const timeSpan = now - Number(timeRange.start);
+  const keepFor = Number(timeRange.end) - Number(timeRange.start);
+  return telem.streamChannelData({ timeSpan, channel, useIndexOfChannel, keepFor });
+};
+
 const StaticLine = ({
   line: {
     timeRange,
@@ -417,6 +440,13 @@ const StaticLine = ({
   line: StaticLineProps;
 }): ReactElement => {
   const { xTelem, yTelem } = useMemo(() => {
+    if (rangeIsIncomplete(timeRange)) {
+      const hasX = x != null && x !== 0;
+      return {
+        yTelem: incompleteRangeTelemSpec(timeRange, y),
+        xTelem: incompleteRangeTelemSpec(timeRange, hasX ? x : y, !hasX),
+      };
+    }
     const yTelem = telem.channelData({ timeRange, channel: y });
     const hasX = x != null && x !== 0;
     const xTelem = telem.channelData({

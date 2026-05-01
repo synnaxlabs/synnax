@@ -20,6 +20,7 @@
 
 .console-controls--annotations-visible {
     top: 0rem;
+    right: 2rem;
 }
 
 .pluto-tabs-content:hover .console-controls {

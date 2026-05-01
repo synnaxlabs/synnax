@@ -21,6 +21,7 @@ import { z } from "zod";
 
 import { aether } from "@/aether/aether";
 import { theming } from "@/theming/aether";
+import { formatRelativeTime, type TickType } from "@/vis/axis/ticks";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
@@ -50,6 +51,7 @@ interface InternalState {
 export interface TooltipProps {
   findByXDecimal: (position: number) => FindResult[];
   region: box.Box;
+  xAxisTickType: TickType;
 }
 
 export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
@@ -87,9 +89,11 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
 
     const avgXPosition =
       validValues.reduce((p, c) => p + c.position.x, 0) / validValues.length;
-    const avgXValue = new TimeStamp(
-      validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length,
-    );
+    const avgXRaw = validValues.reduce((p, c) => p + c.value.x, 0) / validValues.length;
+    const isRelative = props.xAxisTickType === "relativeTime";
+    const xValueStr = isRelative
+      ? formatRelativeTime(avgXRaw)
+      : new TimeStamp(avgXRaw).toString("preciseDate", "local");
 
     const rulePosition = scale_.x.pos(avgXPosition);
     if (!bounds.contains(box.xBounds(region), rulePosition)) return;
@@ -124,9 +128,10 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
     if (relativePosition.x > 0.6) root.x = "right";
     if (relativePosition.y > 0.6) root.y = "bottom";
 
+    const hasSubGroups = validValues.some((v) => v.subGroupIndex != null);
+    const subGroupPrefixWidth = hasSubGroups ? 14 : 0;
     let maxLabelLength = values.reduce((p, c) => Math.max(p, c.label?.length ?? 0), 0);
-    const timeValueLength = avgXValue.toString("preciseDate", "local").length;
-    if (timeValueLength > maxLabelLength) maxLabelLength = timeValueLength;
+    if (xValueStr.length > maxLabelLength) maxLabelLength = xValueStr.length;
 
     draw.list({
       root,
@@ -135,23 +140,32 @@ export class Tooltip extends aether.Leaf<typeof tooltipStateZ, InternalState> {
       padding: TOOLTIP_PADDING,
       itemHeight: TOOLTIP_LIST_ITEM_HEIGHT,
       spacing: TOOLTIP_LIST_SPACING,
-      width: maxLabelLength * 7 + 48,
+      width: maxLabelLength * 7 + 60 + subGroupPrefixWidth,
       position: this.state.position,
       draw: (i, b) => {
         let label: string;
         let value: string;
         let color = this.state.textColor;
         if (i === 0) {
-          label = "Time";
-          value = avgXValue.toString("preciseDate", "local");
+          label = isRelative ? "Elapsed" : "Time";
+          value = xValueStr;
         } else {
           const v = validValues[i - 1];
           label = v.label ?? "";
           value = math.smartRound(v.value.y, v.bounds).toString();
           color = v.color;
+          if (v.subGroupIndex != null)
+            draw.text({
+              position: box.topLeft(b),
+              text: `${v.subGroupIndex}`,
+              level: "small",
+              weight: 600,
+              color: this.state.ruleColor,
+            });
         }
+        const labelOffset = hasSubGroups ? subGroupPrefixWidth : 0;
         draw.text({
-          position: box.topLeft(b),
+          position: xy.translateX(box.topLeft(b), labelOffset),
           text: label,
           level: "small",
           weight: 500,
