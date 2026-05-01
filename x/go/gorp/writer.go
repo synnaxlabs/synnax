@@ -15,13 +15,16 @@ import "context"
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
 	tx       Tx
-	keyCodec *keyCodec[K, E]
+	keyCodec keyCodec[K, E]
 }
 
-// WrapWriter wraps the given BaseWriter to provide a strongly typed interface for writing
-// entries to the DB.
+// WrapWriter wraps the given Tx to provide a strongly typed Writer.
 func WrapWriter[K Key, E Entry[K]](tx Tx) *Writer[K, E] {
-	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E]()}
+	return wrapWriter[K, E](tx, nil)
+}
+
+func wrapWriter[K Key, E Entry[K]](tx Tx, prefix []byte) *Writer[K, E] {
+	return &Writer[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
 
 // Set writes the provided entries to the DB.

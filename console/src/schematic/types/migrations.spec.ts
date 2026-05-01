@@ -40,6 +40,23 @@ describe("migrations", () => {
         expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
       });
     });
+    it("should migrate a v5 state whose legend has no colors", () => {
+      const { colors: _colors, ...legendWithoutColors } = v5.ZERO_STATE.legend;
+      const state = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...legendWithoutColors,
+          position: { x: 123, y: 456, units: { x: "px", y: "px" } },
+        },
+      } as unknown as v5.State;
+      const migrated = migrateState(state);
+      expect(migrated.legend.colors).toEqual({});
+      expect(migrated.legend.position).toEqual({
+        x: 123,
+        y: 456,
+        units: { x: "px", y: "px" },
+      });
+    });
   });
   describe("slice", () => {
     const STATES = [

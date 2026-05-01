@@ -30,7 +30,7 @@ var _ = Describe("Provision", func() {
 		It("Should have created all built-in roles during OpenService", func(ctx SpecContext) {
 			for _, name := range []string{"Owner", "Engineer", "Operator", "Viewer"} {
 				var r role.Role
-				Expect(svc.Role.NewRetrieve().WhereName(name).Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
 				Expect(r.Key).ToNot(Equal(uuid.Nil))
 				Expect(r.Internal).To(BeTrue())
 			}
@@ -38,7 +38,7 @@ var _ = Describe("Provision", func() {
 		It("Should have created policies for each role", func(ctx SpecContext) {
 			for _, name := range []string{"Owner", "Engineer", "Operator", "Viewer"} {
 				var r role.Role
-				Expect(svc.Role.NewRetrieve().WhereName(name).Entry(&r).Exec(ctx, tx)).To(Succeed())
+				Expect(svc.Role.NewRetrieve().Where(role.MatchNames(name)).Entry(&r).Exec(ctx, tx)).To(Succeed())
 				var policies []ontology.Resource
 				Expect(otg.NewRetrieve().
 					WhereIDs(role.OntologyID(r.Key)).
@@ -53,7 +53,7 @@ var _ = Describe("Provision", func() {
 	Describe("Idempotency", func() {
 		It("Should produce the same role keys when opened again", func(ctx SpecContext) {
 			var ownerBefore role.Role
-			Expect(svc.Role.NewRetrieve().WhereName("Owner").Entry(&ownerBefore).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerBefore).Exec(ctx, tx)).To(Succeed())
 
 			svc2 := MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 				DB:       db,
@@ -64,7 +64,7 @@ var _ = Describe("Provision", func() {
 			}))
 
 			var ownerAfter role.Role
-			Expect(svc2.Role.NewRetrieve().WhereName("Owner").Entry(&ownerAfter).Exec(ctx, tx)).To(Succeed())
+			Expect(svc2.Role.NewRetrieve().Where(role.MatchNames("Owner")).Entry(&ownerAfter).Exec(ctx, tx)).To(Succeed())
 			Expect(ownerAfter.Key).To(Equal(ownerBefore.Key))
 		})
 	})
@@ -73,7 +73,7 @@ var _ = Describe("Provision", func() {
 		It("Should update existing policy objects on re-provision", func(ctx SpecContext) {
 			var ownerPolicy policy.Policy
 			Expect(svc.Policy.NewRetrieve().
-				WhereNames("Owner").
+				Where(policy.MatchNames("Owner")).
 				Entry(&ownerPolicy).
 				Exec(ctx, nil)).To(Succeed())
 			originalObjects := ownerPolicy.Objects
@@ -82,7 +82,7 @@ var _ = Describe("Provision", func() {
 			// Simulate stale DB by stripping objects in a committed transaction
 			staleTx := db.OpenTx()
 			Expect(gorp.NewUpdate[uuid.UUID, policy.Policy]().
-				WhereKeys(ownerPolicy.Key).
+				Where(gorp.MatchKeys[uuid.UUID, policy.Policy](ownerPolicy.Key)).
 				Change(func(_ gorp.Context, p policy.Policy) policy.Policy {
 					p.Objects = p.Objects[:1]
 					return p
@@ -100,7 +100,7 @@ var _ = Describe("Provision", func() {
 
 			var updated policy.Policy
 			Expect(svc2.Policy.NewRetrieve().
-				WhereNames("Owner").
+				Where(policy.MatchNames("Owner")).
 				Entry(&updated).
 				Exec(ctx, nil)).To(Succeed())
 			Expect(updated.Objects).To(Equal(originalObjects))

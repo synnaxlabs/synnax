@@ -87,10 +87,10 @@ func (s *Service) Delete(
 		return types.Nil{}, nil
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(channel.MatchKeys(req.Keys...))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(channel.MatchNames(req.Names...))
 	}
 	if err := q.Exec(ctx, nil); err != nil {
 		return types.Nil{}, err
@@ -412,7 +412,7 @@ func (s *Service) openWriter(
 	}
 
 	channels := make([]channel.Channel, 0, len(req.Config.Keys))
-	if err = s.channel.NewRetrieve().WhereKeys(req.Config.Keys...).Entries(&channels).Exec(ctx, nil); err != nil {
+	if err = s.channel.NewRetrieve().Where(channel.MatchKeys(req.Config.Keys...)).Entries(&channels).Exec(ctx, nil); err != nil {
 		return w, err
 	}
 	// Let the client know the writer is ready to receive segments.

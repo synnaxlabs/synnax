@@ -59,7 +59,7 @@ func Migration(cfg MigrationConfig) migrate.Migration {
 			}
 			var existingStatuses []Status
 			if err = status.NewRetrieve[StatusDetails](cfg.Status).
-				WhereKeys(statusKeys...).
+				Where(status.MatchKeys[StatusDetails](statusKeys...)).
 				Entries(&existingStatuses).
 				Exec(ctx, nil); err != nil && !errors.Is(err, query.ErrNotFound) {
 				return err
