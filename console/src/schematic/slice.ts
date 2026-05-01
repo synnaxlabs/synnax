@@ -249,6 +249,7 @@ export const { actions, reducer } = createSlice({
       });
       const nextEdges = state.copy.edges.map((edge) => {
         const key: string = id.create();
+        schematic.props[key] = { ...state.copy.props[edge.key] };
         return {
           ...edge,
           key,
