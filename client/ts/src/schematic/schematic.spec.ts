@@ -14,30 +14,7 @@ import { NotFoundError, ValidationError } from "@/errors";
 import { schematic } from "@/schematic";
 import { createTestClient } from "@/testutil/client";
 
-type New = schematic.New;
-type SetDataBody = schematic.SetDataBody;
-
 const client = createTestClient();
-
-const ZERO_LEGEND = { visible: true, position: { x: 50, y: 50 }, colors: {} };
-
-const newSchematic = (overrides: Partial<New> = {}): New => ({
-  name: "Schematic",
-  legend: ZERO_LEGEND,
-  nodes: [],
-  edges: [],
-  props: {},
-  ...overrides,
-});
-
-const setDataBody = (overrides: Partial<SetDataBody> = {}): SetDataBody => ({
-  legend: ZERO_LEGEND,
-  props: {},
-  nodes: [],
-  edges: [],
-  authority: 1,
-  ...overrides,
-});
 
 describe("Schematic", () => {
   describe("create", () => {
@@ -46,11 +23,14 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.schematics.create(ws.key, newSchematic());
-      expect(schematic.name).toEqual("Schematic");
-      expect(schematic.key).not.toEqual(uuid.ZERO);
-      const retrieved = await client.schematics.retrieve({ key: schematic.key });
-      expect(retrieved.key).toEqual(schematic.key);
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Schematic",
+      });
+      expect(schem.name).toEqual("Schematic");
+      expect(schem.key).not.toEqual(uuid.ZERO);
+      const retrieved = await client.schematics.retrieve({ key: schem.key });
+      expect(retrieved.key).toEqual(schem.key);
     });
   });
 
@@ -60,9 +40,12 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.schematics.create(ws.key, newSchematic());
-      await client.schematics.rename(schematic.key, "Schematic2");
-      const res = await client.schematics.retrieve({ key: schematic.key });
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Schematic",
+      });
+      await client.schematics.rename(schem.key, "Schematic2");
+      const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.name).toEqual("Schematic2");
     });
   });
@@ -73,16 +56,17 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.schematics.create(ws.key, newSchematic());
-      await client.schematics.setData(
-        schematic.key,
-        setDataBody({
-          authority: 5,
-          nodes: [{ key: "n1", position: { x: 10, y: 20 }, zIndex: 0 }],
-          props: { n1: { variant: "valve" } },
-        }),
-      );
-      const res = await client.schematics.retrieve({ key: schematic.key });
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Schematic",
+      });
+      await client.schematics.setData(schem.key, {
+        ...schematic.ZERO_NEW,
+        authority: 5,
+        nodes: [{ key: "n1", position: { x: 10, y: 20 }, zIndex: 0 }],
+        props: { n1: { variant: "valve" } },
+      });
+      const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.name).toEqual("Schematic");
       expect(res.authority).toEqual(5);
       expect(res.nodes).toHaveLength(1);
@@ -97,9 +81,12 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.schematics.create(ws.key, newSchematic());
-      await client.schematics.delete(schematic.key);
-      await expect(client.schematics.retrieve({ key: schematic.key })).rejects.toThrow(
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Schematic",
+      });
+      await client.schematics.delete(schem.key);
+      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -108,24 +95,21 @@ describe("Schematic", () => {
   describe("props case preservation", () => {
     test("preserves arbitrary key casing within prop values", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
-      const schematic = await client.schematics.create(
-        ws.key,
-        newSchematic({
-          name: "CaseTest",
-          props: {
-            n1: {
-              camelCaseKey: "value1",
-              PascalCaseKey: "value2",
-              snake_case_key: "value3",
-              nested: {
-                innerCamelCase: 123,
-                InnerPascalCase: { deepKey: true },
-              },
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        props: {
+          n1: {
+            camelCaseKey: "value1",
+            PascalCaseKey: "value2",
+            snake_case_key: "value3",
+            nested: {
+              innerCamelCase: 123,
+              InnerPascalCase: { deepKey: true },
             },
           },
-        }),
-      );
-      const retrieved = await client.schematics.retrieve({ key: schematic.key });
+        },
+      });
+      const retrieved = await client.schematics.retrieve({ key: schem.key });
       const props = retrieved.props.n1 as Record<string, unknown>;
       expect(props.camelCaseKey).toEqual("value1");
       expect(props.PascalCaseKey).toEqual("value2");
@@ -148,14 +132,17 @@ describe("Schematic", () => {
         name: "Schematic",
         layout: { one: 1 },
       });
-      const schematic = await client.schematics.create(ws.key, newSchematic());
-      const schematic2 = await client.schematics.copy({
-        key: schematic.key,
+      const schem = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Schematic",
+      });
+      const schem2 = await client.schematics.copy({
+        key: schem.key,
         name: "Schematic2",
         snapshot: false,
       });
-      expect(schematic2.name).toEqual("Schematic2");
-      expect(schematic2.key).not.toEqual(uuid.ZERO);
+      expect(schem2.name).toEqual("Schematic2");
+      expect(schem2.key).not.toEqual(uuid.ZERO);
     });
 
     describe("snapshot", () => {
@@ -164,14 +151,20 @@ describe("Schematic", () => {
           name: "Schematic",
           layout: { one: 1 },
         });
-        const schematic = await client.schematics.create(ws.key, newSchematic());
-        const schematic2 = await client.schematics.copy({
-          key: schematic.key,
+        const schem = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic",
+        });
+        const schem2 = await client.schematics.copy({
+          key: schem.key,
           name: "Schematic2",
           snapshot: true,
         });
         await expect(
-          client.schematics.setData(schematic2.key, setDataBody()),
+          client.schematics.setData(schem2.key, {
+            ...schematic.ZERO_NEW,
+            authority: 2,
+          }),
         ).rejects.toThrow(ValidationError);
       });
     });

@@ -12,38 +12,14 @@ package v3
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
 	v2 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v2"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
 
-// Lift decodes the opaque schematic data blob as a v3.Data, recursing into
-// v2.Lift on older blobs and running Migrate on the result.
-func Lift(blob msgpack.EncodedJSON) (Data, error) {
-	var peek struct {
-		Version string `json:"version"`
-	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return Data{}, errors.Wrap(err, "peek schematic data version")
-		}
-	}
-	if peek.Version == Version {
-		var d Data
-		if err := blob.Unmarshal(&d); err != nil {
-			return Data{}, errors.Wrap(err, "decode v3 schematic data")
-		}
-		return d, nil
-	}
-	prior, err := v2.Lift(blob)
-	if err != nil {
-		return Data{}, err
-	}
-	return Migrate(prior)
-}
-
 // Migrate transforms v2 schematic data into v3 by attaching an empty segments
-// slice to every edge. Mirrors the console's v2 -> v3 step.
-func Migrate(old v2.Data) (Data, error) {
+// slice to every edge. Mirrors the console's v2 -> v3 step. The opaque Data
+// bag carried on every v0/v1/v2 edge is passed through unchanged so the
+// v5 -> v6 lift step can recover ReactFlow's per-edge segments / color /
+// variant from blobs that predate the v3 schema.
+func Migrate(old v2.Data) Data {
 	edges := make([]Edge, len(old.Edges))
 	for i, e := range old.Edges {
 		edges[i] = upgradeEdge(e)
@@ -63,7 +39,7 @@ func Migrate(old v2.Data) (Data, error) {
 		Key:             old.Key,
 		Type:            old.Type,
 		ViewportMode:    old.ViewportMode,
-	}, nil
+	}
 }
 
 func upgradeEdge(e v0.Edge) Edge {
@@ -74,5 +50,6 @@ func upgradeEdge(e v0.Edge) Edge {
 		SourceHandle: e.SourceHandle,
 		TargetHandle: e.TargetHandle,
 		Segments:     []Segment{},
+		Data:         e.Data,
 	}
 }

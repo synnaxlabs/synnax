@@ -11,38 +11,11 @@ package v4
 
 import (
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v3"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
-
-// Lift decodes the opaque schematic data blob as a v4.Data, recursing into
-// v3.Lift on older blobs and running Migrate on the result.
-func Lift(blob msgpack.EncodedJSON) (Data, error) {
-	var peek struct {
-		Version string `json:"version"`
-	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return Data{}, errors.Wrap(err, "peek schematic data version")
-		}
-	}
-	if peek.Version == Version {
-		var d Data
-		if err := blob.Unmarshal(&d); err != nil {
-			return Data{}, errors.Wrap(err, "decode v4 schematic data")
-		}
-		return d, nil
-	}
-	prior, err := v3.Lift(blob)
-	if err != nil {
-		return Data{}, err
-	}
-	return Migrate(prior)
-}
 
 // Migrate transforms v3 schematic data into v4 by adding the default
 // authority of 1. Mirrors the console's v3 -> v4 step.
-func Migrate(old v3.Data) (Data, error) {
+func Migrate(old v3.Data) Data {
 	return Data{
 		Version:         Version,
 		Editable:        old.Editable,
@@ -59,5 +32,5 @@ func Migrate(old v3.Data) (Data, error) {
 		Type:            old.Type,
 		ViewportMode:    old.ViewportMode,
 		Authority:       1,
-	}, nil
+	}
 }

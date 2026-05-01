@@ -45,15 +45,20 @@ type Node struct {
 
 // Edge is the wire shape of a schematic edge at version 0.0.0. Shipped consoles
 // persisted edges in ReactFlow's flat form: source and target are node-key
-// strings, with sourceHandle and targetHandle as optional sibling fields. The
+// strings, with sourceHandle and targetHandle as optional sibling fields. Data
+// is ReactFlow's per-edge data bag; consoles have written it on every shipped
+// version including v0..v2 even though the v3 schema is the first to declare
+// it explicitly. Preserving it here is what lets the v5 to v6 migration lift
+// segments / color / variant out of older blobs without losing fidelity. The
 // nested Handle{Node, Param} representation used by the typed Schematic is
 // constructed during the v5 to v6 migration step.
 type Edge struct {
-	Key          string  `json:"key"`
-	Source       string  `json:"source"`
-	Target       string  `json:"target"`
-	SourceHandle *string `json:"sourceHandle,omitempty"`
-	TargetHandle *string `json:"targetHandle,omitempty"`
+	Key          string          `json:"key"`
+	Source       string          `json:"source"`
+	Target       string          `json:"target"`
+	SourceHandle *string         `json:"sourceHandle,omitempty"`
+	TargetHandle *string         `json:"targetHandle,omitempty"`
+	Data         json.RawMessage `json:"data,omitempty"`
 }
 
 // Viewport is the schematic editor's viewport position and zoom.

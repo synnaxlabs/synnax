@@ -13,10 +13,10 @@ import (
 	"context"
 	"encoding/json"
 
+	"github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v1"
 	v3 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v3"
-	v5 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v5"
 	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
 	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/control"
@@ -29,23 +29,23 @@ import (
 // current strongly-typed Schematic. AutoMigrateSchematic handles the
 // trivially-copyable gorp-entry fields (Key, Name, Snapshot); the body
 // fields are sourced from the per-schematic blob the console used to
-// persist alongside those gorp fields, after v5.Lift walks the legacy
-// migration chain owned by each migrations/legacy/v* subfolder. UI-only
-// fields (editable, fitViewOnResize, viewport, mode, toolbar, control,
-// viewportMode, the wire-format key) are dropped; Authority defaults to 1
-// when the source carries zero. Edges flip from the flat source /
-// sourceHandle pair into nested Handle objects, edge.data segments / color
-// / variant lift into the props map keyed by edge id, and node-prop "key"
-// renames to "variant" so the lifted shape matches the EdgeProps /
-// NodeProps schema declared in schematic.oracle. v55 is the last snapshot
-// in which Schematic.Data is untyped; future migrations transform one
-// typed snapshot into another and never need this blob handling.
+// persist alongside those gorp fields, after legacy.MigrateData walks the
+// legacy migration chain up to v5.Data. UI-only fields (editable,
+// fitViewOnResize, viewport, mode, toolbar, control, viewportMode, the
+// wire-format key) are dropped; Authority defaults to 1 when the source
+// carries zero. Edges flip from the flat source / sourceHandle pair into
+// nested Handle objects, edge.data segments / color / variant lift into
+// the props map keyed by edge id, and node-prop "key" renames to "variant"
+// so the lifted shape matches the EdgeProps / NodeProps schema declared in
+// schematic.oracle. v55 is the last snapshot in which Schematic.Data is
+// untyped; future migrations transform one typed snapshot into another
+// and never need this blob handling.
 func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error) {
 	out, err := AutoMigrateSchematic(ctx, old)
 	if err != nil {
 		return Schematic{}, err
 	}
-	d, err := v5.Lift(old.Data)
+	d, err := legacy.MigrateData(old.Data)
 	if err != nil {
 		return Schematic{}, err
 	}
@@ -57,6 +57,9 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 	if err != nil {
 		return Schematic{}, err
 	}
+	if out.Props == nil {
+		out.Props = make(map[string]msgpack.EncodedJSON)
+	}
 	out.Edges = make([]Edge, len(d.Edges))
 	for i, e := range d.Edges {
 		edge, edgeProps, err := migrateEdge(e)
@@ -65,9 +68,6 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 		}
 		out.Edges[i] = edge
 		if edgeProps != nil {
-			if out.Props == nil {
-				out.Props = make(map[string]msgpack.EncodedJSON)
-			}
 			out.Props[edge.Key] = edgeProps
 		}
 	}
@@ -93,8 +93,12 @@ func migrateNode(n v0.Node) Node {
 // migrateEdge reshapes a v5 edge into the typed Edge with nested Handles and,
 // when the edge carries a ReactFlow-style data bag, lifts its segments /
 // color / variant fields into a props map entry keyed by the edge id.
-// Returns the typed edge plus an EncodedJSON payload (or nil when there is
-// nothing to lift).
+// Mirrors the console v6 migrateEdge: a missing or null data field produces
+// no edgeProps; any non-null data object produces an EncodedJSON payload
+// with EdgeProps defaults applied (segments defaults to [], variant defaults
+// to "pipe") so the lifted shape always parses cleanly under the v6
+// EdgeProps schema. Returns the typed edge plus the payload (or nil when
+// there is nothing to lift).
 func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 	out := Edge{
 		Key:    e.Key,
@@ -108,14 +112,17 @@ func migrateEdge(e v3.Edge) (Edge, msgpack.EncodedJSON, error) {
 	if err := json.Unmarshal(e.Data, &bag); err != nil {
 		return out, nil, errors.Wrap(err, "decode edge data bag")
 	}
-	lifted := make(map[string]any, 3)
+	if bag == nil {
+		return out, nil, nil
+	}
+	lifted := map[string]any{
+		"segments": []any{},
+		"variant":  "pipe",
+	}
 	for _, key := range []string{"segments", "color", "variant"} {
 		if v, ok := bag[key]; ok && v != nil {
 			lifted[key] = v
 		}
-	}
-	if len(lifted) == 0 {
-		return out, nil, nil
 	}
 	return out, lifted, nil
 }
@@ -127,6 +134,10 @@ func migrateLegend(l v1.Legend) Legend {
 			X: l.Position.X,
 			Y: l.Position.Y,
 		},
+		// Always non-nil: matches the console v6 migrateLegendColors contract,
+		// which returns {} when input colors are absent. Marshals cleanly as
+		// "{}" rather than "null".
+		Colors: make(map[string]color.Color, len(l.Colors)),
 	}
 	if l.Position.Units != nil {
 		out.Position.Units = &spatial.StickyUnits{
@@ -140,15 +151,12 @@ func migrateLegend(l v1.Legend) Legend {
 			Y: spatial.YLocation(l.Position.Root.Y),
 		}
 	}
-	if len(l.Colors) > 0 {
-		out.Colors = make(map[string]color.Color, len(l.Colors))
-		for k, hex := range l.Colors {
-			c, err := color.FromHex(hex)
-			if err != nil {
-				continue
-			}
-			out.Colors[k] = c
+	for k, hex := range l.Colors {
+		c, err := color.FromHex(hex)
+		if err != nil {
+			continue
 		}
+		out.Colors[k] = c
 	}
 	return out
 }
@@ -171,10 +179,13 @@ func migrateProps(in map[string]json.RawMessage) (map[string]msgpack.EncodedJSON
 		if err := json.Unmarshal(raw, &m); err != nil {
 			return nil, errors.Wrapf(err, "decode props[%q]", k)
 		}
+		// Mirrors the console v6 migrateProps: variant is always set from
+		// the v0..v5 "key" field, overwriting any prior variant. v0..v5
+		// NodeProps schemas declare key (not variant), so production data
+		// never carries both, but the always-overwrite contract matches
+		// the console's single source of truth.
 		if v, ok := m["key"]; ok {
-			if _, hasVariant := m["variant"]; !hasVariant {
-				m["variant"] = v
-			}
+			m["variant"] = v
 			delete(m, "key")
 		}
 		out[k] = m

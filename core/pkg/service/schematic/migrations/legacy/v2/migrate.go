@@ -13,40 +13,13 @@ import (
 	"github.com/google/uuid"
 
 	v1 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v1"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
-
-// Lift decodes the opaque schematic data blob as a v2.Data, recursing into
-// v1.Lift on older blobs and running Migrate on the result.
-func Lift(blob msgpack.EncodedJSON) (Data, error) {
-	var peek struct {
-		Version string `json:"version"`
-	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return Data{}, errors.Wrap(err, "peek schematic data version")
-		}
-	}
-	if peek.Version == Version {
-		var d Data
-		if err := blob.Unmarshal(&d); err != nil {
-			return Data{}, errors.Wrap(err, "decode v2 schematic data")
-		}
-		return d, nil
-	}
-	prior, err := v1.Lift(blob)
-	if err != nil {
-		return Data{}, err
-	}
-	return Migrate(prior)
-}
 
 // Migrate transforms v1 schematic data into v2 by adding the per-schematic
 // key, the literal "schematic" type, and the default viewport mode. The
 // generated key is a fresh UUID; the storage migration overwrites it with
 // the gorp entry's key when it lifts the blob into the typed schematic.
-func Migrate(old v1.Data) (Data, error) {
+func Migrate(old v1.Data) Data {
 	return Data{
 		Version:         Version,
 		Editable:        old.Editable,
@@ -62,5 +35,5 @@ func Migrate(old v1.Data) (Data, error) {
 		Key:             uuid.New().String(),
 		Type:            "schematic",
 		ViewportMode:    "select",
-	}, nil
+	}
 }

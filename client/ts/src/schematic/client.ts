@@ -15,6 +15,7 @@ import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
+  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -142,3 +143,17 @@ export class Client {
     return res.schematic;
   }
 }
+
+export const ZERO_LEGEND: Legend = {
+  visible: true,
+  position: { x: 50, y: 50 },
+  colors: {},
+};
+
+export const ZERO_NEW: New = {
+  name: "",
+  legend: ZERO_LEGEND,
+  nodes: [],
+  edges: [],
+  props: {},
+};

@@ -19,23 +19,6 @@ import { Workspace } from "@/workspace";
 
 const client = createTestClient();
 
-const newSchematic = (name: string): schematic.New => ({
-  name,
-  legend: {
-    visible: true,
-    position: {
-      x: 50,
-      y: 50,
-      root: { x: "left", y: "top" },
-      units: { x: "px", y: "px" },
-    },
-    colors: {},
-  },
-  nodes: [],
-  edges: [],
-  props: {},
-});
-
 describe("schematic queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -48,21 +31,18 @@ describe("schematic queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(
-        workspace.key,
-        newSchematic("retrieve_test"),
-      );
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "retrieve_test",
+      });
 
-      const { result } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = renderHook(() => Schematic.useRetrieve({ key: schem.key }), {
+        wrapper,
+      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.data?.key).toEqual(schematic.key);
+      expect(result.current.data?.key).toEqual(schem.key);
       expect(result.current.data?.name).toEqual("retrieve_test");
     });
 
@@ -71,19 +51,19 @@ describe("schematic queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(
-        workspace.key,
-        newSchematic("cached_schematic"),
-      );
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "cached_schematic",
+      });
 
       const { result: result1 } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
+        () => Schematic.useRetrieve({ key: schem.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
       const { result: result2 } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
+        () => Schematic.useRetrieve({ key: schem.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
@@ -103,7 +83,8 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
-          ...newSchematic("created_schematic"),
+          ...schematic.ZERO_NEW,
+          name: "created_schematic",
           key,
           workspace: workspace.key,
         });
@@ -130,7 +111,8 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
-          ...newSchematic("stored_schematic"),
+          ...schematic.ZERO_NEW,
+          name: "stored_schematic",
           key,
           workspace: workspace.key,
         });
@@ -151,14 +133,14 @@ describe("schematic queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(
-        workspace.key,
-        newSchematic("original_name"),
-      );
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "original_name",
+      });
 
       const { result } = renderHook(
         () => {
-          const retrieve = Schematic.useRetrieve({ key: schematic.key });
+          const retrieve = Schematic.useRetrieve({ key: schem.key });
           const rename = Schematic.useRename();
           return { retrieve, rename };
         },
@@ -170,13 +152,13 @@ describe("schematic queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: schematic.key,
+          key: schem.key,
           name: "renamed_schematic",
         });
       });
 
       const retrieved = await client.schematics.retrieve({
-        key: schematic.key,
+        key: schem.key,
       });
       expect(retrieved.name).toEqual("renamed_schematic");
     });
@@ -186,14 +168,14 @@ describe("schematic queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(
-        workspace.key,
-        newSchematic("cache_original"),
-      );
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "cache_original",
+      });
 
       const { result } = renderHook(
         () => ({
-          retrieve: Schematic.useRetrieve({ key: schematic.key }),
+          retrieve: Schematic.useRetrieve({ key: schem.key }),
           rename: Schematic.useRename(),
         }),
         { wrapper },
@@ -202,7 +184,7 @@ describe("schematic queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: schematic.key,
+          key: schem.key,
           name: "cache_renamed",
         });
       });
@@ -219,18 +201,18 @@ describe("schematic queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(
-        workspace.key,
-        newSchematic("delete_single"),
-      );
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "delete_single",
+      });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(schematic.key);
+        await result.current.updateAsync(schem.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.schematics.retrieve({ key: schematic.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -240,27 +222,27 @@ describe("schematic queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const schematic1 = await client.schematics.create(
-        workspace.key,
-        newSchematic("delete_multi_1"),
-      );
-      const schematic2 = await client.schematics.create(
-        workspace.key,
-        newSchematic("delete_multi_2"),
-      );
+      const schem1 = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "delete_multi_1",
+      });
+      const schem2 = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
+        name: "delete_multi_2",
+      });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync([schematic1.key, schematic2.key]);
+        await result.current.updateAsync([schem1.key, schem2.key]);
       });
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.schematics.retrieve({ key: schematic1.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem1.key })).rejects.toThrow(
         NotFoundError,
       );
-      await expect(client.schematics.retrieve({ key: schematic2.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem2.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -272,8 +254,14 @@ describe("schematic queries", () => {
         name: "opr_sibling_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, newSchematic("Current"));
-      const s2 = await client.schematics.create(ws.key, newSchematic("Sibling"));
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Current",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Sibling",
+      });
 
       const { result } = renderHook(
         () =>

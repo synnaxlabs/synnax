@@ -12,42 +12,13 @@ package v5
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
 	v4 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v4"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
-
-// Lift decodes the opaque schematic data blob as a v5.Data, recursing into
-// v4.Lift on older blobs and running Migrate on the result. v5 is the
-// latest wire format any console has shipped, so the top-level migration
-// always enters the chain here.
-func Lift(blob msgpack.EncodedJSON) (Data, error) {
-	var peek struct {
-		Version string `json:"version"`
-	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return Data{}, errors.Wrap(err, "peek schematic data version")
-		}
-	}
-	if peek.Version == Version {
-		var d Data
-		if err := blob.Unmarshal(&d); err != nil {
-			return Data{}, errors.Wrap(err, "decode v5 schematic data")
-		}
-		return d, nil
-	}
-	prior, err := v4.Lift(blob)
-	if err != nil {
-		return Data{}, err
-	}
-	return Migrate(prior)
-}
 
 // Migrate transforms v4 schematic data into v5. The console drops the type
 // literal in this step and seeds the new per-schematic mode and toolbar UI
 // state. Mode and Toolbar are UI-only and are dropped when the v6 wire form
 // is lifted into the typed schematic.Schematic.
-func Migrate(old v4.Data) (Data, error) {
+func Migrate(old v4.Data) Data {
 	return Data{
 		Version:         Version,
 		Editable:        old.Editable,
@@ -68,5 +39,5 @@ func Migrate(old v4.Data) (Data, error) {
 			ActiveTab:           "symbols",
 			SelectedSymbolGroup: "general",
 		},
-	}, nil
+	}
 }

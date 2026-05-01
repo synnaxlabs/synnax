@@ -11,37 +11,7 @@ package v1
 
 import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/legacy/v0"
-	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 )
-
-// Lift decodes the opaque schematic data blob as a v1.Data, recursing into
-// the previous version's Lift when the blob announces an older format and
-// running Migrate on the result. Each version owns its own slice of the
-// chain; the top-level migration only ever calls Lift on the latest
-// shipped wire format.
-func Lift(blob msgpack.EncodedJSON) (Data, error) {
-	var peek struct {
-		Version string `json:"version"`
-	}
-	if blob != nil {
-		if err := blob.Unmarshal(&peek); err != nil {
-			return Data{}, errors.Wrap(err, "peek schematic data version")
-		}
-	}
-	if peek.Version == Version {
-		var d Data
-		if err := blob.Unmarshal(&d); err != nil {
-			return Data{}, errors.Wrap(err, "decode v1 schematic data")
-		}
-		return d, nil
-	}
-	prior, err := v0.Lift(blob)
-	if err != nil {
-		return Data{}, err
-	}
-	return Migrate(prior)
-}
 
 // ZeroLegend is the default legend used when a v0 payload is migrated forward.
 // Mirrors the console's ZERO_LEGEND_STATE at v1.
@@ -56,7 +26,7 @@ var ZeroLegend = Legend{
 }
 
 // Migrate transforms v0 schematic data into v1 by attaching the default legend.
-func Migrate(old v0.Data) (Data, error) {
+func Migrate(old v0.Data) Data {
 	return Data{
 		Version:         Version,
 		Editable:        old.Editable,
@@ -69,5 +39,5 @@ func Migrate(old v0.Data) (Data, error) {
 		Props:           old.Props,
 		Control:         old.Control,
 		Legend:          ZeroLegend,
-	}, nil
+	}
 }

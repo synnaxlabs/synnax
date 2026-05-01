@@ -263,16 +263,14 @@ func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
 	if err != nil {
 		return nil, err
 	}
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
 	pb := &EdgeProps{
 		Segments: segmentsVal,
 		Variant:  variantVal,
-	}
-	if r.Color != (color.Color{}) {
-		colorVal, err := colorpb.ColorToPB(r.Color)
-		if err != nil {
-			return nil, err
-		}
-		pb.Color = colorVal
+		Color:    colorVal,
 	}
 	return pb, nil
 }
@@ -292,11 +290,9 @@ func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
 	if err != nil {
 		return schematic.EdgeProps{}, err
 	}
-	if pb.Color != nil {
-		r.Color, err = colorpb.ColorFromPB(pb.Color)
-		if err != nil {
-			return schematic.EdgeProps{}, err
-		}
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return schematic.EdgeProps{}, err
 	}
 	return r, nil
 }

@@ -1626,6 +1626,25 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return ""
+	}
+	goName := naming.GetGoName(resolved)
+	goOutput := output.GetPath(resolved, "go")
+	if goOutput == "" || goOutput == data.ParentGoPath {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+	if err != nil {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
+	data.imports.AddInternal(alias, importPath)
+	return fmt.Sprintf("%s.%s", alias, goName)
+}
+
 type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table

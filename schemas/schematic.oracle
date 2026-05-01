@@ -144,10 +144,11 @@ Schematic struct {
         @doc value "contains all connections between nodes."
     }
     props     map<string, record> {
-        @doc value """
+        @doc value        """
             contains symbol-specific properties keyed by node or edge key,
             including colors, labels, segments, and other visual configuration.
         """
+        @ts preserve_case
     }
 
     @doc value     """
