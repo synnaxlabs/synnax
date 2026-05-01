@@ -8,11 +8,20 @@
 // included in the file licenses/APL.txt.
 
 import { type Diagram } from "@synnaxlabs/pluto";
-import { xy } from "@synnaxlabs/x";
+import { type xy } from "@synnaxlabs/x";
 
 import { type NodeProps } from "@/schematic/types";
 
 const GROUP_PADDING = 30;
+
+/** Returns the keys of selected nodes that are group containers. */
+export const selectedGroupKeys = (
+  nodes: Diagram.Node[],
+  props: Record<string, NodeProps>,
+): Set<string> =>
+  new Set(
+    nodes.filter((n) => n.selected && props[n.key]?.key === "group").map((n) => n.key),
+  );
 
 /** Returns the group key a node belongs to, or undefined if ungrouped. */
 export const groupKeyOf = (nodeKey: string, props: NodeProps): string | undefined =>
@@ -24,9 +33,10 @@ export const propagateGroupDrag = (
   prevNodes: Diagram.Node[],
   props: Record<string, NodeProps>,
 ): Diagram.Node[] => {
-  const dragging = nodes.filter((n) => (n as { dragging?: boolean }).dragging);
+  const dragging = nodes.filter((n) => "dragging" in n && !!n.dragging);
   if (dragging.length === 0) return nodes;
 
+  const prevByKey = new Map(prevNodes.map((n) => [n.key, n]));
   let delta: xy.XY | null = null;
   let activeGroupKey: string | null = null;
 
@@ -35,7 +45,7 @@ export const propagateGroupDrag = (
     if (p == null) continue;
     const gk = groupKeyOf(node.key, p);
     if (gk == null) continue;
-    const prev = prevNodes.find((n) => n.key === node.key);
+    const prev = prevByKey.get(node.key);
     if (prev == null) continue;
     delta = {
       x: node.position.x - prev.position.x,
@@ -48,6 +58,8 @@ export const propagateGroupDrag = (
   if (delta == null || activeGroupKey == null || (delta.x === 0 && delta.y === 0))
     return nodes;
 
+  const dx = delta.x;
+  const dy = delta.y;
   const draggingKeys = new Set(dragging.map((n) => n.key));
   let changed = false;
   const result = nodes.map((node) => {
@@ -58,10 +70,7 @@ export const propagateGroupDrag = (
     changed = true;
     return {
       ...node,
-      position: {
-        x: node.position.x + delta!.x,
-        y: node.position.y + delta!.y,
-      },
+      position: { x: node.position.x + dx, y: node.position.y + dy },
     };
   });
   return changed ? result : nodes;
@@ -111,16 +120,13 @@ export const expandGroupPositions = (
         y: newPos.y - groupNode.position.y,
       };
       result.push([key, newPos]);
-      for (const node of nodes) {
+      for (const node of nodes)
         if (props[node.key]?.groupId === key)
           result.push([
             node.key,
             { x: node.position.x + delta.x, y: node.position.y + delta.y },
           ]);
-      }
-    } else {
-      result.push([key, newPos]);
-    }
+    } else result.push([key, newPos]);
   }
   return result;
 };

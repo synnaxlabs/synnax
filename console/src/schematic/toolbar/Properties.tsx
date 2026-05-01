@@ -199,43 +199,72 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
+  const extractHandles = (
+    nodeEl: Element,
+    nodeElBox: box.Box,
+    zoom: number,
+  ): Diagram.HandleLayout[] => {
+    const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+    return Array.from(handleEls).map((el) => {
+      const pos = box.center(box.construct(el));
+      const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
+      const match = el.className.match(/react-flow__handle-(\w+)/);
+      if (match == null)
+        throw new Error(`[schematic] - cannot find handle orientation`);
+      return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
+    });
+  };
+
   const measureNodeLayout = (
     key: string,
     position: xy.XY,
     zoom: number,
-  ): Diagram.NodeLayout | null => {
+    opts?: { includeGridExtent?: boolean },
+  ): { layout: Diagram.NodeLayout; topOffset: number } | null => {
     try {
       const nodeEl = Diagram.selectNode(key);
       const nodeElBox = box.construct(nodeEl);
       const rect = nodeEl.getBoundingClientRect();
+      let minTop = rect.top;
+      let maxBottom = rect.bottom;
+      if (opts?.includeGridExtent)
+        nodeEl.querySelectorAll(".pluto-grid__item").forEach((item) => {
+          const itemRect = item.getBoundingClientRect();
+          minTop = Math.min(minTop, itemRect.top);
+          maxBottom = Math.max(maxBottom, itemRect.bottom);
+        });
+      const topExtension = (rect.top - minTop) / zoom;
       const actualDims = {
         width: rect.width / zoom,
-        height: rect.height / zoom,
+        height: (maxBottom - minTop) / zoom,
       };
-      const nodeBox = box.construct(position, actualDims);
-      const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-      const handles = Array.from(handleEls).map((el) => {
-        const pos = box.center(box.construct(el));
-        const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
-        const match = el.className.match(/react-flow__handle-(\w+)/);
-        if (match == null)
-          throw new Error(`[schematic] - cannot find handle orientation`);
-        return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
+      const adjustedPosition = xy.translate(position, {
+        x: 0,
+        y: -topExtension,
       });
-      return new Diagram.NodeLayout(key, nodeBox, handles);
+      const nodeBox = box.construct(adjustedPosition, actualDims);
+      const handles = extractHandles(nodeEl, nodeElBox, zoom);
+      return {
+        layout: new Diagram.NodeLayout(key, nodeBox, handles),
+        topOffset: topExtension,
+      };
     } catch (e) {
       handleError(e, "failed to calculate schematic node layout");
       return null;
     }
   };
 
-  const getLayoutsForAlignment = () => {
+  const getSchematicContext = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
     const { nodes: allNodes, props: allProps } = selectRequired(
       store.getState(),
       layoutKey,
     );
-    const zoom = viewport?.zoom ?? 1;
+    return { zoom: viewport?.zoom ?? 1, allNodes, allProps };
+  };
+
+  const getLayoutsForAlignment = () => {
+    const { zoom, allNodes, allProps } = getSchematicContext();
     const seenKeys = new Set<string>();
     return elements
       .map((el) => {
@@ -248,7 +277,7 @@ const MultiElementProperties = ({
         );
         if (seenKeys.has(resolved.key)) return null;
         seenKeys.add(resolved.key);
-        return measureNodeLayout(resolved.key, resolved.position, zoom);
+        return measureNodeLayout(resolved.key, resolved.position, zoom)?.layout ?? null;
       })
       .filter((el) => el !== null);
   };
@@ -257,15 +286,9 @@ const MultiElementProperties = ({
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const viewport = selectViewport(store.getState(), layoutKey);
-    const { nodes: allNodes, props: allProps } = selectRequired(
-      store.getState(),
-      layoutKey,
-    );
-    const zoom = viewport?.zoom ?? 1;
+    const { zoom, allNodes, allProps } = getSchematicContext();
     const topOffsets = new Map<string, number>();
     const seenKeys = new Set<string>();
-
     const layouts = elements
       .map((el) => {
         if (el.type !== "node") return null;
@@ -277,51 +300,12 @@ const MultiElementProperties = ({
         );
         if (seenKeys.has(resolved.key)) return null;
         seenKeys.add(resolved.key);
-        const { key, position } = resolved;
-        try {
-          const nodeEl = Diagram.selectNode(key);
-          const nodeElBox = box.construct(nodeEl);
-          const rect = nodeEl.getBoundingClientRect();
-
-          const gridItems = nodeEl.querySelectorAll(".pluto-grid__item");
-          let minTop = rect.top;
-          let maxBottom = rect.bottom;
-          gridItems.forEach((item) => {
-            const itemRect = item.getBoundingClientRect();
-            minTop = Math.min(minTop, itemRect.top);
-            maxBottom = Math.max(maxBottom, itemRect.bottom);
-          });
-
-          const actualDims = {
-            width: rect.width / zoom,
-            height: (maxBottom - minTop) / zoom,
-          };
-
-          const topExtension = (rect.top - minTop) / zoom;
-          topOffsets.set(key, topExtension);
-          const adjustedPosition = xy.translate(position, {
-            x: 0,
-            y: -topExtension,
-          });
-
-          const nodeBox = box.construct(adjustedPosition, actualDims);
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-          const handles = Array.from(handleEls).map((el) => {
-            const pos = box.center(box.construct(el));
-            const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
-              1 / zoom,
-            );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
-              throw new Error(`[schematic] - cannot find handle orientation`);
-            return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
-          });
-          return new Diagram.NodeLayout(key, nodeBox, handles);
-        } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
-        }
-        return null;
+        const result = measureNodeLayout(resolved.key, resolved.position, zoom, {
+          includeGridExtent: true,
+        });
+        if (result == null) return null;
+        topOffsets.set(resolved.key, result.topOffset);
+        return result.layout;
       })
       .filter((el) => el !== null);
 

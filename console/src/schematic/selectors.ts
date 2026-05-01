@@ -11,6 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
+import { selectedGroupKeys } from "@/schematic/groups";
 import {
   type NodeProps,
   SLICE_NAME,
@@ -56,16 +57,12 @@ export const selectSelectedElementDigests = (
   const schematic = selectOptional(state, layoutKey);
   if (schematic == null) return [];
   const selectedNodes = schematic.nodes.filter((node) => node.selected);
-  const selectedGroupKeys = new Set(
-    selectedNodes
-      .filter((node) => schematic.props[node.key]?.key === "group")
-      .map((node) => node.key),
-  );
+  const groupKeys = selectedGroupKeys(selectedNodes, schematic.props);
   return [
     ...selectedNodes
       .filter((node) => {
-        const p = schematic.props[node.key] as NodeProps | undefined;
-        return p?.groupId == null || !selectedGroupKeys.has(p.groupId);
+        const p = schematic.props[node.key];
+        return p?.groupId == null || !groupKeys.has(p.groupId);
       })
       .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
     ...schematic.edges

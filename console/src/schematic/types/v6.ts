@@ -21,8 +21,9 @@ export const nodePropsZ = v0.nodePropsZ.extend({
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
-export const stateZ = v5.stateZ.omit({ version: true }).extend({
+export const stateZ = v5.stateZ.omit({ version: true, props: true }).extend({
   version: z.literal(VERSION),
+  props: z.record(z.string(), nodePropsZ),
 });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
