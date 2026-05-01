@@ -1633,3 +1633,9 @@ export const StateIndicatorForm = (): ReactElement => {
   const props = Tabs.useStatic({ tabs: STATE_INDICATOR_FORM_TABS, content });
   return <Tabs.Tabs {...props} grow />;
 };
+
+export const GroupForm = (): ReactElement => (
+  <FormWrapper x align="stretch">
+    <LabelControls path="label" />
+  </FormWrapper>
+);

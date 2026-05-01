@@ -105,8 +105,25 @@
     }
 }
 
+.pluto-group-box {
+    border: 2px dashed transparent;
+    border-radius: 6px;
+}
+
+.react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
+    display: none;
+}
+
 .pluto-diagram.pluto--editable {
+    .pluto-group-box {
+        border-color: var(--pluto-gray-l9);
+    }
+
     .pluto-symbol__label {
         pointer-events: auto;
+    }
+
+    .react-flow__node:has(.pluto-group-box) .pluto-symbol__label {
+        display: block;
     }
 }

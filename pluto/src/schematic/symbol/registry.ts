@@ -24,6 +24,7 @@ import {
   CommonToggleForm,
   CylinderForm,
   GaugeForm,
+  GroupForm,
   InputForm,
   LightForm,
   OffPageReferenceForm,
@@ -144,6 +145,9 @@ import {
   Gauge,
   GaugePreview,
   type GaugeProps,
+  GroupBox,
+  GroupBoxPreview,
+  type GroupBoxProps,
   HeaterElement,
   type HeaterElementProps,
   HeatExchangerGeneral,
@@ -374,6 +378,7 @@ const VARIANTS = [
   "strainerCone",
   "customActuator",
   "customStatic",
+  "group",
 ] as const;
 
 export const variantZ = z.enum(VARIANTS);
@@ -1930,6 +1935,19 @@ const customStatic: Spec<CustomStaticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
+const group_: Spec<GroupBoxProps> = {
+  name: "Group",
+  key: "group",
+  Form: GroupForm,
+  Symbol: GroupBox,
+  defaultProps: () => ({
+    dimensions: { width: 100, height: 100 },
+    ...zeroLabel("Group"),
+  }),
+  Preview: GroupBoxPreview,
+  zIndex: Z_INDEX_LOWER,
+};
+
 export const REGISTRY: Record<Variant, Spec<any>> = {
   value,
   gauge,
@@ -2031,6 +2049,7 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   strainerCone,
   customActuator,
   customStatic,
+  group: group_,
 };
 
 export interface Group extends group.Group {

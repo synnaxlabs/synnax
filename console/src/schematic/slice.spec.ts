@@ -795,9 +795,9 @@ describe("Schematic Slice", () => {
 
         state = store.getState()[SLICE_NAME];
         expect(state.schematics[schematicKey].nodes).toHaveLength(2);
-        expect(
-          state.schematics[schematicKey].nodes.every((n) => n.selected),
-        ).toBe(true);
+        expect(state.schematics[schematicKey].nodes.every((n) => n.selected)).toBe(
+          true,
+        );
       });
     });
   });

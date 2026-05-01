@@ -28,8 +28,10 @@ import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { expandGroupPositions, resolveAlignmentKey } from "@/schematic/groups";
 import {
   type ElementInfo,
+  selectRequired,
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
@@ -197,41 +199,56 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
+  const measureNodeLayout = (
+    key: string,
+    position: xy.XY,
+    zoom: number,
+  ): Diagram.NodeLayout | null => {
+    try {
+      const nodeEl = Diagram.selectNode(key);
+      const nodeElBox = box.construct(nodeEl);
+      const rect = nodeEl.getBoundingClientRect();
+      const actualDims = {
+        width: rect.width / zoom,
+        height: rect.height / zoom,
+      };
+      const nodeBox = box.construct(position, actualDims);
+      const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+      const handles = Array.from(handleEls).map((el) => {
+        const pos = box.center(box.construct(el));
+        const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
+        const match = el.className.match(/react-flow__handle-(\w+)/);
+        if (match == null)
+          throw new Error(`[schematic] - cannot find handle orientation`);
+        return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
+      });
+      return new Diagram.NodeLayout(key, nodeBox, handles);
+    } catch (e) {
+      handleError(e, "failed to calculate schematic node layout");
+      return null;
+    }
+  };
+
   const getLayoutsForAlignment = () => {
     const viewport = selectViewport(store.getState(), layoutKey);
-
+    const { nodes: allNodes, props: allProps } = selectRequired(
+      store.getState(),
+      layoutKey,
+    );
+    const zoom = viewport?.zoom ?? 1;
+    const seenKeys = new Set<string>();
     return elements
       .map((el) => {
         if (el.type !== "node") return null;
-        try {
-          const nodeEl = Diagram.selectNode(el.key);
-          const nodeElBox = box.construct(nodeEl);
-          const rect = nodeEl.getBoundingClientRect();
-
-          const actualDims = {
-            width: rect.width / (viewport?.zoom ?? 1),
-            height: rect.height / (viewport?.zoom ?? 1),
-          };
-
-          const nodeBox = box.construct(el.node.position, actualDims);
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-          const handles = Array.from(handleEls).map((el) => {
-            const pos = box.center(box.construct(el));
-            const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
-              1 / (viewport?.zoom ?? 1),
-            );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
-              throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outerZ.parse(match[1]);
-            return new Diagram.HandleLayout(dist, orientation);
-          });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
-        } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
-        }
-        return null;
+        const resolved = resolveAlignmentKey(
+          el.key,
+          allProps,
+          allNodes,
+          el.node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
+        return measureNodeLayout(resolved.key, resolved.position, zoom);
       })
       .filter((el) => el !== null);
   };
@@ -241,22 +258,34 @@ const MultiElementProperties = ({
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
     const viewport = selectViewport(store.getState(), layoutKey);
+    const { nodes: allNodes, props: allProps } = selectRequired(
+      store.getState(),
+      layoutKey,
+    );
+    const zoom = viewport?.zoom ?? 1;
     const topOffsets = new Map<string, number>();
+    const seenKeys = new Set<string>();
 
-    // For distribution: use actual extensions to calculate true visual extents
     const layouts = elements
       .map((el) => {
         if (el.type !== "node") return null;
+        const resolved = resolveAlignmentKey(
+          el.key,
+          allProps,
+          allNodes,
+          el.node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
+        const { key, position } = resolved;
         try {
-          const nodeEl = Diagram.selectNode(el.key);
+          const nodeEl = Diagram.selectNode(key);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
 
-          // Calculate union of all child elements (labels, indicators, etc.)
           const gridItems = nodeEl.querySelectorAll(".pluto-grid__item");
           let minTop = rect.top;
           let maxBottom = rect.bottom;
-
           gridItems.forEach((item) => {
             const itemRect = item.getBoundingClientRect();
             minTop = Math.min(minTop, itemRect.top);
@@ -264,14 +293,13 @@ const MultiElementProperties = ({
           });
 
           const actualDims = {
-            width: rect.width / (viewport?.zoom ?? 1),
-            height: (maxBottom - minTop) / (viewport?.zoom ?? 1),
+            width: rect.width / zoom,
+            height: (maxBottom - minTop) / zoom,
           };
 
-          // Adjust position if there are top extensions
-          const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
-          topOffsets.set(el.key, topExtension);
-          const adjustedPosition = xy.translate(el.node.position, {
+          const topExtension = (rect.top - minTop) / zoom;
+          topOffsets.set(key, topExtension);
+          const adjustedPosition = xy.translate(position, {
             x: 0,
             y: -topExtension,
           });
@@ -282,15 +310,14 @@ const MultiElementProperties = ({
             const pos = box.center(box.construct(el));
             const dist = xy.scale(
               xy.translation(box.topLeft(nodeElBox), pos),
-              1 / (viewport?.zoom ?? 1),
+              1 / zoom,
             );
             const match = el.className.match(/react-flow__handle-(\w+)/);
             if (match == null)
               throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outerZ.parse(match[1]);
-            return new Diagram.HandleLayout(dist, orientation);
+            return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
           });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+          return new Diagram.NodeLayout(key, nodeBox, handles);
         } catch (e) {
           handleError(e, "failed to calculate schematic node layout");
         }
@@ -307,12 +334,10 @@ const MultiElementProperties = ({
   };
 
   const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
-    dispatch(
-      setNodePositions({
-        key: layoutKey,
-        positions: layouts.map((n) => [n.key, box.topLeft(n.box)]),
-      }),
-    );
+    const { nodes, props } = selectRequired(store.getState(), layoutKey);
+    const raw: [string, xy.XY][] = layouts.map((n) => [n.key, box.topLeft(n.box)]);
+    const positions = expandGroupPositions(raw, nodes, props);
+    dispatch(setNodePositions({ key: layoutKey, positions }));
   };
 
   const handleAlignToLocation = (loc: location.Outer): void => {

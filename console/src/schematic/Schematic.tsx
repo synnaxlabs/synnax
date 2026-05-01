@@ -25,6 +25,7 @@ import {
   Status,
   Synnax,
   Theming,
+  Triggers,
   usePrevious,
   User,
   useSyncedRef,
@@ -45,10 +46,13 @@ import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { propagateGroupDrag } from "@/schematic/groups";
 import {
   selectNodeProps,
   selectOptional,
   selectRequired,
+  useSelectCanGroup,
+  useSelectCanUngroup,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -59,6 +63,7 @@ import {
   clearSelection,
   copySelection,
   cutSelection,
+  groupSelection,
   internalCreate,
   pasteSelection,
   selectAll,
@@ -73,6 +78,7 @@ import {
   setViewport,
   setViewportMode,
   type State,
+  ungroupSelection,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -281,16 +287,17 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes, changes) => {
+      const processed = propagateGroupDrag(nodes, state.nodes, state.props);
       if (
         // @ts-expect-error - Sometimes, the nodes do have dragging
-        nodes.some((n) => n.dragging) ||
+        processed.some((n) => n.dragging) ||
         changes.some((c) => c.type === "select")
       )
         // don't remember dragging a node or selecting an element
-        syncDispatch(setNodes({ key: layoutKey, nodes }));
-      else undoableDispatch(setNodes({ key: layoutKey, nodes }));
+        syncDispatch(setNodes({ key: layoutKey, nodes: processed }));
+      else undoableDispatch(setNodes({ key: layoutKey, nodes: processed }));
     },
-    [layoutKey, syncDispatch, undoableDispatch],
+    [layoutKey, state.props, state.nodes, syncDispatch, undoableDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
@@ -421,8 +428,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleCutSelection = useCallback(
-    (_cursor: xy.XY) =>
-      undoableDispatch(cutSelection({ key: layoutKey })),
+    (_cursor: xy.XY) => undoableDispatch(cutSelection({ key: layoutKey })),
     [undoableDispatch, layoutKey],
   );
 
@@ -456,6 +462,46 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     onUndo: undo,
     onRedo: redo,
     region: ref,
+  });
+
+  const canGroup = useSelectCanGroup(layoutKey);
+  const canUngroup = useSelectCanUngroup(layoutKey);
+
+  const groupDefaultProps = useMemo(
+    () => ({
+      key: "group" as const,
+      ...Base.Symbol.REGISTRY.group.defaultProps(theme),
+    }),
+    [theme],
+  );
+
+  const handleGroup = useCallback(
+    () =>
+      undoableDispatch(groupSelection({ key: layoutKey, props: groupDefaultProps })),
+    [layoutKey, undoableDispatch, groupDefaultProps],
+  );
+
+  const handleUngroup = useCallback(
+    () => undoableDispatch(ungroupSelection({ key: layoutKey })),
+    [layoutKey, undoableDispatch],
+  );
+
+  Triggers.use({
+    triggers: [
+      ["Control", "G"],
+      ["Control", "U"],
+    ],
+    region: ref,
+    loose: true,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !canEdit) return;
+        if (triggers.flat().includes("U")) {
+          if (canUngroup) handleUngroup();
+        } else if (canGroup) handleGroup();
+      },
+      [canEdit, canGroup, canUngroup, handleGroup, handleUngroup],
+    ),
   });
 
   const canvasMenuProps = Menu.useContextMenu();
@@ -510,11 +556,42 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
           <Icon.Paste />
           Paste
         </Menu.Item>
+        {canEdit && (canGroup || canUngroup) && <Menu.Divider />}
+        {canEdit && canGroup && (
+          <Menu.Item
+            itemKey="group"
+            trigger={["Control", "G"]}
+            triggerIndicator
+            onClick={handleGroup}
+          >
+            Group
+          </Menu.Item>
+        )}
+        {canEdit && canUngroup && (
+          <Menu.Item
+            itemKey="ungroup"
+            trigger={["Control", "U"]}
+            triggerIndicator
+            onClick={handleUngroup}
+          >
+            Ungroup
+          </Menu.Item>
+        )}
         <Menu.Divider />
         <CContextMenu.ReloadConsoleItem />
       </CContextMenu.Menu>
     ),
-    [handleCutSelection, handleCopySelection, handlePasteSelection, canvasMenuProps.cursor],
+    [
+      handleCutSelection,
+      handleCopySelection,
+      handlePasteSelection,
+      canvasMenuProps.cursor,
+      canEdit,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
+    ],
   );
 
   return (
@@ -560,9 +637,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
               <Diagram.FitViewControl />
               <Flex.Box x pack>
                 {hasUpdatePermission && (
-                  <Diagram.ToggleEditControl
-                    disabled={state.control === "acquired"}
-                  />
+                  <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
                 )}
                 {!state.snapshot && <ControlToggleButton control={state.control} />}
               </Flex.Box>
