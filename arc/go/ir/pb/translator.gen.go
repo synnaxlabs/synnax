@@ -422,6 +422,10 @@ func BodiesFromPB(pbs []*Body) ([]ir.Body, error) {
 
 // FunctionToPB converts Function to Function.
 func FunctionToPB(r ir.Function) (*Function, error) {
+	bodyVal, err := BodyToPB(r.Body)
+	if err != nil {
+		return nil, err
+	}
 	configVal, err := typespb.ParamsToPB(r.Config)
 	if err != nil {
 		return nil, err
@@ -440,17 +444,11 @@ func FunctionToPB(r ir.Function) (*Function, error) {
 	}
 	pb := &Function{
 		Key:      r.Key,
+		Body:     bodyVal,
 		Config:   configVal,
 		Inputs:   inputsVal,
 		Outputs:  outputsVal,
 		Channels: channelsVal,
-	}
-	if r.Body != (ir.Body{}) {
-		bodyVal, err := BodyToPB(r.Body)
-		if err != nil {
-			return nil, err
-		}
-		pb.Body = bodyVal
 	}
 	return pb, nil
 }
@@ -462,6 +460,10 @@ func FunctionFromPB(pb *Function) (ir.Function, error) {
 		return r, nil
 	}
 	var err error
+	r.Body, err = BodyFromPB(pb.Body)
+	if err != nil {
+		return ir.Function{}, err
+	}
 	r.Config, err = typespb.ParamsFromPB(pb.Config)
 	if err != nil {
 		return ir.Function{}, err
@@ -479,12 +481,6 @@ func FunctionFromPB(pb *Function) (ir.Function, error) {
 		return ir.Function{}, err
 	}
 	r.Key = pb.Key
-	if pb.Body != nil {
-		r.Body, err = BodyFromPB(pb.Body)
-		if err != nil {
-			return ir.Function{}, err
-		}
-	}
 	return r, nil
 }
 

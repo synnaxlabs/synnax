@@ -13,7 +13,7 @@ import { type Bounds, boundsZ, type NumberCouple } from "@/spatial/base";
 
 export { type Bounds, boundsZ };
 
-export type Crude<T extends number | bigint = number> = Bounds<T> | NumberCouple<T>;
+export type Crude<T extends numeric.Value = number> = Bounds<T> | NumberCouple<T>;
 
 /** Options for the `construct` function. */
 interface ConstructOptions {
