@@ -54,19 +54,7 @@ var (
 			},
 		}),
 	}
-	deprecatedBare = symbol.Symbol{
-		Name:       symbolName,
-		Kind:       symbol.KindFunction,
-		Exec:       symbol.ExecFlow,
-		Deprecated: "selector.select",
-		Type:       symbolSelect.Type,
-	}
-	bareResolver   = symbol.MapResolver{symbolName: deprecatedBare}
-	moduleMembers  = symbol.MapResolver{symbolName: symbolSelect}
-	SymbolResolver = symbol.CompoundResolver{
-		bareResolver,
-		&symbol.ModuleResolver{Name: "selector", Members: moduleMembers},
-	}
+	SymbolResolver = symbol.MapResolver{symbolName: symbolSelect}
 )
 
 type Module struct{}
