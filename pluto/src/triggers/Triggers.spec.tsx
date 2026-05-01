@@ -439,6 +439,53 @@ describe("Triggers", () => {
       fireEvent.keyUp(document.body, { code: "KeyA" });
     });
 
+    it("should not trigger when target is in a sibling subtree of the region", async () => {
+      Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
+      const callback = vi.fn();
+      const regionRef = { current: document.createElement("div") };
+      const C = () => {
+        Triggers.use({
+          callback,
+          triggers: [["Control", "V"]],
+          region: regionRef,
+          loose: true,
+        });
+        return <div ref={regionRef}>Target Region</div>;
+      };
+      const { container } = render(
+        <Triggers.Provider>
+          <C />
+          <input data-testid="modal-input" />
+        </Triggers.Provider>,
+      );
+      const modalInput = container.querySelector("input")!;
+
+      // Move cursor into region
+      fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
+
+      // Keyboard event targeting the sibling input should NOT fire "start"
+      fireEvent.keyDown(modalInput, { code: "ControlLeft" });
+      fireEvent.keyDown(modalInput, { code: "KeyV", ctrlKey: true });
+      const startCalls = callback.mock.calls.filter(
+        (args) => (args[0] as Triggers.UseEvent).stage === "start",
+      );
+      expect(startCalls).toHaveLength(0);
+
+      fireEvent.keyUp(modalInput, { code: "KeyV" });
+      fireEvent.keyUp(modalInput, { code: "ControlLeft" });
+
+      // Same shortcut targeting body (normal case) SHOULD fire "start"
+      fireEvent.keyDown(document.body, { code: "ControlLeft" });
+      fireEvent.keyDown(document.body, { code: "KeyV", ctrlKey: true });
+      const startCalls2 = callback.mock.calls.filter(
+        (args) => (args[0] as Triggers.UseEvent).stage === "start",
+      );
+      expect(startCalls2).toHaveLength(1);
+
+      fireEvent.keyUp(document.body, { code: "KeyV" });
+      fireEvent.keyUp(document.body, { code: "ControlLeft" });
+    });
+
     it("should handle regionMustBeElement correctly", async () => {
       vi.useFakeTimers();
       const callback = vi.fn();
