@@ -57,7 +57,7 @@ export type CopyArgs = z.input<typeof copyReqZ>;
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
-  workspace: workspace.keyZ,
+  workspace: workspace.keyZ.optional(),
   schematics: newZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -74,10 +74,16 @@ export class Client {
     this.symbols = new symbol.Client(client);
   }
 
-  async create(workspace: workspace.Key, schematic: New): Promise<Schematic>;
-  async create(workspace: workspace.Key, schematics: New[]): Promise<Schematic[]>;
   async create(
-    workspace: workspace.Key,
+    workspace: workspace.Key | undefined,
+    schematic: New,
+  ): Promise<Schematic>;
+  async create(
+    workspace: workspace.Key | undefined,
+    schematics: New[],
+  ): Promise<Schematic[]>;
+  async create(
+    workspace: workspace.Key | undefined,
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);

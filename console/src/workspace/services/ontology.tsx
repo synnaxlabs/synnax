@@ -87,7 +87,7 @@ const useCreateSchematic = ({
   const { update } = PSchematic.useCreate({
     afterSuccess: async ({ data }) => {
       const { workspace, ...schematic } = data;
-      await maybeChangeWorkspace(workspace);
+      if (workspace != null) await maybeChangeWorkspace(workspace);
       placeLayout(Schematic.create({ ...schematic }));
     },
   });
@@ -98,7 +98,7 @@ const useCreateSchematic = ({
         name: "New Schematic",
         snapshot: false,
         authority: 1,
-        legend: deep.copy(Schematic.ZERO_STATE.legend),
+        legend: deep.copy(schematic.ZERO_LEGEND),
         nodes: [],
         edges: [],
         props: {},

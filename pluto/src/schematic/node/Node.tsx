@@ -30,7 +30,7 @@ export const Node = ({
   const variant = nodeProps?.variant as Symbol.Variant | undefined;
   const handleChange = useCallback(
     (props: record.Unknown) =>
-      void dispatch({
+      dispatch({
         key: schematicKey,
         actions: schematic.setProps({
           key: nodeKey,

@@ -87,16 +87,16 @@ export interface SelectPropsArgs {
 export const useSelectProps = Flux.createSelector<
   FluxSubStore,
   SelectPropsArgs,
-  Record<string, unknown> | undefined
+  record.Unknown | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, propKey }) => {
     const schem = store.schematics.get(key);
     if (schem == null) return undefined;
-    const props = schem.props[propKey] as Record<string, unknown> | undefined;
+    const props = schem.props[propKey] as record.Unknown | undefined;
     if (props != null) return props;
     return schem.props[caseconv.snakeToCamel(propKey)] as
-      | Record<string, unknown>
+      | record.Unknown
       | undefined;
   },
 });
@@ -151,14 +151,14 @@ export interface NodeElementInfo {
   key: string;
   type: "node";
   node: schematic.Node;
-  props: Record<string, unknown>;
+  props: record.Unknown;
 }
 
 export interface EdgeElementInfo {
   key: string;
   type: "edge";
   edge: schematic.Edge;
-  props: Record<string, unknown>;
+  props: record.Unknown;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -185,7 +185,7 @@ export const useSelectElementsInfo = Flux.createSelector<
           key: node.key,
           type: "node",
           node,
-          props: (s.props?.[node.key] as Record<string, unknown>) ?? {},
+          props: (s.props?.[node.key] as record.Unknown) ?? {},
         });
     for (const edge of s.edges)
       if (keySet.has(edge.key))
@@ -193,7 +193,7 @@ export const useSelectElementsInfo = Flux.createSelector<
           key: edge.key,
           type: "edge",
           edge,
-          props: (s.props?.[edge.key] as Record<string, unknown>) ?? {},
+          props: (s.props?.[edge.key] as record.Unknown) ?? {},
         });
     return result;
   },
@@ -217,8 +217,8 @@ export const useSelectElementNames = Flux.createSelector<
     const result: (string | null)[] = [];
     for (const node of s.nodes) {
       if (!keySet.has(node.key)) continue;
-      const p = s.props?.[node.key] as Record<string, unknown> | undefined;
-      const label = (p?.label as Record<string, unknown> | undefined)?.label;
+      const p = s.props?.[node.key] as record.Unknown | undefined;
+      const label = (p?.label as record.Unknown | undefined)?.label;
       result.push(typeof label === "string" ? label : null);
     }
     return result;
@@ -279,11 +279,11 @@ export const { useUpdate: useCopy } = Flux.createUpdate<
 });
 
 export interface UseCreateArgs extends schematic.New {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export interface UseCreateResult extends schematic.Schematic {
-  workspace: workspace.Key;
+  workspace?: workspace.Key;
 }
 
 export const { useUpdate: useCreate } = Flux.createUpdate<
@@ -409,7 +409,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
 });
 
 const dropDataZ = z.object({
-  nodeKey: schematic.symbol.keyZ,
+  specKey: schematic.symbol.keyZ,
 });
 
 export const useAddNode = (resourceKey: string) => {
@@ -424,7 +424,7 @@ export const useAddNode = (resourceKey: string) => {
       let symbol: schematic.symbol.Symbol | undefined;
       const parsedData = dropDataZ.safeParse(data);
       if (parsedData.success)
-        symbol = store.schematicSymbols.get(parsedData.data.nodeKey);
+        symbol = store.schematicSymbols.get(parsedData.data.specKey);
       if (symbol != null) {
         variant = symbol.data.states.length === 1 ? "customStatic" : "customActuator";
         initialName = symbol.name;
@@ -449,7 +449,7 @@ export const useAddNode = (resourceKey: string) => {
         ...initialProps,
         ...(parsedData.success ? parsedData.data : {}),
       };
-      void dispatch({
+      dispatch({
         key: resourceKey,
         actions: [schematic.addNode({ node, props })],
       });

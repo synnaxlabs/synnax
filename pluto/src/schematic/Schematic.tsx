@@ -97,7 +97,7 @@ export const Schematic = ({
       const actions = changes
         .map(nodeChangeToAction)
         .filter((a): a is schematic.Action => a != null);
-      if (actions.length > 0) void dispatch({ key: resourceKey, actions });
+      if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
     [resourceKey, dispatch],
   );
@@ -107,7 +107,7 @@ export const Schematic = ({
       const actions = changes.flatMap((change) =>
         edgeChangeToActions(change, theme.colors.gray.l10),
       );
-      if (actions.length > 0) void dispatch({ key: resourceKey, actions });
+      if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
     [resourceKey, dispatch, theme.colors.gray.l10],
   );

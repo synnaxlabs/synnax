@@ -23,24 +23,29 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
+import {
+  box,
+  color,
+  deep,
+  type direction,
+  location,
+  type record,
+  xy,
+} from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
-import {
-  type ElementInfo,
-  selectViewport,
-  useSelectEdgeProps,
-  useSelectRequiredNodeProps,
-  useSelectSelectedElementDigests,
-  useSelectSelectedElementsProps,
-} from "@/schematic/selectors";
-import { setElementProps, setNodePositions } from "@/schematic/slice";
+import { selectViewport, useSelectSelected } from "@/schematic/selectors";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { type nodePropsZ } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
+
+import { z } from "zod";
+
+const nodePropsZ = z.looseObject({
+  variant: Schematic.Symbol.variantZ,
+});
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -48,7 +53,11 @@ export interface PropertiesProps {
 
 export const PropertiesControls = memo(
   ({ layoutKey }: PropertiesProps): ReactElement => {
-    const digests = useSelectSelectedElementDigests(layoutKey);
+    const selected = useSelectSelected(layoutKey);
+    const digests = Schematic.useSelectElementDigests({
+      key: layoutKey,
+      keys: selected,
+    });
     if (digests.length === 0)
       return (
         <Text.Text status="disabled" center>
@@ -58,15 +67,15 @@ export const PropertiesControls = memo(
 
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
 
-    const selected = digests[0];
+    const first = digests[0];
 
-    if (selected.type === "edge")
-      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
+    if (first.type === "edge")
+      return <EdgeProperties layoutKey={layoutKey} edgeKey={first.key} />;
     return (
       <IndividualProperties
-        key={selected.key}
+        key={first.key}
         layoutKey={layoutKey}
-        nodeKey={selected.key}
+        nodeKey={first.key}
       />
     );
   },
@@ -82,16 +91,20 @@ const IndividualProperties = ({
   layoutKey,
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
-  const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.Symbol.REGISTRY[props.variant];
-  const dispatch = useDispatch();
+  const props = Schematic.useSelectProps({ key: layoutKey, propKey: nodeKey }) as
+    | NodeProps
+    | undefined;
+  const { update: dispatchSchematic } = Schematic.useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+    dispatchSchematic({
+      key: layoutKey,
+      actions: schematic.setProps({ key, props }),
+    });
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
-    values: deep.copy(props),
+    values: deep.copy(props ?? ({ variant: "tank" } as NodeProps)),
     sync: true,
     onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
@@ -113,6 +126,9 @@ const IndividualProperties = ({
         <Icon.Edit />
       </Button.Button>
     );
+
+  if (props == null) return null;
+  const C = Schematic.Symbol.REGISTRY[props.variant as Schematic.Symbol.Variant];
 
   return (
     <Flex.Box style={{ height: "100%" }} y>
@@ -141,10 +157,19 @@ const EdgeProperties = ({
   layoutKey,
   edgeKey,
 }: EdgePropertiesProps): ReactElement | null => {
-  const edgeProps = useSelectEdgeProps(layoutKey, edgeKey);
-  const dispatch = useDispatch();
+  const edgeProps = Schematic.useSelectProps({
+    key: layoutKey,
+    propKey: edgeKey,
+  }) as EdgeProps | undefined;
+  const { update: dispatchSchematic } = Schematic.useDispatch();
   const onChange = (key: string, props: Partial<EdgeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+    dispatchSchematic({
+      key: layoutKey,
+      actions: schematic.setProps({
+        key,
+        props: { ...edgeProps, ...props },
+      }),
+    });
   };
   // Color.Swatch requires a parseable hex; persisted edges may carry CSS
   // variables (e.g. "var(--pluto-gray-l11)") inherited from migration defaults.
@@ -181,18 +206,28 @@ const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
-  const elements = useSelectSelectedElementsProps(layoutKey);
-  const dispatch = useDispatch();
+  const selected = useSelectSelected(layoutKey);
+  const elements = Schematic.useSelectElementsInfo({
+    key: layoutKey,
+    keys: selected,
+  });
+  const { update: dispatchSchematic } = Schematic.useDispatch();
   const onChange = (key: string, props: Partial<NodeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+    const existing = elements.find((e) => e.key === key)?.props ?? {};
+    dispatchSchematic({
+      key: layoutKey,
+      actions: schematic.setProps({
+        key,
+        props: { ...existing, ...props } as record.Unknown,
+      }),
+    });
   };
 
-  const colorGroups: Record<string, ElementInfo[]> = {};
+  const colorGroups: Record<string, Schematic.ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    if (e.type === "edge")
-      colorVal = e.props.color != null ? color.construct(e.props.color) : null;
-    else if (e.props.color != null) colorVal = color.construct(e.props.color);
+    const rawColor = (e.props as record.Unknown).color;
+    if (rawColor != null) colorVal = color.construct(rawColor as color.Crude);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);
     if (!(hex in colorGroups)) colorGroups[hex] = [];
@@ -200,7 +235,7 @@ const MultiElementProperties = ({
   });
 
   const firstNode = elements.find((e) => e.type === "node");
-  const firstNodeLabel = firstNode?.props.label;
+  const firstNodeLabel = (firstNode?.props as NodeProps | undefined)?.label;
 
   const store = useStore<RootState>();
 
@@ -314,12 +349,10 @@ const MultiElementProperties = ({
   };
 
   const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
-    dispatch(
-      setNodePositions({
-        key: layoutKey,
-        positions: layouts.map((n) => [n.key, box.topLeft(n.box)]),
-      }),
+    const actions = layouts.map((n) =>
+      schematic.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
     );
+    if (actions.length > 0) dispatchSchematic({ key: layoutKey, actions });
   };
 
   const handleAlignToLocation = (loc: location.Outer): void => {
@@ -347,7 +380,8 @@ const MultiElementProperties = ({
   const handleRotateIndividual = (dir: direction.Angular): void => {
     elements.forEach((el) => {
       if (el.type !== "node") return;
-      const parsed = location.outerZ.safeParse(el.props.orientation);
+      const props = el.props as NodeProps;
+      const parsed = location.outerZ.safeParse(props.orientation);
       if (!parsed.success) return;
       onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
@@ -363,8 +397,10 @@ const MultiElementProperties = ({
     value: Schematic.Symbol.LabelExtensionProps[K],
   ): void => {
     elements.forEach((e) => {
-      if (e.type !== "node" || e.props.label == null) return;
-      onChange(e.key, { label: { ...e.props.label, [key]: value } });
+      if (e.type !== "node") return;
+      const props = e.props as NodeProps;
+      if (props.label == null) return;
+      onChange(e.key, { label: { ...props.label, [key]: value } });
     });
   };
 

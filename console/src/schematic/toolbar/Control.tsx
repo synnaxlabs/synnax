@@ -7,16 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input } from "@synnaxlabs/pluto";
+import { schematic } from "@synnaxlabs/client";
+import { Flex, Input, Schematic } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
-import { useSelectAuthority, useSelectLegendVisible } from "@/schematic/selectors";
-import { setAuthority, setLegendVisible } from "@/schematic/slice";
+import { useSelectLegendVisible } from "@/schematic/selectors";
+import { setLegendVisible } from "@/schematic/slice";
 
 export const Control = ({ layoutKey }: { layoutKey: string }) => {
   const dispatch = useDispatch();
-  const authority = useSelectAuthority(layoutKey);
+  const authority = Schematic.useSelectAuthority({ key: layoutKey });
+  const { update: dispatchSchematic } = Schematic.useDispatch();
   const legendVisible = useSelectLegendVisible(layoutKey);
 
   return (
@@ -24,7 +26,12 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
       <Input.Item label="Control Authority">
         <Input.Numeric
           value={authority ?? 0}
-          onChange={(v) => dispatch(setAuthority({ key: layoutKey, authority: v }))}
+          onChange={(v) =>
+            dispatchSchematic({
+              key: layoutKey,
+              actions: schematic.setAuthority({ value: v }),
+            })
+          }
           bounds={control.AUTHORITY_BOUNDS}
         />
       </Input.Item>

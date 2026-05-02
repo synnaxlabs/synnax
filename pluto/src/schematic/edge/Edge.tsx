@@ -140,7 +140,7 @@ export const Edge = ({
         source.orientation,
         target.orientation,
       );
-      void dispatch({
+      dispatch({
         key: schematicKey,
         actions: schematic.setProps({
           key: edgeKey,

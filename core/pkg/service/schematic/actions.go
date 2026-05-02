@@ -93,3 +93,15 @@ func (a SetProps) Handle(state Schematic) (Schematic, error) {
 	state.Props[a.Key] = a.Props
 	return state, nil
 }
+
+// Handle replaces the schematic's control authority level with the new value.
+func (a SetAuthority) Handle(state Schematic) (Schematic, error) {
+	state.Authority = a.Value
+	return state, nil
+}
+
+// Handle replaces the schematic's legend configuration with the new value.
+func (a SetLegend) Handle(state Schematic) (Schematic, error) {
+	state.Legend = a.Legend
+	return state, nil
+}

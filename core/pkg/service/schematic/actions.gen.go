@@ -12,6 +12,7 @@
 package schematic
 
 import (
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -23,6 +24,8 @@ const (
 	ActionTypeSetEdge         = "set_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetProps        = "set_props"
+	ActionTypeSetAuthority    = "set_authority"
+	ActionTypeSetLegend       = "set_legend"
 )
 
 // SetNodePosition moves a node to a new position.
@@ -60,6 +63,16 @@ type SetProps struct {
 	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
 }
 
+// SetAuthority sets the control authority level for this schematic.
+type SetAuthority struct {
+	Value control.Authority `json:"value" msgpack:"value"`
+}
+
+// SetLegend replaces the schematic's control-legend overlay configuration.
+type SetLegend struct {
+	Legend Legend `json:"legend" msgpack:"legend"`
+}
+
 // Action is a discriminated union for all Schematic mutations. Type names
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
@@ -70,6 +83,8 @@ type Action struct {
 	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
 	RemoveEdge      *RemoveEdge      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
 	SetProps        *SetProps        `json:"set_props,omitempty" msgpack:"set_props,omitempty"`
+	SetAuthority    *SetAuthority    `json:"set_authority,omitempty" msgpack:"set_authority,omitempty"`
+	SetLegend       *SetLegend       `json:"set_legend,omitempty" msgpack:"set_legend,omitempty"`
 }
 
 // Reduce applies the action to the given state by dispatching on Type to the
@@ -88,6 +103,10 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 		return a.RemoveEdge.Handle(state)
 	case ActionTypeSetProps:
 		return a.SetProps.Handle(state)
+	case ActionTypeSetAuthority:
+		return a.SetAuthority.Handle(state)
+	case ActionTypeSetLegend:
+		return a.SetLegend.Handle(state)
 	default:
 		return state, nil
 	}
@@ -134,4 +153,14 @@ func NewRemoveEdgeAction(p RemoveEdge) Action {
 // NewSetPropsAction wraps a SetProps payload in an Action envelope.
 func NewSetPropsAction(p SetProps) Action {
 	return Action{Type: ActionTypeSetProps, SetProps: &p}
+}
+
+// NewSetAuthorityAction wraps a SetAuthority payload in an Action envelope.
+func NewSetAuthorityAction(p SetAuthority) Action {
+	return Action{Type: ActionTypeSetAuthority, SetAuthority: &p}
+}
+
+// NewSetLegendAction wraps a SetLegend payload in an Action envelope.
+func NewSetLegendAction(p SetLegend) Action {
+	return Action{Type: ActionTypeSetLegend, SetLegend: &p}
 }

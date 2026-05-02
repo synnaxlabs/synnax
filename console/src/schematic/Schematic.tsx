@@ -81,6 +81,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const legendVisible = useSelectLegendVisible(layoutKey);
   const selected = useSelectSelected(layoutKey);
 
+  const authority = Base.useSelectAuthority({ key: layoutKey }) ?? 1;
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
     !(doc?.snapshot ?? false);
@@ -132,7 +133,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   return (
-    <Controller resourceKey={layoutKey} authority={state.authority}>
+    <Controller resourceKey={layoutKey} authority={authority}>
       <Base.Schematic
         resourceKey={layoutKey}
         selected={selected}

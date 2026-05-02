@@ -11,7 +11,9 @@ import {
   type AddNodePayload,
   type RemoveEdgePayload,
   type RemoveNodePayload,
+  type SetAuthorityPayload,
   type SetEdgePayload,
+  type SetLegendPayload,
   type SetNodePositionPayload,
   type SetPropsPayload,
 } from "@/schematic/actions.gen";
@@ -55,4 +57,18 @@ export const handleRemoveEdge = (
 
 export const handleSetProps = (state: Schematic, payload: SetPropsPayload): void => {
   state.props[payload.key] = payload.props;
+};
+
+export const handleSetAuthority = (
+  state: Schematic,
+  payload: SetAuthorityPayload,
+): void => {
+  state.authority = payload.value;
+};
+
+export const handleSetLegend = (
+  state: Schematic,
+  payload: SetLegendPayload,
+): void => {
+  state.legend = payload.legend;
 };
