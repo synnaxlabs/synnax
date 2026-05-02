@@ -226,18 +226,26 @@ func syncOutputs(
 			rawHash := format.Hash(f.Content)
 			keep.Add(f.Path)
 
-			cachedHash, hit := cache.LookupRaw(f.Path)
-			if hit && cachedHash == rawHash {
-				if _, err := os.Stat(absPath); err == nil {
+			existing, err := os.ReadFile(absPath)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, errors.Wrapf(err, "read existing %s", absPath)
+			}
+
+			// Skip the format + write only when the cache says BOTH the
+			// raw plugin output is unchanged AND the on-disk file still
+			// matches the canonical bytes the previous run wrote. The
+			// second check is what makes the cache safe across formatter
+			// upgrades and hand edits: if anything drifts, fall through
+			// and re-format.
+			if existing != nil {
+				if entry, hit := cache.Lookup(f.Path); hit &&
+					entry.Raw == rawHash &&
+					entry.Canonical == format.Hash(existing) {
 					r.Skipped = append(r.Skipped, f.Path)
 					continue
 				}
 			}
 
-			existing, err := os.ReadFile(absPath)
-			if err != nil && !os.IsNotExist(err) {
-				return nil, errors.Wrapf(err, "read existing %s", absPath)
-			}
 			toFormat = append(toFormat, pending{
 				Plugin:   pluginName,
 				RelPath:  f.Path,
@@ -249,7 +257,7 @@ func syncOutputs(
 		}
 	}
 
-	cache.PruneRawTo(keep)
+	cache.PruneTo(keep)
 
 	if len(toFormat) == 0 {
 		printFormatPlan(0, len(r.Skipped))
@@ -280,10 +288,11 @@ func syncOutputs(
 				return err
 			}
 			canonical := formatted[i].Content
+			canonicalHash := format.Hash(canonical)
 			if p.Existing != nil && string(p.Existing) == string(canonical) {
 				mu.Lock()
 				r.Unchanged = append(r.Unchanged, p.RelPath)
-				cache.PutRaw(p.RelPath, p.RawHash)
+				cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
 				mu.Unlock()
 				return nil
 			}
@@ -296,7 +305,7 @@ func syncOutputs(
 			mu.Lock()
 			r.Written = append(r.Written, p.RelPath)
 			r.ByPlugin[p.Plugin] = append(r.ByPlugin[p.Plugin], p.RelPath)
-			cache.PutRaw(p.RelPath, p.RawHash)
+			cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
 			mu.Unlock()
 			return nil
 		})

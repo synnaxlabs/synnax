@@ -20,30 +20,21 @@ import (
 )
 
 // CacheGate validates that the sync cache is internally consistent with
-// what the pipeline currently produces.
+// what is actually on disk.
 //
-// The sync cache stores SHA-256 of the *raw* (pre-format) plugin bytes
-// keyed by repo-relative path. On the next sync, if the same path has
-// the same raw hash, sync skips formatting and writing entirely under
-// the assumption that the on-disk file must already be canonical.
+// The sync cache stores two hashes per generated file: the raw plugin
+// output and the canonical post-format output. On the next sync, if
+// the raw hash matches AND the on-disk file hashes to the cached
+// canonical value, sync skips the file. The canonical-hash check is
+// what makes the cache safe across formatter version bumps and hand
+// edits; without it sync would silently keep stale bytes in place.
 //
-// That assumption holds only when nothing has poisoned the cache. A
-// poisoned cache - cache entry says "fresh" but the on-disk file has
-// been edited by hand or written by an older formatter - causes sync to
-// silently leave broken output in place. This gate catches that:
-//
-//   - For every produced file, compare cache.LookupRaw against the
-//     hash of the *current* raw plugin output. A mismatch is just a
-//     cache miss (sync will reformat next run); not a finding.
-//   - For every produced file where the cache *does* match, verify the
-//     on-disk file is non-empty and exists. A cache hit on a missing
-//     file is poisoned: sync will skip and never repair.
-//
-// The gate cannot validate the on-disk *bytes* without re-running the
-// formatter chain, which is what the generated gate already does. So
-// this gate stays cheap and focuses on the failure mode the generated
-// gate cannot catch: cache says "skip" on a path that doesn't exist or
-// is empty.
+// This gate proves the cache is not lying: for every produced file
+// where the cache contains an entry, it verifies (1) the file exists
+// and (2) the on-disk bytes hash to the cached canonical value. A
+// mismatch means the cache says "skip" on a file whose contents no
+// longer match what sync claimed it wrote, which would let stale
+// output survive a sync with no warning.
 type CacheGate struct {
 	cache *format.Cache
 }
@@ -67,16 +58,15 @@ func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepor
 
 	for _, files := range p.Outputs {
 		for _, f := range files {
-			rawHash := format.Hash(f.Content)
-			cached, hit := g.cache.LookupRaw(f.Path)
+			entry, hit := g.cache.Lookup(f.Path)
 			if !hit {
 				continue
 			}
-			if cached != rawHash {
+			if entry.Raw != format.Hash(f.Content) {
 				continue
 			}
 			abs := filepath.Join(env.RepoRoot, f.Path)
-			info, err := os.Stat(abs)
+			existing, err := os.ReadFile(abs)
 			if err != nil {
 				r.Findings = append(r.Findings, Finding{
 					Path:     f.Path,
@@ -86,11 +76,11 @@ func (g CacheGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepor
 				})
 				continue
 			}
-			if info.Size() == 0 {
+			if format.Hash(existing) != entry.Canonical {
 				r.Findings = append(r.Findings, Finding{
 					Path:     f.Path,
 					Severity: SeverityError,
-					Message:  "cache says fresh but file is empty",
+					Message:  "on-disk content does not match cached canonical hash; sync would skip this file",
 					FixHint:  "delete .oracle/sync-cache.json and re-run `oracle sync`",
 				})
 			}

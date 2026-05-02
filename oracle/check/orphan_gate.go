@@ -102,7 +102,7 @@ func (g OrphanGate) Run(_ context.Context, p *pipeline.Result, env Env) GateRepo
 	// in a prior run, so any cache entry not in produced is by
 	// definition stale.
 	if g.cache != nil {
-		for _, key := range g.cache.RawKeys() {
+		for _, key := range g.cache.EntryKeys() {
 			if produced.Contains(key) {
 				continue
 			}

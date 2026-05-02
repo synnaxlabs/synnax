@@ -78,7 +78,7 @@ var _ = Describe("OrphanGate", func() {
 		writeGen("out/types.gen.go", "x")
 		writeGen("out/legacy.gen.go", "x")
 		cache := format.LoadCache(repoRoot)
-		cache.PutRaw("out/legacy.gen.go", "abc")
+		cache.Put("out/legacy.gen.go", format.Entry{Raw: "abc", Canonical: "def"})
 		gate := check.NewOrphanGate(cache)
 		report := gate.Run(ctx, resultWith([]string{"out/types.gen.go"}),
 			check.Env{RepoRoot: repoRoot})
@@ -95,7 +95,7 @@ var _ = Describe("OrphanGate", func() {
 		// That is for the cache gate to surface, not the orphan gate.
 		writeGen("out/types.gen.go", "x")
 		cache := format.LoadCache(repoRoot)
-		cache.PutRaw("out/legacy.gen.go", "abc")
+		cache.Put("out/legacy.gen.go", format.Entry{Raw: "abc", Canonical: "def"})
 		gate := check.NewOrphanGate(cache)
 		report := gate.Run(ctx, resultWith([]string{"out/types.gen.go"}),
 			check.Env{RepoRoot: repoRoot})
