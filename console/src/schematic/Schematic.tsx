@@ -467,7 +467,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...ZERO_STATE, ...v }),
+  actionCreator: (v) => internalCreate({ ...ZERO_STATE, ...v, remoteCreated: true }),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
