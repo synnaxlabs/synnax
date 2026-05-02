@@ -1188,6 +1188,48 @@ var _ = Describe("Analyzer", func() {
 			Expect(form.TypeParams[0].Constraint.Name).To(Equal("comparable"))
 		})
 
+		It("Should resolve numeric constraint with numeric default without warnings", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric = float64> {
+					lower T
+					upper T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			boundsType := table.MustGet("test.Bounds")
+			form := boundsType.Form.(resolution.StructForm)
+			Expect(form.TypeParams[0].Constraint).NotTo(BeNil())
+			Expect(form.TypeParams[0].Constraint.Name).To(Equal("numeric"))
+			Expect(form.TypeParams[0].Default).NotTo(BeNil())
+			Expect(form.TypeParams[0].Default.Name).To(Equal("float64"))
+		})
+
+		It("Should reject numeric constraint without a default", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric> {
+					lower T
+					upper T
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("requires a default"))
+		})
+
+		It("Should reject numeric constraint with non-numeric default", func(ctx SpecContext) {
+			source := `
+				Bounds struct<T extends numeric = string> {
+					lower T
+					upper T
+				}
+			`
+			_, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeFalse())
+			Expect(diag.String()).To(ContainSubstring("non-numeric default"))
+		})
+
 		It("Should parse generic struct with default type parameter", func(ctx SpecContext) {
 			source := `
 				Container struct<T = string> {

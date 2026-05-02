@@ -1001,19 +1001,6 @@ var _ = Describe("Go PB Plugin", func() {
 		})
 	})
 
-	Describe("PostWrite", func() {
-		It("Should return nil for empty file list", func() {
-			Expect(pbPlugin.PostWrite(nil)).To(Succeed())
-			Expect(pbPlugin.PostWrite([]string{})).To(Succeed())
-		})
-
-		It("Should filter to only Go files", func() {
-			// PostWrite filters non-.go files internally
-			err := pbPlugin.PostWrite([]string{"test.proto", "config.yaml"})
-			Expect(err).To(Succeed())
-		})
-	})
-
 	Describe("primitive type conversions", func() {
 		It("Should widen uint8 to uint32", func(ctx SpecContext) {
 			source := `
@@ -1269,6 +1256,48 @@ var _ = Describe("Go PB Plugin", func() {
 				ExpectContent(resp, "translator.gen.go").
 					ToContain("Name: r.Name")
 			})
+
+			It("Should round-trip a soft optional struct as a non-nullable wire field", func(ctx SpecContext) {
+				// A struct field with a single "?" keeps its Go type as a
+				// value, and the proto field is plain (no `optional` keyword).
+				// The translator converts unconditionally in both directions:
+				// no zero-value guard on the Go side, no nil-check carve-out
+				// on the proto side. AnchorFromPB's own pb == nil guard makes
+				// the unconditional FromPB call safe even when the proto
+				// pointer is unset. Enum translators tolerate the Go zero, so
+				// converting a zero-valued Anchor does not error.
+				source := `
+					@go output "core/test"
+					@pb
+
+					Side enum {
+						left  = "left"
+						right = "right"
+					}
+
+					Anchor struct {
+						side Side
+					}
+
+					Test struct {
+						key    uuid
+						anchor Anchor?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain(
+						"anchorVal, err := AnchorToPB(r.Anchor)",
+						"Anchor: anchorVal",
+						"r.Anchor, err = AnchorFromPB(pb.Anchor)",
+					).
+					ToNotContain(
+						"if r.Anchor != (test.Anchor{}) {",
+						"if pb.Anchor != nil {",
+					)
+			})
+
 		})
 
 		Context("cross-namespace struct reference", func() {

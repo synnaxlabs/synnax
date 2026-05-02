@@ -32,7 +32,7 @@ export const domRect = z.object({
 export const box = z.object({
   one: xy.xyZ,
   two: xy.xyZ,
-  root: location.corner,
+  root: location.cornerZ,
 });
 
 export type Box = z.infer<typeof box>;
@@ -50,7 +50,7 @@ export const ZERO = { one: xy.ZERO, two: xy.ZERO, root: location.TOP_LEFT };
  */
 export const DECIMAL = { one: xy.ZERO, two: xy.ONE, root: location.BOTTOM_LEFT };
 
-export const copy = (b: Box, root?: location.CornerXY): Box => ({
+export const copy = (b: Box, root?: location.Corner): Box => ({
   one: b.one,
   two: b.two,
   root: root ?? b.root,
@@ -71,7 +71,7 @@ export const construct = (
   second?: number | xy.XY | dimensions.Dimensions | dimensions.Signed,
   width: number = 0,
   height: number = 0,
-  coordinateRoot?: location.CornerXY,
+  coordinateRoot?: location.Corner,
 ): Box => {
   const b: Box = {
     one: { ...xy.ZERO },
@@ -339,7 +339,7 @@ export const yBounds = (b: Crude): bounds.Bounds => {
   return { lower: b_.one.y, upper: b_.two.y };
 };
 
-export const reRoot = (b: Box, corner: location.CornerXY): Box => copy(b, corner);
+export const reRoot = (b: Box, corner: location.Corner): Box => copy(b, corner);
 
 export const edgePoints = (b: Crude, loc: location.Location): [xy.XY, xy.XY] => {
   const b_ = construct(b);
@@ -461,7 +461,7 @@ export const constructWithAlternateRoot = (
   width: number,
   height: number,
   currRoot: location.XY,
-  newRoot: location.CornerXY,
+  newRoot: location.Corner,
 ): Box => {
   const first = { x, y };
   const second = { x: x + width, y: y + height };

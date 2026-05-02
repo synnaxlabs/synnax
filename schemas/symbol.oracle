@@ -70,42 +70,30 @@ Handle struct {
     """
 }
 
-Viewport struct {
-    zoom     float64    {
-        @validate default 1
-        @doc value        "is the zoom level where 1.0 equals 100%."
-    }
-    position spatial.XY {
-        @doc value "is the (x, y) pan offset."
-    }
-
-    @doc value "is the camera state for viewing or previewing a symbol."
-}
-
 Spec struct {
-    svg              string    {
+    svg              string            {
         @validate min_length 1
         @doc value           "is the SVG markup defining the symbol's visual geometry."
     }
-    states           State[]   {
+    states           State[]           {
         @doc value "contains available visual states with regional styling configurations."
     }
-    variant          string    {
+    variant          string            {
         @validate min_length 1
         @doc value           "is the symbol variant or category identifier (e.g., 'sensor', 'valve')."
     }
-    handles          Handle[]  {
+    handles          Handle[]          {
         @doc value "contains connection points for linking to other diagram elements."
     }
-    scale            float64   {
+    scale            float64           {
         @validate default 1
         @doc value        "is the symbol scale factor."
     }
-    scale_stroke     bool      {
+    scale_stroke     bool              {
         @validate default false
         @doc value        "indicates whether stroke width scales with the symbol size."
     }
-    preview_viewport Viewport? {
+    preview_viewport spatial.Viewport? {
         @doc value "is an optional viewport configuration for symbol preview rendering."
     }
 

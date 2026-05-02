@@ -31,6 +31,15 @@ func NewRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		// A failed RunE is a normal command outcome (e.g. `check`
+		// reporting drift, `sync` hitting a generation error). The
+		// rendered output above the error already says everything the
+		// user needs to know; cobra's default usage dump and duplicate
+		// "Error: ..." line just add noise. Subcommands that want to
+		// print their error explicitly do so via printError; the rest
+		// rely on the exit code carried by exitCodeError.
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	rootCmd.Version = BuildTime
 	configureRootFlags(rootCmd)
@@ -51,11 +60,19 @@ func NewRootCmd() *cobra.Command {
 	return rootCmd
 }
 
-// Execute runs the root command.
+// Execute runs the root command. Commands that fail with an
+// exitCodeError are routed to that specific exit code so CI consumers
+// can attribute failures (e.g. `oracle check` returns 12 on generated
+// drift). Every other failure exits with 1.
 func Execute() {
-	if err := NewRootCmd().Execute(); err != nil {
-		os.Exit(1)
+	err := NewRootCmd().Execute()
+	if err == nil {
+		return
 	}
+	if ec, ok := err.(*exitCodeError); ok {
+		os.Exit(ec.code)
+	}
+	os.Exit(1)
 }
 
 func initConfig() {

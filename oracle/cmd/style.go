@@ -12,6 +12,7 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"charm.land/lipgloss/v2"
 )
@@ -115,25 +116,6 @@ func printSyncedCount(written, unchanged int) {
 	printSuccess(msg)
 }
 
-func printValidationPassed(structs, enums int) {
-	parts := []string{}
-	if structs > 0 {
-		parts = append(
-			parts,
-			fmt.Sprintf("%s structs", countStyle.Render(fmt.Sprintf("%d", structs))),
-		)
-	}
-	if enums > 0 {
-		parts = append(
-			parts,
-			fmt.Sprintf("%s enums", countStyle.Render(fmt.Sprintf("%d", enums))),
-		)
-	}
-	msg := "valid " + dimStyle.Render("(") +
-		strings.Join(parts, dimStyle.Render(", ")) + dimStyle.Render(")")
-	printSuccess(msg)
-}
-
 func printDiagnostics(diagnosticStr string) {
 	if diagnosticStr == "" {
 		return
@@ -176,4 +158,106 @@ func printFormattingDone(formatted int) {
 		c,
 		word,
 	)
+}
+
+// printFormatPlan announces the format pass: how many generated files
+// need to run through the formatter chain and how many are short-
+// circuited by the on-disk cache. Emitted once, immediately before the
+// format batch runs, so the user sees activity even though the batch
+// itself takes a few seconds and is silent internally.
+func printFormatPlan(toFormat, cached int) {
+	printPlan("formatting", toFormat, "file", cached, "cached")
+}
+
+// printFormatDone reports duration of the format batch.
+func printFormatDone(d time.Duration) {
+	printArrowDone(d)
+}
+
+// printWritePlan announces the parallel write pass after formatting.
+// Files whose canonical bytes already match the on-disk file are
+// reported as "unchanged" and not rewritten.
+func printWritePlan(toWrite, unchanged int) {
+	if toWrite == 0 && unchanged == 0 {
+		return
+	}
+	printPlan("writing", toWrite, "file", unchanged, "unchanged")
+}
+
+// printBufGenerateStart announces the start of the buf-generate step.
+// When changedProtos is 0 the cache decides whether to run; the
+// banner is suppressed in that case to avoid noise.
+func printBufGenerateStart(changedProtos int) {
+	if changedProtos == 0 {
+		fmt.Printf("  %s\n", dimStyle.Render("buf generate"))
+		return
+	}
+	fmt.Printf(
+		"  %s %s %s\n",
+		dimStyle.Render("buf generate"),
+		dimStyle.Render("over"),
+		countWord(changedProtos, "proto"),
+	)
+}
+
+// printBufGenerateDone reports the outcome: cache hit or actual run
+// with elapsed time. cached=true means the input-content stamp was
+// unchanged and no protoc plugins were invoked.
+func printBufGenerateDone(cached bool, d time.Duration) {
+	if cached {
+		fmt.Printf("    %s %s\n", infoStyle.Render(symbolArrow), dimStyle.Render("cached"))
+		return
+	}
+	printArrowDone(d)
+}
+
+// printPlan renders a "<verb> <n> <noun>(s) (<aux> <m>)" line. The
+// auxiliary clause is omitted when m == 0; when n == 0 the auxiliary
+// drives the message instead. Used for "formatting / writing"
+// announcements that share a shape but differ in nouns.
+func printPlan(verb string, n int, noun string, aux int, auxLabel string) {
+	if n == 0 {
+		fmt.Printf(
+			"  %s %s\n",
+			dimStyle.Render(verb),
+			dimStyle.Render(fmt.Sprintf("%d %s, nothing to do", aux, auxLabel)),
+		)
+		return
+	}
+	suffix := ""
+	if aux > 0 {
+		suffix = dimStyle.Render(fmt.Sprintf(" (%d %s)", aux, auxLabel))
+	}
+	fmt.Printf("  %s %s%s\n", dimStyle.Render(verb), countWord(n, noun), suffix)
+}
+
+// printArrowDone renders the post-step "→ done in <duration>" line
+// shared by every timed phase.
+func printArrowDone(d time.Duration) {
+	fmt.Printf(
+		"    %s %s %s\n",
+		infoStyle.Render(symbolArrow),
+		dimStyle.Render("done in"),
+		dimStyle.Render(fmtDuration(d)),
+	)
+}
+
+// countWord renders "<n> <singular>" or "<n> <singular>s" with n in
+// the count style. The singular form is the bare noun ("file",
+// "proto", "schema"); the plural is formed by appending "s".
+func countWord(n int, singular string) string {
+	noun := singular
+	if n != 1 {
+		noun = singular + "s"
+	}
+	return countStyle.Render(fmt.Sprintf("%d", n)) + " " + noun
+}
+
+// fmtDuration renders a duration in a tight, human-friendly form: ms
+// under a second, decimal seconds otherwise.
+func fmtDuration(d time.Duration) string {
+	if d < time.Second {
+		return fmt.Sprintf("%dms", d.Milliseconds())
+	}
+	return fmt.Sprintf("%.1fs", d.Seconds())
 }
