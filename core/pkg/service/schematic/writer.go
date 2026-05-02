@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -29,6 +30,10 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	table     *gorp.Table[uuid.UUID, Schematic]
+	// actionObserver is notified after a successful Dispatch so the cluster
+	// signals subsystem can broadcast the action sequence on the schematic
+	// channels. Nil when the service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
 }
 
 // Create creates the given log within the workspace provided. If the log does not
@@ -156,6 +161,42 @@ func (w Writer) SetData(
 			data.Snapshot = s.Snapshot
 			return data, nil
 		}).Exec(ctx, w.tx)
+}
+
+// Dispatch applies a sequence of actions atomically to the schematic with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// sessionKey identifies the originating client so subscribers can self-dedup.
+// Returns validate.ErrValidation if the target schematic is a snapshot, since
+// snapshots are immutable.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key uuid.UUID,
+	sessionKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
+			if s.Snapshot {
+				return s, errors.Wrapf(
+					validate.ErrValidation,
+					"[Schematic] - cannot dispatch actions on snapshot %s:%s",
+					key,
+					s.Name,
+				)
+			}
+			return ReduceAll(s, actions)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver != nil {
+		w.actionObserver.Notify(ctx, ScopedAction{
+			Key:        key,
+			SessionKey: sessionKey,
+			Actions:    actions,
+		})
+	}
+	return nil
 }
 
 // Delete deletes the logs with the given keys.

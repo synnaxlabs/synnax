@@ -110,6 +110,31 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 	})
 }
 
+// DispatchRequest carries an action sequence to apply to a single schematic.
+// SessionKey identifies the originating client so cluster broadcasts can be
+// deduplicated against the local optimistic update.
+type DispatchRequest struct {
+	Key        uuid.UUID          `json:"key" msgpack:"key"`
+	SessionKey string             `json:"session_key" msgpack:"session_key"`
+	Actions    []schematic.Action `json:"actions" msgpack:"actions"`
+}
+
+// Dispatch applies the action sequence to the target schematic atomically.
+// Subscribers to the schematic action signals receive the sequence after the
+// transaction commits.
+func (s *Service) Dispatch(ctx context.Context, req DispatchRequest) (res types.Nil, err error) {
+	if err = s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  access.ActionUpdate,
+		Objects: []ontology.ID{schematic.OntologyID(req.Key)},
+	}); err != nil {
+		return res, err
+	}
+	return res, s.db.WithTx(ctx, func(tx gorp.Tx) error {
+		return s.internal.NewWriter(tx).Dispatch(ctx, req.Key, req.SessionKey, req.Actions)
+	})
+}
+
 type (
 	RetrieveRequest struct {
 		Keys []uuid.UUID `json:"keys" msgpack:"keys"`

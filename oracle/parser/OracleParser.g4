@@ -99,15 +99,35 @@ typeParam
     : IDENT QUESTION? (EXTENDS typeRef)? (EQUALS typeRef)?
     ;
 
-// Struct body contains fields, field omissions, and/or struct-level domains
+// Struct body contains fields, field omissions, actions, and/or struct-level domains
 structBody
-    : ((fieldDef | fieldOmit | domain) nl*)*
+    : ((fieldDef | fieldOmit | actionDef | domain) nl*)*
     ;
 
 // Field omission: remove an inherited field from parent struct
 // Example: -parentFieldName
 fieldOmit
     : MINUS IDENT
+    ;
+
+// Action definition within a struct: defines a named mutation with payload fields
+// Examples:
+//   action SetNodePosition {
+//       key      string
+//       position spatial.XY
+//   }
+//   action AddNode {
+//       node  Node
+//       props record?
+//       @doc value "adds a node to the schematic"
+//   }
+actionDef
+    : ACTION IDENT nl* LBRACE nl* actionBody RBRACE
+    ;
+
+// Action body contains payload fields and/or action-level domains
+actionBody
+    : ((fieldDef | domain) nl*)*
     ;
 
 // =============================================================================

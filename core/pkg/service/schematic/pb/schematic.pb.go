@@ -581,7 +581,7 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xe6\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\xe6\x01\n" +
 	"\x06Legend\x12\x18\n" +
 	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
 	"\bposition\x18\x02 \x01(\v2\x16.x.spatial.pb.StickyXYR\bposition\x12@\n" +

@@ -106,6 +106,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.SchematicRetrieve = fnoop.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]{}
 	a.SchematicRename = fnoop.UnaryServer[schematic.RenameRequest, types.Nil]{}
 	a.SchematicSetData = fnoop.UnaryServer[schematic.SetDataRequest, types.Nil]{}
+	a.SchematicDispatch = fnoop.UnaryServer[schematic.DispatchRequest, types.Nil]{}
 	a.SchematicCopy = fnoop.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]{}
 
 	// SCHEMATIC SYMBOL
