@@ -20,7 +20,7 @@ import (
 	fhttp "github.com/synnaxlabs/freighter/http"
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
-	"github.com/synnaxlabs/x/encoding/json"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -34,17 +34,16 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	BeforeAll(func() {
 		addr = "localhost:8080"
 		app = fiber.New(fiber.Config{})
-		router := fhttp.NewRouter(fhttp.RouterConfig{
+		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
-		})
-		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: json.Codec,
-		})
+		}))
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
-		server = fhttp.StreamServer[test.Request, test.Response](router, "/")
-		client = fhttp.StreamClient[test.Request, test.Response](factory)
+		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+			fhttp.StreamClientConfig{Codec: fhttp.JSONCodec},
+		))
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()

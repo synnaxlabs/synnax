@@ -25,7 +25,6 @@ import (
 	xencoding "github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/http"
 )
 
 type Codec struct {
@@ -33,7 +32,7 @@ type Codec struct {
 	LowerPerfCodec xencoding.Codec
 }
 
-func NewWSFramerCodec(channelSvc *channel.Service) http.Codec {
+func NewWSFramerCodec(channelSvc *channel.Service) xencoding.Codec {
 	return &Codec{
 		LowerPerfCodec: json.Codec,
 		Codec:          codec.NewDynamic(channelSvc),
@@ -237,17 +236,11 @@ func (c *Codec) decodeStreamRequest(
 	return c.Update(ctx, v.Payload.Keys)
 }
 
-func (c *Codec) ContentType() string {
-	return framerContentType
-}
-
-const framerContentType = "application/sy-framer"
-
-func NewCodecResolver(channelSvc *channel.Service) http.CodecResolver {
-	return func(ct string) (http.Codec, error) {
-		if ct == framerContentType {
-			return NewWSFramerCodec(channelSvc), nil
-		}
-		return http.ResolveCodec(ct)
-	}
+// WithCodec returns a StreamServerOption that registers the WS framer codec on a
+// streaming server. A fresh codec instance is constructed per connection because the
+// framer codec is stateful (it tracks the channel keys for the active stream).
+func WithCodec(channelSvc *channel.Service) fhttp.StreamServerOption {
+	return fhttp.WithAdditionalCodec("application/sy-framer", func() xencoding.Codec {
+		return NewWSFramerCodec(channelSvc)
+	})
 }
