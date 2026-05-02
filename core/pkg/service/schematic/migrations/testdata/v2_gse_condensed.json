@@ -1,0 +1,3791 @@
+{
+  "control": "released",
+  "controlAcquireTrigger": 0,
+  "edges": [
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [{ "direction": "x", "length": 33.18229166666664 }]
+      },
+      "id": "2jD9GoGb6XA",
+      "key": "2jD9GoGb6XA",
+      "segments": [{ "direction": "x", "length": 33.18229166666664 }],
+      "selected": false,
+      "source": "wLXXPa67EtO",
+      "sourceHandle": "2",
+      "target": "DlBptq7iyFJ",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [{ "direction": "x", "length": 44.35815471928552 }]
+      },
+      "id": "ny8HbH1PIxr",
+      "key": "ny8HbH1PIxr",
+      "segments": [{ "direction": "x", "length": 44.35815471928552 }],
+      "selected": false,
+      "source": "P49uwwU4CA9",
+      "sourceHandle": "2",
+      "target": "aIvn9MvqyaT",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [{ "direction": "x", "length": 44.30423076936671 }]
+      },
+      "id": "kqL2HO4P8w3",
+      "key": "kqL2HO4P8w3",
+      "segments": [{ "direction": "x", "length": 44.30423076936671 }],
+      "selected": false,
+      "source": "uTfrxrrlGWI",
+      "sourceHandle": "2",
+      "target": "0HUYGlbRioB",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [{ "direction": "x", "length": 30.450701944078276 }]
+      },
+      "id": "D6Kl9VjDwwW",
+      "key": "D6Kl9VjDwwW",
+      "segments": [{ "direction": "x", "length": 30.450701944078276 }],
+      "selected": false,
+      "source": "uD0n1qxXf9L",
+      "sourceHandle": "8",
+      "target": "wLXXPa67EtO",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "x", "length": 36.01241279495269 },
+          { "direction": "y", "length": -74.01711883014008 },
+          { "direction": "x", "length": 48.31966925437275 }
+        ]
+      },
+      "id": "reactflow__edge-DlBptq7iyFJ2-FG3UvatT8VR1",
+      "key": "reactflow__edge-DlBptq7iyFJ2-FG3UvatT8VR1",
+      "segments": [
+        { "direction": "x", "length": 36.01241279495269 },
+        { "direction": "y", "length": -74.01711883014008 },
+        { "direction": "x", "length": 48.31966925437275 }
+      ],
+      "selected": false,
+      "source": "DlBptq7iyFJ",
+      "sourceHandle": "2",
+      "target": "FG3UvatT8VR",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "x", "length": 35.88168143704071 },
+          { "direction": "y", "length": 76.06715713331766 },
+          { "direction": "x", "length": 49.16336009631732 }
+        ]
+      },
+      "id": "reactflow__edge-DlBptq7iyFJ2-uSKBe4MSMqr1",
+      "key": "reactflow__edge-DlBptq7iyFJ2-uSKBe4MSMqr1",
+      "segments": [
+        { "direction": "x", "length": 35.88168143704071 },
+        { "direction": "y", "length": 76.06715713331766 },
+        { "direction": "x", "length": 49.16336009631732 }
+      ],
+      "selected": false,
+      "source": "DlBptq7iyFJ",
+      "sourceHandle": "2",
+      "target": "uSKBe4MSMqr",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [{ "direction": "x", "length": 65.44918872855098 }]
+      },
+      "id": "reactflow__edge-FG3UvatT8VR2-P49uwwU4CA91",
+      "key": "reactflow__edge-FG3UvatT8VR2-P49uwwU4CA91",
+      "segments": [{ "direction": "x", "length": 65.44918872855098 }],
+      "selected": false,
+      "source": "FG3UvatT8VR",
+      "sourceHandle": "2",
+      "target": "P49uwwU4CA9",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": { "color": "#009827", "segments": [] },
+      "id": "reactflow__edge-uSKBe4MSMqr2-uTfrxrrlGWI1",
+      "key": "reactflow__edge-uSKBe4MSMqr2-uTfrxrrlGWI1",
+      "segments": [],
+      "selected": false,
+      "source": "uSKBe4MSMqr",
+      "sourceHandle": "2",
+      "target": "uTfrxrrlGWI",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 39.68718423848805 }]
+      },
+      "id": "gYqkTrdkhYm",
+      "key": "gYqkTrdkhYm",
+      "segments": [{ "direction": "x", "length": 39.68718423848805 }],
+      "selected": false,
+      "source": "kzoCoaFsLXm",
+      "sourceHandle": "8",
+      "target": "1wASI4h8XZH",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 27.35230402006914 }]
+      },
+      "id": "f6jyfaj727c",
+      "key": "f6jyfaj727c",
+      "segments": [{ "direction": "x", "length": 27.35230402006914 }],
+      "selected": false,
+      "source": "1wASI4h8XZH",
+      "sourceHandle": "2",
+      "target": "dSaxNR8i6Ww",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 357.45175233513794 }]
+      },
+      "id": "LXJozKItrqp",
+      "key": "LXJozKItrqp",
+      "segments": [{ "direction": "x", "length": 357.45175233513794 }],
+      "selected": false,
+      "source": "dSaxNR8i6Ww",
+      "sourceHandle": "2",
+      "target": "fNn6627SLuM",
+      "targetHandle": "7"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": 38.143085277639145 },
+          { "direction": "x", "length": 102.20342600206186 },
+          { "direction": "y", "length": 35.84155871783544 }
+        ]
+      },
+      "id": "8pqASgu2f8J",
+      "key": "8pqASgu2f8J",
+      "segments": [
+        { "direction": "y", "length": 38.143085277639145 },
+        { "direction": "x", "length": 102.20342600206186 },
+        { "direction": "y", "length": 35.84155871783544 }
+      ],
+      "selected": false,
+      "source": "OABTFTzErmB",
+      "sourceHandle": "4",
+      "target": "fNn6627SLuM",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": 47.309751944305816 },
+          { "direction": "x", "length": 0.3700926687284891 },
+          { "direction": "y", "length": 26.67489205116877 }
+        ]
+      },
+      "id": "C2Lqyi43lLI",
+      "key": "C2Lqyi43lLI",
+      "segments": [
+        { "direction": "y", "length": 47.309751944305816 },
+        { "direction": "x", "length": 0.3700926687284891 },
+        { "direction": "y", "length": 26.67489205116877 }
+      ],
+      "selected": false,
+      "source": "zv17pHUEYJq",
+      "sourceHandle": "4",
+      "target": "fNn6627SLuM",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "x", "length": -139.39617338491416 },
+          { "direction": "y", "length": -66.56758905393838 },
+          { "direction": "x", "length": -35.7718844225766 }
+        ]
+      },
+      "id": "nE7dOn7d1gh",
+      "key": "nE7dOn7d1gh",
+      "segments": [
+        { "direction": "x", "length": -139.39617338491416 },
+        { "direction": "y", "length": -66.56758905393838 },
+        { "direction": "x", "length": -35.7718844225766 }
+      ],
+      "selected": false,
+      "source": "fNn6627SLuM",
+      "sourceHandle": "7",
+      "target": "GPBKCxrBPFK",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 76.31827668168148 }]
+      },
+      "id": "dMvdYlmIJ4E",
+      "key": "dMvdYlmIJ4E",
+      "segments": [{ "direction": "x", "length": 76.31827668168148 }],
+      "selected": false,
+      "source": "fNn6627SLuM",
+      "sourceHandle": "8",
+      "target": "tC1XCqyIKMC",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 39.690306844743645 }]
+      },
+      "id": "WeKnySzoEQA",
+      "key": "WeKnySzoEQA",
+      "segments": [{ "direction": "x", "length": 39.690306844743645 }],
+      "selected": false,
+      "source": "tC1XCqyIKMC",
+      "sourceHandle": "2",
+      "target": "SKDLhJpoYDF",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 107.2012004303274 }]
+      },
+      "id": "1ZOodQkSwlS",
+      "key": "1ZOodQkSwlS",
+      "segments": [{ "direction": "x", "length": 107.2012004303274 }],
+      "selected": false,
+      "source": "SKDLhJpoYDF",
+      "sourceHandle": "2",
+      "target": "2OHxFMlBGgA",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "x", "length": -242.20074637388143 },
+          { "direction": "y", "length": 139.69774734683722 }
+        ]
+      },
+      "id": "ayxZ1Ks2nMr",
+      "key": "ayxZ1Ks2nMr",
+      "segments": [
+        { "direction": "x", "length": -260.50868191906693 },
+        { "direction": "y", "length": 116.3967384711466 }
+      ],
+      "selected": false,
+      "source": "hYZ8WBgT9ia",
+      "sourceHandle": "1",
+      "target": "zv17pHUEYJq",
+      "targetHandle": "3"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": -41.13268070315257 },
+          { "direction": "x", "length": -77.3347878919866 }
+        ]
+      },
+      "id": "tgSbQMJqq9B",
+      "key": "tgSbQMJqq9B",
+      "segments": [
+        { "direction": "y", "length": -41.13268070315257 },
+        { "direction": "x", "length": -77.3347878919866 }
+      ],
+      "selected": false,
+      "source": "OABTFTzErmB",
+      "sourceHandle": "2",
+      "target": "ROrFkey4CDj",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": -41.85371855634398 },
+          { "direction": "x", "length": -378.6798423203026 }
+        ]
+      },
+      "id": "dD988rzVRcw",
+      "key": "dD988rzVRcw",
+      "segments": [
+        { "direction": "y", "length": -41.85371855634398 },
+        { "direction": "x", "length": -378.6798423203026 }
+      ],
+      "selected": false,
+      "source": "wqAUB77dleH",
+      "sourceHandle": "3",
+      "target": "ROrFkey4CDj",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": -36.63177258690027 },
+          { "direction": "x", "length": 101.71966214984604 },
+          { "direction": "y", "length": -36.63177258690027 }
+        ]
+      },
+      "id": "mijOsc1nobC",
+      "key": "mijOsc1nobC",
+      "segments": [
+        { "direction": "y", "length": -36.63177258690027 },
+        { "direction": "x", "length": 101.71966214984604 },
+        { "direction": "y", "length": -36.63177258690027 }
+      ],
+      "selected": false,
+      "source": "fNn6627SLuM",
+      "sourceHandle": "1",
+      "target": "wqAUB77dleH",
+      "targetHandle": "4"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [
+          { "direction": "y", "length": 38.74223961709531 },
+          { "direction": "x", "length": 52.20342600206186 },
+          { "direction": "y", "length": 35.84155871783544 }
+        ]
+      },
+      "id": "PN0YMOWWugP",
+      "key": "PN0YMOWWugP",
+      "segments": [
+        { "direction": "y", "length": 38.74223961709531 },
+        { "direction": "x", "length": 52.20342600206186 },
+        { "direction": "y", "length": 35.84155871783544 }
+      ],
+      "selected": false,
+      "source": "JjPiK1XPeF6",
+      "sourceHandle": "4",
+      "target": "DeV37ebNkgE",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [
+          { "direction": "y", "length": 37.575572950428665 },
+          { "direction": "x", "length": -51.62990733127151 },
+          { "direction": "y", "length": 36.67489205116877 }
+        ]
+      },
+      "id": "FPv3YsSVs8o",
+      "key": "FPv3YsSVs8o",
+      "segments": [
+        { "direction": "y", "length": 37.575572950428665 },
+        { "direction": "x", "length": -51.62990733127151 },
+        { "direction": "y", "length": 36.67489205116877 }
+      ],
+      "selected": false,
+      "source": "s6dSeA0idmI",
+      "sourceHandle": "4",
+      "target": "DeV37ebNkgE",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [{ "direction": "x", "length": 108.43674813647124 }]
+      },
+      "id": "H36AEEXTAbH",
+      "key": "H36AEEXTAbH",
+      "segments": [{ "direction": "x", "length": 108.43674813647124 }],
+      "selected": false,
+      "source": "DeV37ebNkgE",
+      "sourceHandle": "8",
+      "target": "TyqbAhrSUKg",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [{ "direction": "x", "length": 56.85011377335081 }]
+      },
+      "id": "b0mS63N9roh",
+      "key": "b0mS63N9roh",
+      "segments": [{ "direction": "x", "length": 56.85011377335081 }],
+      "selected": false,
+      "source": "TyqbAhrSUKg",
+      "sourceHandle": "2",
+      "target": "U7Ij3kxDFQo",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [{ "direction": "x", "length": 50.43779054331253 }]
+      },
+      "id": "VZzYr3ZwCJD",
+      "key": "VZzYr3ZwCJD",
+      "segments": [{ "direction": "x", "length": 50.43779054331253 }],
+      "selected": false,
+      "source": "U7Ij3kxDFQo",
+      "sourceHandle": "2",
+      "target": "OfZeCzCTkUk",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [
+          { "direction": "x", "length": -10 },
+          { "direction": "x", "length": 74.80591624381395 }
+        ]
+      },
+      "id": "Z6AWNKGQM1r",
+      "key": "Z6AWNKGQM1r",
+      "segments": [
+        { "direction": "x", "length": -10 },
+        { "direction": "x", "length": 74.80591624381395 }
+      ],
+      "selected": false,
+      "source": "OfZeCzCTkUk",
+      "sourceHandle": "2",
+      "target": "Czhkq14bwKL",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [{ "direction": "x", "length": 22.707627484943885 }]
+      },
+      "id": "xpOYKYNFNfV",
+      "key": "xpOYKYNFNfV",
+      "segments": [{ "direction": "x", "length": 22.707627484943885 }],
+      "selected": false,
+      "source": "bvLG286CeYr",
+      "sourceHandle": "8",
+      "target": "JjPiK1XPeF6",
+      "targetHandle": "7"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": -139.69774734683722 },
+          { "direction": "x", "length": 344.03414074237094 }
+        ]
+      },
+      "id": "reactflow__edge-OABTFTzErmB3-hYZ8WBgT9ia1",
+      "key": "reactflow__edge-OABTFTzErmB3-hYZ8WBgT9ia1",
+      "segments": [
+        { "direction": "y", "length": -116.3967384711466 },
+        { "direction": "x", "length": 362.3420762875565 }
+      ],
+      "selected": false,
+      "source": "OABTFTzErmB",
+      "sourceHandle": "3",
+      "target": "hYZ8WBgT9ia",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "x", "length": 44.11046865837386 },
+          { "direction": "y", "length": -194.97428569890835 },
+          { "direction": "x", "length": 231.5583235732688 },
+          { "direction": "y", "length": 24.767527356211477 }
+        ]
+      },
+      "id": "reactflow__edge-aIvn9MvqyaT2-JjPiK1XPeF61",
+      "key": "reactflow__edge-aIvn9MvqyaT2-JjPiK1XPeF61",
+      "segments": [
+        { "direction": "x", "length": 44.11046865837386 },
+        { "direction": "y", "length": -194.97428569890835 },
+        { "direction": "x", "length": 231.5583235732688 },
+        { "direction": "y", "length": 24.767527356211477 }
+      ],
+      "selected": false,
+      "source": "aIvn9MvqyaT",
+      "sourceHandle": "2",
+      "target": "JjPiK1XPeF6",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "x", "length": 45.66666666666671 },
+          { "direction": "y", "length": -195.04009167603016 },
+          { "direction": "x", "length": 333.83545889830924 },
+          { "direction": "y", "length": 25.166666666666643 }
+        ]
+      },
+      "id": "reactflow__edge-aIvn9MvqyaT2-s6dSeA0idmI1",
+      "key": "reactflow__edge-aIvn9MvqyaT2-s6dSeA0idmI1",
+      "segments": [
+        { "direction": "x", "length": 45.66666666666671 },
+        { "direction": "y", "length": -195.04009167603016 },
+        { "direction": "x", "length": 333.83545889830924 },
+        { "direction": "y", "length": 25.166666666666643 }
+      ],
+      "selected": false,
+      "source": "aIvn9MvqyaT",
+      "sourceHandle": "2",
+      "target": "s6dSeA0idmI",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "y", "length": -41.333333333333336 },
+          { "direction": "x", "length": -39.60320412472227 },
+          { "direction": "y", "length": 137.31330563513094 },
+          { "direction": "x", "length": -35.2004630877215 }
+        ]
+      },
+      "id": "reactflow__edge-OABTFTzErmB2-I3KjSt1tSRG2",
+      "key": "reactflow__edge-OABTFTzErmB2-I3KjSt1tSRG2",
+      "segments": [
+        { "direction": "y", "length": -41.333333333333336 },
+        { "direction": "x", "length": -39.60320412472227 },
+        { "direction": "y", "length": 137.31330563513094 },
+        { "direction": "x", "length": -35.2004630877215 }
+      ],
+      "selected": false,
+      "source": "OABTFTzErmB",
+      "sourceHandle": "2",
+      "target": "I3KjSt1tSRG",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [
+          { "direction": "y", "length": -26.771107323538445 },
+          { "direction": "x", "length": 134.08749491346907 }
+        ]
+      },
+      "id": "reactflow__edge-JjPiK1XPeF63-Th2IzrFPm381",
+      "key": "reactflow__edge-JjPiK1XPeF63-Th2IzrFPm381",
+      "segments": [
+        { "direction": "y", "length": -26.771107323538445 },
+        { "direction": "x", "length": 134.08749491346907 }
+      ],
+      "selected": false,
+      "source": "JjPiK1XPeF6",
+      "sourceHandle": "3",
+      "target": "Th2IzrFPm38",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#d20000",
+      "data": {
+        "color": "#d20000",
+        "segments": [
+          { "direction": "y", "length": -27.10444065687176 },
+          { "direction": "x", "length": 30.254161580135815 }
+        ]
+      },
+      "id": "reactflow__edge-s6dSeA0idmI3-Th2IzrFPm381",
+      "key": "reactflow__edge-s6dSeA0idmI3-Th2IzrFPm381",
+      "segments": [
+        { "direction": "y", "length": -27.10444065687176 },
+        { "direction": "x", "length": 30.254161580135815 }
+      ],
+      "selected": false,
+      "source": "s6dSeA0idmI",
+      "sourceHandle": "3",
+      "target": "Th2IzrFPm38",
+      "targetHandle": "1"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [{ "direction": "x", "length": 44.411889306570856 }]
+      },
+      "id": "reactflow__edge-2OHxFMlBGgA2-rPpCZ6MD5As2",
+      "key": "reactflow__edge-2OHxFMlBGgA2-rPpCZ6MD5As2",
+      "segments": [{ "direction": "x", "length": 44.411889306570856 }],
+      "selected": false,
+      "source": "2OHxFMlBGgA",
+      "sourceHandle": "2",
+      "target": "rPpCZ6MD5As",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#00b0ff",
+      "data": {
+        "color": "#00b0ff",
+        "segments": [
+          { "direction": "x", "length": 172.69771856604015 },
+          { "direction": "y", "length": 315.5452455546734 },
+          { "direction": "x", "length": -136.47733770047398 },
+          { "direction": "y", "length": 111.51197104794824 },
+          { "direction": "x", "length": -73.24559551973184 }
+        ]
+      },
+      "id": "reactflow__edge-hYZ8WBgT9ia2-SKDLhJpoYDF2",
+      "key": "reactflow__edge-hYZ8WBgT9ia2-SKDLhJpoYDF2",
+      "segments": [
+        { "direction": "x", "length": 154.38978302085465 },
+        { "direction": "y", "length": 292.24423667898276 },
+        { "direction": "x", "length": -136.47733770047398 },
+        { "direction": "y", "length": 111.51197104794824 },
+        { "direction": "x", "length": -73.24559551973184 }
+      ],
+      "selected": false,
+      "source": "hYZ8WBgT9ia",
+      "sourceHandle": "2",
+      "target": "SKDLhJpoYDF",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "y", "length": -98.83623839430456 },
+          { "direction": "x", "length": -90.51354154592768 },
+          { "direction": "y", "length": -126.02160083128094 },
+          { "direction": "x", "length": -118.5822749410846 }
+        ]
+      },
+      "id": "reactflow__edge-OABTFTzErmB1-0HUYGlbRioB2",
+      "key": "reactflow__edge-OABTFTzErmB1-0HUYGlbRioB2",
+      "segments": [
+        { "direction": "y", "length": -98.83623839430456 },
+        { "direction": "x", "length": -90.51354154592768 },
+        { "direction": "y", "length": -126.02160083128094 },
+        { "direction": "x", "length": -118.5822749410846 }
+      ],
+      "selected": false,
+      "source": "OABTFTzErmB",
+      "sourceHandle": "1",
+      "target": "0HUYGlbRioB",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "y", "length": -98.83623839430456 },
+          { "direction": "x", "length": -192.34687487926092 },
+          { "direction": "y", "length": -126.02160083128094 },
+          { "direction": "x", "length": -118.5822749410846 }
+        ]
+      },
+      "id": "reactflow__edge-zv17pHUEYJq1-0HUYGlbRioB2",
+      "key": "reactflow__edge-zv17pHUEYJq1-0HUYGlbRioB2",
+      "segments": [
+        { "direction": "y", "length": -98.83623839430456 },
+        { "direction": "x", "length": -192.34687487926092 },
+        { "direction": "y", "length": -126.02160083128094 },
+        { "direction": "x", "length": -118.5822749410846 }
+      ],
+      "selected": false,
+      "source": "zv17pHUEYJq",
+      "sourceHandle": "1",
+      "target": "0HUYGlbRioB",
+      "targetHandle": "2"
+    },
+    {
+      "color": "#009827",
+      "data": {
+        "color": "#009827",
+        "segments": [
+          { "direction": "y", "length": -99.55721247982692 },
+          { "direction": "x", "length": -294.43658061233805 },
+          { "direction": "y", "length": -126.02160083128094 },
+          { "direction": "x", "length": -118.5822749410846 }
+        ]
+      },
+      "id": "reactflow__edge-wqAUB77dleH1-0HUYGlbRioB2",
+      "key": "reactflow__edge-wqAUB77dleH1-0HUYGlbRioB2",
+      "segments": [
+        { "direction": "y", "length": -99.55721247982692 },
+        { "direction": "x", "length": -294.43658061233805 },
+        { "direction": "y", "length": -126.02160083128094 },
+        { "direction": "x", "length": -118.5822749410846 }
+      ],
+      "selected": false,
+      "source": "wqAUB77dleH",
+      "sourceHandle": "1",
+      "target": "0HUYGlbRioB",
+      "targetHandle": "2"
+    }
+  ],
+  "editable": true,
+  "fitViewOnResize": false,
+  "key": "cdc5c220-cb11-4d28-89d4-4b08c7b2399a",
+  "legend": {
+    "position": { "units": { "x": "px", "y": "px" }, "x": 50, "y": 50 },
+    "visible": false
+  },
+  "nodes": [
+    {
+      "key": "DlBptq7iyFJ",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "DlBptq7iyFJ",
+      "position": { "x": 411.2260208468228, "y": 317.1343689141435 },
+      "positionAbsolute": { "x": 411.2260208468228, "y": 317.1343689141435 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "uD0n1qxXf9L",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 225,
+      "id": "uD0n1qxXf9L",
+      "position": { "x": 134.70239714981483, "y": 255.52499900040652 },
+      "positionAbsolute": { "x": 134.70239714981483, "y": 255.52499900040652 },
+      "type": "custom",
+      "width": 103,
+      "zIndex": 2
+    },
+    {
+      "key": "wLXXPa67EtO",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "wLXXPa67EtO",
+      "position": { "x": 272.05935418015616, "y": 364.5406290866696 },
+      "positionAbsolute": { "x": 272.05935418015616, "y": 364.5406290866696 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 4
+    },
+    {
+      "key": "FG3UvatT8VR",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "FG3UvatT8VR",
+      "position": { "x": 559.3081411690096, "y": 243.11728518485637 },
+      "positionAbsolute": { "x": 559.3081411690096, "y": 243.11728518485637 },
+      "type": "custom",
+      "width": 93,
+      "zIndex": 4
+    },
+    {
+      "key": "P49uwwU4CA9",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "P49uwwU4CA9",
+      "position": { "x": 711.0073052115649, "y": 268.5235250123303 },
+      "positionAbsolute": { "x": 711.0073052115649, "y": 268.5235250123303 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "0I8Emq7F796",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "0I8Emq7F796",
+      "position": { "x": 626.1488384861856, "y": 169.26510553910714 },
+      "positionAbsolute": { "x": 626.1488384861856, "y": 169.26510553910714 },
+      "type": "custom",
+      "width": 116,
+      "zIndex": 4
+    },
+    {
+      "key": "aIvn9MvqyaT",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 37,
+      "id": "aIvn9MvqyaT",
+      "position": { "x": 864.4591715766081, "y": 286.7266500123303 },
+      "positionAbsolute": { "x": 864.4591715766081, "y": 286.7266500123303 },
+      "type": "custom",
+      "width": 38,
+      "zIndex": 4
+    },
+    {
+      "key": "tmYmmOWOh6K",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "tmYmmOWOh6K",
+      "position": { "x": 497.9091574124751, "y": 166.95206096678533 },
+      "positionAbsolute": { "x": 497.9091574124751, "y": 166.95206096678533 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "uSKBe4MSMqr",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "uSKBe4MSMqr",
+      "position": { "x": 564.3335931550407, "y": 393.2015611483141 },
+      "positionAbsolute": { "x": 564.3335931550407, "y": 393.2015611483141 },
+      "type": "custom",
+      "width": 84,
+      "zIndex": 4
+    },
+    {
+      "key": "uTfrxrrlGWI",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "uTfrxrrlGWI",
+      "position": { "x": 710.0547771139552, "y": 418.60780460074295 },
+      "positionAbsolute": { "x": 710.0547771139552, "y": 418.60780460074295 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "KjMLsHPXXv2",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "KjMLsHPXXv2",
+      "position": { "x": 630.4456877675632, "y": 504.4797238626609 },
+      "positionAbsolute": { "x": 630.4456877675632, "y": 504.4797238626609 },
+      "type": "custom",
+      "width": 108,
+      "zIndex": 4
+    },
+    {
+      "key": "0HUYGlbRioB",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 37,
+      "id": "0HUYGlbRioB",
+      "position": { "x": 863.4527578833219, "y": 436.8109144871877 },
+      "positionAbsolute": { "x": 863.4527578833219, "y": 436.8109144871877 },
+      "type": "custom",
+      "width": 38,
+      "zIndex": 4
+    },
+    {
+      "key": "XFhXmkRXHQL",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "XFhXmkRXHQL",
+      "position": { "x": 497.9091574124751, "y": 503.76825187080885 },
+      "positionAbsolute": { "x": 497.9091574124751, "y": 503.76825187080885 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "kzoCoaFsLXm",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 225,
+      "id": "kzoCoaFsLXm",
+      "position": { "x": 517.9638356932032, "y": 861.4344839666105 },
+      "positionAbsolute": { "x": 517.9638356932032, "y": 861.4344839666105 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "1wASI4h8XZH",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "1wASI4h8XZH",
+      "position": { "x": 663.0103949316913, "y": 923.0439162526128 },
+      "positionAbsolute": { "x": 663.0103949316913, "y": 923.0439162526128 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "dSaxNR8i6Ww",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 37,
+      "id": "dSaxNR8i6Ww",
+      "position": { "x": 764.8314489517604, "y": 966.6532176408634 },
+      "positionAbsolute": { "x": 764.8314489517604, "y": 966.6532176408634 },
+      "type": "custom",
+      "width": 38,
+      "zIndex": 4
+    },
+    {
+      "key": "fNn6627SLuM",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 74,
+      "id": "fNn6627SLuM",
+      "position": { "x": 1162.6582012868985, "y": 959.434522972096 },
+      "positionAbsolute": { "x": 1162.6582012868985, "y": 959.434522972096 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "OABTFTzErmB",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 203,
+      "id": "OABTFTzErmB",
+      "position": { "x": 1060.454824370334, "y": 680.4500037127732 },
+      "positionAbsolute": { "x": 1060.454824370334, "y": 680.4500037127732 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "zv17pHUEYJq",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 203,
+      "id": "zv17pHUEYJq",
+      "position": { "x": 1162.2881577036674, "y": 680.4500037127732 },
+      "positionAbsolute": { "x": 1162.2881577036674, "y": 680.4500037127732 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "GPBKCxrBPFK",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "GPBKCxrBPFK",
+      "position": { "x": 913.0371045840138, "y": 856.476365423924 },
+      "positionAbsolute": { "x": 913.0371045840138, "y": 856.476365423924 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "ir70ZMsvcRF",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "ir70ZMsvcRF",
+      "position": { "x": 1524.077601933502, "y": 705.9898691207635 },
+      "positionAbsolute": { "x": 1524.077601933502, "y": 705.9898691207635 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "7FQEEi9ferA",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "7FQEEi9ferA",
+      "position": { "x": 1524.0775765021872, "y": 759.8584515002905 },
+      "positionAbsolute": { "x": 1524.0775765021872, "y": 759.8584515002905 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "tGM2NvgzLkE",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "tGM2NvgzLkE",
+      "position": { "x": 1524.0775765021872, "y": 792.7345135126587 },
+      "positionAbsolute": { "x": 1524.0775765021872, "y": 792.7345135126587 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "5rVYWOBlRGU",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "5rVYWOBlRGU",
+      "position": { "x": 1401.9765782714578, "y": 705.774150573959 },
+      "positionAbsolute": { "x": 1401.9765782714578, "y": 705.774150573959 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "4hRwlpoiQ9L",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "4hRwlpoiQ9L",
+      "position": { "x": 1401.9765528401429, "y": 759.6427329534861 },
+      "positionAbsolute": { "x": 1401.9765528401429, "y": 759.6427329534861 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "LAAstqx83Ke",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "LAAstqx83Ke",
+      "position": { "x": 1401.9765528401429, "y": 792.5187949658542 },
+      "positionAbsolute": { "x": 1401.9765528401429, "y": 792.5187949658542 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "Tmtl8zfcuP1",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "Tmtl8zfcuP1",
+      "position": { "x": 1623.7831850799637, "y": 706.1612576945262 },
+      "positionAbsolute": { "x": 1623.7831850799637, "y": 706.1612576945262 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "uyjE2Q6RFBv",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "uyjE2Q6RFBv",
+      "position": { "x": 1623.7831596486485, "y": 760.0298400740531 },
+      "positionAbsolute": { "x": 1623.7831596486485, "y": 760.0298400740531 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "LM41RXhz2kT",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "LM41RXhz2kT",
+      "position": { "x": 1623.7831596486485, "y": 792.9059020864214 },
+      "positionAbsolute": { "x": 1623.7831596486485, "y": 792.9059020864214 },
+      "type": "custom",
+      "width": 97,
+      "zIndex": 4
+    },
+    {
+      "key": "tC1XCqyIKMC",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "tC1XCqyIKMC",
+      "position": { "x": 1342.445285002634, "y": 923.043866960414 },
+      "positionAbsolute": { "x": 1342.445285002634, "y": 923.043866960414 },
+      "type": "custom",
+      "width": 75,
+      "zIndex": 4
+    },
+    {
+      "key": "2OHxFMlBGgA",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "2OHxFMlBGgA",
+      "position": { "x": 1650.4148980951736, "y": 923.0439162526128 },
+      "positionAbsolute": { "x": 1650.4148980951736, "y": 923.0439162526128 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "SKDLhJpoYDF",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 61,
+      "id": "SKDLhJpoYDF",
+      "position": { "x": 1458.8231224159672, "y": 943.4500979685577 },
+      "positionAbsolute": { "x": 1458.8231224159672, "y": 943.4500979685577 },
+      "type": "custom",
+      "width": 81,
+      "zIndex": 4
+    },
+    {
+      "key": "rPpCZ6MD5As",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 30,
+      "id": "rPpCZ6MD5As",
+      "position": { "x": 1769.9674124017445, "y": 970.4345208115016 },
+      "positionAbsolute": { "x": 1769.9674124017445, "y": 970.4345208115016 },
+      "type": "custom",
+      "width": 87,
+      "zIndex": 4
+    },
+    {
+      "key": "hYZ8WBgT9ia",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 115,
+      "id": "hYZ8WBgT9ia",
+      "position": { "x": 1509.8125452532552, "y": 542.2876473399627 },
+      "positionAbsolute": { "x": 1509.8125452532552, "y": 542.2876473399627 },
+      "type": "custom",
+      "width": 100,
+      "zIndex": 4
+    },
+    {
+      "key": "ROrFkey4CDj",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "ROrFkey4CDj",
+      "position": { "x": 889.6355321578903, "y": 594.5516352325272 },
+      "positionAbsolute": { "x": 889.6355321578903, "y": 594.5516352325272 },
+      "type": "custom",
+      "width": 118,
+      "zIndex": 4
+    },
+    {
+      "key": "I3KjSt1tSRG",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "I3KjSt1tSRG",
+      "position": { "x": 893.6355321578903, "y": 731.6643510145708 },
+      "positionAbsolute": { "x": 893.6355321578903, "y": 731.6643510145708 },
+      "type": "custom",
+      "width": 115,
+      "zIndex": 4
+    },
+    {
+      "key": "wqAUB77dleH",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 203,
+      "id": "wqAUB77dleH",
+      "position": { "x": 1264.3778634367443, "y": 681.1709777982956 },
+      "positionAbsolute": { "x": 1264.3778634367443, "y": 681.1709777982956 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "XajoNRDoFqn",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "XajoNRDoFqn",
+      "position": { "x": 1448.9729906696705, "y": 1004.942746800362 },
+      "positionAbsolute": { "x": 1448.9729906696705, "y": 1004.942746800362 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "DeV37ebNkgE",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 74,
+      "id": "DeV37ebNkgE",
+      "position": { "x": 1180.237590724815, "y": 414.88481526841247 },
+      "positionAbsolute": { "x": 1180.237590724815, "y": 414.88481526841247 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "JjPiK1XPeF6",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 203,
+      "id": "JjPiK1XPeF6",
+      "position": { "x": 1128.0342138082508, "y": 135.30114166963347 },
+      "positionAbsolute": { "x": 1128.0342138082508, "y": 135.30114166963347 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "s6dSeA0idmI",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 203,
+      "id": "s6dSeA0idmI",
+      "position": { "x": 1231.867547141584, "y": 135.63447500296678 },
+      "positionAbsolute": { "x": 1231.867547141584, "y": 135.63447500296678 },
+      "type": "custom",
+      "width": 102,
+      "zIndex": 2
+    },
+    {
+      "key": "Qj9S0cHkaiq",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 51,
+      "id": "Qj9S0cHkaiq",
+      "position": { "x": 1348.8358851005814, "y": 194.914762770681 },
+      "positionAbsolute": { "x": 1348.8358851005814, "y": 194.914762770681 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "70V2y1eaoCv",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "70V2y1eaoCv",
+      "position": { "x": 1348.8358596692665, "y": 248.783345150208 },
+      "positionAbsolute": { "x": 1348.8358596692665, "y": 248.783345150208 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "C8cBrd21WaS",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "C8cBrd21WaS",
+      "position": { "x": 1348.8358596692665, "y": 280.82607382924294 },
+      "positionAbsolute": { "x": 1348.8358596692665, "y": 280.82607382924294 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "TyqbAhrSUKg",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "TyqbAhrSUKg",
+      "position": { "x": 1387.8306272171722, "y": 378.4941592567302 },
+      "positionAbsolute": { "x": 1387.8306272171722, "y": 378.4941592567302 },
+      "type": "custom",
+      "width": 84,
+      "zIndex": 4
+    },
+    {
+      "key": "OfZeCzCTkUk",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "OfZeCzCTkUk",
+      "position": { "x": 1660.5091694746443, "y": 378.4942085489293 },
+      "positionAbsolute": { "x": 1660.5091694746443, "y": 378.4942085489293 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "U7Ij3kxDFQo",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 61,
+      "id": "U7Ij3kxDFQo",
+      "position": { "x": 1525.680803682453, "y": 398.900390264874 },
+      "positionAbsolute": { "x": 1525.680803682453, "y": 398.900390264874 },
+      "type": "custom",
+      "width": 81,
+      "zIndex": 4
+    },
+    {
+      "key": "Czhkq14bwKL",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 30,
+      "id": "Czhkq14bwKL",
+      "position": { "x": 1800.4557645000134, "y": 425.884813107818 },
+      "positionAbsolute": { "x": 1800.4557645000134, "y": 425.884813107818 },
+      "type": "custom",
+      "width": 87,
+      "zIndex": 4
+    },
+    {
+      "key": "Th2IzrFPm38",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 116,
+      "id": "Th2IzrFPm38",
+      "position": { "x": 1363.48108372172, "y": 63.76440934609502 },
+      "positionAbsolute": { "x": 1363.48108372172, "y": 63.76440934609502 },
+      "type": "custom",
+      "width": 72,
+      "zIndex": 4
+    },
+    {
+      "key": "75L9iU3gNJr",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "75L9iU3gNJr",
+      "position": { "x": 1514.830671936156, "y": 462.0597057633451 },
+      "positionAbsolute": { "x": 1514.830671936156, "y": 462.0597057633451 },
+      "type": "custom",
+      "width": 105,
+      "zIndex": 4
+    },
+    {
+      "key": "bvLG286CeYr",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 63,
+      "id": "bvLG286CeYr",
+      "position": { "x": 991.826606668359, "y": 194.0998692670352 },
+      "positionAbsolute": { "x": 991.826606668359, "y": 194.0998692670352 },
+      "type": "custom",
+      "width": 110,
+      "zIndex": 2
+    },
+    {
+      "key": "0I4eu8Xu1eC",
+      "selected": false,
+      "data": {},
+      "dragging": false,
+      "height": 29,
+      "id": "0I4eu8Xu1eC",
+      "position": { "x": 997.7005901748346, "y": 222.3167514108444 },
+      "positionAbsolute": { "x": 997.7005901748346, "y": 222.3167514108444 },
+      "type": "custom",
+      "width": 98,
+      "zIndex": 4
+    }
+  ],
+  "props": {
+    "0HUYGlbRioB": {
+      "color": "#009827",
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "0I4eu8Xu1eC": {
+      "color": "#d20000",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "in"
+    },
+    "0I8Emq7F796": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Fuel Post Pilot Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "1wASI4h8XZH": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Fill",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "2OHxFMlBGgA": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox MPV",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "4hRwlpoiQ9L": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "59o9iS3gTyH": {
+      "color": "#009827",
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Fuel Pilot Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "5rVYWOBlRGU": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Ox PTs",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "60ZCGzTdQpr": {
+      "color": "#009827",
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To Ambient",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "70V2y1eaoCv": {
+      "color": "#d20000",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "75L9iU3gNJr": {
+      "color": "#d20000",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "7FQEEi9ferA": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "80I1A0rWqRw": {
+      "color": "#009827",
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To Ambient",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "BAY30X3JrBd": {
+      "color": "#009827",
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Ox Dome Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "C8cBrd21WaS": {
+      "color": "#d20000",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "Czhkq14bwKL": {
+      "color": [171, 0, 255, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To Engine",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "DeV37ebNkgE": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 0,
+      "color": "#d20000",
+      "dimensions": { "height": 50, "width": 100 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "Manifold",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "bottom"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "DlBptq7iyFJ": {
+      "color": "#009827",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Press ISO",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "F3ptPgDEX5c": {
+      "color": "#009827",
+      "key": "orifice",
+      "label": {
+        "align": "center",
+        "label": "Fuel Dome Orifice",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "FG3UvatT8VR": {
+      "color": "#009827",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel Dome ISO",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "GPBKCxrBPFK": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Drain",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "GQb0xWTOn7H": {
+      "color": "#009827",
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Fuel Dome Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "HsW4nJW6kAZ": {
+      "color": "#009827",
+      "key": "angledReliefValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel Dome Relief Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right",
+      "scale": 1
+    },
+    "I3KjSt1tSRG": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Low-Flow Vent",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "JjPiK1XPeF6": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#d20000",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "KjMLsHPXXv2": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Ox Post Pilot Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "LAAstqx83Ke": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "LM41RXhz2kT": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "OABTFTzErmB": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#00b0ff",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "OOkLb5RngOz": {
+      "color": [0, 121, 255, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To OX",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "OfZeCzCTkUk": {
+      "color": "#d20000",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel MPV",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "P49uwwU4CA9": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Fuel Post-Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "Pa7P4hDGSGI": {
+      "color": "#009827",
+      "key": "orifice",
+      "label": {
+        "align": "center",
+        "label": "Ox Dome Orifice",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "QWGklzcRmcV": {
+      "color": [210, 0, 0, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To FUEL",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "Qj9S0cHkaiq": {
+      "color": "#d20000",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Fuel PTs",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "ROrFkey4CDj": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox High-Flow Vent",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "SKDLhJpoYDF": {
+      "color": "#00b0ff",
+      "key": "staticMixer",
+      "label": {
+        "align": "center",
+        "label": "Flowmeter",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1.5
+    },
+    "SqBeH0GCMh2": {
+      "color": "#009827",
+      "key": "needleValve",
+      "label": {
+        "align": "center",
+        "label": "Press 2K Bleed",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "right"
+      },
+      "orientation": "bottom",
+      "scale": 1
+    },
+    "Th2IzrFPm38": {
+      "color": "#d20000",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel Vent",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "Tmtl8zfcuP1": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "OX Liquid TCs",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "TyqbAhrSUKg": {
+      "color": "#d20000",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel Prevalve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "U7Ij3kxDFQo": {
+      "color": "#d20000",
+      "key": "staticMixer",
+      "label": {
+        "align": "center",
+        "label": "Flowmeter",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1.5
+    },
+    "UOdnd6Aha36": {
+      "color": [0, 152, 39, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "From Press",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left"
+    },
+    "VIlsVklUWZx": {
+      "color": "#d20000",
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "XFhXmkRXHQL": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Ox Dome Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "XajoNRDoFqn": {
+      "color": [0, 176, 255, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "aIvn9MvqyaT": {
+      "color": "#009827",
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "bvLG286CeYr": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": [210, 0, 0, 1],
+      "dimensions": { "height": 38, "width": 108 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "Level Sensor",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "dSaxNR8i6Ww": {
+      "color": "#00b0ff",
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "fNn6627SLuM": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 0,
+      "color": "#00b0ff",
+      "dimensions": { "height": 50, "width": 100 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "Manifold",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "bottom"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "hYZ8WBgT9ia": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Return Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "bottom"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "i3O5NYaw7U8": {
+      "color": [0, 152, 39, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "From Press",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left"
+    },
+    "ir70ZMsvcRF": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "OX Ullage TCs",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "kzoCoaFsLXm": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": "#00b0ff",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "LOX (dewars)",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "lNCSyAFKEbd": {
+      "color": "#009827",
+      "key": "angledReliefValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Dome Relief Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right",
+      "scale": 1
+    },
+    "rPpCZ6MD5As": {
+      "color": [171, 0, 255, 1],
+      "key": "offPageReference",
+      "label": {
+        "align": "center",
+        "label": "To Engine",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "right"
+    },
+    "s6dSeA0idmI": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#d20000",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "s7ibSMcZAgG": {
+      "color": "#009827",
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Ox Pilot Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "tC1XCqyIKMC": {
+      "color": "#00b0ff",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Prevalve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "tGM2NvgzLkE": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "tmYmmOWOh6K": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Fuel Dome Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "uD0n1qxXf9L": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#009827",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "Press 2K Supply",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "uSKBe4MSMqr": {
+      "color": "#009827",
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Ox Dome ISO",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "uTfrxrrlGWI": {
+      "color": "#009827",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "Ox Post-Reg",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "uqFoCkom7yz": {
+      "color": "#d20000",
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "Fuel Fill",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "uyjE2Q6RFBv": {
+      "color": "#00b0ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "C"
+    },
+    "wLXXPa67EtO": {
+      "color": "#009827",
+      "inlineSize": 67,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "units": "psi"
+    },
+    "wqAUB77dleH": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#00b0ff",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "zPngCTpi3wa": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": "#d20000",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "LOX (dewars)",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "zv17pHUEYJq": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#00b0ff",
+      "dimensions": { "height": 200, "width": 100 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    }
+  },
+  "remoteCreated": true,
+  "snapshot": false,
+  "type": "schematic",
+  "version": "2.0.0",
+  "viewport": {
+    "position": { "x": 166.60219542779942, "y": -6.50106967545787 },
+    "zoom": 0.5146954520586273
+  },
+  "name": "GSE Condensed"
+}

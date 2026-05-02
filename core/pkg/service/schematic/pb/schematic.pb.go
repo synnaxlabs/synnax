@@ -18,6 +18,8 @@
 package pb
 
 import (
+	pb1 "github.com/synnaxlabs/x/color/pb"
+	pb "github.com/synnaxlabs/x/spatial/pb"
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	structpb "google.golang.org/protobuf/types/known/structpb"
@@ -33,6 +35,436 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// EdgeVariant is the visual style of an edge connector.
+type EdgeVariant int32
+
+const (
+	EdgeVariant_EDGE_VARIANT_PIPE      EdgeVariant = 0
+	EdgeVariant_EDGE_VARIANT_ELECTRIC  EdgeVariant = 1
+	EdgeVariant_EDGE_VARIANT_SECONDARY EdgeVariant = 2
+	EdgeVariant_EDGE_VARIANT_JACKETED  EdgeVariant = 3
+	EdgeVariant_EDGE_VARIANT_HYDRAULIC EdgeVariant = 4
+	EdgeVariant_EDGE_VARIANT_PNEUMATIC EdgeVariant = 5
+	EdgeVariant_EDGE_VARIANT_DATA      EdgeVariant = 6
+)
+
+// Enum value maps for EdgeVariant.
+var (
+	EdgeVariant_name = map[int32]string{
+		0: "EDGE_VARIANT_PIPE",
+		1: "EDGE_VARIANT_ELECTRIC",
+		2: "EDGE_VARIANT_SECONDARY",
+		3: "EDGE_VARIANT_JACKETED",
+		4: "EDGE_VARIANT_HYDRAULIC",
+		5: "EDGE_VARIANT_PNEUMATIC",
+		6: "EDGE_VARIANT_DATA",
+	}
+	EdgeVariant_value = map[string]int32{
+		"EDGE_VARIANT_PIPE":      0,
+		"EDGE_VARIANT_ELECTRIC":  1,
+		"EDGE_VARIANT_SECONDARY": 2,
+		"EDGE_VARIANT_JACKETED":  3,
+		"EDGE_VARIANT_HYDRAULIC": 4,
+		"EDGE_VARIANT_PNEUMATIC": 5,
+		"EDGE_VARIANT_DATA":      6,
+	}
+)
+
+func (x EdgeVariant) Enum() *EdgeVariant {
+	p := new(EdgeVariant)
+	*p = x
+	return p
+}
+
+func (x EdgeVariant) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (EdgeVariant) Descriptor() protoreflect.EnumDescriptor {
+	return file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[0].Descriptor()
+}
+
+func (EdgeVariant) Type() protoreflect.EnumType {
+	return &file_core_pkg_service_schematic_pb_schematic_proto_enumTypes[0]
+}
+
+func (x EdgeVariant) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use EdgeVariant.Descriptor instead.
+func (EdgeVariant) EnumDescriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
+}
+
+// Legend is the control legend overlay configuration.
+type Legend struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// visible is whether the legend is visible.
+	Visible bool `protobuf:"varint,1,opt,name=visible,proto3" json:"visible,omitempty"`
+	// position is the legend position within the schematic.
+	Position *pb.StickyXY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
+	// colors maps control status keys to their display colors.
+	Colors        map[string]*pb1.Color `protobuf:"bytes,3,rep,name=colors,proto3" json:"colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Legend) Reset() {
+	*x = Legend{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Legend) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Legend) ProtoMessage() {}
+
+func (x *Legend) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Legend.ProtoReflect.Descriptor instead.
+func (*Legend) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *Legend) GetVisible() bool {
+	if x != nil {
+		return x.Visible
+	}
+	return false
+}
+
+func (x *Legend) GetPosition() *pb.StickyXY {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+func (x *Legend) GetColors() map[string]*pb1.Color {
+	if x != nil {
+		return x.Colors
+	}
+	return nil
+}
+
+// Node is a diagram node representing a symbol in the schematic.
+type Node struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique node identifier within the schematic.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// position is the top-left position of the node.
+	Position *pb.XY `protobuf:"bytes,2,opt,name=position,proto3" json:"position,omitempty"`
+	// z_index is the stacking order of the node within the schematic. Higher values render
+	// above lower values. Set by the user via send-to-back / bring-to-front actions.
+	ZIndex        int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Node) Reset() {
+	*x = Node{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Node) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Node) ProtoMessage() {}
+
+func (x *Node) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Node.ProtoReflect.Descriptor instead.
+func (*Node) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{1}
+}
+
+func (x *Node) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Node) GetPosition() *pb.XY {
+	if x != nil {
+		return x.Position
+	}
+	return nil
+}
+
+func (x *Node) GetZIndex() int32 {
+	if x != nil {
+		return x.ZIndex
+	}
+	return 0
+}
+
+// Handle is a reference to a specific connection point on a specific node. For
+// schematics, param is the symbol handle key (e.g. inlet, outlet).
+type Handle struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// node is the node identifier.
+	Node string `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	// param is the connection point identifier on the node.
+	Param         string `protobuf:"bytes,2,opt,name=param,proto3" json:"param,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Handle) Reset() {
+	*x = Handle{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Handle) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Handle) ProtoMessage() {}
+
+func (x *Handle) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Handle.ProtoReflect.Descriptor instead.
+func (*Handle) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *Handle) GetNode() string {
+	if x != nil {
+		return x.Node
+	}
+	return ""
+}
+
+func (x *Handle) GetParam() string {
+	if x != nil {
+		return x.Param
+	}
+	return ""
+}
+
+// Segment is an orthogonal path segment with a direction and signed length.
+type Segment struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// direction is the axis of travel: x (horizontal) or y (vertical).
+	Direction pb.Direction `protobuf:"varint,1,opt,name=direction,proto3,enum=x.spatial.pb.Direction" json:"direction,omitempty"`
+	// length is the signed distance along the axis.
+	Length        float64 `protobuf:"fixed64,2,opt,name=length,proto3" json:"length,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Segment) Reset() {
+	*x = Segment{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Segment) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Segment) ProtoMessage() {}
+
+func (x *Segment) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Segment.ProtoReflect.Descriptor instead.
+func (*Segment) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *Segment) GetDirection() pb.Direction {
+	if x != nil {
+		return x.Direction
+	}
+	return pb.Direction(0)
+}
+
+func (x *Segment) GetLength() float64 {
+	if x != nil {
+		return x.Length
+	}
+	return 0
+}
+
+// EdgeProps contains visual properties for an edge, stored in schematic props.
+type EdgeProps struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// segments defines the orthogonal path segments from source to target.
+	Segments []*Segment `protobuf:"bytes,1,rep,name=segments,proto3" json:"segments,omitempty"`
+	// variant is the visual style of the edge.
+	Variant EdgeVariant `protobuf:"varint,2,opt,name=variant,proto3,enum=service.schematic.pb.EdgeVariant" json:"variant,omitempty"`
+	// color is the optional display color.
+	Color         *pb1.Color `protobuf:"bytes,3,opt,name=color,proto3" json:"color,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *EdgeProps) Reset() {
+	*x = EdgeProps{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *EdgeProps) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*EdgeProps) ProtoMessage() {}
+
+func (x *EdgeProps) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use EdgeProps.ProtoReflect.Descriptor instead.
+func (*EdgeProps) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{4}
+}
+
+func (x *EdgeProps) GetSegments() []*Segment {
+	if x != nil {
+		return x.Segments
+	}
+	return nil
+}
+
+func (x *EdgeProps) GetVariant() EdgeVariant {
+	if x != nil {
+		return x.Variant
+	}
+	return EdgeVariant_EDGE_VARIANT_PIPE
+}
+
+func (x *EdgeProps) GetColor() *pb1.Color {
+	if x != nil {
+		return x.Color
+	}
+	return nil
+}
+
+// Edge is a connection between two nodes in the schematic.
+type Edge struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// key is the unique edge identifier within the schematic.
+	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	// source is the source endpoint of the edge.
+	Source *Handle `protobuf:"bytes,2,opt,name=source,proto3" json:"source,omitempty"`
+	// target is the target endpoint of the edge.
+	Target        *Handle `protobuf:"bytes,3,opt,name=target,proto3" json:"target,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Edge) Reset() {
+	*x = Edge{}
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Edge) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Edge) ProtoMessage() {}
+
+func (x *Edge) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Edge.ProtoReflect.Descriptor instead.
+func (*Edge) Descriptor() ([]byte, []int) {
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *Edge) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *Edge) GetSource() *Handle {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *Edge) GetTarget() *Handle {
+	if x != nil {
+		return x.Target
+	}
+	return nil
+}
+
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
 // handles, and dynamic state visualization.
@@ -42,18 +474,26 @@ type Schematic struct {
 	Key string `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
 	// name is a human-readable name for the schematic.
 	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	// data is the schematic content including symbols, connections, and layout
-	// configuration.
-	Data *structpb.Struct `protobuf:"bytes,3,opt,name=data,proto3" json:"data,omitempty"`
 	// snapshot indicates whether this schematic represents a saved snapshot state.
-	Snapshot      bool `protobuf:"varint,4,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	Snapshot bool `protobuf:"varint,3,opt,name=snapshot,proto3" json:"snapshot,omitempty"`
+	// authority is the control authority level for this schematic.
+	Authority uint32 `protobuf:"varint,4,opt,name=authority,proto3" json:"authority,omitempty"`
+	// legend is the control legend overlay configuration.
+	Legend *Legend `protobuf:"bytes,5,opt,name=legend,proto3" json:"legend,omitempty"`
+	// nodes contains all diagram nodes in the schematic.
+	Nodes []*Node `protobuf:"bytes,6,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	// edges contains all connections between nodes.
+	Edges []*Edge `protobuf:"bytes,7,rep,name=edges,proto3" json:"edges,omitempty"`
+	// props contains symbol-specific properties keyed by node or edge key, including
+	// colors, labels, segments, and other visual configuration.
+	Props         map[string]*structpb.Struct `protobuf:"bytes,8,rep,name=props,proto3" json:"props,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Schematic) Reset() {
 	*x = Schematic{}
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -65,7 +505,7 @@ func (x *Schematic) String() string {
 func (*Schematic) ProtoMessage() {}
 
 func (x *Schematic) ProtoReflect() protoreflect.Message {
-	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[0]
+	mi := &file_core_pkg_service_schematic_pb_schematic_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -78,7 +518,7 @@ func (x *Schematic) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Schematic.ProtoReflect.Descriptor instead.
 func (*Schematic) Descriptor() ([]byte, []int) {
-	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{0}
+	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *Schematic) GetKey() string {
@@ -95,13 +535,6 @@ func (x *Schematic) GetName() string {
 	return ""
 }
 
-func (x *Schematic) GetData() *structpb.Struct {
-	if x != nil {
-		return x.Data
-	}
-	return nil
-}
-
 func (x *Schematic) GetSnapshot() bool {
 	if x != nil {
 		return x.Snapshot
@@ -109,16 +542,92 @@ func (x *Schematic) GetSnapshot() bool {
 	return false
 }
 
+func (x *Schematic) GetAuthority() uint32 {
+	if x != nil {
+		return x.Authority
+	}
+	return 0
+}
+
+func (x *Schematic) GetLegend() *Legend {
+	if x != nil {
+		return x.Legend
+	}
+	return nil
+}
+
+func (x *Schematic) GetNodes() []*Node {
+	if x != nil {
+		return x.Nodes
+	}
+	return nil
+}
+
+func (x *Schematic) GetEdges() []*Edge {
+	if x != nil {
+		return x.Edges
+	}
+	return nil
+}
+
+func (x *Schematic) GetProps() map[string]*structpb.Struct {
+	if x != nil {
+		return x.Props
+	}
+	return nil
+}
+
 var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\"z\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1dx/go/spatial/pb/spatial.proto\x1a\x19x/go/color/pb/color.proto\x1a\x1cgoogle/protobuf/struct.proto\"\xe6\x01\n" +
+	"\x06Legend\x12\x18\n" +
+	"\avisible\x18\x01 \x01(\bR\avisible\x122\n" +
+	"\bposition\x18\x02 \x01(\v2\x16.x.spatial.pb.StickyXYR\bposition\x12@\n" +
+	"\x06colors\x18\x03 \x03(\v2(.service.schematic.pb.Legend.ColorsEntryR\x06colors\x1aL\n" +
+	"\vColorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12'\n" +
+	"\x05value\x18\x02 \x01(\v2\x11.x.color.pb.ColorR\x05value:\x028\x01\"_\n" +
+	"\x04Node\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
+	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
+	"\az_index\x18\x03 \x01(\x05R\x06zIndex\"2\n" +
+	"\x06Handle\x12\x12\n" +
+	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
+	"\x05param\x18\x02 \x01(\tR\x05param\"X\n" +
+	"\aSegment\x125\n" +
+	"\tdirection\x18\x01 \x01(\x0e2\x17.x.spatial.pb.DirectionR\tdirection\x12\x16\n" +
+	"\x06length\x18\x02 \x01(\x01R\x06length\"\xac\x01\n" +
+	"\tEdgeProps\x129\n" +
+	"\bsegments\x18\x01 \x03(\v2\x1d.service.schematic.pb.SegmentR\bsegments\x12;\n" +
+	"\avariant\x18\x02 \x01(\x0e2!.service.schematic.pb.EdgeVariantR\avariant\x12'\n" +
+	"\x05color\x18\x03 \x01(\v2\x11.x.color.pb.ColorR\x05color\"\x84\x01\n" +
+	"\x04Edge\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x124\n" +
+	"\x06source\x18\x02 \x01(\v2\x1c.service.schematic.pb.HandleR\x06source\x124\n" +
+	"\x06target\x18\x03 \x01(\v2\x1c.service.schematic.pb.HandleR\x06target\"\x9a\x03\n" +
 	"\tSchematic\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12+\n" +
-	"\x04data\x18\x03 \x01(\v2\x17.google.protobuf.StructR\x04data\x12\x1a\n" +
-	"\bsnapshot\x18\x04 \x01(\bR\bsnapshotB\xd3\x01\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
+	"\bsnapshot\x18\x03 \x01(\bR\bsnapshot\x12\x1c\n" +
+	"\tauthority\x18\x04 \x01(\rR\tauthority\x124\n" +
+	"\x06legend\x18\x05 \x01(\v2\x1c.service.schematic.pb.LegendR\x06legend\x120\n" +
+	"\x05nodes\x18\x06 \x03(\v2\x1a.service.schematic.pb.NodeR\x05nodes\x120\n" +
+	"\x05edges\x18\a \x03(\v2\x1a.service.schematic.pb.EdgeR\x05edges\x12@\n" +
+	"\x05props\x18\b \x03(\v2*.service.schematic.pb.Schematic.PropsEntryR\x05props\x1aQ\n" +
+	"\n" +
+	"PropsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12-\n" +
+	"\x05value\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x05value:\x028\x01*\xc5\x01\n" +
+	"\vEdgeVariant\x12\x15\n" +
+	"\x11EDGE_VARIANT_PIPE\x10\x00\x12\x19\n" +
+	"\x15EDGE_VARIANT_ELECTRIC\x10\x01\x12\x1a\n" +
+	"\x16EDGE_VARIANT_SECONDARY\x10\x02\x12\x19\n" +
+	"\x15EDGE_VARIANT_JACKETED\x10\x03\x12\x1a\n" +
+	"\x16EDGE_VARIANT_HYDRAULIC\x10\x04\x12\x1a\n" +
+	"\x16EDGE_VARIANT_PNEUMATIC\x10\x05\x12\x15\n" +
+	"\x11EDGE_VARIANT_DATA\x10\x06B\xd3\x01\n" +
 	"\x18com.service.schematic.pbB\x0eSchematicProtoP\x01Z5github.com/synnaxlabs/synnax/pkg/service/schematic/pb\xa2\x02\x03SSP\xaa\x02\x14Service.Schematic.Pb\xca\x02\x14Service\\Schematic\\Pb\xe2\x02 Service\\Schematic\\Pb\\GPBMetadata\xea\x02\x16Service::Schematic::Pbb\x06proto3"
 
 var (
@@ -133,18 +642,46 @@ func file_core_pkg_service_schematic_pb_schematic_proto_rawDescGZIP() []byte {
 	return file_core_pkg_service_schematic_pb_schematic_proto_rawDescData
 }
 
-var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_core_pkg_service_schematic_pb_schematic_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_core_pkg_service_schematic_pb_schematic_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_service_schematic_pb_schematic_proto_goTypes = []any{
-	(*Schematic)(nil),       // 0: service.schematic.pb.Schematic
-	(*structpb.Struct)(nil), // 1: google.protobuf.Struct
+	(EdgeVariant)(0),        // 0: service.schematic.pb.EdgeVariant
+	(*Legend)(nil),          // 1: service.schematic.pb.Legend
+	(*Node)(nil),            // 2: service.schematic.pb.Node
+	(*Handle)(nil),          // 3: service.schematic.pb.Handle
+	(*Segment)(nil),         // 4: service.schematic.pb.Segment
+	(*EdgeProps)(nil),       // 5: service.schematic.pb.EdgeProps
+	(*Edge)(nil),            // 6: service.schematic.pb.Edge
+	(*Schematic)(nil),       // 7: service.schematic.pb.Schematic
+	nil,                     // 8: service.schematic.pb.Legend.ColorsEntry
+	nil,                     // 9: service.schematic.pb.Schematic.PropsEntry
+	(*pb.StickyXY)(nil),     // 10: x.spatial.pb.StickyXY
+	(*pb.XY)(nil),           // 11: x.spatial.pb.XY
+	(pb.Direction)(0),       // 12: x.spatial.pb.Direction
+	(*pb1.Color)(nil),       // 13: x.color.pb.Color
+	(*structpb.Struct)(nil), // 14: google.protobuf.Struct
 }
 var file_core_pkg_service_schematic_pb_schematic_proto_depIdxs = []int32{
-	1, // 0: service.schematic.pb.Schematic.data:type_name -> google.protobuf.Struct
-	1, // [1:1] is the sub-list for method output_type
-	1, // [1:1] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	10, // 0: service.schematic.pb.Legend.position:type_name -> x.spatial.pb.StickyXY
+	8,  // 1: service.schematic.pb.Legend.colors:type_name -> service.schematic.pb.Legend.ColorsEntry
+	11, // 2: service.schematic.pb.Node.position:type_name -> x.spatial.pb.XY
+	12, // 3: service.schematic.pb.Segment.direction:type_name -> x.spatial.pb.Direction
+	4,  // 4: service.schematic.pb.EdgeProps.segments:type_name -> service.schematic.pb.Segment
+	0,  // 5: service.schematic.pb.EdgeProps.variant:type_name -> service.schematic.pb.EdgeVariant
+	13, // 6: service.schematic.pb.EdgeProps.color:type_name -> x.color.pb.Color
+	3,  // 7: service.schematic.pb.Edge.source:type_name -> service.schematic.pb.Handle
+	3,  // 8: service.schematic.pb.Edge.target:type_name -> service.schematic.pb.Handle
+	1,  // 9: service.schematic.pb.Schematic.legend:type_name -> service.schematic.pb.Legend
+	2,  // 10: service.schematic.pb.Schematic.nodes:type_name -> service.schematic.pb.Node
+	6,  // 11: service.schematic.pb.Schematic.edges:type_name -> service.schematic.pb.Edge
+	9,  // 12: service.schematic.pb.Schematic.props:type_name -> service.schematic.pb.Schematic.PropsEntry
+	13, // 13: service.schematic.pb.Legend.ColorsEntry.value:type_name -> x.color.pb.Color
+	14, // 14: service.schematic.pb.Schematic.PropsEntry.value:type_name -> google.protobuf.Struct
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_service_schematic_pb_schematic_proto_init() }
@@ -157,13 +694,14 @@ func file_core_pkg_service_schematic_pb_schematic_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc), len(file_core_pkg_service_schematic_pb_schematic_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   1,
+			NumEnums:      1,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_core_pkg_service_schematic_pb_schematic_proto_goTypes,
 		DependencyIndexes: file_core_pkg_service_schematic_pb_schematic_proto_depIdxs,
+		EnumInfos:         file_core_pkg_service_schematic_pb_schematic_proto_enumTypes,
 		MessageInfos:      file_core_pkg_service_schematic_pb_schematic_proto_msgTypes,
 	}.Build()
 	File_core_pkg_service_schematic_pb_schematic_proto = out.File

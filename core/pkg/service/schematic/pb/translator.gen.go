@@ -14,20 +14,410 @@ package pb
 import (
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/color"
+	colorpb "github.com/synnaxlabs/x/color/pb"
+	"github.com/synnaxlabs/x/control"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/errors"
+	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
+// LegendToPB converts Legend to Legend.
+func LegendToPB(r schematic.Legend) (*Legend, error) {
+	positionVal, err := spatialpb.StickyXYToPB(r.Position)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Legend{
+		Visible:  r.Visible,
+		Position: positionVal,
+	}
+	if r.Colors != nil {
+		pb.Colors = make(map[string]*colorpb.Color, len(r.Colors))
+		for k, v := range r.Colors {
+			converted, err := colorpb.ColorToPB(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Colors[k] = converted
+		}
+	}
+	return pb, nil
+}
+
+// LegendFromPB converts Legend to Legend.
+func LegendFromPB(pb *Legend) (schematic.Legend, error) {
+	var r schematic.Legend
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Position, err = spatialpb.StickyXYFromPB(pb.Position)
+	if err != nil {
+		return schematic.Legend{}, err
+	}
+	r.Visible = pb.Visible
+	if pb.Colors != nil {
+		r.Colors = make(map[string]color.Color, len(pb.Colors))
+		for k, v := range pb.Colors {
+			converted, err := colorpb.ColorFromPB(v)
+			if err != nil {
+				return schematic.Legend{}, err
+			}
+			r.Colors[k] = converted
+		}
+	}
+	return r, nil
+}
+
+// LegendsToPB converts a slice of Legend to Legend.
+func LegendsToPB(rs []schematic.Legend) ([]*Legend, error) {
+	result := make([]*Legend, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = LegendToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// LegendsFromPB converts a slice of Legend to Legend.
+func LegendsFromPB(pbs []*Legend) ([]schematic.Legend, error) {
+	result := make([]schematic.Legend, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = LegendFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodeToPB converts Node to Node.
+func NodeToPB(r schematic.Node) (*Node, error) {
+	positionVal, err := spatialpb.XYToPB(r.Position)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Node{
+		Key:      r.Key,
+		ZIndex:   int32(r.ZIndex),
+		Position: positionVal,
+	}
+	return pb, nil
+}
+
+// NodeFromPB converts Node to Node.
+func NodeFromPB(pb *Node) (schematic.Node, error) {
+	var r schematic.Node
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Position, err = spatialpb.XYFromPB(pb.Position)
+	if err != nil {
+		return schematic.Node{}, err
+	}
+	r.Key = pb.Key
+	r.ZIndex = int16(pb.ZIndex)
+	return r, nil
+}
+
+// NodesToPB converts a slice of Node to Node.
+func NodesToPB(rs []schematic.Node) ([]*Node, error) {
+	result := make([]*Node, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = NodeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// NodesFromPB converts a slice of Node to Node.
+func NodesFromPB(pbs []*Node) ([]schematic.Node, error) {
+	result := make([]schematic.Node, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = NodeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HandleToPB converts Handle to Handle.
+func HandleToPB(r schematic.Handle) (*Handle, error) {
+	pb := &Handle{
+		Node:  r.Node,
+		Param: r.Param,
+	}
+	return pb, nil
+}
+
+// HandleFromPB converts Handle to Handle.
+func HandleFromPB(pb *Handle) (schematic.Handle, error) {
+	var r schematic.Handle
+	if pb == nil {
+		return r, nil
+	}
+	r.Node = pb.Node
+	r.Param = pb.Param
+	return r, nil
+}
+
+// HandlesToPB converts a slice of Handle to Handle.
+func HandlesToPB(rs []schematic.Handle) ([]*Handle, error) {
+	result := make([]*Handle, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = HandleToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// HandlesFromPB converts a slice of Handle to Handle.
+func HandlesFromPB(pbs []*Handle) ([]schematic.Handle, error) {
+	result := make([]schematic.Handle, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = HandleFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentToPB converts Segment to Segment.
+func SegmentToPB(r schematic.Segment) (*Segment, error) {
+	directionVal, err := spatialpb.DirectionToPB(r.Direction)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Segment{
+		Length:    r.Length,
+		Direction: directionVal,
+	}
+	return pb, nil
+}
+
+// SegmentFromPB converts Segment to Segment.
+func SegmentFromPB(pb *Segment) (schematic.Segment, error) {
+	var r schematic.Segment
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Direction, err = spatialpb.DirectionFromPB(pb.Direction)
+	if err != nil {
+		return schematic.Segment{}, err
+	}
+	r.Length = pb.Length
+	return r, nil
+}
+
+// SegmentsToPB converts a slice of Segment to Segment.
+func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
+	result := make([]*Segment, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = SegmentToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// SegmentsFromPB converts a slice of Segment to Segment.
+func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
+	result := make([]schematic.Segment, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = SegmentFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EdgePropsToPB converts EdgeProps to EdgeProps.
+func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
+	segmentsVal, err := SegmentsToPB(r.Segments)
+	if err != nil {
+		return nil, err
+	}
+	variantVal, err := EdgeVariantToPB(r.Variant)
+	if err != nil {
+		return nil, err
+	}
+	colorVal, err := colorpb.ColorToPB(r.Color)
+	if err != nil {
+		return nil, err
+	}
+	pb := &EdgeProps{
+		Segments: segmentsVal,
+		Variant:  variantVal,
+		Color:    colorVal,
+	}
+	return pb, nil
+}
+
+// EdgePropsFromPB converts EdgeProps to EdgeProps.
+func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
+	var r schematic.EdgeProps
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Segments, err = SegmentsFromPB(pb.Segments)
+	if err != nil {
+		return schematic.EdgeProps{}, err
+	}
+	r.Variant, err = EdgeVariantFromPB(pb.Variant)
+	if err != nil {
+		return schematic.EdgeProps{}, err
+	}
+	r.Color, err = colorpb.ColorFromPB(pb.Color)
+	if err != nil {
+		return schematic.EdgeProps{}, err
+	}
+	return r, nil
+}
+
+// EdgePropsListToPB converts a slice of EdgeProps to EdgeProps.
+func EdgePropsListToPB(rs []schematic.EdgeProps) ([]*EdgeProps, error) {
+	result := make([]*EdgeProps, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = EdgePropsToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EdgePropsListFromPB converts a slice of EdgeProps to EdgeProps.
+func EdgePropsListFromPB(pbs []*EdgeProps) ([]schematic.EdgeProps, error) {
+	result := make([]schematic.EdgeProps, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = EdgePropsFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EdgeToPB converts Edge to Edge.
+func EdgeToPB(r schematic.Edge) (*Edge, error) {
+	sourceVal, err := HandleToPB(r.Source)
+	if err != nil {
+		return nil, err
+	}
+	targetVal, err := HandleToPB(r.Target)
+	if err != nil {
+		return nil, err
+	}
+	pb := &Edge{
+		Key:    r.Key,
+		Source: sourceVal,
+		Target: targetVal,
+	}
+	return pb, nil
+}
+
+// EdgeFromPB converts Edge to Edge.
+func EdgeFromPB(pb *Edge) (schematic.Edge, error) {
+	var r schematic.Edge
+	if pb == nil {
+		return r, nil
+	}
+	var err error
+	r.Source, err = HandleFromPB(pb.Source)
+	if err != nil {
+		return schematic.Edge{}, err
+	}
+	r.Target, err = HandleFromPB(pb.Target)
+	if err != nil {
+		return schematic.Edge{}, err
+	}
+	r.Key = pb.Key
+	return r, nil
+}
+
+// EdgesToPB converts a slice of Edge to Edge.
+func EdgesToPB(rs []schematic.Edge) ([]*Edge, error) {
+	result := make([]*Edge, len(rs))
+	for i := range rs {
+		var err error
+		result[i], err = EdgeToPB(rs[i])
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
+// EdgesFromPB converts a slice of Edge to Edge.
+func EdgesFromPB(pbs []*Edge) ([]schematic.Edge, error) {
+	result := make([]schematic.Edge, len(pbs))
+	for i, pb := range pbs {
+		var err error
+		result[i], err = EdgeFromPB(pb)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return result, nil
+}
+
 // SchematicToPB converts Schematic to Schematic.
 func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
-	dataVal, err := structpb.NewStruct(r.Data)
+	legendVal, err := LegendToPB(r.Legend)
+	if err != nil {
+		return nil, err
+	}
+	nodesVal, err := NodesToPB(r.Nodes)
+	if err != nil {
+		return nil, err
+	}
+	edgesVal, err := EdgesToPB(r.Edges)
 	if err != nil {
 		return nil, err
 	}
 	pb := &Schematic{
-		Name:     r.Name,
-		Snapshot: r.Snapshot,
-		Key:      r.Key.String(),
-		Data:     dataVal,
+		Name:      r.Name,
+		Snapshot:  r.Snapshot,
+		Authority: uint32(r.Authority),
+		Key:       r.Key.String(),
+		Legend:    legendVal,
+		Nodes:     nodesVal,
+		Edges:     edgesVal,
+	}
+	if r.Props != nil {
+		pb.Props = make(map[string]*structpb.Struct, len(r.Props))
+		for k, v := range r.Props {
+			converted, err := structpb.NewStruct(v)
+			if err != nil {
+				return nil, err
+			}
+			pb.Props[k] = converted
+		}
 	}
 	return pb, nil
 }
@@ -44,9 +434,27 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 		return schematic.Schematic{}, err
 	}
 	r.Key = schematic.Key(parsedKey)
-	r.Data = pb.Data.AsMap()
+	r.Legend, err = LegendFromPB(pb.Legend)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	r.Nodes, err = NodesFromPB(pb.Nodes)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
+	r.Edges, err = EdgesFromPB(pb.Edges)
+	if err != nil {
+		return schematic.Schematic{}, err
+	}
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
+	r.Authority = control.Authority(pb.Authority)
+	if pb.Props != nil {
+		r.Props = make(map[string]msgpack.EncodedJSON, len(pb.Props))
+		for k, v := range pb.Props {
+			r.Props[k] = msgpack.EncodedJSON(v.AsMap())
+		}
+	}
 	return r, nil
 }
 
@@ -74,4 +482,48 @@ func SchematicsFromPB(pbs []*Schematic) ([]schematic.Schematic, error) {
 		}
 	}
 	return result, nil
+}
+
+// EdgeVariantToPB converts schematic.EdgeVariant to EdgeVariant.
+func EdgeVariantToPB(v schematic.EdgeVariant) (EdgeVariant, error) {
+	switch v {
+	case schematic.EdgeVariantPipe:
+		return EdgeVariant_EDGE_VARIANT_PIPE, nil
+	case schematic.EdgeVariantElectric:
+		return EdgeVariant_EDGE_VARIANT_ELECTRIC, nil
+	case schematic.EdgeVariantSecondary:
+		return EdgeVariant_EDGE_VARIANT_SECONDARY, nil
+	case schematic.EdgeVariantJacketed:
+		return EdgeVariant_EDGE_VARIANT_JACKETED, nil
+	case schematic.EdgeVariantHydraulic:
+		return EdgeVariant_EDGE_VARIANT_HYDRAULIC, nil
+	case schematic.EdgeVariantPneumatic:
+		return EdgeVariant_EDGE_VARIANT_PNEUMATIC, nil
+	case schematic.EdgeVariantData:
+		return EdgeVariant_EDGE_VARIANT_DATA, nil
+	default:
+		return 0, errors.Newf("unrecognized schematic.EdgeVariant value: %v", v)
+	}
+}
+
+// EdgeVariantFromPB converts EdgeVariant to schematic.EdgeVariant.
+func EdgeVariantFromPB(v EdgeVariant) (schematic.EdgeVariant, error) {
+	switch v {
+	case EdgeVariant_EDGE_VARIANT_PIPE:
+		return schematic.EdgeVariantPipe, nil
+	case EdgeVariant_EDGE_VARIANT_ELECTRIC:
+		return schematic.EdgeVariantElectric, nil
+	case EdgeVariant_EDGE_VARIANT_SECONDARY:
+		return schematic.EdgeVariantSecondary, nil
+	case EdgeVariant_EDGE_VARIANT_JACKETED:
+		return schematic.EdgeVariantJacketed, nil
+	case EdgeVariant_EDGE_VARIANT_HYDRAULIC:
+		return schematic.EdgeVariantHydraulic, nil
+	case EdgeVariant_EDGE_VARIANT_PNEUMATIC:
+		return schematic.EdgeVariantPneumatic, nil
+	case EdgeVariant_EDGE_VARIANT_DATA:
+		return schematic.EdgeVariantData, nil
+	default:
+		return schematic.EdgeVariant(""), errors.Newf("unrecognized EdgeVariant value: %v", v)
+	}
 }

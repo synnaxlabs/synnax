@@ -1,0 +1,160 @@
+{
+  "key": "00000000-0000-0000-0000-000000000001",
+  "name": "v5_hardware_workspace.json",
+  "snapshot": false,
+  "authority": 1,
+  "legend": {
+    "visible": false,
+    "position": {
+      "x": 50,
+      "y": 50,
+      "units": {
+        "x": "px",
+        "y": "px"
+      }
+    },
+    "colors": {}
+  },
+  "nodes": [
+    {
+      "key": "NCVBmjVavN6",
+      "position": {
+        "x": 425,
+        "y": 478
+      },
+      "z_index": 4
+    },
+    {
+      "key": "cJXBL6uIOmB",
+      "position": {
+        "x": 669,
+        "y": 454
+      },
+      "z_index": 4
+    }
+  ],
+  "edges": [],
+  "props": {
+    "NCVBmjVavN6": {
+      "color": [250, 250, 250, 1],
+      "inlineSize": 70,
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "Value",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "redline": {
+        "bounds": {
+          "lower": 0,
+          "upper": 1
+        },
+        "gradient": []
+      },
+      "scale": 1,
+      "stalenessColor": [194, 157, 10, 1],
+      "stalenessTimeout": 5,
+      "telem": {
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "rollingAverage"
+            },
+            {
+              "from": "rollingAverage",
+              "to": "stringifier"
+            }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": {
+                "windowSize": 1
+              },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": {
+                "notation": "standard",
+                "precision": 2
+              },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": {
+                "channel": 1048586
+              },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["stream_write_data_1"],
+      "units": "psi",
+      "variant": "value"
+    },
+    "cJXBL6uIOmB": {
+      "color": [250, 250, 250, 1],
+      "label": {
+        "align": "center",
+        "direction": "x",
+        "label": "Light",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "source": {
+        "props": {
+          "connections": [
+            {
+              "from": "valueStream",
+              "to": "threshold"
+            }
+          ],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": {
+                "trueBound": {
+                  "lower": 0.9,
+                  "upper": 1.1
+                }
+              },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": {
+                "channel": 1048587
+              },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      },
+      "variant": "light"
+    }
+  }
+}

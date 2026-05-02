@@ -15,6 +15,113 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 )
 
+func (cl CornerLocation) EncodeOrc(w *orc.Writer) error {
+	w.String(string(cl.X))
+	w.String(string(cl.Y))
+	return nil
+}
+
+func (cl *CornerLocation) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		cl.X = XLocation(v)
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		cl.Y = YLocation(v)
+	}
+	return nil
+}
+
+func (su StickyUnits) EncodeOrc(w *orc.Writer) error {
+	w.String(string(su.X))
+	w.String(string(su.Y))
+	return nil
+}
+
+func (su *StickyUnits) DecodeOrc(r *orc.Reader) error {
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		su.X = StickyUnit(v)
+	}
+	{
+		v, err := r.String()
+		if err != nil {
+			return err
+		}
+		su.Y = StickyUnit(v)
+	}
+	return nil
+}
+
+func (sxy StickyXY) EncodeOrc(w *orc.Writer) error {
+	w.Float64(float64(sxy.X))
+	w.Float64(float64(sxy.Y))
+	if sxy.Root != nil {
+		w.Bool(true)
+		if err := (*sxy.Root).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	if sxy.Units != nil {
+		w.Bool(true)
+		if err := (*sxy.Units).EncodeOrc(w); err != nil {
+			return err
+		}
+	} else {
+		w.Bool(false)
+	}
+	return nil
+}
+
+func (sxy *StickyXY) DecodeOrc(r *orc.Reader) error {
+	var err error
+	if sxy.X, err = r.Float64(); err != nil {
+		return err
+	}
+	if sxy.Y, err = r.Float64(); err != nil {
+		return err
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v CornerLocation
+			if err = v.DecodeOrc(r); err != nil {
+				return err
+			}
+			sxy.Root = &v
+		}
+	}
+	{
+		present, err := r.Bool()
+		if err != nil {
+			return err
+		}
+		if present {
+			var v StickyUnits
+			if err = v.DecodeOrc(r); err != nil {
+				return err
+			}
+			sxy.Units = &v
+		}
+	}
+	return nil
+}
+
 func (xy XY) EncodeOrc(w *orc.Writer) error {
 	w.Float64(float64(xy.X))
 	w.Float64(float64(xy.Y))

@@ -582,7 +582,21 @@ func (b *testValueBuilder) primitiveExpr(typ resolution.Type) (string, error) {
 		base = fmt.Sprintf(`uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef12345678%02x")`, idx%256)
 	case "bytes":
 		base = fmt.Sprintf("[]byte{%d, %d, %d}", idx%256, (idx+1)%256, (idx+2)%256)
-	case "record", "any":
+	case "record":
+		// Use msgpack.EncodedJSON literally so the value satisfies fields and
+		// map elements typed as map[string]msgpack.EncodedJSON without an
+		// explicit cast.
+		const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+		alias, registered := b.imports[importPath]
+		if !registered {
+			b.imports[importPath] = ""
+		}
+		qualifier := alias
+		if qualifier == "" {
+			qualifier = "msgpack"
+		}
+		base = fmt.Sprintf(`%s.EncodedJSON{"key_%d": "value_%d"}`, qualifier, idx, idx)
+	case "any":
 		base = fmt.Sprintf(`map[string]interface{}{"key_%d": "value_%d"}`, idx, idx)
 	default:
 		return "", errors.Newf("unsupported primitive for test value: %s", primName)
@@ -711,6 +725,21 @@ func (b *testValueBuilder) resolveLeafPrim(typ resolution.Type) (string, string,
 
 func (b *testValueBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
+		// `record` resolves to msgpack.EncodedJSON when used as a map value
+		// (or any nested container) so the literal type matches the Go field
+		// declaration. Mirrors the same special case in encoder.goTypeName.
+		if prim.Name == "record" {
+			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+			alias, registered := b.imports[importPath]
+			if !registered {
+				b.imports[importPath] = ""
+			}
+			qualifier := alias
+			if qualifier == "" {
+				qualifier = "msgpack"
+			}
+			return qualifier + ".EncodedJSON", nil
+		}
 		goType, ok := typemap.PrimitiveGoType(prim.Name)
 		if !ok {
 			return "", errors.Newf("unsupported primitive: %s", prim.Name)

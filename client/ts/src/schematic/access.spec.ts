@@ -29,8 +29,8 @@ describe("schematic", () => {
         layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
         name: "test",
-        data: {},
       });
       await expect(
         userClient.schematics.retrieve({ key: randomSchematic.key }),
@@ -48,8 +48,8 @@ describe("schematic", () => {
         layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
         name: "test",
-        data: {},
       });
       const retrieved = await userClient.schematics.retrieve({
         key: randomSchematic.key,
@@ -69,8 +69,8 @@ describe("schematic", () => {
         layout: {},
       });
       await userClient.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
         name: "test",
-        data: {},
       });
     });
 
@@ -86,8 +86,8 @@ describe("schematic", () => {
       });
       await expect(
         userClient.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
           name: "test",
-          data: {},
         }),
       ).rejects.toThrow(AuthError);
     });
@@ -103,8 +103,8 @@ describe("schematic", () => {
         layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
         name: "test",
-        data: {},
       });
       await userClient.schematics.delete(randomSchematic.key);
       await expect(
@@ -123,8 +123,8 @@ describe("schematic", () => {
         layout: {},
       });
       const randomSchematic = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
         name: "test",
-        data: {},
       });
       await expect(userClient.schematics.delete(randomSchematic.key)).rejects.toThrow(
         AuthError,

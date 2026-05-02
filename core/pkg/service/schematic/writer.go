@@ -136,19 +136,25 @@ func (w Writer) Copy(
 	)
 }
 
-// SetData sets the data of the log with the given key to the provided data.
+// SetData replaces the body of the schematic with the given key with the
+// provided value. Key, Name, and Snapshot are preserved from the existing
+// entry; every other field on data overwrites the stored entry verbatim.
+// Returns validate.ErrValidation when the target schematic is a snapshot,
+// since snapshots are immutable.
 func (w Writer) SetData(
 	ctx context.Context,
 	key uuid.UUID,
-	data map[string]any,
+	data Schematic,
 ) error {
 	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
 			}
-			s.Data = data
-			return s, nil
+			data.Key = s.Key
+			data.Name = s.Name
+			data.Snapshot = s.Snapshot
+			return data, nil
 		}).Exec(ctx, w.tx)
 }
 

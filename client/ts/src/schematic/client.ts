@@ -8,13 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
-import { array, caseconv, record } from "@synnaxlabs/x";
+import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
+  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -25,10 +26,9 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
-const setDataReqZ = z.object({
-  key: keyZ,
-  data: caseconv.preserveCase(record.unknownZ()),
-});
+const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
+export type SetDataBody = z.input<typeof setDataBodyZ>;
+const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -95,7 +95,7 @@ export class Client {
     );
   }
 
-  async setData(key: Key, data: record.Unknown): Promise<void> {
+  async setData(key: Key, data: SetDataBody): Promise<void> {
     await sendRequired(
       this.client,
       "/schematic/set-data",
@@ -143,3 +143,17 @@ export class Client {
     return res.schematic;
   }
 }
+
+export const ZERO_LEGEND: Legend = {
+  visible: true,
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+  colors: {},
+};
+
+export const ZERO_NEW: New = {
+  name: "",
+  legend: ZERO_LEGEND,
+  nodes: [],
+  edges: [],
+  props: {},
+};

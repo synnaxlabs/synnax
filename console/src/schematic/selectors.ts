@@ -21,6 +21,7 @@ import {
   type StoreState,
   type ToolbarState,
 } from "@/schematic/slice";
+import { edgePropsZ, nodePropsZ, propsZ } from "@/schematic/types/v6";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
@@ -176,8 +177,12 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps | undefined =>
-  selectOptional(state, layoutKey)?.props[key] as NodeProps | undefined;
+): NodeProps | undefined => {
+  const raw = selectOptional(state, layoutKey)?.props[key];
+  if (raw == null) return undefined;
+  const parsed = nodePropsZ.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+};
 
 export const useSelectNodeProps = (
   layoutKey: string,
@@ -273,7 +278,12 @@ export const selectElementProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): Props | undefined => selectOptional(state, layoutKey)?.props[key];
+): Props | undefined => {
+  const raw = selectOptional(state, layoutKey)?.props[key];
+  if (raw == null) return undefined;
+  const parsed = propsZ.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
+};
 
 export const useSelectElementProps = (
   layoutKey: string,
@@ -289,8 +299,10 @@ export const selectEdgeProps = (
   layoutKey: string,
   key: string,
 ): EdgeProps | undefined => {
-  const props = selectElementProps(state, layoutKey, key);
-  return props as EdgeProps | undefined;
+  const raw = selectOptional(state, layoutKey)?.props[key];
+  if (raw == null) return undefined;
+  const parsed = edgePropsZ.safeParse(raw);
+  return parsed.success ? parsed.data : undefined;
 };
 
 export const useSelectEdgeProps = (

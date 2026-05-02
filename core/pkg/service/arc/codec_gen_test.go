@@ -25,6 +25,7 @@ import (
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
 
@@ -88,7 +89,7 @@ var _ = Describe("Codec", func() {
 						{
 							Key:      "test_38",
 							Type:     "test_39",
-							Config:   map[string]interface{}{"key_40": "value_40"},
+							Config:   msgpack.EncodedJSON{"key_40": "value_40"},
 							Position: spatial.XY{X: 42.5, Y: 43.5},
 						},
 					},
@@ -175,7 +176,7 @@ func BenchmarkEncodeDecodeArc(b *testing.B) {
 				{
 					Key:      "test_38",
 					Type:     "test_39",
-					Config:   map[string]interface{}{"key_40": "value_40"},
+					Config:   msgpack.EncodedJSON{"key_40": "value_40"},
 					Position: spatial.XY{X: 42.5, Y: 43.5},
 				},
 			},
@@ -264,7 +265,7 @@ func FuzzDecodeArc(f *testing.F) {
 					{
 						Key:      "test_38",
 						Type:     "test_39",
-						Config:   map[string]interface{}{"key_40": "value_40"},
+						Config:   msgpack.EncodedJSON{"key_40": "value_40"},
 						Position: spatial.XY{X: 42.5, Y: 43.5},
 					},
 				},

@@ -368,22 +368,14 @@ func (p *Plugin) processFieldForTranslation(
 		fd.ForwardExpr, fd.BackwardExpr, _, _ = p.generatePrimitiveConversion(typeRef.Name, goFieldDeref, pbFieldDeref, data)
 	}
 
-	// Maps with value types that need conversion (e.g., map[uint32]uint8 <-> map[uint32]uint32)
-	// require element-wise conversion loops. Force into OptionalFields so the template
-	// renders a nil-guarded loop rather than a direct struct initializer assignment.
+	// Maps whose value type does not survive a direct copy (numeric primitives that
+	// widen, opaque records that bridge through structpb.Struct, struct values that
+	// have their own pb translator) require element-wise conversion loops. Force
+	// into OptionalFields so the template renders a nil-guarded loop rather than a
+	// direct struct initializer assignment.
 	if typeRef.Name == "Map" && len(typeRef.TypeArgs) == 2 {
-		valArg := typeRef.TypeArgs[1]
-		if resolution.IsPrimitive(valArg.Name) && primitiveNeedsConversion(valArg.Name) {
-			keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
-			goValType := valArg.Name
-			pbValType := primitiveToProtoType(valArg.Name)
-			fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
-			fd.MapValueConversion = &mapValueConversionData{
-				GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
-				PBMapType:         fmt.Sprintf("map[%s]%s", keyType, pbValType),
-				ForwardValueExpr:  fwd,
-				BackwardValueExpr: bwd,
-			}
+		if mvc := p.buildMapValueConversion(typeRef, data); mvc != nil {
+			fd.MapValueConversion = mvc
 			fd.IsOptional = true
 			fd.ForwardExpr = ""
 			fd.BackwardExpr = ""
@@ -391,6 +383,61 @@ func (p *Plugin) processFieldForTranslation(
 	}
 
 	return fd
+}
+
+// buildMapValueConversion returns the per-element conversion data for a Map
+// field whose value type does not round-trip directly between the Go domain
+// type and the proto wire type. Returns nil when no conversion is needed (the
+// caller should fall back to direct field copy).
+func (p *Plugin) buildMapValueConversion(
+	typeRef resolution.TypeRef, data *templateData,
+) *mapValueConversionData {
+	keyType := primitiveToProtoType(typeRef.TypeArgs[0].Name)
+	valArg := typeRef.TypeArgs[1]
+
+	if resolution.IsPrimitive(valArg.Name) {
+		switch valArg.Name {
+		case "record":
+			data.imports.AddInternal("msgpack", "github.com/synnaxlabs/x/encoding/msgpack")
+			data.imports.AddExternal("google.golang.org/protobuf/types/known/structpb")
+			return &mapValueConversionData{
+				GoMapType:         fmt.Sprintf("map[%s]msgpack.EncodedJSON", keyType),
+				PBMapType:         fmt.Sprintf("map[%s]*structpb.Struct", keyType),
+				ForwardValueExpr:  "structpb.NewStruct(v)",
+				BackwardValueExpr: "msgpack.EncodedJSON(v.AsMap())",
+				ForwardHasError:   true,
+			}
+		default:
+			if primitiveNeedsConversion(valArg.Name) {
+				fwd, bwd, _, _ := p.generatePrimitiveConversion(valArg.Name, "v", "v", data)
+				return &mapValueConversionData{
+					GoMapType:         fmt.Sprintf("map[%s]%s", keyType, valArg.Name),
+					PBMapType:         fmt.Sprintf("map[%s]%s", keyType, primitiveToProtoType(valArg.Name)),
+					ForwardValueExpr:  fwd,
+					BackwardValueExpr: bwd,
+				}
+			}
+			return nil
+		}
+	}
+
+	resolved, ok := valArg.Resolve(data.table)
+	if !ok {
+		return nil
+	}
+	if _, isStruct := resolved.Form.(resolution.StructForm); !isStruct {
+		return nil
+	}
+	goValType := p.resolveGoTypeLiteral(valArg, data)
+	translatorPrefix, structName := p.resolvePBTranslatorInfo(resolved, data)
+	return &mapValueConversionData{
+		GoMapType:         fmt.Sprintf("map[%s]%s", keyType, goValType),
+		PBMapType:         fmt.Sprintf("map[%s]*%s%s", keyType, translatorPrefix, structName),
+		ForwardValueExpr:  fmt.Sprintf("%s%sToPB(v)", translatorPrefix, structName),
+		BackwardValueExpr: fmt.Sprintf("%s%sFromPB(v)", translatorPrefix, structName),
+		ForwardHasError:   true,
+		BackwardHasError:  true,
+	}
 }
 
 func (p *Plugin) processGenericStructForTranslation(
@@ -908,9 +955,15 @@ func (p *Plugin) generatePrimitiveConversion(
 	case "int8":
 		return fmt.Sprintf("int32(%s)", goField),
 			fmt.Sprintf("int8(%s)", pbField), false, false
+	case "int16":
+		return fmt.Sprintf("int32(%s)", goField),
+			fmt.Sprintf("int16(%s)", pbField), false, false
 	case "uint8":
 		return fmt.Sprintf("uint32(%s)", goField),
 			fmt.Sprintf("uint8(%s)", pbField), false, false
+	case "uint16":
+		return fmt.Sprintf("uint32(%s)", goField),
+			fmt.Sprintf("uint16(%s)", pbField), false, false
 	default:
 		return goField, pbField, false, false
 	}
@@ -1562,6 +1615,25 @@ func isStructType(typeRef resolution.TypeRef, table *resolution.Table) bool {
 	return false
 }
 
+func (p *Plugin) resolveGoTypeLiteral(typeRef resolution.TypeRef, data *templateData) string {
+	resolved, ok := typeRef.Resolve(data.table)
+	if !ok {
+		return ""
+	}
+	goName := naming.GetGoName(resolved)
+	goOutput := output.GetPath(resolved, "go")
+	if goOutput == "" || goOutput == data.ParentGoPath {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	importPath, err := resolveGoImportPath(goOutput, data.repoRoot)
+	if err != nil {
+		return fmt.Sprintf("%s.%s", data.parentAlias, goName)
+	}
+	alias := naming.DerivePackageAlias(goOutput, data.parentAlias)
+	data.imports.AddInternal(alias, importPath)
+	return fmt.Sprintf("%s.%s", alias, goName)
+}
+
 type templateData struct {
 	usedEnums             map[string]*resolution.Type
 	table                 *resolution.Table
@@ -1634,6 +1706,13 @@ type mapValueConversionData struct {
 	ForwardValueExpr string // e.g., "uint32(v)"
 	// BackwardValueExpr is the conversion for a single value, using "v" as placeholder.
 	BackwardValueExpr string // e.g., "uint8(v)"
+	// ForwardHasError is true when ForwardValueExpr returns (T, error). The
+	// template must capture both, propagate err on failure, and assign T into
+	// the map.
+	ForwardHasError bool
+	// BackwardHasError is true when BackwardValueExpr returns (T, error). The
+	// template emits the same shape on the FromPB side.
+	BackwardHasError bool
 }
 
 // enumTranslatorData holds data for enum translator functions.

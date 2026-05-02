@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Codec", func() {
@@ -38,7 +39,7 @@ var _ = Describe("Codec", func() {
 			Entry("fully populated", log.Log{
 				Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name: "test_2",
-				Data: map[string]interface{}{"key_3": "value_3"},
+				Data: msgpack.EncodedJSON{"key_3": "value_3"},
 			}),
 			Entry("zero values", log.Log{
 				Key:  uuid.Nil,
@@ -53,7 +54,7 @@ func BenchmarkEncodeDecodeLog(b *testing.B) {
 	lv := log.Log{
 		Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name: "test_2",
-		Data: map[string]interface{}{"key_3": "value_3"},
+		Data: msgpack.EncodedJSON{"key_3": "value_3"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -75,7 +76,7 @@ func FuzzDecodeLog(f *testing.F) {
 		seed := log.Log{
 			Key:  uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name: "test_2",
-			Data: map[string]interface{}{"key_3": "value_3"},
+			Data: msgpack.EncodedJSON{"key_3": "value_3"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

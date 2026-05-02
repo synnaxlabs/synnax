@@ -7,6 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/spatial"
+import "schemas/color"
+import "schemas/control"
+
 @ts output "client/ts/src/schematic"
 @go output "core/pkg/service/schematic"
 @pb
@@ -15,25 +19,136 @@ Key = uuid {
     @doc value "is a unique identifier for a schematic, represented as a UUID."
 }
 
+Legend struct {
+    visible  bool                     {
+        @doc value "is whether the legend is visible."
+    }
+    position spatial.StickyXY         {
+        @doc value "is the legend position within the schematic."
+    }
+    colors   map<string, color.Color> {
+        @doc value "maps control status keys to their display colors."
+    }
+
+    @doc value "is the control legend overlay configuration."
+}
+
+Node struct {
+    key      string     {
+        @doc value "is the unique node identifier within the schematic."
+    }
+    position spatial.XY {
+        @doc value "is the top-left position of the node."
+    }
+    z_index  int16?     {
+        @doc value """
+            is the stacking order of the node within the schematic. Higher
+            values render above lower values. Set by the user via
+            send-to-back / bring-to-front actions.
+        """
+    }
+
+    @doc value "is a diagram node representing a symbol in the schematic."
+}
+
+EdgeVariant enum {
+    pipe      = "pipe"
+    electric  = "electric"
+    secondary = "secondary"
+    jacketed  = "jacketed"
+    hydraulic = "hydraulic"
+    pneumatic = "pneumatic"
+    data      = "data"
+
+    @doc value "is the visual style of an edge connector."
+}
+
+Handle struct {
+    node  string {
+        @doc value "is the node identifier."
+    }
+    param string {
+        @doc value "is the connection point identifier on the node."
+    }
+
+    @doc value """
+        is a reference to a specific connection point on a specific node.
+        For schematics, param is the symbol handle key (e.g. inlet, outlet).
+    """
+}
+
+Segment struct {
+    direction spatial.Direction {
+        @doc value "is the axis of travel: x (horizontal) or y (vertical)."
+    }
+    length    float64           {
+        @doc value "is the signed distance along the axis."
+    }
+
+    @doc value "is an orthogonal path segment with a direction and signed length."
+}
+
+EdgeProps struct {
+    segments Segment[]    {
+        @doc value "defines the orthogonal path segments from source to target."
+    }
+    variant  EdgeVariant  {
+        @validate default "pipe"
+        @doc value        "is the visual style of the edge."
+    }
+    color    color.Color? {
+        @doc value "is the optional display color."
+    }
+
+    @doc value "contains visual properties for an edge, stored in schematic props."
+}
+
+Edge struct {
+    key    string {
+        @doc value "is the unique edge identifier within the schematic."
+    }
+    source Handle {
+        @doc value "is the source endpoint of the edge."
+    }
+    target Handle {
+        @doc value "is the target endpoint of the edge."
+    }
+
+    @doc value "is a connection between two nodes in the schematic."
+}
+
 Schematic struct {
-    key      Key    {
+    key       Key                 {
         @doc value "is the unique identifier for this schematic."
         @key
     }
-    name     string {
+    name      string              {
         @doc value "is a human-readable name for the schematic."
     }
-    data     record {
-        @doc value        """
-            is the schematic content including symbols, connections, and layout
-            configuration.
-        """
-        @ts preserve_case
-    }
-    snapshot bool   {
+    snapshot  bool                {
         @doc value """
             indicates whether this schematic represents a saved snapshot state.
         """
+    }
+    authority control.Authority   {
+        @validate default 1
+        @doc value        "is the control authority level for this schematic."
+    }
+    legend    Legend              {
+        @doc value "is the control legend overlay configuration."
+    }
+    nodes     Node[]              {
+        @doc value "contains all diagram nodes in the schematic."
+    }
+    edges     Edge[]              {
+        @doc value "contains all connections between nodes."
+    }
+    props     map<string, record> {
+        @doc value        """
+            contains symbol-specific properties keyed by node or edge key,
+            including colors, labels, segments, and other visual configuration.
+        """
+        @ts preserve_case
     }
 
     @doc value     """
