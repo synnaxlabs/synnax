@@ -317,7 +317,10 @@ func (f *formatter) formatStructFull(ctx *parser.StructFullContext) {
 }
 
 func isEmptyStructBody(ctx parser.IStructBodyContext) bool {
-	return len(ctx.AllFieldDef()) == 0 && len(ctx.AllDomain()) == 0 && len(ctx.AllFieldOmit()) == 0
+	return len(ctx.AllFieldDef()) == 0 &&
+		len(ctx.AllDomain()) == 0 &&
+		len(ctx.AllFieldOmit()) == 0 &&
+		len(ctx.AllActionDef()) == 0
 }
 
 func (f *formatter) formatStructAlias(ctx *parser.StructAliasContext) {
@@ -442,6 +445,7 @@ func (f *formatter) formatTypeParam(ctx parser.ITypeParamContext) {
 func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 	fields := ctx.AllFieldDef()
 	fieldOmits := ctx.AllFieldOmit()
+	actions := ctx.AllActionDef()
 	domains := ctx.AllDomain()
 
 	// Calculate alignment widths
@@ -470,12 +474,80 @@ func (f *formatter) formatStructBody(ctx parser.IStructBodyContext) {
 		f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
 	}
 
-	// Blank line before struct-level domains if there are fields or omissions
-	if (len(fields) > 0 || len(fieldOmits) > 0) && len(domains) > 0 {
+	// Blank line before actions if there are fields or omissions
+	if (len(fields) > 0 || len(fieldOmits) > 0) && len(actions) > 0 {
+		f.newline()
+	}
+
+	// Format actions, each separated from neighbors by a blank line
+	for i, action := range actions {
+		f.emitCommentsBefore(action.GetStart().GetTokenIndex())
+		f.formatActionDef(action)
+		if i < len(actions)-1 {
+			f.newline()
+		}
+	}
+
+	// Blank line before struct-level domains if there are fields, omissions, or actions
+	if (len(fields) > 0 || len(fieldOmits) > 0 || len(actions) > 0) && len(domains) > 0 {
 		f.newline()
 	}
 
 	// Format struct-level domains with alignment
+	f.formatDomains(domains)
+}
+
+func (f *formatter) formatActionDef(ctx parser.IActionDefContext) {
+	f.writeIndent()
+	f.write("action ")
+	f.write(ctx.IDENT().GetText())
+
+	body := ctx.ActionBody()
+	if body == nil || isEmptyActionBody(body) {
+		f.writeLine(" {}")
+		f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+		return
+	}
+
+	f.writeLine(" {")
+	f.currentIndent++
+	f.formatActionBody(body)
+	f.currentIndent--
+	f.writeIndent()
+	f.writeLine("}")
+	f.lastTokenIdx = ctx.GetStop().GetTokenIndex()
+}
+
+func isEmptyActionBody(ctx parser.IActionBodyContext) bool {
+	return len(ctx.AllFieldDef()) == 0 && len(ctx.AllDomain()) == 0
+}
+
+func (f *formatter) formatActionBody(ctx parser.IActionBodyContext) {
+	fields := ctx.AllFieldDef()
+	domains := ctx.AllDomain()
+
+	maxNameLen := 0
+	maxTypeLen := 0
+	for _, field := range fields {
+		nameLen := len(field.IDENT().GetText())
+		if nameLen > maxNameLen {
+			maxNameLen = nameLen
+		}
+		typeLen := len(f.formatTypeRefToString(field.TypeRef()))
+		if typeLen > maxTypeLen {
+			maxTypeLen = typeLen
+		}
+	}
+
+	for _, field := range fields {
+		f.emitCommentsBefore(field.GetStart().GetTokenIndex())
+		f.formatFieldDefAligned(field, maxNameLen, maxTypeLen)
+	}
+
+	if len(fields) > 0 && len(domains) > 0 {
+		f.newline()
+	}
+
 	f.formatDomains(domains)
 }
 

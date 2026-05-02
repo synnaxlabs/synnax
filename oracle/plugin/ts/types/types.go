@@ -150,6 +150,12 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 		return nil, err
 	}
 
+	actionFiles, err := p.generateActionFiles(req)
+	if err != nil {
+		return nil, err
+	}
+	resp.Files = append(resp.Files, actionFiles...)
+
 	return resp, nil
 }
 

@@ -18,6 +18,7 @@ ENUM        : 'enum' ;
 IMPORT      : 'import' ;
 EXTENDS     : 'extends' ;
 MAP         : 'map' ;
+ACTION      : 'action' ;
 
 // =============================================================================
 // Symbols

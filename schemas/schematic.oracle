@@ -151,6 +151,67 @@ Schematic struct {
         @ts preserve_case
     }
 
+    action SetNodePosition {
+        key      string
+        position spatial.XY
+
+        @doc value "moves a node to a new position."
+    }
+
+    action AddNode {
+        node  Node
+        props record? {
+            @ts preserve_case
+        }
+
+        @doc value """
+            appends a node to the schematic. If props is non-empty it is stored
+            under the node's key in the schematic props map.
+        """
+    }
+
+    action RemoveNode {
+        key string
+
+        @doc value "removes a node and any props stored under its key."
+    }
+
+    action SetEdge {
+        edge Edge
+
+        @doc value """
+            inserts the edge if no edge with the same key exists, otherwise
+            replaces the existing edge with the same key.
+        """
+    }
+
+    action RemoveEdge {
+        key string
+
+        @doc value "removes the edge with the given key, if present."
+    }
+
+    action SetProps {
+        key   string
+        props record {
+            @ts preserve_case
+        }
+
+        @doc value "sets the props entry for the given node or edge key."
+    }
+
+    action SetAuthority {
+        value control.Authority
+
+        @doc value "sets the control authority level for this schematic."
+    }
+
+    action SetLegend {
+        legend Legend
+
+        @doc value "replaces the schematic's control-legend overlay configuration."
+    }
+
     @doc value     """
         is a visual diagram editor component for drawing system schematics,
         control flows, and process diagrams. Schematics support interactive
