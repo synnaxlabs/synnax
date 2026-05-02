@@ -266,6 +266,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   return (
     <Provider value={ctxValue}>
       <ArcDiagram
+        ref={ref}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}

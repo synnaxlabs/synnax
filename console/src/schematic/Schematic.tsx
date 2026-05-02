@@ -412,6 +412,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     <Controller resourceKey={layoutKey} authority={state.authority}>
       <Base.Provider value={layoutKey}>
         <SchematicComponent
+          ref={ref}
           onViewportChange={handleViewportChange}
           viewportMode={mode}
           onViewportModeChange={handleViewportModeChange}
