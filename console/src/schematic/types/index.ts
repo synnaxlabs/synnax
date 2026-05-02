@@ -18,7 +18,7 @@ import * as v4 from "@/schematic/types/v4";
 import * as v5 from "@/schematic/types/v5";
 import * as v6 from "@/schematic/types/v6";
 
-export type NodeProps = v0.NodeProps;
+export type NodeProps = v6.NodeProps;
 export type EdgeProps = v0.EdgeProps;
 export type State = v6.State;
 export type SliceState = v6.SliceState;

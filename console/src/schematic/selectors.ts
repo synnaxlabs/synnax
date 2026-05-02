@@ -11,6 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
+import { selectedGroupKeys } from "@/schematic/groups";
 import {
   type NodeProps,
   SLICE_NAME,
@@ -55,9 +56,14 @@ export const selectSelectedElementDigests = (
 ): ElementDigest[] => {
   const schematic = selectOptional(state, layoutKey);
   if (schematic == null) return [];
+  const selectedNodes = schematic.nodes.filter((node) => node.selected);
+  const groupKeys = selectedGroupKeys(selectedNodes, schematic.props);
   return [
-    ...schematic.nodes
-      .filter((node) => node.selected)
+    ...selectedNodes
+      .filter((node) => {
+        const p = schematic.props[node.key];
+        return p?.groupId == null || !groupKeys.has(p.groupId);
+      })
       .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
     ...schematic.edges
       .filter((edge) => edge.selected)
@@ -269,3 +275,36 @@ export const selectLegendVisible = (
 
 export const useSelectLegendVisible = (key: string): boolean | undefined =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
+
+export const selectCanGroup = (state: StoreState, layoutKey: string): boolean => {
+  const schematic = selectOptional(state, layoutKey);
+  if (schematic == null) return false;
+  let count = 0;
+  for (const node of schematic.nodes) {
+    if (!node.selected) continue;
+    const p = schematic.props[node.key];
+    if (p?.key === "group") continue;
+    count++;
+    if (count >= 2) return true;
+  }
+  return false;
+};
+
+export const useSelectCanGroup = (layoutKey: string): boolean =>
+  useMemoSelect((state: StoreState) => selectCanGroup(state, layoutKey), [layoutKey]);
+
+export const selectCanUngroup = (state: StoreState, layoutKey: string): boolean => {
+  const schematic = selectOptional(state, layoutKey);
+  if (schematic == null) return false;
+  for (const node of schematic.nodes) {
+    if (!node.selected) continue;
+    const p = schematic.props[node.key];
+    if (p == null) continue;
+    if (p.key === "group") return true;
+    if (p.groupId != null) return true;
+  }
+  return false;
+};
+
+export const useSelectCanUngroup = (layoutKey: string): boolean =>
+  useMemoSelect((state: StoreState) => selectCanUngroup(state, layoutKey), [layoutKey]);

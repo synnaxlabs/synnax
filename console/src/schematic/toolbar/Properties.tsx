@@ -28,15 +28,22 @@ import { memo, type ReactElement, type ReactNode } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
+import { expandGroupPositions, resolveAlignmentKey } from "@/schematic/groups";
 import {
   type ElementInfo,
+  selectRequired,
   selectViewport,
   useSelectRequiredEdge,
   useSelectRequiredNodeProps,
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
-import { setElementProps, setNodePositions } from "@/schematic/slice";
+import {
+  groupSelection,
+  setElementProps,
+  setNodePositions,
+  ungroupSelection,
+} from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v0";
@@ -100,18 +107,28 @@ const IndividualProperties = ({
     optional: true,
   });
   const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
-  let actions: ReactNode = null;
+  const actions: ReactNode[] = [];
   const placeLayout = Layout.usePlacer();
   if (isRemote && specKey != null)
-    actions = (
+    actions.push(
       <Button.Button
+        key="edit"
         variant="filled"
         size="tiny"
         style={{ marginRight: "1rem" }}
         onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
       >
         <Icon.Edit />
-      </Button.Button>
+      </Button.Button>,
+    );
+  if (props.key === "group")
+    actions.push(
+      <Input.Item key="ungroup" label="Grouping">
+        <Button.Button onClick={() => dispatch(ungroupSelection({ key: layoutKey }))}>
+          <Icon.Ungroup />
+          Ungroup
+        </Button.Button>
+      </Input.Item>,
     );
 
   return (
@@ -135,6 +152,10 @@ interface EdgePropertiesProps {
 
 const SELECT_EDGE_TYPE_STYLE: React.CSSProperties = {
   width: "25rem",
+};
+
+const LABEL_WRAP_WIDTH_STYLE: React.CSSProperties = {
+  width: 125,
 };
 
 const EdgeProperties = ({
@@ -197,41 +218,85 @@ const MultiElementProperties = ({
 
   const store = useStore<RootState>();
 
-  const getLayoutsForAlignment = () => {
-    const viewport = selectViewport(store.getState(), layoutKey);
+  const extractHandles = (
+    nodeEl: Element,
+    nodeElBox: box.Box,
+    zoom: number,
+  ): Diagram.HandleLayout[] => {
+    const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
+    return Array.from(handleEls).map((el) => {
+      const pos = box.center(box.construct(el));
+      const dist = xy.scale(xy.translation(box.topLeft(nodeElBox), pos), 1 / zoom);
+      const match = el.className.match(/react-flow__handle-(\w+)/);
+      if (match == null)
+        throw new Error(`[schematic] - cannot find handle orientation`);
+      return new Diagram.HandleLayout(dist, location.outerZ.parse(match[1]));
+    });
+  };
 
+  const measureNodeLayout = (
+    key: string,
+    position: xy.XY,
+    zoom: number,
+    opts?: { includeGridExtent?: boolean },
+  ): { layout: Diagram.NodeLayout; topOffset: number } | null => {
+    try {
+      const nodeEl = Diagram.selectNode(key);
+      const nodeElBox = box.construct(nodeEl);
+      const rect = nodeEl.getBoundingClientRect();
+      let minTop = rect.top;
+      let maxBottom = rect.bottom;
+      if (opts?.includeGridExtent)
+        nodeEl.querySelectorAll(".pluto-grid__item").forEach((item) => {
+          const itemRect = item.getBoundingClientRect();
+          minTop = Math.min(minTop, itemRect.top);
+          maxBottom = Math.max(maxBottom, itemRect.bottom);
+        });
+      const topExtension = (rect.top - minTop) / zoom;
+      const actualDims = {
+        width: rect.width / zoom,
+        height: (maxBottom - minTop) / zoom,
+      };
+      const adjustedPosition = xy.translate(position, {
+        x: 0,
+        y: -topExtension,
+      });
+      const nodeBox = box.construct(adjustedPosition, actualDims);
+      const handles = extractHandles(nodeEl, nodeElBox, zoom);
+      return {
+        layout: new Diagram.NodeLayout(key, nodeBox, handles),
+        topOffset: topExtension,
+      };
+    } catch (e) {
+      handleError(e, "failed to calculate schematic node layout");
+      return null;
+    }
+  };
+
+  const getSchematicContext = () => {
+    const viewport = selectViewport(store.getState(), layoutKey);
+    const { nodes: allNodes, props: allProps } = selectRequired(
+      store.getState(),
+      layoutKey,
+    );
+    return { zoom: viewport?.zoom ?? 1, allNodes, allProps };
+  };
+
+  const getLayoutsForAlignment = () => {
+    const { zoom, allNodes, allProps } = getSchematicContext();
+    const seenKeys = new Set<string>();
     return elements
       .map((el) => {
         if (el.type !== "node") return null;
-        try {
-          const nodeEl = Diagram.selectNode(el.key);
-          const nodeElBox = box.construct(nodeEl);
-          const rect = nodeEl.getBoundingClientRect();
-
-          const actualDims = {
-            width: rect.width / (viewport?.zoom ?? 1),
-            height: rect.height / (viewport?.zoom ?? 1),
-          };
-
-          const nodeBox = box.construct(el.node.position, actualDims);
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-          const handles = Array.from(handleEls).map((el) => {
-            const pos = box.center(box.construct(el));
-            const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
-              1 / (viewport?.zoom ?? 1),
-            );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
-              throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outerZ.parse(match[1]);
-            return new Diagram.HandleLayout(dist, orientation);
-          });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
-        } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
-        }
-        return null;
+        const resolved = resolveAlignmentKey(
+          el.key,
+          allProps,
+          allNodes,
+          el.node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
+        return measureNodeLayout(resolved.key, resolved.position, zoom)?.layout ?? null;
       })
       .filter((el) => el !== null);
   };
@@ -240,61 +305,26 @@ const MultiElementProperties = ({
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const viewport = selectViewport(store.getState(), layoutKey);
+    const { zoom, allNodes, allProps } = getSchematicContext();
     const topOffsets = new Map<string, number>();
-
-    // For distribution: use actual extensions to calculate true visual extents
+    const seenKeys = new Set<string>();
     const layouts = elements
       .map((el) => {
         if (el.type !== "node") return null;
-        try {
-          const nodeEl = Diagram.selectNode(el.key);
-          const nodeElBox = box.construct(nodeEl);
-          const rect = nodeEl.getBoundingClientRect();
-
-          // Calculate union of all child elements (labels, indicators, etc.)
-          const gridItems = nodeEl.querySelectorAll(".pluto-grid__item");
-          let minTop = rect.top;
-          let maxBottom = rect.bottom;
-
-          gridItems.forEach((item) => {
-            const itemRect = item.getBoundingClientRect();
-            minTop = Math.min(minTop, itemRect.top);
-            maxBottom = Math.max(maxBottom, itemRect.bottom);
-          });
-
-          const actualDims = {
-            width: rect.width / (viewport?.zoom ?? 1),
-            height: (maxBottom - minTop) / (viewport?.zoom ?? 1),
-          };
-
-          // Adjust position if there are top extensions
-          const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
-          topOffsets.set(el.key, topExtension);
-          const adjustedPosition = xy.translate(el.node.position, {
-            x: 0,
-            y: -topExtension,
-          });
-
-          const nodeBox = box.construct(adjustedPosition, actualDims);
-          const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
-          const handles = Array.from(handleEls).map((el) => {
-            const pos = box.center(box.construct(el));
-            const dist = xy.scale(
-              xy.translation(box.topLeft(nodeElBox), pos),
-              1 / (viewport?.zoom ?? 1),
-            );
-            const match = el.className.match(/react-flow__handle-(\w+)/);
-            if (match == null)
-              throw new Error(`[schematic] - cannot find handle orientation`);
-            const orientation = location.outerZ.parse(match[1]);
-            return new Diagram.HandleLayout(dist, orientation);
-          });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
-        } catch (e) {
-          handleError(e, "failed to calculate schematic node layout");
-        }
-        return null;
+        const resolved = resolveAlignmentKey(
+          el.key,
+          allProps,
+          allNodes,
+          el.node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
+        const result = measureNodeLayout(resolved.key, resolved.position, zoom, {
+          includeGridExtent: true,
+        });
+        if (result == null) return null;
+        topOffsets.set(resolved.key, result.topOffset);
+        return result.layout;
       })
       .filter((el) => el !== null);
 
@@ -307,12 +337,10 @@ const MultiElementProperties = ({
   };
 
   const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
-    dispatch(
-      setNodePositions({
-        key: layoutKey,
-        positions: layouts.map((n) => [n.key, box.topLeft(n.box)]),
-      }),
-    );
+    const { nodes, props } = selectRequired(store.getState(), layoutKey);
+    const raw: [string, xy.XY][] = layouts.map((n) => [n.key, box.topLeft(n.box)]);
+    const positions = expandGroupPositions(raw, nodes, props);
+    dispatch(setNodePositions({ key: layoutKey, positions }));
   };
 
   const handleAlignToLocation = (loc: location.Outer): void => {
@@ -363,136 +391,165 @@ const MultiElementProperties = ({
 
   return (
     <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
-      <Input.Item label="Selection Colors" align="start">
-        <Flex.Box x>
-          {Object.entries(colorGroups).map(([hex, elements]) => (
-            <Color.Swatch
-              key={elements[0].key}
-              value={hex}
-              onChange={(v: color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
-              }}
-            />
-          ))}
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Align">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Align symbols vertically"
-            onClick={() => handleAlignAlongDirection("x")}
-          >
-            <Icon.Align.YCenter />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols horizontally"
-            onClick={() => handleAlignAlongDirection("y")}
-          >
-            <Icon.Align.XCenter />
-          </Button.Button>
-          <Divider.Divider direction="y" />
-          <Button.Button
-            tooltip="Align symbols left"
-            onClick={() => handleAlignToLocation("left")}
-          >
-            <Icon.Align.Left />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols top"
-            onClick={() => handleAlignToLocation("top")}
-          >
-            <Icon.Align.Top />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols bottom"
-            onClick={() => handleAlignToLocation("bottom")}
-          >
-            <Icon.Align.Bottom />
-          </Button.Button>
-          <Button.Button
-            tooltip="Align symbols right"
-            onClick={() => handleAlignToLocation("right")}
-          >
-            <Icon.Align.Right />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      {elements.length >= 3 && (
-        <Input.Item label="Spacing">
+      <Flex.Box align="start" x wrap gap="large" grow>
+        <Input.Item label="Align">
           <Flex.Box x>
             <Button.Button
-              tooltip="Distribute symbol spacing horizontally"
-              onClick={() => handleDistribute("x")}
+              tooltip="Align symbols horizontally"
+              onClick={() => handleAlignAlongDirection("y")}
             >
-              <Icon.Distribute.X />
+              <Icon.Align.XCenter />
             </Button.Button>
             <Button.Button
-              tooltip="Distribute symbol spacing vertically"
-              onClick={() => handleDistribute("y")}
+              tooltip="Align symbols vertically"
+              onClick={() => handleAlignAlongDirection("x")}
             >
-              <Icon.Distribute.Y />
+              <Icon.Align.YCenter />
+            </Button.Button>
+            <Divider.Divider direction="y" />
+            <Button.Button
+              tooltip="Align symbols left"
+              onClick={() => handleAlignToLocation("left")}
+            >
+              <Icon.Align.Left />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols top"
+              onClick={() => handleAlignToLocation("top")}
+            >
+              <Icon.Align.Top />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols bottom"
+              onClick={() => handleAlignToLocation("bottom")}
+            >
+              <Icon.Align.Bottom />
+            </Button.Button>
+            <Button.Button
+              tooltip="Align symbols right"
+              onClick={() => handleAlignToLocation("right")}
+            >
+              <Icon.Align.Right />
             </Button.Button>
           </Flex.Box>
         </Input.Item>
-      )}
-      <Input.Item label="Rotate">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Rotate symbols clockwise"
-            onClick={() => handleRotateIndividual("clockwise")}
-          >
-            <Icon.RotateGroup.CW />
-          </Button.Button>
-          <Button.Button
-            tooltip="Rotate symbols counterclockwise"
-            onClick={() => handleRotateIndividual("counterclockwise")}
-          >
-            <Icon.RotateGroup.CCW />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Rotate Selection">
-        <Flex.Box x>
-          <Button.Button
-            tooltip="Rotate selection clockwise"
-            onClick={() => handleRotateGroup("clockwise")}
-          >
-            <Icon.RotateAroundCenter.CW />
-          </Button.Button>
-          <Button.Button
-            tooltip="Rotate selection counterclockwise"
-            onClick={() => handleRotateGroup("counterclockwise")}
-          >
-            <Icon.RotateAroundCenter.CCW />
-          </Button.Button>
-        </Flex.Box>
-      </Input.Item>
-      <Input.Item label="Label Wrap Width" align="start">
-        <Input.Numeric
-          value={firstNodeLabel?.maxInlineSize ?? 150}
-          onChange={(v) => handleLabelProp("maxInlineSize", v)}
-          endContent="px"
-        />
-      </Input.Item>
-      <Input.Item label="Label Size" align="start">
-        <Select.Text.Level
-          value={firstNodeLabel?.level ?? "p"}
-          onChange={(v: Text.Level) => handleLabelProp("level", v)}
-        />
-      </Input.Item>
-      <Input.Item label="Label Alignment" align="start">
-        <Select.Flex.Alignment
-          value={firstNodeLabel?.align ?? "center"}
-          onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
-        />
-      </Input.Item>
-      <Input.Item label="Label Direction" align="start">
-        <Direction.Select
-          value={firstNodeLabel?.direction ?? "x"}
-          onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
-          yDirection="down"
-        />
-      </Input.Item>
+        {elements.length >= 3 && (
+          <Input.Item label="Spacing">
+            <Flex.Box x>
+              <Button.Button
+                tooltip="Distribute symbol spacing vertically"
+                onClick={() => handleDistribute("y")}
+              >
+                <Icon.Distribute.Y />
+              </Button.Button>
+              <Button.Button
+                tooltip="Distribute symbol spacing horizontally"
+                onClick={() => handleDistribute("x")}
+              >
+                <Icon.Distribute.X />
+              </Button.Button>
+            </Flex.Box>
+          </Input.Item>
+        )}
+        <Input.Item label="Rotate">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Rotate symbols clockwise"
+              onClick={() => handleRotateIndividual("clockwise")}
+            >
+              <Icon.RotateGroup.CW />
+            </Button.Button>
+            <Button.Button
+              tooltip="Rotate symbols counterclockwise"
+              onClick={() => handleRotateIndividual("counterclockwise")}
+            >
+              <Icon.RotateGroup.CCW />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+        <Input.Item label="Pivot">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Rotate selection clockwise"
+              onClick={() => handleRotateGroup("clockwise")}
+            >
+              <Icon.RotateAroundCenter.CW />
+            </Button.Button>
+            <Button.Button
+              tooltip="Rotate selection counterclockwise"
+              onClick={() => handleRotateGroup("counterclockwise")}
+            >
+              <Icon.RotateAroundCenter.CCW />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+        <Input.Item label="Grouping">
+          <Flex.Box x>
+            <Button.Button
+              tooltip="Group selected symbols (Ctrl+G)"
+              onClick={() =>
+                dispatch(
+                  groupSelection({
+                    key: layoutKey,
+                    props: {
+                      key: "group",
+                      ...Schematic.Symbol.REGISTRY.group.defaultProps({} as never),
+                    },
+                  }),
+                )
+              }
+            >
+              <Icon.Group />
+            </Button.Button>
+            <Button.Button
+              tooltip="Ungroup selected symbols (Ctrl+Shift+G)"
+              onClick={() => dispatch(ungroupSelection({ key: layoutKey }))}
+            >
+              <Icon.Ungroup />
+            </Button.Button>
+          </Flex.Box>
+        </Input.Item>
+        <Input.Item label="Label Size" align="start">
+          <Select.Text.Level
+            value={firstNodeLabel?.level ?? "p"}
+            onChange={(v: Text.Level) => handleLabelProp("level", v)}
+          />
+        </Input.Item>
+        <Input.Item label="Label Alignment" align="start">
+          <Select.Flex.Alignment
+            value={firstNodeLabel?.align ?? "center"}
+            onChange={(v: Flex.Alignment) => handleLabelProp("align", v)}
+          />
+        </Input.Item>
+        <Input.Item label="Label Direction" align="start">
+          <Direction.Select
+            value={firstNodeLabel?.direction ?? "x"}
+            onChange={(v: direction.Direction) => handleLabelProp("direction", v)}
+            yDirection="down"
+          />
+        </Input.Item>
+        <Input.Item label="Label Wrap Width" align="start">
+          <Input.Numeric
+            value={firstNodeLabel?.maxInlineSize ?? 150}
+            onChange={(v) => handleLabelProp("maxInlineSize", v)}
+            endContent="px"
+            style={LABEL_WRAP_WIDTH_STYLE}
+          />
+        </Input.Item>
+        <Input.Item label="Selection Colors" align="start">
+          <Flex.Box x>
+            {Object.entries(colorGroups).map(([hex, elements]) => (
+              <Color.Swatch
+                key={elements[0].key}
+                value={hex}
+                onChange={(v: color.Color) => {
+                  elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
+                }}
+              />
+            ))}
+          </Flex.Box>
+        </Input.Item>
+      </Flex.Box>
       <Input.Item label="Label Orientation" align="start">
         <Schematic.Symbol.SelectOrientation
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}

@@ -1361,3 +1361,22 @@ export const StateIndicatorPreview = ({
     color={colorVal}
   />
 );
+
+export interface GroupBoxProps {
+  dimensions?: { width: number; height: number };
+}
+
+export const GroupBox = createLabeled(
+  ({ dimensions }: SymbolProps<GroupBoxProps>): ReactElement => (
+    <div
+      className={CSS(DRAG_HANDLE_CLASS, CSS.B("group-box"))}
+      style={{
+        width: dimensions?.width ?? 100,
+        height: dimensions?.height ?? 100,
+      }}
+    />
+  ),
+  { grid: { allowCenter: true, allowRotate: false } },
+);
+
+export const GroupBoxPreview = (): ReactElement => <div />;

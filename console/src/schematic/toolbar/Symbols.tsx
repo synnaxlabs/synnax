@@ -525,7 +525,7 @@ interface SearchSymbolListProps {
   onSelect: (key: string) => void;
 }
 
-export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic"]);
+export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic", "group"]);
 export const ALL_STATIC_SYMBOLS = Object.values(Schematic.Symbol.REGISTRY).filter(
   (s) => !CUSTOM_VARIANTS.has(s.key),
 );

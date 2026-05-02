@@ -16,6 +16,14 @@ import {
 } from "@synnaxlabs/pluto";
 import { color, id, xy } from "@synnaxlabs/x";
 
+import {
+  auditGroups,
+  calculateGroupBoundingBox,
+  cascadeGroupDeletes,
+  expandSelectionToGroups,
+  remapGroupIds,
+  selectedGroupKeys,
+} from "@/schematic/groups";
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
 
@@ -119,7 +127,13 @@ export interface SetActiveToolbarTabPayload {
   tab: ToolbarTab;
 }
 
-export interface CopySelectionPayload {}
+export interface CopySelectionPayload {
+  key: string;
+}
+
+export interface CutSelectionPayload {
+  key: string;
+}
 
 export interface PasteSelectionPayload {
   key: string;
@@ -163,43 +177,59 @@ export interface SetSelectedSymbolGroupPayload {
   group: string;
 }
 
+const copySelectedToBuffer = (state: SliceState, layoutKey: string): void => {
+  const schematic = state.schematics[layoutKey];
+  const { nodes, edges, props } = schematic;
+  const selectedNodes = nodes.filter((node) => node.selected);
+  // Expand symbol copy to group & members
+  // (prevents stale groupId references on paste)
+  const allNodes = expandSelectionToGroups(selectedNodes, nodes, props);
+  const selectedEdges = edges.filter((edge) => edge.selected);
+  const copyBuffer: latest.CopyBuffer = {
+    nodes: allNodes,
+    edges: selectedEdges,
+    props: {},
+    pos: xy.ZERO,
+  };
+  allNodes.forEach((node) => {
+    copyBuffer.props[node.key] = props[node.key];
+  });
+  selectedEdges.forEach((edge) => {
+    copyBuffer.props[edge.key] = props[edge.key];
+  });
+  if (allNodes.length > 0) {
+    const pos = allNodes.reduce(
+      (acc, node) => xy.translate(acc, node.position),
+      xy.ZERO,
+    );
+    copyBuffer.pos = xy.scale(pos, 1 / allNodes.length);
+  }
+  state.copy = copyBuffer;
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
-    copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
-      // for each schematic, find the keys of the selected nodes and edges
-      // and add them to the copy buffer. Then get the props of each
-      // selected node and edge and add them to the copy buffer.
-      const { schematics } = state;
-      const copyBuffer: latest.CopyBuffer = {
-        nodes: [],
-        edges: [],
-        props: {},
-        pos: xy.ZERO,
-      };
-      Object.values(schematics).forEach((schematic) => {
-        const { nodes, edges, props } = schematic;
-        const selectedNodes = nodes.filter((node) => node.selected);
-        const selectedEdges = edges.filter((edge) => edge.selected);
-        copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
-        copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-        selectedNodes.forEach((node) => {
-          copyBuffer.props[node.key] = props[node.key];
-        });
-        selectedEdges.forEach((edge) => {
-          copyBuffer.props[edge.key] = props[edge.key];
-        });
-      });
-      const { nodes } = copyBuffer;
-      if (nodes.length > 0) {
-        const pos = nodes.reduce(
-          (acc, node) => xy.translate(acc, node.position),
-          xy.ZERO,
-        );
-        copyBuffer.pos = xy.scale(pos, 1 / nodes.length);
-      }
-      state.copy = copyBuffer;
+    copySelection: (
+      state,
+      { payload: { key: layoutKey } }: PayloadAction<CopySelectionPayload>,
+    ) => {
+      copySelectedToBuffer(state, layoutKey);
+    },
+    // Copies the selected nodes and edges into the copy buffer, then removes
+    // them from the schematic.
+    cutSelection: (state, { payload }: PayloadAction<CutSelectionPayload>) => {
+      const { key: layoutKey } = payload;
+      copySelectedToBuffer(state, layoutKey);
+      const schematic = state.schematics[layoutKey];
+      const { nodes, edges } = state.copy;
+      const nodeKeys = new Set(nodes.map((n) => n.key));
+      const edgeKeys = new Set(edges.map((e) => e.key));
+      schematic.nodes = schematic.nodes.filter((n) => !nodeKeys.has(n.key));
+      schematic.edges = schematic.edges.filter((e) => !edgeKeys.has(e.key));
+      nodeKeys.forEach((key) => delete schematic.props[key]);
+      edgeKeys.forEach((key) => delete schematic.props[key]);
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
       const { pos, key: layoutKey } = payload;
@@ -208,7 +238,7 @@ export const { actions, reducer } = createSlice({
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
         const key: string = id.create();
-        schematic.props[key] = state.copy.props[node.key];
+        schematic.props[key] = { ...state.copy.props[node.key] };
         keys[node.key] = key;
         return {
           ...node,
@@ -219,6 +249,7 @@ export const { actions, reducer } = createSlice({
       });
       const nextEdges = state.copy.edges.map((edge) => {
         const key: string = id.create();
+        schematic.props[key] = { ...state.copy.props[edge.key] };
         return {
           ...edge,
           key,
@@ -231,6 +262,7 @@ export const { actions, reducer } = createSlice({
         ...schematic.edges.map((edge) => ({ ...edge, selected: false })),
         ...nextEdges,
       ];
+      remapGroupIds(schematic.props, keys);
       schematic.nodes = [
         ...schematic.nodes.map((node) => ({ ...node, selected: false })),
         ...nextNodes,
@@ -297,7 +329,8 @@ export const { actions, reducer } = createSlice({
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
       const schematic = state.schematics[layoutKey];
-      if (mode === "replace") schematic.nodes = nodes;
+      if (mode === "replace")
+        schematic.nodes = cascadeGroupDeletes(schematic.nodes, nodes, schematic.props);
       else {
         const keys = nodes.map((node) => node.key);
         schematic.nodes = [
@@ -450,6 +483,57 @@ export const { actions, reducer } = createSlice({
       const { key, group } = payload;
       state.schematics[key].toolbar.selectedSymbolGroup = group;
     },
+    groupSelection: (
+      state,
+      { payload }: PayloadAction<{ key: string; props: NodeProps }>,
+    ) => {
+      const { key: layoutKey, props: groupProps } = payload;
+      const schematic = state.schematics[layoutKey];
+      const groupKeys = selectedGroupKeys(schematic.nodes, schematic.props);
+      const memberNodes = schematic.nodes.filter((n) => {
+        if (n.selected) return schematic.props[n.key]?.key !== "group";
+        const gid = schematic.props[n.key]?.groupId;
+        return gid != null && groupKeys.has(gid);
+      });
+      if (memberNodes.length < 2) return;
+      const { position, dimensions } = calculateGroupBoundingBox(memberNodes);
+      const groupKey = id.create();
+      for (const key of groupKeys) delete schematic.props[key];
+      schematic.nodes = schematic.nodes.filter((n) => !groupKeys.has(n.key));
+      schematic.nodes.push({
+        key: groupKey,
+        position,
+        selected: true,
+        zIndex: 0,
+      });
+      schematic.props[groupKey] = { ...groupProps, dimensions };
+      for (const node of memberNodes)
+        schematic.props[node.key] = {
+          ...schematic.props[node.key],
+          groupId: groupKey,
+        };
+      schematic.nodes = auditGroups(schematic.nodes, schematic.props);
+    },
+    ungroupSelection: (state, { payload }: PayloadAction<{ key: string }>) => {
+      const { key: layoutKey } = payload;
+      const schematic = state.schematics[layoutKey];
+      const groupKeysToRemove = new Set<string>();
+      for (const n of schematic.nodes) {
+        if (!n.selected) continue;
+        const p = schematic.props[n.key];
+        if (p?.key === "group") groupKeysToRemove.add(n.key);
+        if (p?.groupId != null) groupKeysToRemove.add(p.groupId);
+      }
+      if (groupKeysToRemove.size === 0) return;
+      for (const key of Object.keys(schematic.props)) {
+        const p = schematic.props[key];
+        if (p?.groupId != null && groupKeysToRemove.has(p.groupId)) delete p.groupId;
+        if (p?.key === "group" && groupKeysToRemove.has(key))
+          delete schematic.props[key];
+      }
+      schematic.nodes = schematic.nodes.filter((n) => !groupKeysToRemove.has(n.key));
+      schematic.nodes = auditGroups(schematic.nodes, schematic.props);
+    },
   },
 });
 
@@ -489,11 +573,14 @@ export const {
   setViewport,
   setEditable,
   copySelection,
+  cutSelection,
   pasteSelection,
   setViewportMode,
   setRemoteCreated,
   fixThemeContrast,
   setAuthority,
+  groupSelection,
+  ungroupSelection,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

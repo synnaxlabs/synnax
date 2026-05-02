@@ -12,11 +12,12 @@ import { useCallback } from "react";
 
 import { Triggers } from "@/triggers";
 
-type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
+type Mode = "copy" | "cut" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {
   all: [["Control", "A"]],
   copy: [["Control", "C"]],
+  cut: [["Control", "X"]],
   paste: [["Control", "V"]],
   clear: [["Escape"]],
   undo: [["Control", "Z"]],
@@ -31,6 +32,7 @@ export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
   onUndo: () => void;
   onRedo: () => void;
   onCopy: (cursor: xy.XY) => void;
+  onCut: (cursor: xy.XY) => void;
   onPaste: (cursor: xy.XY) => void;
   onClear: () => void;
   onSelectAll: () => void;
@@ -38,6 +40,7 @@ export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
 
 export const useTriggers = ({
   onCopy,
+  onCut,
   onPaste,
   onClear,
   onSelectAll,
@@ -56,11 +59,12 @@ export const useTriggers = ({
         if (mode == "undo") return onUndo();
         if (mode == "redo") return onRedo();
         if (mode == "copy") return onCopy(cursor);
+        if (mode == "cut") return onCut(cursor);
         if (mode == "paste") return onPaste(cursor);
         if (mode == "clear") return onClear();
         if (mode == "all") return onSelectAll();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
+      [onUndo, onRedo, onCopy, onCut, onPaste, onClear, onSelectAll],
     ),
   });
 };

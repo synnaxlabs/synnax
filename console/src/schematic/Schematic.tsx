@@ -19,11 +19,13 @@ import {
   Flux,
   Haul,
   Icon,
+  Menu,
   type Pluto,
   Schematic as Base,
   Status,
   Synnax,
   Theming,
+  Triggers,
   usePrevious,
   User,
   useSyncedRef,
@@ -45,9 +47,16 @@ import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import {
+  propagateGroupDrag,
+  propagateGroupSelection,
+  syncGroupHighlight,
+} from "@/schematic/groups";
+import {
   selectNodeProps,
   selectOptional,
   selectRequired,
+  useSelectCanGroup,
+  useSelectCanUngroup,
   useSelectLegendVisible,
   useSelectNodeProps,
   useSelectRequired,
@@ -57,6 +66,8 @@ import {
 import {
   clearSelection,
   copySelection,
+  cutSelection,
+  groupSelection,
   internalCreate,
   pasteSelection,
   selectAll,
@@ -71,6 +82,7 @@ import {
   setViewport,
   setViewportMode,
   type State,
+  ungroupSelection,
   ZERO_STATE,
 } from "@/schematic/slice";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
@@ -268,6 +280,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
   }, [name, prevName, layoutKey, syncDispatch]);
 
+  useEffect(
+    () => syncGroupHighlight(state.nodes, state.props),
+    [state.nodes, state.props],
+  );
+
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
   const canEdit = hasUpdatePermission && state.editable;
@@ -279,16 +296,19 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
     (nodes, changes) => {
+      let processed = propagateGroupDrag(nodes, state.nodes, state.props);
+      const hasSelection = changes.some((c) => c.type === "select");
+      if (hasSelection) processed = propagateGroupSelection(processed, state.props);
       if (
         // @ts-expect-error - Sometimes, the nodes do have dragging
-        nodes.some((n) => n.dragging) ||
-        changes.some((c) => c.type === "select")
+        processed.some((n) => n.dragging) ||
+        hasSelection
       )
         // don't remember dragging a node or selecting an element
-        syncDispatch(setNodes({ key: layoutKey, nodes }));
-      else undoableDispatch(setNodes({ key: layoutKey, nodes }));
+        syncDispatch(setNodes({ key: layoutKey, nodes: processed }));
+      else undoableDispatch(setNodes({ key: layoutKey, nodes: processed }));
     },
-    [layoutKey, syncDispatch, undoableDispatch],
+    [layoutKey, state.props, state.nodes, syncDispatch, undoableDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
@@ -414,20 +434,32 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleCopySelection = useCallback(
-    (cursor: xy.XY) =>
-      dispatch(copySelection({ pos: calculateCursorPosition(cursor) })),
-    [dispatch, calculateCursorPosition],
+    (_cursor: xy.XY) => {
+      if (!canEdit) return;
+      dispatch(copySelection({ key: layoutKey }));
+    },
+    [canEdit, dispatch, layoutKey],
+  );
+
+  const handleCutSelection = useCallback(
+    (_cursor: xy.XY) => {
+      if (!canEdit) return;
+      undoableDispatch(cutSelection({ key: layoutKey }));
+    },
+    [canEdit, undoableDispatch, layoutKey],
   );
 
   const handlePasteSelection = useCallback(
-    (cursor: xy.XY) =>
-      dispatch(
+    (cursor: xy.XY) => {
+      if (!canEdit) return;
+      undoableDispatch(
         pasteSelection({
           pos: calculateCursorPosition(cursor),
           key: layoutKey,
         }),
-      ),
-    [dispatch, calculateCursorPosition, layoutKey],
+      );
+    },
+    [canEdit, undoableDispatch, calculateCursorPosition, layoutKey],
   );
 
   const handleSelectAll = useCallback(
@@ -442,6 +474,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   Diagram.useTriggers({
     onCopy: handleCopySelection,
+    onCut: handleCutSelection,
     onPaste: handlePasteSelection,
     onSelectAll: handleSelectAll,
     onClear: handleClearSelection,
@@ -450,63 +483,199 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const canGroup = useSelectCanGroup(layoutKey);
+  const canUngroup = useSelectCanUngroup(layoutKey);
+
+  const groupDefaultProps = useMemo(
+    () => ({
+      key: "group" as const,
+      ...Base.Symbol.REGISTRY.group.defaultProps(theme),
+    }),
+    [theme],
+  );
+
+  const handleGroup = useCallback(
+    () =>
+      undoableDispatch(groupSelection({ key: layoutKey, props: groupDefaultProps })),
+    [layoutKey, undoableDispatch, groupDefaultProps],
+  );
+
+  const handleUngroup = useCallback(
+    () => undoableDispatch(ungroupSelection({ key: layoutKey })),
+    [layoutKey, undoableDispatch],
+  );
+
+  Triggers.use({
+    triggers: [
+      ["Control", "G"],
+      ["Control", "U"],
+    ],
+    region: ref,
+    loose: true,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start" || !canEdit) return;
+        if (triggers.flat().includes("U")) {
+          if (canUngroup) handleUngroup();
+        } else if (canGroup) handleGroup();
+      },
+      [canEdit, canGroup, canUngroup, handleGroup, handleUngroup],
+    ),
+  });
+
+  const canvasMenuProps = Menu.useContextMenu();
+  // React Flow doesn't select nodes on right-click, so ctx menu actions like
+  // Copy would operate on an empty selection without this.
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest<HTMLElement>("[data-id]");
+      if (nodeEl != null) {
+        const nodeKey = nodeEl.dataset.id;
+        const node = state.nodes.find((n) => n.key === nodeKey);
+        if (node != null && !node.selected) {
+          const updatedNodes = state.nodes.map((n) => ({
+            ...n,
+            selected: n.key === nodeKey,
+          }));
+          syncDispatch(setNodes({ key: layoutKey, nodes: updatedNodes }));
+        }
+      }
+      canvasMenuProps.open(e);
+    },
+    [state.nodes, layoutKey, syncDispatch, canvasMenuProps.open],
+  );
+  const canvasMenu = useCallback(
+    () => (
+      <CContextMenu.Menu>
+        <Menu.Item
+          itemKey="cut"
+          trigger={["Control", "X"]}
+          triggerIndicator
+          disabled={!canEdit}
+          onClick={() => handleCutSelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Cut />
+          Cut
+        </Menu.Item>
+        <Menu.Item
+          itemKey="copy"
+          trigger={["Control", "C"]}
+          triggerIndicator
+          disabled={!canEdit}
+          onClick={() => handleCopySelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Copy />
+          Copy
+        </Menu.Item>
+        <Menu.Item
+          itemKey="paste"
+          trigger={["Control", "V"]}
+          triggerIndicator
+          disabled={!canEdit}
+          onClick={() => handlePasteSelection(canvasMenuProps.cursor)}
+        >
+          <Icon.Paste />
+          Paste
+        </Menu.Item>
+        {canEdit && (canGroup || canUngroup) && <Menu.Divider />}
+        {canEdit && canGroup && (
+          <Menu.Item
+            itemKey="group"
+            trigger={["Control", "G"]}
+            triggerIndicator
+            onClick={handleGroup}
+          >
+            Group
+          </Menu.Item>
+        )}
+        {canEdit && canUngroup && (
+          <Menu.Item
+            itemKey="ungroup"
+            trigger={["Control", "U"]}
+            triggerIndicator
+            onClick={handleUngroup}
+          >
+            Ungroup
+          </Menu.Item>
+        )}
+        <Menu.Divider />
+        <CContextMenu.ReloadConsoleItem />
+      </CContextMenu.Menu>
+    ),
+    [
+      handleCutSelection,
+      handleCopySelection,
+      handlePasteSelection,
+      canvasMenuProps.cursor,
+      canEdit,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
+    ],
+  );
+
   return (
     <div
       ref={ref}
       onDoubleClick={handleDoubleClick}
+      onContextMenu={handleContextMenu}
       style={{ width: "inherit", height: "inherit", position: "relative" }}
     >
-      <Control.Controller
-        name={controlName}
-        authority={state.authority}
-        onStatusChange={handleControlStatusChange}
-      >
-        <Base.Schematic
-          onViewportChange={handleViewportChange}
-          viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          edges={state.edges}
-          nodes={state.nodes}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the schematic sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          onNodeClick={handleNodeClick}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
+      <Menu.ContextMenu menu={canvasMenu} {...canvasMenuProps}>
+        <Control.Controller
+          name={controlName}
+          authority={state.authority}
+          onStatusChange={handleControlStatusChange}
         >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
-          <Diagram.Background />
-          <Controls x>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
-              )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
-            </Flex.Box>
-          </Controls>
-        </Base.Schematic>
-        {legendVisible && (
-          <Control.Legend
-            position={legendPosition}
-            onPositionChange={handleLegendPositionChange}
-            colors={state.legend.colors}
-            onColorsChange={handleLegendColorsChange}
-            allowVisibleChange={false}
-          />
-        )}
-      </Control.Controller>
+          <Base.Schematic
+            onViewportChange={handleViewportChange}
+            viewportMode={mode}
+            onViewportModeChange={handleViewportModeChange}
+            edges={state.edges}
+            nodes={state.nodes}
+            // Turns out that setting the zoom value to 1 here doesn't have any negative
+            // effects on the schematic sizing and ensures that we position all the lines
+            // in the correct place.
+            viewport={{ ...state.viewport, zoom: 1 }}
+            onEdgesChange={handleEdgesChange}
+            onNodesChange={handleNodesChange}
+            onEditableChange={handleEditableChange}
+            editable={canEdit}
+            triggers={triggers}
+            onDoubleClick={handleDoubleClick}
+            onNodeClick={handleNodeClick}
+            onNodeDoubleClick={handleNodeDoubleClick}
+            fitViewOnResize={state.fitViewOnResize}
+            setFitViewOnResize={handleSetFitViewOnResize}
+            visible={visible}
+            {...dropProps}
+          >
+            <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
+            <Diagram.Background />
+            <Controls x>
+              <Diagram.SelectViewportModeControl />
+              <Diagram.FitViewControl />
+              <Flex.Box x pack>
+                {hasUpdatePermission && (
+                  <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
+                )}
+                {!state.snapshot && <ControlToggleButton control={state.control} />}
+              </Flex.Box>
+            </Controls>
+          </Base.Schematic>
+          {legendVisible && (
+            <Control.Legend
+              position={legendPosition}
+              onPositionChange={handleLegendPositionChange}
+              colors={state.legend.colors}
+              onColorsChange={handleLegendColorsChange}
+              allowVisibleChange={false}
+            />
+          )}
+        </Control.Controller>
+      </Menu.ContextMenu>
     </div>
   );
 };

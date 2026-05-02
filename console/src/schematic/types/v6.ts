@@ -10,10 +10,16 @@
 import { color, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
 
+import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
 import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
+
+export const nodePropsZ = v0.nodePropsZ.extend({
+  groupId: z.string().optional(),
+});
+export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const legendStateZ = v1.legendStateZ
   .omit({ colors: true })
@@ -26,8 +32,12 @@ const ZERO_LEGEND_STATE: LegendState = {
 };
 
 export const stateZ = v5.stateZ
-  .omit({ version: true, legend: true })
-  .extend({ version: z.literal(VERSION), legend: legendStateZ });
+  .omit({ version: true, props: true, legend: true })
+  .extend({
+    version: z.literal(VERSION),
+    props: z.record(z.string(), nodePropsZ),
+    legend: legendStateZ,
+  });
 export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
   ...v5.ZERO_STATE,
