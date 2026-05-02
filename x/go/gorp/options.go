@@ -13,6 +13,8 @@ import (
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/encoding/orc"
+	"github.com/synnaxlabs/x/kv"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 )
 
@@ -25,8 +27,16 @@ func WithCodec(codec encoding.Codec) Option {
 	return func(opts *options) { opts.Codec = codec }
 }
 
+// WithIndexObservable sets the default change source used by index observers
+// on tables opened against this DB. Per-table TableConfig.Observable still
+// takes precedence; when neither is set, the DB itself is used.
+func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
+	return func(opts *options) { opts.IndexObservable = obs }
+}
+
 type options struct {
 	encoding.Codec
+	IndexObservable observe.Observable[kv.TxReader]
 }
 
 var defaultOptions = options{Codec: orc.NewCodec(msgpack.Codec)}

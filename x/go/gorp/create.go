@@ -18,14 +18,18 @@ import (
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
-	entries   *Entries[K, E]
+	entries   Entries[K, E]
 	onUpdate  onUpdate[K, E]
 	keyPrefix []byte
+	// indexes is the set of secondary indexes that the executed query
+	// stages writes against. Nil means writes are not staged to any
+	// per-tx index delta.
+	indexes []Index[K, E]
 }
 
 // NewCreate opens a new Create query.
 func NewCreate[K Key, E Entry[K]]() Create[K, E] {
-	return Create[K, E]{entries: new(Entries[K, E])}
+	return Create[K, E]{}
 }
 
 // MergeExisting adds a function to the query that can be used to prevent the accidental
@@ -41,13 +45,13 @@ func (c Create[K, E]) MergeExisting(filter func(ctx Context, creating, existing 
 
 // Entries sets the Entries to write to the DB.
 func (c Create[K, E]) Entries(entries *[]E) Create[K, E] {
-	c.entries = multipleEntries(entries)
+	c.entries.bindMultiple(entries)
 	return c
 }
 
 // Entry sets the entry to write to the DB.
 func (c Create[K, E]) Entry(entry *E) Create[K, E] {
-	c.entries = singleEntry(entry)
+	c.entries.bindSingle(entry)
 	return c
 }
 
@@ -55,7 +59,7 @@ func (c Create[K, E]) Entry(entry *E) Create[K, E] {
 // encountered during execution.
 func (c Create[K, E]) Exec(ctx context.Context, tx Tx) error {
 	checkForNilTx("Create.Exec", tx)
-	w := wrapWriter[K, E](tx, c.keyPrefix)
+	w := wrapWriter[K, E](tx, c.keyPrefix, c.indexes)
 	if len(c.onUpdate) == 0 {
 		return w.Set(ctx, c.entries.All()...)
 	}

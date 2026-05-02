@@ -33,7 +33,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Device]{DB: db},
 		))
 		seed := v54.Device{
 			Key:        "DEV-SERIAL-001",
@@ -48,7 +48,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
-			ctx, gorp.TableConfig[device.Device]{
+			ctx, gorp.TableConfig[device.Key, device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](
@@ -79,7 +79,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		db := DeferClose(gorp.Wrap(memkv.New()))
 
 		v54Table := MustOpen(gorp.OpenTable[v54.Key, v54.Device](
-			ctx, gorp.TableConfig[v54.Device]{DB: db},
+			ctx, gorp.TableConfig[v54.Key, v54.Device]{DB: db},
 		))
 		key := "DEV-SERIAL-002"
 		seed := v54.Device{
@@ -108,7 +108,7 @@ var _ = Describe("v54 -> current Device migration", func() {
 		Expect(v54Table.NewCreate().Entry(&seed).Exec(ctx, db)).To(Succeed())
 
 		currentTable := MustOpen(gorp.OpenTable[device.Key, device.Device](
-			ctx, gorp.TableConfig[device.Device]{
+			ctx, gorp.TableConfig[device.Key, device.Device]{
 				DB: db,
 				Migrations: []migrate.Migration{
 					gorp.NewEntryMigration[device.Key, device.Key, v54.Device, device.Device](

@@ -401,3 +401,93 @@ func BenchmarkTraverseChildrenByType(b *testing.B) {
 		}
 	}
 }
+
+// populateLinkedPairs creates `count` resource pairs and a single
+// parent->child relationship between each pair. The returned slices share an
+// index: pairs[i] is parents[i] linked to children[i]. Unlike
+// populateParentsWithChildren this models a flat fan of distinct keys, which
+// is the realistic shape after a long-running test suite has accumulated many
+// independent resources.
+func (e *benchEnv) populateLinkedPairs(b *testing.B, count int) (parents, children []ontology.ID) {
+	tx := e.db.OpenTx()
+	defer func() { _ = tx.Close() }()
+	w := e.otg.NewWriter(tx)
+	parents = make([]ontology.ID, count)
+	children = make([]ontology.ID, count)
+	for i := range count {
+		parents[i] = newBenchID(fmt.Sprintf("parent-%d", i))
+		children[i] = newBenchID(fmt.Sprintf("child-%d", i))
+		if err := w.DefineResource(e.ctx, parents[i]); err != nil {
+			b.Fatalf("failed to define parent: %v", err)
+		}
+		if err := w.DefineResource(e.ctx, children[i]); err != nil {
+			b.Fatalf("failed to define child: %v", err)
+		}
+		if err := w.DefineRelationship(e.ctx, parents[i], ontology.RelationshipTypeParentOf, children[i]); err != nil {
+			b.Fatalf("failed to define relationship: %v", err)
+		}
+	}
+	if err := tx.Commit(e.ctx); err != nil {
+		b.Fatalf("failed to commit: %v", err)
+	}
+	return parents, children
+}
+
+// runDeleteBench is a per-iteration harness that opens a fresh tx, runs op,
+// and closes the tx without committing. The committed db state stays constant
+// across iterations, so every iteration scans the same N relationships.
+func runDeleteBench(b *testing.B, env *benchEnv, op func(w ontology.Writer) error) {
+	b.Helper()
+	b.ReportAllocs()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tx := env.db.OpenTx()
+		w := env.otg.NewWriter(tx)
+		if err := op(w); err != nil {
+			b.Fatalf("delete failed: %v", err)
+		}
+		_ = tx.Close()
+	}
+}
+
+func BenchmarkDeleteOutgoingRelationshipsOfType(b *testing.B) {
+	for _, count := range []int{100, 1000, 10000} {
+		b.Run(fmt.Sprintf("relationships=%d", count), func(b *testing.B) {
+			env := newBenchEnv(b)
+			defer env.close(b)
+			parents, _ := env.populateLinkedPairs(b, count)
+			target := parents[count/2]
+			runDeleteBench(b, env, func(w ontology.Writer) error {
+				return w.DeleteOutgoingRelationshipsOfType(env.ctx, target, ontology.RelationshipTypeParentOf)
+			})
+		})
+	}
+}
+
+func BenchmarkDeleteIncomingRelationshipsOfType(b *testing.B) {
+	for _, count := range []int{100, 1000, 10000} {
+		b.Run(fmt.Sprintf("relationships=%d", count), func(b *testing.B) {
+			env := newBenchEnv(b)
+			defer env.close(b)
+			_, children := env.populateLinkedPairs(b, count)
+			target := children[count/2]
+			runDeleteBench(b, env, func(w ontology.Writer) error {
+				return w.DeleteIncomingRelationshipsOfType(env.ctx, target, ontology.RelationshipTypeParentOf)
+			})
+		})
+	}
+}
+
+func BenchmarkDeleteResource(b *testing.B) {
+	for _, count := range []int{100, 1000, 10000} {
+		b.Run(fmt.Sprintf("relationships=%d", count), func(b *testing.B) {
+			env := newBenchEnv(b)
+			defer env.close(b)
+			parents, _ := env.populateLinkedPairs(b, count)
+			target := parents[count/2]
+			runDeleteBench(b, env, func(w ontology.Writer) error {
+				return w.DeleteResource(env.ctx, target)
+			})
+		})
+	}
+}

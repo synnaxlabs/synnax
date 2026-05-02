@@ -68,7 +68,7 @@ func MatchKeys(keys ...Key) Filter {
 
 // MatchNames returns a filter for roles whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Role] {
+	return func(r Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})
@@ -77,7 +77,7 @@ func MatchNames(vals ...string) Filter {
 
 // MatchInternal returns a filter for roles by their Internal field.
 func MatchInternal(v bool) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Role] {
+	return func(r Retrieve) gorp.Filter[Key, Role] {
 		return gorp.Match(func(_ gorp.Context, e *Role) (bool, error) {
 			return e.Internal == v, nil
 		})

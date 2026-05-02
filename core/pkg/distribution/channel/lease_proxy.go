@@ -154,7 +154,8 @@ func (s *Service) createAndUpdateFreeVirtual(
 	// Filter out zero keys (channels that don't exist yet)
 	existingKeys := lo.Filter(keys, func(k Key, _ int) bool { return k != 0 })
 	if len(existingKeys) > 0 {
-		if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
+		if err := s.table.NewUpdate().
+			Where(gorp.MatchKeys[Key, Channel](existingKeys...)).
 			ChangeErr(
 				func(_ gorp.Context, c Channel) (Channel, error) {
 					idx := lo.IndexOf(keys, c.Key())
@@ -266,7 +267,8 @@ func (s *Service) createAndUpdateFreeVirtual(
 	// Update existing calculated channels with their new LocalIndex values
 	if len(existingChannelsToUpdate) > 0 {
 		for _, ch := range existingChannelsToUpdate {
-			if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](ch.Key())).
+			if err := s.table.NewUpdate().
+				Where(gorp.MatchKeys[Key, Channel](ch.Key())).
 				Change(func(_ gorp.Context, c Channel) Channel {
 					c.LocalIndex = ch.LocalIndex
 					return c
@@ -280,6 +282,12 @@ func (s *Service) createAndUpdateFreeVirtual(
 	return s.maybeSetResources(ctx, tx, toCreate, opts)
 }
 
+// validateChannelNames rejects a create/rename request whose proposed names
+// either duplicate each other or collide with an existing channel under a
+// different key. Conflict detection goes through the name index via
+// MatchNames, so the query is an O(1)-per-name set lookup instead of a full
+// table scan. Uses newRetrieve to skip the overflow validator, which would
+// otherwise deadlock against the write lock held by createGateway.
 func (s *Service) validateChannelNames(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -306,11 +314,10 @@ func (s *Service) validateChannelNames(
 		return nil
 	}
 	var conflictingChannels []Channel
-	if err := s.table.NewRetrieve().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			return namesSeen.Contains(c.Name), nil
-		})).
-		Entries(&conflictingChannels).Exec(ctx, tx); err != nil {
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&conflictingChannels).
+		Exec(ctx, tx); err != nil {
 		return errors.Skip(err, query.ErrNotFound)
 	}
 	nameConflicts := make(map[string]int, len(conflictingChannels))
@@ -343,6 +350,14 @@ func (s *Service) validateFreeVirtual(channels *[]Channel) error {
 	return nil
 }
 
+// retrieveExistingAndAssignKeys looks up any existing channels whose names
+// match the input set and, when retrieveIfNameExists is true, replaces the
+// input channels in place with the existing DB records. Remaining slots get
+// fresh local keys allocated from the counter.
+//
+// Lookup goes through the name index via MatchNames, so it's O(1) per name
+// instead of a full table scan. Uses newRetrieve to skip the overflow
+// validator (see validateChannels for the deadlock reason).
 func (s *Service) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -350,25 +365,25 @@ func (s *Service) retrieveExistingAndAssignKeys(
 	counter *counter,
 	retrieveIfNameExists bool,
 ) (toCreate []Channel, err error) {
-	// This is the value we would increment by if RetrieveIfNameExists is false or
-	// if we don't find any names that already exist.
 	incCounterBy := LocalKey(len(*channels))
 	if retrieveIfNameExists {
 		names := Names(*channels)
-		if err = s.table.NewRetrieve().Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			v := lo.IndexOf(names, c.Name)
-			exists := v != -1
-			if exists {
-				// If it exists, replace it with the existing channel and decrement the
-				// number of channels we need to create.
-				(*channels)[v] = *c
-				if incCounterBy != 0 {
-					incCounterBy--
-				}
+		var existing []Channel
+		if err = s.newRetrieve().
+			Where(MatchNames(names...)).
+			Entries(&existing).
+			Exec(ctx, tx); err != nil {
+			return nil, errors.Skip(err, query.ErrNotFound)
+		}
+		for _, e := range existing {
+			idx := lo.IndexOf(names, e.Name)
+			if idx < 0 {
+				continue
 			}
-			return exists, nil
-		})).Exec(ctx, tx); err != nil {
-			return
+			(*channels)[idx] = e
+			if incCounterBy != 0 {
+				incCounterBy--
+			}
 		}
 	}
 	nextCounterValue, err := counter.add(ctx, incCounterBy)
@@ -393,28 +408,52 @@ func (s *Service) retrieveExistingAndAssignKeys(
 	return toCreate, nil
 }
 
+// deleteOverwritten handles the OverwriteIfNameExistsAndDifferentProperties
+// create option: for each input channel whose name already exists in the DB
+// under a different key, either reuse the existing record (if the input is
+// property-equivalent modulo keys) or drop it so the create can proceed.
+//
+// Conflict lookup goes through the name index via MatchNames; the overwrite
+// vs reuse decision happens in a plain loop instead of inside a gorp.Match
+// predicate closure.
 func (s *Service) deleteOverwritten(
 	ctx context.Context,
 	tx gorp.Tx,
 	channels *[]Channel,
 ) error {
-	storageToDelete := make([]ts.ChannelKey, 0, len(*channels))
-	if err := s.table.NewDelete().
-		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
-			ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
-				return ch.Name == c.Name && ch.Key() != c.Key()
-			})
-			equal := ch.Equals(*c, "LocalKey", "LocalIndex", "Leaseholder")
-			shouldDelete := found && !equal
-			if shouldDelete {
-				storageToDelete = append(storageToDelete, c.Storage().Key)
-			}
-			if equal {
-				(*channels)[i] = *c
-			}
-			return shouldDelete, nil
-		})).Exec(ctx, tx); err != nil {
-		return err
+	names := Names(*channels)
+	if len(names) == 0 {
+		return nil
+	}
+	var existing []Channel
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&existing).
+		Exec(ctx, tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
+	}
+	keysToDelete := make(Keys, 0, len(existing))
+	storageToDelete := make([]ts.ChannelKey, 0, len(existing))
+	for _, ex := range existing {
+		ch, i, found := lo.FindIndexOf(*channels, func(ch Channel) bool {
+			return ch.Name == ex.Name && ch.Key() != ex.Key()
+		})
+		if !found {
+			continue
+		}
+		if ch.Equals(ex, "LocalKey", "LocalIndex", "Leaseholder") {
+			(*channels)[i] = ex
+			continue
+		}
+		keysToDelete = append(keysToDelete, ex.Key())
+		storageToDelete = append(storageToDelete, ex.Storage().Key)
+	}
+	if len(keysToDelete) > 0 {
+		if err := s.table.NewDelete().
+			Where(gorp.MatchKeys[Key, Channel](keysToDelete...)).
+			Exec(ctx, tx); err != nil {
+			return err
+		}
 	}
 	return s.cfg.TSChannel.DeleteChannels(storageToDelete)
 }
@@ -511,12 +550,16 @@ func (s *Service) createRemote(
 	return res.Channels, nil
 }
 
+// deleteByName resolves the provided names to keys via the name index and
+// delegates to delete. newRetrieve bypasses the overflow validator for the
+// same reason the rest of the internal path does.
 func (s *Service) deleteByName(ctx context.Context, tx gorp.Tx, names []string, allowInternal bool) error {
 	var res []Channel
-	if err := s.table.NewRetrieve().Entries(&res).Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
-		return lo.Contains(names, c.Name), nil
-	})).Exec(ctx, tx); err != nil {
-		return err
+	if err := s.newRetrieve().
+		Where(MatchNames(names...)).
+		Entries(&res).
+		Exec(ctx, tx); err != nil {
+		return errors.Skip(err, query.ErrNotFound)
 	}
 	keys := KeysFromChannels(res)
 	return s.delete(ctx, tx, keys, allowInternal)
@@ -525,13 +568,12 @@ func (s *Service) deleteByName(ctx context.Context, tx gorp.Tx, names []string, 
 func (s *Service) delete(ctx context.Context, tx gorp.Tx, keys Keys, allowInternal bool) error {
 	if !allowInternal {
 		internalChannels := make([]Channel, 0, len(keys))
-		if err := s.table.NewRetrieve().Where(gorp.MatchKeys[Key, Channel](keys...)).
-			Where(gorp.Match(func(ctx gorp.Context, c *Channel) (bool, error) {
-				return c.Internal, nil
-			})).
+		if err := s.newRetrieve().
+			Where(MatchKeys(keys...)).
+			Where(MatchInternal(true)).
 			Entries(&internalChannels).
 			Exec(ctx, tx); err != nil {
-			return err
+			return errors.Skip(err, query.ErrNotFound)
 		}
 		if len(internalChannels) > 0 {
 			names := make([]string, 0, len(internalChannels))
@@ -682,13 +724,15 @@ func channelNameUpdater(allowInternal bool, keys Keys, names []string) gorp.Chan
 }
 
 func (s *Service) renameFreeVirtual(ctx context.Context, tx gorp.Tx, channels Keys, names []string, allowInternal bool) error {
-	return s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](channels...)).
+	return s.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](channels...)).
 		ChangeErr(channelNameUpdater(allowInternal, channels, names)).
 		Exec(ctx, tx)
 }
 
 func (s *Service) renameGateway(ctx context.Context, tx gorp.Tx, keys Keys, names []string, allowInternal bool) error {
-	if err := s.table.NewUpdate().Where(gorp.MatchKeys[Key, Channel](keys...)).
+	if err := s.table.NewUpdate().
+		Where(gorp.MatchKeys[Key, Channel](keys...)).
 		ChangeErr(channelNameUpdater(allowInternal, keys, names)).
 		Exec(ctx, tx); err != nil {
 		return err

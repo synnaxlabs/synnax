@@ -75,7 +75,7 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	v0Mig := v0.Migration()
-	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Policy]{
+	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[uuid.UUID, Policy]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 		Migrations: []migrate.Migration{

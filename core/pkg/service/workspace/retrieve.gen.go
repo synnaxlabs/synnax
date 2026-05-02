@@ -75,7 +75,7 @@ func MatchKeys(keys ...Key) Filter {
 
 // MatchAuthor returns a filter for workspaces whose Author matches the provided value.
 func MatchAuthor(v uuid.UUID) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Workspace] {
+	return func(r Retrieve) gorp.Filter[Key, Workspace] {
 		return gorp.Match(func(_ gorp.Context, e *Workspace) (bool, error) {
 			return e.Author == v, nil
 		})

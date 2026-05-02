@@ -59,7 +59,7 @@ func OpenKV(ctx context.Context, cfgs ...KVConfig) (*KV, error) {
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable(ctx, gorp.TableConfig[SecureCredentials]{
+	table, err := gorp.OpenTable(ctx, gorp.TableConfig[string, SecureCredentials]{
 		DB:              cfg.DB,
 		Instrumentation: cfg.Instrumentation,
 	})

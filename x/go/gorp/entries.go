@@ -172,14 +172,6 @@ func (e *Entries[K, E]) Bound() bool {
 // IsMultiple returns true if multiple entries were bound to the query.
 func (e *Entries[K, E]) IsMultiple() bool { return e.isMultiple }
 
-func singleEntry[K Key, E Entry[K]](entry *E) *Entries[K, E] {
-	return &Entries[K, E]{entry: entry, isMultiple: false}
-}
-
-func multipleEntries[K Key, E Entry[K]](entries *[]E) *Entries[K, E] {
-	return &Entries[K, E]{entries: entries, isMultiple: true}
-}
-
 func (e *Entries[K, E]) bindMultiple(entries *[]E) {
 	e.entries = entries
 	e.entry = nil

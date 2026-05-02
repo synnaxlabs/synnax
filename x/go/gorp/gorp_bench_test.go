@@ -69,7 +69,7 @@ func setupBenchDB(b *testing.B) *gorp.DB {
 func openBenchTable[K gorp.Key, E gorp.Entry[K]](b *testing.B) *gorp.Table[K, E] {
 	b.Helper()
 	db := setupBenchDB(b)
-	t, err := gorp.OpenTable[K, E](b.Context(), gorp.TableConfig[E]{DB: db})
+	t, err := gorp.OpenTable[K, E](b.Context(), gorp.TableConfig[K, E]{DB: db})
 	if err != nil {
 		b.Fatal(err)
 	}

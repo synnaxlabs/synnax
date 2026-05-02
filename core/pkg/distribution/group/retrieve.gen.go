@@ -68,7 +68,7 @@ func MatchKeys(keys ...Key) Filter {
 
 // MatchNames returns a filter for groups whose Name matches any of the provided values.
 func MatchNames(vals ...string) Filter {
-	return func(_ Retrieve) gorp.Filter[Key, Group] {
+	return func(r Retrieve) gorp.Filter[Key, Group] {
 		return gorp.Match(func(_ gorp.Context, e *Group) (bool, error) {
 			return lo.Contains(vals, e.Name), nil
 		})

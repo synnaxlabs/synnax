@@ -148,6 +148,50 @@ var _ = Describe("Retrieve", func() {
 			})
 		})
 
+		Context("Composed with another filter", func() {
+			// When MatchKeys is layered with another filter (Match, MatchRaw,
+			// WherePrefix, etc.), Exec must treat missing keys as empty slots
+			// rather than fail with ErrNotFound. The ontology Retrieve
+			// pipeline depends on this: between clauses it injects
+			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
+			// transient miss (orphaned relationship, freshly-deleted
+			// resource) must not blow up the whole traversal.
+			It("Should NOT return ErrNotFound when MatchKeys is combined with a Match filter and some keys are missing", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+					Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return true, nil })).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal(entries[:2]))
+			})
+			It("Should NOT return ErrNotFound when MatchKeys is combined with a Match filter that further narrows the result", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+					Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil })).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal(entries[1:2]))
+			})
+			It("Should NOT return ErrNotFound when MatchKeys is combined with a MatchRaw filter and some keys are missing", func(ctx SpecContext) {
+				var res []entry
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
+					WhereRaw(func(_, _ []byte) (bool, error) { return true, nil }).
+					Entries(&res).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(res).To(Equal(entries[0:1]))
+			})
+			It("Should still return ErrNotFound when a single-entry bound query has no matches", func(ctx SpecContext) {
+				Expect(gorp.NewRetrieve[int32, entry]().
+					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
+					Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return false, nil })).
+					Entry(&entry{}).
+					Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
+			})
+		})
+
 		Context("Single Entry", func() {
 			It("Should retrieve the entry by key", func(ctx SpecContext) {
 				res := &entry{}
@@ -403,7 +447,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, data []byte) (bool, error) {
 					return bytes.Contains(data, []byte("data")), nil
 				}).
 				Exec(ctx, tx),
@@ -415,7 +459,7 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return false, nil
 				}).
 				Exec(ctx, tx),
@@ -427,12 +471,24 @@ var _ = Describe("Retrieve", func() {
 			var res []entry
 			Expect(gorp.NewRetrieve[int32, entry]().
 				Entries(&res).
-				WhereRaw(func(data []byte) (bool, error) {
+				WhereRaw(func(_, _ []byte) (bool, error) {
 					return true, errors.New("cat")
 				}).
 				Exec(ctx, tx),
 			).To(MatchError(ContainSubstring("cat")))
 			Expect(res).To(BeEmpty())
+		})
+
+		It("Should expose the pebble key to the filter", func(ctx SpecContext) {
+			var res []entry
+			Expect(gorp.NewRetrieve[int32, entry]().
+				Entries(&res).
+				WhereRaw(func(key, _ []byte) (bool, error) {
+					return len(key) > 0, nil
+				}).
+				Exec(ctx, tx),
+			).To(Succeed())
+			Expect(res).To(HaveLen(10))
 		})
 	})
 

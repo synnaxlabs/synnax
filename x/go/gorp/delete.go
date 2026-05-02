@@ -21,6 +21,10 @@ import (
 type Delete[K Key, E Entry[K]] struct {
 	retrieve Retrieve[K, E]
 	guards   guards[K, E]
+	// indexes is the set of secondary indexes that the executed query
+	// stages deletions against. Nil means deletions are not staged to
+	// any per-tx index delta.
+	indexes []Index[K, E]
 }
 
 // NewDelete opens a new Delete query.
@@ -32,6 +36,24 @@ func NewDelete[K Key, E Entry[K]]() Delete[K, E] {
 // compose MatchKeys into the filter (e.g. d.Where(MatchKeys(1, 2, 3))).
 func (d Delete[K, E]) Where(filter Filter[K, E]) Delete[K, E] {
 	d.retrieve = d.retrieve.Where(filter)
+	return d
+}
+
+// WherePrefix narrows the underlying scan to entries whose pebble key starts
+// with the given prefix. Combine with Where to skip ranges of the keyspace
+// that cannot possibly match.
+func (d Delete[K, E]) WherePrefix(prefix []byte) Delete[K, E] {
+	d.retrieve = d.retrieve.WherePrefix(prefix)
+	return d
+}
+
+// WhereRaw adds a raw byte filter that runs against each entry's pebble key
+// and encoded value before decoding. Returning false skips the entry without
+// allocating a decoded value, so a key-shaped predicate can drop most rows
+// without paying decode cost. Use in tandem with WherePrefix when the
+// keyspace itself can be narrowed.
+func (d Delete[K, E]) WhereRaw(filter RawFilter) Delete[K, E] {
+	d.retrieve = d.retrieve.WhereRaw(filter)
 	return d
 }
 
@@ -51,7 +73,7 @@ func (d Delete[K, E]) Guard(filter GuardFunc[K, E]) Delete[K, E] {
 // Delete will assume the missing keys do not need to be deleted and continue
 // with the keys that do exist.
 func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
-	checkForNilTx("DeleteChannel.Exec", tx)
+	checkForNilTx("Delete.Exec", tx)
 	var (
 		queryCtx = Context{Context: ctx, Tx: tx}
 		entries  []E
@@ -64,7 +86,7 @@ func (d Delete[K, E]) Exec(ctx context.Context, tx Tx) error {
 		return err
 	}
 	keys := lo.Map(entries, func(entry E, _ int) K { return entry.GorpKey() })
-	return wrapWriter[K, E](tx, d.retrieve.keyPrefix).Delete(ctx, keys...)
+	return wrapWriter[K, E](tx, d.retrieve.keyPrefix, d.indexes).Delete(ctx, keys...)
 }
 
 type GuardFunc[K Key, E Entry[K]] = func(ctx Context, entry E) error
