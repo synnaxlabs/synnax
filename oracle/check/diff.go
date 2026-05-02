@@ -19,9 +19,11 @@ import (
 // are generated files where every byte difference is a real change. We
 // don't need git's heuristics to surface a useful preview to the user.
 //
-// The output is bounded to maxLines total to keep terminal output sane;
-// when truncated the trailing line records how many more diff lines were
-// elided. Empty if want == got.
+// The output is bounded to roughly maxLines diff operations to keep
+// terminal output sane; substitutions count as one operation but emit
+// two lines, so worst-case output is 2*maxLines diff lines. When
+// truncated the trailing line records how many source lines on each
+// side remain unprocessed. Empty if want == got.
 func unifiedDiff(label, want, got string, maxLines int) string {
 	if want == got {
 		return ""
@@ -40,7 +42,7 @@ func unifiedDiff(label, want, got string, maxLines int) string {
 	i, j := 0, 0
 	for i < len(wantLines) || j < len(gotLines) {
 		if emitted >= limit {
-			fmt.Fprintf(&sb, "... %d additional line(s) elided\n",
+			fmt.Fprintf(&sb, "... up to %d source line(s) remain unprocessed\n",
 				(len(wantLines)-i)+(len(gotLines)-j))
 			break
 		}
