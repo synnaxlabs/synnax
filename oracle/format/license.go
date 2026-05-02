@@ -165,12 +165,16 @@ func stripLineHeader(content []byte, prefix string) []byte {
 	if !bytes.Contains(lines[0], []byte("Copyright")) || !bytes.Contains(lines[0], []byte("Synnax Labs")) {
 		return content
 	}
-	// Walk forward until we leave the contiguous prefix-or-blank
-	// comment block. end is the first non-header line index, or
-	// len(lines) when the file is nothing but header.
+	// Walk forward through the contiguous comment block. The license
+	// header is one block of // lines (some possibly //-only blanks)
+	// terminated by a non-comment line. We stop there, then consume a
+	// single blank separator if one follows. Without the blank-line
+	// stop, this loop would chew through any subsequent comment block
+	// (e.g., a protoc-gen-go "Code generated" banner) and silently
+	// strip it along with the stale header.
 	end := len(lines)
 	for i, line := range lines {
-		if !bytes.HasPrefix(line, []byte(prefix)) && len(line) != 0 {
+		if !bytes.HasPrefix(line, []byte(prefix)) {
 			end = i
 			break
 		}
