@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type destructor } from "@synnaxlabs/x";
-import { useCallback, useRef, useSyncExternalStore } from "react";
+import { useCallback, useRef } from "react";
+import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
@@ -30,60 +31,35 @@ export interface CreateSelectorParams<
 
 export type UseSelect<Args extends {}, Selected> = (args: Args) => Selected;
 
-export const createSelector = <
-  ScopedStore extends base.Store,
-  Args extends {},
-  Selected,
->(
-  params: CreateSelectorParams<ScopedStore, Args, Selected>,
-): UseSelect<Args, Selected> => {
-  const equal = params.equal ?? Object.is;
-
-  return (args: Args): Selected => {
+export const createSelector =
+  <ScopedStore extends base.Store, Args extends {}, Selected>(
+    params: CreateSelectorParams<ScopedStore, Args, Selected>,
+  ): UseSelect<Args, Selected> =>
+  (args: Args): Selected => {
     const store = useStore<ScopedStore>();
     const memoArgs = useMemoDeepEqual(args);
-
-    // version is bumped by subscribe's notify wrapper. getSnapshot only
-    // re-evaluates select when the version changes, preventing infinite
-    // re-render loops when select returns new object references from
-    // unchanged store data.
-    const cache = useRef<{
-      version: number;
-      args: Args;
-      selected: Selected;
-    } | null>(null);
-    const version = useRef(0);
+    const versionRef = useRef(0);
 
     const subscribe = useCallback(
       (onStoreChange: () => void) =>
         params.subscribe(store, memoArgs, () => {
-          version.current++;
+          versionRef.current++;
           onStoreChange();
         }),
       [store, memoArgs],
     );
 
-    const getSnapshot = useCallback((): Selected => {
-      const prev = cache.current;
-      if (prev !== null && prev.version === version.current && prev.args === memoArgs)
-        return prev.selected;
-      const nextSelected = params.select(store, memoArgs);
-      if (prev !== null && equal(nextSelected, prev.selected)) {
-        cache.current = {
-          version: version.current,
-          args: memoArgs,
-          selected: prev.selected,
-        };
-        return prev.selected;
-      }
-      cache.current = {
-        version: version.current,
-        args: memoArgs,
-        selected: nextSelected,
-      };
-      return nextSelected;
-    }, [store, memoArgs]);
+    const getSnapshot = useCallback(() => versionRef.current, []);
+    const selector = useCallback(
+      () => params.select(store, memoArgs),
+      [store, memoArgs],
+    );
 
-    return useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+    return useSyncExternalStoreWithSelector(
+      subscribe,
+      getSnapshot,
+      undefined,
+      selector,
+      params.equal,
+    );
   };
-};
