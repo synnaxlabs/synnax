@@ -89,7 +89,7 @@ const navigateToLinkedSchematic = async (
   placeLayout: Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(create({ ...s }));
+  placeLayout(create({ ...s, remoteCreated: true }));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
