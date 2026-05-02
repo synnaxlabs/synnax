@@ -43,7 +43,6 @@ Gates:
   format       schemas are canonically formatted
   analyze      schemas pass semantic analysis (errors and warnings surfaced)
   generated    on-disk generated files match what 'oracle sync' would produce
-  orphans      no abandoned generated files remain on disk
   cache        sync cache is internally consistent
 
 Exit codes:
@@ -52,7 +51,6 @@ Exit codes:
   10  format drift
   11  analyzer errors
   12  generated drift
-  13  orphan files
   14  cache incoherence
 
 Examples:
@@ -69,7 +67,27 @@ Examples:
 		"Include unified diffs in drift findings")
 	cmd.Flags().Bool(checkWarningsAsErrorsFlag, false,
 		"Treat analyzer warnings as errors")
-	cmd.RunE = runCheck
+	// A failed gate is a normal exit - the user does not want cobra
+	// dumping the usage block underneath the gate findings, nor a
+	// duplicate "Error: ..." line repeating what the renderer already
+	// printed. The exit code (set by Execute via exitCodeError) is the
+	// machine-readable signal; the rendered report is the human one.
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		err := runCheck(cmd, args)
+		if err == nil {
+			return nil
+		}
+		// Gate failures already rendered via check.Render; suppress the
+		// duplicate. Any other error (no schemas, repo not git, render
+		// failure) is unexpected and gets printed once here so the user
+		// sees what went wrong.
+		if _, ok := err.(*exitCodeError); !ok {
+			printError(err.Error())
+		}
+		return err
+	}
 	return cmd
 }
 
@@ -131,7 +149,7 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 		}
 	}
 	var cache *format.Cache
-	if wantedGates.has("orphans") || wantedGates.has("cache") {
+	if wantedGates.has("cache") {
 		cache = loadCheckCache(repoRoot)
 	}
 
@@ -151,18 +169,6 @@ func runCheck(cmd *cobra.Command, _ []string) error {
 	return nil
 }
 
-// migrateOwnedPatterns lists generated-file basenames owned by the
-// migrate plugin (`oracle migrate`) rather than the regular sync
-// pipeline. The orphan gate skips these so it does not flag migration
-// artifacts as drift.
-//
-// This list will go away once the check pipeline runs the migrate
-// plugin alongside the sync registry; until then, it is the single
-// source of truth for migrate-owned file shapes.
-var migrateOwnedPatterns = []string{
-	"migrate_auto.gen.*",
-}
-
 // buildCheckers wires the canonical gate set. The order matters and is
 // part of the documented contract: format runs before analyze runs
 // before generated, etc.
@@ -175,7 +181,6 @@ func buildCheckers(
 		check.NewFormatGate(),
 		check.NewAnalyzeGate(warningsAsErrors),
 		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
-		check.NewOrphanGate(cache).WithIgnores(migrateOwnedPatterns...),
 		check.NewCacheGate(cache),
 	}
 }

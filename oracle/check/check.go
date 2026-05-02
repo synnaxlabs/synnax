@@ -153,12 +153,12 @@ type Report struct {
 // on these to attribute failures. Codes are stable; never re-number.
 //
 // The values intentionally start at 10 to leave 1 for "internal error" and
-// 2 for cobra's usage-error default.
+// 2 for cobra's usage-error default. 13 is reserved for a future orphan
+// gate; do not reuse.
 var FailureCodes = map[string]int{
 	"format":    10,
 	"analyze":   11,
 	"generated": 12,
-	"orphans":   13,
 	"cache":     14,
 }
 

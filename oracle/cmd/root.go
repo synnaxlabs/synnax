@@ -31,6 +31,15 @@ func NewRootCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return cmd.Help()
 		},
+		// A failed RunE is a normal command outcome (e.g. `check`
+		// reporting drift, `sync` hitting a generation error). The
+		// rendered output above the error already says everything the
+		// user needs to know; cobra's default usage dump and duplicate
+		// "Error: ..." line just add noise. Subcommands that want to
+		// print their error explicitly do so via printError; the rest
+		// rely on the exit code carried by exitCodeError.
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 	rootCmd.Version = BuildTime
 	configureRootFlags(rootCmd)

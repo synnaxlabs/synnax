@@ -140,19 +140,6 @@ func (c *Cache) PutStamp(key, value string) {
 	c.data.Stamps[key] = value
 }
 
-// EntryKeys returns the repo-relative paths of every cached entry. Used
-// by check.OrphanGate to compare cached entries against the current
-// run's produced set; not used during normal sync.
-func (c *Cache) EntryKeys() []string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	keys := make([]string, 0, len(c.data.Entries))
-	for k := range c.data.Entries {
-		keys = append(keys, k)
-	}
-	return keys
-}
-
 // PruneTo drops every entry whose key is not in keep. This removes
 // stale entries for files that are no longer generated.
 func (c *Cache) PruneTo(keep set.Set[string]) {
