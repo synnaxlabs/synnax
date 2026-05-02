@@ -7,4 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as diagram from "@/vis/diagram/aether/external";
+export * as Controls from "@/vis/diagram/controls/external";

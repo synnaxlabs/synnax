@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as diagram from "@/vis/diagram/aether/external";
+import { Background as Base } from "@xyflow/react";
+import { type ReactElement } from "react";
+
+import { useContext } from "@/vis/diagram/Context";
+
+export const Background = (): ReactElement | null => {
+  const { editable } = useContext();
+  return editable ? <Base /> : null;
+};

@@ -12,7 +12,9 @@ import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
+  type EdgeProps,
   type NodeProps,
+  type Props,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -55,12 +57,13 @@ export const selectSelectedElementDigests = (
 ): ElementDigest[] => {
   const schematic = selectOptional(state, layoutKey);
   if (schematic == null) return [];
+  const selected = new Set(schematic.selected);
   return [
     ...schematic.nodes
-      .filter((node) => node.selected)
+      .filter((node) => selected.has(node.key))
       .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
     ...schematic.edges
-      .filter((edge) => edge.selected)
+      .filter((edge) => selected.has(edge.key))
       .map<ElementDigest>((edge) => ({ key: edge.key, type: "edge" })),
   ];
 };
@@ -82,6 +85,7 @@ export interface EdgeElementInfo {
   key: string;
   type: "edge";
   edge: Diagram.Edge;
+  props: EdgeProps;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -92,20 +96,22 @@ export const selectSelectedElementsProps = (
 ): ElementInfo[] => {
   const schematic = selectOptional(state, layoutKey);
   if (schematic == null) return [];
+  const selected = new Set(schematic.selected);
   const nodes: ElementInfo[] = schematic.nodes
-    .filter((node) => node.selected)
+    .filter((node) => selected.has(node.key) && schematic.props[node.key] != null)
     .map((node) => ({
       key: node.key,
       type: "node",
       node,
-      props: schematic.props[node.key] ?? {},
+      props: schematic.props[node.key] as NodeProps,
     }));
   const edges: ElementInfo[] = schematic.edges
-    .filter((edge) => edge.selected)
+    .filter((edge) => selected.has(edge.key) && schematic.props[edge.key] != null)
     .map((edge) => ({
       key: edge.key,
       type: "edge",
       edge,
+      props: schematic.props[edge.key] as EdgeProps,
     }));
   return [...nodes, ...edges];
 };
@@ -170,7 +176,8 @@ export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps | undefined => selectOptional(state, layoutKey)?.props[key];
+): NodeProps | undefined =>
+  selectOptional(state, layoutKey)?.props[key] as NodeProps | undefined;
 
 export const useSelectNodeProps = (
   layoutKey: string,
@@ -255,6 +262,45 @@ export const selectAuthority = (state: StoreState, key: string): number | undefi
 
 export const useSelectAuthority = (key: string): number | undefined =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
+
+export const selectSelected = (state: StoreState, key: string): string[] =>
+  selectOptional(state, key)?.selected ?? [];
+
+export const useSelectSelected = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
+
+export const selectElementProps = (
+  state: StoreState,
+  layoutKey: string,
+  key: string,
+): Props | undefined => selectOptional(state, layoutKey)?.props[key];
+
+export const useSelectElementProps = (
+  layoutKey: string,
+  key: string,
+): Props | undefined =>
+  useMemoSelect(
+    (state: StoreState) => selectElementProps(state, layoutKey, key),
+    [layoutKey, key],
+  );
+
+export const selectEdgeProps = (
+  state: StoreState,
+  layoutKey: string,
+  key: string,
+): EdgeProps | undefined => {
+  const props = selectElementProps(state, layoutKey, key);
+  return props as EdgeProps | undefined;
+};
+
+export const useSelectEdgeProps = (
+  layoutKey: string,
+  key: string,
+): EdgeProps | undefined =>
+  useMemoSelect(
+    (state: StoreState) => selectEdgeProps(state, layoutKey, key),
+    [layoutKey, key],
+  );
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
   selectRequired(state, key).toolbar.selectedSymbolGroup;

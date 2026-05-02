@@ -373,15 +373,40 @@ export const FourWayValve = ({
       className={CSS(CSS.B("four-way-valve"), className)}
     >
       <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation="left" left={12.037} top={50} id="1" />
-        <Handle location="right" orientation="left" left={87.963} top={50} id="2" />
-        <Handle location="top" orientation="left" left={50} top={7.2916} id="3" />
-        <Handle location="bottom" orientation="left" left={50} top={92.6084} id="4" />
+        <Handle
+          location="left"
+          orientation={orientation}
+          left={12.037}
+          top={50}
+          id="1"
+        />
+        <Handle
+          location="right"
+          orientation={orientation}
+          left={87.963}
+          top={50}
+          id="2"
+        />
+        <Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={7.2916}
+          id="3"
+        />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={92.6084}
+          id="4"
+        />
       </HandleBoundary>
       <InternalSVG
         dimensions={{ width: 108, height: 96 }}
         color={colorVal}
         scale={scale}
+        orientation={orientation}
       >
         <Path
           d="M3.02937 72.7038C2.50936 73.1041 2.50936 73.8883 3.02937 74.2886L7.14001 77.453C7.79757 77.9592 8.75 77.4904 8.75 76.6606V70.3318C8.75 69.502 7.79757 69.0332 7.14001 69.5394L3.02937 72.7038Z"
@@ -3019,26 +3044,6 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           </div>
         </div>
       </div>
-      <svg
-        style={{ visibility: "hidden", position: "absolute" }}
-        width="0"
-        height="0"
-        xmlns="http://www.w3.org/2000/svg"
-        version="1.1"
-      >
-        <defs>
-          <filter id="goo">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
-            <feColorMatrix
-              in="blur"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
-              result="goo"
-            />
-            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
-          </filter>
-        </defs>
-      </svg>
       <HandleBoundary orientation={orientation}>
         <Handle
           location="left"
@@ -3059,6 +3064,26 @@ export const OffPageReference: React.FC<OffPageReferenceProps> = ({
           id="2"
         />
       </HandleBoundary>
+      <svg
+        style={{ visibility: "hidden", position: "absolute" }}
+        width="0"
+        height="0"
+        xmlns="http://www.w3.org/2000/svg"
+        version="1.1"
+      >
+        <defs>
+          <filter id="goo">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur" />
+            <feColorMatrix
+              in="blur"
+              mode="matrix"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9"
+              result="goo"
+            />
+            <feComposite in="SourceGraphic" in2="goo" operator="atop" />
+          </filter>
+        </defs>
+      </svg>
     </Div>
   );
 };

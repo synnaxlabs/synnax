@@ -538,6 +538,109 @@ const findNonTargetIdx = (
     : segments.findIndex(internalCB);
 };
 
+const ROTATION_COUNT: Record<location.Outer, number> = {
+  left: 0,
+  top: 1,
+  right: 2,
+  bottom: 3,
+};
+
+export const resolveOrientation = (
+  nodeOrientation: location.Outer,
+  baseLocation: location.Outer,
+): location.Outer => {
+  let result = baseLocation;
+  for (let i = 0; i < ROTATION_COUNT[nodeOrientation]; i++)
+    result = location.rotate(result, "clockwise");
+  return result;
+};
+
+export interface BuildNewFromStateProps {
+  sourcePos: xy.XY;
+  targetPos: xy.XY;
+  sourceMeasured?: { width: number; height: number };
+  targetMeasured?: { width: number; height: number };
+  sourceOrientation: location.Outer;
+  targetOrientation: location.Outer;
+}
+
+export const buildNewFromState = ({
+  sourcePos,
+  targetPos,
+  sourceMeasured,
+  targetMeasured,
+  sourceOrientation,
+  targetOrientation,
+}: BuildNewFromStateProps): Segment[] => {
+  const sourceBox =
+    sourceMeasured != null ? box.construct(sourcePos, sourceMeasured) : box.ZERO;
+  const targetBox =
+    targetMeasured != null ? box.construct(targetPos, targetMeasured) : box.ZERO;
+  return buildNew({
+    sourcePos,
+    targetPos,
+    sourceOrientation,
+    targetOrientation,
+    sourceBox,
+    targetBox,
+  });
+};
+
+export interface NodePositionChange {
+  key: string;
+  newPos: xy.XY;
+}
+
+export interface EdgeSegmentUpdate {
+  key: string;
+  segments: Segment[];
+}
+
+export interface UpdateSegmentsForPositionChangesProps {
+  nodes: Array<{ key: string; position: xy.XY }>;
+  edges: Array<{
+    key: string;
+    source: { node: string };
+    target: { node: string };
+  }>;
+  props: Record<string, { segments?: Segment[] } | undefined>;
+  changes: NodePositionChange[];
+}
+
+export const updateSegmentsForPositionChanges = ({
+  nodes,
+  edges,
+  props,
+  changes,
+}: UpdateSegmentsForPositionChangesProps): EdgeSegmentUpdate[] => {
+  const deltas = new Map<string, xy.XY>();
+  for (const change of changes) {
+    const node = nodes.find((n) => n.key === change.key);
+    if (node != null)
+      deltas.set(change.key, xy.translation(node.position, change.newPos));
+  }
+  const updates: EdgeSegmentUpdate[] = [];
+  for (const edge of edges) {
+    const sourceDelta = deltas.get(edge.source.node);
+    const targetDelta = deltas.get(edge.target.node);
+    if (sourceDelta == null && targetDelta == null) continue;
+    if (
+      sourceDelta != null &&
+      targetDelta != null &&
+      xy.equals(sourceDelta, targetDelta, 0.001)
+    )
+      continue;
+    let segments = props[edge.key]?.segments ?? [];
+    if (segments.length === 0) continue;
+    if (sourceDelta != null && !xy.equals(sourceDelta, xy.ZERO))
+      segments = moveSourceNode({ delta: sourceDelta, segments });
+    if (targetDelta != null && !xy.equals(targetDelta, xy.ZERO))
+      segments = moveTargetNode({ delta: xy.scale(targetDelta, -1), segments });
+    updates.push({ key: edge.key, segments });
+  }
+  return updates;
+};
+
 export interface MoveNodeProps {
   delta: xy.XY;
   segments: Segment[];
@@ -650,4 +753,88 @@ const moveNodeInDirection = (
   const prev = segments[idxToAdjust];
   segments[idxToAdjust] = { ...prev, length: prev.length - delta[dir] };
   return segments;
+};
+
+const connectPoints = (
+  from: xy.XY,
+  to: xy.XY,
+  exitDirection: direction.Direction | null,
+  entryDirection: direction.Direction | null,
+): Segment[] => {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const hasX = Math.abs(dx) > 0.5;
+  const hasY = Math.abs(dy) > 0.5;
+  if (!hasX && !hasY) return [];
+  if (!hasX) return [{ direction: "y", length: dy }];
+  if (!hasY) return [{ direction: "x", length: dx }];
+  // Route in the exit direction first so it merges with the last middle segment
+  // during compression. If exit is unknown, route in the entry direction last
+  // so it merges with the target stump.
+  if (exitDirection === "x" || entryDirection === "y")
+    return [
+      { direction: "x", length: dx },
+      { direction: "y", length: dy },
+    ];
+  return [
+    { direction: "y", length: dy },
+    { direction: "x", length: dx },
+  ];
+};
+
+export interface StitchEdgeProps {
+  sourceOrientation: location.Outer;
+  targetOrientation: location.Outer;
+  sourcePos: xy.XY;
+  targetPos: xy.XY;
+  middleSegments: Segment[];
+}
+
+export const stitchEdge = ({
+  sourceOrientation,
+  targetOrientation,
+  sourcePos,
+  targetPos,
+  middleSegments,
+}: StitchEdgeProps): Segment[] => {
+  const srcStump = stump(sourceOrientation);
+  const tgtStump = stump(targetOrientation);
+  const srcTip = travelSegments(sourcePos, srcStump);
+  const midEnd = travelSegments(srcTip, ...middleSegments);
+  const tgtTip = travelSegments(targetPos, tgtStump);
+  const exitDir =
+    middleSegments.length > 0
+      ? middleSegments[middleSegments.length - 1].direction
+      : srcStump.direction;
+  const entryDir = tgtStump.direction;
+  const conn = connectPoints(midEnd, tgtTip, exitDir, entryDir);
+  return compressSegments([
+    srcStump,
+    ...middleSegments,
+    ...conn,
+    { ...tgtStump, length: -tgtStump.length },
+  ]);
+};
+
+export const extractMiddle = (
+  segments: Segment[],
+  sourceOrientation: location.Outer,
+  targetOrientation: location.Outer,
+): Segment[] => {
+  if (segments.length === 0) return [];
+  const result = [...segments];
+  const srcStump = stump(sourceOrientation);
+  if (result[0].direction === srcStump.direction) {
+    const remaining = result[0].length - srcStump.length;
+    if (Math.abs(remaining) < 0.5) result.shift();
+    else result[0] = { ...result[0], length: remaining };
+  }
+  const tgtStump = stump(targetOrientation);
+  const lastIdx = result.length - 1;
+  if (lastIdx >= 0 && result[lastIdx].direction === tgtStump.direction) {
+    const remaining = result[lastIdx].length + tgtStump.length;
+    if (Math.abs(remaining) < 0.5) result.pop();
+    else result[lastIdx] = { ...result[lastIdx], length: remaining };
+  }
+  return result;
 };

@@ -9,6 +9,7 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type Diagram } from "@synnaxlabs/pluto";
+import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
 
 import { selectNodeProps } from "@/schematic/selectors";
@@ -71,7 +72,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: nodeKey,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 100, y: 100 } },
         }),
       );
@@ -81,7 +82,7 @@ describe("Schematic Slice", () => {
       expect(schematic.nodes).toHaveLength(1);
       expect(schematic.nodes[0].key).toBe(nodeKey);
       expect(schematic.nodes[0].position).toEqual({ x: 100, y: 100 });
-      expect(schematic.props[nodeKey]).toEqual({ key: "valve" });
+      expect(schematic.props[nodeKey]).toEqual({ variant: "valve" });
     });
 
     it("should update node positions", () => {
@@ -93,7 +94,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: node1Key,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 0, y: 0 } },
         }),
       );
@@ -101,7 +102,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: node2Key,
-          props: { key: "valve" },
+          props: { variant: "valve" },
           node: { position: { x: 150, y: 20 } },
         }),
       );
@@ -148,10 +149,9 @@ describe("Schematic Slice", () => {
     });
 
     it("should update nodes without replacing all", () => {
-      // Add initial nodes
       const initialNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
+        { key: "valve-1", position: { x: 0, y: 0 } },
+        { key: "valve-2", position: { x: 150, y: 0 } },
       ];
 
       store.dispatch(
@@ -162,12 +162,7 @@ describe("Schematic Slice", () => {
         }),
       );
 
-      // Update one node
-      const updatedNode = {
-        key: "valve-1",
-        position: { x: 50, y: 50 },
-        selected: true,
-      };
+      const updatedNode = { key: "valve-1", position: { x: 50, y: 50 } };
 
       store.dispatch(
         actions.setNodes({
@@ -185,8 +180,8 @@ describe("Schematic Slice", () => {
       const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
 
       expect(node1?.position).toEqual({ x: 50, y: 50 });
-      expect(node1?.selected).toBe(true);
       expect(node2?.position).toEqual({ x: 150, y: 0 });
+      expect(schematic.selected).toEqual([]);
     });
   });
 
@@ -213,68 +208,35 @@ describe("Schematic Slice", () => {
     });
 
     it("should select nodes and switch to properties tab", () => {
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
       store.dispatch(
-        actions.setNodes({
+        actions.setSelected({
           key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
+          selected: ["valve-1", "valve-2"],
         }),
       );
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
-
-      const node1 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-1");
-      const node2 = schematic.nodes.find((n: Diagram.Node) => n.key === "valve-2");
-
-      expect(node1?.selected).toBe(true);
-      expect(node2?.selected).toBe(true);
+      expect(schematic.selected).toEqual(["valve-1", "valve-2"]);
       expect(schematic.toolbar.activeTab).toBe("properties");
     });
 
     it("should clear selection", () => {
-      // First select some nodes
-      const selectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: true },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: true },
-      ];
-
       store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: selectedNodes,
-          mode: "update",
-        }),
+        actions.setSelected({ key: schematicKey, selected: ["valve-1", "valve-2"] }),
       );
 
-      // Then clear selection
       store.dispatch(actions.clearSelection({ key: schematicKey }));
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
 
-      expect(schematic.nodes.every((n: Diagram.Node) => !n.selected)).toBe(true);
+      expect(schematic.selected).toEqual([]);
       expect(schematic.toolbar.activeTab).toBe("symbols");
     });
 
     it("should switch back to symbols tab when no nodes selected", () => {
-      const unselectedNodes = [
-        { key: "valve-1", position: { x: 0, y: 0 }, selected: false },
-        { key: "valve-2", position: { x: 150, y: 0 }, selected: false },
-      ];
-
-      store.dispatch(
-        actions.setNodes({
-          key: schematicKey,
-          nodes: unselectedNodes,
-          mode: "update",
-        }),
-      );
+      store.dispatch(actions.setSelected({ key: schematicKey, selected: [] }));
 
       const state = store.getState()[SLICE_NAME];
       const schematic = state.schematics[schematicKey];
@@ -562,7 +524,7 @@ describe("Schematic Slice", () => {
         actions.addElement({
           key: schematicKey,
           elKey: nodeKey,
-          props: { key: "offPageReference", page: "" },
+          props: { variant: "offPageReference", page: "" },
           node: { position: { x: 0, y: 0 } },
         }),
       );
@@ -571,7 +533,7 @@ describe("Schematic Slice", () => {
     it("should store the page prop on an off-page reference element", () => {
       const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
       expect(props).toBeDefined();
-      expect(props?.key).toBe("offPageReference");
+      expect(props?.variant).toBe("offPageReference");
       expect(props?.page).toBe("");
     });
 
@@ -581,7 +543,7 @@ describe("Schematic Slice", () => {
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { key: "offPageReference", page: targetPage },
+          props: { variant: "offPageReference", page: targetPage },
         }),
       );
 
@@ -594,14 +556,14 @@ describe("Schematic Slice", () => {
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { key: "offPageReference", page: "some-page" },
+          props: { variant: "offPageReference", page: "some-page" },
         }),
       );
       store.dispatch(
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { key: "offPageReference", page: "" },
+          props: { variant: "offPageReference", page: "" },
         }),
       );
 
@@ -614,20 +576,28 @@ describe("Schematic Slice", () => {
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { key: "offPageReference", page: "target-page", color: "#ff0000" },
+          props: {
+            variant: "offPageReference",
+            page: "target-page",
+            color: color.construct("#ff0000"),
+          },
         }),
       );
       store.dispatch(
         actions.setElementProps({
           layoutKey: schematicKey,
           key: nodeKey,
-          props: { key: "offPageReference", page: "target-page", color: "#00ff00" },
+          props: {
+            variant: "offPageReference",
+            page: "target-page",
+            color: color.construct("#00ff00"),
+          },
         }),
       );
 
       const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
       expect(props?.page).toBe("target-page");
-      expect(props?.color).toBe("#00ff00");
+      expect(props?.color).toEqual(color.construct("#00ff00"));
     });
   });
 });

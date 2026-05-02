@@ -49,7 +49,7 @@ export const useAddSymbol = (dispatch: Dispatch, layoutKey: string) => {
           key: layoutKey,
           elKey: id.create(),
           node,
-          props: { key: variant, ...initialProps, ...parsedData.data },
+          props: { variant, ...initialProps, ...parsedData.data },
         }),
       );
     },

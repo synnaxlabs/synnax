@@ -7,4 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as diagram from "@/vis/diagram/aether/external";
+export { connector } from "@/schematic/edge/connector";
+export { ConnectionLine, Edge, type EdgeProps } from "@/schematic/edge/Edge";
+export {
+  DefaultPath,
+  type EdgeType,
+  edgeTypeZ,
+  PATHS,
+  SelectEdgeType,
+} from "@/schematic/edge/paths";

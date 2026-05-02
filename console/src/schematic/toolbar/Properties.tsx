@@ -31,7 +31,7 @@ import { Layout } from "@/layout";
 import {
   type ElementInfo,
   selectViewport,
-  useSelectRequiredEdge,
+  useSelectEdgeProps,
   useSelectRequiredNodeProps,
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
@@ -39,7 +39,7 @@ import {
 import { setElementProps, setNodePositions } from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { type nodePropsZ } from "@/schematic/types/v0";
+import { type nodePropsZ } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
 
 export interface PropertiesProps {
@@ -83,7 +83,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.Symbol.REGISTRY[props.key];
+  const C = Schematic.Symbol.REGISTRY[props.variant];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {
@@ -141,25 +141,31 @@ const EdgeProperties = ({
   layoutKey,
   edgeKey,
 }: EdgePropertiesProps): ReactElement | null => {
-  const edge = useSelectRequiredEdge(layoutKey, edgeKey);
+  const edgeProps = useSelectEdgeProps(layoutKey, edgeKey);
   const dispatch = useDispatch();
   const onChange = (key: string, props: Partial<EdgeProps>): void => {
     dispatch(setElementProps({ layoutKey, key, props }));
   };
+  // Color.Swatch requires a parseable hex; persisted edges may carry CSS
+  // variables (e.g. "var(--pluto-gray-l11)") inherited from migration defaults.
+  const swatchColor =
+    edgeProps?.color != null && color.colorZ.safeParse(edgeProps.color).success
+      ? (edgeProps.color as color.Crude)
+      : color.ZERO;
   return (
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={(edge.data?.color ?? color.ZERO) as color.Crude}
-          onChange={(v: color.Color) => {
-            onChange(edge.key, { color: color.hex(v) });
-          }}
+          value={swatchColor}
+          onChange={(color: color.Color) => onChange(edgeKey, { color })}
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
-        <Schematic.SelectEdgeType
-          value={edge.data?.variant as Schematic.EdgeType}
-          onChange={(variant: Schematic.EdgeType) => onChange(edge.key, { variant })}
+        <Schematic.Edge.SelectEdgeType
+          value={edgeProps?.variant ?? "pipe"}
+          onChange={(variant: Schematic.Edge.EdgeType) =>
+            onChange(edgeKey, { variant })
+          }
           style={SELECT_EDGE_TYPE_STYLE}
         />
       </Input.Item>
@@ -184,7 +190,8 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    if (e.type === "edge") colorVal = color.colorZ.parse(e.edge.data?.color);
+    if (e.type === "edge")
+      colorVal = e.props.color != null ? color.construct(e.props.color) : null;
     else if (e.props.color != null) colorVal = color.construct(e.props.color);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);
@@ -369,8 +376,8 @@ const MultiElementProperties = ({
             <Color.Swatch
               key={elements[0].key}
               value={hex}
-              onChange={(v: color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
+              onChange={(color: color.Color) => {
+                elements.forEach((e) => onChange(e.key, { color }));
               }}
             />
           ))}

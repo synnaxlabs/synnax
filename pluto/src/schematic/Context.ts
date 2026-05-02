@@ -7,4 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as diagram from "@/vis/diagram/aether/external";
+import { context } from "@/context";
+
+export const [Provider, useKey] = context.create<string>({
+  defaultValue: "",
+  displayName: "Schematic.Context",
+});

@@ -22,12 +22,13 @@ interface PathProps extends Omit<BaseEdgeProps, "path" | "color" | "points"> {
   color?: color.Crude;
 }
 
+const INTERACTION_WIDTH = 30;
+
 const Pipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
-    style={{
-      stroke: color.cssString(pathColor),
-    }}
+    interactionWidth={INTERACTION_WIDTH}
+    style={{ stroke: color.cssString(pathColor) }}
     {...rest}
   />
 );
@@ -39,6 +40,7 @@ const ElectricSignalPipe = ({
 }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
+    interactionWidth={INTERACTION_WIDTH}
     style={{
       stroke: color.cssString(pathColor),
       strokeDasharray: "12,4",
@@ -54,6 +56,7 @@ const SecondaryPipe = ({
 }: PathProps): ReactElement => (
   <BaseEdge
     path={calcPath(points)}
+    interactionWidth={INTERACTION_WIDTH}
     style={{
       stroke: color.cssString(pathColor),
       strokeDasharray: "12,4,4",
@@ -71,7 +74,12 @@ const JackedPipe = ({ points, color: pathColor, ...rest }: PathProps): ReactElem
   return (
     <>
       <BaseEdge path={calcPath(abovePath)} style={{ stroke, opacity }} {...rest} />
-      <BaseEdge path={calcPath(points)} style={{ stroke }} {...rest} />
+      <BaseEdge
+        path={calcPath(points)}
+        interactionWidth={INTERACTION_WIDTH}
+        style={{ stroke }}
+        {...rest}
+      />
       <BaseEdge path={calcPath(belowPath)} style={{ stroke, opacity }} {...rest} />
     </>
   );
@@ -196,7 +204,12 @@ const createSymbolLine = (C: FC<SymbolProps>) => {
     const positions = computeSymbolPositions(points, 40); // Adjust the interval as needed
     return (
       <>
-        <BaseEdge path={path} {...rest} style={{ stroke: color.cssString(colorVal) }} />
+        <BaseEdge
+          interactionWidth={INTERACTION_WIDTH}
+          path={path}
+          {...rest}
+          style={{ stroke: color.cssString(colorVal) }}
+        />
         {positions.map(({ position, direction }, index) => (
           <C key={index} position={position} direction={direction} color={colorVal} />
         ))}

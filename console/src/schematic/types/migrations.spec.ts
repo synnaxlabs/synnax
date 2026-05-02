@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -40,6 +41,84 @@ describe("migrations", () => {
         expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
       });
     });
+
+    it("should rename nodePropsZ.key to .variant when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        props: {
+          n1: { key: "valve", color: "#ff0000" } as v0.NodeProps,
+          n2: { key: "tank" } as v0.NodeProps,
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.props.n1).toMatchObject({ variant: "valve", color: "#ff0000" });
+      expect(migrated.props.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.props.n1).not.toHaveProperty("key");
+    });
+
+    it("should reshape edge endpoints to Handle objects when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: "1",
+            targetHandle: "2",
+          } as v0.Edge,
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.edges[0]).toEqual({
+        key: "e1",
+        source: { node: "n1", param: "1" },
+        target: { node: "n2", param: "2" },
+      });
+    });
+
+    it("should move edge.data segments/color/variant into the props record", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            data: {
+              segments: [{ direction: "x", length: 10 }],
+              color: "#00ff00",
+              variant: "pipe",
+            },
+          } as unknown as v0.Edge,
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.props.e1).toMatchObject({
+        segments: [{ direction: "x", length: 10 }],
+        color: color.construct("#00ff00"),
+        variant: "pipe",
+      });
+    });
+
+    it("should add an empty selected array when migrating to v6", () => {
+      const migrated = migrateState(v5.ZERO_STATE);
+      expect(migrated.selected).toEqual([]);
+    });
+
+    it("should widen v5 legend string colors to color.Color when migrating to v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...v5.ZERO_STATE.legend,
+          colors: { a: "#ff0000", b: "#00ff00" },
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.legend.colors.a).toEqual(color.construct("#ff0000"));
+      expect(migrated.legend.colors.b).toEqual(color.construct("#00ff00"));
+    });
+
     it("should migrate a v5 state whose legend has no colors", () => {
       const { colors: _colors, ...legendWithoutColors } = v5.ZERO_STATE.legend;
       const state = {
@@ -58,6 +137,7 @@ describe("migrations", () => {
       });
     });
   });
+
   describe("slice", () => {
     const STATES = [
       v0.ZERO_SLICE_STATE,
