@@ -31,17 +31,19 @@ var _ = Describe("Cache", func() {
 
 	It("Should return an empty cache when none exists on disk", func() {
 		c := format.LoadCache(repoRoot)
-		_, ok := c.LookupRaw("foo")
+		_, ok := c.Lookup("foo")
 		Expect(ok).To(BeFalse())
 	})
 
-	It("Should round-trip raw hashes through Save/Load", func() {
+	It("Should round-trip entries through Save/Load", func() {
 		c := format.LoadCache(repoRoot)
-		c.PutRaw("foo/bar.go", "deadbeef")
+		c.Put("foo/bar.go", format.Entry{Raw: "deadbeef", Canonical: "cafef00d"})
 		Expect(c.Save()).To(Succeed())
 
 		c2 := format.LoadCache(repoRoot)
-		Expect(MustBeOk(c2.LookupRaw("foo/bar.go"))).To(Equal("deadbeef"))
+		entry := MustBeOk(c2.Lookup("foo/bar.go"))
+		Expect(entry.Raw).To(Equal("deadbeef"))
+		Expect(entry.Canonical).To(Equal("cafef00d"))
 	})
 
 	It("Should round-trip stamps through Save/Load", func() {
@@ -55,15 +57,15 @@ var _ = Describe("Cache", func() {
 
 	It("Should drop entries not in the keep set when pruned", func() {
 		c := format.LoadCache(repoRoot)
-		c.PutRaw("a", "1")
-		c.PutRaw("b", "2")
-		c.PutRaw("c", "3")
-		c.PruneRawTo(set.New("a", "c"))
+		c.Put("a", format.Entry{Raw: "1", Canonical: "1c"})
+		c.Put("b", format.Entry{Raw: "2", Canonical: "2c"})
+		c.Put("c", format.Entry{Raw: "3", Canonical: "3c"})
+		c.PruneTo(set.New("a", "c"))
 
-		Expect(MustBeOk(c.LookupRaw("a"))).To(Equal("1"))
-		_, ok := c.LookupRaw("b")
+		Expect(MustBeOk(c.Lookup("a")).Raw).To(Equal("1"))
+		_, ok := c.Lookup("b")
 		Expect(ok).To(BeFalse())
-		Expect(MustBeOk(c.LookupRaw("c"))).To(Equal("3"))
+		Expect(MustBeOk(c.Lookup("c")).Raw).To(Equal("3"))
 	})
 
 	It("Should produce stable hashes for identical content", func() {

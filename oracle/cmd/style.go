@@ -116,25 +116,6 @@ func printSyncedCount(written, unchanged int) {
 	printSuccess(msg)
 }
 
-func printValidationPassed(structs, enums int) {
-	parts := []string{}
-	if structs > 0 {
-		parts = append(
-			parts,
-			fmt.Sprintf("%s structs", countStyle.Render(fmt.Sprintf("%d", structs))),
-		)
-	}
-	if enums > 0 {
-		parts = append(
-			parts,
-			fmt.Sprintf("%s enums", countStyle.Render(fmt.Sprintf("%d", enums))),
-		)
-	}
-	msg := "valid " + dimStyle.Render("(") +
-		strings.Join(parts, dimStyle.Render(", ")) + dimStyle.Render(")")
-	printSuccess(msg)
-}
-
 func printDiagnostics(diagnosticStr string) {
 	if diagnosticStr == "" {
 		return

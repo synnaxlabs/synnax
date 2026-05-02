@@ -10,30 +10,26 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/synnaxlabs/oracle/codegen"
 	"github.com/synnaxlabs/oracle/format"
-	"github.com/synnaxlabs/oracle/formatter"
+	"github.com/synnaxlabs/oracle/output"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/oracle/plugin"
-	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
-	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
-	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
-	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
-	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
-	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
-	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
-	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
-	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
-	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+	"golang.org/x/sync/errgroup"
 )
 
 func newSyncCmd() *cobra.Command {
@@ -59,61 +55,47 @@ func runSync(cmd *cobra.Command) error {
 		return errors.Wrap(err, "sync must be run within a git repository")
 	}
 
-	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
+	schemas, err := pipeline.DiscoverSchemas(repoRoot)
 	if err != nil {
 		return err
 	}
-	if len(schemaFiles) == 0 {
+	if len(schemas) == 0 {
 		return errors.New("no schema files found")
 	}
+	printSchemaCount(len(schemas))
 
-	normalizedFiles := make([]string, 0, len(schemaFiles))
-	for _, f := range schemaFiles {
-		relPath, err := paths.Normalize(f, repoRoot)
-		if err != nil {
-			return errors.Wrapf(err, "failed to normalize schema path %q", f)
-		}
-		normalizedFiles = append(normalizedFiles, relPath)
+	registry := buildPluginRegistry()
+	result, err := pipeline.Run(ctx, pipeline.Options{
+		RepoRoot: repoRoot,
+		Schemas:  schemas,
+		Plugins:  registry,
+	})
+	if err != nil {
+		return errors.Wrap(err, "pipeline")
+	}
+	if !result.Diagnostics.Ok() {
+		printDiagnostics(result.Diagnostics.String())
+		return errors.New("generation failed")
 	}
 
-	printSchemaCount(len(normalizedFiles))
-	printFormattingStart(len(schemaFiles))
-
-	formatted := 0
-	for _, f := range schemaFiles {
-		source, err := os.ReadFile(f)
-		if err != nil {
-			return errors.Wrapf(err, "failed to read %s", f)
-		}
-		result, err := formatter.Format(string(source))
-		if err != nil {
-			return errors.Wrapf(err, "failed to format %s", f)
-		}
-		if result != string(source) {
-			if err := os.WriteFile(f, []byte(result), 0644); err != nil {
-				return errors.Wrapf(err, "failed to write %s", f)
-			}
-			formatted++
-		}
+	formattedSchemas, err := writeSchemaSources(result, repoRoot)
+	if err != nil {
+		return err
 	}
-	printFormattingDone(formatted)
+	printFormattingStart(len(schemas))
+	printFormattingDone(formattedSchemas)
+
+	for name, files := range result.Outputs {
+		output.PluginDone(name, len(files))
+	}
 
 	formatters, err := format.Default(repoRoot)
 	if err != nil {
 		return errors.Wrap(err, "build formatter registry")
 	}
 	cache := format.LoadCache(repoRoot)
-	registry := buildPluginRegistry()
 
-	result, diag := generate(ctx, normalizedFiles, repoRoot, registry)
-	if diag != nil {
-		printDiagnostics(diag.String())
-		if !diag.Ok() {
-			return errors.New("generation failed")
-		}
-	}
-
-	syncResult, err := result.syncFiles(ctx, repoRoot, formatters, cache, 0)
+	syncResult, err := syncOutputs(ctx, result, repoRoot, formatters, cache, 0)
 	if err != nil {
 		return errors.Wrap(err, "failed to sync files")
 	}
@@ -148,6 +130,15 @@ func runSync(cmd *cobra.Command) error {
 		}
 	}
 
+	for _, files := range result.Deletions {
+		for _, deletePath := range files {
+			abs := filepath.Join(repoRoot, deletePath)
+			if err := os.Remove(abs); err != nil && !os.IsNotExist(err) {
+				printDim(fmt.Sprintf("remove %s: %v", deletePath, err))
+			}
+		}
+	}
+
 	changedProtos := syncResult.ByPlugin["pb/types"]
 	printBufGenerateStart(len(changedProtos))
 	bufStart := time.Now()
@@ -160,12 +151,182 @@ func runSync(cmd *cobra.Command) error {
 		printDim(fmt.Sprintf("save cache: %v", err))
 	}
 
+	// buf generate emits .pb.go and _grpc.pb.go files alongside their
+	// .proto sources without a license header. Run them through the
+	// same formatter chain the oracle plugin outputs use so the header
+	// is added and gofmt is applied. Idempotent on cached / unchanged
+	// files because the license formatter no-ops when a header is
+	// already present and gofmt is stable.
+	if !bufResult.Cached {
+		if _, err := codegen.FormatBufOutputs(ctx, repoRoot, formatters, 0); err != nil {
+			return errors.Wrap(err, "format buf outputs")
+		}
+	}
+
 	printSyncedCount(len(syncResult.Written), len(syncResult.Unchanged)+len(syncResult.Skipped))
 	return nil
 }
 
-// expandGlobs expands glob patterns to actual file paths.
-// Results are sorted to ensure deterministic ordering across runs.
+// writeSchemaSources rewrites each schema file whose canonical formatted
+// bytes differ from the on-disk source. Returns the count of files actually
+// rewritten. The pipeline already produced FormattedSources in memory; this
+// is the on-disk projection of that step.
+func writeSchemaSources(result *pipeline.Result, repoRoot string) (int, error) {
+	formatted := 0
+	for _, rel := range result.Schemas {
+		canonical := result.FormattedSources[rel]
+		raw := result.Sources[rel]
+		if string(canonical) == string(raw) {
+			continue
+		}
+		abs := paths.Resolve(rel, repoRoot)
+		if err := os.WriteFile(abs, canonical, 0644); err != nil {
+			return formatted, errors.Wrapf(err, "failed to write %s", abs)
+		}
+		formatted++
+	}
+	return formatted, nil
+}
+
+// syncOutputs is the on-disk projection of the pipeline's plugin outputs.
+// For each generated file it consults the cache, formats only on cache
+// miss, byte-compares against the existing on-disk file, and writes only
+// when the canonical bytes differ. The cache stores the SHA-256 of the
+// raw (pre-format) plugin bytes for each path so repeat runs can skip the
+// formatter chain entirely when nothing has changed.
+func syncOutputs(
+	ctx context.Context,
+	result *pipeline.Result,
+	repoRoot string,
+	formatters *format.Registry,
+	cache *format.Cache,
+	workers int,
+) (*syncResult, error) {
+	r := &syncResult{
+		Written:   make([]string, 0),
+		Unchanged: make([]string, 0),
+		Skipped:   make([]string, 0),
+		ByPlugin:  make(map[string][]string),
+	}
+
+	type pending struct {
+		Plugin   string
+		RelPath  string
+		AbsPath  string
+		Raw      []byte
+		RawHash  string
+		Existing []byte
+	}
+
+	keep := set.New[string]()
+	var toFormat []pending
+	for pluginName, files := range result.Outputs {
+		for _, f := range files {
+			absPath := filepath.Join(repoRoot, f.Path)
+			rawHash := format.Hash(f.Content)
+			keep.Add(f.Path)
+
+			existing, err := os.ReadFile(absPath)
+			if err != nil && !os.IsNotExist(err) {
+				return nil, errors.Wrapf(err, "read existing %s", absPath)
+			}
+
+			// Skip the format + write only when the cache says BOTH the
+			// raw plugin output is unchanged AND the on-disk file still
+			// matches the canonical bytes the previous run wrote. The
+			// second check is what makes the cache safe across formatter
+			// upgrades and hand edits: if anything drifts, fall through
+			// and re-format.
+			if existing != nil {
+				if entry, hit := cache.Lookup(f.Path); hit &&
+					entry.Raw == rawHash &&
+					entry.Canonical == format.Hash(existing) {
+					r.Skipped = append(r.Skipped, f.Path)
+					continue
+				}
+			}
+
+			toFormat = append(toFormat, pending{
+				Plugin:   pluginName,
+				RelPath:  f.Path,
+				AbsPath:  absPath,
+				Raw:      f.Content,
+				RawHash:  rawHash,
+				Existing: existing,
+			})
+		}
+	}
+
+	cache.PruneTo(keep)
+
+	if len(toFormat) == 0 {
+		printFormatPlan(0, len(r.Skipped))
+		return r, nil
+	}
+
+	printFormatPlan(len(toFormat), len(r.Skipped))
+	batch := make([]format.File, len(toFormat))
+	for i, p := range toFormat {
+		batch[i] = format.File{Path: p.AbsPath, Content: p.Raw}
+	}
+	formatStart := time.Now()
+	formatted, err := formatters.FormatBatch(ctx, batch, workers)
+	if err != nil {
+		return nil, err
+	}
+	printFormatDone(time.Since(formatStart))
+
+	var mu sync.Mutex
+	eg, gctx := errgroup.WithContext(ctx)
+	if workers <= 0 {
+		workers = runtime.GOMAXPROCS(0)
+	}
+	eg.SetLimit(workers)
+	for i, p := range toFormat {
+		eg.Go(func() error {
+			if err := gctx.Err(); err != nil {
+				return err
+			}
+			canonical := formatted[i].Content
+			canonicalHash := format.Hash(canonical)
+			if p.Existing != nil && string(p.Existing) == string(canonical) {
+				mu.Lock()
+				r.Unchanged = append(r.Unchanged, p.RelPath)
+				cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
+				mu.Unlock()
+				return nil
+			}
+			if err := os.MkdirAll(filepath.Dir(p.AbsPath), 0755); err != nil {
+				return errors.Wrapf(err, "mkdir %s", filepath.Dir(p.AbsPath))
+			}
+			if err := os.WriteFile(p.AbsPath, canonical, 0644); err != nil {
+				return errors.Wrapf(err, "write %s", p.AbsPath)
+			}
+			mu.Lock()
+			r.Written = append(r.Written, p.RelPath)
+			r.ByPlugin[p.Plugin] = append(r.ByPlugin[p.Plugin], p.RelPath)
+			cache.Put(p.RelPath, format.Entry{Raw: p.RawHash, Canonical: canonicalHash})
+			mu.Unlock()
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		return nil, err
+	}
+	printWritePlan(len(r.Written), len(r.Unchanged))
+	return r, nil
+}
+
+type syncResult struct {
+	ByPlugin  map[string][]string
+	Written   []string
+	Unchanged []string
+	Skipped   []string
+}
+
+// expandGlobs is preserved for `oracle fmt` which still accepts arbitrary
+// user-provided patterns (e.g. `oracle fmt schemas/rack.oracle`). The
+// canonical schema-discovery path is pipeline.DiscoverSchemas.
 func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 	var files []string
 	for _, pattern := range patterns {
@@ -176,24 +337,8 @@ func expandGlobs(patterns []string, baseDir string) ([]string, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "invalid glob pattern %q", pattern)
 		}
-
 		files = append(files, matches...)
 	}
 	sort.Strings(files)
 	return files, nil
-}
-
-func buildPluginRegistry() *plugin.Registry {
-	registry := plugin.NewRegistry()
-	_ = registry.Register(tstypes.New(tstypes.DefaultOptions()))
-	_ = registry.Register(gotypes.New(gotypes.DefaultOptions()))
-	_ = registry.Register(pytypes.New(pytypes.DefaultOptions()))
-	_ = registry.Register(pbtypes.New(pbtypes.DefaultOptions()))
-	_ = registry.Register(cpptypes.New(cpptypes.DefaultOptions()))
-	_ = registry.Register(cppjson.New(cppjson.DefaultOptions()))
-	_ = registry.Register(cpppb.New(cpppb.DefaultOptions()))
-	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
-	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
-	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
-	return registry
 }

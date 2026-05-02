@@ -23,14 +23,26 @@ import (
 
 // CacheVersion is the on-disk cache schema version. Bump this whenever
 // the cache file format changes incompatibly so stale caches are dropped
-// instead of misinterpreted.
-const CacheVersion = 1
+// instead of misinterpreted. v1 keyed only the raw-content hash. v2
+// stores a per-file Entry that tracks BOTH the raw plugin-output hash
+// AND the canonical post-format hash, so sync can detect when its
+// cached "this file is up to date" decision is invalidated by a
+// formatter version bump or a hand edit.
+const CacheVersion = 2
 
-// Cache records the SHA-256 of the raw (pre-format) content oracle emitted
-// for each generated file in the previous sync. When a subsequent sync
-// produces the same raw bytes for the same path, the on-disk file is
-// presumed to already be the canonical formatted form and the format +
-// write steps can be skipped.
+// Cache records, for each generated file, the SHA-256 of the raw plugin
+// output AND the SHA-256 of the canonical post-format bytes that were
+// last written. Sync's "skip this file" decision must verify BOTH:
+// the plugin emitted the same raw bytes (so re-formatting would
+// produce the same canonical bytes) AND the on-disk file currently
+// hashes to that canonical value (so the user has not hand-edited the
+// file and the formatter has not been version-bumped since the cache
+// was written).
+//
+// Verifying only the raw hash is unsafe: any change in the formatter
+// chain leaves stale on-disk bytes that sync would silently keep in
+// place, while `oracle check` (which always re-runs the chain) would
+// flag them as drift.
 //
 // The cache is keyed by repo-relative path. It lives at
 // `<repoRoot>/.oracle/sync-cache.json` and is gitignored.
@@ -40,9 +52,16 @@ type Cache struct {
 	data cacheFile
 }
 
+// Entry is the per file cache value: hashes of both the raw plugin
+// output and the canonical formatted output.
+type Entry struct {
+	Raw       string `json:"raw"`
+	Canonical string `json:"canonical"`
+}
+
 type cacheFile struct {
-	Version int               `json:"version"`
-	Hashes  map[string]string `json:"hashes"`
+	Version int              `json:"version"`
+	Entries map[string]Entry `json:"entries"`
 	// Stamps holds opaque per-key stamps for non-file inputs (e.g. the
 	// hashed proto-tree input for buf generate). Not used for sync skip
 	// decisions on individual files.
@@ -58,7 +77,7 @@ func LoadCache(repoRoot string) *Cache {
 		path: filepath.Join(repoRoot, ".oracle", "sync-cache.json"),
 		data: cacheFile{
 			Version: CacheVersion,
-			Hashes:  make(map[string]string),
+			Entries: make(map[string]Entry),
 			Stamps:  make(map[string]string),
 		},
 	}
@@ -73,8 +92,8 @@ func LoadCache(repoRoot string) *Cache {
 	if f.Version != CacheVersion {
 		return c
 	}
-	if f.Hashes == nil {
-		f.Hashes = make(map[string]string)
+	if f.Entries == nil {
+		f.Entries = make(map[string]Entry)
 	}
 	if f.Stamps == nil {
 		f.Stamps = make(map[string]string)
@@ -90,20 +109,20 @@ func Hash(content []byte) string {
 	return hex.EncodeToString(h[:])
 }
 
-// LookupRaw returns the cached raw-content hash for a repo-relative path
-// and whether one was present.
-func (c *Cache) LookupRaw(repoRelPath string) (string, bool) {
+// Lookup returns the cached Entry for a repo-relative path and whether
+// one was present.
+func (c *Cache) Lookup(repoRelPath string) (Entry, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	v, ok := c.data.Hashes[repoRelPath]
+	v, ok := c.data.Entries[repoRelPath]
 	return v, ok
 }
 
-// PutRaw stores the raw-content hash for a repo-relative path.
-func (c *Cache) PutRaw(repoRelPath, hash string) {
+// Put stores the Entry for a repo-relative path.
+func (c *Cache) Put(repoRelPath string, entry Entry) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.data.Hashes[repoRelPath] = hash
+	c.data.Entries[repoRelPath] = entry
 }
 
 // LookupStamp returns an opaque stamp for a non-file input key.
@@ -121,14 +140,14 @@ func (c *Cache) PutStamp(key, value string) {
 	c.data.Stamps[key] = value
 }
 
-// PruneRawTo drops every raw-content entry whose key is not in keep.
-// This removes stale entries for files that are no longer generated.
-func (c *Cache) PruneRawTo(keep set.Set[string]) {
+// PruneTo drops every entry whose key is not in keep. This removes
+// stale entries for files that are no longer generated.
+func (c *Cache) PruneTo(keep set.Set[string]) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	for k := range c.data.Hashes {
+	for k := range c.data.Entries {
 		if !keep.Contains(k) {
-			delete(c.data.Hashes, k)
+			delete(c.data.Entries, k)
 		}
 	}
 }

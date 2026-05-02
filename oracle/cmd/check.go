@@ -12,83 +12,215 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/synnaxlabs/oracle/analyzer"
-	"github.com/synnaxlabs/oracle/formatter"
+	"github.com/synnaxlabs/oracle/check"
+	"github.com/synnaxlabs/oracle/format"
 	"github.com/synnaxlabs/oracle/paths"
+	"github.com/synnaxlabs/oracle/pipeline"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
+)
+
+// Flag names for the check command. Constants so test code can set them
+// the same way the cobra binding does.
+const (
+	checkGatesFlag            = "gates"
+	checkFormatFlag           = "format"
+	checkDiffFlag             = "diff"
+	checkWarningsAsErrorsFlag = "warnings-as-errors"
 )
 
 func newCheckCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "check",
-		Short: "Validate schemas without generating code",
-		RunE:  runCheck,
+		Short: "Validate schemas, generated outputs, and cache",
+		Long: `Run a set of read-only validation gates against the oracle workspace.
+
+Gates:
+  format       schemas are canonically formatted
+  analyze      schemas pass semantic analysis (errors and warnings surfaced)
+  generated    on-disk generated files match what 'oracle sync' would produce
+  cache        sync cache is internally consistent
+
+Exit codes:
+  0   all gates passed
+  1   internal error
+  10  format drift
+  11  analyzer errors
+  12  generated drift
+  14  cache incoherence
+
+Examples:
+  oracle check
+  oracle check --gates=format,analyze
+  oracle check --diff
+  oracle check --format=json > report.json`,
 	}
+	cmd.Flags().StringSlice(checkGatesFlag, nil,
+		"Comma-separated subset of gates to run (default: all)")
+	cmd.Flags().String(checkFormatFlag, "text",
+		"Output format: text or json")
+	cmd.Flags().Bool(checkDiffFlag, false,
+		"Include unified diffs in drift findings")
+	cmd.Flags().Bool(checkWarningsAsErrorsFlag, false,
+		"Treat analyzer warnings as errors")
+	// A failed gate is a normal exit - the user does not want cobra
+	// dumping the usage block underneath the gate findings, nor a
+	// duplicate "Error: ..." line repeating what the renderer already
+	// printed. The exit code (set by Execute via exitCodeError) is the
+	// machine-readable signal; the rendered report is the human one.
+	cmd.SilenceUsage = true
+	cmd.SilenceErrors = true
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		err := runCheck(cmd, args)
+		if err == nil {
+			return nil
+		}
+		// Gate failures already rendered via check.Render; suppress the
+		// duplicate. Any other error (no schemas, repo not git, render
+		// failure) is unexpected and gets printed once here so the user
+		// sees what went wrong.
+		if _, ok := err.(*exitCodeError); !ok {
+			printError(err.Error())
+		}
+		return err
+	}
+	return cmd
 }
 
-func runCheck(cmd *cobra.Command, args []string) error {
+func runCheck(cmd *cobra.Command, _ []string) error {
 	ctx := cmd.Context()
-	_ = viper.GetBool(verboseFlag)
 
-	printBanner()
+	gates, _ := cmd.Flags().GetStringSlice(checkGatesFlag)
+	outputFormat, _ := cmd.Flags().GetString(checkFormatFlag)
+	includeDiffs, _ := cmd.Flags().GetBool(checkDiffFlag)
+	warningsAsErrors, _ := cmd.Flags().GetBool(checkWarningsAsErrorsFlag)
+	verbose := viper.GetBool(verboseFlag)
+
+	if outputFormat != string(check.FormatText) && outputFormat != string(check.FormatJSON) {
+		return errors.Newf("invalid --format %q: must be 'text' or 'json'", outputFormat)
+	}
 
 	repoRoot, err := paths.RepoRoot()
 	if err != nil {
-		printError("must be run within a git repository")
-		return err
+		return errors.Wrap(err, "check must be run within a git repository")
 	}
 
-	schemaFiles, err := expandGlobs([]string{"schemas/*.oracle"}, repoRoot)
+	if outputFormat == string(check.FormatText) {
+		printBanner()
+	}
+
+	schemas, err := pipeline.DiscoverSchemas(repoRoot)
 	if err != nil {
 		return err
 	}
-
-	if len(schemaFiles) == 0 {
-		printError("no schema files found")
+	if len(schemas) == 0 {
 		return errors.New("no schema files found")
 	}
 
-	printSchemaCount(len(schemaFiles))
+	if outputFormat == string(check.FormatText) {
+		printSchemaCount(len(schemas))
+	}
 
-	// Check formatting
-	unformatted := 0
-	for _, f := range schemaFiles {
-		source, err := os.ReadFile(f)
+	registry := buildPluginRegistry()
+	result, err := pipeline.Run(ctx, pipeline.Options{
+		RepoRoot: repoRoot,
+		Schemas:  schemas,
+		Plugins:  registry,
+	})
+	if err != nil {
+		return errors.Wrap(err, "pipeline")
+	}
+
+	// Resource initialization is lazy because each gate has different
+	// dependencies and a failure to build (e.g. missing license template
+	// in a minimal test repo) should not poison gates that do not need
+	// the resource. Whether a gate is in the enabled set determines
+	// whether we even try.
+	wantedGates := wantedSet(gates)
+	var formatters *format.Registry
+	if wantedGates.has("generated") {
+		formatters, err = buildCheckFormatters(repoRoot)
 		if err != nil {
-			printError(fmt.Sprintf("failed to read %s: %v", f, err))
-			return err
-		}
-		result, err := formatter.Format(string(source))
-		if err != nil {
-			printError(fmt.Sprintf("failed to format %s: %v", f, err))
-			return err
-		}
-		if result != string(source) {
-			printInfo(fmt.Sprintf("needs formatting: %s", f))
-			unformatted++
+			return errors.Wrap(err, "build formatter registry")
 		}
 	}
-	if unformatted > 0 {
-		printError(fmt.Sprintf("%d file(s) need formatting (run 'oracle fmt')", unformatted))
-		return errors.New("formatting check failed")
+	var cache *format.Cache
+	if wantedGates.has("cache") {
+		cache = loadCheckCache(repoRoot)
 	}
 
-	loader := analyzer.NewStandardFileLoader(repoRoot)
-	table, diag := analyzer.Analyze(ctx, schemaFiles, loader)
-	if diag != nil && !diag.Empty() {
-		printDiagnostics(diag.String())
+	checkers := buildCheckers(formatters, cache, warningsAsErrors)
+	report := check.Run(ctx, result, check.Env{
+		RepoRoot:     repoRoot,
+		IncludeDiffs: includeDiffs,
+	}, checkers, gates)
+
+	if err := check.Render(os.Stdout, report, check.Format(outputFormat), verbose); err != nil {
+		return errors.Wrap(err, "render report")
 	}
 
-	if diag != nil && !diag.Ok() {
-		printError(fmt.Sprintf("validation failed with %d error(s)", len(diag.Errors())))
-		return errors.New("validation failed")
-	}
-
-	if table != nil {
-		printValidationPassed(len(table.StructTypes()), len(table.EnumTypes()))
+	if code := report.FirstExitCode(); code != 0 {
+		return &exitCodeError{code: code, msg: fmt.Sprintf("%d gate(s) failed", report.TotalFailed)}
 	}
 	return nil
+}
+
+// buildCheckers wires the canonical gate set. The order matters and is
+// part of the documented contract: format runs before analyze runs
+// before generated, etc.
+func buildCheckers(
+	formatters *format.Registry,
+	cache *format.Cache,
+	warningsAsErrors bool,
+) []check.Checker {
+	return []check.Checker{
+		check.NewFormatGate(),
+		check.NewAnalyzeGate(warningsAsErrors),
+		check.NewGeneratedGate(formatters, runtime.GOMAXPROCS(0)),
+		check.NewCacheGate(cache),
+	}
+}
+
+func buildCheckFormatters(repoRoot string) (*format.Registry, error) {
+	return format.Default(repoRoot)
+}
+
+func loadCheckCache(repoRoot string) *format.Cache {
+	return format.LoadCache(repoRoot)
+}
+
+// exitCodeError carries a specific exit code back through cobra's error
+// path. The Execute helper in root.go checks for this type before
+// falling back to its generic os.Exit(1).
+type exitCodeError struct {
+	code int
+	msg  string
+}
+
+func (e *exitCodeError) Error() string { return e.msg }
+func (e *exitCodeError) ExitCode() int { return e.code }
+
+// gateSet is a small helper for "is this gate name in the enabled
+// subset?". Empty set means "all gates" (no --gates filter passed).
+type gateSet struct {
+	all bool
+	in  set.Set[string]
+}
+
+func wantedSet(gates []string) gateSet {
+	if len(gates) == 0 {
+		return gateSet{all: true}
+	}
+	return gateSet{in: set.New(gates...)}
+}
+
+func (s gateSet) has(name string) bool {
+	if s.all {
+		return true
+	}
+	return s.in.Contains(name)
 }
