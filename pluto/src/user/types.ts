@@ -7,17 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type label } from "@synnaxlabs/client";
+import { type user } from "@synnaxlabs/client";
 
 import { Haul } from "@/haul";
 
-export const HAUL_TYPE = "label";
+export const HAUL_TYPE = "user";
 
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, label.Key, undefined>;
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, user.Key, user.User>;
 
-export const createHaulItem = (key: label.Key): HaulItem => ({
+export const createHaulItem = (payload: user.User): HaulItem => ({
   type: HAUL_TYPE,
-  key,
+  key: payload.key,
+  data: payload,
 });
 
 export const isHaulItem = (item: Haul.Item): item is HaulItem =>
