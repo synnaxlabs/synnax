@@ -245,7 +245,7 @@ export const calcPath = (coords: xy.XY[]): string => {
   return path;
 };
 
-export const edgeTypeZ = z.enum([
+export const variantZ = z.enum([
   "pipe",
   "electric",
   "secondary",
@@ -255,9 +255,9 @@ export const edgeTypeZ = z.enum([
   "data",
 ]);
 
-export type EdgeType = z.infer<typeof edgeTypeZ>;
+export type Variant = z.infer<typeof variantZ>;
 
-export const PATHS: Record<EdgeType, FC<PathProps>> = {
+export const PATHS: Record<Variant, FC<PathProps>> = {
   pipe: Pipe,
   electric: ElectricSignalPipe,
   secondary: SecondaryPipe,
@@ -269,7 +269,7 @@ export const PATHS: Record<EdgeType, FC<PathProps>> = {
 
 export const DefaultPath = Pipe;
 
-const DATA: record.KeyedNamed<EdgeType>[] = [
+const DATA: record.KeyedNamed<Variant>[] = [
   { key: "pipe", name: "Pipe" },
   { key: "electric", name: "Electric Signal" },
   { key: "secondary", name: "Secondary" },
@@ -280,7 +280,7 @@ const DATA: record.KeyedNamed<EdgeType>[] = [
 ];
 
 export interface SelectEdgeTypeProps extends Omit<
-  Select.StaticProps<EdgeType>,
+  Select.StaticProps<Variant>,
   "data" | "resourceName"
 > {}
 

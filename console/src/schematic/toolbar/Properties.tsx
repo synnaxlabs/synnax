@@ -163,9 +163,7 @@ const EdgeProperties = ({
       <Input.Item label="Type" align="start">
         <Schematic.Edge.SelectEdgeType
           value={edgeProps?.variant ?? "pipe"}
-          onChange={(variant: Schematic.Edge.EdgeType) =>
-            onChange(edgeKey, { variant })
-          }
+          onChange={(variant: Schematic.Edge.Variant) => onChange(edgeKey, { variant })}
           style={SELECT_EDGE_TYPE_STYLE}
         />
       </Input.Item>

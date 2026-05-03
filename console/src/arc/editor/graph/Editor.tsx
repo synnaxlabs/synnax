@@ -55,13 +55,13 @@ import { type RootState } from "@/store";
 
 export const HAUL_TYPE = "arc-element";
 
-const StageRenderer = ({
+const NodeRenderer = ({
   nodeKey,
   position,
   selected,
   draggable,
 }: Diagram.NodeProps): ReactElement | null => {
-  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.StageRenderer");
+  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.NodeRenderer");
   const props = useSelectNodeProps(layoutKey, nodeKey);
   const { key = "", ...rest } = props ?? {};
   const handleChange = useCallback(
@@ -94,7 +94,7 @@ const StageRenderer = ({
 };
 
 const ArcDiagram = Base.create({
-  node: Component.renderProp(StageRenderer),
+  node: Component.renderProp(NodeRenderer),
 });
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (

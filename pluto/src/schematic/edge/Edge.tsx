@@ -24,7 +24,7 @@ import {
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { connector } from "@/schematic/edge/connector";
-import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
+import { DefaultPath, type Variant, PATHS } from "@/schematic/edge/paths";
 import { type Key } from "@/triggers/triggers";
 import { type diagram } from "@/vis/diagram/aether";
 import { selectNodeBox } from "@/vis/diagram/util";
@@ -78,7 +78,7 @@ export const ConnectionLine = ({
 
 export interface EdgeProps extends diagram.EdgeProps {
   segments?: connector.Segment[];
-  variant?: EdgeType;
+  variant?: Variant;
   color?: color.Crude;
   onSegmentsChange: (segments: connector.Segment[]) => void;
 }

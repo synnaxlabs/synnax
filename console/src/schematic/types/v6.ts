@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Diagram, Schematic } from "@synnaxlabs/pluto";
-import { color, migrate } from "@synnaxlabs/x";
+import { color, migrate, type record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -17,21 +17,19 @@ import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
-export const nodePropsZ = z.looseObject({
+export const nodePropsZ = v0.nodePropsZ.omit({ key: true }).extend({
+  type: z.literal("node"),
   variant: Schematic.Symbol.variantZ,
-  color: color.colorZ.optional(),
-  label: v0.labelZ.optional(),
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
-
-export const edgePropsZ = z.looseObject({
-  segments: z.array(Schematic.Edge.connector.segmentZ).optional(),
+export const edgePropsZ = v0.edgePropsZ.omit({ color: true }).extend({
+  type: z.literal("edge"),
   color: color.colorZ.optional(),
-  variant: Schematic.Edge.edgeTypeZ.optional(),
+  segments: z.array(Schematic.Edge.connector.segmentZ).optional(),
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
-export const propsZ = z.union([nodePropsZ, edgePropsZ]);
+export const propsZ = z.discriminatedUnion("type", [nodePropsZ, edgePropsZ]);
 export type Props = z.infer<typeof propsZ>;
 
 export const legendStateZ = v1.legendStateZ
@@ -100,16 +98,14 @@ const migrateEdge = (edge: v0.Edge): { edge: Diagram.Edge; edgeProps?: EdgeProps
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
     target: { node: edge.target, param: edge.targetHandle ?? "" },
   };
-  const data = (edge as Record<string, unknown>).data as
-    | Record<string, unknown>
-    | undefined;
+  const data = edge.data as record.Unknown;
   if (data == null) return { edge: next };
-  const edgeProps: EdgeProps = {};
+  const edgeProps: EdgeProps = { type: "edge" };
   const segments = z.array(Schematic.Edge.connector.segmentZ).safeParse(data.segments);
   if (segments.success) edgeProps.segments = segments.data;
   const parsedColor = color.colorZ.safeParse(data.color);
   if (parsedColor.success) edgeProps.color = parsedColor.data;
-  const parsedVariant = Schematic.Edge.edgeTypeZ.safeParse(data.variant);
+  const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);
   if (parsedVariant.success) edgeProps.variant = parsedVariant.data;
   return { edge: next, edgeProps };
 };

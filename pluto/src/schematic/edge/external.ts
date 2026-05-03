@@ -11,8 +11,8 @@ export { connector } from "@/schematic/edge/connector";
 export { ConnectionLine, Edge, type EdgeProps } from "@/schematic/edge/Edge";
 export {
   DefaultPath,
-  type EdgeType,
-  edgeTypeZ,
   PATHS,
   SelectEdgeType,
+  type Variant,
+  variantZ,
 } from "@/schematic/edge/paths";

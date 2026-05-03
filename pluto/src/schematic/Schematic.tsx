@@ -15,9 +15,8 @@ import { type FC, type ReactElement, useCallback } from "react";
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { useKey } from "@/schematic/Context";
+import { Edge } from "@/schematic/edge";
 import { type connector } from "@/schematic/edge/connector";
-import { ConnectionLine, Edge } from "@/schematic/edge/Edge";
-import { type EdgeType } from "@/schematic/edge/paths";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
 import { REGISTRY, type Variant } from "@/schematic/symbol/registry";
 import { Diagram } from "@/vis/diagram";
@@ -34,7 +33,7 @@ export interface NodeProps extends Record<string, unknown> {
 
 export interface EdgeProps extends Record<string, unknown> {
   segments?: connector.Segment[];
-  variant?: EdgeType;
+  variant?: Edge.Variant;
   color?: color.Color;
 }
 
@@ -97,7 +96,7 @@ export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
       [edgeKey, setElementProps],
     );
     return (
-      <Edge
+      <Edge.Edge
         {...rest}
         edgeKey={edgeKey}
         segments={edgeProps?.segments}
@@ -111,7 +110,7 @@ export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
   const Base = Diagram.create({
     node: Component.renderProp(NodeRenderer),
     edge: Component.renderProp(EdgeRenderer),
-    connectionLine: Component.renderProp(ConnectionLine),
+    connectionLine: Component.renderProp(Edge.ConnectionLine),
   });
 
   const Schematic = ({ className, ...props }: SchematicProps): ReactElement => (
