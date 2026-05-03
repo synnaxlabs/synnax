@@ -80,7 +80,7 @@ describe("Schematic", () => {
       expect(res.authority).toEqual(5);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0].key).toEqual("n1");
-      expect((res.props.n1 as Record<string, unknown>).variant).toEqual("valve");
+      expect(res.props.n1.variant).toEqual("valve");
     });
   });
 
@@ -119,19 +119,13 @@ describe("Schematic", () => {
         },
       });
       const retrieved = await client.schematics.retrieve({ key: schem.key });
-      const props = retrieved.props.n1 as Record<string, unknown>;
+      const props = retrieved.props.n1;
       expect(props.camelCaseKey).toEqual("value1");
       expect(props.PascalCaseKey).toEqual("value2");
       expect(props.snake_case_key).toEqual("value3");
-      expect((props.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
-      expect(
-        (
-          (props.nested as Record<string, unknown>).InnerPascalCase as Record<
-            string,
-            unknown
-          >
-        ).deepKey,
-      ).toEqual(true);
+      const nested = props.nested as Record<string, unknown>;
+      expect(nested.innerCamelCase).toEqual(123);
+      expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toEqual(true);
     });
   });
 
@@ -205,7 +199,7 @@ describe("Schematic", () => {
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0]).toMatchObject({ key: "n1", position: { x: 1, y: 2 } });
-      expect((res.props.n1 as Record<string, unknown>).label).toBe("Pump");
+      expect(res.props.n1.label).toBe("Pump");
     });
 
     test("removeNode removes the node and drops its props", async () => {
@@ -282,7 +276,7 @@ describe("Schematic", () => {
         schematic.setProps({ key: "n1", props: { label: "Replaced" } }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
-      expect((res.props.n1 as Record<string, unknown>).label).toBe("Replaced");
+      expect(res.props.n1.label).toBe("Replaced");
     });
 
     test("setAuthority replaces the authority value", async () => {
@@ -327,7 +321,7 @@ describe("Schematic", () => {
       expect(res.nodes).toHaveLength(2);
       expect(res.edges).toHaveLength(1);
       expect(res.authority).toBe(200);
-      expect((res.props.pump as Record<string, unknown>).label).toBe("Main Pump");
+      expect(res.props.pump.label).toBe("Main Pump");
     });
 
     test("converges to the final position after a 30-action drag storm", async () => {
@@ -380,7 +374,7 @@ describe("Schematic", () => {
         }),
       ]);
       const res = await client.schematics.retrieve({ key: schem.key });
-      const props = res.props.n1 as Record<string, unknown>;
+      const props = res.props.n1;
       expect(props.camelCaseKey).toBe("v1");
       expect(props.PascalCaseKey).toBe("v2");
       expect(props.snake_case_key).toBe("v3");
