@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
-import { TimeStamp } from "@synnaxlabs/x";
+import { TimeRange, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { type Haul } from "@/haul";
@@ -23,10 +23,7 @@ import {
 const PAYLOAD: ranger.Payload = {
   key: "550e8400-e29b-41d4-a716-446655440000",
   name: "Test Range",
-  timeRange: {
-    start: TimeStamp.now().valueOf(),
-    end: TimeStamp.now().add(TimeStamp.SECOND).valueOf(),
-  },
+  timeRange: new TimeRange(TimeStamp.now(), TimeStamp.now().add(TimeStamp.SECOND)),
   labels: [],
 };
 
