@@ -34,6 +34,7 @@ import {
 } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 import { useStore } from "react-redux";
+import { z } from "zod";
 
 import { Layout } from "@/layout";
 import { selectViewport, useSelectSelected } from "@/schematic/selectors";
@@ -41,11 +42,8 @@ import { createEditLayout } from "@/schematic/symbols/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type RootState } from "@/store";
 
-import { z } from "zod";
-
-const nodePropsZ = z.looseObject({
-  variant: Schematic.Symbol.variantZ,
-});
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const nodePropsZ = z.looseObject({ variant: Schematic.Symbol.variantZ });
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -128,7 +126,7 @@ const IndividualProperties = ({
     );
 
   if (props == null) return null;
-  const C = Schematic.Symbol.REGISTRY[props.variant as Schematic.Symbol.Variant];
+  const C = Schematic.Symbol.REGISTRY[props.variant];
 
   return (
     <Flex.Box style={{ height: "100%" }} y>
@@ -226,7 +224,7 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, Schematic.ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    const rawColor = (e.props as record.Unknown).color;
+    const rawColor = (e.props).color;
     if (rawColor != null) colorVal = color.construct(rawColor as color.Crude);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);

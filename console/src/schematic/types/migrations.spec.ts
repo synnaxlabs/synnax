@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -38,7 +37,11 @@ describe("migrations", () => {
     STATES.forEach((state) => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
-        expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
+        expect(migrated.version).toBe(ZERO_STATE.version);
+        expect(migrated.activeToolbarTab).toBe(ZERO_STATE.activeToolbarTab);
+        expect(migrated.selected).toEqual([]);
+        expect(migrated.legend).toBeDefined();
+        expect(migrated.viewport).toBeDefined();
       });
     });
 

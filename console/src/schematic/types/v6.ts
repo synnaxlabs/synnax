@@ -13,7 +13,7 @@ import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
-import * as v5 from "@/schematic/types/v5";
+import type * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
