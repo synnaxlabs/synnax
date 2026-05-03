@@ -37,6 +37,7 @@ import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { fromClientRange } from "@/range/translate";
 import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
@@ -61,21 +62,12 @@ const List = (): ReactElement => {
   };
 
   const dropProps = Haul.useDrop({
-    type: "range-toolbar",
-    canDrop: Haul.canDropOfType("range"),
+    type: "range_toolbar",
+    canDrop: Ranger.canDropHaulItem,
     onDrop: ({ items }) => {
-      const ranges = items.map(
-        ({ data, key }) =>
-          ({
-            key,
-            name: data?.name,
-            variant: "static",
-            persisted: true,
-            timeRange: data?.timeRange,
-          }) as StaticRange,
-      );
-      dispatch(add({ ranges }));
-      return items;
+      const dropped = Ranger.filterHaulItems(items);
+      dispatch(add({ ranges: fromClientRange(dropped.map(({ data }) => data)) }));
+      return dropped;
     },
   });
 

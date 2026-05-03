@@ -96,7 +96,7 @@ const useDropOutsideWindows = ({ type, key, ...rest }: UseDropOutsideProps): voi
 };
 
 const canDrop: Haul.CanDrop = ({ items }) =>
-  items.length === 1 && items[0].type === Mosaic.HAUL_DROP_TYPE;
+  items.length === 1 && Mosaic.isTabDropHaulItem(items[0]);
 
 const useBase =
   runtime.getOS() === "macOS" ? useDropOutsideMacOS : useDropOutsideWindows;
@@ -106,7 +106,7 @@ export const useDropOutside = (): void => {
   const dispatch = useDispatch();
   const handleDrop = useCallback(
     ({ items: [item] }: Haul.OnDropProps, cursor?: xy.XY) => {
-      if (item == null) return [];
+      if (item == null || !Mosaic.isTabDropHaulItem(item)) return [];
       const { key } = place(
         createMosaicWindow({
           position: cursor ? xy.translate(cursor, { x: -80, y: -45 }) : undefined,
@@ -116,7 +116,7 @@ export const useDropOutside = (): void => {
         moveMosaicTab({
           windowKey: key,
           key: 1,
-          tabKey: item.key as string,
+          tabKey: item.key,
           loc: "center",
         }),
       );
@@ -125,7 +125,7 @@ export const useDropOutside = (): void => {
     [place],
   );
   const dropProps = {
-    type: "Palette",
+    type: "palette",
     canDrop,
     onDrop: handleDrop,
   };

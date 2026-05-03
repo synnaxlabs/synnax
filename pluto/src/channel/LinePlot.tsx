@@ -13,6 +13,7 @@ import { type channel } from "@synnaxlabs/client";
 import {
   box,
   type color,
+  type direction,
   location as loc,
   type TimeRange,
   type TimeSpan,
@@ -27,7 +28,7 @@ import {
   useRef,
 } from "react";
 
-import { HAUL_TYPE } from "@/channel/types";
+import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
@@ -108,8 +109,6 @@ export interface LinePlotProps extends Omit<Base.LinePlotProps, "ref"> {
   onMeasureModeChange?: (mode: measure.Mode) => void;
   ref?: Ref<Base.LinePlotRef>;
 }
-
-const canDrop = Haul.canDropOfType(HAUL_TYPE);
 
 /**
  * A line plot component that automatically pulls data from specified channels and
@@ -220,6 +219,25 @@ interface XAxisProps extends Pick<
   rangeProviderProps?: Range.ProviderProps;
 }
 
+export const useAxisDrop = (
+  key: string,
+  direction: direction.Direction,
+  onAxisChannelDrop?: (key: string, keys: channel.Key[]) => void,
+): Haul.UseDropReturn =>
+  Haul.useDrop({
+    type: `channel_lineplot_${direction}_axis`,
+    canDrop: canDropHaulItem,
+    onDrop: useCallback(
+      ({ items }) => {
+        const dropped = filterHaulItems(items);
+        const keys = dropped.map(({ key }) => key);
+        onAxisChannelDrop?.(key, keys);
+        return dropped;
+      },
+      [key, onAxisChannelDrop],
+    ),
+  });
+
 const XAxis = ({
   yAxes,
   lines,
@@ -232,24 +250,9 @@ const XAxis = ({
   axis: { location, key, showGrid, ...axis },
   rangeProviderProps,
 }: XAxisProps): ReactElement => {
-  const dropProps = Haul.useDrop({
-    type: "Channel.LinePlot.XAxis",
-    canDrop,
-    onDrop: useCallback(
-      ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        onAxisChannelDrop?.(
-          key,
-          dropped.map(({ key }) => key as channel.Key),
-        );
-        return dropped;
-      },
-      [key, onAxisChannelDrop],
-    ),
-  });
-
   const xRules = rules?.filter((r) => r.axis === key);
   const dragging = Haul.useDraggingState();
+  const dropProps = useAxisDrop(key, "x", onAxisChannelDrop);
   return (
     <Base.XAxis
       {...axis}
@@ -257,7 +260,7 @@ const XAxis = ({
       location={location as loc.Y}
       axisKey={key}
       showGrid={showGrid ?? index === 0}
-      className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
+      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
       onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >
@@ -318,31 +321,15 @@ const YAxis = ({
   axis: { key, location: loc, ...props },
   onSelectRule,
 }: YAxisProps): ReactElement => {
-  const dropProps = Haul.useDrop({
-    type: "Channel.LinePlot.YAxis",
-    canDrop,
-    onDrop: useCallback(
-      ({ items }) => {
-        const dropped = Haul.filterByType(HAUL_TYPE, items);
-        onAxisChannelDrop?.(
-          key,
-          dropped.map(({ key }) => key as channel.Key),
-        );
-        return dropped;
-      },
-      [key, onAxisChannelDrop],
-    ),
-  });
-
+  const dropProps = useAxisDrop(key, "y", onAxisChannelDrop);
   const dragging = Haul.useDraggingState();
-
   return (
     <Base.YAxis
       {...props}
       {...dropProps}
       location={loc as loc.X}
       axisKey={key}
-      className={CSS(CSS.dropRegion(Haul.canDropOfType(HAUL_TYPE)(dragging)))}
+      className={CSS(CSS.dropRegion(canDropHaulItem(dragging)))}
       onAutoBoundsChange={(bounds) => onAxisChange?.({ key, bounds })}
       onLabelChange={(value) => onAxisChange?.({ key, label: value })}
     >

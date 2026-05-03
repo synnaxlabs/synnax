@@ -48,6 +48,7 @@ import {
   useImport as useImportSymbol,
   useImportGroup,
 } from "@/schematic/symbols/import";
+import { createSymbolHaulItem } from "@/schematic/Schematic";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
@@ -56,12 +57,12 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const theme = Theming.use();
 
   const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Diagram-Elements",
+    type: "diagram_elements",
     key: "symbols",
   });
 
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: "schematic-element", key: itemKey }]);
+    startDrag([createSymbolHaulItem(itemKey)]);
   }, [startDrag, itemKey]);
   const spec = List.useItem<string, Schematic.Symbol.Spec>(itemKey);
   const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
@@ -130,14 +131,12 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const Preview = Schematic.Symbol.REGISTRY[variant].Preview;
 
   const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Diagram-Elements",
+    type: "diagram_elements",
     key: "symbols",
   });
 
   const handleDragStart = useCallback(() => {
-    startDrag([
-      { type: "schematic-element", key: variant, data: { specKey: itemKey } },
-    ]);
+    startDrag([createSymbolHaulItem(variant, { specKey: itemKey })]);
   }, [startDrag, itemKey, variant]);
 
   if (symbol == null) return null;
