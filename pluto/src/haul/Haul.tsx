@@ -9,7 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import { type destructor, type optional, record, xy } from "@synnaxlabs/x";
+import { type destructor, type optional, xy } from "@synnaxlabs/x";
 import React, {
   type DragEvent,
   type DragEventHandler,
@@ -31,16 +31,11 @@ export const itemZ = z.object({
   key: z.string().or(z.number()),
   type: z.string(),
   elementID: z.string().optional(),
-  data: record.unknownZ().optional(),
+  data: z.unknown().optional(),
 });
 
 // Item represents a draggable item.
-export interface Item {
-  key: record.Key;
-  type: string;
-  elementID?: string;
-  data?: record.Unknown;
-}
+export interface Item extends z.infer<typeof itemZ> {}
 
 export const draggingStateZ = z.object({ source: itemZ, items: z.array(itemZ) });
 

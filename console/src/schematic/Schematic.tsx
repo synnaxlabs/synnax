@@ -74,7 +74,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
-import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
+import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
@@ -187,7 +187,7 @@ const useSetElementProps = (layoutKey: string) => {
   const dispatch = useDispatch();
   return useCallback(
     (key: string, props: Base.NodeProps | Base.EdgeProps) =>
-      dispatch(setElementProps({ layoutKey, key, props })),
+      dispatch(setElementProps({ key: layoutKey, elKey: key, props })),
     [layoutKey, dispatch],
   );
 };
@@ -276,7 +276,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const ref = useRef<HTMLDivElement>(null);
 
-  const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
+  const handleAddElement = useAddNode(layoutKey, undoableDispatch);
 
   const calculateCursorPosition = useCallback(
     (cursor: xy.Crude) =>
@@ -292,11 +292,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
       const valid = Haul.filterByType(HAUL_TYPE, items);
       if (event == null) return valid;
-      valid.forEach(({ key, data }) => {
-        const spec = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
-        if (spec == null) return;
+      valid.forEach(({ data }) => {
         const pos = xy.truncate(calculateCursorPosition(event), 0);
-        handleAddElement(key.toString(), pos, data);
+        handleAddElement({ ...(data as AddNodeProps), position: pos });
       });
       return valid;
     },
@@ -406,46 +404,45 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   return (
     <Controller resourceKey={layoutKey} authority={state.authority}>
-      <Base.Provider value={layoutKey}>
-        <SchematicComponent
-          ref={ref}
-          onViewportChange={handleViewportChange}
-          viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          edges={state.edges}
-          nodes={state.nodes}
-          selected={selected}
-          onSelectionChange={handleSelectionChange}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the schematic sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          onNodeClick={handleNodeClick}
-          onNodeDoubleClick={handleNodeDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.Background />
-          <Controls x>
-            <Diagram.Controls.SelectViewportMode />
-            <Diagram.Controls.FitView />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
-              )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
-            </Flex.Box>
-          </Controls>
-        </SchematicComponent>
-      </Base.Provider>
+      <SchematicComponent
+        itemKey={layoutKey}
+        ref={ref}
+        onViewportChange={handleViewportChange}
+        viewportMode={mode}
+        onViewportModeChange={handleViewportModeChange}
+        edges={state.edges}
+        nodes={state.nodes}
+        selected={selected}
+        onSelectionChange={handleSelectionChange}
+        // Turns out that setting the zoom value to 1 here doesn't have any negative
+        // effects on the schematic sizing and ensures that we position all the lines
+        // in the correct place.
+        viewport={{ ...state.viewport, zoom: 1 }}
+        onEdgesChange={handleEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEditableChange={handleEditableChange}
+        editable={canEdit}
+        triggers={triggers}
+        onDoubleClick={handleDoubleClick}
+        onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        fitViewOnResize={state.fitViewOnResize}
+        setFitViewOnResize={handleSetFitViewOnResize}
+        visible={visible}
+        {...dropProps}
+      >
+        <Diagram.Background />
+        <Controls x>
+          <Diagram.Controls.SelectViewportMode />
+          <Diagram.Controls.FitView />
+          <Flex.Box x pack>
+            {hasUpdatePermission && (
+              <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
+            )}
+            {!state.snapshot && <ControlToggleButton control={state.control} />}
+          </Flex.Box>
+        </Controls>
+      </SchematicComponent>
       {legendVisible && (
         <Control.Legend
           position={legendPosition}

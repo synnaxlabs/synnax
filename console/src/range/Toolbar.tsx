@@ -37,6 +37,7 @@ import { CREATE_LAYOUT } from "@/range/Create";
 import { EXPLORER_LAYOUT } from "@/range/Explorer";
 import { select, useSelect, useSelectStaticKeys } from "@/range/selectors";
 import { add, rename, setActive, type StaticRange } from "@/range/slice";
+import { staticRangeZ } from "@/range/types/v0";
 import { type RootState } from "@/store";
 
 const NoRanges = (): ReactElement => {
@@ -64,16 +65,16 @@ const List = (): ReactElement => {
     type: "range-toolbar",
     canDrop: Haul.canDropOfType("range"),
     onDrop: ({ items }) => {
-      const ranges = items.map(
-        ({ data, key }) =>
-          ({
-            key,
-            name: data?.name,
-            variant: "static",
-            persisted: true,
-            timeRange: data?.timeRange,
-          }) as StaticRange,
-      );
+      const ranges = items.map(({ data, key }) => {
+        const parsed = staticRangeZ.partial().safeParse(data).data;
+        return {
+          key,
+          name: parsed?.name,
+          variant: "static",
+          persisted: true,
+          timeRange: parsed?.timeRange,
+        } as StaticRange;
+      });
       dispatch(add({ ranges }));
       return items;
     },

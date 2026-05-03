@@ -18,6 +18,7 @@ import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   type OutputChannel,
+  scannedNodeZ,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
@@ -46,20 +47,16 @@ const Properties = () => (
 );
 
 const convertHaulItemToChannel = ({ data }: Haul.Item): OutputChannel => {
-  if (typeof data?.name !== "string") throw new Error("Invalid name");
-  const nodeName = data?.name;
-  if (typeof data?.nodeId !== "string")
-    throw new Error(`Invalid nodeId for ${nodeName}`);
-  const nodeId = data?.nodeId;
-  const dataType = typeof data?.dataType === "string" ? data.dataType : "float32";
+  const parsedData = scannedNodeZ.parse(data);
+  const nodeId = parsedData.nodeId;
   return {
     key: nodeId,
-    nodeName,
+    nodeName: parsedData.name,
     nodeId,
     name: "",
     cmdChannel: 0,
     enabled: true,
-    dataType,
+    dataType: parsedData.dataType,
   };
 };
 

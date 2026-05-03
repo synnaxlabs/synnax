@@ -9,6 +9,7 @@
 
 import { access } from "@synnaxlabs/client";
 import { Access, Icon, Menu } from "@synnaxlabs/pluto";
+import z from "zod";
 
 import { ContextMenu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -62,6 +63,8 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
+const dragData = z.object({ rootUser: z.boolean() });
+
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "role",
@@ -72,6 +75,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
     items.every(
       ({ key, type, data }) =>
         (key.toString().startsWith("user:") || type === "user") &&
-        data?.rootUser !== true,
+        dragData.safeParse(data).data?.rootUser !== true,
     ),
 };

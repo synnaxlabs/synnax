@@ -26,7 +26,7 @@ import { CSS } from "@/css";
 import { Common } from "@/hardware/common";
 import { ChannelName } from "@/hardware/common/task/ChannelName";
 import { Device } from "@/hardware/opc/device";
-import { type Channel } from "@/hardware/opc/task/types";
+import { type Channel, scannedNodeZ } from "@/hardware/opc/task/types";
 
 export interface ExtraItemProps {
   path: string;
@@ -116,7 +116,8 @@ const CHANNELS_PATH = "config.channels";
 const VARIABLE_NODE_CLASS = "Variable";
 
 const filterHaulItem = (item: Haul.Item): boolean =>
-  item.type === Device.HAUL_TYPE && item.data?.nodeClass === VARIABLE_NODE_CLASS;
+  item.type === Device.HAUL_TYPE &&
+  scannedNodeZ.safeParse(item.data).data?.nodeClass == VARIABLE_NODE_CLASS;
 
 const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
 
@@ -145,7 +146,12 @@ const ChannelList = <C extends Channel>({
       const channels = ctx.get<C[]>(CHANNELS_PATH).value;
       const dropped = items.filter(filterHaulItem);
       const toAdd = dropped
-        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data?.nodeId))
+        .filter(
+          ({ data }) =>
+            !channels.some(
+              ({ nodeId }) => nodeId === scannedNodeZ.safeParse(data).data?.nodeId,
+            ),
+        )
         .map(convertHaulItemToChannel);
       push(toAdd);
       return dropped;

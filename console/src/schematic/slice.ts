@@ -14,7 +14,7 @@ import {
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { color, id, xy } from "@synnaxlabs/x";
+import { color, id, type require, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 import { type RootState } from "@/store";
@@ -59,16 +59,15 @@ export interface SetViewportPayload {
   viewport: Diagram.Viewport;
 }
 
-export interface AddElementPayload {
+export interface AddNodePayload {
   key: string;
-  elKey: string;
   props: NodeProps;
-  node?: Partial<Diagram.Node>;
+  node: require.Require<Partial<Diagram.Node>, "key">;
 }
 
 export interface SetElementPropsPayload {
-  layoutKey: string;
   key: string;
+  elKey: string;
   props: Partial<Props>;
 }
 
@@ -301,19 +300,15 @@ export const { actions, reducer } = createSlice({
         delete state.schematics[layoutKey];
       });
     },
-    addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
-      const { key: layoutKey, elKey: key, props, node } = payload;
+    addNode: (state, { payload }: PayloadAction<AddNodePayload>) => {
+      const { key: layoutKey, props, node } = payload;
       const schematic = state.schematics[layoutKey];
       if (!schematic.editable) return;
-      schematic.nodes.push({
-        key,
-        position: xy.ZERO,
-        ...node,
-      });
-      schematic.props[key] = props;
+      schematic.nodes.push({ position: { ...xy.ZERO }, ...node });
+      schematic.props[node.key] = props;
     },
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
-      const { layoutKey, key, props } = payload;
+      const { elKey: layoutKey, elKey: key, props } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.props[key] = { ...schematic.props[key], ...props } as Props;
     },
@@ -497,7 +492,7 @@ export const {
   setLegendVisible,
   setNodePositions,
   setControlStatus,
-  addElement,
+  addNode,
   selectAll,
   setEdges,
   setNodes,

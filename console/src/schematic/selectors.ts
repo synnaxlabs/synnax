@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
+import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
@@ -288,15 +288,14 @@ export const selectEdgeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): EdgeProps | undefined => {
+): EdgeProps => {
   const props = selectElementProps(state, layoutKey, key);
-  return props as EdgeProps | undefined;
+  if (props?.type !== "edge")
+    throw new ValidationError("attempted to select props for non-edge");
+  return props;
 };
 
-export const useSelectEdgeProps = (
-  layoutKey: string,
-  key: string,
-): EdgeProps | undefined =>
+export const useSelectEdgeProps = (layoutKey: string, key: string): EdgeProps =>
   useMemoSelect(
     (state: StoreState) => selectEdgeProps(state, layoutKey, key),
     [layoutKey, key],

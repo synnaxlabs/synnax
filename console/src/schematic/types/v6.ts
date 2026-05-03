@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Diagram, Schematic } from "@synnaxlabs/pluto";
-import { color, migrate, type record } from "@synnaxlabs/x";
+import { color, migrate, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
@@ -22,10 +22,11 @@ export const nodePropsZ = v0.nodePropsZ.omit({ key: true }).extend({
   variant: Schematic.Symbol.variantZ,
 });
 export interface NodeProps extends z.infer<typeof nodePropsZ> {}
-export const edgePropsZ = v0.edgePropsZ.omit({ color: true }).extend({
+export const edgePropsZ = z.object({
   type: z.literal("edge"),
-  color: color.colorZ.optional(),
-  segments: z.array(Schematic.Edge.connector.segmentZ).optional(),
+  color: color.colorZ,
+  segments: z.array(Schematic.Edge.connector.segmentZ),
+  variant: Schematic.Edge.variantZ,
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 
@@ -98,14 +99,22 @@ const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeProps] => {
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
     target: { node: edge.target, param: edge.targetHandle ?? "" },
   };
-  const edgeProps: EdgeProps = { type: "edge" };
+  const edgeProps: EdgeProps = {
+    type: "edge",
+    variant: "pipe",
+    segments: [],
+    color: color.ZERO,
+  };
+  const parseDataResult = record.unknownZ().safeParse(edge.data);
+  if (!parseDataResult.success) return [next, edgeProps];
+  const data = parseDataResult.data;
   const segments = z.array(Schematic.Edge.connector.segmentZ).safeParse(data.segments);
   if (segments.success) edgeProps.segments = segments.data;
   const parsedColor = color.colorZ.safeParse(data.color);
   if (parsedColor.success) edgeProps.color = parsedColor.data;
   const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);
   if (parsedVariant.success) edgeProps.variant = parsedVariant.data;
-  return { edge: next, edgeProps };
+  return [next, edgeProps];
 };
 
 const migrateLegendColors = (
@@ -133,15 +142,10 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
   migrate: (state) => {
     const props = migrateProps(state.props);
     const edges = state.edges.map((e) => {
-      const { edge, edgeProps } = migrateEdge(e);
-      if (edgePprops[edge.key] = edgeProps;
+      const [edge, edgeProps] = migrateEdge(e);
+      props[edge.key] = edgeProps;
+      return edge;
     });
-    const edges: Diagram.Edge[] = [];
-    for (const e of state.edges) {
-      const { edge, edgeProps } = migrateEdge(e);
-      edges.push(edge);
-      if (edgeProps != null) props[edge.key] = edgeProps;
-    }
     return {
       ...state,
       version: VERSION,
@@ -155,12 +159,11 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
 
 const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
   const props = migrateProps(copy.props);
-  const edges: Diagram.Edge[] = [];
-  for (const e of copy.edges) {
-    const { edge, edgeProps } = migrateEdge(e);
-    edges.push(edge);
-    if (edgeProps != null) props[edge.key] = edgeProps;
-  }
+  const edges = copy.edges.map((e) => {
+    const [edge, edgeProps] = migrateEdge(e);
+    props[edge.key] = edgeProps;
+    return edge;
+  });
   return { ...copy, edges, props };
 };
 

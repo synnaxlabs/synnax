@@ -69,11 +69,10 @@ describe("Schematic Slice", () => {
     it("should add a node to schematic", () => {
       const nodeKey = "valve-1";
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: nodeKey,
-          props: { variant: "valve" },
-          node: { position: { x: 100, y: 100 } },
+          props: { type: "node", variant: "valve" },
+          node: { key: nodeKey, position: { x: 100, y: 100 } },
         }),
       );
 
@@ -89,21 +88,18 @@ describe("Schematic Slice", () => {
       const node1Key = "valve-1";
       const node2Key = "valve-2";
 
-      // Add two nodes
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: node1Key,
-          props: { variant: "valve" },
-          node: { position: { x: 0, y: 0 } },
+          props: { type: "node", variant: "valve" },
+          node: { key: node1Key, position: { x: 0, y: 0 } },
         }),
       );
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: node2Key,
-          props: { variant: "valve" },
-          node: { position: { x: 150, y: 20 } },
+          props: { type: "node", variant: "valve" },
+          node: { key: node1Key, position: { x: 150, y: 20 } },
         }),
       );
 
@@ -521,11 +517,10 @@ describe("Schematic Slice", () => {
     beforeEach(() => {
       store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: nodeKey,
-          props: { variant: "offPageReference", page: "" },
-          node: { position: { x: 0, y: 0 } },
+          props: { type: "node", variant: "offPageReference", page: "" },
+          node: { key: nodeKey, position: { x: 0, y: 0 } },
         }),
       );
     });
@@ -541,8 +536,8 @@ describe("Schematic Slice", () => {
       const targetPage = "target-schematic-key";
       store.dispatch(
         actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
+          key: schematicKey,
+          elKey: nodeKey,
           props: { variant: "offPageReference", page: targetPage },
         }),
       );
@@ -554,15 +549,15 @@ describe("Schematic Slice", () => {
     it("should clear the page prop by setting it to empty string", () => {
       store.dispatch(
         actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
+          key: schematicKey,
+          elKey: nodeKey,
           props: { variant: "offPageReference", page: "some-page" },
         }),
       );
       store.dispatch(
         actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
+          key: schematicKey,
+          elKey: nodeKey,
           props: { variant: "offPageReference", page: "" },
         }),
       );
@@ -574,8 +569,8 @@ describe("Schematic Slice", () => {
     it("should preserve the page prop when other props change", () => {
       store.dispatch(
         actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
+          key: schematicKey,
+          elKey: nodeKey,
           props: {
             variant: "offPageReference",
             page: "target-page",
@@ -585,8 +580,8 @@ describe("Schematic Slice", () => {
       );
       store.dispatch(
         actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
+          key: schematicKey,
+          elKey: nodeKey,
           props: {
             variant: "offPageReference",
             page: "target-page",

@@ -87,7 +87,7 @@ const IndividualProperties = ({
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+    dispatch(setElementProps({ key: layoutKey, elKey: key, props }));
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
@@ -144,19 +144,13 @@ const EdgeProperties = ({
   const edgeProps = useSelectEdgeProps(layoutKey, edgeKey);
   const dispatch = useDispatch();
   const onChange = (key: string, props: Partial<EdgeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+    dispatch(setElementProps({ key: layoutKey, elKey: key, props }));
   };
-  // Color.Swatch requires a parseable hex; persisted edges may carry CSS
-  // variables (e.g. "var(--pluto-gray-l11)") inherited from migration defaults.
-  const swatchColor =
-    edgeProps?.color != null && color.colorZ.safeParse(edgeProps.color).success
-      ? (edgeProps.color as color.Crude)
-      : color.ZERO;
   return (
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
       <Input.Item label="Color" align="start">
         <Color.Swatch
-          value={swatchColor}
+          value={edgeProps?.color}
           onChange={(color: color.Color) => onChange(edgeKey, { color })}
         />
       </Input.Item>
@@ -181,8 +175,8 @@ const MultiElementProperties = ({
   const handleError = Status.useErrorHandler();
   const elements = useSelectSelectedElementsProps(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<NodeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+  const onChange = (nodeKey: string, props: Partial<NodeProps>): void => {
+    dispatch(setElementProps({ key: layoutKey, elKey: nodeKey, props }));
   };
 
   const colorGroups: Record<string, ElementInfo[]> = {};
