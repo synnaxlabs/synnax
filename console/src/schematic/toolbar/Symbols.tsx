@@ -37,6 +37,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { createSymbolHaulItem } from "@/schematic/Schematic";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
@@ -48,7 +49,6 @@ import {
   useImport as useImportSymbol,
   useImportGroup,
 } from "@/schematic/symbols/import";
-import { createSymbolHaulItem } from "@/schematic/Schematic";
 import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 

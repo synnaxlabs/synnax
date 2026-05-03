@@ -20,8 +20,8 @@ import {
   isSymbolHaulItem,
   isValueHaulItem,
   SYMBOL_HAUL_TYPE,
-  type ValueHaulData,
   VALUE_HAUL_TYPE,
+  type ValueHaulData,
 } from "@/schematic/Schematic";
 
 const VARIANT = "valve";

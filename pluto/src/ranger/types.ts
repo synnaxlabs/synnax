@@ -8,17 +8,24 @@
 // included in the file licenses/APL.txt.
 
 import { type ranger } from "@synnaxlabs/client";
+import { type NumericTimeRange } from "@synnaxlabs/x";
 
 import { Haul } from "@/haul";
 
 export const HAUL_TYPE = "range";
 
-export type HaulItem = Haul.Item<typeof HAUL_TYPE, ranger.Key, ranger.Payload>;
+export interface HaulData {
+  key: ranger.Key;
+  name: string;
+  timeRange: NumericTimeRange;
+}
 
-export const createHaulItem = (payload: ranger.Payload): HaulItem => ({
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, ranger.Key, HaulData>;
+
+export const createHaulItem = ({ key, name, timeRange }: ranger.Payload): HaulItem => ({
   type: HAUL_TYPE,
-  key: payload.key,
-  data: payload,
+  key,
+  data: { key, name, timeRange: timeRange.numeric },
 });
 
 export const isHaulItem = (item: Haul.Item): item is HaulItem =>

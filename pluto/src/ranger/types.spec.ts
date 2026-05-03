@@ -39,8 +39,12 @@ describe("range haul utilities", () => {
       expect(createHaulItem(PAYLOAD).key).toEqual(PAYLOAD.key);
     });
 
-    it("creates an item carrying the full payload in data", () => {
-      expect(createHaulItem(PAYLOAD).data).toEqual(PAYLOAD);
+    it("creates an item carrying serializable payload fields in data", () => {
+      expect(createHaulItem(PAYLOAD).data).toEqual({
+        key: PAYLOAD.key,
+        name: PAYLOAD.name,
+        timeRange: PAYLOAD.timeRange.numeric,
+      });
     });
   });
 
