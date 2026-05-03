@@ -110,6 +110,7 @@ type Transport struct {
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
 	SchematicRename   freighter.UnaryServer[schematic.RenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
+	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
 	// SCHEMATIC SYMBOL
 	SchematicCreateSymbol        freighter.UnaryServer[schematic.CreateSymbolRequest, schematic.CreateSymbolResponse]
@@ -292,6 +293,7 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicDelete,
 		t.SchematicRename,
 		t.SchematicSetData,
+		t.SchematicDispatch,
 		t.SchematicCopy,
 
 		// SCHEMATIC SYMBOL
@@ -438,6 +440,7 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
 	t.SchematicRename.BindHandler(l.Schematic.Rename)
 	t.SchematicSetData.BindHandler(l.Schematic.SetData)
+	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
 
 	// SCHEMATIC SYMBOL

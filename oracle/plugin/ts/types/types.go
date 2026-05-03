@@ -12,7 +12,6 @@ package types
 import (
 	"bytes"
 	"fmt"
-	"path/filepath"
 	"sort"
 	"strings"
 	"text/template"
@@ -28,6 +27,8 @@ import (
 	"github.com/synnaxlabs/oracle/plugin/enum"
 	"github.com/synnaxlabs/oracle/plugin/framework"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
 	"github.com/synnaxlabs/oracle/resolution"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/set"
@@ -153,57 +154,6 @@ func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	return resp, nil
 }
 
-type packageMapping struct {
-	// pathPrefix is the path prefix (e.g., "client/ts/src").
-	pathPrefix string
-	// packageName is the npm package name (e.g., "@synnaxlabs/client").
-	packageName string
-	// internalPrefix is the internal import prefix (e.g., "@/").
-	internalPrefix string
-}
-
-var knownPackages = []packageMapping{
-	{pathPrefix: "client/ts/src", packageName: "@synnaxlabs/client", internalPrefix: "@/"},
-	{pathPrefix: "x/ts/src", packageName: "@synnaxlabs/x", internalPrefix: "@/"},
-	{pathPrefix: "pluto/src", packageName: "@synnaxlabs/pluto", internalPrefix: "@/"},
-	{pathPrefix: "freighter/ts/src", packageName: "@synnaxlabs/freighter", internalPrefix: "@/"},
-	{pathPrefix: "alamos/ts/src", packageName: "@synnaxlabs/alamos", internalPrefix: "@/"},
-	{pathPrefix: "drift/src", packageName: "@synnaxlabs/drift", internalPrefix: "@/"},
-}
-
-func findPackage(outputPath string) *packageMapping {
-	for i := range knownPackages {
-		if strings.HasPrefix(outputPath, knownPackages[i].pathPrefix) {
-			return &knownPackages[i]
-		}
-	}
-	return nil
-}
-
-func calculateImportPath(fromPath, toPath string) string {
-	fromPkg, toPkg := findPackage(fromPath), findPackage(toPath)
-	if fromPkg == nil || toPkg == nil {
-		return calculateRelativeImport(fromPath, toPath)
-	}
-	if fromPkg.packageName == toPkg.packageName {
-		relativePath := strings.TrimPrefix(strings.TrimPrefix(toPath, toPkg.pathPrefix), "/")
-		return toPkg.internalPrefix + relativePath
-	}
-	return toPkg.packageName
-}
-
-func calculateRelativeImport(from, to string) string {
-	rel, err := filepath.Rel(from, to)
-	if err != nil {
-		return "./" + to
-	}
-	rel = filepath.ToSlash(rel)
-	if !strings.HasPrefix(rel, ".") {
-		rel = "./" + rel
-	}
-	return rel
-}
-
 // hasNonPrimitiveDependency returns true if a type definition has dependencies
 // on non-primitive types (i.e., references other schema types that need to be
 // declared before this type). This is used to determine whether a distinct type
@@ -257,13 +207,13 @@ func (p *Plugin) generateFile(
 		TypeDefs:      make([]typeDefData, 0, len(typeDefs)),
 		SortedDecls:   make([]sortedDeclData, 0),
 		GenerateTypes: p.Options.GenerateTypes,
-		Imports:       make(map[string]*importSpec),
+		Manager:       imports.NewManager(),
 	}
 	skip := func(s resolution.Type) bool { return omit.IsType(s, "ts") }
 	rawKeyFields := key.Collect(structs, req.Resolutions, skip)
 	data.Ontology = p.extractOntology(structs, rawKeyFields, skip, req.Resolutions)
 	if data.Ontology != nil {
-		data.addNamedImport("@/ontology", "ontology")
+		data.AddImport("@/ontology", "ontology")
 	}
 
 	// Separate type definitions based on whether they have dependencies on schema types.
@@ -611,9 +561,6 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 		} else {
 			sd.AliasOf = p.typeRefToZod(&aliasForm.Target, table, data)
 		}
-		if len(aliasForm.TypeParams) == 0 && len(aliasForm.Target.TypeArgs) > 0 {
-			sd.AliasTypeRef = p.typeRefToTSType(&aliasForm.Target, table, data)
-		}
 		return sd
 	}
 
@@ -710,7 +657,7 @@ func (p *Plugin) processStruct(entry resolution.Type, table *resolution.Table, d
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
-				data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+				data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 				schemaName = ns + "." + schemaName
 			}
 
@@ -1236,133 +1183,6 @@ func (p *Plugin) typeRefToZod(typeRef *resolution.TypeRef, table *resolution.Tab
 	return p.typeRefToZodInternal(typeRef, table, data, false)
 }
 
-func (p *Plugin) typeRefToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
-	if typeRef == nil {
-		return "unknown"
-	}
-	if resolution.IsPrimitive(typeRef.Name) {
-		return primitiveToTSType(typeRef.Name)
-	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return "unknown"
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		typeName := resolved.Name
-		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				// For type args that are structs/types, use typeof schemaZ
-				args[i] = p.typeArgToTSType(&arg, table, data)
-			}
-			typeName = fmt.Sprintf("%s<%s>", typeName, strings.Join(args, ", "))
-		}
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("%s.%s", ns, typeName)
-		}
-		return typeName
-
-	case resolution.EnumForm:
-		typeName := resolved.Name
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("%s.%s", ns, typeName)
-		}
-		return typeName
-	}
-
-	return "unknown"
-}
-
-func (p *Plugin) typeArgToTSType(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData) string {
-	if typeRef == nil {
-		return "unknown"
-	}
-	if resolution.IsPrimitive(typeRef.Name) {
-		return primitiveToTSType(typeRef.Name)
-	}
-	resolved, ok := typeRef.Resolve(table)
-	if !ok {
-		return "unknown"
-	}
-
-	switch form := resolved.Form.(type) {
-	case resolution.StructForm:
-		schemaName := camelCase(resolved.Name) + "Z"
-		if form.IsGeneric() && len(typeRef.TypeArgs) > 0 {
-			// For generic types with args, recursively get the full schema call
-			args := make([]string, len(typeRef.TypeArgs))
-			for i, arg := range typeRef.TypeArgs {
-				args[i] = p.typeArgToTSType(&arg, table, data)
-			}
-			if len(form.TypeParams) == 1 {
-				schemaName = fmt.Sprintf("%s(%s)", schemaName, args[0])
-			} else {
-				namedArgs := make([]string, len(typeRef.TypeArgs))
-				for i, arg := range args {
-					namedArgs[i] = fmt.Sprintf("%s: %s", camelCase(form.TypeParams[i].Name), arg)
-				}
-				schemaName = fmt.Sprintf("%s({%s})", schemaName, strings.Join(namedArgs, ", "))
-			}
-		}
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := output.GetPath(resolved, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
-		}
-		return fmt.Sprintf("typeof %s", schemaName)
-
-	case resolution.EnumForm:
-		schemaName := camelCase(resolved.Name) + "Z"
-		if resolved.Namespace != data.Namespace {
-			ns := resolved.Namespace
-			targetOutputPath := enum.FindOutputPath(resolved, table, "ts")
-			if targetOutputPath == "" {
-				targetOutputPath = ns
-			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
-			return fmt.Sprintf("typeof %s.%s", ns, schemaName)
-		}
-		return fmt.Sprintf("typeof %s", schemaName)
-	}
-
-	return "unknown"
-}
-
-func primitiveToTSType(name string) string {
-	switch name {
-	case "string", "uuid":
-		return "string"
-	case "bool":
-		return "boolean"
-	case "int", "int8", "int16", "int32", "int64",
-		"uint", "uint8", "uint16", "uint32", "uint64",
-		"float32", "float64":
-		return "number"
-	case "record":
-		return "unknown"
-	default:
-		return "unknown"
-	}
-}
-
 func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolution.Table, data *templateData, forStructArg bool) string {
 	if typeRef == nil {
 		return "z.unknown()"
@@ -1448,7 +1268,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -1461,7 +1281,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, enumName)
 		}
 		return enumName
@@ -1474,7 +1294,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, schemaName)
 		}
 		return schemaName
@@ -1488,7 +1308,7 @@ func (p *Plugin) typeRefToZodInternal(typeRef *resolution.TypeRef, table *resolu
 				if targetOutputPath == "" {
 					targetOutputPath = ns
 				}
-				data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+				data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 				return fmt.Sprintf("%s.%s", ns, schemaName)
 			}
 			return schemaName
@@ -1589,7 +1409,7 @@ func (p *Plugin) typeRefToTSInternal(typeRef *resolution.TypeRef, table *resolut
 			if targetOutputPath == "" {
 				targetOutputPath = ns
 			}
-			data.addNamedImport(calculateImportPath(data.OutputPath, targetOutputPath), ns)
+			data.AddImport(paths.CalculateImport(data.OutputPath, targetOutputPath), ns)
 			return fmt.Sprintf("%s.%s", ns, distinctName)
 		}
 		return distinctName
@@ -1784,9 +1604,9 @@ func isInXPackage(outputPath string) bool {
 
 func addXImport(data *templateData, imp xImport) {
 	if isInXPackage(data.OutputPath) {
-		data.addNamedImport("@/"+imp.submodule, imp.name)
+		data.AddImport("@/"+imp.submodule, imp.name)
 	} else {
-		data.addNamedImport(xPackageName, imp.name)
+		data.AddImport(xPackageName, imp.name)
 	}
 }
 
@@ -1910,8 +1730,8 @@ func (p *Plugin) enumVariantToTS(ev validation.EnumVariant, data *templateData) 
 }
 
 type templateData struct {
+	*imports.Manager
 	Request          *plugin.Request
-	Imports          map[string]*importSpec
 	Ontology         *ontologyData
 	DeclOrder        map[string]int
 	Namespace        string
@@ -1955,57 +1775,10 @@ func primitiveZeroValue(primitive string) string {
 	}
 }
 
-type importSpec struct {
-	Names set.Set[string]
-}
-
-func (d *templateData) addNamedImport(path, name string) {
-	if d.Imports[path] == nil {
-		d.Imports[path] = &importSpec{Names: make(set.Set[string])}
-	}
-	d.Imports[path].Names.Add(name)
-}
-
-func (d *templateData) filterImports(filter func(string) bool) []namedImportData {
-	var result []namedImportData
-	for path, spec := range d.Imports {
-		if len(spec.Names) > 0 && filter(path) {
-			names := make([]string, 0, len(spec.Names))
-			for name := range spec.Names {
-				names = append(names, name)
-			}
-			sort.Strings(names)
-			result = append(result, namedImportData{Path: path, Names: names})
-		}
-	}
-	sort.Slice(result, func(i, j int) bool { return result[i].Path < result[j].Path })
-	return result
-}
-
-func (d *templateData) SynnaxImports() []namedImportData {
-	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@synnaxlabs/") })
-}
-
-func (d *templateData) ExternalNamedImports() []namedImportData {
-	return d.filterImports(func(p string) bool {
-		return !strings.HasPrefix(p, "@/") && !strings.HasPrefix(p, "@synnaxlabs/")
-	})
-}
-
-func (d *templateData) InternalNamedImports() []namedImportData {
-	return d.filterImports(func(p string) bool { return strings.HasPrefix(p, "@/") })
-}
-
-type namedImportData struct {
-	Path  string
-	Names []string
-}
-
 type structData struct {
 	ExtendsName             string
 	TSName                  string
 	AliasOf                 string
-	AliasTypeRef            string
 	Doc                     string
 	ExtendsTypeName         string
 	Name                    string
@@ -2175,11 +1948,7 @@ export type {{ .TSName }}<{{ range $i, $p := .TypeParams }}{{ if $i }}, {{ end }
 
 export const {{ camelCase .TSName }}Z = {{ .AliasOf }};
 {{- if $.GenerateTypes }}
-{{- if .AliasTypeRef }}
-export type {{ .TSName }} = {{ .AliasTypeRef }};
-{{- else }}
 export interface {{ .TSName }} extends z.{{ if .UseInput }}input{{ else }}infer{{ end }}<typeof {{ camelCase .TSName }}Z> {}
-{{- end }}
 {{- end }}
 {{- end }}
 {{- else if .IsPrimitiveConstrainedGeneric }}

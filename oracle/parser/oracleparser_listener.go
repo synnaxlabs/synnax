@@ -55,6 +55,12 @@ type OracleParserListener interface {
 	// EnterFieldOmit is called when entering the fieldOmit production.
 	EnterFieldOmit(c *FieldOmitContext)
 
+	// EnterActionDef is called when entering the actionDef production.
+	EnterActionDef(c *ActionDefContext)
+
+	// EnterActionBody is called when entering the actionBody production.
+	EnterActionBody(c *ActionBodyContext)
+
 	// EnterFieldDef is called when entering the fieldDef production.
 	EnterFieldDef(c *FieldDefContext)
 
@@ -156,6 +162,12 @@ type OracleParserListener interface {
 
 	// ExitFieldOmit is called when exiting the fieldOmit production.
 	ExitFieldOmit(c *FieldOmitContext)
+
+	// ExitActionDef is called when exiting the actionDef production.
+	ExitActionDef(c *ActionDefContext)
+
+	// ExitActionBody is called when exiting the actionBody production.
+	ExitActionBody(c *ActionBodyContext)
 
 	// ExitFieldDef is called when exiting the fieldDef production.
 	ExitFieldDef(c *FieldDefContext)
