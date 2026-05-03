@@ -7,33 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { UnexpectedError } from "@synnaxlabs/client";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import { type Control, type Diagram } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  type EdgeProps,
-  type NodeProps,
-  type Props,
+  type LegendState,
+  type PendingUpload,
   SLICE_NAME,
   type SliceState,
   type State,
   type StoreState,
-  type ToolbarState,
+  type ToolbarTab,
 } from "@/schematic/slice";
-import { edgePropsZ, nodePropsZ, propsZ } from "@/schematic/types/v6";
+import { ZERO_STATE } from "@/schematic/types";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
-
-export const selectRequired = (state: StoreState, key: string): State => {
-  const schematic = selectSliceState(state).schematics[key];
-  if (schematic == null)
-    throw new UnexpectedError(`Schematic not found for key: ${key}`);
-  return schematic;
-};
-
-export const useSelectRequired = (key: string): State =>
-  useMemoSelect((state: StoreState) => selectRequired(state, key), [key]);
 
 export const selectOptional = (state: StoreState, key: string): State | undefined =>
   selectSliceState(state).schematics[key];
@@ -41,195 +29,67 @@ export const selectOptional = (state: StoreState, key: string): State | undefine
 export const useSelectOptional = (key: string): State | undefined =>
   useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
 
-export const selectRequiredMany = (state: StoreState, keys: string[]): State[] =>
-  keys.map((key) => selectRequired(state, key));
+export const selectSelected = (state: StoreState, key: string): string[] =>
+  selectOptional(state, key)?.selected ?? [];
 
-export const useSelectRequiredMany = (keys: string[]): State[] =>
-  useMemoSelect((state: StoreState) => selectRequiredMany(state, keys), [keys]);
+export const useSelectSelected = (key: string): string[] =>
+  useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
 
-export interface ElementDigest {
-  key: string;
-  type: "node" | "edge";
+export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
+  selectOptional(state, key)?.control ?? "released";
+
+export const useSelectControlStatus = (key: string): Control.Status =>
+  useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
+
+export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
+  selectOptional(state, key)?.activeToolbarTab ?? "symbols";
+
+export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
+  useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
+
+// Returned object shape kept compatible with the v0-style toolbar API. New
+// code should call useSelectActiveToolbarTab / useSelectSelectedSymbolGroup
+// directly.
+export interface ToolbarShim {
+  activeTab: ToolbarTab;
+  selectedSymbolGroup: string;
 }
 
-export const selectSelectedElementDigests = (
-  state: StoreState,
-  layoutKey: string,
-): ElementDigest[] => {
-  const schematic = selectOptional(state, layoutKey);
-  if (schematic == null) return [];
-  const selected = new Set(schematic.selected);
-  return [
-    ...schematic.nodes
-      .filter((node) => selected.has(node.key))
-      .map<ElementDigest>((node) => ({ key: node.key, type: "node" })),
-    ...schematic.edges
-      .filter((edge) => selected.has(edge.key))
-      .map<ElementDigest>((edge) => ({ key: edge.key, type: "edge" })),
-  ];
+export const useSelectToolbar = (key: string): ToolbarShim => {
+  const activeTab = useSelectActiveToolbarTab(key);
+  const selectedSymbolGroup = useSelectSelectedSymbolGroup(key);
+  return { activeTab, selectedSymbolGroup };
 };
 
-export const useSelectSelectedElementDigests = (layoutKey: string): ElementDigest[] =>
-  useMemoSelect(
-    (state: StoreState) => selectSelectedElementDigests(state, layoutKey),
-    [layoutKey],
-  );
+export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
+  selectOptional(state, key)?.selectedSymbolGroup ?? "general";
 
-export interface NodeElementInfo {
-  key: string;
-  type: "node";
-  node: Diagram.Node;
-  props: NodeProps;
-}
+export const useSelectSelectedSymbolGroup = (key: string): string =>
+  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
 
-export interface EdgeElementInfo {
-  key: string;
-  type: "edge";
-  edge: Diagram.Edge;
-  props: EdgeProps;
-}
+export const selectLegend = (state: StoreState, key: string): LegendState =>
+  selectOptional(state, key)?.legend ?? ZERO_STATE.legend;
 
-export type ElementInfo = NodeElementInfo | EdgeElementInfo;
+export const useSelectLegend = (key: string): LegendState =>
+  useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
 
-export const selectSelectedElementsProps = (
-  state: StoreState,
-  layoutKey: string,
-): ElementInfo[] => {
-  const schematic = selectOptional(state, layoutKey);
-  if (schematic == null) return [];
-  const selected = new Set(schematic.selected);
-  const nodes: ElementInfo[] = schematic.nodes
-    .filter((node) => selected.has(node.key) && schematic.props[node.key] != null)
-    .map((node) => ({
-      key: node.key,
-      type: "node",
-      node,
-      props: schematic.props[node.key] as NodeProps,
-    }));
-  const edges: ElementInfo[] = schematic.edges
-    .filter((edge) => selected.has(edge.key) && schematic.props[edge.key] != null)
-    .map((edge) => ({
-      key: edge.key,
-      type: "edge",
-      edge,
-      props: schematic.props[edge.key] as EdgeProps,
-    }));
-  return [...nodes, ...edges];
-};
+export const selectLegendVisible = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key)?.legend.visible ?? false;
 
-export const useSelectSelectedElementsProps = (layoutKey: string): ElementInfo[] =>
-  useMemoSelect(
-    (state: StoreState) => selectSelectedElementsProps(state, layoutKey),
-    [layoutKey],
-  );
+export const useSelectLegendVisible = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
 
-export const selectEdge = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): Diagram.Edge | undefined =>
-  selectOptional(state, layoutKey)?.edges.find((edge) => edge.key === key);
+export const selectEditable = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key)?.editable ?? true;
 
-export const useSelectEdge = (
-  layoutKey: string,
-  key: string,
-): Diagram.Edge | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectEdge(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectRequiredEdge = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): Diagram.Edge => {
-  const edge = selectEdge(state, layoutKey, key);
-  if (edge == null) throw new UnexpectedError(`Edge not found for key: ${key}`);
-  return edge;
-};
-
-export const useSelectRequiredEdge = (layoutKey: string, key: string): Diagram.Edge =>
-  useMemoSelect(
-    (state: StoreState) => selectRequiredEdge(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectSelectedElementNames = (
-  state: StoreState,
-  layoutKey: string,
-): (string | null)[] => {
-  const elements = selectSelectedElementsProps(state, layoutKey);
-  return elements.map((element) => {
-    if (element.type === "node" && element.props?.label?.label != null)
-      return element.props.label.label;
-    return null;
-  });
-};
-
-export const useSelectSelectedElementNames = (layoutKey: string): (string | null)[] =>
-  useMemoSelect(
-    (s: StoreState) => selectSelectedElementNames(s, layoutKey),
-    [layoutKey],
-  );
-
-export const selectNodeProps = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): NodeProps | undefined => {
-  const raw = selectOptional(state, layoutKey)?.props[key];
-  if (raw == null) return undefined;
-  const parsed = nodePropsZ.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
-};
-
-export const useSelectNodeProps = (
-  layoutKey: string,
-  key: string,
-): NodeProps | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectNodeProps(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectRequiredNodeProps = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): NodeProps => {
-  const props = selectNodeProps(state, layoutKey, key);
-  if (props == null) throw new UnexpectedError(`Node props not found for key: ${key}`);
-  return props;
-};
-
-export const useSelectRequiredNodeProps = (layoutKey: string, key: string): NodeProps =>
-  useMemoSelect(
-    (state: StoreState) => selectRequiredNodeProps(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectToolbar = (
-  state: StoreState,
-  key: string,
-): ToolbarState | undefined => selectOptional(state, key)?.toolbar;
-
-export const useSelectToolbar = (key: string): ToolbarState | undefined =>
-  useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
-
-export const selectEditable = (state: StoreState, key: string): boolean | undefined =>
-  selectOptional(state, key)?.editable;
-
-export const useSelectEditable = (key: string): boolean | undefined =>
+export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
-export const selectRequiredViewportMode = (
-  state: StoreState,
-  key: string,
-): Viewport.Mode => selectRequired(state, key).mode;
+export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
+  selectOptional(state, key)?.fitViewOnResize ?? false;
 
-export const useSelectRequiredViewportMode = (key: string): Viewport.Mode =>
-  useMemoSelect((state: StoreState) => selectRequiredViewportMode(state, key), [key]);
+export const useSelectFitViewOnResize = (key: string): boolean =>
+  useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
 export const selectViewport = (
   state: StoreState,
@@ -239,91 +99,10 @@ export const selectViewport = (
 export const useSelectViewport = (key: string): Diagram.Viewport | undefined =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
-export const selectControlStatus = (
-  state: StoreState,
-  layoutKey: string,
-): Control.Status | undefined => selectOptional(state, layoutKey)?.control;
-
-export const useSelectControlStatus = (layoutKey: string): Control.Status | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectControlStatus(state, layoutKey),
-    [layoutKey],
-  );
-
-export const selectVersion = (state: StoreState, key: string): string | undefined =>
-  selectOptional(state, key)?.version;
-
-export const useSelectVersion = (key: string): string | undefined =>
-  useMemoSelect((state: StoreState) => selectVersion(state, key), [key]);
-
-export const selectIsSnapshot = (state: StoreState, key: string): boolean | undefined =>
-  selectOptional(state, key)?.snapshot;
-
-export const useSelectIsSnapshot = (key: string): boolean | undefined =>
-  useMemoSelect((state: StoreState) => selectIsSnapshot(state, key), [key]);
-
-export const selectAuthority = (state: StoreState, key: string): number | undefined =>
-  selectOptional(state, key)?.authority;
-
-export const useSelectAuthority = (key: string): number | undefined =>
-  useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
-
-export const selectSelected = (state: StoreState, key: string): string[] =>
-  selectOptional(state, key)?.selected ?? [];
-
-export const useSelectSelected = (key: string): string[] =>
-  useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
-
-export const selectElementProps = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): Props | undefined => {
-  const raw = selectOptional(state, layoutKey)?.props[key];
-  if (raw == null) return undefined;
-  const parsed = propsZ.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
-};
-
-export const useSelectElementProps = (
-  layoutKey: string,
-  key: string,
-): Props | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectElementProps(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectEdgeProps = (
-  state: StoreState,
-  layoutKey: string,
-  key: string,
-): EdgeProps | undefined => {
-  const raw = selectOptional(state, layoutKey)?.props[key];
-  if (raw == null) return undefined;
-  const parsed = edgePropsZ.safeParse(raw);
-  return parsed.success ? parsed.data : undefined;
-};
-
-export const useSelectEdgeProps = (
-  layoutKey: string,
-  key: string,
-): EdgeProps | undefined =>
-  useMemoSelect(
-    (state: StoreState) => selectEdgeProps(state, layoutKey, key),
-    [layoutKey, key],
-  );
-
-export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectRequired(state, key).toolbar.selectedSymbolGroup;
-
-export const useSelectSelectedSymbolGroup = (key: string): string =>
-  useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
-
-export const selectLegendVisible = (
+export const selectPendingUpload = (
   state: StoreState,
   key: string,
-): boolean | undefined => selectOptional(state, key)?.legend.visible;
+): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
 
-export const useSelectLegendVisible = (key: string): boolean | undefined =>
-  useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
+export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
+  useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);

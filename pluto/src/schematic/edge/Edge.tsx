@@ -9,6 +9,7 @@
 
 import "@/schematic/edge/Edge.css";
 
+import { schematic } from "@synnaxlabs/client";
 import { box, color, direction, location, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {
@@ -23,8 +24,10 @@ import {
 
 import { CSS } from "@/css";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { useKey } from "@/schematic/Context";
 import { connector } from "@/schematic/edge/connector";
 import { DefaultPath, type EdgeType, PATHS } from "@/schematic/edge/paths";
+import { useDispatch, useSelectProps } from "@/schematic/queries";
 import { type Key } from "@/triggers/triggers";
 import { type diagram } from "@/vis/diagram/aether";
 import { selectNodeBox } from "@/vis/diagram/util";
@@ -76,25 +79,32 @@ export const ConnectionLine = ({
   );
 };
 
-export interface EdgeProps extends diagram.EdgeProps {
+interface PersistedEdgeProps {
   segments?: connector.Segment[];
   variant?: EdgeType;
   color?: color.Crude;
-  onSegmentsChange: (segments: connector.Segment[]) => void;
 }
 
 export const Edge = ({
+  edgeKey,
   source,
   target,
   sourceNode,
   targetNode,
   selected = false,
-  segments: middleSegments = [],
-  variant = "pipe",
-  color: edgeColor = "var(--pluto-gray-l11)",
-  onSegmentsChange,
-}: EdgeProps): ReactElement | null => {
+}: diagram.EdgeProps): ReactElement | null => {
+  const schematicKey = useKey();
+  const edgeProps = useSelectProps({ key: schematicKey, propKey: edgeKey }) as
+    | PersistedEdgeProps
+    | undefined;
+  const {
+    segments: middleSegments = [],
+    color: edgeColor = "var(--pluto-gray-l11)",
+    variant = "pipe",
+  } = edgeProps ?? {};
+
   const flow = useReactFlow();
+  const { update: dispatch } = useDispatch();
 
   const visualSegments = useMemo(() => {
     if (middleSegments.length === 0)
@@ -130,9 +140,15 @@ export const Edge = ({
         source.orientation,
         target.orientation,
       );
-      onSegmentsChange(middle);
+      dispatch({
+        key: schematicKey,
+        actions: schematic.setProps({
+          key: edgeKey,
+          props: { segments: middle, variant, color: edgeColor },
+        }),
+      });
     },
-    [source.orientation, target.orientation, onSegmentsChange],
+    [schematicKey, edgeKey, variant, edgeColor, dispatch],
   );
 
   const [dragOverride, setDragOverride] = useState<connector.Segment[] | null>(null);
@@ -140,6 +156,7 @@ export const Edge = ({
   dragOverrideRef.current = dragOverride;
 
   const segments = dragOverride ?? visualSegments;
+
   const dragRef = useRef<CurrentlyDragging | null>(null);
 
   const dragStart = useCursorDrag({

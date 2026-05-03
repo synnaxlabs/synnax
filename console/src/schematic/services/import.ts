@@ -21,7 +21,8 @@ export const ingest: Import.FileIngester = (
   const state = anyStateZ.parse(data);
   if (!Access.updateGranted({ id: schematic.TYPE_ONTOLOGY_ID, store, client }))
     throw new Error("You do not have permission to import schematics");
+  void state;
   // create with an undefined key so we do not have to worry about the key that was from
   // the imported data overwriting existing schematics in the cluster
-  placeLayout(create({ ...state, key: layout?.key, ...layout, type: LAYOUT_TYPE }));
+  placeLayout(create({ ...layout, key: layout?.key, type: LAYOUT_TYPE }));
 };
