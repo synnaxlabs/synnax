@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError } from "@synnaxlabs/client";
-import { Component, type Haul, Icon, Menu, Text } from "@synnaxlabs/pluto";
+import { Component, Icon, Menu, Text } from "@synnaxlabs/pluto";
 import { caseconv, primitive } from "@synnaxlabs/x";
 import { type FC } from "react";
 
@@ -18,7 +18,6 @@ import { Device } from "@/hardware/opc/device";
 import { type ChannelKeyAndIDGetter, Form } from "@/hardware/opc/task/Form";
 import {
   type OutputChannel,
-  scannedNodeZ,
   WRITE_SCHEMAS,
   WRITE_TYPE,
   type WriteSchemas,
@@ -46,19 +45,15 @@ const Properties = () => (
   </>
 );
 
-const convertHaulItemToChannel = ({ data }: Haul.Item): OutputChannel => {
-  const parsedData = scannedNodeZ.parse(data);
-  const nodeId = parsedData.nodeId;
-  return {
-    key: nodeId,
-    nodeName: parsedData.name,
-    nodeId,
-    name: "",
-    cmdChannel: 0,
-    enabled: true,
-    dataType: parsedData.dataType,
-  };
-};
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): OutputChannel => ({
+  key: data.nodeId,
+  nodeName: data.name,
+  nodeId: data.nodeId,
+  name: "",
+  cmdChannel: 0,
+  enabled: true,
+  dataType: data.dataType,
+});
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<OutputChannel> = ({
   cmdChannel,

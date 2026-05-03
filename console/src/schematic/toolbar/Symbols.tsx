@@ -38,6 +38,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
 import { useConfirmDelete } from "@/ontology/hooks";
+import { createSymbolHaulItem } from "@/schematic/Schematic";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
@@ -64,7 +65,7 @@ const StaticListItem = (
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
   const addNodeProps = useMemo(() => ({ key: id.create(), variant }), [variant]);
   const handleDragStart = useCallback(
-    () => startDrag([{ type: HAUL_TYPE, key: addNodeProps.key, data: addNodeProps }]),
+    () => startDrag([createSymbolHaulItem(itemKey)]),
     [startDrag, addNodeProps],
   );
   const spec = List.useItem<string, Schematic.Symbol.Spec>(variant);
@@ -137,7 +138,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
 
   const handleDragStart = useCallback(
-    () => startDrag([{ type: HAUL_TYPE, key: addNodeProps.key, data: addNodeProps }]),
+    () => startDrag([createSymbolHaulItem(variant, {specKey: itemKey})]),
     [startDrag, addNodeProps],
   );
   const handleAddNode = useCallback(() => addNode(addNodeProps), [addNodeProps]);

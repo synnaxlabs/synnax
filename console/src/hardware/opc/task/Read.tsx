@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -21,7 +21,6 @@ import {
   READ_TYPE,
   type ReadConfig,
   type ReadSchemas,
-  scannedNodeZ,
   ZERO_READ_PAYLOAD,
 } from "@/hardware/opc/task/types";
 import { Selector } from "@/selector";
@@ -101,20 +100,16 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: Haul.Item): InputChannel => {
-  const parsedData = scannedNodeZ.parse(data);
-  const nodeId = parsedData.nodeId;
-  return {
-    key: nodeId,
-    nodeName: parsedData.name,
-    nodeId,
-    channel: 0,
-    enabled: true,
-    useAsIndex: false,
-    dataType: parsedData.dataType,
-    name: "",
-  };
-};
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): InputChannel => ({
+  key: data.nodeId,
+  nodeName: data.name,
+  nodeId: data.nodeId,
+  channel: 0,
+  enabled: true,
+  useAsIndex: false,
+  dataType: data.dataType,
+  name: "",
+});
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key }) => ({
   key: channel,

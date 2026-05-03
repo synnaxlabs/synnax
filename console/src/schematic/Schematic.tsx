@@ -79,7 +79,50 @@ import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const HAUL_TYPE = "schematic-element";
+export const SYMBOL_HAUL_TYPE = "schematic_symbol";
+
+export interface SymbolHaulData {
+  specKey?: string;
+}
+
+export type SymbolHaulItem = Haul.Item<typeof SYMBOL_HAUL_TYPE, string, SymbolHaulData>;
+
+export const createSymbolHaulItem = (
+  variant: string,
+  data: SymbolHaulData = {},
+): SymbolHaulItem => ({ type: SYMBOL_HAUL_TYPE, key: variant, data });
+
+export const isSymbolHaulItem = (item: Haul.Item): item is SymbolHaulItem =>
+  item.type === SYMBOL_HAUL_TYPE;
+
+export const filterSymbolHaulItems = (items: Haul.Item[]): SymbolHaulItem[] =>
+  items.filter(isSymbolHaulItem);
+
+export const VALUE_HAUL_TYPE = "schematic_value";
+
+export type ValueHaulData = Base.Symbol.ValueProps;
+
+export type ValueHaulItem = Haul.Item<typeof VALUE_HAUL_TYPE, string, ValueHaulData>;
+
+export const createValueHaulItem = (props: ValueHaulData): ValueHaulItem => ({
+  type: VALUE_HAUL_TYPE,
+  key: "value",
+  data: props,
+});
+
+export const isValueHaulItem = (item: Haul.Item): item is ValueHaulItem =>
+  item.type === VALUE_HAUL_TYPE;
+
+export const filterValueHaulItems = (items: Haul.Item[]): ValueHaulItem[] =>
+  items.filter(isValueHaulItem);
+
+export const isSchematicHaulItem = (
+  item: Haul.Item,
+): item is SymbolHaulItem | ValueHaulItem =>
+  isSymbolHaulItem(item) || isValueHaulItem(item);
+
+export const canDropSchematicHaulItem: Haul.CanDrop = ({ items }) =>
+  items.some(isSchematicHaulItem);
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 
@@ -290,7 +333,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType(HAUL_TYPE, items);
+      const valid = items.filter(isSchematicHaulItem);
       if (event == null) return valid;
       valid.forEach(({ data }) => {
         const pos = xy.truncate(calculateCursorPosition(event), 0);
@@ -302,9 +345,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const dropProps = Haul.useDrop({
-    type: "Schematic",
+    type: "schematic",
     key: layoutKey,
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    canDrop: canDropSchematicHaulItem,
     onDrop: handleDrop,
   });
 

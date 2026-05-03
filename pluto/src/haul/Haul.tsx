@@ -9,7 +9,7 @@
 
 import "@/haul/Haul.css";
 
-import { type destructor, type optional, xy } from "@synnaxlabs/x";
+import { type destructor, type optional, type record, xy } from "@synnaxlabs/x";
 import React, {
   type DragEvent,
   type DragEventHandler,
@@ -34,8 +34,17 @@ export const itemZ = z.object({
   data: z.unknown().optional(),
 });
 
-// Item represents a draggable item.
-export interface Item extends z.infer<typeof itemZ> {}
+// Item represents a draggable item. When `Data` does not include `undefined`,
+// the `data` field is required; otherwise it is optional.
+export type Item<
+  Type extends string = string,
+  Key extends record.Key = record.Key,
+  Data = unknown,
+> = {
+  key: Key;
+  type: Type;
+  elementID?: string;
+} & (undefined extends Data ? { data?: Data } : { data: Data });
 
 export const draggingStateZ = z.object({ source: itemZ, items: z.array(itemZ) });
 
@@ -297,7 +306,7 @@ export const useDragAndDrop = ({
 };
 
 export const canDropOfType =
-  (type: string): CanDrop =>
+  <I extends Item = Item>(type: I["type"]): CanDrop =>
   ({ items }) =>
     items.some((entity) => entity.type === type);
 

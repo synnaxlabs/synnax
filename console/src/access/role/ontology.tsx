@@ -8,8 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access } from "@synnaxlabs/client";
-import { Access, Icon, Menu } from "@synnaxlabs/pluto";
-import z from "zod";
+import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -63,18 +62,14 @@ const TreeContextMenu: Ontology.TreeContextMenu = (props) => {
   );
 };
 
-const dragData = z.object({ rootUser: z.boolean() });
-
 export const ONTOLOGY_SERVICE: Ontology.Service = {
   ...Ontology.NOOP_SERVICE,
   type: "role",
   icon: <Icon.Role />,
   TreeContextMenu,
   hasChildren: true,
-  canDrop: ({ items }) =>
-    items.every(
-      ({ key, type, data }) =>
-        (key.toString().startsWith("user:") || type === "user") &&
-        dragData.safeParse(data).data?.rootUser !== true,
-    ),
+  canDrop: ({ items }) => {
+    const users = User.filterHaulItems(items);
+    return users.length === items.length && users.every(({ data }) => !data.rootUser);
+  },
 };
