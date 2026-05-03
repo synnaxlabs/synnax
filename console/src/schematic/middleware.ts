@@ -10,11 +10,7 @@
 import { Layout } from "@/layout";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 import { selectSliceState } from "@/schematic/selectors";
-import {
-  remove,
-  type RemovePayload,
-  type StoreState,
-} from "@/schematic/slice";
+import { remove, type RemovePayload, type StoreState } from "@/schematic/slice";
 
 export const deleteEffect: MiddlewareEffect<
   Layout.StoreState & StoreState,

@@ -158,27 +158,22 @@ export const Schematic = ({
   });
 
   return (
-    <div
-      ref={ref}
-      onDoubleClick={onDoubleClick}
-      className={CSS(CSS.BE("schematic", "container"))}
-    >
-      <Provider value={resourceKey}>
-        <SchematicDiagram
-          className={CSS(CSS.B("schematic"), className)}
-          dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
-          autoRenderInterval={AUTO_RENDER_INTERVAL}
-          nodes={doc?.nodes ?? []}
-          edges={doc?.edges ?? []}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          viewport={viewport}
-          onSelectionChange={onSelectionChange}
-          onDoubleClick={onDoubleClick}
-          {...dropProps}
-          {...props}
-        />
-      </Provider>
-    </div>
+    <Provider value={resourceKey}>
+      <SchematicDiagram
+        ref={ref}
+        className={CSS(CSS.B("schematic"), className)}
+        dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+        autoRenderInterval={AUTO_RENDER_INTERVAL}
+        nodes={doc?.nodes ?? []}
+        edges={doc?.edges ?? []}
+        onNodesChange={handleNodesChange}
+        onEdgesChange={handleEdgesChange}
+        viewport={viewport}
+        onSelectionChange={onSelectionChange}
+        onDoubleClick={onDoubleClick}
+        {...dropProps}
+        {...props}
+      />
+    </Provider>
   );
 };

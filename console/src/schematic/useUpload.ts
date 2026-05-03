@@ -45,12 +45,11 @@ export const useAutoUpload = (key: string, name: string): void => {
           name,
           snapshot: pendingUpload.snapshot,
           authority: pendingUpload.authority ?? 1,
-          legend:
-            (pendingUpload.legend as schematic.Legend | undefined) ?? {
-              visible: false,
-              position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-              colors: {},
-            },
+          legend: (pendingUpload.legend as schematic.Legend | undefined) ?? {
+            visible: false,
+            position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+            colors: {},
+          },
           nodes: pendingUpload.nodes as schematic.Node[],
           edges: pendingUpload.edges as schematic.Edge[],
           props: pendingUpload.props as Record<string, record.Unknown>,

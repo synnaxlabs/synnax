@@ -70,11 +70,7 @@ export const PropertiesControls = memo(
     if (first.type === "edge")
       return <EdgeProperties layoutKey={layoutKey} edgeKey={first.key} />;
     return (
-      <IndividualProperties
-        key={first.key}
-        layoutKey={layoutKey}
-        nodeKey={first.key}
-      />
+      <IndividualProperties key={first.key} layoutKey={layoutKey} nodeKey={first.key} />
     );
   },
 );
@@ -224,7 +220,7 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, Schematic.ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    const rawColor = (e.props).color;
+    const rawColor = e.props.color;
     if (rawColor != null) colorVal = color.construct(rawColor as color.Crude);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);

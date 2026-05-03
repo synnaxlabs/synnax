@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { array, caseconv, id, type record, xy } from "@synnaxlabs/x";
+import { array, caseconv, id, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import z from "zod";
 
@@ -95,9 +95,7 @@ export const useSelectProps = Flux.createSelector<
     if (schem == null) return undefined;
     const props = schem.props[propKey] as record.Unknown | undefined;
     if (props != null) return props;
-    return schem.props[caseconv.snakeToCamel(propKey)] as
-      | record.Unknown
-      | undefined;
+    return schem.props[caseconv.snakeToCamel(propKey)] as record.Unknown | undefined;
   },
 });
 
@@ -295,7 +293,7 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store }) => {
     const { workspace, ...rest } = data;
-    const s = await client.schematics.create(workspace, rest);
+    const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
     store.schematics.set(s.key, s);
     return { ...s, workspace };
   },
