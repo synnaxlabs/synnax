@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Control, type Diagram, type Viewport as PV } from "@synnaxlabs/pluto";
+import { type Control, type Diagram } from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -106,14 +106,3 @@ export const selectPendingUpload = (
 
 export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
   useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);
-
-export const useSelectRequired = (key: string): State =>
-  useMemoSelect(
-    (state: StoreState) => selectOptional(state, key) ?? ZERO_STATE,
-    [key],
-  );
-
-// Viewport mode currently lives in component-local state; default to "select"
-// so toolbar callers don't break. Will be moved into the slice when the
-// component-level mode state migrates here.
-export const useSelectRequiredViewportMode = (_key: string): PV.Mode => "select";

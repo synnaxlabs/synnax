@@ -88,7 +88,7 @@ const useCreateSchematic = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...schematic } = data;
       if (workspace != null) await maybeChangeWorkspace(workspace);
-      placeLayout(Schematic.create({ ...schematic }));
+      placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
     },
   });
   return useCallback(
