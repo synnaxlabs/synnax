@@ -35,6 +35,14 @@ const dispatchReqZ = z.object({
   session_key: z.string(),
   actions: actionZ.array(),
 });
+
+export const scopedActionZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
+
+export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({

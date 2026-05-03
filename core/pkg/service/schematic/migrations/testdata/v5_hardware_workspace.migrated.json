@@ -36,12 +36,7 @@
   "edges": [],
   "props": {
     "NCVBmjVavN6": {
-      "color": [
-        250,
-        250,
-        250,
-        1
-      ],
+      "color": [250, 250, 250, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -61,12 +56,7 @@
         "gradient": []
       },
       "scale": 1,
-      "stalenessColor": [
-        194,
-        157,
-        10,
-        1
-      ],
+      "stalenessColor": [194, 157, 10, 1],
       "stalenessTimeout": 5,
       "telem": {
         "props": {
@@ -113,19 +103,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "stream_write_data_1"
-      ],
+      "tooltip": ["stream_write_data_1"],
       "units": "psi",
       "variant": "value"
     },
     "cJXBL6uIOmB": {
-      "color": [
-        250,
-        250,
-        250,
-        1
-      ],
+      "color": [250, 250, 250, 1],
       "label": {
         "align": "center",
         "direction": "x",

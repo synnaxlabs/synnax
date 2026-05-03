@@ -164,6 +164,13 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
+// OnAction subscribes the given handler to the action stream emitted by
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
+// underlying transaction commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.Disconnect {
+	return s.actionObserver.OnChange(handler)
+}
+
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.

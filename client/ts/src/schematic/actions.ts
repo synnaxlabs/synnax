@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
 import {
   type AddNodePayload,
-  actionZ,
   type RemoveEdgePayload,
   type RemoveNodePayload,
   type SetAuthorityPayload,
@@ -20,15 +17,7 @@ import {
   type SetNodePositionPayload,
   type SetPropsPayload,
 } from "@/schematic/actions.gen";
-import { keyZ, type Schematic } from "@/schematic/types.gen";
-
-export const scopedActionZ = z.object({
-  key: keyZ,
-  sessionKey: z.string(),
-  actions: actionZ.array(),
-});
-
-export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
+import { type Schematic } from "@/schematic/types.gen";
 
 export const handleSetNodePosition = (
   state: Schematic,
