@@ -665,18 +665,8 @@
   ],
   "props": {
     "0FdBTNPS6Ns": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "backgroundColor": [10, 10, 10, 0],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 181,
         "width": 66
@@ -694,22 +684,12 @@
       "variant": "cylinder"
     },
     "0deGLAIUN9w": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
       },
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 80
@@ -842,12 +822,7 @@
       "variant": "solenoidValve"
     },
     "2sskr6N4cSA": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "FLPA-FLN1",
@@ -860,12 +835,7 @@
       "variant": "filter"
     },
     "3W0TpPnM2t1": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 20
@@ -885,12 +855,7 @@
       "variant": "tank"
     },
     "3pSwne3gb3v": {
-      "color": [
-        46,
-        46,
-        46,
-        1
-      ],
+      "color": [46, 46, 46, 1],
       "label": {
         "align": "center",
         "label": "Setpoint",
@@ -942,12 +907,7 @@
       "variant": "setpoint"
     },
     "6znJfLXNTnD": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
       "color": "#6877a8",
       "dimensions": {
@@ -1000,12 +960,7 @@
       "variant": "manualValve"
     },
     "8wuaHrPwvLr": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -1061,19 +1016,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAEX_LCD4"
-      ],
+      "tooltip": ["TAEX_LCD4"],
       "units": "mN",
       "variant": "value"
     },
     "9bRr3bsfINK": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "color": "#6877a8",
       "dimensions": {
         "height": 181,
@@ -1105,12 +1053,7 @@
       "variant": "manualValve"
     },
     "DIb52zTe1wQ": {
-      "color": [
-        55,
-        116,
-        208,
-        1
-      ],
+      "color": [55, 116, 208, 1],
       "control": {
         "show": true
       },
@@ -1160,12 +1103,7 @@
       "variant": "button"
     },
     "DKWy7SMfKWc": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Manual Valve",
@@ -1178,12 +1116,7 @@
       "variant": "manualValve"
     },
     "DPj1Hvvts7e": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
       "color": "#6877a8",
       "dimensions": {
@@ -1300,12 +1233,7 @@
       "variant": "pump"
     },
     "FW7NrtBEVkC": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "FLPA-CKN1",
@@ -1374,19 +1302,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_TCX3"
-      ],
+      "tooltip": ["FLPA_TCX3"],
       "units": "C",
       "variant": "value"
     },
     "IV5SRzMttnc": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "direction": "x",
@@ -1402,12 +1323,7 @@
     "IhnNQyTjMnZ": {
       "align": "center",
       "autoFit": true,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -1429,12 +1345,7 @@
     "JdGpYfWxKyT": {
       "align": "center",
       "autoFit": true,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -1478,12 +1389,7 @@
     "KO8YWRlX4Zg": {
       "align": "center",
       "autoFit": true,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -1517,12 +1423,7 @@
       "variant": "angledSpringLoadedReliefValve"
     },
     "KZKZtDtS6X0": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Regulator",
@@ -1535,12 +1436,7 @@
       "variant": "regulator"
     },
     "LQbsY361pO8": {
-      "color": [
-        46,
-        46,
-        46,
-        1
-      ],
+      "color": [46, 46, 46, 1],
       "label": {
         "align": "center",
         "label": "",
@@ -1592,12 +1488,7 @@
       "variant": "setpoint"
     },
     "LhTUfNs12qn": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "FLPA-MVN4",
@@ -1610,12 +1501,7 @@
       "variant": "manualValve"
     },
     "MYyMoqFb0j1": {
-      "color": [
-        158,
-        0,
-        255,
-        1
-      ],
+      "color": [158, 0, 255, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -1671,9 +1557,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_DMX1"
-      ],
+      "tooltip": ["FLPA_DMX1"],
       "units": "kg/m^3",
       "variant": "value"
     },
@@ -1792,12 +1676,7 @@
       "variant": "solenoidValve"
     },
     "N55mpAqxtig": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
@@ -1873,9 +1752,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAML_TCX1"
-      ],
+      "tooltip": ["TAML_TCX1"],
       "units": "C",
       "variant": "value"
     },
@@ -1936,21 +1813,14 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_PTX2"
-      ],
+      "tooltip": ["FLPA_PTX2"],
       "units": "psi",
       "variant": "value"
     },
     "R78yAwfd7V2": {
       "align": "center",
       "autoFit": true,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -1970,12 +1840,7 @@
       "width": 75
     },
     "WvLGBWhcZw8": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -2031,26 +1896,14 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAEX_LCD1"
-      ],
+      "tooltip": ["TAEX_LCD1"],
       "units": "mN",
       "variant": "value"
     },
     "XRiu9wXIiVU": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -2067,12 +1920,7 @@
       "variant": "box"
     },
     "YnakL0Pyxmh": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "NISU-RGN1",
@@ -2085,22 +1933,12 @@
       "variant": "regulator"
     },
     "Yws2gl5UBoM": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 20
       },
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 80
@@ -2171,19 +2009,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_PTX3"
-      ],
+      "tooltip": ["FLPA_PTX3"],
       "units": "psi",
       "variant": "value"
     },
     "aKr51Le8x0U": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Regulator",
@@ -2196,12 +2027,7 @@
       "variant": "regulator"
     },
     "ad24J4CLota": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Electric Regulator",
@@ -2270,9 +2096,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAAT_TCA1"
-      ],
+      "tooltip": ["TAAT_TCA1"],
       "units": "C",
       "variant": "value"
     },
@@ -2288,19 +2112,9 @@
       "variant": "manualValve"
     },
     "etOAnC3m8Pj": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": 3,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -2334,12 +2148,7 @@
     "gQoHwlir7uM": {
       "align": "start",
       "autoFit": false,
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -2360,22 +2169,12 @@
       "width": 30
     },
     "hWZW8AGzRFA": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 20
       },
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 80
@@ -2506,22 +2305,12 @@
       "variant": "solenoidValve"
     },
     "jFrpTobiDbo": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 10
       },
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -2536,12 +2325,7 @@
       "variant": "tank"
     },
     "juu9HV7atP1": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Check Valve",
@@ -2554,12 +2338,7 @@
       "variant": "checkValve"
     },
     "lO9NSbjtSCW": {
-      "color": [
-        227,
-        0,
-        0,
-        1
-      ],
+      "color": [227, 0, 0, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -2615,9 +2394,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_FMX1"
-      ],
+      "tooltip": ["FLPA_FMX1"],
       "units": "g/s",
       "variant": "value"
     },
@@ -2662,12 +2439,7 @@
       "variant": "vent"
     },
     "npGsEPV0Bpb": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "NISU-MVN1",
@@ -2796,12 +2568,7 @@
       "variant": "solenoidValve"
     },
     "pbj4uvrSHR7": {
-      "color": [
-        55,
-        116,
-        208,
-        1
-      ],
+      "color": [55, 116, 208, 1],
       "control": {
         "show": true
       },
@@ -2907,9 +2674,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAML_PTX1"
-      ],
+      "tooltip": ["TAML_PTX1"],
       "units": "psi",
       "variant": "value"
     },
@@ -3055,22 +2820,12 @@
       "variant": "pipe"
     },
     "ubUBePcbB9m": {
-      "backgroundColor": [
-        10,
-        10,
-        10,
-        0
-      ],
+      "backgroundColor": [10, 10, 10, 0],
       "borderRadius": {
         "x": 50,
         "y": 20
       },
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "dimensions": {
         "height": 200,
         "width": 80
@@ -3087,12 +2842,7 @@
       "variant": "tank"
     },
     "uim2kXRMlEu": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Electric Regulator",
@@ -3119,12 +2869,7 @@
       "variant": "isoFilter"
     },
     "uvHcEdv2G2D": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Relief Valve",
@@ -3193,19 +2938,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "TAAT_PTA1"
-      ],
+      "tooltip": ["TAAT_PTA1"],
       "units": "psi",
       "variant": "value"
     },
     "v97f3jws1jU": {
-      "color": [
-        143,
-        143,
-        143,
-        1
-      ],
+      "color": [143, 143, 143, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -3261,9 +2999,7 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        "FLPA_LLX1"
-      ],
+      "tooltip": ["FLPA_LLX1"],
       "units": "kg",
       "variant": "value"
     },
@@ -3282,12 +3018,7 @@
       "variant": "isoFilter"
     },
     "vrvfxc9p3XM": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "control": {
         "show": true
       },
@@ -3385,12 +3116,7 @@
       "variant": "filter"
     },
     "wyH0oatpMXa": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "direction": "x",
@@ -3598,12 +3324,7 @@
       "variant": "pipe"
     },
     "yA6zevoHqgr": {
-      "color": [
-        213,
-        213,
-        213,
-        1
-      ],
+      "color": [213, 213, 213, 1],
       "label": {
         "align": "center",
         "label": "Regulator",

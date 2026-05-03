@@ -170,7 +170,7 @@ export class Client {
 
 export const ZERO_LEGEND: Legend = {
   visible: true,
-  position: { x: 50, y: 50 },
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
   colors: {},
 };
 

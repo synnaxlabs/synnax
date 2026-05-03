@@ -181,7 +181,7 @@ const loadSchematic = async (
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ ...schematic, editable: false }));
+  placeLayout(Schematic.create({ ...schematic, editable: false, remoteCreated: true }));
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -214,6 +214,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
         ...schematic,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
+        remoteCreated: true,
       }),
     );
   }, "Failed to load schematic");
