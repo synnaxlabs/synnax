@@ -10,16 +10,41 @@
 package schematic_test
 
 import (
+	"context"
+	"sync"
+
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/spatial"
-	. "github.com/synnaxlabs/x/testutil"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// actionRecorder collects ScopedAction notifications emitted by the service's
+// action observer for assertions in tests.
+type actionRecorder struct {
+	mu      sync.Mutex
+	scopeds []schematic.ScopedAction
+}
+
+func (r *actionRecorder) record(_ context.Context, sa schematic.ScopedAction) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.scopeds = append(r.scopeds, sa)
+}
+
+func (r *actionRecorder) snapshot() []schematic.ScopedAction {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]schematic.ScopedAction, len(r.scopeds))
+	copy(out, r.scopeds)
+	return out
+}
 
 var _ = Describe("Writer", func() {
 	Describe("Create", func() {
@@ -80,7 +105,7 @@ var _ = Describe("Writer", func() {
 					{Key: "n1", Position: spatial.XY{X: 0, Y: 0}},
 				},
 			}
-			MustSucceed(uuid.Nil, svc.NewWriter(tx).Create(ctx, ws.Key, &s))
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
 				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
 					Key:      "n1",
@@ -94,7 +119,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should apply a sequence of mixed actions atomically", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Authority: 1}
-			MustSucceed(uuid.Nil, svc.NewWriter(tx).Create(ctx, ws.Key, &s))
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
 				schematic.NewAddNodeAction(schematic.AddNode{
 					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
@@ -117,7 +142,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should reject Dispatch on a snapshot schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Authority: 1}
-			MustSucceed(uuid.Nil, svc.NewWriter(tx).Create(ctx, ws.Key, &s))
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var snap schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
@@ -126,7 +151,7 @@ var _ = Describe("Writer", func() {
 		})
 		It("Should be a no-op when actions reference non-existent keys", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test", Authority: 1}
-			MustSucceed(uuid.Nil, svc.NewWriter(tx).Create(ctx, ws.Key, &s))
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "ghost"}),
 				schematic.NewRemoveEdgeAction(schematic.RemoveEdge{Key: "ghost-edge"}),
@@ -135,6 +160,99 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Nodes).To(BeEmpty())
 			Expect(res.Edges).To(BeEmpty())
+		})
+
+		It("Should converge a 30-action drag storm to the final position", func(ctx SpecContext) {
+			s := schematic.Schematic{
+				Name:      "drag-storm",
+				Authority: 1,
+				Nodes:     []schematic.Node{{Key: "pump"}},
+			}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			actions := make([]schematic.Action, 0, 30)
+			for i := range 30 {
+				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+					Key:      "pump",
+					Position: spatial.XY{X: float64(i), Y: float64(i * 2)},
+				}))
+			}
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", actions)).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Nodes[0].Position).To(Equal(spatial.XY{X: 29, Y: 58}))
+		})
+
+		It("Should build a graph atomically from an empty schematic in one Dispatch", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "graph", Authority: 1}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
+				schematic.NewAddNodeAction(schematic.AddNode{
+					Node: schematic.Node{Key: "pump", Position: spatial.XY{X: 0, Y: 0}},
+				}),
+				schematic.NewAddNodeAction(schematic.AddNode{
+					Node: schematic.Node{Key: "valve", Position: spatial.XY{X: 100, Y: 0}},
+				}),
+				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: schematic.Edge{
+					Key:    "e1",
+					Source: schematic.Handle{Node: "pump", Param: "out"},
+					Target: schematic.Handle{Node: "valve", Param: "in"},
+				}}),
+				schematic.NewSetPropsAction(schematic.SetProps{
+					Key:   "pump",
+					Props: msgpack.EncodedJSON{"label": "Main Pump"},
+				}),
+				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 200}),
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Nodes).To(HaveLen(2))
+			Expect(res.Edges).To(HaveLen(1))
+			Expect(res.Authority).To(BeEquivalentTo(200))
+			Expect(res.Props["pump"]).To(HaveKeyWithValue("label", "Main Pump"))
+		})
+
+		It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "observed", Authority: 1}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			rec := &actionRecorder{}
+			disconnect := svc.OnAction(rec.record)
+			DeferCleanup(disconnect)
+			actions := []schematic.Action{
+				schematic.NewAddNodeAction(schematic.AddNode{
+					Node: schematic.Node{Key: "n1"},
+				}),
+				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 5}),
+			}
+			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "client-xyz", actions)).To(Succeed())
+			seen := rec.snapshot()
+			Expect(seen).To(HaveLen(1))
+			Expect(seen[0].Key).To(Equal(s.Key))
+			Expect(seen[0].SessionKey).To(Equal("client-xyz"))
+			Expect(seen[0].Actions).To(HaveLen(2))
+			Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeAddNode))
+			Expect(seen[0].Actions[1].Type).To(Equal(schematic.ActionTypeSetAuthority))
+		})
+
+		It("Should not notify subscribers when Dispatch is rejected on a snapshot", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "snap-test", Authority: 1}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			var snap schematic.Schematic
+			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
+			rec := &actionRecorder{}
+			DeferCleanup(svc.OnAction(rec.record))
+			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
+				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 9}),
+			})).To(MatchError(validate.ErrValidation))
+			Expect(rec.snapshot()).To(BeEmpty())
+		})
+
+		It("Should fail with query.ErrNotFound and not notify subscribers when the target schematic does not exist", func(ctx SpecContext) {
+			rec := &actionRecorder{}
+			DeferCleanup(svc.OnAction(rec.record))
+			Expect(svc.NewWriter(tx).Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
+				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 9}),
+			})).To(MatchError(query.ErrNotFound))
+			Expect(rec.snapshot()).To(BeEmpty())
 		})
 	})
 

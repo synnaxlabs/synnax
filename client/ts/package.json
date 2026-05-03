@@ -37,6 +37,7 @@
     "@synnaxlabs/freighter": "workspace:^",
     "@synnaxlabs/x": "workspace:^",
     "async-mutex": "catalog:",
+    "immer": "catalog:",
     "zod": "catalog:"
   },
   "devDependencies": {

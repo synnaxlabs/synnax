@@ -66,9 +66,6 @@ export const handleSetAuthority = (
   state.authority = payload.value;
 };
 
-export const handleSetLegend = (
-  state: Schematic,
-  payload: SetLegendPayload,
-): void => {
+export const handleSetLegend = (state: Schematic, payload: SetLegendPayload): void => {
   state.legend = payload.legend;
 };

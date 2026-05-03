@@ -7,7 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package types
+// Package actions emits a TypeScript discriminated-union action codec for any
+// oracle struct that declares one or more actions. Each action becomes a zod
+// payload schema, an Action union dispatches by literal type, and reduce /
+// reduceAll apply actions to the target struct via immer's produce. The
+// per-action handler functions (handleX) are hand-written in a sibling
+// actions module and imported by name; this plugin does not generate them.
+package actions
 
 import (
 	"bytes"
@@ -17,25 +23,38 @@ import (
 	"github.com/synnaxlabs/oracle/domain/doc"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/output"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/imports"
+	"github.com/synnaxlabs/oracle/plugin/ts/internal/paths"
+	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 	"github.com/synnaxlabs/oracle/resolution"
 )
 
-type actionTemplateData struct {
-	*templateData
-	TargetType     string
-	TargetTypeName string
-	Actions        []tsActionData
+// Options configures the actions plugin output.
+type Options struct {
+	// FileNamePattern is the basename written for each output package.
+	FileNamePattern string
 }
 
-type tsActionData struct {
-	Name     string
-	TypeName string
-	Doc      string
-	Fields   []fieldData
+// DefaultOptions returns the production defaults: actions.gen.ts.
+func DefaultOptions() Options {
+	return Options{FileNamePattern: "actions.gen.ts"}
 }
 
-func (p *Plugin) generateActionFiles(req *plugin.Request) ([]plugin.File, error) {
-	var files []plugin.File
+// Plugin emits the generated TS action codec.
+type Plugin struct{ Options Options }
+
+// New constructs a Plugin with the given options.
+func New(opts Options) *Plugin { return &Plugin{Options: opts} }
+
+func (p *Plugin) Name() string                  { return "ts/actions" }
+func (p *Plugin) Domains() []string             { return []string{"ts"} }
+func (p *Plugin) Requires() []string            { return []string{"ts/types"} }
+func (p *Plugin) Check(_ *plugin.Request) error { return nil }
+
+// Generate emits one actions.gen.ts per output package containing structs that
+// declare actions. Structs without actions are skipped.
+func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
+	resp := &plugin.Response{Files: make([]plugin.File, 0)}
 	for _, typ := range req.Resolutions.StructTypes() {
 		form, ok := typ.Form.(resolution.StructForm)
 		if !ok || len(form.Actions) == 0 {
@@ -45,108 +64,87 @@ func (p *Plugin) generateActionFiles(req *plugin.Request) ([]plugin.File, error)
 		if outputPath == "" {
 			continue
 		}
-		content, err := p.generateActionFile(typ, form, outputPath, req)
+		content, err := p.generateFile(typ, form, outputPath, req)
 		if err != nil {
 			return nil, err
 		}
-		files = append(files, plugin.File{
-			Path:    outputPath + "/actions.gen.ts",
+		resp.Files = append(resp.Files, plugin.File{
+			Path:    outputPath + "/" + p.Options.FileNamePattern,
 			Content: content,
 		})
 	}
-	return files, nil
+	return resp, nil
 }
 
-func (p *Plugin) generateActionFile(
+func (p *Plugin) generateFile(
 	typ resolution.Type,
 	form resolution.StructForm,
 	outputPath string,
 	req *plugin.Request,
 ) ([]byte, error) {
-	data := &templateData{
+	mgr := imports.NewManager()
+	fp := &tstypes.FieldProcessor{
+		Imports:    mgr,
 		Namespace:  typ.Namespace,
 		OutputPath: outputPath,
 		Request:    req,
-		Imports:    make(map[string]*importSpec),
 	}
 
-	ad := &actionTemplateData{
-		templateData:   data,
+	data := &templateData{
+		Manager:        mgr,
 		TargetType:     lo.CamelCase(typ.Name),
 		TargetTypeName: typ.Name,
 	}
 
 	for _, action := range form.Actions {
-		a := tsActionData{
+		a := actionData{
 			Name:     lo.PascalCase(action.Name),
 			TypeName: lo.SnakeCase(action.Name),
 			Doc:      doc.Get(action.Domains),
 		}
 		for _, field := range action.Fields {
-			fd := p.processField(field, typ, req.Resolutions, data, false, false)
-			a.Fields = append(a.Fields, fd)
+			a.Fields = append(a.Fields, fp.ProcessField(field, typ))
+			fp.CollectTypeImports(&field.Type)
 		}
-		ad.Actions = append(ad.Actions, a)
+		data.Actions = append(data.Actions, a)
 	}
 
-	data.addNamedImport("zod", "z")
-	typesImportPath := calculateImportPath(outputPath, outputPath) + "/types.gen"
-	data.addNamedImport(typesImportPath, typ.Name)
-	actionsImportPath := calculateImportPath(outputPath, outputPath) + "/actions"
+	mgr.AddImport("zod", "z")
+	mgr.AddImport("immer", "produce")
+	sameDir := paths.CalculateImport(outputPath, outputPath)
+	mgr.AddImport(sameDir+"/types.gen", typ.Name)
 	for _, action := range form.Actions {
-		data.addNamedImport(actionsImportPath, "handle"+lo.PascalCase(action.Name))
+		mgr.AddImport(sameDir+"/actions", "handle"+lo.PascalCase(action.Name))
 	}
-
-	p.addSameNamespaceImports(form, data, req)
 
 	var buf bytes.Buffer
-	if err := actionFileTemplate.Execute(&buf, ad); err != nil {
+	if err := fileTemplate.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func (p *Plugin) addSameNamespaceImports(
-	form resolution.StructForm,
-	data *templateData,
-	req *plugin.Request,
-) {
-	for _, action := range form.Actions {
-		for _, field := range action.Fields {
-			p.collectTypeImports(&field.Type, data, req.Resolutions)
-		}
-	}
+type templateData struct {
+	*imports.Manager
+	TargetType     string
+	TargetTypeName string
+	Actions        []actionData
 }
 
-func (p *Plugin) collectTypeImports(
-	ref *resolution.TypeRef,
-	data *templateData,
-	table *resolution.Table,
-) {
-	if ref.IsTypeParam() {
-		return
-	}
-	for i := range ref.TypeArgs {
-		p.collectTypeImports(&ref.TypeArgs[i], data, table)
-	}
-	resolved, ok := ref.Resolve(table)
-	if !ok {
-		return
-	}
-	if resolved.Namespace == data.Namespace {
-		zodName := lo.CamelCase(resolved.Name) + "Z"
-		importPath := calculateImportPath(data.OutputPath, data.OutputPath) + "/types.gen"
-		data.addNamedImport(importPath, zodName)
-	}
+type actionData struct {
+	Name     string
+	TypeName string
+	Doc      string
+	Fields   []tstypes.FieldData
 }
 
-var actionTemplateFuncs = template.FuncMap{
+var templateFuncs = template.FuncMap{
 	"camelCase":  lo.CamelCase,
 	"pascalCase": lo.PascalCase,
 	"formatDoc":  doc.FormatTS,
 }
 
-var actionFileTemplate = template.Must(template.New("ts-actions").Funcs(actionTemplateFuncs).Parse(`// Code generated by Oracle. DO NOT EDIT.
+var fileTemplate = template.Must(template.New("ts-actions").Funcs(templateFuncs).Parse(`// Code generated by Oracle. DO NOT EDIT.
 {{- range .SynnaxImports }}
 import { {{ range $i, $name := .Names }}{{ if $i }}, {{ end }}{{ $name }}{{ end }} } from "{{ .Path }}";
 {{- end }}
@@ -186,8 +184,7 @@ export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   type: "{{ .TypeName }}",
   {{ camelCase .Name }}: payload,
 });
-{{end -}}
-
+{{end}}
 export const reduce = (state: {{ .TargetTypeName }}, action: Action): {{ .TargetTypeName }} => {
   switch (action.type) {
 {{- range .Actions}}
@@ -199,9 +196,6 @@ export const reduce = (state: {{ .TargetTypeName }}, action: Action): {{ .Target
   return state;
 };
 
-export const reduceAll = (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} => {
-  const draft = structuredClone(state);
-  for (const action of actions) reduce(draft, action);
-  return draft;
-};
+export const reduceAll = (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} =>
+  produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
 `))

@@ -35,6 +35,14 @@ const dispatchReqZ = z.object({
   session_key: z.string(),
   actions: actionZ.array(),
 });
+
+export const scopedActionZ = z.object({
+  key: keyZ,
+  sessionKey: z.string(),
+  actions: actionZ.array(),
+});
+
+export interface ScopedAction extends z.infer<typeof scopedActionZ> {}
 const deleteReqZ = z.object({ keys: keyZ.array() });
 
 const copyReqZ = z.object({
@@ -57,7 +65,7 @@ export type CopyArgs = z.input<typeof copyReqZ>;
 const retrieveResZ = z.object({ schematics: schematicZ.array() });
 
 const createReqZ = z.object({
-  workspace: workspace.keyZ.optional(),
+  workspace: workspace.keyZ,
   schematics: newZ.array(),
 });
 const createResZ = z.object({ schematics: schematicZ.array() });
@@ -74,16 +82,10 @@ export class Client {
     this.symbols = new symbol.Client(client);
   }
 
+  async create(workspace: workspace.Key, schematic: New): Promise<Schematic>;
+  async create(workspace: workspace.Key, schematics: New[]): Promise<Schematic[]>;
   async create(
-    workspace: workspace.Key | undefined,
-    schematic: New,
-  ): Promise<Schematic>;
-  async create(
-    workspace: workspace.Key | undefined,
-    schematics: New[],
-  ): Promise<Schematic[]>;
-  async create(
-    workspace: workspace.Key | undefined,
+    workspace: workspace.Key,
     schematics: New | New[],
   ): Promise<Schematic | Schematic[]> {
     const isMany = Array.isArray(schematics);
@@ -168,7 +170,7 @@ export class Client {
 
 export const ZERO_LEGEND: Legend = {
   visible: true,
-  position: { x: 50, y: 50 },
+  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
   colors: {},
 };
 
