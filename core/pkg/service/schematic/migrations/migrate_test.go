@@ -74,7 +74,7 @@ func assertMigrated(fixture string, got schematic.Schematic) {
 		return
 	}
 	expected := MustSucceed(os.ReadFile(p))
-	Expect(string(pretty)).To(Equal(string(expected)),
+	Expect(pretty).To(MatchJSON(expected),
 		"%s drifted from its canonical migrated form — review the diff and rerun with UPDATE_MIGRATED=1 if intentional", fixture)
 }
 

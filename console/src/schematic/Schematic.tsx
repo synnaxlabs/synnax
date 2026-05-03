@@ -89,7 +89,7 @@ const navigateToLinkedSchematic = async (
   placeLayout: Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(create({ ...s }));
+  placeLayout(create({ ...s, remoteCreated: true }));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
@@ -467,7 +467,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...ZERO_STATE, ...v }),
+  actionCreator: (v) => internalCreate({ ...ZERO_STATE, ...v, remoteCreated: true }),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
