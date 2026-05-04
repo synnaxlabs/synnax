@@ -225,17 +225,17 @@ const useSyncComponent = Workspace.createSyncComponent(
 );
 
 const useConfig = (
+  key: string,
   elKey: string,
-  layoutKey: string,
 ): [Base.ElementConfig, (config: Partial<Base.ElementConfig>) => void] => {
   const dispatch = useDispatch();
-  const config = useSelectConfig(layoutKey, elKey);
+  const config = useSelectConfig(key, elKey);
   return [
     config,
     useCallback(
       (config: Partial<Base.ElementConfig>) =>
-        dispatch(setElementConfig({ key: layoutKey, elKey, config })),
-      [layoutKey, dispatch],
+        dispatch(setElementConfig({ key, elKey, config })),
+      [key, dispatch],
     ),
   ];
 };

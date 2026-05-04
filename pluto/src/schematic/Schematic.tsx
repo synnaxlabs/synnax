@@ -39,7 +39,7 @@ const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 export interface CreateSchematicParams {
   useConfig: (
     itemKey: string,
-    nodeKey: string,
+    elKey: string,
   ) => [ElementConfig, (props: Partial<ElementConfig>) => void];
 }
 
@@ -51,7 +51,7 @@ export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps>
     const itemKey = Key.use<string>("Schematic.NodeRenderer");
     const [config, setConfig] = useConfig(itemKey, nodeKey);
     const N = Node.resolve(config.variant);
-
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     return <N onConfigChange={setConfig} config={config as Node.Config} {...props} />;
   };
 
@@ -60,7 +60,7 @@ export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps>
     const itemKey = Key.use<string>("Schematic.EdgeRenderer");
     const [config, setConfig] = useConfig(itemKey, edgeKey);
     const E = Edge.resolve(config.variant);
-
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     return <E onChange={setConfig} config={config as Edge.Config} {...props} />;
   };
 
