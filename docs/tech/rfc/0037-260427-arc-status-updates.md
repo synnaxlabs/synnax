@@ -219,8 +219,8 @@ closes for free.
 1. `uuid.Parse(identifier)`.
    - Parseable: attempt key lookup via `WhereKeys(identifier)`.
      - On success: apply the update (see below) to that row and return its key.
-     - On `gorp.ErrNotFound`: emit an error-level task status (UUIDs are server-assigned
-       and cannot be created by the caller), return handle 0.
+     - On `query.ErrNotFound`: emit an error-level task status (UUIDs are
+       server-assigned and cannot be created by the caller), return handle 0.
      - On any other error: emit an error-level task status, return handle 0.
    - Not parseable: continue to step 2.
 2. Query `Where(Name == identifier)`.
@@ -290,7 +290,7 @@ only.
 **Resolution logic:**
 
 1. `uuid.Parse(identifier)`.
-   - Parseable: delete the row with that key. On `gorp.ErrNotFound`, emit a
+   - Parseable: delete the row with that key. On `query.ErrNotFound`, emit a
      warning-level task status. On any other error, report and return.
    - Not parseable: continue to step 2.
 2. Query `Where(Name == identifier)`.
@@ -311,6 +311,16 @@ trigger -> status.delete{identifier="Pressure Check"}
 ```
 
 ## 4.2 - Client Interface Comparison
+
+The same consistency argument that makes `status.set` a single upsert (rather than
+splitting into `create` + `update`) also dictates the **shape** of the call and the
+**syntax** at the call site. The Python and TS clients converge on one symbol that takes
+a record-shaped payload and upserts by primary key; Arc's `set` follows the same shape
+(one symbol, one shared payload, preserve-on-omit) and the same call form (named
+optional fields filled at the call site). Callers crossing language boundaries see one
+mental model: `client.statuses.set(...)` in Python and TS, `status.set(...)` in Arc, all
+upsert by identifier with the same handling of omitted fields. The trade study companion
+document evaluates the alternative shapes and syntaxes that were considered.
 
 | Concern           | Python Client                              | TypeScript Client                    | Arc WASM                                               | Arc Flow                                               |
 | ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ |
@@ -567,7 +577,7 @@ func(ctx context.Context, identifierHandle uint32) {
     identifier := strings.Get(identifierHandle)
     if _, err := uuid.Parse(identifier); err == nil {
         if err := statusSvc.NewWriter(nil).Delete(ctx, identifier); err != nil {
-            if errors.Is(err, gorp.ErrNotFound) {
+            if errors.Is(err, query.ErrNotFound) {
                 reportWarning(ctx, "No status found with key '%s'", identifier)
                 return
             }
@@ -665,7 +675,7 @@ accordingly.
 discriminate via `uuid.Parse(identifier)` before issuing any query. The name path
 (operator writes `status.set("Pressure Check", "Pressure rising")`) hits exactly one
 query (the name scan), because the parse fails and `WhereKeys` is skipped entirely. The
-key path hits one query (`WhereKeys`) and returns an error on `gorp.ErrNotFound` rather
+key path hits one query (`WhereKeys`) and returns an error on `query.ErrNotFound` rather
 than falling through to a name scan. Status tables are expected to contain at most
 hundreds of entries in typical deployments, so the name scan is acceptable.
 
