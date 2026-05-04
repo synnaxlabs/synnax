@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/button/config";
+import { type Config, VARIANT } from "@/schematic/node/general/button/config";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
 import { Primitive } from "@/schematic/node/general/button/Primitive";
 import { Symbol } from "@/schematic/node/general/button/Symbol";
@@ -19,12 +19,10 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "button";
-export const NAME = "Button";
+export * from "@/schematic/node/general/button/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.primary.z,
   label: Label.defaultConfig("Button"),
@@ -47,7 +45,7 @@ const Preview = ({ label: _, ...rest }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Button",
   Form: ButtonForm,
   Node: Symbol,
   Preview,

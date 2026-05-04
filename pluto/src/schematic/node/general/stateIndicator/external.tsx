@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/stateIndicator/config";
+import { type Config, VARIANT } from "@/schematic/node/general/stateIndicator/config";
 import { StateIndicatorForm } from "@/schematic/node/general/stateIndicator/Form";
 import { Primitive } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
@@ -18,12 +18,10 @@ import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "stateIndicator";
-export const NAME = "State Indicator";
+export * from "@/schematic/node/general/stateIndicator/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   inlineSize: 100,
@@ -46,7 +44,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "State Indicator",
   Form: StateIndicatorForm,
   Node: Symbol,
   Preview,

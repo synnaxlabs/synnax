@@ -17,7 +17,7 @@ import { useCallback } from "react";
 import { Export } from "@/export";
 import { Modals } from "@/modals";
 import { Runtime } from "@/runtime";
-import { type GroupManifest } from "@/schematic/nodes/types";
+import { type GroupManifest } from "@/schematic/symbols/types";
 
 export const extract: Export.Extractor = async (key, { client }) => {
   if (client == null) throw new DisconnectedError();

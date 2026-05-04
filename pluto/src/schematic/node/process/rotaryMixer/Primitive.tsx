@@ -10,17 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Line,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 50, height: 33 };
 
@@ -31,29 +24,35 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     className={CSS(CSS.B("rotary-mixer"), className)}
     orientation={orientation}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2} top={48.4849} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={2}
+        top={48.4849}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={97.5}
         top={48.4849}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
-      <Line
+      <Base.Path d="M1 30V2C1 1.44772 1.44772 1 2 1H35.4545C35.7434 1 36.0181 1.12487 36.208 1.34247L48.4262 15.3425C48.7549 15.7192 48.7549 16.2808 48.4262 16.6575L36.208 30.6575C36.0181 30.8751 35.7434 31 35.4545 31H2C1.44772 31 1 30.5523 1 30Z" />
+      <Base.Line
         x1="32"
         y1="16"
         x2="40"
@@ -61,7 +60,7 @@ export const Primitive = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Line
+      <Base.Line
         x1="32"
         y1="16"
         x2="28"
@@ -69,7 +68,7 @@ export const Primitive = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Line
+      <Base.Line
         x1="32"
         y1="16"
         x2="28"
@@ -77,6 +76,6 @@ export const Primitive = ({
         strokeLinecap="round"
         className={CSS(CSS.M("detail"), className)}
       />
-    </InternalSVG>
-  </Toggle>
+    </Base.SVG>
+  </Toggle.Button>
 );

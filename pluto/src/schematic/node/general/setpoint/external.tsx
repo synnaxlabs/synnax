@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/setpoint/config";
+import { type Config, VARIANT } from "@/schematic/node/general/setpoint/config";
 import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
 import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
 import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
@@ -20,12 +20,10 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "setpoint";
-export const NAME = "Setpoint";
+export * from "@/schematic/node/general/setpoint/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   units: "mV",
   color: t.colors.gray.l11,
@@ -57,7 +55,7 @@ const Preview = ({ ...rest }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Setpoint",
   Form: SetpointForm,
   Node: Symbol,
   Preview,

@@ -10,16 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 88, height: 86 };
 
@@ -29,18 +23,24 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={50} top={1} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={1}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44" />
-      <Path d="M43 1L45 65" />
-    </InternalSVG>
-  </Toggle>
+      <Base.Path d="M1 85V48.8541C1 46.624 3.34694 45.1735 5.34164 46.1708L80.6584 83.8292 C82.6531 84.8265 85 83.376 85 81.1459 V44" />
+      <Base.Path d="M43 1L45 65" />
+    </Base.SVG>
+  </Toggle.Button>
 );

@@ -10,7 +10,6 @@
 import { type schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 
-// Visual SVG elements that should be considered for region extraction
 const VISUAL_ELEMENTS = [
   "path",
   "rect",
@@ -74,7 +73,7 @@ const generateSelector = (element: SVGElement): string => {
   return `${parentSelector}${tagName}:nth-of-type(${index})`;
 };
 
-export const extractRegions = (svgElement: SVGElement): schematic.symbol.Region[] => {
+export const extract = (svgElement: SVGElement): schematic.symbol.Region[] => {
   const visualElements = VISUAL_ELEMENTS.flatMap((selector) =>
     Array.from(svgElement.querySelectorAll<SVGElement>(selector)),
   );

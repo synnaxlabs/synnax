@@ -14,19 +14,14 @@ import { type ReactElement, useCallback } from "react";
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
-import {
-  ColorControl,
-  FormWrapper,
-  OrientationControl,
-  SelectTextLevel,
-  type SymbolFormProps,
-} from "@/schematic/node/common/forms";
+import { Form as Base } from "@/form";
+import { Form } from "@/schematic/node/common/form";
+import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
 import { type Text } from "@/text";
 import { Theming } from "@/theming";
 import { Workspace } from "@/workspace";
-
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 
 const ClickModeSelect = Component.renderProp(
@@ -56,7 +51,7 @@ const ClickModeSelect = Component.renderProp(
 
 const useHandlePageChange = (): ((v: string) => void) => {
   const theme = Theming.use();
-  const ctx = Form.useContext();
+  const ctx = Base.useContext();
   return useCallback(
     (v: string) => {
       const prev = ctx.get<string>("page").value;
@@ -69,19 +64,17 @@ const useHandlePageChange = (): ((v: string) => void) => {
   );
 };
 
-export const OffPageReferenceForm = ({
-  schematicKey,
-}: SymbolFormProps): ReactElement => {
+export const OffPageReferenceForm = ({ schematicKey }: FormProps): ReactElement => {
   const { data: siblings = [] } = Workspace.useRetrieveChildren({
     resourceID: schematicKey != null ? schematic.ontologyID(schematicKey) : undefined,
     types: ["schematic"],
   });
   const handlePageChange = useHandlePageChange();
   return (
-    <FormWrapper x align="stretch">
+    <Form.Wrapper x align="stretch">
       <Flex.Box x grow align="stretch">
-        <Form.TextField path="label.label" label="Label" padHelpText={false} grow />
-        <Form.Field<string>
+        <Base.TextField path="label.label" label="Label" padHelpText={false} grow />
+        <Base.Field<string>
           path="page"
           label="Page"
           padHelpText={false}
@@ -100,8 +93,8 @@ export const OffPageReferenceForm = ({
               allowNone
             />
           )}
-        </Form.Field>
-        <Form.Field<boolean>
+        </Base.Field>
+        <Base.Field<boolean>
           path="dblClickNav"
           label="Click Mode"
           padHelpText={false}
@@ -109,18 +102,18 @@ export const OffPageReferenceForm = ({
           defaultValue
         >
           {ClickModeSelect}
-        </Form.Field>
-        <Form.Field<Text.Level>
+        </Base.Field>
+        <Base.Field<Text.Level>
           hideIfNull
           path="label.level"
           label="Label Size"
           padHelpText={false}
         >
-          {SelectTextLevel}
-        </Form.Field>
-        <ColorControl path="color" />
+          {Form.SelectTextLevel}
+        </Base.Field>
+        <Form.ColorField path="color" />
       </Flex.Box>
-      <OrientationControl path="" hideOuter />
-    </FormWrapper>
+      <Orientation.Field path="" hideOuter />
+    </Form.Wrapper>
   );
 };

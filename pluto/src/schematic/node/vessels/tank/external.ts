@@ -9,33 +9,31 @@
 
 import { color } from "@synnaxlabs/x";
 
+import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
-import { DEFAULT_BORDER_RADIUS } from "@/schematic/node/common/symbol/border";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config } from "@/schematic/node/vessels/tank/config";
-import { Form } from "@/schematic/node/vessels/tank/Form";
+import { type Config, VARIANT } from "@/schematic/node/vessels/tank/config";
+import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Primitive } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "tank";
-export const NAME = "Tank";
+export * from "@/schematic/node/vessels/tank/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
   label: Label.defaultConfig("Tank"),
   dimensions: { width: 125, height: 200 },
-  borderRadius: DEFAULT_BORDER_RADIUS,
+  borderRadius: Border.DEFAULT_RADIUS,
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
-  Form,
+  name: "Tank",
+  Form: TankForm,
   Node: Symbol,
   Preview: Primitive,
   defaultConfig,

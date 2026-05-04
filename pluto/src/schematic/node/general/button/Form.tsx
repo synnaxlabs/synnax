@@ -12,26 +12,21 @@ import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import { CommonStyleForm } from "@/schematic/node/common/forms";
-import {
-  ACTIVATION_DELAY_INPUT_PROPS,
-  COMMON_TOGGLE_FORM_TABS,
-  FormWrapper,
-} from "@/schematic/node/common/forms/helpers";
-import { type ControlStateProps } from "@/schematic/node/common/symbol/factories";
+import { type Control } from "@/schematic/node/common/control";
+import { Form } from "@/schematic/node/common/form";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Button as BaseButton } from "@/vis/button";
 
 type ButtonTelemFormT = Omit<BaseButton.UseProps, "aetherKey"> & {
-  control: ControlStateProps;
+  control: Control.StateProps;
 };
 
 export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<ButtonTelemFormT>(path);
+  const { value, onChange } = Base.useField<ButtonTelemFormT>(path);
   const sinkP = telem.sinkPipelinePropsZ.parse(value.sink?.props);
   const sink = control.setChannelValuePropsZ.parse(sinkP.segments.setter.props);
 
@@ -67,19 +62,19 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper y empty>
+    <Form.Wrapper y empty>
       <Flex.Box x>
         <Input.Item label="Output Channel" grow padHelpText={false}>
           <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
         </Input.Item>
-        <Form.NumericField
+        <Base.NumericField
           label="Activation Delay"
           path="onClickDelay"
-          inputProps={ACTIVATION_DELAY_INPUT_PROPS}
+          inputProps={Form.ACTIVATION_DELAY_INPUT_PROPS}
           hideIfNull
           padHelpText={false}
         />
-        <Form.SwitchField
+        <Base.SwitchField
           path="control.show"
           label="Show Control Chip"
           hideIfNull
@@ -87,12 +82,12 @@ export const ButtonTelemForm = ({ path }: { path: string }): ReactElement => {
           padHelpText={false}
         />
       </Flex.Box>
-      <Form.Field<BaseButton.Mode> path="mode" label="Mode" optional>
+      <Base.Field<BaseButton.Mode> path="mode" label="Mode" optional>
         {({ value, onChange }) => (
           <BaseButton.SelectMode value={value} onChange={onChange} />
         )}
-      </Form.Field>
-    </FormWrapper>
+      </Base.Field>
+    </Form.Wrapper>
   );
 };
 
@@ -103,7 +98,7 @@ export const ButtonForm = (): ReactElement => {
         return <ButtonTelemForm path="" />;
       default:
         return (
-          <CommonStyleForm
+          <Form.StyleForm
             omit={["align", "maxInlineSize"]}
             hideInnerOrientation
             hideOuterOrientation
@@ -112,7 +107,7 @@ export const ButtonForm = (): ReactElement => {
     }
   }, []);
 
-  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
+  const props = Tabs.useStatic({ tabs: Form.COMMON_TOGGLE_FORM_TABS, content });
 
   return <Tabs.Tabs {...props} />;
 };

@@ -10,13 +10,11 @@
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
-import {
-  controlStateGridItem,
-  type NodeProps,
-} from "@/schematic/node/common/symbol/factories";
+import { Control } from "@/schematic/node/common/control";
+import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/button/config";
 import { Primitive } from "@/schematic/node/general/button/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Button as ButtonTelem } from "@/vis/button";
 
 export const Symbol = ({
@@ -31,11 +29,11 @@ export const Symbol = ({
     sink,
     mode,
   });
-  const gridItems: GridItem[] = [];
-  const controlItem = controlStateGridItem(control);
+  const gridItems: Grid.Item[] = [];
+  const controlItem = Control.stateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
   return (
-    <Grid
+    <Grid.Grid
       onRotate={() =>
         onChange({
           orientation: location.rotate(orientation, "clockwise"),
@@ -57,6 +55,6 @@ export const Symbol = ({
         orientation={orientation}
         {...rest}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

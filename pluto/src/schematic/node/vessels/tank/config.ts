@@ -7,16 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type dimensions, type location } from "@synnaxlabs/x";
+import { color, dimensions } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Label } from "@/schematic/node/common/label";
-import { type BorderRadius } from "@/schematic/node/common/symbol/border";
+import { Border } from "@/schematic/node/common/border";
+import { Label } from "@/schematic/node/common/label";
 
-export interface Config {
-  orientation?: location.Outer;
-  color?: color.Crude;
-  backgroundColor?: color.Crude;
-  dimensions?: dimensions.Dimensions;
-  borderRadius?: BorderRadius;
-  label?: Label.Config;
-}
+export const VARIANT = "tank" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  color: color.crudeZ.optional(),
+  backgroundColor: color.crudeZ.optional(),
+  dimensions: dimensions.dimensionsZ.optional(),
+  borderRadius: Border.radiusZ.optional(),
+});
+export type Config = z.infer<typeof configZ>;

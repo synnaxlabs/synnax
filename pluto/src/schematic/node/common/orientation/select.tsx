@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/node/common/orientation/SelectOrientation.css";
+import "@/schematic/node/common/orientation/select.css";
 
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
@@ -17,41 +17,38 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Input } from "@/input";
 
-export interface OrientationValue {
+export interface Value {
   inner: location.Outer;
   outer: location.Location;
 }
 
-export interface SelectOrientationProps
-  extends Input.Control<OrientationValue>, Omit<Flex.BoxProps, "value" | "onChange"> {
+export interface SelectProps
+  extends Input.Control<Value>, Omit<Flex.BoxProps, "value" | "onChange"> {
   hideOuter?: boolean;
   showOuterCenter?: boolean;
   hideInner?: boolean;
 }
 
-export const SelectOrientation = ({
+export const Select = ({
   value,
   hideOuter = false,
   showOuterCenter = false,
   hideInner,
   onChange,
-}: SelectOrientationProps): ReactElement => {
+}: SelectProps): ReactElement => {
   const { outer } = value;
-  const handleChange = (next: Partial<OrientationValue>) => () =>
-    onChange({ ...value, ...next });
+  const handleChange = (next: Partial<Value>) => () => onChange({ ...value, ...next });
 
   const className = CSS.B("select", "orientation");
   if (hideOuter)
-    return (
-      <InternalOrientation className={className} value={value} onChange={onChange} />
-    );
+    return <Internal className={className} value={value} onChange={onChange} />;
 
   return (
     <Flex.Box className={className} align="center" justify="center" gap="tiny">
       <Button selected={outer === "top"} onClick={handleChange({ outer: "top" })} />
       <Flex.Box x align="center" justify="center" gap="tiny">
         <Button selected={outer === "left"} onClick={handleChange({ outer: "left" })} />
-        <InternalOrientation
+        <Internal
           hideInner={hideInner}
           value={value}
           onChange={onChange}
@@ -70,17 +67,16 @@ export const SelectOrientation = ({
   );
 };
 
-const InternalOrientation = ({
+const Internal = ({
   value,
   onChange,
   className,
   hideInner = false,
   showOuterCenter = false,
   ...rest
-}: SelectOrientationProps): ReactElement => {
+}: SelectProps): ReactElement => {
   const { inner } = value;
-  const handleChange = (next: Partial<OrientationValue>) => () =>
-    onChange({ ...value, ...next });
+  const handleChange = (next: Partial<Value>) => () => onChange({ ...value, ...next });
   let showStyle: CSSProperties = {};
   if (hideInner)
     showStyle = { opacity: 0, userSelect: "none", width: "1.5rem", height: "1.5rem" };

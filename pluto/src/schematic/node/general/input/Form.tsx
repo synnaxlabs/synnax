@@ -13,28 +13,23 @@ import { type ReactElement, useCallback } from "react";
 import { Channel } from "@/channel";
 import { Component } from "@/component";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import {
-  ColorControl,
-  COMMON_TOGGLE_FORM_TABS,
-  FormWrapper,
-  LabelControls,
-} from "@/schematic/node/common/forms";
-import { type ControlStateProps } from "@/schematic/node/common/symbol/factories";
+import { type Control } from "@/schematic/node/common/control";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Input as BaseInput } from "@/vis/input";
-
 interface InputTelemFormProps {
   path: string;
 }
 
 const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
-  const { value, onChange } = Form.useField<
+  const { value, onChange } = Base.useField<
     Omit<BaseInput.UseProps, "aetherKey"> & {
-      control: ControlStateProps;
+      control: Control.StateProps;
       disabled?: boolean;
     }
   >(path);
@@ -71,11 +66,11 @@ const InputTelemForm = ({ path }: InputTelemFormProps): ReactElement => {
   };
 
   return (
-    <FormWrapper x grow align="stretch">
+    <Form.Wrapper x grow align="stretch">
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
-    </FormWrapper>
+    </Form.Wrapper>
   );
 };
 
@@ -86,11 +81,11 @@ export const InputForm = (): ReactElement => {
         return <InputTelemForm path="" />;
       default:
         return (
-          <FormWrapper x>
+          <Form.Wrapper x>
             <Flex.Box y align="stretch" grow gap="small">
-              <LabelControls path="label" />
+              <Label.Form path="label" />
               <Flex.Box x>
-                <Form.Field<Component.Size>
+                <Base.Field<Component.Size>
                   path="size"
                   label="Size"
                   hideIfNull
@@ -99,14 +94,14 @@ export const InputForm = (): ReactElement => {
                   {({ value, onChange }) => (
                     <Component.SelectSize value={value} onChange={onChange} />
                   )}
-                </Form.Field>
-                <ColorControl path="color" />
+                </Base.Field>
+                <Form.ColorField path="color" />
               </Flex.Box>
             </Flex.Box>
-          </FormWrapper>
+          </Form.Wrapper>
         );
     }
   }, []);
-  const props = Tabs.useStatic({ tabs: COMMON_TOGGLE_FORM_TABS, content });
+  const props = Tabs.useStatic({ tabs: Form.COMMON_TOGGLE_FORM_TABS, content });
   return <Tabs.Tabs {...props} />;
 };

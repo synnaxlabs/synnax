@@ -31,7 +31,7 @@ import { Icon } from "@/icon";
 import { triggerReflow } from "@/util/reflow";
 import { selectNode } from "@/vis/diagram/util";
 
-export interface GridItem {
+export interface Item {
   key: string;
   element: ReactElement<{
     style?: CSSProperties;
@@ -45,7 +45,7 @@ export interface GridItem {
 export interface GridProps extends PropsWithChildren<{}> {
   editable: boolean;
   symbolKey: string;
-  items: GridItem[];
+  items: Item[];
   onLocationChange: (key: string, loc: location.Location) => void;
   onRotate?: () => void;
   allowCenter?: boolean;
@@ -55,7 +55,7 @@ export interface GridProps extends PropsWithChildren<{}> {
 interface GridElProps {
   editable: boolean;
   symbolKey: string;
-  items: GridItem[];
+  items: Item[];
   onLocationChange: (key: string, loc: location.Location) => void;
 }
 

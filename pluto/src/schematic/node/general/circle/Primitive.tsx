@@ -11,16 +11,11 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Circle,
-  Div,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-} from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/circle/config";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }
 
@@ -36,39 +31,39 @@ export const Primitive = ({
   const width = diameter + 2 * padding;
   const height = diameter + 2 * padding;
   return (
-    <Div className={CSS(className, CSS.B("circle-shape"))}>
-      <HandleBoundary orientation="left" refreshDeps={radius}>
-        <Handle
+    <Base.Div className={CSS(className, CSS.B("circle-shape"))}>
+      <Handle.Boundary orientation="left" refreshDeps={radius}>
+        <Handle.Handle
           location="top"
           orientation="left"
           left={50}
           top={(padding / height) * 100}
           id="1"
         />
-        <Handle
+        <Handle.Handle
           location="bottom"
           orientation="left"
           left={50}
           top={((height - padding) / height) * 100}
           id="2"
         />
-        <Handle
+        <Handle.Handle
           location="left"
           orientation="left"
           left={(padding / width) * 100}
           top={50}
           id="3"
         />
-        <Handle
+        <Handle.Handle
           location="right"
           orientation="left"
           left={((width - padding) / width) * 100}
           top={50}
           id="4"
         />
-      </HandleBoundary>
-      <InternalSVG dimensions={{ width, height }}>
-        <Circle
+      </Handle.Boundary>
+      <Base.SVG dimensions={{ width, height }}>
+        <Base.Circle
           cx={width / 2}
           cy={height / 2}
           r={radius}
@@ -76,7 +71,7 @@ export const Primitive = ({
           strokeWidth={strokeWidth ?? 2}
           fill={color.cssString(backgroundColor)}
         />
-      </InternalSVG>
-    </Div>
+      </Base.SVG>
+    </Base.Div>
   );
 };

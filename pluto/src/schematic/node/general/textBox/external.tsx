@@ -10,19 +10,17 @@
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/textBox/config";
+import { type Config, VARIANT } from "@/schematic/node/general/textBox/config";
 import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
 import { Primitive } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "textBox";
-export const NAME = "Text Box";
+export * from "@/schematic/node/general/textBox/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   autoFit: true,
@@ -39,7 +37,7 @@ const Preview = (props: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Text Box",
   Form: TextBoxForm,
   Node: Symbol,
   Preview,

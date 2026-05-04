@@ -7,16 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type LabeledConfig } from "@/schematic/node/common/symbol/factories";
+import { Label } from "@/schematic/node/common/label";
 
-export interface Config extends LabeledConfig {
-  numSides: number;
-  sideLength: number;
-  rotation?: number;
-  cornerRounding?: number;
-  color?: color.Crude;
-  backgroundColor?: color.Crude;
-  strokeWidth?: number;
-}
+export const VARIANT = "polygon" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  numSides: z.number(),
+  sideLength: z.number(),
+  rotation: z.number().optional(),
+  cornerRounding: z.number().optional(),
+  color: color.crudeZ.optional(),
+  backgroundColor: color.crudeZ.optional(),
+  strokeWidth: z.number().optional(),
+});
+export type Config = z.infer<typeof configZ>;

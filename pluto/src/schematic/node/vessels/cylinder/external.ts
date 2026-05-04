@@ -11,18 +11,16 @@ import { color } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config } from "@/schematic/node/vessels/cylinder/config";
+import { type Config, VARIANT } from "@/schematic/node/vessels/cylinder/config";
 import { CylinderForm } from "@/schematic/node/vessels/cylinder/Form";
 import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
 import { Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "cylinder";
-export const NAME = "Cylinder";
+export * from "@/schematic/node/vessels/cylinder/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
@@ -32,7 +30,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Cylinder",
   Form: CylinderForm,
   Node: Symbol,
   Preview: Primitive,

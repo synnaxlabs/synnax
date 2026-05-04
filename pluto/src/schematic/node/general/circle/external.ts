@@ -11,19 +11,16 @@ import { color } from "@synnaxlabs/x";
 
 import { removeProps } from "@/component/removeProps";
 import { Label } from "@/schematic/node/common/label";
-import { createLabeled } from "@/schematic/node/common/symbol/factories";
-import { type Config } from "@/schematic/node/general/circle/config";
+import { type Config, VARIANT } from "@/schematic/node/general/circle/config";
 import { CircleForm } from "@/schematic/node/general/circle/Form";
 import { Primitive } from "@/schematic/node/general/circle/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "circle";
-export const NAME = "Circle";
+export * from "@/schematic/node/general/circle/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   radius: 20,
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
@@ -33,9 +30,9 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Circle",
   Form: CircleForm,
-  Node: createLabeled<Config>(Primitive, { grid: { allowRotate: false } }),
+  Node: Label.createLabeled<Config>(Primitive, { grid: { allowRotate: false } }),
   Preview: removeProps(Primitive, ["clickable"]),
   defaultConfig,
   zIndex: 2,

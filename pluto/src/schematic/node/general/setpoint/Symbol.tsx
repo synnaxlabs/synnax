@@ -9,14 +9,12 @@
 
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Control } from "@/schematic/node/common/control";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import {
-  controlStateGridItem,
-  type NodeProps,
-} from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 
 export const Symbol = ({
@@ -38,13 +36,13 @@ export const Symbol = ({
     disabled,
   } = data;
   const { value, set } = BaseSetpoint.use({ aetherKey: symbolKey, source, sink });
-  const gridItems: GridItem[] = [];
-  const controlItem = controlStateGridItem(control);
+  const gridItems: Grid.Item[] = [];
+  const controlItem = Control.stateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid
+    <Grid.Grid
       symbolKey={symbolKey}
       allowRotate={false}
       editable={selected && !draggable}
@@ -63,6 +61,6 @@ export const Symbol = ({
         disabled={disabled}
         size={size}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

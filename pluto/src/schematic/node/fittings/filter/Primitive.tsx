@@ -10,16 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends SVGBasedPrimitiveProps, DivProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+export interface Props extends Base.SVGBasedProps, Base.DivProps {}
 
 const DIMENSIONS = { width: 52, height: 34 };
 
@@ -30,30 +23,30 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Div className={CSS(CSS.B("filter"), className)} {...rest}>
-    <HandleBoundary orientation={orientation}>
-      <Handle
+  <Base.Div className={CSS(CSS.B("filter"), className)} {...rest}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
         location="left"
         orientation={orientation}
         left={11.5385}
         top={50}
         id="1"
       />
-      <Handle
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={88.4615}
         top={50}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       orientation={orientation}
       color={color}
       scale={scale}
     >
-      <Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />
-    </InternalSVG>
-  </Div>
+      <Base.Path d="M6 17L24.8 2.9C25.5111 2.36667 26.4889 2.36667 27.2 2.9L46 17M6 17L24.8 31.1C25.5111 31.6333 26.4889 31.6333 27.2 31.1L46 17" />
+    </Base.SVG>
+  </Base.Div>
 );

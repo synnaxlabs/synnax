@@ -9,10 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
+import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/textBox/config";
 import { Primitive } from "@/schematic/node/general/textBox/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   nodeKey: symbolKey,
@@ -22,7 +22,7 @@ export const Symbol = ({
   const { color, width, align, autoFit, level, value, orientation } = data;
   return (
     <Primitive
-      className={DRAG_HANDLE_CLASS}
+      className={Grid.DRAG_HANDLE_CLASS}
       onChange={(v) => onChange({ value: v })}
       value={value}
       level={level}

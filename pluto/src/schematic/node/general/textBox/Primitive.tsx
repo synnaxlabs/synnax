@@ -11,11 +11,12 @@ import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
 import { Text } from "@/text";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onChange?: (value: string) => void;
 }
@@ -39,23 +40,41 @@ export const Primitive = ({
   else divStyle.width = autoFit ? "fit-content" : width;
 
   return (
-    <Div
+    <Base.Div
       style={divStyle}
       orientation={orientation}
       className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-        <Handle
+      <Handle.Boundary orientation={orientation}>
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={0}
+          top={50}
+          id="1"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={100}
+          top={50}
+          id="2"
+        />
+        <Handle.Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={0}
+          id="3"
+        />
+        <Handle.Handle
           location="bottom"
           orientation={orientation}
           left={50}
           top={100}
           id="4"
         />
-      </HandleBoundary>
+      </Handle.Boundary>
       <Text.MaybeEditable
         className={CSS.BE("symbol", "label")}
         color={color.cssString(colorVal)}
@@ -63,6 +82,6 @@ export const Primitive = ({
         value={value ?? ""}
         onChange={onChange}
       />
-    </Div>
+    </Base.Div>
   );
 };

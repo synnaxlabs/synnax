@@ -10,11 +10,11 @@
 import { box, scale, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/value/config";
 import { Primitive } from "@/schematic/node/general/value/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -83,12 +83,12 @@ export const Symbol = ({
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
-  const gridItems: GridItem[] = [];
+  const gridItems: Grid.Item[] = [];
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
 
   return (
-    <Grid
+    <Grid.Grid
       editable={selected && !draggable}
       symbolKey={symbolKey}
       items={gridItems}
@@ -105,6 +105,6 @@ export const Symbol = ({
         units={units}
         unitsLevel={Text.downLevel(level)}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

@@ -41,11 +41,17 @@ import { useConfirmDelete } from "@/ontology/hooks";
 import { createSymbolHaulItem } from "@/schematic/Schematic";
 import { useSelectSelectedSymbolGroup } from "@/schematic/selectors";
 import { setSelectedSymbolGroup } from "@/schematic/slice";
-import { createEditLayout } from "@/schematic/nodes/edit/Edit";
-import { useExport as useExportSymbol, useExportGroup } from "@/schematic/nodes/export";
-import { useImport as useImportSymbol, useImportGroup } from "@/schematic/nodes/import";
-import { type AddNodeProps, useAddNode } from "@/schematic/nodes/useAddNode";
-import { useDeleteSymbolGroup } from "@/schematic/nodes/useDeleteSymbolGroup";
+import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import {
+  useExport as useExportSymbol,
+  useExportGroup,
+} from "@/schematic/symbols/export";
+import {
+  useImport as useImportSymbol,
+  useImportGroup,
+} from "@/schematic/symbols/import";
+import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
+import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
 const HAUL_TYPE = "schematic_symbol";
 const USE_DRAG_PROPS: Haul.UseDragProps = { type: HAUL_TYPE, key: "symbols" };
@@ -63,10 +69,10 @@ const StaticListItem = (
     [startDrag, addNodeProps],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(variant);
-  const defaultProps = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
+  const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
   const addNode = useAddNode(layoutKey);
   const handleAddNode = useCallback(() => addNode(addNodeProps), [addNodeProps]);
-  if (spec == null || defaultProps == null) return null;
+  if (spec == null || defaultConfig == null) return null;
   const { name, Preview } = spec;
   return (
     <List.Item
@@ -82,7 +88,7 @@ const StaticListItem = (
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultProps} scale={0.75} />
+        <Preview {...defaultConfig} scale={0.75} />
       </Flex.Box>
     </List.Item>
   );
@@ -101,9 +107,10 @@ const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
       group?.symbols.includes(s.key),
     );
   }, [groupKey]);
-  const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
-    data: symbols,
-  });
+  const { data, getItem } = List.useStaticData<
+    string,
+    Schematic.Node.Spec<Schematic.Node.Variant, any>
+  >({ data: symbols });
   return (
     <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
       <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
@@ -177,7 +184,7 @@ const RemoteSymbolListContextMenu = (
   const placeLayout = Layout.usePlacer();
   const renameModal = Modals.useRename();
   const exportSymbol = useExportSymbol();
-  const rename = Schematic.Node.useRename({
+  const rename = Schematic.Symbol.useRename({
     beforeUpdate: async ({ data }) => {
       const { name } = data;
       if (item == null) return false;
@@ -196,7 +203,7 @@ const RemoteSymbolListContextMenu = (
       return { ...data, name: newName };
     },
   });
-  const del = Schematic.Node.useDelete({
+  const del = Schematic.Symbol.useDelete({
     beforeUpdate: async () => {
       if (item == null) return false;
       return await confirmDelete({ name: item.name });
@@ -256,7 +263,7 @@ const RemoteListEmptyContent = ({
 };
 
 const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
-  const listData = Schematic.Node.useList({
+  const listData = Schematic.Symbol.useList({
     initialQuery: { parent: group.ontologyID(groupKey) },
   });
   const { fetchMore } = List.usePager({ retrieve: listData.retrieve });
@@ -537,10 +544,11 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
 const searchListItem = Component.renderProp(SearchListItem);
 
 const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement => {
-  const remote = Schematic.Node.useList({
-    initialQuery: { searchTerm },
-  });
-  const staticData = List.useStaticData<string, Schematic.Node.Spec>({
+  const remote = Schematic.Symbol.useList({ initialQuery: { searchTerm } });
+  const staticData = List.useStaticData<
+    string,
+    Schematic.Node.Spec<Schematic.Node.Variant, object>
+  >({
     data: ALL_STATIC_SYMBOLS,
   });
   const { data, getItem, subscribe } = List.useCombinedData<
@@ -581,7 +589,7 @@ export const Symbols = (): ReactElement => {
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
   const [searchTerm, setSearchTerm] = useState("");
-  const symbolGroup = Schematic.Node.useRetrieveGroup({ query: {} });
+  const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
   const searchMode = searchTerm.length > 0;
   let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)

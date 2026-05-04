@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/input/config";
+import { type Config, VARIANT } from "@/schematic/node/general/input/config";
 import { InputForm } from "@/schematic/node/general/input/Form";
 import { Primitive } from "@/schematic/node/general/input/Primitive";
 import { Symbol } from "@/schematic/node/general/input/Symbol";
@@ -20,12 +20,10 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "input";
-export const NAME = "Input";
+export * from "@/schematic/node/general/input/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   size: "small",
@@ -49,7 +47,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Input",
   Form: InputForm,
   Node: Symbol,
   Preview,

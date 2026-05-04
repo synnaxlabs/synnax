@@ -11,39 +11,33 @@ import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
-import {
-  ColorControl,
-  DIMENSIONS_INPUT_PROPS,
-  FormWrapper,
-  LabelControls,
-  OrientationControl,
-  PERCENT_BORDER_RADIUS_INPUT_PROPS,
-  STROKE_WIDTH_INPUT_PROPS,
-  type SymbolFormProps,
-} from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
+import { type FormProps as NodeFormProps } from "@/schematic/node/spec";
 
-export interface FormProps extends SymbolFormProps {
+export interface TankFormProps extends NodeFormProps {
   showBorderRadius?: boolean;
   showStrokeWidth?: boolean;
 }
 
-export const Form = ({
+export const TankForm = ({
   showBorderRadius = false,
   showStrokeWidth = false,
-}: FormProps): ReactElement => (
-  <FormWrapper x align="stretch">
+}: TankFormProps): ReactElement => (
+  <Form.Wrapper x align="stretch">
     <Flex.Box y grow>
-      <LabelControls path="label" />
+      <Label.Form path="label" />
       <Flex.Box x>
-        <ColorControl path="color" />
-        <ColorControl path="backgroundColor" label="Background Color" />
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background Color" />
         <Base.NumericField
           path="borderRadius.x"
           hideIfNull
           optional
           label="X Border Radius"
           grow
-          inputProps={PERCENT_BORDER_RADIUS_INPUT_PROPS}
+          inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
         />
         <Base.NumericField
           path="borderRadius.y"
@@ -51,7 +45,7 @@ export const Form = ({
           optional
           label="Y Border Radius"
           grow
-          inputProps={PERCENT_BORDER_RADIUS_INPUT_PROPS}
+          inputProps={Form.PERCENT_BORDER_RADIUS_INPUT_PROPS}
         />
         {showBorderRadius && (
           <Base.NumericField
@@ -60,7 +54,7 @@ export const Form = ({
             optional
             label="Border Radius"
             grow
-            inputProps={DIMENSIONS_INPUT_PROPS}
+            inputProps={Form.DIMENSIONS_INPUT_PROPS}
           />
         )}
         {showStrokeWidth && (
@@ -70,23 +64,23 @@ export const Form = ({
             optional
             label="Border Width"
             grow
-            inputProps={STROKE_WIDTH_INPUT_PROPS}
+            inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           />
         )}
         <Base.NumericField
           path="dimensions.width"
           label="Width"
           grow
-          inputProps={DIMENSIONS_INPUT_PROPS}
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
         <Base.NumericField
           path="dimensions.height"
           label="Height"
           grow
-          inputProps={DIMENSIONS_INPUT_PROPS}
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
       </Flex.Box>
     </Flex.Box>
-    <OrientationControl path="" hideInner showOuterCenter label="Label Location" />
-  </FormWrapper>
+    <Orientation.Field path="" hideInner showOuterCenter label="Label Location" />
+  </Form.Wrapper>
 );

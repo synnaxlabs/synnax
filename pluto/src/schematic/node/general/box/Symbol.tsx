@@ -9,10 +9,10 @@
 
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/box/config";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Primitive as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({
@@ -30,11 +30,11 @@ export const Symbol = ({
     dimensions,
     strokeWidth,
   } = data;
-  const gridItems: GridItem[] = [];
+  const gridItems: Grid.Item[] = [];
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid
+    <Grid.Grid
       allowCenter
       allowRotate={false}
       items={gridItems}
@@ -53,6 +53,6 @@ export const Symbol = ({
         backgroundColor={backgroundColor}
         strokeWidth={strokeWidth}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

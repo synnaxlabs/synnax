@@ -9,13 +9,13 @@
 
 import { type ReactElement } from "react";
 
-import { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
+import { Grid } from "@/schematic/node/common/grid";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
 import {
   offPageReferenceTooltip,
   Primitive,
 } from "@/schematic/node/general/offPageReference/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
   onConfigChange: onChange,
@@ -30,7 +30,7 @@ export const Symbol = ({
   } = data;
   return (
     <Primitive
-      className={DRAG_HANDLE_CLASS}
+      className={Grid.DRAG_HANDLE_CLASS}
       onLabelChange={(label) => onChange({ label: { label, level } })}
       label={label}
       level={level}

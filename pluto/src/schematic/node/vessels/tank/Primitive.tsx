@@ -11,18 +11,13 @@ import { color, type dimensions } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import {
-  cssBorderRadius,
-  DEFAULT_BORDER_RADIUS,
-  DEFAULT_DIMENSIONS,
-  parseBorderRadius,
-  pixelToPercent,
-} from "@/schematic/node/common/symbol/border";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Border } from "@/schematic/node/common/border";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
 import { Theming } from "@/theming";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onResize?: (dimensions: dimensions.Dimensions) => void;
   boxBorderRadius?: number;
@@ -31,14 +26,14 @@ interface RenderProps extends Config {
 
 export const Primitive = ({
   className,
-  dimensions = DEFAULT_DIMENSIONS,
-  borderRadius = DEFAULT_BORDER_RADIUS,
+  dimensions = Border.DEFAULT_DIMENSIONS,
+  borderRadius = Border.DEFAULT_RADIUS,
   boxBorderRadius,
   color: colorVal,
   backgroundColor,
   strokeWidth = 2,
 }: RenderProps): ReactElement => {
-  const detailedRadius = parseBorderRadius(borderRadius);
+  const detailedRadius = Border.parseRadius(borderRadius);
   const hasCornerBoundaries = boxBorderRadius == null;
   const t = Theming.use();
   const { width, height } = dimensions;
@@ -53,33 +48,39 @@ export const Primitive = ({
       width,
     ],
   );
-  const leftOffset = pixelToPercent(1, width);
+  const leftOffset = Border.pixelToPercent(1, width);
   const rightOffset = 100 - leftOffset;
-  const topOffset = pixelToPercent(1, height);
+  const topOffset = Border.pixelToPercent(1, height);
   const bottomOffset = 100 - topOffset;
   return (
-    <Div
+    <Base.Div
       className={CSS(className, CSS.B("tank"))}
       style={{
         ...dimensions,
-        borderRadius: boxBorderRadius ?? cssBorderRadius(detailedRadius),
+        borderRadius: boxBorderRadius ?? Border.cssRadius(detailedRadius),
         borderColor: color.cssString(colorVal ?? t.colors.gray.l11),
         backgroundColor: color.cssString(backgroundColor),
         borderWidth: strokeWidth,
       }}
     >
-      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
-        <Handle location="top" orientation="left" left={50} top={topOffset} id="1" />
+      <Handle.Boundary refreshDeps={refreshDeps} orientation="left">
+        <Handle.Handle
+          location="top"
+          orientation="left"
+          left={50}
+          top={topOffset}
+          id="1"
+        />
         {hasCornerBoundaries && (
           <>
-            <Handle
+            <Handle.Handle
               location="top"
               orientation="left"
               left={leftOffset}
               top={detailedRadius.topLeft.y}
               id="2"
             />
-            <Handle
+            <Handle.Handle
               location="top"
               orientation="left"
               left={rightOffset}
@@ -88,7 +89,7 @@ export const Primitive = ({
             />
           </>
         )}
-        <Handle
+        <Handle.Handle
           location="bottom"
           orientation="left"
           left={50}
@@ -97,14 +98,14 @@ export const Primitive = ({
         />
         {hasCornerBoundaries && (
           <>
-            <Handle
+            <Handle.Handle
               location="bottom"
               orientation="left"
               left={leftOffset}
               top={100 - detailedRadius.bottomLeft.y}
               id="5"
             />
-            <Handle
+            <Handle.Handle
               location="bottom"
               orientation="left"
               left={rightOffset}
@@ -113,15 +114,21 @@ export const Primitive = ({
             />
           </>
         )}
-        <Handle location="left" orientation="left" left={leftOffset} top={50} id="7" />
-        <Handle
+        <Handle.Handle
+          location="left"
+          orientation="left"
+          left={leftOffset}
+          top={50}
+          id="7"
+        />
+        <Handle.Handle
           location="right"
           orientation="left"
           left={rightOffset}
           top={50}
           id="8"
         />
-      </HandleBoundary>
-    </Div>
+      </Handle.Boundary>
+    </Base.Div>
   );
 };

@@ -7,12 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type ToggleConfig } from "@/schematic/node/common/symbol/factories";
+import { Toggle } from "@/schematic/node/common/toggle";
 
-export interface Config extends ToggleConfig {
-  color?: color.Crude;
-  scale?: number;
-  normallyOpen?: boolean;
-}
+export const VARIANT = "solenoidValve" as const;
+
+export const configZ = Toggle.toggleConfigZ.extend({
+  variant: z.literal(VARIANT),
+  color: color.crudeZ.optional(),
+  scale: z.number().optional(),
+  normallyOpen: z.boolean().optional(),
+});
+export type Config = z.infer<typeof configZ>;

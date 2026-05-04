@@ -10,38 +10,33 @@
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
-import { Form } from "@/form";
-import {
-  ColorControl,
-  DIMENSIONS_INPUT_PROPS,
-  FormWrapper,
-  LabelControls,
-  OrientationControl,
-} from "@/schematic/node/common/forms";
-
+import { Form as Base } from "@/form";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 export const CylinderForm = (): ReactElement => (
-  <FormWrapper x align="stretch">
+  <Form.Wrapper x align="stretch">
     <Flex.Box y grow>
-      <LabelControls path="label" />
+      <Label.Form path="label" />
       <Flex.Box x>
-        <ColorControl path="color" />
-        <ColorControl path="backgroundColor" label="Background Color" />
-        <Form.NumericField
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Base.NumericField
           path="dimensions.width"
           label="Width"
           grow
           defaultValue={200}
-          inputProps={DIMENSIONS_INPUT_PROPS}
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
-        <Form.NumericField
+        <Base.NumericField
           path="dimensions.height"
           label="Height"
           grow
           defaultValue={200}
-          inputProps={DIMENSIONS_INPUT_PROPS}
+          inputProps={Form.DIMENSIONS_INPUT_PROPS}
         />
       </Flex.Box>
     </Flex.Box>
-    <OrientationControl path="" hideInner />
-  </FormWrapper>
+    <Orientation.Field path="" hideInner />
+  </Form.Wrapper>
 );

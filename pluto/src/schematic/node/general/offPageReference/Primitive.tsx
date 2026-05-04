@@ -11,7 +11,8 @@ import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/offPageReference/config";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
@@ -25,7 +26,10 @@ export const offPageReferenceTooltip = (
   return `${mode}-click to navigate`;
 };
 
-interface RenderProps extends Omit<Config, "label" | "page" | "dblClickNav"> {
+interface RenderProps extends Omit<
+  Config,
+  "label" | "page" | "dblClickNav" | "variant"
+> {
   id?: string;
   label?: string;
   className?: string;
@@ -55,7 +59,7 @@ export const Primitive = ({
   );
 
   return (
-    <Div
+    <Base.Div
       className={CSS(CSS.B("arrow"), CSS.loc(orientation), className)}
       orientation={orientation}
     >
@@ -79,8 +83,8 @@ export const Primitive = ({
           </div>
         </div>
       </div>
-      <HandleBoundary orientation={orientation}>
-        <Handle
+      <Handle.Boundary orientation={orientation}>
+        <Handle.Handle
           location="left"
           orientation={orientation}
           preventAutoAdjust
@@ -89,7 +93,7 @@ export const Primitive = ({
           swap={swap}
           id="1"
         />
-        <Handle
+        <Handle.Handle
           location="right"
           preventAutoAdjust
           orientation={orientation}
@@ -98,7 +102,7 @@ export const Primitive = ({
           swap={swap}
           id="2"
         />
-      </HandleBoundary>
+      </Handle.Boundary>
       <svg
         style={{ visibility: "hidden", position: "absolute" }}
         width="0"
@@ -119,6 +123,6 @@ export const Primitive = ({
           </filter>
         </defs>
       </svg>
-    </Div>
+    </Base.Div>
   );
 };

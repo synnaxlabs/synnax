@@ -11,18 +11,16 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import { CommonStyleForm } from "@/schematic/node/common/forms";
-import { FormWrapper } from "@/schematic/node/common/forms/helpers";
+import { Form } from "@/schematic/node/common/form";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { type Toggle } from "@/vis/toggle";
-
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}
 
 const LightTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<LightTelemFormT>(path);
+  const { value, onChange } = Base.useField<LightTelemFormT>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -57,7 +55,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
     throw new Error("Channel key must be used for light telemetry");
 
   return (
-    <FormWrapper x align="stretch">
+    <Form.Wrapper x align="stretch">
       <Input.Item label="Input Channel" grow>
         <Channel.SelectSingle value={source.channel} onChange={handleSourceChange} />
       </Input.Item>
@@ -73,7 +71,7 @@ const LightTelemForm = ({ path }: { path: string }): ReactElement => {
           onChange={(v) => handleThresholdChange({ ...threshold.trueBound, upper: v })}
         />
       </Input.Item>
-    </FormWrapper>
+    </Form.Wrapper>
   );
 };
 
@@ -88,7 +86,7 @@ export const LightForm = (): ReactElement => {
       case "telemetry":
         return <LightTelemForm path="" />;
       default:
-        return <CommonStyleForm />;
+        return <Form.StyleForm />;
     }
   }, []);
   const props = Tabs.useStatic({ tabs: LIGHT_FORM_TABS, content });

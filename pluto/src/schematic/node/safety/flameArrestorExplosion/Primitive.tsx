@@ -10,17 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends DivProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+
+export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 60, height: 69 };
 
@@ -31,29 +24,35 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3.333} top={50} id="1" />
-      <Handle
+  <Base.Div {...rest} className={CSS(CSS.B("flame-arrestor"), className)}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={3.333}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={96.667}
         top={50}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="2" y="2.5" width="56" height="64" rx="3" />
-      <Path d="M30 2.5L30 66.5" />
-      <Path d="M16 2.5L16 66.5" />
-      <Path d="M2 34.5H30" />
-      <Path d="M2 19H30" />
-      <Path d="M2 50H30" />
-    </InternalSVG>
-  </Div>
+      <Base.Rect x="2" y="2.5" width="56" height="64" rx="3" />
+      <Base.Path d="M30 2.5L30 66.5" />
+      <Base.Path d="M16 2.5L16 66.5" />
+      <Base.Path d="M2 34.5H30" />
+      <Base.Path d="M2 19H30" />
+      <Base.Path d="M2 50H30" />
+    </Base.SVG>
+  </Base.Div>
 );

@@ -10,15 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { type Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-  STROKE_WIDTH_INPUT_PROPS,
-} from "@/schematic/node/common/forms";
-
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 export interface PolygonFormProps {
   numSides: number;
 }
@@ -47,45 +42,45 @@ const CORNER_ROUNDING_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const PolygonForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
+  <Form.Wrapper direction="x" align="stretch">
     <Flex.Box direction="y" grow>
-      <LabelControls path="label" />
+      <Label.Form path="label" />
       <Flex.Box direction="x">
-        <ColorControl path="color" />
-        <ColorControl path="backgroundColor" label="Background Color" />
-        <Form.NumericField
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Base.NumericField
           path="rotation"
           label="Rotation"
           inputProps={ROTATION_INPUT_PROPS}
           grow
         />
-        <Form.NumericField
+        <Base.NumericField
           path="numSides"
           label="Number of Sides"
           inputProps={NUM_SIDES_INPUT_PROPS}
           grow
         />
-        <Form.NumericField
+        <Base.NumericField
           path="sideLength"
           label="Side Length"
           inputProps={SIDE_LENGTH_INPUT_PROPS}
           grow
         />
-        <Form.NumericField
+        <Base.NumericField
           path="cornerRounding"
           label="Corner Rounding"
           inputProps={CORNER_ROUNDING_INPUT_PROPS}
           grow
         />
-        <Form.NumericField
+        <Base.NumericField
           path="strokeWidth"
           label="Border Width"
-          inputProps={STROKE_WIDTH_INPUT_PROPS}
+          inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           grow
         />
       </Flex.Box>
     </Flex.Box>
-  </FormWrapper>
+  </Form.Wrapper>
 );
 
 export const CommonPolygonForm = PolygonForm;

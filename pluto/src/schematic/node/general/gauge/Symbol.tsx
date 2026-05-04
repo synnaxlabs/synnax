@@ -11,10 +11,10 @@ import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/gauge/config";
+import { type NodeProps } from "@/schematic/node/spec";
 import { type Text } from "@/text";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 
@@ -63,12 +63,12 @@ export const Symbol = ({
     barWidth,
   });
 
-  const gridItems: GridItem[] = [];
+  const gridItems: Grid.Item[] = [];
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
 
   return (
-    <Grid
+    <Grid.Grid
       editable={selected}
       symbolKey={symbolKey}
       items={gridItems}
@@ -82,6 +82,6 @@ export const Symbol = ({
         style={{ width: gaugeSize, height: gaugeSize }}
         className={CSS.B("symbol-primitive")}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

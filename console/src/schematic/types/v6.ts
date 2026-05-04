@@ -17,7 +17,11 @@ import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
-export const configZ = record.unknownZ();
+export const configZ = Schematic.elementConfigZ;
+
+export type EdgeConfig = Schematic.Edge.Config;
+export type NodeConfig = Schematic.Node.Config;
+export type ElementConfig = Schematic.ElementConfig;
 
 export const legendStateZ = v1.legendStateZ
   .omit({ colors: true })
@@ -54,14 +58,14 @@ export const copyBufferZ = z.object({
   pos: v0.copyBufferZ.shape.pos,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(Diagram.edgeZ),
-  props: z.record(z.string(), configZ),
+  configs: z.record(z.string(), configZ),
 });
 export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
 const ZERO_COPY_BUFFER: CopyBuffer = {
   pos: { x: 0, y: 0 },
   nodes: [],
   edges: [],
-  props: {},
+  configs: {},
 };
 
 export const sliceStateZ = v5.sliceStateZ
@@ -79,15 +83,14 @@ export const ZERO_SLICE_STATE: SliceState = {
   copy: ZERO_COPY_BUFFER,
 };
 
-const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeProps] => {
+const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeConfig] => {
   const next: Diagram.Edge = {
     key: edge.key,
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
     target: { node: edge.target, param: edge.targetHandle ?? "" },
   };
-  const edgeProps: EdgeProps = {
-    type: "edge",
-    variant: "pipe",
+  const edgeProps: EdgeConfig = {
+    variant: "pipe" as Schematic.Edge.Variant,
     segments: [],
     color: color.ZERO,
   };
@@ -115,18 +118,20 @@ const migrateLegendColors = (
   return out;
 };
 
-const migrateProps = (props: Record<string, v0.NodeProps>): Record<string, Props> =>
+const migratePropsToConfigs = (
+  props: Record<string, v0.NodeProps>,
+): Record<string, ElementConfig> =>
   Object.fromEntries(
     Object.entries(props).map(([k, p]) => {
       const { key, ...rest } = p as v0.NodeProps & Record<string, unknown>;
-      return [k, { ...rest, variant: key } as NodeProps];
+      return [k, { ...rest, variant: key } as ElementConfig];
     }),
   );
 
 export const stateMigration = migrate.createMigration<v5.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => {
-    const props = migrateProps(state.config);
+    const props = migratePropsToConfigs(state.props);
     const edges = state.edges.map((e) => {
       const [edge, edgeProps] = migrateEdge(e);
       props[edge.key] = edgeProps;
@@ -144,13 +149,13 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
 });
 
 const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
-  const props = migrateProps(copy.props);
+  const configs = migratePropsToConfigs(copy.props);
   const edges = copy.edges.map((e) => {
     const [edge, edgeProps] = migrateEdge(e);
-    props[edge.key] = edgeProps;
+    configs[edge.key] = edgeProps;
     return edge;
   });
-  return { ...copy, edges, props };
+  return { ...copy, edges, configs };
 };
 
 export const sliceMigration = migrate.createMigration<v5.SliceState, SliceState>({

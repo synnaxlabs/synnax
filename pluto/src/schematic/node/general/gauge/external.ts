@@ -10,7 +10,7 @@
 import { bounds } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/gauge/config";
+import { type Config, VARIANT } from "@/schematic/node/general/gauge/config";
 import { GaugeForm } from "@/schematic/node/general/gauge/Form";
 import { Primitive } from "@/schematic/node/general/gauge/Primitive";
 import { Symbol } from "@/schematic/node/general/gauge/Symbol";
@@ -18,12 +18,10 @@ import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "gauge";
-export const NAME = "Gauge";
+export * from "@/schematic/node/general/gauge/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   units: "RPM",
@@ -47,7 +45,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Gauge",
   Form: GaugeForm,
   Node: Symbol,
   Preview: Primitive,

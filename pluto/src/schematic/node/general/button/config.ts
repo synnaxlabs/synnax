@@ -7,20 +7,26 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Button as BaseButton } from "@/button";
-import {
-  type ControlStateProps,
-  type LabeledConfig,
-} from "@/schematic/node/common/symbol/factories";
-import { type Button as ButtonTelem } from "@/vis/button";
+import { size as componentSize } from "@/component/size";
+import { Control } from "@/schematic/node/common/control";
+import { Label } from "@/schematic/node/common/label";
+import { telem } from "@/telem/aether";
+import { text } from "@/text/base";
+import { Button as ButtonTelem } from "@/vis/button";
 
-export interface Config
-  extends
-    LabeledConfig,
-    Pick<BaseButton.ButtonProps, "size" | "level" | "onClickDelay">,
-    Omit<ButtonTelem.UseProps, "aetherKey"> {
-  color?: color.Crude;
-  control?: ControlStateProps;
-}
+export const VARIANT = "button" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  size: componentSize.optional(),
+  level: text.levelZ.optional(),
+  onClickDelay: z.number().optional(),
+  sink: telem.booleanSinkSpecZ.optional(),
+  mode: z.enum(ButtonTelem.MODES).optional(),
+  color: color.crudeZ.optional(),
+  control: Control.stateConfigZ.optional(),
+});
+export type Config = z.infer<typeof configZ>;

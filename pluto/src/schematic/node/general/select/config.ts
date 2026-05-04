@@ -7,24 +7,25 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Input as BaseInput } from "@/input";
-import {
-  type ControlStateProps,
-  type LabeledConfig,
-  type StateMapping,
-} from "@/schematic/node/common/symbol/factories";
-import { type Setpoint as BaseSetpoint } from "@/vis/setpoint";
+import { size as componentSize } from "@/component/size";
+import { Control } from "@/schematic/node/common/control";
+import { Label } from "@/schematic/node/common/label";
+import { stateMappingZ } from "@/schematic/node/general/stateIndicator/config";
+import { telem } from "@/telem/aether";
 
-export interface Config
-  extends
-    LabeledConfig,
-    Pick<BaseInput.TextProps, "size">,
-    Pick<BaseSetpoint.UseProps, "sink"> {
-  color?: color.Crude;
-  inlineSize?: number;
-  options: StateMapping[];
-  disabled?: boolean;
-  control?: ControlStateProps;
-}
+export const VARIANT = "select" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  size: componentSize.optional(),
+  sink: telem.numberSinkSpecZ.optional(),
+  color: color.crudeZ.optional(),
+  inlineSize: z.number().optional(),
+  options: z.array(stateMappingZ),
+  disabled: z.boolean().optional(),
+  control: Control.stateConfigZ.optional(),
+});
+export type Config = z.infer<typeof configZ>;

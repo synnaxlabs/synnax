@@ -10,17 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends DivProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 66, height: 30 };
 
@@ -31,38 +23,50 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Div
+  <Base.Div
     {...rest}
     className={CSS(CSS.B("static-mixer"), className)}
     orientation={orientation}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={1.5152} top={50} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={1.5152}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={98.4848}
         top={50}
         id="2"
       />
-      <Handle location="top" orientation={orientation} left={50} top={3.3333} id="3" />
-      <Handle
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={3.3333}
+        id="3"
+      />
+      <Handle.Handle
         location="bottom"
         orientation={orientation}
         left={50}
         top={96.6667}
         id="4"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="1" y="1" width="64" height="28" rx="2" ry="2" />
-      <Path d="M17 10C23 10 27 20 33 20C39 20 43 10 49 10" strokeLinecap="round" />
-      <Path d="M17 20C23 20 27 10 33 10C39 10 43 20 49 20" strokeLinecap="round" />
-    </InternalSVG>
-  </Div>
+      <Base.Rect x="1" y="1" width="64" height="28" rx="2" ry="2" />
+      <Base.Path d="M17 10C23 10 27 20 33 20C39 20 43 10 49 10" strokeLinecap="round" />
+      <Base.Path d="M17 20C23 20 27 10 33 10C39 10 43 20 49 20" strokeLinecap="round" />
+    </Base.SVG>
+  </Base.Div>
 );

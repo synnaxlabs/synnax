@@ -11,17 +11,10 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Circle,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 42 };
 
@@ -33,31 +26,37 @@ export const Primitive = ({
   enabled = false,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     orientation={orientation}
     className={CSS(CSS.B("butterfly-valve-one"), className)}
     enabled={enabled}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={97.7011}
         top={50}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
-      <Path d="M43.5 2V40" />
-      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-    </InternalSVG>
-  </Toggle>
+      <Base.Path d="M43.5 21L6.35453 2.20349C4.35901 1.19372 2 2.64384 2 4.88029V37.1197C2 39.3562 4.35901 40.8063 6.35453 39.7965L43.5 21ZM43.5 21L80.6455 2.20349C82.641 1.19372 85 2.64384 85 4.8803V37.1197C85 39.3562 82.641 40.8063 80.6455 39.7965L43.5 21Z" />
+      <Base.Path d="M43.5 2V40" />
+      <Base.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
+    </Base.SVG>
+  </Toggle.Button>
 );

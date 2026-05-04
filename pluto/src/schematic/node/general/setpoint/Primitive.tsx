@@ -12,10 +12,11 @@ import { type CSSProperties, type ReactElement, useState } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 
-interface RenderProps extends Config, BaseInput.Control<number> {
+interface RenderProps extends Omit<Config, "variant">, BaseInput.Control<number> {
   className?: string;
   style?: CSSProperties;
 }
@@ -35,14 +36,20 @@ export const Primitive = ({
 }: RenderProps): ReactElement => {
   const [currValue, setCurrValue] = useState(value);
   return (
-    <Div
+    <Base.Div
       className={CSS(CSS.B("setpoint"), className)}
       orientation={orientation}
       style={style}
     >
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0.5} top={50} id="1" />
-        <Handle
+      <Handle.Boundary orientation={orientation}>
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={0.5}
+          top={50}
+          id="1"
+        />
+        <Handle.Handle
           location="right"
           orientation={orientation}
           left={100}
@@ -50,15 +57,21 @@ export const Primitive = ({
           id="2"
           style={SETPOINT_STYLE}
         />
-        <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
-        <Handle
+        <Handle.Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={-2}
+          id="3"
+        />
+        <Handle.Handle
           location="bottom"
           orientation={orientation}
           left={50}
           top={102}
           id="4"
         />
-      </HandleBoundary>
+      </Handle.Boundary>
       <BaseInput.Numeric
         size={size}
         value={currValue}
@@ -79,6 +92,6 @@ export const Primitive = ({
           Set
         </BaseButton.Button>
       </BaseInput.Numeric>
-    </Div>
+    </Base.Div>
   );
 };

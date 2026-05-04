@@ -10,9 +10,9 @@
 import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { extractRegions } from "@/schematic/node/common/region/extractRegions";
+import { Region } from "@/schematic/node/common/region";
 
-describe("extractRegions", () => {
+describe("Region.extract", () => {
   const TRANSPARENT = color.hex(color.ZERO);
 
   const createSVG = (content: string): SVGElement => {
@@ -31,11 +31,10 @@ describe("extractRegions", () => {
       <path style="stroke: #0000ff; fill: #ffff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(2);
 
-    // Find region with red stroke and green fill
     const redGreenRegion = regions.find(
       (r) => r.strokeColor === "#ff0000" && r.fillColor === "#00ff00",
     );
@@ -44,7 +43,6 @@ describe("extractRegions", () => {
     expect(redGreenRegion?.selectors).toContain("rect:nth-of-type(1)");
     expect(redGreenRegion?.selectors).toContain("circle:nth-of-type(1)");
 
-    // Find region with blue stroke and yellow fill
     const blueYellowRegion = regions.find(
       (r) => r.strokeColor === "#0000ff" && r.fillColor === "#ffff00",
     );
@@ -61,11 +59,8 @@ describe("extractRegions", () => {
       <line />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
-    // Should have 2 regions:
-    // 1. Elements with no stroke and green fill
-    // 2. Elements with no stroke and no fill
     expect(regions).toHaveLength(2);
 
     const greenFillRegion = regions.find((r) => r.fillColor === "#00ff00");
@@ -86,7 +81,7 @@ describe("extractRegions", () => {
       <circle id="circle1" style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toContain("#rect1");
@@ -99,7 +94,7 @@ describe("extractRegions", () => {
       <circle class="red-circle" style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toContain(".red-rect.primary");
@@ -113,7 +108,7 @@ describe("extractRegions", () => {
       <circle style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toContain("rect:nth-of-type(1)");
@@ -131,11 +126,10 @@ describe("extractRegions", () => {
       </g>
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toHaveLength(2);
-    // Selectors should include parent path
     expect(regions[0].selectors[0]).toContain("rect");
     expect(regions[0].selectors[1]).toContain("circle");
   });
@@ -146,7 +140,7 @@ describe("extractRegions", () => {
       <circle style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toHaveLength(2);
@@ -157,7 +151,7 @@ describe("extractRegions", () => {
   it("should handle empty SVG", () => {
     const svg = createSVG("");
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(0);
   });
@@ -174,9 +168,8 @@ describe("extractRegions", () => {
       <text style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
-    // Line element has no fill, so it's in a different region
     expect(regions).toHaveLength(2);
 
     const mainRegion = regions.find((r) => r.fillColor === "#00ff00");
@@ -193,7 +186,7 @@ describe("extractRegions", () => {
       <circle style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toHaveLength(2);
@@ -209,7 +202,7 @@ describe("extractRegions", () => {
       <line style="stroke: RED; fill: BLUE" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     regions.forEach((region) => {
       if (region.strokeColor) expect(region.strokeColor).toMatch(/^#[0-9a-f]{6}$/);
@@ -229,7 +222,7 @@ describe("extractRegions", () => {
       <circle data-region-id="region-456" style="stroke: #ff0000; fill: #00ff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(1);
     expect(regions[0].selectors).toContain('[data-region-id="region-123"]');
@@ -248,7 +241,7 @@ describe("extractRegions", () => {
       <rect style="stroke: #0000ff; fill: #ffff00" />
     `);
 
-    const regions = extractRegions(svg);
+    const regions = Region.extract(svg);
 
     expect(regions).toHaveLength(2);
 

@@ -12,9 +12,9 @@ import { type location } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { useCustom } from "@/schematic/node/common/custom/Custom";
+import { Custom } from "@/schematic/node/common/custom";
 
-describe("useCustom", () => {
+describe("Custom.useRender", () => {
   const createMockSpec = (
     overrides?: Partial<schematic.symbol.Spec>,
   ): schematic.symbol.Spec => ({
@@ -59,7 +59,7 @@ describe("useCustom", () => {
     it("should return early when spec is null", () => {
       const container = document.createElement("div");
       const { result } = renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -75,7 +75,7 @@ describe("useCustom", () => {
       const container = document.createElement("div");
       const spec = createMockSpec({ svg: "" });
       const { result } = renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -90,7 +90,7 @@ describe("useCustom", () => {
     it("should return early when container is null", () => {
       const spec = createMockSpec();
       const { result } = renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container: null,
           orientation: "top",
           activeState: "inactive",
@@ -107,7 +107,7 @@ describe("useCustom", () => {
       const container = document.createElement("div");
       const spec = createMockSpec();
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -128,7 +128,7 @@ describe("useCustom", () => {
       const onMount = vi.fn();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -150,7 +150,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -172,7 +172,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -193,7 +193,7 @@ describe("useCustom", () => {
       const spec = createMockSpec();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -212,7 +212,7 @@ describe("useCustom", () => {
       const spec = createMockSpec();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "active",
@@ -231,7 +231,7 @@ describe("useCustom", () => {
       const spec = createMockSpec();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -242,7 +242,6 @@ describe("useCustom", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
       expect(rect.getAttribute("data-original-stroke")).toBe("black");
-      // Fill was not stored because it's being applied from state immediately
       expect(rect.getAttribute("fill")).toBe("#ccc");
     });
 
@@ -252,7 +251,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ activeState }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState,
@@ -307,7 +306,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -329,7 +328,7 @@ describe("useCustom", () => {
       const spec = createMockSpec({ scale: 2 });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -348,7 +347,7 @@ describe("useCustom", () => {
       const spec = createMockSpec();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -367,7 +366,7 @@ describe("useCustom", () => {
       const spec = createMockSpec({ scale: 2 });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -387,7 +386,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ externalScale }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -410,11 +409,10 @@ describe("useCustom", () => {
   describe("orientation", () => {
     it("should maintain dimensions for horizontal orientations", () => {
       const container = document.createElement("div");
-      // Using the default spec which has viewBox "0 0 100 100"
       const spec = createMockSpec();
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -424,7 +422,6 @@ describe("useCustom", () => {
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
-      // Horizontal orientation maintains original dimensions from viewBox
       expect(svg.getAttribute("width")).toBe("100");
       expect(svg.getAttribute("height")).toBe("100");
       expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
@@ -437,9 +434,9 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
-          orientation: "top", // "top" and "bottom" are Y directions that cause swapping
+          orientation: "top",
           activeState: "inactive",
           externalScale: 1,
           spec,
@@ -447,8 +444,6 @@ describe("useCustom", () => {
       );
 
       const svg = container.querySelector("svg") as SVGSVGElement;
-      // For Y-direction orientation with viewBox "0 0 200 100":
-      // The dimensions should be swapped to width=100, height=200
       expect(svg.getAttribute("width")).toBe("100");
       expect(svg.getAttribute("height")).toBe("200");
       expect(svg.getAttribute("viewBox")).toBe("0 0 100 200");
@@ -456,12 +451,11 @@ describe("useCustom", () => {
 
     it("should handle orientation changes", () => {
       const container = document.createElement("div");
-      // Using the default spec with viewBox "0 0 100 100"
       const spec = createMockSpec();
 
       const { rerender } = renderHook(
         ({ orientation }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation,
             activeState: "inactive",
@@ -478,7 +472,6 @@ describe("useCustom", () => {
       expect(svg.getAttribute("height")).toBe("100");
 
       rerender({ orientation: "top" as location.Outer });
-      // After orientation change from X to Y direction, dimensions remain the same for square viewBox
       expect(svg.getAttribute("width")).toBe("100");
       expect(svg.getAttribute("height")).toBe("100");
       expect(svg.getAttribute("viewBox")).toBe("0 0 100 100");
@@ -491,7 +484,7 @@ describe("useCustom", () => {
       const spec = createMockSpec({ scaleStroke: false });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -509,7 +502,7 @@ describe("useCustom", () => {
       const spec = createMockSpec({ scaleStroke: true });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -538,7 +531,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -564,7 +557,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ activeState }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState,
@@ -593,7 +586,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ spec }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -623,7 +616,7 @@ describe("useCustom", () => {
       const spec = createMockSpec();
 
       const { rerender } = renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -648,7 +641,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ spec }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -688,7 +681,7 @@ describe("useCustom", () => {
 
       expect(() => {
         renderHook(() =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -729,7 +722,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -776,7 +769,7 @@ describe("useCustom", () => {
 
       expect(() => {
         renderHook(() =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -793,7 +786,7 @@ describe("useCustom", () => {
 
       expect(() => {
         renderHook(() =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState: "inactive",
@@ -822,7 +815,7 @@ describe("useCustom", () => {
       });
 
       renderHook(() =>
-        useCustom({
+        Custom.useRender({
           container,
           orientation: "top",
           activeState: "inactive",
@@ -849,7 +842,6 @@ describe("useCustom", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                // No fillColor specified - should keep original blue
               },
             ],
           },
@@ -861,7 +853,7 @@ describe("useCustom", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#ff0000", // Red fill when active
+                fillColor: "#ff0000",
               },
             ],
           },
@@ -870,7 +862,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ activeState }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState,
@@ -883,14 +875,11 @@ describe("useCustom", () => {
       );
 
       const rect = container.querySelector(".main") as SVGRectElement;
-      // Initially inactive - should have original blue fill
       expect(rect.getAttribute("fill")).toBe("blue");
 
-      // Switch to active - should have red fill
       rerender({ activeState: "active" });
       expect(rect.getAttribute("fill")).toBe("#ff0000");
 
-      // Switch back to inactive - should restore original blue fill
       rerender({ activeState: "inactive" });
       expect(rect.getAttribute("fill")).toBe("blue");
     });
@@ -911,7 +900,6 @@ describe("useCustom", () => {
                 strokeColor: "#333",
                 fillColor: "#ccc",
               },
-              // secondary is not in any region - should keep original colors
             ],
           },
           {
@@ -932,7 +920,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ activeState }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState,
@@ -947,20 +935,17 @@ describe("useCustom", () => {
       const rect = container.querySelector(".main") as SVGRectElement;
       const circle = container.querySelector(".secondary") as SVGCircleElement;
 
-      // Initially inactive - main has state colors, secondary has original
       expect(rect.getAttribute("stroke")).toBe("#333");
       expect(rect.getAttribute("fill")).toBe("#ccc");
       expect(circle.getAttribute("stroke")).toBe("blue");
       expect(circle.getAttribute("fill")).toBe("yellow");
 
-      // Switch to active - both get red
       rerender({ activeState: "active" });
       expect(rect.getAttribute("stroke")).toBe("#f00");
       expect(rect.getAttribute("fill")).toBe("#ff0000");
       expect(circle.getAttribute("stroke")).toBe("#f00");
       expect(circle.getAttribute("fill")).toBe("#ff0000");
 
-      // Switch back to inactive - main gets state colors, secondary restores original
       rerender({ activeState: "inactive" });
       expect(rect.getAttribute("stroke")).toBe("#333");
       expect(rect.getAttribute("fill")).toBe("#ccc");
@@ -981,7 +966,7 @@ describe("useCustom", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#ff0000", // Red
+                fillColor: "#ff0000",
               },
             ],
           },
@@ -993,7 +978,7 @@ describe("useCustom", () => {
                 key: "main",
                 name: "Main",
                 selectors: [".main"],
-                fillColor: "#00ff00", // Green
+                fillColor: "#00ff00",
               },
             ],
           },
@@ -1002,7 +987,7 @@ describe("useCustom", () => {
 
       const { rerender } = renderHook(
         ({ activeState }) =>
-          useCustom({
+          Custom.useRender({
             container,
             orientation: "top",
             activeState,
@@ -1016,16 +1001,13 @@ describe("useCustom", () => {
 
       const rect = container.querySelector(".main") as SVGRectElement;
 
-      // Start with state1 (treated as inactive)
       expect(rect.getAttribute("fill")).toBe("#ff0000");
       expect(rect.getAttribute("data-original-fill")).toBe("white");
 
-      // Switch to state2 (active)
       rerender({ activeState: "active" });
       expect(rect.getAttribute("fill")).toBe("#00ff00");
       expect(rect.getAttribute("data-original-fill")).toBe("white");
 
-      // Back to state1
       rerender({ activeState: "inactive" });
       expect(rect.getAttribute("fill")).toBe("#ff0000");
     });

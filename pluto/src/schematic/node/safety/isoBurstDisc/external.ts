@@ -7,28 +7,28 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CommonStyleForm } from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { createLabeled } from "@/schematic/node/common/symbol/factories";
-import { type Config } from "@/schematic/node/safety/isoBurstDisc/config";
+import { type Config, VARIANT } from "@/schematic/node/safety/isoBurstDisc/config";
 import { Primitive } from "@/schematic/node/safety/isoBurstDisc/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
-export type { Config };
 
-export const VARIANT = "isoBurstDisc";
-export const NAME = "ISO";
-const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
+export * from "@/schematic/node/safety/isoBurstDisc/config";
+
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   color: t.colors.gray.l11,
   label: Label.defaultConfig("ISO Burst Disc"),
-  ...ZERO_PROPS,
+  orientation: "left",
+  scale: 1,
 });
+
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
-  Form: CommonStyleForm,
-  Node: createLabeled<Config>(Primitive),
+  name: "ISO",
+  Form: Form.StyleForm,
+  Node: Label.createLabeled<Config>(Primitive),
   Preview: Primitive,
   defaultConfig,
   zIndex: 4,

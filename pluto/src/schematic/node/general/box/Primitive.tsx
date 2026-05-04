@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { type Config } from "@/schematic/node/general/box/config";
 import { Primitive as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onResize?: (d: dimensions.Dimensions) => void;
 }

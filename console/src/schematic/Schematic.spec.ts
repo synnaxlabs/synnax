@@ -24,7 +24,7 @@ import {
   VALUE_HAUL_TYPE,
   type ValueHaulData,
 } from "@/schematic/Schematic";
-import { type AddNodeProps } from "@/schematic/nodes/useAddNode";
+import { type AddNodeProps } from "@/schematic/symbols/useAddNode";
 
 const VARIANT = "valve";
 const BASE_ADD_PROPS: AddNodeProps = {
@@ -33,6 +33,7 @@ const BASE_ADD_PROPS: AddNodeProps = {
 };
 const SPEC_KEY = "spec-1";
 const VALUE_PROPS: ValueHaulData = {
+  variant: "value",
   label: { label: "Pressure", level: "p" },
   color: "#ff0000",
 };

@@ -10,17 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 64 };
 
@@ -31,35 +24,35 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     orientation={orientation}
     className={CSS(CSS.B("angled-valve"), className)}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
         location="bottom"
         orientation={orientation}
         left={32.8125}
         top={97.0278}
         id="1"
       />
-      <Handle
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={97.0278}
         top={32.8125}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Path d="M22.3611 20.1077C21.6298 20.4778 21.6298 21.5222 22.3611 21.8923L57.7433 39.7965C59.7388 40.8063 62.0978 39.3562 62.0978 37.1197L62.0978 4.88029C62.0978 2.64384 59.7388 1.19372 57.7433 2.2035L22.3611 20.1077Z" />
-      <Path d="M21.8923 22.3611C21.5222 21.6298 20.4778 21.6298 20.1077 22.3611L2.20349 57.7433C1.19372 59.7388 2.64384 62.0978 4.8803 62.0978L37.1197 62.0978C39.3562 62.0978 40.8063 59.7388 39.7965 57.7433L21.8923 22.3611Z" />
-    </InternalSVG>
-  </Toggle>
+      <Base.Path d="M22.3611 20.1077C21.6298 20.4778 21.6298 21.5222 22.3611 21.8923L57.7433 39.7965C59.7388 40.8063 62.0978 39.3562 62.0978 37.1197L62.0978 4.88029C62.0978 2.64384 59.7388 1.19372 57.7433 2.2035L22.3611 20.1077Z" />
+      <Base.Path d="M21.8923 22.3611C21.5222 21.6298 20.4778 21.6298 20.1077 22.3611L2.20349 57.7433C1.19372 59.7388 2.64384 62.0978 4.8803 62.0978L37.1197 62.0978C39.3562 62.0978 40.8063 59.7388 39.7965 57.7433L21.8923 22.3611Z" />
+    </Base.SVG>
+  </Toggle.Button>
 );

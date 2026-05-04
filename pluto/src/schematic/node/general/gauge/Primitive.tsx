@@ -13,7 +13,7 @@ import { type ReactElement } from "react";
 import { type Config } from "@/schematic/node/general/gauge/config";
 import { Text } from "@/text";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }
 

@@ -14,7 +14,7 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { addNode } from "@/schematic/slice";
-import { type NodeProps } from "@/schematic/types";
+import { type NodeConfig } from "@/schematic/types";
 
 export interface AddNodeProps {
   key: string;
@@ -24,7 +24,7 @@ export interface AddNodeProps {
 }
 
 export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
-  const store = Flux.useStore<Schematic.Node.FluxSubStore>();
+  const store = Flux.useStore<Schematic.Symbol.FluxSubStore>();
   const theme = Theming.use();
   const baseDispatch = useDispatch();
   const actualDispatch = dispatch ?? baseDispatch;
@@ -32,7 +32,7 @@ export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
   return useCallback(
     ({ key, variant, position, specKey }: AddNodeProps) => {
       const spec = Schematic.Node.REGISTRY[variant];
-      const props = spec.defaultProps(theme) as NodeProps;
+      const props = spec.defaultConfig(theme) as NodeConfig;
       if (specKey != null)
         props.label = {
           ...props.label,
@@ -42,7 +42,7 @@ export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
         addNode({
           key: layoutKey,
           node: { key, zIndex: spec.zIndex, position },
-          props: { ...props, variant },
+          config: { ...props, variant } as NodeConfig,
         }),
       );
     },

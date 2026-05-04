@@ -10,15 +10,10 @@
 import { type ReactElement } from "react";
 
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { type Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-  STROKE_WIDTH_INPUT_PROPS,
-} from "@/schematic/node/common/forms";
-
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
   dragScale: { x: 0.5, y: 2.5 },
   bounds: { lower: 0, upper: 500 },
@@ -26,25 +21,25 @@ const RADIUS_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const CircleForm = (): ReactElement => (
-  <FormWrapper direction="x" align="stretch">
+  <Form.Wrapper direction="x" align="stretch">
     <Flex.Box direction="y" grow>
-      <LabelControls path="label" />
+      <Label.Form path="label" />
       <Flex.Box direction="x">
-        <ColorControl path="color" />
-        <ColorControl path="backgroundColor" label="Background Color" />
-        <Form.NumericField
+        <Form.ColorField path="color" />
+        <Form.ColorField path="backgroundColor" label="Background Color" />
+        <Base.NumericField
           path="radius"
           label="Radius"
           inputProps={RADIUS_INPUT_PROPS}
           grow
         />
-        <Form.NumericField
+        <Base.NumericField
           path="strokeWidth"
           label="Border Width"
-          inputProps={STROKE_WIDTH_INPUT_PROPS}
+          inputProps={Form.STROKE_WIDTH_INPUT_PROPS}
           grow
         />
       </Flex.Box>
     </Flex.Box>
-  </FormWrapper>
+  </Form.Wrapper>
 );

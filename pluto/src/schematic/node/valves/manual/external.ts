@@ -7,30 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CommonDummyToggleForm } from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { createDummyToggle } from "@/schematic/node/common/symbol/factories";
+import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
-import { type Config } from "@/schematic/node/valves/manual/config";
+import { type Config, VARIANT } from "@/schematic/node/valves/manual/config";
 import { Primitive } from "@/schematic/node/valves/manual/Primitive";
 import { type Theming } from "@/theming";
-export type { Config };
 
-export const VARIANT = "manualValve";
-export const NAME = "Manual";
-const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
+export * from "@/schematic/node/valves/manual/config";
 
-const ZERO_DUMMY_TOGGLE_PROPS = { ...ZERO_PROPS, enabled: false, clickable: false };
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   color: t.colors.gray.l11,
   label: Label.defaultConfig("Manual Valve"),
-  ...ZERO_DUMMY_TOGGLE_PROPS,
+  ...BasePrimitive.ZERO_PROPS,
+  ...Toggle.ZERO_DUMMY_TOGGLE_DEFAULTS,
 });
+
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
-  Form: CommonDummyToggleForm,
-  Node: createDummyToggle<Config>(Primitive),
+  name: "Manual",
+  Form: Form.DummyToggleForm,
+  Node: Toggle.createDummyToggle<Config>(Primitive),
   Preview: Primitive,
   defaultConfig,
   zIndex: 4,

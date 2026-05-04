@@ -12,10 +12,11 @@ import { type ReactElement } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Input as BaseInput } from "@/input";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   value: string;
   onChange: (value: string) => void;
@@ -32,13 +33,37 @@ export const Primitive = ({
   onSend,
   disabled,
 }: RenderProps): ReactElement => (
-  <Div orientation={orientation} className={CSS(CSS.B("input-symbol"), className)}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
-    </HandleBoundary>
+  <Base.Div orientation={orientation} className={CSS(CSS.B("input-symbol"), className)}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={0}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
+        location="right"
+        orientation={orientation}
+        left={100}
+        top={50}
+        id="2"
+      />
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={0}
+        id="3"
+      />
+      <Handle.Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={100}
+        id="4"
+      />
+    </Handle.Boundary>
     <BaseInput.Text
       value={value}
       onChange={onChange}
@@ -56,5 +81,5 @@ export const Primitive = ({
         Send
       </BaseButton.Button>
     </BaseInput.Text>
-  </Div>
+  </Base.Div>
 );

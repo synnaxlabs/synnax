@@ -11,18 +11,10 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Circle,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 42 };
 
@@ -34,31 +26,37 @@ export const Primitive = ({
   enabled = false,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     orientation={orientation}
     className={CSS(CSS.B("butterfly-valve-two"), className)}
     enabled={enabled}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={97.7011}
         top={50}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
-      <Rect x="2" y="2" width="83" height="38" rx="1" />
-      <Path d="M2.29001 2.29004L84.7069 39.676" />
-    </InternalSVG>
-  </Toggle>
+      <Base.Circle cx="43.5" cy="21" r="10" fill={color.cssString(colorVal)} />
+      <Base.Rect x="2" y="2" width="83" height="38" rx="1" />
+      <Base.Path d="M2.29001 2.29004L84.7069 39.676" />
+    </Base.SVG>
+  </Toggle.Button>
 );

@@ -10,10 +10,11 @@
 import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Button as BaseButton } from "@/button";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 
-interface RenderProps extends Omit<Config, "label"> {
+interface RenderProps extends Omit<Config, "label" | "variant"> {
   label?: string;
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
@@ -32,7 +33,7 @@ export const Primitive = ({
   level,
   onClickDelay: delay,
 }: RenderProps): ReactElement => (
-  <Div orientation={orientation}>
+  <Base.Div orientation={orientation}>
     <BaseButton.Button
       variant="filled"
       onClick={onClick}
@@ -45,11 +46,35 @@ export const Primitive = ({
     >
       {label}
     </BaseButton.Button>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={100} id="4" />
-    </HandleBoundary>
-  </Div>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={0}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
+        location="right"
+        orientation={orientation}
+        left={100}
+        top={50}
+        id="2"
+      />
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={0}
+        id="3"
+      />
+      <Handle.Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={100}
+        id="4"
+      />
+    </Handle.Boundary>
+  </Base.Div>
 );

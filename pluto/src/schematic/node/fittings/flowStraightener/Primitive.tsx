@@ -10,17 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends DivProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
 
@@ -31,22 +23,46 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={97} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={93} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Base.Div className={CSS(CSS.B("flow-straightener"), className)} {...rest}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={3}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
+        location="right"
+        orientation={orientation}
+        left={97}
+        top={50}
+        id="2"
+      />
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={6}
+        id="3"
+      />
+      <Handle.Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={93}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="2.5" y="2.5" width="67" height="31" rx="2" />
-      <Path d="M10.5 26.5H60.5" strokeLinecap="round" />
-      <Path d="M10.5 9.5H60.5" strokeLinecap="round" />
-    </InternalSVG>
-  </Div>
+      <Base.Rect x="2.5" y="2.5" width="67" height="31" rx="2" />
+      <Base.Path d="M10.5 26.5H60.5" strokeLinecap="round" />
+      <Base.Path d="M10.5 9.5H60.5" strokeLinecap="round" />
+    </Base.SVG>
+  </Base.Div>
 );

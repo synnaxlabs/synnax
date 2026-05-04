@@ -10,13 +10,10 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { type Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-} from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { type Text } from "@/text";
@@ -33,7 +30,7 @@ const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 
 const BOUND_INPUT_PROPS: Partial<Input.NumericProps> = { step: 10 };
 
-const handleLevelChange = (v: Text.Level, { set }: Form.ContextValue): void => {
+const handleLevelChange = (v: Text.Level, { set }: Base.ContextValue): void => {
   if (v === "small") set("barWidth", 4);
   else if (v === "h5") set("barWidth", 8);
   else set("barWidth", 10);
@@ -44,42 +41,42 @@ export const GaugeForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return (
-          <FormWrapper y empty>
+          <Form.Wrapper y empty>
             <Value.TelemForm path="" />
-          </FormWrapper>
+          </Form.Wrapper>
         );
       default:
         return (
-          <FormWrapper x>
+          <Form.Wrapper x>
             <Flex.Box y grow>
-              <LabelControls path="label" />
+              <Label.Form path="label" />
               <Flex.Box x>
-                <ColorControl path="color" />
-                <Form.TextField
+                <Form.ColorField path="color" />
+                <Base.TextField
                   path="units"
                   label="Units"
                   align="start"
                   padHelpText={false}
                 />
-                <Form.NumericField
+                <Base.NumericField
                   path="bounds.lower"
                   label="Min Value"
                   hideIfNull
                   inputProps={BOUND_INPUT_PROPS}
                 />
-                <Form.NumericField
+                <Base.NumericField
                   path="bounds.upper"
                   label="Max Value"
                   hideIfNull
                   inputProps={BOUND_INPUT_PROPS}
                 />
-                <Form.NumericField
+                <Base.NumericField
                   path="barWidth"
                   label="Bar Width"
                   hideIfNull
                   inputProps={GAUGE_BAR_WIDTH_INPUT_PROPS}
                 />
-                <Form.Field<Text.Level>
+                <Base.Field<Text.Level>
                   path="level"
                   label="Size"
                   hideIfNull
@@ -89,10 +86,10 @@ export const GaugeForm = (): ReactElement => {
                   {({ value, onChange }) => (
                     <Select.Text.Level value={value} onChange={onChange} />
                   )}
-                </Form.Field>
+                </Base.Field>
               </Flex.Box>
             </Flex.Box>
-          </FormWrapper>
+          </Form.Wrapper>
         );
     }
   }, []);

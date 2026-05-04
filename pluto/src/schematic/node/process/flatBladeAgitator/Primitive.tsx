@@ -10,14 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Line,
-  Rect,
-  Toggle,
-} from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 import { type Props as AgitatorProps } from "@/schematic/node/process/agitator/Primitive";
 export interface Props extends AgitatorProps {}
 
@@ -29,18 +24,24 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={51}
+        top={2}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Line x1="43" y1="1" x2="43" y2="49" />
-      <Rect x="3" y="49" width="80" height="34" rx="3" strokeLinecap="round" />
-    </InternalSVG>
-  </Toggle>
+      <Base.Line x1="43" y1="1" x2="43" y2="49" />
+      <Base.Rect x="3" y="49" width="80" height="34" rx="3" strokeLinecap="round" />
+    </Base.SVG>
+  </Toggle.Button>
 );

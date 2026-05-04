@@ -7,17 +7,37 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type direction, type location, xy } from "@synnaxlabs/x";
+import { type dimensions, type location, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
-export type DetailedBorderRadius = Record<location.CornerString, xy.XY>;
+export type DetailedRadius = Record<location.CornerString, xy.XY>;
 
-export type BorderRadius =
-  | number
-  | Record<direction.Direction, number>
-  | Record<location.CornerString, number>
-  | DetailedBorderRadius;
+const cornerRadiusZ = z.object({
+  topLeft: xy.xyZ,
+  topRight: xy.xyZ,
+  bottomLeft: xy.xyZ,
+  bottomRight: xy.xyZ,
+});
 
-export const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius => {
+const cornerNumberZ = z.object({
+  topLeft: z.number(),
+  topRight: z.number(),
+  bottomLeft: z.number(),
+  bottomRight: z.number(),
+});
+
+const directionRadiusZ = z.object({ x: z.number(), y: z.number() });
+
+export const radiusZ = z.union([
+  z.number(),
+  directionRadiusZ,
+  cornerNumberZ,
+  cornerRadiusZ,
+]);
+
+export type Radius = z.infer<typeof radiusZ>;
+
+export const parseRadius = (radius: Radius): DetailedRadius => {
   if (typeof radius === "number")
     return {
       topLeft: xy.construct(radius),
@@ -39,10 +59,10 @@ export const parseBorderRadius = (radius: BorderRadius): DetailedBorderRadius =>
       bottomLeft: xy.construct(radius.bottomLeft),
       bottomRight: xy.construct(radius.bottomRight),
     };
-  return radius as DetailedBorderRadius;
+  return radius as DetailedRadius;
 };
 
-export const cssBorderRadius = (radius: DetailedBorderRadius): string => {
+export const cssRadius = (radius: DetailedRadius): string => {
   const { topLeft, topRight, bottomLeft, bottomRight } = radius;
   return `${topLeft.x}% ${topRight.x}% ${bottomRight.x}% ${bottomLeft.x}% / ${topLeft.y}% ${topRight.y}% ${bottomRight.y}% ${bottomLeft.y}%`;
 };
@@ -50,5 +70,5 @@ export const cssBorderRadius = (radius: DetailedBorderRadius): string => {
 export const pixelToPercent = (pixel: number, total: number): number =>
   (pixel / total) * 100;
 
-export const DEFAULT_DIMENSIONS = { width: 40, height: 80 };
-export const DEFAULT_BORDER_RADIUS = { x: 50, y: 10 };
+export const DEFAULT_DIMENSIONS: dimensions.Dimensions = { width: 40, height: 80 };
+export const DEFAULT_RADIUS: xy.XY = { x: 50, y: 10 };

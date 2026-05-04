@@ -9,48 +9,41 @@
 
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/stateIndicator/config";
 import { Primitive } from "@/schematic/node/general/stateIndicator/Primitive";
-import { StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
+import { type NodeProps } from "@/schematic/node/spec";
+import { StateIndicator } from "@/vis/stateIndicator";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
   draggable,
-  config: data,
+  config: { label, source, options, color: colorVal, inlineSize },
 }: NodeProps<Config>): ReactElement => {
-  const { label, source, options, color: colorVal, inlineSize } = data;
-  const { key: matchedOptionKey } = BaseStateIndicator.use({
-    aetherKey: symbolKey,
-    source,
-    options,
-  });
-
-  const gridItems: GridItem[] = [];
-  const labelItem = Label.gridItem(label, onChange);
+  const { key: optKey } = StateIndicator.use({ aetherKey: nodeKey, source, options });
+  const gridItems: Grid.Item[] = [];
+  const labelItem = Label.gridItem(label, onConfigChange);
   if (labelItem != null) gridItems.push(labelItem);
-
   return (
-    <Grid
+    <Grid.Grid
       items={gridItems}
       allowRotate={false}
       editable={selected && !draggable}
-      symbolKey={symbolKey}
+      symbolKey={nodeKey}
       onLocationChange={(key, loc) => {
         if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
+        onConfigChange({ label: { ...label, orientation: loc } });
       }}
     >
       <Primitive
-        matchedOptionKey={matchedOptionKey}
+        matchedOptionKey={optKey}
         options={options}
         color={colorVal}
         inlineSize={inlineSize}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

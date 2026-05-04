@@ -10,18 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Circle,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Line,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 64, height: 64 };
 
@@ -32,55 +24,67 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     className={CSS(CSS.B("piston-pump"), className)}
     orientation={orientation}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={3.125}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={96.875}
         top={50}
         id="2"
       />
-      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
-      <Handle
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={3.125}
+        id="3"
+      />
+      <Handle.Handle
         location="bottom"
         orientation={orientation}
         left={50}
         top={96.875}
         id="4"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="32" cy="32" r="30" />
-      <Line
+      <Base.Circle cx="32" cy="32" r="30" />
+      <Base.Line
         x1="32"
         y1="2"
         x2="62"
         y2="32"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Line
+      <Base.Line
         x1="32"
         y1="62"
         x2="62"
         y2="32"
         className={CSS(CSS.M("detail"), className)}
       />
-      <Path
+      <Base.Path
         d="M 23 32, h 16, m 0 -8, v 16"
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-    </InternalSVG>
-  </Toggle>
+    </Base.SVG>
+  </Toggle.Button>
 );

@@ -12,11 +12,12 @@ import { type CSSProperties, type ReactElement, useMemo } from "react";
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
 import { Select as BaseSelect } from "@/select";
 
-interface RenderProps extends Omit<Config, "sink"> {
+interface RenderProps extends Omit<Config, "sink" | "variant"> {
   className?: string;
   value?: string;
   onChange: (key: string | null) => void;
@@ -43,10 +44,19 @@ export const Primitive = ({
   );
   const matched = options.find((o) => o.key === value);
   return (
-    <Div orientation={orientation} className={CSS(CSS.B("select-symbol"), className)}>
-      <HandleBoundary orientation={orientation}>
-        <Handle location="left" orientation={orientation} left={0.5} top={50} id="1" />
-        <Handle
+    <Base.Div
+      orientation={orientation}
+      className={CSS(CSS.B("select-symbol"), className)}
+    >
+      <Handle.Boundary orientation={orientation}>
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={0.5}
+          top={50}
+          id="1"
+        />
+        <Handle.Handle
           location="right"
           orientation={orientation}
           left={100}
@@ -54,15 +64,21 @@ export const Primitive = ({
           id="2"
           style={RIGHT_HANDLE_STYLE}
         />
-        <Handle location="top" orientation={orientation} left={50} top={-2} id="3" />
-        <Handle
+        <Handle.Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={-2}
+          id="3"
+        />
+        <Handle.Handle
           location="bottom"
           orientation={orientation}
           left={50}
           top={102}
           id="4"
         />
-      </HandleBoundary>
+      </Handle.Boundary>
       <Flex.Box x pack size={size}>
         <BaseSelect.Static
           data={data}
@@ -87,6 +103,6 @@ export const Primitive = ({
           </BaseButton.Button>
         )}
       </Flex.Box>
-    </Div>
+    </Base.Div>
   );
 };

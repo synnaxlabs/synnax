@@ -36,13 +36,10 @@ import {
   useSelectSelectedElementDigests,
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
-import { setElementProps, setNodePositions } from "@/schematic/slice";
-import { createEditLayout } from "@/schematic/nodes/edit/Edit";
-import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { type nodePropsZ } from "@/schematic/types/v6";
+import { setElementConfig, setNodePositions } from "@/schematic/slice";
+import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { type EdgeConfig, type NodeConfig } from "@/schematic/types";
 import { type RootState } from "@/store";
-
-import { Label } from "@/schematic/node/common/label";
 export interface PropertiesProps {
   layoutKey: string;
 }
@@ -87,16 +84,17 @@ const IndividualProperties = ({
   const C = Schematic.Node.REGISTRY[props.variant];
   const dispatch = useDispatch();
 
-  const onChange = (key: string, props: NodeProps): void => {
-    dispatch(setElementProps({ key: layoutKey, elKey: key, props }));
+  const onChange = (elKey: string, config: NodeConfig): void => {
+    dispatch(setElementConfig({ key: layoutKey, elKey, config }));
   };
 
-  const formMethods = Form.use<typeof nodePropsZ>({
+  const formMethods = Form.use({
     values: deep.copy(props),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
+    onChange: ({ values }) =>
+      onChange(nodeKey, deep.copy(values) as NodeConfig),
   });
-  const specKey = Form.useFieldValue<string, string, typeof nodePropsZ>("specKey", {
+  const specKey = Form.useFieldValue<string>("specKey", {
     ctx: formMethods,
     optional: true,
   });
@@ -117,7 +115,7 @@ const IndividualProperties = ({
 
   return (
     <Flex.Box style={{ height: "100%" }} y>
-      <Form.Form<typeof nodePropsZ> {...formMethods}>
+      <Form.Form {...formMethods}>
         <C.Form
           {...formMethods}
           key={nodeKey}
@@ -144,8 +142,8 @@ const EdgeProperties = ({
 }: EdgePropertiesProps): ReactElement | null => {
   const edgeProps = useSelectEdgeProps(layoutKey, edgeKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<EdgeProps>): void => {
-    dispatch(setElementProps({ key: layoutKey, elKey: key, props }));
+  const onChange = (key: string, config: Partial<EdgeConfig>): void => {
+    dispatch(setElementConfig({ key: layoutKey, elKey: key, config }));
   };
   return (
     <Flex.Box style={{ padding: "2rem" }} align="start" x>
@@ -156,7 +154,7 @@ const EdgeProperties = ({
         />
       </Input.Item>
       <Input.Item label="Type" align="start">
-        <Schematic.Edge.SelectEdgeType
+        <Schematic.Edge.SelectVariant
           value={edgeProps?.variant ?? "pipe"}
           onChange={(variant: Schematic.Edge.Variant) => onChange(edgeKey, { variant })}
           style={SELECT_EDGE_TYPE_STYLE}
@@ -176,8 +174,8 @@ const MultiElementProperties = ({
   const handleError = Status.useErrorHandler();
   const elements = useSelectSelectedElementsProps(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (nodeKey: string, props: Partial<NodeProps>): void => {
-    dispatch(setElementProps({ key: layoutKey, elKey: nodeKey, props }));
+  const onChange = (nodeKey: string, config: Partial<NodeConfig>): void => {
+    dispatch(setElementConfig({ key: layoutKey, elKey: nodeKey, config }));
   };
 
   const colorGroups: Record<string, ElementInfo[]> = {};
@@ -494,7 +492,7 @@ const MultiElementProperties = ({
         />
       </Input.Item>
       <Input.Item label="Label Orientation" align="start">
-        <Schematic.Node.SelectOrientation
+        <Schematic.Node.Orientation.Select
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>
             v.outer !== "center" && handleLabelProp("orientation", v.outer)

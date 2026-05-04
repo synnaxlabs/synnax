@@ -11,14 +11,11 @@ import { type CSSProperties, type ReactElement } from "react";
 
 import { Button } from "@/button";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Icon } from "@/icon";
 import { Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  OrientationControl,
-} from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
+import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
 import { type Text } from "@/text";
 
@@ -33,20 +30,18 @@ const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
 };
 
 export const TextBoxForm = (): ReactElement => {
-  const autoFit = Form.useField<boolean>("autoFit", { optional: true });
+  const autoFit = Base.useField<boolean>("autoFit", { optional: true });
   return (
-    <FormWrapper x align="stretch" grow>
+    <Form.Wrapper x align="stretch" grow>
       <Flex.Box y grow>
         <Flex.Box x align="stretch">
-          <Form.Field<string> path="value" label="Text" padHelpText={false} grow>
-            {(p) => <Input.Text {...p} />}
-          </Form.Field>
-          <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+          <Base.TextField path="value" label="Text" padHelpText={false} grow />
+          <Base.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
             {({ value, onChange }) => (
               <Select.Text.Level value={value} onChange={onChange} />
             )}
-          </Form.Field>
-          <Form.Field<Flex.Alignment>
+          </Base.Field>
+          <Base.Field<Flex.Alignment>
             path="align"
             label="Alignment"
             padHelpText={false}
@@ -55,11 +50,11 @@ export const TextBoxForm = (): ReactElement => {
             {({ value, onChange }) => (
               <Select.Flex.Alignment value={value} onChange={onChange} />
             )}
-          </Form.Field>
+          </Base.Field>
         </Flex.Box>
         <Flex.Box x>
-          <ColorControl path="color" />
-          <Form.Field<number>
+          <Form.ColorField path="color" />
+          <Base.Field<number>
             onChange={(_, { set }) => set("autoFit", false)}
             path="width"
             label="Wrap Width"
@@ -82,10 +77,10 @@ export const TextBoxForm = (): ReactElement => {
                 </Button.Button>
               </Input.Numeric>
             )}
-          </Form.Field>
+          </Base.Field>
         </Flex.Box>
       </Flex.Box>
-      <OrientationControl path="" />
-    </FormWrapper>
+      <Orientation.Field path="" />
+    </Form.Wrapper>
   );
 };

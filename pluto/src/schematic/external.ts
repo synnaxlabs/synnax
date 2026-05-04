@@ -10,7 +10,7 @@
 export * from "@/schematic/edge";
 export * from "@/schematic/Icons";
 export * from "@/schematic/node";
-export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";
+export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/grid";
 export * from "@/schematic/queries";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/symbol";

@@ -10,7 +10,8 @@
 import "@/schematic/Schematic.css";
 
 import { TimeSpan } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { type FC, type ReactElement } from "react";
+import { z } from "zod";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
@@ -27,9 +28,11 @@ export interface SchematicProps extends Omit<
   itemKey: string;
 }
 
-export type ElementConfig = (Edge.Config | Node.Config) & {
-  variant: Edge.Variant | Node.Variant;
-};
+export const elementConfigZ = z.discriminatedUnion("variant", [
+  ...Node.configZ.options,
+  ...Edge.configZ.options,
+]);
+export type ElementConfig = z.infer<typeof elementConfigZ>;
 
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 
@@ -37,50 +40,28 @@ export interface CreateSchematicParams {
   useConfig: (
     itemKey: string,
     nodeKey: string,
-  ) => [ElementConfig, (key: string, props: Partial<ElementConfig>) => void];
+  ) => [ElementConfig, (props: Partial<ElementConfig>) => void];
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
 export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
-  const NodeRenderer = ({ nodeKey, ...rest }: Diagram.NodeProps): ReactElement => {
+  const NodeRenderer = (props: Diagram.NodeProps): ReactElement => {
+    const { nodeKey } = props;
     const itemKey = Key.use<string>("Schematic.NodeRenderer");
     const [config, setConfig] = useConfig(itemKey, nodeKey);
-    const { variant } = config;
-    const handleChange = useCallback(
-      (next: Partial<ElementConfig>) => setConfig(nodeKey, next),
-      [nodeKey, setConfig],
-    );
-    const Spec = Node.resolveSpec(variant);
-    return (
-      <Spec.Node
-        nodeKey={nodeKey}
-        onConfigChange={handleChange}
-        config={config}
-        {...rest}
-      />
-    );
+    const N = Node.resolve(config.variant);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    return <N onConfigChange={setConfig} config={config as Node.Config} {...props} />;
   };
 
-  const EdgeRenderer = ({ edgeKey, ...rest }: diagram.EdgeProps): ReactElement => {
+  const EdgeRenderer = (props: diagram.EdgeProps): ReactElement => {
+    const { edgeKey } = props;
     const itemKey = Key.use<string>("Schematic.EdgeRenderer");
     const [config, setConfig] = useConfig(itemKey, edgeKey);
-    const { variant } = config;
-    const handleChange = useCallback(
-      (props: Partial<ElementConfig>) => setConfig(edgeKey, props),
-      [edgeKey, setConfig],
-    );
-    const E = Edge.resolve(variant);
-    return (
-      <E
-        {...rest}
-        edgeKey={edgeKey}
-        onChange={handleChange}
-        // eslint is not smart enough to know this type assertion is necessary
-        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-        config={config as Edge.Config}
-      />
-    );
+    const E = Edge.resolve(config.variant);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    return <E onChange={setConfig} config={config as Edge.Config} {...props} />;
   };
 
   const Base = Diagram.create({

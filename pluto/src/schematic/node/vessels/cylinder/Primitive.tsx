@@ -11,28 +11,25 @@ import { color, type dimensions } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import {
-  DEFAULT_BORDER_RADIUS,
-  DEFAULT_DIMENSIONS,
-  parseBorderRadius,
-} from "@/schematic/node/common/symbol/border";
-import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { Border } from "@/schematic/node/common/border";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
 import { Theming } from "@/theming";
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onResize?: (dimensions: dimensions.Dimensions) => void;
 }
 
 export const Primitive = ({
   className,
-  dimensions = DEFAULT_DIMENSIONS,
-  borderRadius = DEFAULT_BORDER_RADIUS,
+  dimensions = Border.DEFAULT_DIMENSIONS,
+  borderRadius = Border.DEFAULT_RADIUS,
   color: colorVal,
   backgroundColor,
 }: RenderProps): ReactElement => {
-  const detailedRadius = parseBorderRadius(borderRadius);
+  const detailedRadius = Border.parseRadius(borderRadius);
   const t = Theming.use();
   const refreshDeps = useMemo(
     () => [dimensions, borderRadius, detailedRadius],
@@ -53,7 +50,7 @@ export const Primitive = ({
   const transform = `scale(${widthScale},${heightScale})`;
 
   return (
-    <Div className={CSS(className, CSS.B("cylinder"))} style={{ ...dimensions }}>
+    <Base.Div className={CSS(className, CSS.B("cylinder"))} style={{ ...dimensions }}>
       <svg
         width="100%"
         height="100%"
@@ -71,18 +68,24 @@ export const Primitive = ({
           fill={bgColor}
         />
       </svg>
-      <HandleBoundary refreshDeps={refreshDeps} orientation="left">
-        <Handle location="top" orientation="left" left={50} top={2} id="1" />
-        <Handle location="left" orientation="left" left={35} top={10} id="9" />
-        <Handle location="right" orientation="left" left={65} top={10} id="10" />
-        <Handle location="bottom" orientation="left" left={50} top={98.3333} id="2" />
-        <Handle location="left" orientation="left" left={4} top={40} id="3" />
-        <Handle location="right" orientation="left" left={96} top={40} id="4" />
-        <Handle location="left" orientation="left" left={4} top={60} id="5" />
-        <Handle location="right" orientation="left" left={96} top={60} id="6" />
-        <Handle location="left" orientation="left" left={4} top={80} id="7" />
-        <Handle location="right" orientation="left" left={96} top={80} id="8" />
-      </HandleBoundary>
-    </Div>
+      <Handle.Boundary refreshDeps={refreshDeps} orientation="left">
+        <Handle.Handle location="top" orientation="left" left={50} top={2} id="1" />
+        <Handle.Handle location="left" orientation="left" left={35} top={10} id="9" />
+        <Handle.Handle location="right" orientation="left" left={65} top={10} id="10" />
+        <Handle.Handle
+          location="bottom"
+          orientation="left"
+          left={50}
+          top={98.3333}
+          id="2"
+        />
+        <Handle.Handle location="left" orientation="left" left={4} top={40} id="3" />
+        <Handle.Handle location="right" orientation="left" left={96} top={40} id="4" />
+        <Handle.Handle location="left" orientation="left" left={4} top={60} id="5" />
+        <Handle.Handle location="right" orientation="left" left={96} top={60} id="6" />
+        <Handle.Handle location="left" orientation="left" left={4} top={80} id="7" />
+        <Handle.Handle location="right" orientation="left" left={96} top={80} id="8" />
+      </Handle.Boundary>
+    </Base.Div>
   );
 };

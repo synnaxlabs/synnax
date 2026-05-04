@@ -7,18 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color, type xy } from "@synnaxlabs/x";
+import { color, location, notation, xy } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type LabeledConfig } from "@/schematic/node/common/symbol/factories";
-import { type Value as BaseValue } from "@/vis/value";
+import { Label } from "@/schematic/node/common/label";
+import { telem } from "@/telem/aether";
+import { text } from "@/text/base";
+import { redlineZ } from "@/vis/value/redline";
 
-export interface Config
-  extends LabeledConfig, Omit<BaseValue.UseProps, "box" | "aetherKey"> {
-  position?: xy.XY;
-  color?: color.Crude;
-  textColor?: color.Crude;
-  tooltip?: string[];
-  redline?: BaseValue.Redline;
-  units?: string;
-  inlineSize?: number;
-}
+export const VARIANT = "value" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  position: xy.xyZ.optional(),
+  color: color.crudeZ.optional(),
+  textColor: color.crudeZ.optional(),
+  tooltip: z.array(z.string()).optional(),
+  redline: redlineZ.optional(),
+  units: z.string().optional(),
+  inlineSize: z.number().optional(),
+  telem: telem.stringSourceSpecZ.optional(),
+  backgroundTelem: telem.colorSourceSpecZ.optional(),
+  level: text.levelZ.optional(),
+  precision: z.number().optional(),
+  stalenessTimeout: z.number().optional(),
+  stalenessColor: color.colorZ.optional(),
+  minWidth: z.number().optional(),
+  notation: notation.notationZ.optional(),
+  location: location.xy.optional(),
+  useWidthForBackground: z.boolean().optional(),
+  valueBackgroundShift: xy.xyZ.optional(),
+  valueBackgroundOverScan: xy.xyZ.optional(),
+});
+export type Config = z.infer<typeof configZ>;

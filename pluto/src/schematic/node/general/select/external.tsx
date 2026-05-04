@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/select/config";
+import { type Config, VARIANT } from "@/schematic/node/general/select/config";
 import { SelectForm } from "@/schematic/node/general/select/Form";
 import { Primitive } from "@/schematic/node/general/select/Primitive";
 import { Symbol } from "@/schematic/node/general/select/Symbol";
@@ -20,12 +20,10 @@ import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "select";
-export const NAME = "Select";
+export * from "@/schematic/node/general/select/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   size: "small",
@@ -51,7 +49,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Select",
   Form: SelectForm,
   Node: Symbol,
   Preview,

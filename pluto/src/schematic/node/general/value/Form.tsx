@@ -10,15 +10,11 @@
 import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-  OrientationControl,
-  valueWidthInputProps,
-} from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
+import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
 import { Tabs } from "@/tabs";
 import { type Text } from "@/text";
@@ -35,38 +31,38 @@ export const ValueForm = (): ReactElement => {
     switch (tabKey) {
       case "telemetry":
         return (
-          <FormWrapper y empty>
+          <Form.Wrapper y empty>
             <Value.TelemForm path="" />
-          </FormWrapper>
+          </Form.Wrapper>
         );
       case "redline":
         return (
-          <FormWrapper y empty>
+          <Form.Wrapper y empty>
             <Value.RedlineForm path="redline" />
-          </FormWrapper>
+          </Form.Wrapper>
         );
       default:
         return (
-          <FormWrapper x>
+          <Form.Wrapper x>
             <Flex.Box y grow>
-              <LabelControls path="label" />
+              <Label.Form path="label" />
               <Flex.Box x>
-                <ColorControl path="color" />
-                <Form.Field<string>
+                <Form.ColorField path="color" />
+                <Base.Field<string>
                   path="units"
                   label="Units"
                   align="start"
                   padHelpText={false}
                 >
                   {(p) => <Input.Text {...p} />}
-                </Form.Field>
-                <Form.NumericField
+                </Base.Field>
+                <Base.NumericField
                   path="inlineSize"
                   label="Value Width"
                   hideIfNull
-                  inputProps={valueWidthInputProps}
+                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
                 />
-                <Form.Field<Text.Level>
+                <Base.Field<Text.Level>
                   path="level"
                   label="Size"
                   hideIfNull
@@ -75,11 +71,11 @@ export const ValueForm = (): ReactElement => {
                   {({ value, onChange }) => (
                     <Select.Text.Level value={value} onChange={onChange} />
                   )}
-                </Form.Field>
+                </Base.Field>
               </Flex.Box>
             </Flex.Box>
-            <OrientationControl path="" hideInner />
-          </FormWrapper>
+            <Orientation.Field path="" hideInner />
+          </Form.Wrapper>
         );
     }
   }, []);

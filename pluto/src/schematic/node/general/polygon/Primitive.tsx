@@ -11,13 +11,13 @@ import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
-import { Div, InternalSVG, Path } from "@/schematic/node/common/symbol/primitives";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/polygon/config";
 import { Theming } from "@/theming";
 
 export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
 
-interface RenderProps extends Config {
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }
 
@@ -109,15 +109,15 @@ export const Primitive = ({
     [sideLength, numSides, padding],
   );
   return (
-    <Div className={CSS(className, CSS.B("polygon"))}>
-      <InternalSVG dimensions={{ width: size, height: size }}>
-        <Path
+    <Base.Div className={CSS(className, CSS.B("polygon"))}>
+      <Base.SVG dimensions={{ width: size, height: size }}>
+        <Base.Path
           d={path}
           fill={color.cssString(backgroundColor ?? theme.colors.gray.l1)}
           stroke={color.cssString(colorVal ?? theme.colors.gray.l9)}
           strokeWidth={strokeWidth ?? 2}
         />
-      </InternalSVG>
-    </Div>
+      </Base.SVG>
+    </Base.Div>
   );
 };

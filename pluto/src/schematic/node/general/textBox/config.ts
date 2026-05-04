@@ -7,19 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
+import { z } from "zod";
 
-import { type Flex } from "@/flex";
-import { type Label } from "@/schematic/node/common/label";
-import { type LabeledConfig } from "@/schematic/node/common/symbol/factories";
-import { type Text } from "@/text";
+import { Flex } from "@/flex";
+import { Label } from "@/schematic/node/common/label";
+import { text } from "@/text/base";
 
-export interface Config extends LabeledConfig {
-  color?: color.Crude;
-  width?: number;
-  align?: Flex.Alignment;
-  autoFit?: boolean;
-  level?: Text.Level;
-  value?: string;
-  label?: Label.Config;
-}
+export const VARIANT = "textBox" as const;
+
+export const configZ = Label.labeledConfigZ.extend({
+  variant: z.literal(VARIANT),
+  color: color.crudeZ.optional(),
+  width: z.number().optional(),
+  align: Flex.alignmentZ.optional(),
+  autoFit: z.boolean().optional(),
+  level: text.levelZ.optional(),
+  value: z.string().optional(),
+});
+export type Config = z.infer<typeof configZ>;

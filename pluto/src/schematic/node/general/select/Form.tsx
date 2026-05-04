@@ -13,25 +13,20 @@ import { type ReactElement, useCallback } from "react";
 import { Channel } from "@/channel";
 import { Component } from "@/component";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-  StateMappingForm,
-  valueWidthInputProps,
-} from "@/schematic/node/common/forms";
-import { type ControlStateProps } from "@/schematic/node/common/symbol/factories";
+import { type Control } from "@/schematic/node/common/control";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Setpoint } from "@/vis/setpoint";
 
 const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
-  const { value, onChange } = Form.useField<
+  const { value, onChange } = Base.useField<
     Pick<Setpoint.UseProps, "sink"> & {
-      control: ControlStateProps;
+      control: Control.StateProps;
       disabled?: boolean;
     }
   >(path);
@@ -68,17 +63,17 @@ const SelectTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper x grow align="stretch">
+    <Form.Wrapper x grow align="stretch">
       <Input.Item label="Command Channel" grow>
         <Channel.SelectSingle value={sink.channel} onChange={handleSinkChange} />
       </Input.Item>
-      <Form.SwitchField
+      <Base.SwitchField
         path="control.show"
         label="Show Control Chip"
         hideIfNull
         optional
       />
-    </FormWrapper>
+    </Form.Wrapper>
   );
 };
 
@@ -95,17 +90,17 @@ export const SelectForm = (): ReactElement => {
         return <SelectTelemForm path="" />;
       case "options":
         return (
-          <FormWrapper y align="stretch">
-            <StateMappingForm path="options" />
-          </FormWrapper>
+          <Form.Wrapper y align="stretch">
+            <Form.StateMappingForm path="options" />
+          </Form.Wrapper>
         );
       default:
         return (
-          <FormWrapper y align="stretch">
+          <Form.Wrapper y align="stretch">
             <Flex.Box y align="stretch" grow gap="small">
-              <LabelControls path="label" />
+              <Label.Form path="label" />
               <Flex.Box x>
-                <Form.Field<Component.Size>
+                <Base.Field<Component.Size>
                   path="size"
                   label="Size"
                   hideIfNull
@@ -114,16 +109,16 @@ export const SelectForm = (): ReactElement => {
                   {({ value, onChange }) => (
                     <Component.SelectSize value={value} onChange={onChange} />
                   )}
-                </Form.Field>
-                <ColorControl path="color" />
-                <Form.NumericField
+                </Base.Field>
+                <Form.ColorField path="color" />
+                <Base.NumericField
                   path="inlineSize"
                   label="Width"
-                  inputProps={valueWidthInputProps}
+                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
                 />
               </Flex.Box>
             </Flex.Box>
-          </FormWrapper>
+          </Form.Wrapper>
         );
     }
   }, []);

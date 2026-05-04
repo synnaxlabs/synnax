@@ -8,13 +8,18 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import {
+  type Control,
+  type Diagram,
+  Schematic,
+  type Viewport,
+} from "@synnaxlabs/pluto";
 
 import { useMemoSelect } from "@/hooks";
 import {
-  type EdgeProps,
-  type NodeProps,
-  type Props,
+  type EdgeConfig,
+  type ElementConfig,
+  type NodeConfig,
   SLICE_NAME,
   type SliceState,
   type State,
@@ -78,14 +83,14 @@ export interface NodeElementInfo {
   key: string;
   type: "node";
   node: Diagram.Node;
-  props: NodeProps;
+  props: NodeConfig;
 }
 
 export interface EdgeElementInfo {
   key: string;
   type: "edge";
   edge: Diagram.Edge;
-  props: EdgeProps;
+  props: EdgeConfig;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -103,7 +108,7 @@ export const selectSelectedElementsProps = (
       key: node.key,
       type: "node",
       node,
-      props: schematic.configs[node.key] as NodeProps,
+      props: schematic.configs[node.key] as NodeConfig,
     }));
   const edges: ElementInfo[] = schematic.edges
     .filter((edge) => selected.has(edge.key) && schematic.configs[edge.key] != null)
@@ -111,7 +116,7 @@ export const selectSelectedElementsProps = (
       key: edge.key,
       type: "edge",
       edge,
-      props: schematic.configs[edge.key] as EdgeProps,
+      props: schematic.configs[edge.key] as EdgeConfig,
     }));
   return [...nodes, ...edges];
 };
@@ -172,17 +177,29 @@ export const useSelectSelectedElementNames = (layoutKey: string): (string | null
     [layoutKey],
   );
 
+export const selectConfig = (
+  state: StoreState,
+  layoutKey: string,
+  elKey: string,
+): ElementConfig => selectRequired(state, layoutKey).configs[elKey] as ElementConfig;
+
+export const useSelectConfig = (layoutKey: string, elKey: string): ElementConfig =>
+  useMemoSelect(
+    (state: StoreState) => selectConfig(state, layoutKey, elKey),
+    [layoutKey, elKey],
+  );
+
 export const selectNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps | undefined =>
-  selectOptional(state, layoutKey)?.configs[key] as NodeProps | undefined;
+): NodeConfig | undefined =>
+  selectOptional(state, layoutKey)?.configs[key] as NodeConfig | undefined;
 
 export const useSelectNodeProps = (
   layoutKey: string,
   key: string,
-): NodeProps | undefined =>
+): NodeConfig | undefined =>
   useMemoSelect(
     (state: StoreState) => selectNodeProps(state, layoutKey, key),
     [layoutKey, key],
@@ -192,13 +209,16 @@ export const selectRequiredNodeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): NodeProps => {
+): NodeConfig => {
   const props = selectNodeProps(state, layoutKey, key);
   if (props == null) throw new UnexpectedError(`Node props not found for key: ${key}`);
   return props;
 };
 
-export const useSelectRequiredNodeProps = (layoutKey: string, key: string): NodeProps =>
+export const useSelectRequiredNodeProps = (
+  layoutKey: string,
+  key: string,
+): NodeConfig =>
   useMemoSelect(
     (state: StoreState) => selectRequiredNodeProps(state, layoutKey, key),
     [layoutKey, key],
@@ -273,29 +293,32 @@ export const selectElementProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): Props | undefined => selectOptional(state, layoutKey)?.configs[key];
+): ElementConfig | undefined => selectOptional(state, layoutKey)?.configs[key];
 
 export const useSelectElementProps = (
   layoutKey: string,
   key: string,
-): Props | undefined =>
+): ElementConfig | undefined =>
   useMemoSelect(
     (state: StoreState) => selectElementProps(state, layoutKey, key),
     [layoutKey, key],
   );
 
+const isEdgeConfig = (props: ElementConfig): props is EdgeConfig =>
+  props.variant in Schematic.Edge.REGISTRY;
+
 export const selectEdgeProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): EdgeProps => {
+): EdgeConfig => {
   const props = selectElementProps(state, layoutKey, key);
-  if (props?.type !== "edge")
+  if (props == null || !isEdgeConfig(props))
     throw new ValidationError("attempted to select props for non-edge");
   return props;
 };
 
-export const useSelectEdgeProps = (layoutKey: string, key: string): EdgeProps =>
+export const useSelectEdgeProps = (layoutKey: string, key: string): EdgeConfig =>
   useMemoSelect(
     (state: StoreState) => selectEdgeProps(state, layoutKey, key),
     [layoutKey, key],

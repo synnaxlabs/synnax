@@ -9,11 +9,11 @@
 
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/light/config";
 import { Primitive } from "@/schematic/node/general/light/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
 export const Symbol = ({
@@ -24,11 +24,11 @@ export const Symbol = ({
 }: NodeProps<Config>): ReactElement => {
   const { label, source, ...rest } = data;
   const { enabled } = BaseLight.use({ aetherKey: symbolKey, source });
-  const gridItems: GridItem[] = [];
+  const gridItems: Grid.Item[] = [];
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid
+    <Grid.Grid
       items={gridItems}
       allowRotate={false}
       editable={selected}
@@ -39,6 +39,6 @@ export const Symbol = ({
       }}
     >
       <Primitive enabled={enabled} {...rest} />
-    </Grid>
+    </Grid.Grid>
   );
 };

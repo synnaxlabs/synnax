@@ -45,7 +45,7 @@ describe("migrations", () => {
     it("should rename nodePropsZ.key to .variant when migrating v5 → v6", () => {
       const populated: v5.State = {
         ...v5.ZERO_STATE,
-        config: {
+        props: {
           n1: { key: "valve", color: "#ff0000" } as v0.NodeProps,
           n2: { key: "tank" } as v0.NodeProps,
         },

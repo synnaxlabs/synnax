@@ -9,14 +9,12 @@
 
 import { type ReactElement, useState } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Control } from "@/schematic/node/common/control";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import {
-  controlStateGridItem,
-  type NodeProps,
-} from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/input/config";
 import { Primitive } from "@/schematic/node/general/input/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Input as InputTelem } from "@/vis/input";
 
 export const Symbol = ({
@@ -28,14 +26,14 @@ export const Symbol = ({
 }: NodeProps<Config>): ReactElement => {
   const { label, orientation = "left", control, color, sink, size, disabled } = data;
   const { set } = InputTelem.use({ aetherKey: symbolKey, sink });
-  const gridItems: GridItem[] = [];
-  const controlItem = controlStateGridItem(control);
+  const gridItems: Grid.Item[] = [];
+  const controlItem = Control.stateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   const [value, setValue] = useState("");
   return (
-    <Grid
+    <Grid.Grid
       symbolKey={symbolKey}
       allowRotate={false}
       editable={selected && !draggable}
@@ -54,6 +52,6 @@ export const Symbol = ({
         disabled={disabled}
         size={size}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

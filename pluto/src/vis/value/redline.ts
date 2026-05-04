@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { bounds, color } from "@synnaxlabs/x";
+import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const redlineZ = z.object({
-  bounds: bounds.boundsZ(),
+  bounds: z.object({ lower: z.number(), upper: z.number() }),
   gradient: color.gradientZ,
 });
 export type Redline = z.infer<typeof redlineZ>;

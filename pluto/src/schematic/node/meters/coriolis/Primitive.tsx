@@ -10,18 +10,11 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { FlowmeterLabel } from "@/schematic/node/common/symbol/flowmeter";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends DivProps, SVGBasedPrimitiveProps {}
+import { Flowmeter } from "@/schematic/node/common/flowmeter";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+
+export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 71, height: 36 };
 
@@ -33,29 +26,53 @@ export const Primitive = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Base.Div {...rest} className={CSS(CSS.B("flowmeter-Coriolis"), className)}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={4}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
+        location="right"
+        orientation={orientation}
+        left={98}
+        top={50}
+        id="2"
+      />
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={6}
+        id="3"
+      />
+      <Handle.Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={91}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path d="M2 17.6024H28.5" strokeLinecap="round" />
-      <Path d="M28.5 17.6024L34.6834 14.0324" strokeLinecap="round" />
-      <Path d="M34.8 14L45.9058 20.9666" strokeLinecap="round" />
-      <Path d="M51.5 17.6024L46.0141 20.8987" strokeLinecap="round" />
-      <Path d="M20.5 17.6024L26.6574 14.0474" strokeLinecap="round" />
-      <Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
-      <Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
-      <Path d="M43.5 17.6024H69" strokeLinecap="round" />
-      <FlowmeterLabel position={{ x: 58, y: 29 }} color={colorVal} />
-    </InternalSVG>
-  </Div>
+      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Base.Path d="M2 17.6024H28.5" strokeLinecap="round" />
+      <Base.Path d="M28.5 17.6024L34.6834 14.0324" strokeLinecap="round" />
+      <Base.Path d="M34.8 14L45.9058 20.9666" strokeLinecap="round" />
+      <Base.Path d="M51.5 17.6024L46.0141 20.8987" strokeLinecap="round" />
+      <Base.Path d="M20.5 17.6024L26.6574 14.0474" strokeLinecap="round" />
+      <Base.Path d="M26.75 14.1024L37.788 21.0265" strokeLinecap="round" />
+      <Base.Path d="M43.5 17.6024L37.8427 21.0017" strokeLinecap="round" />
+      <Base.Path d="M43.5 17.6024H69" strokeLinecap="round" />
+      <Flowmeter.Label position={{ x: 58, y: 29 }} color={colorVal} />
+    </Base.SVG>
+  </Base.Div>
 );

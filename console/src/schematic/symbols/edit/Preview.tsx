@@ -13,8 +13,8 @@ import { box, id, type xy } from "@synnaxlabs/x";
 import { type ReactElement, useEffect, useRef, useState } from "react";
 
 import { CSS } from "@/css";
-import { FileDrop } from "@/schematic/nodes/edit/FileDrop";
-import { HandleOverlay } from "@/schematic/nodes/edit/Handles";
+import { FileDrop } from "@/schematic/symbols/edit/FileDrop";
+import { HandleOverlay } from "@/schematic/symbols/edit/Handles";
 
 interface PreviewProps {
   selectedState: string;
@@ -178,7 +178,7 @@ export const Preview = ({
     Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  Schematic.Node.useCustom({
+  Schematic.Node.Custom.useRender({
     container: containerRef.current,
     orientation: "left",
     activeState: selectedState,
@@ -198,7 +198,7 @@ export const Preview = ({
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
-    const extractedRegions = Schematic.Node.extractRegions(svgElement);
+    const extractedRegions = Schematic.Node.Region.extract(svgElement);
     const states = form.get<schematic.symbol.State[]>("data.states").value;
     states.forEach((state) =>
       form.set(`data.states.${state.key}.regions`, extractedRegions),

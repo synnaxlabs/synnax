@@ -9,24 +9,20 @@
 
 import { type ReactElement, useState } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Control } from "@/schematic/node/common/control";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import {
-  controlStateGridItem,
-  type NodeProps,
-} from "@/schematic/node/common/symbol/factories";
 import { type Config } from "@/schematic/node/general/select/config";
 import { Primitive } from "@/schematic/node/general/select/Primitive";
+import { type NodeProps } from "@/schematic/node/spec";
 import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
   draggable,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  config: {
     label,
     orientation = "left",
     control,
@@ -36,28 +32,26 @@ export const Symbol = ({
     size,
     disabled,
     inlineSize,
-  } = data;
-  const { set } = BaseSetpoint.use({ aetherKey: symbolKey, sink });
+  },
+}: NodeProps<Config>): ReactElement => {
+  const { set } = BaseSetpoint.use({ aetherKey: nodeKey, sink });
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>
     setSelectedKey(key ?? undefined);
-
-  const gridItems: GridItem[] = [];
-  const controlItem = controlStateGridItem(control);
+  const gridItems: Grid.Item[] = [];
+  const controlItem = Control.stateGridItem(control);
   if (controlItem != null) gridItems.push(controlItem);
-  const labelItem = Label.gridItem(label, onChange);
+  const labelItem = Label.gridItem(label, onConfigChange);
   if (labelItem != null) gridItems.push(labelItem);
-
   return (
-    <Grid
-      symbolKey={symbolKey}
+    <Grid.Grid
+      symbolKey={nodeKey}
       allowRotate={false}
       editable={selected && !draggable}
       items={gridItems}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
+      onLocationChange={(key, orientation) =>
+        key === "label" && onConfigChange({ label: { ...label, orientation } })
+      }
     >
       <Primitive
         value={selectedKey}
@@ -70,6 +64,6 @@ export const Symbol = ({
         size={size}
         inlineSize={inlineSize}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

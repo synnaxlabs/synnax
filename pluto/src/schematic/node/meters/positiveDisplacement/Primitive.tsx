@@ -10,18 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import { FlowmeterLabel } from "@/schematic/node/common/symbol/flowmeter";
-import {
-  Div,
-  type DivProps,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  Rect,
-  type SVGBasedPrimitiveProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends DivProps, SVGBasedPrimitiveProps {}
+import { Flowmeter } from "@/schematic/node/common/flowmeter";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+export interface Props extends Base.DivProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 72, height: 36 };
 
@@ -33,29 +25,56 @@ export const Primitive = ({
   scale = 1,
   ...rest
 }: Props): ReactElement => (
-  <Div {...rest} className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={4} top={50} id="1" />
-      <Handle location="right" orientation={orientation} left={98} top={50} id="2" />
-      <Handle location="top" orientation={orientation} left={50} top={6} id="3" />
-      <Handle location="bottom" orientation={orientation} left={50} top={91} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Base.Div
+    {...rest}
+    className={CSS(CSS.B("flowmeter-PositiveDisplacement"), className)}
+  >
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={4}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
+        location="right"
+        orientation={orientation}
+        left={98}
+        top={50}
+        id="2"
+      />
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={50}
+        top={6}
+        id="3"
+      />
+      <Handle.Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={91}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={colorVal}
       orientation={orientation}
       scale={scale}
     >
-      <Rect x="2" y="2" width="67" height="31" rx="2" />
-      <Path
+      <Base.Rect x="2" y="2" width="67" height="31" rx="2" />
+      <Base.Path
         d="M41 13C41 15.4853 38.9853 17.5 36.5 17.5C34.0147 17.5 32 15.4853 32 13C32 10.5147 34.0147 8.5 36.5 8.5C38.9853 8.5 41 10.5147 41 13Z"
         strokeWidth="2"
       />
-      <Path
+      <Base.Path
         d="M41 22C41 24.4853 38.9853 26.5 36.5 26.5C34.0147 26.5 32 24.4853 32 22C32 19.5147 34.0147 17.5 36.5 17.5C38.9853 17.5 41 19.5147 41 22Z"
         strokeWidth="2"
       />
-      <FlowmeterLabel color={colorVal} />
-    </InternalSVG>
-  </Div>
+      <Flowmeter.Label color={colorVal} />
+    </Base.SVG>
+  </Base.Div>
 );

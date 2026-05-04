@@ -12,22 +12,16 @@ import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Flex } from "@/flex";
-import { Form } from "@/form";
+import { Form as Base } from "@/form";
 import { Input } from "@/input";
-import {
-  ColorControl,
-  FormWrapper,
-  LabelControls,
-  StateMappingForm,
-  valueWidthInputProps,
-} from "@/schematic/node/common/forms";
+import { Form } from "@/schematic/node/common/form";
+import { Label } from "@/schematic/node/common/label";
 import { Tabs } from "@/tabs";
 import { telem } from "@/telem/aether";
 import { type StateIndicator as BaseStateIndicator } from "@/vis/stateIndicator";
-
 const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   const { value, onChange } =
-    Form.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
+    Base.useField<Omit<BaseStateIndicator.UseProps, "aetherKey">>(path);
   const sourceP = telem.sourcePipelinePropsZ.parse(value.source?.props);
   const source = telem.streamChannelValuePropsZ.parse(
     sourceP.segments.valueStream.props,
@@ -44,14 +38,14 @@ const StateIndicatorTelemForm = ({ path }: { path: string }): ReactElement => {
   };
 
   return (
-    <FormWrapper x grow align="stretch">
+    <Form.Wrapper x grow align="stretch">
       <Input.Item label="Input Channel" grow>
         <Channel.SelectSingle
           value={source.channel as number}
           onChange={handleSourceChange}
         />
       </Input.Item>
-    </FormWrapper>
+    </Form.Wrapper>
   );
 };
 
@@ -68,26 +62,26 @@ export const StateIndicatorForm = (): ReactElement => {
         return <StateIndicatorTelemForm path="" />;
       case "options":
         return (
-          <FormWrapper y align="stretch">
-            <StateMappingForm path="options" showColor />
-          </FormWrapper>
+          <Form.Wrapper y align="stretch">
+            <Form.StateMappingForm path="options" showColor />
+          </Form.Wrapper>
         );
       default:
         return (
-          <FormWrapper y align="stretch">
+          <Form.Wrapper y align="stretch">
             <Flex.Box y align="stretch" grow gap="small">
-              <LabelControls path="label" />
+              <Label.Form path="label" />
               <Flex.Box x>
-                <ColorControl path="color" />
-                <Form.NumericField
+                <Form.ColorField path="color" />
+                <Base.NumericField
                   path="inlineSize"
                   label="Width"
                   hideIfNull
-                  inputProps={valueWidthInputProps}
+                  inputProps={Form.VALUE_WIDTH_INPUT_PROPS}
                 />
               </Flex.Box>
             </Flex.Box>
-          </FormWrapper>
+          </Form.Wrapper>
         );
     }
   }, []);

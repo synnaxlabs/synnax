@@ -9,9 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { Grid, type GridItem } from "@/schematic/node/common/grid/Grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
-import { type NodeProps } from "@/schematic/node/common/symbol/factories";
+import { type NodeProps } from "@/schematic/node/spec";
 import { type Config } from "@/schematic/node/vessels/cylinder/config";
 import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
 
@@ -29,11 +29,11 @@ export const Symbol = ({
     dimensions,
     borderRadius,
   } = data;
-  const gridItems: GridItem[] = [];
+  const gridItems: Grid.Item[] = [];
   const labelItem = Label.gridItem(label, onChange);
   if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid
+    <Grid.Grid
       items={gridItems}
       editable={selected}
       symbolKey={symbolKey}
@@ -49,6 +49,6 @@ export const Symbol = ({
         borderRadius={borderRadius}
         backgroundColor={backgroundColor}
       />
-    </Grid>
+    </Grid.Grid>
   );
 };

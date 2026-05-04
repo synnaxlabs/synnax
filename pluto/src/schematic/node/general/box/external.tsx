@@ -10,19 +10,17 @@
 import { color } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/box/config";
+import { type Config, VARIANT } from "@/schematic/node/general/box/config";
 import { Primitive } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { Form as TankForm } from "@/schematic/node/vessels/tank/Form";
+import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { type Theming } from "@/theming";
 
-export const VARIANT = "box";
-export const NAME = "Box";
-
-export type { Config };
+export * from "@/schematic/node/general/box/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
@@ -34,7 +32,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Box",
   Form: () => <TankForm showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview: Primitive,

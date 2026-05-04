@@ -44,12 +44,12 @@ import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import {
+  selectConfig,
   selectNodeProps,
   selectOptional,
   selectRequired,
-  useSelectEdgeProps,
+  useSelectConfig,
   useSelectLegendVisible,
-  useSelectNodeProps,
   useSelectRequired,
   useSelectRequiredViewportMode,
   useSelectSelected,
@@ -64,7 +64,7 @@ import {
   pasteSelection,
   selectAll,
   setEditable,
-  setElementProps,
+  setElementConfig,
   setFitViewOnResize,
   setLegend,
   setRemoteCreated,
@@ -74,7 +74,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
-import { type AddNodeProps, useAddNode } from "@/schematic/nodes/useAddNode";
+import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
@@ -99,7 +99,7 @@ export const filterSymbolHaulItems = (items: Haul.Item[]): SymbolHaulItem[] =>
 
 export const VALUE_HAUL_TYPE = "schematic_value";
 
-export type ValueHaulData = Base.Symbol.ValueProps;
+export type ValueHaulData = Base.Node.ConfigOf<"value">;
 
 export type ValueHaulItem = Haul.Item<typeof VALUE_HAUL_TYPE, string, ValueHaulData>;
 
@@ -156,7 +156,7 @@ const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
       const storeState = store.getState();
       const state = selectOptional(storeState, layoutKey);
       if (state == null || state.editable || retrieve == null) return;
-      const props = selectNodeProps(storeState, layoutKey, nodeId);
+      const props = selectConfig(storeState, layoutKey, nodeId);
       if (
         props?.variant !== "offPageReference" ||
         typeof props.page !== "string" ||
@@ -225,20 +225,23 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const useSetElementProps = (layoutKey: string) => {
+const useConfig = (
+  elKey: string,
+  layoutKey: string,
+): [Base.ElementConfig, (config: Partial<Base.ElementConfig>) => void] => {
   const dispatch = useDispatch();
-  return useCallback(
-    (key: string, props: Base.NodeProps | Base.EdgeProps) =>
-      dispatch(setElementProps({ key: layoutKey, elKey: key, props })),
-    [layoutKey, dispatch],
-  );
+  const config = useSelectConfig(layoutKey, elKey);
+  return [
+    config,
+    useCallback(
+      (config: Partial<Base.ElementConfig>) =>
+        dispatch(setElementConfig({ key: layoutKey, elKey, config })),
+      [layoutKey, dispatch],
+    ),
+  ];
 };
 
-const SchematicComponent = Base.create({
-  useNodeProps: useSelectNodeProps,
-  useEdgeProps: useSelectEdgeProps,
-  useSetElementProps,
-});
+const SchematicComponent = Base.create({ useConfig });
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CContextMenu.Menu>

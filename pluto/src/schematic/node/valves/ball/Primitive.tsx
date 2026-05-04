@@ -10,17 +10,10 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Circle,
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Path,
-  type SVGBasedPrimitiveProps,
-  Toggle,
-  type ToggleProps,
-} from "@/schematic/node/common/symbol/primitives";
-export interface Props extends ToggleProps, SVGBasedPrimitiveProps {}
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+export interface Props extends Toggle.ButtonProps, Base.SVGBasedProps {}
 
 const DIMENSIONS = { width: 87, height: 42 };
 
@@ -32,31 +25,37 @@ export const Primitive = ({
   enabled = false,
   ...rest
 }: Props): ReactElement => (
-  <Toggle
+  <Toggle.Button
     {...rest}
     orientation={orientation}
     className={CSS(CSS.B("ball-valve"), className)}
     enabled={enabled}
   >
-    <HandleBoundary orientation={orientation}>
-      <Handle location="left" orientation={orientation} left={2.2989} top={50} id="1" />
-      <Handle
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="left"
+        orientation={orientation}
+        left={2.2989}
+        top={50}
+        id="1"
+      />
+      <Handle.Handle
         location="right"
         orientation={orientation}
         left={97.7011}
         top={50}
         id="2"
       />
-    </HandleBoundary>
-    <InternalSVG
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Circle cx="43.5978" cy="20.972" r="19" />
-      <Path d="M26.5 12.8472L6.35452 2.17563C4.35901 1.16585 2 2.61598 2 4.85243V37.0918C2 39.3283 4.35901 40.7784 6.35453 39.7686L26.5 29.3472" />
-      <Path d="M60.5 28.8486L80.6455 39.5202C82.641 40.5299 85 39.0798 85 36.8434V4.60396C85 2.36751 82.641 0.917381 80.6455 1.92716L60.5 12.3486" />
-    </InternalSVG>
-  </Toggle>
+      <Base.Circle cx="43.5978" cy="20.972" r="19" />
+      <Base.Path d="M26.5 12.8472L6.35452 2.17563C4.35901 1.16585 2 2.61598 2 4.85243V37.0918C2 39.3283 4.35901 40.7784 6.35453 39.7686L26.5 29.3472" />
+      <Base.Path d="M60.5 28.8486L80.6455 39.5202C82.641 40.5299 85 39.0798 85 36.8434V4.60396C85 2.36751 82.641 0.917381 80.6455 1.92716L60.5 12.3486" />
+    </Base.SVG>
+  </Toggle.Button>
 );

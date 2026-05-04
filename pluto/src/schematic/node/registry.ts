@@ -26,6 +26,8 @@ import { Vent } from "@/schematic/node/fittings/vent";
 import { Box } from "@/schematic/node/general/box";
 import { Button } from "@/schematic/node/general/button";
 import { Circle } from "@/schematic/node/general/circle";
+import { CustomActuator } from "@/schematic/node/general/customActuator";
+import { CustomStatic } from "@/schematic/node/general/customStatic";
 import { Gauge } from "@/schematic/node/general/gauge";
 import { Input } from "@/schematic/node/general/input";
 import { Light } from "@/schematic/node/general/light";
@@ -80,7 +82,7 @@ import { FlameArrestorExplosion } from "@/schematic/node/safety/flameArrestorExp
 import { FlameArrestorFireRes } from "@/schematic/node/safety/flameArrestorFireRes";
 import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/flameArrestorFireResDetonation";
 import { IsoBurstDisc } from "@/schematic/node/safety/isoBurstDisc";
-import { type Spec } from "@/schematic/node/spec";
+import { type Node, type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/angled";
 import { AngledRelief } from "@/schematic/node/valves/angledRelief";
 import { AngledSpringLoadedRelief } from "@/schematic/node/valves/angledSpringLoadedRelief";
@@ -110,7 +112,7 @@ import { Cylinder } from "@/schematic/node/vessels/cylinder";
 import { Tank } from "@/schematic/node/vessels/tank";
 import { TJunction } from "@/schematic/node/vessels/tJunction";
 
-const REGISTRY = {
+export const REGISTRY = {
   agitator: Agitator.spec,
   angledReliefValve: AngledRelief.spec,
   angledSpringLoadedReliefValve: AngledSpringLoadedRelief.spec,
@@ -131,6 +133,8 @@ const REGISTRY = {
   compressor: Compressor.spec,
   crossBeamAgitator: CrossBeamAgitator.spec,
   crossJunction: CrossJunction.spec,
+  customActuator: CustomActuator.spec,
+  customStatic: CustomStatic.spec,
   cylinder: Cylinder.spec,
   diaphragmPump: Diaphragm.spec,
   ejectionPump: Ejection.spec,
@@ -214,12 +218,116 @@ const REGISTRY = {
 const VARIANTS = Object.keys(REGISTRY);
 export const variantZ = z.enum(VARIANTS as [string, ...string[]]);
 export type Variant = keyof typeof REGISTRY;
-export type Config = ReturnType<
-  (typeof REGISTRY)[keyof typeof REGISTRY]["defaultConfig"]
->;
+
+export const configZ = z.discriminatedUnion("variant", [
+  Agitator.configZ,
+  AngledRelief.configZ,
+  AngledSpringLoadedRelief.configZ,
+  Angled.configZ,
+  Ball.configZ,
+  Box.configZ,
+  Breather.configZ,
+  BurstDisc.configZ,
+  ButterflyOne.configZ,
+  ButterflyTwo.configZ,
+  Button.configZ,
+  Cap.configZ,
+  Cavity.configZ,
+  Centrifugal.configZ,
+  Check.configZ,
+  CheckWithArrow.configZ,
+  Circle.configZ,
+  Compressor.configZ,
+  CrossBeamAgitator.configZ,
+  CrossJunction.configZ,
+  CustomActuator.configZ,
+  CustomStatic.configZ,
+  Cylinder.configZ,
+  Diaphragm.configZ,
+  Ejection.configZ,
+  Ejector.configZ,
+  ElectricRegulator.configZ,
+  ElectricRegulatorMotorized.configZ,
+  Filter.configZ,
+  FlameArrestor.configZ,
+  FlameArrestorDetonation.configZ,
+  FlameArrestorExplosion.configZ,
+  FlameArrestorFireRes.configZ,
+  FlameArrestorFireResDetonation.configZ,
+  FlatBladeAgitator.configZ,
+  FlowStraightener.configZ,
+  FlowmeterCoriolis.configZ,
+  FlowmeterElectromagnetic.configZ,
+  FlowmeterFloatSensor.configZ,
+  FlowmeterGeneral.configZ,
+  FlowmeterNozzle.configZ,
+  FlowmeterOrifice.configZ,
+  FlowmeterPositiveDisplacement.configZ,
+  FlowmeterPulse.configZ,
+  FlowmeterRingPiston.configZ,
+  FlowmeterTurbine.configZ,
+  FlowmeterVariableArea.configZ,
+  FlowmeterVenturi.configZ,
+  FourWay.configZ,
+  Gate.configZ,
+  Gauge.configZ,
+  HeatExchangerGeneral.configZ,
+  HeatExchangerM.configZ,
+  HeatExchangerStraightTube.configZ,
+  HeaterElement.configZ,
+  HelicalAgitator.configZ,
+  Input.configZ,
+  IsoBurstDisc.configZ,
+  IsoCap.configZ,
+  IsoCheck.configZ,
+  IsoFilter.configZ,
+  Light.configZ,
+  LiquidRing.configZ,
+  Manual.configZ,
+  Needle.configZ,
+  Nozzle.configZ,
+  OffPageReference.configZ,
+  Orifice.configZ,
+  OrificePlate.configZ,
+  PaddleAgitator.configZ,
+  Piston.configZ,
+  Polygon.configZ,
+  PropellerAgitator.configZ,
+  Pump.configZ,
+  Regulator.configZ,
+  RegulatorManual.configZ,
+  Relief.configZ,
+  RollerVane.configZ,
+  RotaryMixer.configZ,
+  Screw.configZ,
+  Select.configZ,
+  Setpoint.configZ,
+  Solenoid.configZ,
+  SpringLoadedRelief.configZ,
+  StateIndicator.configZ,
+  StaticMixer.configZ,
+  Strainer.configZ,
+  StrainerCone.configZ,
+  Switch.configZ,
+  TJunction.configZ,
+  Tank.configZ,
+  TextBox.configZ,
+  ThreeWayBall.configZ,
+  ThreeWay.configZ,
+  Thruster.configZ,
+  Turbo.configZ,
+  Vacuum.configZ,
+  Value.configZ,
+  Valve.configZ,
+  Vent.configZ,
+]);
+export type Config = z.infer<typeof configZ>;
+export type ConfigOf<V extends Variant> = Extract<Config, { variant: V }>;
 
 export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as unknown as Spec<Variant, Config>;
 };
+
+export const resolve = (variant: string): Node<Config> => resolveSpec(variant).Node;

@@ -10,7 +10,7 @@
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/value/config";
+import { type Config, VARIANT } from "@/schematic/node/general/value/config";
 import { ValueForm } from "@/schematic/node/general/value/Form";
 import { Primitive } from "@/schematic/node/general/value/Primitive";
 import { Symbol } from "@/schematic/node/general/value/Symbol";
@@ -20,12 +20,10 @@ import { Text } from "@/text";
 import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-export type { Config };
-
-export const VARIANT = "value";
-export const NAME = "Value";
+export * from "@/schematic/node/general/value/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   units: "psi",
@@ -59,7 +57,7 @@ const Preview = ({ color }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Value",
   Form: ValueForm,
   Node: Symbol,
   Preview,

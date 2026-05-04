@@ -11,8 +11,7 @@ import { color } from "@synnaxlabs/x";
 
 import { removeProps } from "@/component/removeProps";
 import { Label } from "@/schematic/node/common/label";
-import { createLabeled } from "@/schematic/node/common/symbol/factories";
-import { type Config } from "@/schematic/node/general/polygon/config";
+import { type Config, VARIANT } from "@/schematic/node/general/polygon/config";
 import { CommonPolygonForm } from "@/schematic/node/general/polygon/Form";
 import {
   DEFAULT_POLYGON_SIDE_LENGTH,
@@ -21,12 +20,10 @@ import {
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "polygon";
-export const NAME = "Polygon";
+export * from "@/schematic/node/general/polygon/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   numSides: 6,
   sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
   cornerRounding: 0,
@@ -39,9 +36,9 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Polygon",
   Form: CommonPolygonForm,
-  Node: createLabeled<Config>(Primitive),
+  Node: Label.createLabeled<Config>(Primitive),
   Preview: removeProps(Primitive, ["clickable"]),
   defaultConfig,
   zIndex: 2,

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/light/config";
+import { type Config, VARIANT } from "@/schematic/node/general/light/config";
 import { LightForm } from "@/schematic/node/general/light/Form";
 import { Primitive } from "@/schematic/node/general/light/Primitive";
 import { Symbol } from "@/schematic/node/general/light/Symbol";
@@ -16,12 +16,10 @@ import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "light";
-export const NAME = "Light";
+export * from "@/schematic/node/general/light/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   orientation: "left",
   scale: 1,
   color: t.colors.gray.l11,
@@ -38,7 +36,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Light",
   Form: LightForm,
   Node: Symbol,
   Preview: Primitive,

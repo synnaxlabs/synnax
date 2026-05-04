@@ -10,14 +10,9 @@
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
-import {
-  Handle,
-  HandleBoundary,
-  InternalSVG,
-  Line,
-  Rect,
-  Toggle,
-} from "@/schematic/node/common/symbol/primitives";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
 import { type Props as AgitatorProps } from "@/schematic/node/process/agitator/Primitive";
 export interface Props extends AgitatorProps {}
 
@@ -30,19 +25,25 @@ export const Primitive = ({
   scale,
   ...rest
 }: Props): ReactElement => (
-  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
-    <HandleBoundary orientation={orientation}>
-      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
-    </HandleBoundary>
-    <InternalSVG
+  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={51}
+        top={2}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
       dimensions={DIMENSIONS}
       color={color}
       orientation={orientation}
       scale={scale}
     >
-      <Line x1="43" y1="1" x2="43" y2="49" />
-      <Rect x="3" y="49" width="80" height="34" rx="3" />
-      <Line
+      <Base.Line x1="43" y1="1" x2="43" y2="49" />
+      <Base.Rect x="3" y="49" width="80" height="34" rx="3" />
+      <Base.Line
         x1="3.8"
         y1="82.1"
         x2="43"
@@ -50,7 +51,7 @@ export const Primitive = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-      <Line
+      <Base.Line
         x1="43"
         y1="49"
         x2="43"
@@ -58,7 +59,7 @@ export const Primitive = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-      <Line
+      <Base.Line
         x1="43"
         y1="83"
         x2="82.2"
@@ -66,6 +67,6 @@ export const Primitive = ({
         className={CSS(CSS.M("detail"), className)}
         strokeLinecap="round"
       />
-    </InternalSVG>
-  </Toggle>
+    </Base.SVG>
+  </Toggle.Button>
 );

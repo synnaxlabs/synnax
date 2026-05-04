@@ -10,19 +10,17 @@
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
-import { type Config } from "@/schematic/node/general/offPageReference/config";
+import { type Config, VARIANT } from "@/schematic/node/general/offPageReference/config";
 import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/Form";
 import { Primitive } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";
 
-export type { Config };
-
-export const VARIANT = "offPageReference";
-export const NAME = "Off Page";
+export * from "@/schematic/node/general/offPageReference/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
+  variant: VARIANT,
   color: t.colors.gray.l11,
   orientation: "right",
   label: Label.defaultConfig("Off Page Reference"),
@@ -34,7 +32,7 @@ const Preview = ({ label: _, ...rest }: Config): ReactElement => (
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: NAME,
+  name: "Off Page",
   Form: OffPageReferenceForm,
   Node: Symbol,
   Preview,
