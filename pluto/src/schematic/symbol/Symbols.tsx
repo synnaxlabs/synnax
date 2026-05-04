@@ -1415,6 +1415,7 @@ export const MediaEmbedBase = ({
     img.src = url;
     return () => {
       img.onload = null;
+      img.src = "";
     };
   }, [url, onChange]);
 

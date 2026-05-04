@@ -122,18 +122,16 @@ fn main() {
         .setup(|app| {
             // Create the main window manually so we can attach on_new_window handler
             let main_window_config = app.config().app.windows.first().cloned()
-                .expect("No window config found");
+                .ok_or("No window config found")?;
             let app_handle_for_main = app.handle().clone();
-            WebviewWindowBuilder::from_config(app.handle(), &main_window_config)
-                .expect("Failed to create main window builder")
+            WebviewWindowBuilder::from_config(app.handle(), &main_window_config)?
                 .on_new_window(move |url, _features| {
                     #[allow(deprecated)]
                     let _ = tauri_plugin_shell::ShellExt::shell(&app_handle_for_main)
                         .open(url.to_string(), None::<tauri_plugin_shell::open::Program>);
                     NewWindowResponse::Deny
                 })
-                .build()
-                .expect("Failed to build main window");
+                .build()?;
 
             #[cfg(desktop)]
             app.handle()

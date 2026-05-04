@@ -9,7 +9,7 @@
 
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
   IframeEmbedBase,
@@ -77,6 +77,57 @@ describe("MediaEmbedBase", () => {
     );
     const img = container.querySelector("img")!;
     expect(img.style.objectFit).toBe("contain");
+  });
+
+  describe("useEffect cleanup", () => {
+    let imageInstances: HTMLImageElement[];
+    const OriginalImage = globalThis.Image;
+
+    beforeEach(() => {
+      imageInstances = [];
+      globalThis.Image = class extends OriginalImage {
+        constructor() {
+          super();
+          imageInstances.push(this);
+        }
+      } as typeof Image;
+    });
+
+    afterEach(() => {
+      globalThis.Image = OriginalImage;
+    });
+
+    it("should clear onload and src on unmount to abort active streams", () => {
+      const { unmount } = render(
+        <MediaEmbedBase {...BASE_PROPS} url="https://example.com/stream.mjpeg" />,
+        { wrapper: Wrapper },
+      );
+      expect(imageInstances).toHaveLength(1);
+      const probeImg = imageInstances[0];
+      expect(probeImg.src).toContain("stream.mjpeg");
+      expect(probeImg.onload).not.toBeNull();
+      unmount();
+      expect(probeImg.onload).toBeNull();
+      // img.src = "" resolves to the base URL in jsdom, so just verify
+      // it no longer points at the original stream URL.
+      expect(probeImg.src).not.toContain("stream.mjpeg");
+    });
+
+    it("should clear previous Image when URL changes", () => {
+      const { rerender } = render(
+        <MediaEmbedBase {...BASE_PROPS} url="https://example.com/a.mjpeg" />,
+        { wrapper: Wrapper },
+      );
+      expect(imageInstances).toHaveLength(1);
+      const first = imageInstances[0];
+      rerender(
+        <Wrapper>
+          <MediaEmbedBase {...BASE_PROPS} url="https://example.com/b.mjpeg" />
+        </Wrapper>,
+      );
+      expect(first.onload).toBeNull();
+      expect(first.src).not.toContain("a.mjpeg");
+    });
   });
 });
 
