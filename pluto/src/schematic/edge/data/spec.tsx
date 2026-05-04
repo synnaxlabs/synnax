@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color as colorX, type direction, type xy } from "@synnaxlabs/x";
+import { color, type direction, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Base } from "@/schematic/edge/common/base";
@@ -18,18 +18,18 @@ import { NAME, VARIANT } from "@/schematic/edge/data/config";
 const SYMBOL_INTERVAL = 40;
 
 interface SymbolProps {
-  color: colorX.Color;
+  color: color.Crude;
   position: xy.XY;
   direction: direction.Direction;
 }
 
-const DataSymbol = ({ color, position }: SymbolProps): ReactElement => (
+const DataSymbol = ({ color: colorVal, position }: SymbolProps): ReactElement => (
   <circle
     cx={position.x}
     cy={position.y}
     r={3}
     fill="var(--pluto-gray-l0)"
-    stroke={colorX.cssString(color)}
+    stroke={color.cssString(colorVal)}
     strokeWidth={2}
   />
 );

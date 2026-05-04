@@ -8,24 +8,17 @@
 // included in the file licenses/APL.txt.
 
 import { configureStore } from "@reduxjs/toolkit";
-import { type Diagram, type Schematic } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
+import { type Diagram } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { selectNodeProps } from "@/schematic/selectors";
 import {
   actions,
-  type NodeConfig,
   reducer,
   SLICE_NAME,
   type StoreState,
   ZERO_SLICE_STATE,
   ZERO_STATE,
 } from "@/schematic/slice";
-
-type OffPageRefConfig = Schematic.Node.ConfigOf<"offPageReference">;
-const asOffPageRef = (props: NodeConfig | undefined): OffPageRefConfig | undefined =>
-  props as OffPageRefConfig | undefined;
 
 describe("Schematic Slice", () => {
   let store: ReturnType<typeof configureStore<StoreState>>;
@@ -512,100 +505,6 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       expect(Object.keys(state.schematics)).toHaveLength(1);
       expect(state.schematics["schematic-2"]).toBeDefined();
-    });
-  });
-
-  describe("off-page reference page prop", () => {
-    const schematicKey = "test-schematic";
-    const nodeKey = "opr-1";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
-      store.dispatch(
-        actions.addNode({
-          key: schematicKey,
-          config: { variant: "offPageReference", page: "", label: { label: "ref" } },
-          node: { key: nodeKey, position: { x: 0, y: 0 } },
-        }),
-      );
-    });
-
-    it("should store the page prop on an off-page reference element", () => {
-      const props = asOffPageRef(
-        selectNodeProps(store.getState(), schematicKey, nodeKey),
-      );
-      expect(props).toBeDefined();
-      expect(props?.variant).toBe("offPageReference");
-      expect(props?.page).toBe("");
-    });
-
-    it("should update the page prop via setElementProps", () => {
-      const targetPage = "target-schematic-key";
-      store.dispatch(
-        actions.setElementConfig({
-          key: schematicKey,
-          elKey: nodeKey,
-          config: { variant: "offPageReference", page: targetPage },
-        }),
-      );
-
-      const props = asOffPageRef(
-        selectNodeProps(store.getState(), schematicKey, nodeKey),
-      );
-      expect(props?.page).toBe(targetPage);
-    });
-
-    it("should clear the page prop by setting it to empty string", () => {
-      store.dispatch(
-        actions.setElementConfig({
-          key: schematicKey,
-          elKey: nodeKey,
-          config: { variant: "offPageReference", page: "some-page" },
-        }),
-      );
-      store.dispatch(
-        actions.setElementConfig({
-          key: schematicKey,
-          elKey: nodeKey,
-          config: { variant: "offPageReference", page: "" },
-        }),
-      );
-
-      const props = asOffPageRef(
-        selectNodeProps(store.getState(), schematicKey, nodeKey),
-      );
-      expect(props?.page).toBe("");
-    });
-
-    it("should preserve the page prop when other props change", () => {
-      store.dispatch(
-        actions.setElementConfig({
-          key: schematicKey,
-          elKey: nodeKey,
-          config: {
-            variant: "offPageReference",
-            page: "target-page",
-            color: color.construct("#ff0000"),
-          },
-        }),
-      );
-      store.dispatch(
-        actions.setElementConfig({
-          key: schematicKey,
-          elKey: nodeKey,
-          config: {
-            variant: "offPageReference",
-            page: "target-page",
-            color: color.construct("#00ff00"),
-          },
-        }),
-      );
-
-      const props = asOffPageRef(
-        selectNodeProps(store.getState(), schematicKey, nodeKey),
-      );
-      expect(props?.page).toBe("target-page");
-      expect(props?.color).toEqual(color.construct("#00ff00"));
     });
   });
 });

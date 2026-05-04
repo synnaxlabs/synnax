@@ -36,29 +36,35 @@ export type ElementConfig = z.infer<typeof elementConfigZ>;
 
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 
-export interface CreateSchematicParams {
-  useConfig: (
+export interface UseConfig {
+  (
     itemKey: string,
     elKey: string,
-  ) => [ElementConfig, (props: Partial<ElementConfig>) => void];
+  ): [ElementConfig | undefined, (props: Partial<ElementConfig>) => void];
+}
+
+export interface CreateSchematicParams {
+  useConfig: UseConfig;
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
 export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
-  const NodeRenderer = (props: Diagram.NodeProps): ReactElement => {
+  const NodeRenderer = (props: Diagram.NodeProps): ReactElement | null => {
     const { nodeKey } = props;
     const itemKey = Key.use<string>("Schematic.NodeRenderer");
     const [config, setConfig] = useConfig(itemKey, nodeKey);
+    if (config == null) return null;
     const N = Node.resolve(config.variant);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     return <N onConfigChange={setConfig} config={config as Node.Config} {...props} />;
   };
 
-  const EdgeRenderer = (props: diagram.EdgeProps): ReactElement => {
+  const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
     const { edgeKey } = props;
     const itemKey = Key.use<string>("Schematic.EdgeRenderer");
     const [config, setConfig] = useConfig(itemKey, edgeKey);
+    if (config == null) return null;
     const E = Edge.resolve(config.variant);
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
     return <E onChange={setConfig} config={config as Edge.Config} {...props} />;
@@ -81,4 +87,9 @@ export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps>
     </Key.Provider>
   );
   return Schematic;
+};
+
+export const REGISTRY = {
+  ...Node.REGISTRY,
+  ...Edge.REGISTRY,
 };

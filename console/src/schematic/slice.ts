@@ -194,9 +194,8 @@ const setActiveTabFromSelection = (
 
 const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void => {
   const source = schematic.configs[edge.source.node];
-  const target = schematic.configs[edge.target.node];
-  if (color.equals(source.color, target.color) && source.color != null)
-    schematic.configs[edge.key].color = color.construct(source.color);
+  if (source.color == null) return;
+  schematic.configs[edge.key].color = color.construct(source.color);
 };
 
 export const { actions, reducer } = createSlice({
@@ -369,8 +368,8 @@ export const { actions, reducer } = createSlice({
         }
     },
     applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
-      const { key: layoutKey, changes } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, changes } = payload;
+      const schematic = state.schematics[key];
       for (const change of changes)
         switch (change.type) {
           case "add":

@@ -14,7 +14,6 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { addNode } from "@/schematic/slice";
-import { type NodeConfig } from "@/schematic/types";
 
 export interface AddNodeProps {
   key: string;
@@ -32,17 +31,17 @@ export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
   return useCallback(
     ({ key, variant, position, specKey }: AddNodeProps) => {
       const spec = Schematic.Node.REGISTRY[variant];
-      const props = spec.defaultConfig(theme) as NodeConfig;
+      const config = spec.defaultConfig(theme);
       if (specKey != null)
-        props.label = {
-          ...props.label,
+        config.label = {
+          ...config.label,
           label: store.schematicSymbols.get(key)?.name,
         };
       actualDispatch(
         addNode({
           key: layoutKey,
           node: { key, zIndex: spec.zIndex, position },
-          config: { ...props, variant } as NodeConfig,
+          config,
         }),
       );
     },

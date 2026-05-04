@@ -63,15 +63,18 @@ const StaticListItem = (
   const theme = Theming.use();
   const layoutKey = Key.use<string>("Schematic.Toolbar.StaticListItem");
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
-  const addNodeProps = useMemo(() => ({ key: id.create(), variant }), [variant]);
+  const createNodeProps = useCallback(() => ({ key: id.create(), variant }), [variant]);
   const handleDragStart = useCallback(
-    () => startDrag([createSymbolHaulItem(addNodeProps)]),
-    [startDrag, addNodeProps],
+    () => startDrag([createSymbolHaulItem(createNodeProps())]),
+    [startDrag, createNodeProps],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(variant);
   const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
   const addNode = useAddNode(layoutKey);
-  const handleAddNode = useCallback(() => addNode(addNodeProps), [addNodeProps]);
+  const handleAddNode = useCallback(
+    () => addNode(createNodeProps()),
+    [createNodeProps],
+  );
   if (spec == null || defaultConfig == null) return null;
   const { name, Preview } = spec;
   return (

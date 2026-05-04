@@ -12,7 +12,7 @@ import { BaseEdge, type BaseEdgeProps } from "@xyflow/react";
 import { type ReactElement, useMemo } from "react";
 
 export interface BaseProps extends Omit<BaseEdgeProps, "color"> {
-  color: color.Color;
+  color: color.Crude;
 }
 
 const INTERACTION_WIDTH = 30;

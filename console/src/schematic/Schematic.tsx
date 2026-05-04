@@ -224,10 +224,7 @@ const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const useConfig = (
-  key: string,
-  elKey: string,
-): [Base.ElementConfig, (config: Partial<Base.ElementConfig>) => void] => {
+const useConfig: Base.UseConfig = (key, elKey) => {
   const dispatch = useDispatch();
   const config = useSelectConfig(key, elKey);
   return [
