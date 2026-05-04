@@ -51,9 +51,9 @@ describe("migrations", () => {
         },
       };
       const migrated = migrateState(populated);
-      expect(migrated.props.n1).toMatchObject({ variant: "valve", color: "#ff0000" });
-      expect(migrated.props.n2).toMatchObject({ variant: "tank" });
-      expect(migrated.props.n1).not.toHaveProperty("key");
+      expect(migrated.configs.n1).toMatchObject({ variant: "valve", color: "#ff0000" });
+      expect(migrated.configs.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.configs.n1).not.toHaveProperty("key");
     });
 
     it("should reshape edge endpoints to Handle objects when migrating v5 → v6", () => {
@@ -94,7 +94,7 @@ describe("migrations", () => {
         ],
       };
       const migrated = migrateState(populated);
-      expect(migrated.props.e1).toMatchObject({
+      expect(migrated.configs.e1).toMatchObject({
         segments: [{ direction: "x", length: 10 }],
         color: color.construct("#00ff00"),
         variant: "pipe",

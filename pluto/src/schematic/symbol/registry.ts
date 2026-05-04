@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type group } from "@synnaxlabs/client";
+import { type group, NotFoundError } from "@synnaxlabs/client";
 import { bounds, color } from "@synnaxlabs/x";
 import { type FC } from "react";
-import { z } from "zod";
+import z from "zod";
 
 import { removeProps } from "@/component/removeProps";
 import { Icon } from "@/icon";
@@ -260,125 +260,19 @@ import { control } from "@/telem/control/aether";
 import { type Theming } from "@/theming";
 import { Value as BaseValue } from "@/vis/value";
 
-export interface Spec<P extends object = object> {
+export interface Spec<Variant extends string = string, Config extends object = object> {
   key: Variant;
   name: string;
   Form: FC<SymbolFormProps>;
-  Symbol: FC<SymbolProps<P>>;
-  defaultProps: (t: Theming.Theme) => P;
-  Preview: FC<PreviewProps<P>>;
+  Symbol: FC<SymbolProps<Config>>;
+  defaultConfig: (t: Theming.Theme) => Config;
+  Preview: FC<PreviewProps<Config>>;
   zIndex: number;
   needsPosition?: boolean;
 }
 
 const Z_INDEX_UPPER = 4;
 const Z_INDEX_LOWER = 2;
-
-const VARIANTS = [
-  "agitator",
-  "angledReliefValve",
-  "angledSpringLoadedReliefValve",
-  "angledValve",
-  "ballValve",
-  "threeWayBallValve",
-  "gateValve",
-  "butterflyValveOne",
-  "butterflyValveTwo",
-  "breatherValve",
-  "offPageReference",
-  "box",
-  "burstDisc",
-  "isoBurstDisc",
-  "button",
-  "cap",
-  "cavityPump",
-  "checkValve",
-  "cylinder",
-  "crossBeamAgitator",
-  "electricRegulator",
-  "electricRegulatorMotorized",
-  "filter",
-  "flowStraightener",
-  "heaterElement",
-  "checkValveWithArrow",
-  "flatBladeAgitator",
-  "flowmeterGeneral",
-  "flowmeterElectromagnetic",
-  "flowmeterVariableArea",
-  "flowmeterCoriolis",
-  "flowmeterNozzle",
-  "flowmeterVenturi",
-  "flowmeterRingPiston",
-  "flowmeterPositiveDisplacement",
-  "flowmeterTurbine",
-  "flowmeterPulse",
-  "flowmeterFloatSensor",
-  "flowmeterOrifice",
-  "fourWayValve",
-  "helicalAgitator",
-  "input",
-  "isoCap",
-  "isoCheckValve",
-  "isoFilter",
-  "light",
-  "manualValve",
-  "needleValve",
-  "orifice",
-  "orificePlate",
-  "paddleAgitator",
-  "propellerAgitator",
-  "pistonPump",
-  "pump",
-  "regulator",
-  "regulatorManual",
-  "reliefValve",
-  "rotaryMixer",
-  "screwPump",
-  "select",
-  "setpoint",
-  "solenoidValve",
-  "springLoadedReliefValve",
-  "stateIndicator",
-  "staticMixer",
-  "switch",
-  "tank",
-  "polygon",
-  "circle",
-  "textBox",
-  "threeWayValve",
-  "vacuumPump",
-  "value",
-  "gauge",
-  "valve",
-  "vent",
-  "tJunction",
-  "crossJunction",
-  "heatExchangerGeneral",
-  "heatExchangerM",
-  "heatExchangerStraightTube",
-  "diaphragmPump",
-  "ejectionPump",
-  "compressor",
-  "turboCompressor",
-  "rollerVaneCompressor",
-  "liquidRingCompressor",
-  "ejectorCompressor",
-  "centrifugalCompressor",
-  "flameArrestor",
-  "flameArrestorDetonation",
-  "flameArrestorExplosion",
-  "flameArrestorFireRes",
-  "flameArrestorFireResDetonation",
-  "thruster",
-  "nozzle",
-  "strainer",
-  "strainerCone",
-  "customActuator",
-  "customStatic",
-] as const;
-
-export const variantZ = z.enum(VARIANTS);
-export type Variant = z.infer<typeof variantZ>;
 
 const ZERO_PROPS = { orientation: "left" as const, scale: 1 };
 const ZERO_NUMERIC_STRINGER_SOURCE_PROPS = {
@@ -476,12 +370,12 @@ const ZERO_BOX_PROPS = { dimensions: ZERO_DIMENSIONS };
 
 const ZERO_BOX_BORDER_RADIUS = 3;
 
-const threeWayValve: Spec<ThreeWayValveProps> = {
+const threeWayValve: Spec<"threeWayValve", ThreeWayValveProps> = {
   name: "Three Way",
   key: "threeWayValve",
   Form: CommonToggleForm,
   Symbol: ThreeWayValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Three Way"),
     ...ZERO_TOGGLE_PROPS,
@@ -490,12 +384,12 @@ const threeWayValve: Spec<ThreeWayValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const valve: Spec<ValveProps> = {
+const valve: Spec<"valve", ValveProps> = {
   name: "Generic",
   key: "valve",
   Form: CommonToggleForm,
   Symbol: Valve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -504,12 +398,12 @@ const valve: Spec<ValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const solenoidValve: Spec<SolenoidValveProps> = {
+const solenoidValve: Spec<"solenoidValve", SolenoidValveProps> = {
   name: "Solenoid",
   key: "solenoidValve",
   Form: CommonToggleForm,
   Symbol: SolenoidValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Solenoid Valve"),
     normallyOpen: false,
@@ -519,12 +413,12 @@ const solenoidValve: Spec<SolenoidValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const fourWayValve: Spec<FourWayValveProps> = {
+const fourWayValve: Spec<"fourWayValve", FourWayValveProps> = {
   name: "Four Way",
   key: "fourWayValve",
   Form: CommonToggleForm,
   Symbol: FourWayValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Four Way Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -533,12 +427,12 @@ const fourWayValve: Spec<FourWayValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const angledValve: Spec<AngledValveProps> = {
+const angledValve: Spec<"angledValve", AngledValveProps> = {
   name: "Angled",
   key: "angledValve",
   Form: CommonToggleForm,
   Symbol: AngledValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Angled Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -547,12 +441,12 @@ const angledValve: Spec<AngledValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const ballValve: Spec<BallValveProps> = {
+const ballValve: Spec<"ballValve", BallValveProps> = {
   name: "Ball",
   key: "ballValve",
   Form: CommonToggleForm,
   Symbol: BallValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Ball Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -561,12 +455,12 @@ const ballValve: Spec<BallValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
+const threeWayBallValve: Spec<"threeWayBallValve", ThreeWayBallValveProps> = {
   name: "Three-Way Ball",
   key: "threeWayBallValve",
   Form: CommonToggleForm,
   Symbol: ThreeWayBallValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Three-Way Ball Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -575,12 +469,12 @@ const threeWayBallValve: Spec<ThreeWayBallValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const gateValve: Spec<GateValveProps> = {
+const gateValve: Spec<"gateValve", GateValveProps> = {
   name: "Gate",
   key: "gateValve",
   Form: CommonToggleForm,
   Symbol: GateValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Gate Valve"),
     ...ZERO_TOGGLE_PROPS,
@@ -589,12 +483,12 @@ const gateValve: Spec<GateValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const butterflyValveOne: Spec<ButterflyValveOneProps> = {
+const butterflyValveOne: Spec<"butterflyValveOne", ButterflyValveOneProps> = {
   name: "Butterfly (Remote)",
   key: "butterflyValveOne",
   Form: CommonToggleForm,
   Symbol: ButterflyValveOne,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Butterfly Valve (Remote)"),
     ...ZERO_TOGGLE_PROPS,
@@ -603,12 +497,12 @@ const butterflyValveOne: Spec<ButterflyValveOneProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
+const butterflyValveTwo: Spec<"butterflyValveTwo", ButterflyValveTwoProps> = {
   name: "Butterfly (Manual)",
   key: "butterflyValveTwo",
   Form: CommonToggleForm,
   Symbol: ButterflyValveTwo,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Butterfly Valve (Manual)"),
     ...ZERO_TOGGLE_PROPS,
@@ -617,12 +511,12 @@ const butterflyValveTwo: Spec<ButterflyValveTwoProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const breatherValve: Spec<BreatherValveProps> = {
+const breatherValve: Spec<"breatherValve", BreatherValveProps> = {
   name: "Breather",
   key: "breatherValve",
   Form: CommonDummyToggleForm,
   Symbol: BreatherValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Breather Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -631,12 +525,12 @@ const breatherValve: Spec<BreatherValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const pump: Spec<PumpProps> = {
+const pump: Spec<"pump", PumpProps> = {
   name: "Pump",
   key: "pump",
   Form: CommonToggleForm,
   Symbol: Pump,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -645,12 +539,12 @@ const pump: Spec<PumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const screwPump: Spec<ScrewPumpProps> = {
+const screwPump: Spec<"screwPump", ScrewPumpProps> = {
   name: "Screw",
   key: "screwPump",
   Form: CommonToggleForm,
   Symbol: ScrewPump,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Screw Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -659,12 +553,12 @@ const screwPump: Spec<ScrewPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const tank: Spec<TankProps> = {
+const tank: Spec<"tank", TankProps> = {
   name: "Tank",
   key: "tank",
   Form: TankForm,
   Symbol: Tank,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("Tank"),
@@ -676,12 +570,12 @@ const tank: Spec<TankProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const polygon: Spec<Primitives.PolygonProps> = {
+const polygon: Spec<"polygon", Primitives.PolygonProps> = {
   name: "Polygon",
   key: "polygon",
   Symbol: PolygonSymbol,
   Form: CommonPolygonForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     numSides: 6,
     sideLength: DEFAULT_POLYGON_SIDE_LENGTH,
     cornerRounding: 0,
@@ -695,12 +589,12 @@ const polygon: Spec<Primitives.PolygonProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const circle: Spec<Primitives.CircleShapeProps> = {
+const circle: Spec<"circle", Primitives.CircleShapeProps> = {
   name: "Circle",
   key: "circle",
   Symbol: Circle,
   Form: CircleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     radius: 20,
     color: t.colors.gray.l11,
     backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
@@ -711,12 +605,12 @@ const circle: Spec<Primitives.CircleShapeProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const cylinder: Spec<CylinderProps> = {
+const cylinder: Spec<"cylinder", CylinderProps> = {
   name: "Cylinder",
   key: "cylinder",
   Form: CylinderForm,
   Symbol: Cylinder,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("cylinder"),
@@ -730,12 +624,12 @@ const cylinder: Spec<CylinderProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const box: Spec<BoxProps> = {
+const box: Spec<"box", BoxProps> = {
   name: "Box",
   key: "box",
   Form: BoxForm,
   Symbol: Box,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
     ...zeroLabel("Box"),
@@ -748,12 +642,12 @@ const box: Spec<BoxProps> = {
   zIndex: Z_INDEX_LOWER,
 };
 
-const reliefValve: Spec<ReliefValveProps> = {
+const reliefValve: Spec<"reliefValve", ReliefValveProps> = {
   name: "Relief",
   key: "reliefValve",
   Form: CommonDummyToggleForm,
   Symbol: ReliefValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -762,12 +656,15 @@ const reliefValve: Spec<ReliefValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
+const springLoadedReliefValve: Spec<
+  "springLoadedReliefValve",
+  SpringLoadedReliefValveProps
+> = {
   name: "Spring Loaded Relief",
   key: "springLoadedReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: SpringLoadedReliefValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -776,12 +673,15 @@ const springLoadedReliefValve: Spec<SpringLoadedReliefValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = {
+const angledSpringLoadedReliefValve: Spec<
+  "angledSpringLoadedReliefValve",
+  AngledSpringLoadedReliefValveProps
+> = {
   name: "Angled Spring Loaded Relief",
   key: "angledSpringLoadedReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: AngledSpringLoadedReliefValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Angled Spring Loaded Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -790,12 +690,12 @@ const angledSpringLoadedReliefValve: Spec<AngledSpringLoadedReliefValveProps> = 
   zIndex: Z_INDEX_UPPER,
 };
 
-const regulator: Spec<RegulatorProps> = {
+const regulator: Spec<"regulator", RegulatorProps> = {
   name: "Regulator",
   key: "regulator",
   Form: CommonStyleForm,
   Symbol: Regulator,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Regulator"),
     ...ZERO_PROPS,
@@ -804,12 +704,12 @@ const regulator: Spec<RegulatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const regulatorManual: Spec<RegulatorManualProps> = {
+const regulatorManual: Spec<"regulatorManual", RegulatorManualProps> = {
   name: "Manual",
   key: "regulatorManual",
   Form: CommonStyleForm,
   Symbol: RegulatorManual,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Manual Regulator"),
     ...ZERO_PROPS,
@@ -818,12 +718,12 @@ const regulatorManual: Spec<RegulatorManualProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const electricRegulator: Spec<ElectricRegulatorProps> = {
+const electricRegulator: Spec<"electricRegulator", ElectricRegulatorProps> = {
   name: "Electric",
   key: "electricRegulator",
   Form: CommonStyleForm,
   Symbol: ElectricRegulator,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Electric Regulator"),
     ...ZERO_PROPS,
@@ -832,12 +732,15 @@ const electricRegulator: Spec<ElectricRegulatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
+const electricRegulatorMotorized: Spec<
+  "electricRegulatorMotorized",
+  ElectricRegulatorMotorizedProps
+> = {
   name: "Motorized",
   key: "electricRegulatorMotorized",
   Form: CommonStyleForm,
   Symbol: ElectricRegulatorMotorized,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Electric Regulator Motorized"),
     ...ZERO_PROPS,
@@ -846,12 +749,12 @@ const electricRegulatorMotorized: Spec<ElectricRegulatorMotorizedProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const burstDisc: Spec<BurstDiscProps> = {
+const burstDisc: Spec<"burstDisc", BurstDiscProps> = {
   name: "Standard",
   key: "burstDisc",
   Form: CommonStyleForm,
   Symbol: BurstDisc,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Burst Disc"),
     ...ZERO_PROPS,
@@ -860,12 +763,12 @@ const burstDisc: Spec<BurstDiscProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoBurstDisc: Spec<ISOBurstDiscProps> = {
+const isoBurstDisc: Spec<"isoBurstDisc", ISOBurstDiscProps> = {
   name: "ISO",
   key: "isoBurstDisc",
   Form: CommonStyleForm,
   Symbol: ISOBurstDisc,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("ISO Burst Disc"),
     ...ZERO_PROPS,
@@ -874,12 +777,12 @@ const isoBurstDisc: Spec<ISOBurstDiscProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const cap: Spec<CapProps> = {
+const cap: Spec<"cap", CapProps> = {
   name: "Cap",
   key: "cap",
   Form: CommonStyleForm,
   Symbol: Cap,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Cap"),
     ...ZERO_PROPS,
@@ -888,12 +791,12 @@ const cap: Spec<CapProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoCap: Spec<ISOCapProps> = {
+const isoCap: Spec<"isoCap", ISOCapProps> = {
   name: "ISO Cap",
   key: "isoCap",
   Form: CommonStyleForm,
   Symbol: ISOCap,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("ISO Cap"),
     ...ZERO_PROPS,
@@ -902,12 +805,12 @@ const isoCap: Spec<ISOCapProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const manualValve: Spec<ManualValveProps> = {
+const manualValve: Spec<"manualValve", ManualValveProps> = {
   name: "Manual",
   key: "manualValve",
   Form: CommonDummyToggleForm,
   Symbol: ManualValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Manual Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -916,12 +819,12 @@ const manualValve: Spec<ManualValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const orificePlate: Spec<OrificePlateProps> = {
+const orificePlate: Spec<"orificePlate", OrificePlateProps> = {
   name: "Plate",
   key: "orificePlate",
   Form: CommonStyleForm,
   Symbol: OrificePlate,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Orifice Plate"),
     ...ZERO_PROPS,
@@ -930,12 +833,12 @@ const orificePlate: Spec<OrificePlateProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoFilter: Spec<ISOFilterProps> = {
+const isoFilter: Spec<"isoFilter", ISOFilterProps> = {
   name: "ISO Filter",
   key: "isoFilter",
   Form: CommonStyleForm,
   Symbol: ISOFilter,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("ISO Filter"),
     ...ZERO_PROPS,
@@ -944,12 +847,12 @@ const isoFilter: Spec<ISOFilterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const filter: Spec<FilterProps> = {
+const filter: Spec<"filter", FilterProps> = {
   name: "Filter",
   key: "filter",
   Form: CommonStyleForm,
   Symbol: Filter,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Filter"),
     ...ZERO_PROPS,
@@ -958,12 +861,12 @@ const filter: Spec<FilterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowStraightener: Spec<FlowStraightenerProps> = {
+const flowStraightener: Spec<"flowStraightener", FlowStraightenerProps> = {
   name: "Flow Straightener",
   key: "flowStraightener",
   Form: CommonStyleForm,
   Symbol: FlowStraightener,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flow Straightener"),
     ...ZERO_PROPS,
@@ -972,12 +875,12 @@ const flowStraightener: Spec<FlowStraightenerProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const heaterElement: Spec<HeaterElementProps> = {
+const heaterElement: Spec<"heaterElement", HeaterElementProps> = {
   name: "Heater",
   key: "heaterElement",
   Form: CommonStyleForm,
   Symbol: HeaterElement,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Heater Element"),
     ...ZERO_PROPS,
@@ -986,12 +889,12 @@ const heaterElement: Spec<HeaterElementProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const needleValve: Spec<NeedleValveProps> = {
+const needleValve: Spec<"needleValve", NeedleValveProps> = {
   name: "Needle",
   key: "needleValve",
   Form: CommonDummyToggleForm,
   Symbol: NeedleValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Needle Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -1000,12 +903,12 @@ const needleValve: Spec<NeedleValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const checkValve: Spec<CheckValveProps> = {
+const checkValve: Spec<"checkValve", CheckValveProps> = {
   name: "Check",
   key: "checkValve",
   Form: CommonStyleForm,
   Symbol: CheckValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
@@ -1014,12 +917,12 @@ const checkValve: Spec<CheckValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const orifice: Spec<OrificeProps> = {
+const orifice: Spec<"orifice", OrificeProps> = {
   name: "Orifice",
   key: "orifice",
   Form: CommonStyleForm,
   Symbol: Orifice,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Orifice"),
     ...ZERO_PROPS,
@@ -1028,12 +931,12 @@ const orifice: Spec<OrificeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const angledReliefValve: Spec<ReliefValveProps> = {
+const angledReliefValve: Spec<"angledReliefValve", ReliefValveProps> = {
   name: "Angled Relief",
   key: "angledReliefValve",
   Form: CommonDummyToggleForm,
   Symbol: AngledReliefValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Angled Relief Valve"),
     ...ZERO_DUMMY_TOGGLE_PROPS,
@@ -1042,14 +945,14 @@ const angledReliefValve: Spec<ReliefValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const value: Spec<ValueProps> = {
+const value: Spec<"value", ValueProps> = {
   name: "Value",
   key: "value",
   Form: ValueForm,
   Symbol: Value,
   Preview: ValuePreview,
   needsPosition: true,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     units: "psi",
     level: "h5",
@@ -1064,14 +967,14 @@ const value: Spec<ValueProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const gauge: Spec<GaugeProps> = {
+const gauge: Spec<"gauge", GaugeProps> = {
   name: "Gauge",
   key: "gauge",
   Form: GaugeForm,
   Symbol: Gauge,
   Preview: GaugePreview,
   needsPosition: true,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     units: "RPM",
     level: "h5",
@@ -1084,13 +987,13 @@ const gauge: Spec<GaugeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const button: Spec<ButtonProps> = {
+const button: Spec<"button", ButtonProps> = {
   name: "Button",
   key: "button",
   Symbol: Button,
   Form: ButtonForm,
   Preview: ButtonPreview,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.primary.z,
     ...zeroLabel("Button"),
     ...ZERO_BOOLEAN_SINK_PROPS,
@@ -1101,12 +1004,12 @@ const button: Spec<ButtonProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const switch_: Spec<SwitchProps> = {
+const switch_: Spec<"switch", SwitchProps> = {
   name: "Switch",
   key: "switch",
   Symbol: Switch,
   Form: SwitchForm,
-  defaultProps: () => ({
+  defaultConfig: () => ({
     ...zeroLabel("Switch"),
     ...ZERO_TOGGLE_PROPS,
     scale: null,
@@ -1115,12 +1018,12 @@ const switch_: Spec<SwitchProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const vacuumPump: Spec<VacuumPumpProps> = {
+const vacuumPump: Spec<"vacuumPump", VacuumPumpProps> = {
   name: "Vacuum",
   key: "vacuumPump",
   Symbol: VacuumPump,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Vacuum Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -1129,12 +1032,12 @@ const vacuumPump: Spec<VacuumPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const compressor: Spec<CompressorProps> = {
+const compressor: Spec<"compressor", CompressorProps> = {
   name: "Compressor",
   key: "compressor",
   Symbol: Compressor,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Compressor"),
     ...ZERO_TOGGLE_PROPS,
@@ -1143,12 +1046,12 @@ const compressor: Spec<CompressorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const cavityPump: Spec<CavityPumpProps> = {
+const cavityPump: Spec<"cavityPump", CavityPumpProps> = {
   name: "Cavity",
   key: "cavityPump",
   Symbol: CavityPump,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Cavity Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -1157,12 +1060,12 @@ const cavityPump: Spec<CavityPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const pistonPump: Spec<PistonPumpProps> = {
+const pistonPump: Spec<"pistonPump", PistonPumpProps> = {
   name: "Piston",
   key: "pistonPump",
   Symbol: PistonPump,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Piston Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -1171,12 +1074,12 @@ const pistonPump: Spec<PistonPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const staticMixer: Spec<StaticMixerProps> = {
+const staticMixer: Spec<"staticMixer", StaticMixerProps> = {
   name: "Static Mixer",
   key: "staticMixer",
   Symbol: StaticMixer,
   Form: CommonStyleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Static Mixer"),
     ...ZERO_PROPS,
@@ -1185,12 +1088,12 @@ const staticMixer: Spec<StaticMixerProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const rotaryMixer: Spec<RotaryMixerProps> = {
+const rotaryMixer: Spec<"rotaryMixer", RotaryMixerProps> = {
   name: "Rotary Mixer",
   key: "rotaryMixer",
   Symbol: RotaryMixer,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Rotary Mixer"),
     ...ZERO_TOGGLE_PROPS,
@@ -1199,12 +1102,12 @@ const rotaryMixer: Spec<RotaryMixerProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const light: Spec<LightProps> = {
+const light: Spec<"light", LightProps> = {
   name: "Light",
   key: "light",
   Symbol: Light,
   Form: LightForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Light"),
     ...ZERO_BOOLEAN_SOURCE_PROPS,
@@ -1213,12 +1116,12 @@ const light: Spec<LightProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const input: Spec<InputProps> = {
+const input: Spec<"input", InputProps> = {
   name: "Input",
   key: "input",
   Symbol: Input,
   Form: InputForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     size: "small",
     ...zeroLabel("Input"),
@@ -1228,12 +1131,12 @@ const input: Spec<InputProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const select_: Spec<SelectProps> = {
+const select_: Spec<"select", SelectProps> = {
   name: "Select",
   key: "select",
   Symbol: Select,
   Form: SelectForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     size: "small",
     inlineSize: 100,
@@ -1245,12 +1148,12 @@ const select_: Spec<SelectProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const stateIndicator: Spec<StateIndicatorProps> = {
+const stateIndicator: Spec<"stateIndicator", StateIndicatorProps> = {
   name: "State Indicator",
   key: "stateIndicator",
   Symbol: StateIndicator,
   Form: StateIndicatorForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     inlineSize: 100,
     options: [],
@@ -1261,12 +1164,12 @@ const stateIndicator: Spec<StateIndicatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const setpoint: Spec<SetpointProps> = {
+const setpoint: Spec<"setpoint", SetpointProps> = {
   name: "Setpoint",
   key: "setpoint",
   Symbol: Setpoint,
   Form: SetpointForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     units: "mV",
     color: t.colors.gray.l11,
     size: "small",
@@ -1278,12 +1181,12 @@ const setpoint: Spec<SetpointProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const agitator: Spec<AgitatorProps> = {
+const agitator: Spec<"agitator", AgitatorProps> = {
   name: "Agitator",
   key: "agitator",
   Symbol: Agitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1292,12 +1195,12 @@ const agitator: Spec<AgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const propellerAgitator: Spec<PropellerAgitatorProps> = {
+const propellerAgitator: Spec<"propellerAgitator", PropellerAgitatorProps> = {
   name: "Propeller Agitator",
   key: "propellerAgitator",
   Symbol: PropellerAgitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Propeller Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1306,12 +1209,12 @@ const propellerAgitator: Spec<PropellerAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
+const flatBladeAgitator: Spec<"flatBladeAgitator", FlatBladeAgitatorProps> = {
   name: "Flat Blade Agitator",
   key: "flatBladeAgitator",
   Symbol: FlatBladeAgitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flat Blade Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1320,12 +1223,12 @@ const flatBladeAgitator: Spec<FlatBladeAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const paddleAgitator: Spec<PaddleAgitatorProps> = {
+const paddleAgitator: Spec<"paddleAgitator", PaddleAgitatorProps> = {
   name: "Paddle Agitator",
   key: "paddleAgitator",
   Symbol: PaddleAgitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Paddle Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1334,12 +1237,12 @@ const paddleAgitator: Spec<PaddleAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
+const crossBeamAgitator: Spec<"crossBeamAgitator", CrossBeamAgitatorProps> = {
   name: "Cross Beam Agitator",
   key: "crossBeamAgitator",
   Symbol: CrossBeamAgitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Cross Beam Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1348,12 +1251,12 @@ const crossBeamAgitator: Spec<CrossBeamAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const helicalAgitator: Spec<HelicalAgitatorProps> = {
+const helicalAgitator: Spec<"helicalAgitator", HelicalAgitatorProps> = {
   name: "Helical Agitator",
   key: "helicalAgitator",
   Symbol: HelicalAgitator,
   Form: CommonToggleForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Helical Agitator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1362,12 +1265,12 @@ const helicalAgitator: Spec<HelicalAgitatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const textBox: Spec<TextBoxProps> = {
+const textBox: Spec<"textBox", TextBoxProps> = {
   name: "Text Box",
   key: "textBox",
   Symbol: TextBox,
   Form: TextBoxForm,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     autoFit: true,
     align: "center",
@@ -1382,12 +1285,12 @@ const textBox: Spec<TextBoxProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const offPageReference: Spec<OffPageReferenceProps> = {
+const offPageReference: Spec<"offPageReference", OffPageReferenceProps> = {
   name: "Off Page",
   key: "offPageReference",
   Form: OffPageReferenceForm,
   Symbol: OffPageReference,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     orientation: "right",
     ...zeroLabel("Off Page Reference"),
@@ -1396,12 +1299,12 @@ const offPageReference: Spec<OffPageReferenceProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const isoCheckValve: Spec<ISOCheckValveProps> = {
+const isoCheckValve: Spec<"isoCheckValve", ISOCheckValveProps> = {
   name: "ISO Check",
   key: "isoCheckValve",
   Form: CommonStyleForm,
   Symbol: ISOCheckValve,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("ISO Check Valve"),
     ...ZERO_PROPS,
@@ -1410,12 +1313,12 @@ const isoCheckValve: Spec<ISOCheckValveProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
+const checkValveWithArrow: Spec<"checkValveWithArrow", CheckValveWithArrowProps> = {
   name: "Check (Arrow)",
   key: "checkValveWithArrow",
   Form: CommonStyleForm,
   Symbol: CheckValveWithArrow,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Check Valve"),
     ...ZERO_PROPS,
@@ -1424,12 +1327,12 @@ const checkValveWithArrow: Spec<CheckValveWithArrowProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const vent: Spec<VentProps> = {
+const vent: Spec<"vent", VentProps> = {
   name: "Vent",
   key: "vent",
   Form: CommonStyleForm,
   Symbol: Vent,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Vent"),
     ...ZERO_PROPS,
@@ -1438,12 +1341,12 @@ const vent: Spec<VentProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const tJunction: Spec<TJunctionProps> = {
+const tJunction: Spec<"tJunction", TJunctionProps> = {
   name: "T Junction",
   key: "tJunction",
   Form: CommonStyleForm,
   Symbol: TJunction,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel(""),
     ...ZERO_PROPS,
@@ -1452,12 +1355,12 @@ const tJunction: Spec<TJunctionProps> = {
   zIndex: Z_INDEX_UPPER + 20,
 };
 
-const crossJunction: Spec<CrossJunctionProps> = {
+const crossJunction: Spec<"crossJunction", CrossJunctionProps> = {
   name: "Cross Junction",
   key: "crossJunction",
   Form: CommonStyleForm,
   Symbol: CrossJunction,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel(""),
     ...ZERO_PROPS,
@@ -1466,12 +1369,12 @@ const crossJunction: Spec<CrossJunctionProps> = {
   zIndex: Z_INDEX_UPPER + 20,
 };
 
-const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
+const flowmeterGeneral: Spec<"flowmeterGeneral", FlowmeterGeneralProps> = {
   name: "General",
   key: "flowmeterGeneral",
   Form: CommonStyleForm,
   Symbol: FlowmeterGeneral,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("General Flowmeter"),
     ...ZERO_PROPS,
@@ -1480,12 +1383,15 @@ const flowmeterGeneral: Spec<FlowmeterGeneralProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
+const flowmeterElectromagnetic: Spec<
+  "flowmeterElectromagnetic",
+  FlowmeterElectromagneticProps
+> = {
   name: "Electromagnetic",
   key: "flowmeterElectromagnetic",
   Form: CommonStyleForm,
   Symbol: FlowmeterElectromagnetic,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Electromagnetic Flowmeter"),
     ...ZERO_PROPS,
@@ -1494,26 +1400,27 @@ const flowmeterElectromagnetic: Spec<FlowmeterElectromagneticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterVariableArea: Spec<FlowmeterVariableAreaProps> = {
-  name: "Variable Area",
-  key: "flowmeterVariableArea",
-  Form: CommonStyleForm,
-  Symbol: FlowmeterVariableArea,
-  defaultProps: (t) => ({
-    color: t.colors.gray.l11,
-    ...zeroLabel("Variable Area Flowmeter"),
-    ...ZERO_PROPS,
-  }),
-  Preview: Primitives.FlowmeterVariableArea,
-  zIndex: Z_INDEX_UPPER,
-};
+const flowmeterVariableArea: Spec<"flowmeterVariableArea", FlowmeterVariableAreaProps> =
+  {
+    name: "Variable Area",
+    key: "flowmeterVariableArea",
+    Form: CommonStyleForm,
+    Symbol: FlowmeterVariableArea,
+    defaultConfig: (t) => ({
+      color: t.colors.gray.l11,
+      ...zeroLabel("Variable Area Flowmeter"),
+      ...ZERO_PROPS,
+    }),
+    Preview: Primitives.FlowmeterVariableArea,
+    zIndex: Z_INDEX_UPPER,
+  };
 
-const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
+const flowmeterCoriolis: Spec<"flowmeterCoriolis", FlowmeterCoriolisProps> = {
   name: "Coriolis",
   key: "flowmeterCoriolis",
   Form: CommonStyleForm,
   Symbol: FlowmeterCoriolis,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Coriolis Flowmeter"),
     ...ZERO_PROPS,
@@ -1522,12 +1429,12 @@ const flowmeterCoriolis: Spec<FlowmeterCoriolisProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
+const flowmeterNozzle: Spec<"flowmeterNozzle", FlowmeterNozzleProps> = {
   name: "Nozzle",
   key: "flowmeterNozzle",
   Form: CommonStyleForm,
   Symbol: FlowmeterNozzle,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Nozzle Flowmeter"),
     ...ZERO_PROPS,
@@ -1536,12 +1443,12 @@ const flowmeterNozzle: Spec<FlowmeterNozzleProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
+const flowmeterVenturi: Spec<"flowmeterVenturi", FlowmeterVenturiProps> = {
   name: "Venturi",
   key: "flowmeterVenturi",
   Form: CommonStyleForm,
   Symbol: FlowmeterVenturi,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Venturi Flowmeter"),
     ...ZERO_PROPS,
@@ -1550,12 +1457,12 @@ const flowmeterVenturi: Spec<FlowmeterVenturiProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
+const flowmeterRingPiston: Spec<"flowmeterRingPiston", FlowmeterRingPistonProps> = {
   name: "Ring Piston",
   key: "flowmeterRingPiston",
   Form: CommonStyleForm,
   Symbol: FlowmeterRingPiston,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Ring Piston Flowmeter"),
     ...ZERO_PROPS,
@@ -1564,12 +1471,15 @@ const flowmeterRingPiston: Spec<FlowmeterRingPistonProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = {
+const flowmeterPositiveDisplacement: Spec<
+  "flowmeterPositiveDisplacement",
+  FlowmeterPositiveDisplacementProps
+> = {
   name: "Positive Displacement",
   key: "flowmeterPositiveDisplacement",
   Form: CommonStyleForm,
   Symbol: FlowmeterPositiveDisplacement,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Positive Displacement Flowmeter"),
     ...ZERO_PROPS,
@@ -1578,12 +1488,12 @@ const flowmeterPositiveDisplacement: Spec<FlowmeterPositiveDisplacementProps> = 
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
+const flowmeterTurbine: Spec<"flowmeterTurbine", FlowmeterTurbineProps> = {
   name: "Turbine",
   key: "flowmeterTurbine",
   Form: CommonStyleForm,
   Symbol: FlowmeterTurbine,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Turbine Flowmeter"),
     ...ZERO_PROPS,
@@ -1592,12 +1502,12 @@ const flowmeterTurbine: Spec<FlowmeterTurbineProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterPulse: Spec<FlowmeterPulseProps> = {
+const flowmeterPulse: Spec<"flowmeterPulse", FlowmeterPulseProps> = {
   name: "Pulse",
   key: "flowmeterPulse",
   Form: CommonStyleForm,
   Symbol: FlowmeterPulse,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Pulse Flowmeter"),
     ...ZERO_PROPS,
@@ -1606,12 +1516,12 @@ const flowmeterPulse: Spec<FlowmeterPulseProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
+const flowmeterFloatSensor: Spec<"flowmeterFloatSensor", FlowmeterFloatSensorProps> = {
   name: "Float Sensor",
   key: "flowmeterFloatSensor",
   Form: CommonStyleForm,
   Symbol: FlowmeterFloatSensor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Float Sensor Flowmeter"),
     ...ZERO_PROPS,
@@ -1620,12 +1530,12 @@ const flowmeterFloatSensor: Spec<FlowmeterFloatSensorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
+const flowmeterOrifice: Spec<"flowmeterOrifice", FlowmeterOrificeProps> = {
   name: "Orifice",
   key: "flowmeterOrifice",
   Form: CommonStyleForm,
   Symbol: FlowmeterOrifice,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Orifice Flowmeter"),
     ...ZERO_PROPS,
@@ -1634,12 +1544,12 @@ const flowmeterOrifice: Spec<FlowmeterOrificeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
+const heatExchangerGeneral: Spec<"heatExchangerGeneral", HeatExchangerGeneralProps> = {
   name: "Heat Exchanger",
   key: "heatExchangerGeneral",
   Form: CommonStyleForm,
   Symbol: HeatExchangerGeneral,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("General Heat Exchanger"),
     ...ZERO_PROPS,
@@ -1648,12 +1558,12 @@ const heatExchangerGeneral: Spec<HeatExchangerGeneralProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const heatExchangerM: Spec<HeatExchangerMProps> = {
+const heatExchangerM: Spec<"heatExchangerM", HeatExchangerMProps> = {
   name: "M-Type Heat Exchanger",
   key: "heatExchangerM",
   Form: CommonStyleForm,
   Symbol: HeatExchangerM,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("M Heat Exchanger"),
     ...ZERO_PROPS,
@@ -1662,12 +1572,15 @@ const heatExchangerM: Spec<HeatExchangerMProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
+const heatExchangerStraightTube: Spec<
+  "heatExchangerStraightTube",
+  HeatExchangerStraightTubeProps
+> = {
   name: "Straight Tube Heat Exchanger",
   key: "heatExchangerStraightTube",
   Form: CommonStyleForm,
   Symbol: HeatExchangerStraightTube,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Straight Tube Heat Exchanger"),
     ...ZERO_PROPS,
@@ -1676,12 +1589,12 @@ const heatExchangerStraightTube: Spec<HeatExchangerStraightTubeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const turboCompressor: Spec<TurboCompressorProps> = {
+const turboCompressor: Spec<"turboCompressor", TurboCompressorProps> = {
   name: "Turbo Compressor",
   key: "turboCompressor",
   Form: CommonToggleForm,
   Symbol: TurboCompressor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Turbo Compressor"),
     ...ZERO_TOGGLE_PROPS,
@@ -1690,12 +1603,12 @@ const turboCompressor: Spec<TurboCompressorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
+const rollerVaneCompressor: Spec<"rollerVaneCompressor", RollerVaneCompressorProps> = {
   name: "Roller Vane Compressor",
   key: "rollerVaneCompressor",
   Form: CommonToggleForm,
   Symbol: RollerVaneCompressor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Roller Vane Compressor"),
     ...ZERO_TOGGLE_PROPS,
@@ -1704,12 +1617,12 @@ const rollerVaneCompressor: Spec<RollerVaneCompressorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
+const liquidRingCompressor: Spec<"liquidRingCompressor", LiquidRingCompressorProps> = {
   name: "Liquid Ring Compressor",
   key: "liquidRingCompressor",
   Form: CommonToggleForm,
   Symbol: LiquidRingCompressor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Liquid Ring Compressor"),
     ...ZERO_TOGGLE_PROPS,
@@ -1718,12 +1631,12 @@ const liquidRingCompressor: Spec<LiquidRingCompressorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const ejectorCompressor: Spec<EjectorCompressorProps> = {
+const ejectorCompressor: Spec<"ejectorCompressor", EjectorCompressorProps> = {
   name: "Ejector Compressor",
   key: "ejectorCompressor",
   Form: CommonToggleForm,
   Symbol: EjectorCompressor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Ejector Compressor"),
     ...ZERO_TOGGLE_PROPS,
@@ -1732,26 +1645,27 @@ const ejectorCompressor: Spec<EjectorCompressorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const centrifugalCompressor: Spec<CentrifugalCompressorProps> = {
-  name: "Centrifugal Compressor",
-  key: "centrifugalCompressor",
-  Form: CommonToggleForm,
-  Symbol: CentrifugalCompressor,
-  defaultProps: (t) => ({
-    color: t.colors.gray.l11,
-    ...zeroLabel("Centrifugal Compressor"),
-    ...ZERO_TOGGLE_PROPS,
-  }),
-  Preview: Primitives.CentrifugalCompressor,
-  zIndex: Z_INDEX_UPPER,
-};
+const centrifugalCompressor: Spec<"centrifugalCompressor", CentrifugalCompressorProps> =
+  {
+    name: "Centrifugal Compressor",
+    key: "centrifugalCompressor",
+    Form: CommonToggleForm,
+    Symbol: CentrifugalCompressor,
+    defaultConfig: (t) => ({
+      color: t.colors.gray.l11,
+      ...zeroLabel("Centrifugal Compressor"),
+      ...ZERO_TOGGLE_PROPS,
+    }),
+    Preview: Primitives.CentrifugalCompressor,
+    zIndex: Z_INDEX_UPPER,
+  };
 
-const diaphragmPump: Spec<DiaphragmPumpProps> = {
+const diaphragmPump: Spec<"diaphragmPump", DiaphragmPumpProps> = {
   name: "Diaphragm Pump",
   key: "diaphragmPump",
   Form: CommonToggleForm,
   Symbol: DiaphragmPump,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Diaphragm Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -1760,12 +1674,12 @@ const diaphragmPump: Spec<DiaphragmPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const ejectionPump: Spec<EjectionPumpProps> = {
+const ejectionPump: Spec<"ejectionPump", EjectionPumpProps> = {
   name: "Ejection",
   key: "ejectionPump",
   Form: CommonToggleForm,
   Symbol: EjectionPump,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Ejection Pump"),
     ...ZERO_TOGGLE_PROPS,
@@ -1774,12 +1688,12 @@ const ejectionPump: Spec<EjectionPumpProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flameArrestor: Spec<FlameArrestorProps> = {
+const flameArrestor: Spec<"flameArrestor", FlameArrestorProps> = {
   name: "Standard",
   key: "flameArrestor",
   Form: CommonStyleForm,
   Symbol: FlameArrestor,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor"),
     ...ZERO_PROPS,
@@ -1788,12 +1702,15 @@ const flameArrestor: Spec<FlameArrestorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
+const flameArrestorExplosion: Spec<
+  "flameArrestorExplosion",
+  FlameArrestorExplosionProps
+> = {
   name: "Explosion-Proof",
   key: "flameArrestorExplosion",
   Form: CommonStyleForm,
   Symbol: FlameArrestorExplosion,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Explosion-Proof)"),
     ...ZERO_PROPS,
@@ -1802,12 +1719,15 @@ const flameArrestorExplosion: Spec<FlameArrestorExplosionProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
+const flameArrestorDetonation: Spec<
+  "flameArrestorDetonation",
+  FlameArrestorDetonationProps
+> = {
   name: "Detonation-Proof",
   key: "flameArrestorDetonation",
   Form: CommonStyleForm,
   Symbol: FlameArrestorDetonation,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Detonation-Proof)"),
     ...ZERO_PROPS,
@@ -1816,12 +1736,12 @@ const flameArrestorDetonation: Spec<FlameArrestorDetonationProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
+const flameArrestorFireRes: Spec<"flameArrestorFireRes", FlameArrestorFireResProps> = {
   name: "Fire Resistant",
   key: "flameArrestorFireRes",
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireRes,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Fire Resistant)"),
     ...ZERO_PROPS,
@@ -1830,12 +1750,15 @@ const flameArrestorFireRes: Spec<FlameArrestorFireResProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> = {
+const flameArrestorFireResDetonation: Spec<
+  "flameArrestorFireResDetonation",
+  FlameArrestorFireResDetonationProps
+> = {
   name: "Fire Resistant & Detonation-Proof",
   key: "flameArrestorFireResDetonation",
   Form: CommonStyleForm,
   Symbol: FlameArrestorFireResDetonation,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Flame Arrestor (Fire Resistant and Detonation-Proof)"),
     ...ZERO_PROPS,
@@ -1844,12 +1767,12 @@ const flameArrestorFireResDetonation: Spec<FlameArrestorFireResDetonationProps> 
   zIndex: Z_INDEX_UPPER,
 };
 
-const thruster: Spec<ThrusterProps> = {
+const thruster: Spec<"thruster", ThrusterProps> = {
   name: "Thruster",
   key: "thruster",
   Form: CommonToggleForm,
   Symbol: Thruster,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Thruster"),
     ...ZERO_TOGGLE_PROPS,
@@ -1858,12 +1781,12 @@ const thruster: Spec<ThrusterProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const nozzle: Spec<NozzleProps> = {
+const nozzle: Spec<"nozzle", NozzleProps> = {
   name: "Nozzle",
   key: "nozzle",
   Form: CommonStyleForm,
   Symbol: Nozzle,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Nozzle"),
     ...ZERO_PROPS,
@@ -1872,12 +1795,12 @@ const nozzle: Spec<NozzleProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const strainer: Spec<StrainerProps> = {
+const strainer: Spec<"strainer", StrainerProps> = {
   name: "Strainer",
   key: "strainer",
   Form: CommonStyleForm,
   Symbol: Strainer,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Strainer"),
     ...ZERO_PROPS,
@@ -1886,12 +1809,12 @@ const strainer: Spec<StrainerProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const strainerCone: Spec<StrainerConeProps> = {
+const strainerCone: Spec<"strainerCone", StrainerConeProps> = {
   name: "Cone",
   key: "strainerCone",
   Form: CommonStyleForm,
   Symbol: StrainerCone,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Strainer Cone"),
     ...ZERO_PROPS,
@@ -1900,12 +1823,12 @@ const strainerCone: Spec<StrainerConeProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const customActuator: Spec<RemoteActuatorProps> = {
+const customActuator: Spec<"customActuator", RemoteActuatorProps> = {
   name: "Custom Actuator",
   key: "customActuator",
   Form: CommonToggleForm,
   Symbol: RemoteActuator,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Custom Actuator"),
     ...ZERO_TOGGLE_PROPS,
@@ -1916,12 +1839,12 @@ const customActuator: Spec<RemoteActuatorProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-const customStatic: Spec<CustomStaticProps> = {
+const customStatic: Spec<"customStatic", CustomStaticProps> = {
   name: "Custom Static",
   key: "customStatic",
   Form: CommonStyleForm,
   Symbol: CustomStatic,
-  defaultProps: (t) => ({
+  defaultConfig: (t) => ({
     color: t.colors.gray.l11,
     ...zeroLabel("Custom Static"),
     ...ZERO_PROPS,
@@ -1932,7 +1855,7 @@ const customStatic: Spec<CustomStaticProps> = {
   zIndex: Z_INDEX_UPPER,
 };
 
-export const REGISTRY: Record<Variant, Spec<any>> = {
+export const REGISTRY = {
   value,
   gauge,
   button,
@@ -2033,7 +1956,14 @@ export const REGISTRY: Record<Variant, Spec<any>> = {
   strainerCone,
   customActuator,
   customStatic,
-};
+} as const;
+
+const VARIANTS = Object.keys(REGISTRY);
+export const variantZ = z.enum(VARIANTS);
+export type Variant = keyof typeof REGISTRY;
+export type Config = ReturnType<
+  (typeof REGISTRY)[keyof typeof REGISTRY]["defaultConfig"]
+>;
 
 export interface Group extends group.Group {
   Icon: Icon.FC;
@@ -2191,3 +2121,11 @@ export const GROUPS: Group[] = [
     ],
   },
 ];
+
+const resolveSpec = (variant: string): Spec<Variant, Config> => {
+  const spec = REGISTRY[variant as Variant];
+  if (spec == null) throw new NotFoundError(`Edge with variant ${variant} not found`);
+  return spec;
+};
+
+export const resolve = (variant: string): Edge<Config> => resolveSpec(variant).Edge;

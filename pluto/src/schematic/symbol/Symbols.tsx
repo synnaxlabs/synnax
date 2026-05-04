@@ -138,7 +138,7 @@ const controlStateGridItem = (props?: ControlStateProps): GridItem | null => {
   };
 };
 
-export type ToggleProps<T> = T &
+export type ToggleConfig<T> = T &
   Omit<Toggle.UseProps, "aetherKey" | "onChange"> & {
     label?: LabelExtensionProps;
     control?: ControlStateProps;
@@ -157,7 +157,7 @@ export const createToggle = <P extends object = object>(
     onConfigChange: onChange,
     selected,
     config: data,
-  }: SymbolProps<ToggleProps<P>>): ReactElement => {
+  }: SymbolProps<ToggleConfig<P>>): ReactElement => {
     const {
       control,
       source,
@@ -186,16 +186,16 @@ export const createToggle = <P extends object = object>(
         onRotate={() =>
           onChange({
             orientation: location.rotate(orientation, "clockwise"),
-          } as Partial<ToggleProps<P>>)
+          } as Partial<ToggleConfig<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
             onChange({ label: { ...label, orientation: loc } } as Partial<
-              ToggleProps<P>
+              ToggleConfig<P>
             >);
           if (key === "control")
             onChange({ control: { ...control, orientation: loc } } as Partial<
-              ToggleProps<P>
+              ToggleConfig<P>
             >);
         }}
         {...overrides?.grid}
@@ -216,7 +216,7 @@ export const createToggle = <P extends object = object>(
   return M;
 };
 
-type LabeledProps<P extends object = object> = P & {
+type LabeledConfig<P extends object = object> = P & {
   label?: LabelExtensionProps;
   orientation?: location.Outer;
 };
@@ -234,7 +234,7 @@ export const createLabeled = <P extends object = object>(
     onConfigChange: onChange,
     selected,
     config: data,
-  }: SymbolProps<LabeledProps<P>>): ReactElement => {
+  }: SymbolProps<LabeledConfig<P>>): ReactElement => {
     const { label, orientation = "left", ...rest } = data;
     const gridItems: GridItem[] = [];
     /* @ts-expect-error - typescript with HOCs */
@@ -249,13 +249,13 @@ export const createLabeled = <P extends object = object>(
         onRotate={() =>
           onChange({
             orientation: location.rotate(orientation, "clockwise"),
-          } as Partial<LabeledProps<P>>)
+          } as Partial<LabeledConfig<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
             onChange({
               label: { ...label, orientation: loc },
-            } as Partial<LabeledProps<P>>);
+            } as Partial<LabeledConfig<P>>);
         }}
       >
         {/* @ts-expect-error - typescript with HOCs */}
@@ -268,7 +268,7 @@ export const createLabeled = <P extends object = object>(
   return M;
 };
 
-type DummyToggleProps<P extends object = object> = LabeledProps<P> & {
+type DummyToggleProps<P extends object = object> = LabeledConfig<P> & {
   enabled?: boolean;
   clickable?: boolean;
 };
@@ -303,13 +303,13 @@ export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) =
         onRotate={() =>
           onChange({
             orientation: location.rotate(orientation, "clockwise"),
-          } as Partial<LabeledProps<P>>)
+          } as Partial<LabeledConfig<P>>)
         }
         onLocationChange={(key, loc) => {
           if (key === "label")
             onChange({
               label: { ...label, orientation: loc },
-            } as Partial<LabeledProps<P>>);
+            } as Partial<LabeledConfig<P>>);
         }}
       >
         {/* @ts-expect-error - typescript with HOCs */}
@@ -331,194 +331,194 @@ export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) =
 export const RemoteActuator = createToggle<Primitives.CustomActuatorProps>(
   Primitives.CustomActuator,
 );
-export type RemoteActuatorProps = ToggleProps<Primitives.CustomActuatorProps>;
+export type RemoteActuatorProps = ToggleConfig<Primitives.CustomActuatorProps>;
 export const ThreeWayValve = createToggle(Primitives.ThreeWayValve);
-export type ThreeWayValveProps = ToggleProps<Primitives.ThreeWayValveProps>;
+export type ThreeWayValveProps = ToggleConfig<Primitives.ThreeWayValveProps>;
 export const Valve = createToggle(Primitives.Valve);
-export type ValveProps = ToggleProps<Primitives.ValveProps>;
+export type ValveProps = ToggleConfig<Primitives.ValveProps>;
 export const SolenoidValve = createToggle(Primitives.SolenoidValve);
-export type SolenoidValveProps = ToggleProps<Primitives.SolenoidValveProps>;
+export type SolenoidValveProps = ToggleConfig<Primitives.SolenoidValveProps>;
 export const FourWayValve = createToggle(Primitives.FourWayValve);
-export type FourWayValveProps = ToggleProps<Primitives.FourWayValveProps>;
+export type FourWayValveProps = ToggleConfig<Primitives.FourWayValveProps>;
 export const AngledValve = createToggle(Primitives.AngledValve);
-export type AngledValveProps = ToggleProps<Primitives.AngledValveProps>;
+export type AngledValveProps = ToggleConfig<Primitives.AngledValveProps>;
 export const Pump = createToggle(Primitives.Pump);
-export type PumpProps = ToggleProps<Primitives.PumpProps>;
+export type PumpProps = ToggleConfig<Primitives.PumpProps>;
 export const DiaphragmPump = createToggle(Primitives.DiaphragmPump);
-export type DiaphragmPumpProps = ToggleProps<Primitives.DiaphragmPumpProps>;
+export type DiaphragmPumpProps = ToggleConfig<Primitives.DiaphragmPumpProps>;
 export const EjectionPump = createToggle(Primitives.EjectionPump);
-export type EjectionPumpProps = ToggleProps<Primitives.EjectionPumpProps>;
+export type EjectionPumpProps = ToggleConfig<Primitives.EjectionPumpProps>;
 export const VacuumPump = createToggle(Primitives.VacuumPump);
-export type VacuumPumpProps = ToggleProps<Primitives.VacuumPumpProps>;
+export type VacuumPumpProps = ToggleConfig<Primitives.VacuumPumpProps>;
 export const CavityPump = createToggle(Primitives.CavityPump);
-export type CavityPumpProps = ToggleProps<Primitives.CavityPumpProps>;
+export type CavityPumpProps = ToggleConfig<Primitives.CavityPumpProps>;
 export const PistonPump = createToggle(Primitives.PistonPump);
-export type PistonPumpProps = ToggleProps<Primitives.PistonPumpProps>;
+export type PistonPumpProps = ToggleConfig<Primitives.PistonPumpProps>;
 export const RotaryMixer = createToggle(Primitives.RotaryMixer);
-export type RotaryMixerProps = ToggleProps<Primitives.RotaryMixerProps>;
+export type RotaryMixerProps = ToggleConfig<Primitives.RotaryMixerProps>;
 export const Agitator = createToggle(Primitives.Agitator);
-export type AgitatorProps = ToggleProps<Primitives.AgitatorProps>;
+export type AgitatorProps = ToggleConfig<Primitives.AgitatorProps>;
 export const PropellerAgitator = createToggle(Primitives.PropellerAgitator);
-export type PropellerAgitatorProps = ToggleProps<Primitives.PropellerAgitatorProps>;
+export type PropellerAgitatorProps = ToggleConfig<Primitives.PropellerAgitatorProps>;
 export const FlatBladeAgitator = createToggle(Primitives.FlatBladeAgitator);
-export type FlatBladeAgitatorProps = ToggleProps<Primitives.FlatBladeAgitatorProps>;
+export type FlatBladeAgitatorProps = ToggleConfig<Primitives.FlatBladeAgitatorProps>;
 export const PaddleAgitator = createToggle(Primitives.PaddleAgitator);
-export type PaddleAgitatorProps = ToggleProps<Primitives.PaddleAgitatorProps>;
+export type PaddleAgitatorProps = ToggleConfig<Primitives.PaddleAgitatorProps>;
 export const CrossBeamAgitator = createToggle(Primitives.CrossBeamAgitator);
-export type CrossBeamAgitatorProps = ToggleProps<Primitives.CrossBeamAgitatorProps>;
+export type CrossBeamAgitatorProps = ToggleConfig<Primitives.CrossBeamAgitatorProps>;
 export const HelicalAgitator = createToggle(Primitives.HelicalAgitator);
-export type HelicalAgitatorProps = ToggleProps<Primitives.HelicalAgitatorProps>;
+export type HelicalAgitatorProps = ToggleConfig<Primitives.HelicalAgitatorProps>;
 export const ScrewPump = createToggle(Primitives.ScrewPump);
-export type ScrewPumpProps = ToggleProps<Primitives.ScrewPumpProps>;
+export type ScrewPumpProps = ToggleConfig<Primitives.ScrewPumpProps>;
 export const Compressor = createToggle(Primitives.Compressor);
-export type CompressorProps = ToggleProps<Primitives.CompressorProps>;
+export type CompressorProps = ToggleConfig<Primitives.CompressorProps>;
 export const TurboCompressor = createToggle(Primitives.TurboCompressor);
-export type TurboCompressorProps = ToggleProps<Primitives.TurboCompressorProps>;
+export type TurboCompressorProps = ToggleConfig<Primitives.TurboCompressorProps>;
 export const RollerVaneCompressor = createToggle(Primitives.RollerVaneCompressor);
 export type RollerVaneCompressorProps =
-  ToggleProps<Primitives.RollerVaneCompressorProps>;
+  ToggleConfig<Primitives.RollerVaneCompressorProps>;
 export const LiquidRingCompressor = createToggle(Primitives.LiquidRingCompressor);
 export type LiquidRingCompressorProps =
-  ToggleProps<Primitives.LiquidRingCompressorProps>;
+  ToggleConfig<Primitives.LiquidRingCompressorProps>;
 export const EjectorCompressor = createToggle(Primitives.EjectorCompressor);
-export type EjectorCompressorProps = ToggleProps<Primitives.EjectorCompressorProps>;
+export type EjectorCompressorProps = ToggleConfig<Primitives.EjectorCompressorProps>;
 export const CentrifugalCompressor = createToggle(Primitives.CentrifugalCompressor);
 export type CentrifugalCompressorProps =
-  ToggleProps<Primitives.CentrifugalCompressorProps>;
+  ToggleConfig<Primitives.CentrifugalCompressorProps>;
 export const ButterflyValveOne = createToggle(Primitives.ButterflyValveOne);
-export type ButterflyValveOneProps = ToggleProps<Primitives.ButterflyValveOneProps>;
+export type ButterflyValveOneProps = ToggleConfig<Primitives.ButterflyValveOneProps>;
 export const ButterflyValveTwo = createToggle(Primitives.ButterflyValveTwo);
-export type ButterflyValveTwoProps = ToggleProps<Primitives.ButterflyValveTwoProps>;
+export type ButterflyValveTwoProps = ToggleConfig<Primitives.ButterflyValveTwoProps>;
 export const BallValve = createToggle(Primitives.BallValve);
-export type BallValveProps = ToggleProps<Primitives.BallValveProps>;
+export type BallValveProps = ToggleConfig<Primitives.BallValveProps>;
 export const ThreeWayBallValve = createToggle(Primitives.ThreeWayBallValve);
-export type ThreeWayBallValveProps = ToggleProps<Primitives.ThreeWayBallValveProps>;
+export type ThreeWayBallValveProps = ToggleConfig<Primitives.ThreeWayBallValveProps>;
 export const GateValve = createToggle(Primitives.GateValve);
-export type GateValveProps = ToggleProps<Primitives.GateValveProps>;
+export type GateValveProps = ToggleConfig<Primitives.GateValveProps>;
 
 // |||||||| STATIC + LABELED ||||||||
 
 export const Regulator = createLabeled(Primitives.Regulator);
-export type RegulatorProps = LabeledProps<Primitives.RegulatorProps>;
+export type RegulatorProps = LabeledConfig<Primitives.RegulatorProps>;
 export const RegulatorManual = createLabeled(Primitives.RegulatorManual);
-export type RegulatorManualProps = LabeledProps<Primitives.RegulatorManualProps>;
+export type RegulatorManualProps = LabeledConfig<Primitives.RegulatorManualProps>;
 export const ElectricRegulator = createLabeled(Primitives.ElectricRegulator);
-export type ElectricRegulatorProps = LabeledProps<Primitives.ElectricRegulatorProps>;
+export type ElectricRegulatorProps = LabeledConfig<Primitives.ElectricRegulatorProps>;
 export const ElectricRegulatorMotorized = createLabeled(
   Primitives.ElectricRegulatorMotorized,
 );
 export type ElectricRegulatorMotorizedProps =
-  LabeledProps<Primitives.ElectricRegulatorMotorizedProps>;
+  LabeledConfig<Primitives.ElectricRegulatorMotorizedProps>;
 export const BurstDisc = createLabeled(Primitives.BurstDisc);
-export type BurstDiscProps = LabeledProps<Primitives.BurstDiscProps>;
+export type BurstDiscProps = LabeledConfig<Primitives.BurstDiscProps>;
 export const Cap = createLabeled(Primitives.Cap);
-export type CapProps = LabeledProps<Primitives.CapProps>;
+export type CapProps = LabeledConfig<Primitives.CapProps>;
 export const ISOCap = createLabeled(Primitives.ISOCap);
-export type ISOCapProps = LabeledProps<Primitives.ISOCapProps>;
+export type ISOCapProps = LabeledConfig<Primitives.ISOCapProps>;
 export const Filter = createLabeled(Primitives.Filter);
-export type FilterProps = LabeledProps<Primitives.FilterProps>;
+export type FilterProps = LabeledConfig<Primitives.FilterProps>;
 export const CheckValve = createLabeled(Primitives.CheckValve);
-export type CheckValveProps = LabeledProps<Primitives.CheckValveProps>;
+export type CheckValveProps = LabeledConfig<Primitives.CheckValveProps>;
 export const ISOCheckValve = createLabeled(Primitives.ISOCheckValve);
-export type ISOCheckValveProps = LabeledProps<Primitives.ISOCheckValveProps>;
+export type ISOCheckValveProps = LabeledConfig<Primitives.ISOCheckValveProps>;
 export const CheckValveWithArrow = createLabeled(Primitives.CheckValveWithArrow);
 export type CheckValveWithArrowProps =
-  LabeledProps<Primitives.CheckValveWithArrowProps>;
+  LabeledConfig<Primitives.CheckValveWithArrowProps>;
 export const Orifice = createLabeled(Primitives.Orifice);
-export type OrificeProps = LabeledProps<Primitives.OrificeProps>;
+export type OrificeProps = LabeledConfig<Primitives.OrificeProps>;
 export const Switch = createToggle(Primitives.Switch, { grid: { allowRotate: false } });
-export type SwitchProps = ToggleProps<Primitives.SwitchProps>;
+export type SwitchProps = ToggleConfig<Primitives.SwitchProps>;
 export const Vent = createLabeled(Primitives.Vent);
-export type VentProps = LabeledProps<Primitives.VentProps>;
+export type VentProps = LabeledConfig<Primitives.VentProps>;
 export const OrificePlate = createLabeled(Primitives.OrificePlate);
-export type OrificePlateProps = LabeledProps<Primitives.OrificePlateProps>;
+export type OrificePlateProps = LabeledConfig<Primitives.OrificePlateProps>;
 export const ISOFilter = createLabeled(Primitives.ISOFilter);
-export type ISOFilterProps = LabeledProps<Primitives.ISOFilterProps>;
+export type ISOFilterProps = LabeledConfig<Primitives.ISOFilterProps>;
 export const FlowStraightener = createLabeled(Primitives.FlowStraightener);
-export type FlowStraightenerProps = LabeledProps<Primitives.FlowStraightenerProps>;
+export type FlowStraightenerProps = LabeledConfig<Primitives.FlowStraightenerProps>;
 export const HeaterElement = createLabeled(Primitives.HeaterElement);
-export type HeaterElementProps = LabeledProps<Primitives.HeaterElementProps>;
+export type HeaterElementProps = LabeledConfig<Primitives.HeaterElementProps>;
 export const ISOBurstDisc = createLabeled(Primitives.ISOBurstDisc);
-export type ISOBurstDiscProps = LabeledProps<Primitives.ISOBurstDiscProps>;
+export type ISOBurstDiscProps = LabeledConfig<Primitives.ISOBurstDiscProps>;
 export const CustomStatic = createLabeled(Primitives.CustomStatic);
-export type CustomStaticProps = LabeledProps<Primitives.CustomStaticProps>;
+export type CustomStaticProps = LabeledConfig<Primitives.CustomStaticProps>;
 export const TJunction = createLabeled(Primitives.TJunction);
-export type TJunctionProps = LabeledProps<Primitives.TJunctionProps>;
+export type TJunctionProps = LabeledConfig<Primitives.TJunctionProps>;
 export const CrossJunction = createLabeled(Primitives.CrossJunction, {
   grid: { allowRotate: false },
 });
-export type CrossJunctionProps = LabeledProps<Primitives.CrossJunctionProps>;
+export type CrossJunctionProps = LabeledConfig<Primitives.CrossJunctionProps>;
 export const StaticMixer = createLabeled(Primitives.StaticMixer);
-export type StaticMixerProps = LabeledProps<Primitives.StaticMixerProps>;
+export type StaticMixerProps = LabeledConfig<Primitives.StaticMixerProps>;
 export const FlowmeterGeneral = createLabeled(Primitives.FlowmeterGeneral);
-export type FlowmeterGeneralProps = LabeledProps<Primitives.FlowmeterGeneralProps>;
+export type FlowmeterGeneralProps = LabeledConfig<Primitives.FlowmeterGeneralProps>;
 export const FlowmeterElectromagnetic = createLabeled(
   Primitives.FlowmeterElectromagnetic,
 );
 export type FlowmeterElectromagneticProps =
-  LabeledProps<Primitives.FlowmeterElectromagneticProps>;
+  LabeledConfig<Primitives.FlowmeterElectromagneticProps>;
 export const FlowmeterVariableArea = createLabeled(Primitives.FlowmeterVariableArea);
 export type FlowmeterVariableAreaProps =
-  LabeledProps<Primitives.FlowmeterVariableAreaProps>;
+  LabeledConfig<Primitives.FlowmeterVariableAreaProps>;
 export const FlowmeterCoriolis = createLabeled(Primitives.FlowmeterCoriolis);
-export type FlowmeterCoriolisProps = LabeledProps<Primitives.FlowmeterCoriolisProps>;
+export type FlowmeterCoriolisProps = LabeledConfig<Primitives.FlowmeterCoriolisProps>;
 export const FlowmeterNozzle = createLabeled(Primitives.FlowmeterNozzle);
-export type FlowmeterNozzleProps = LabeledProps<Primitives.FlowmeterNozzleProps>;
+export type FlowmeterNozzleProps = LabeledConfig<Primitives.FlowmeterNozzleProps>;
 export const FlowmeterVenturi = createLabeled(Primitives.FlowmeterVenturi);
-export type FlowmeterVenturiProps = LabeledProps<Primitives.FlowmeterVenturiProps>;
+export type FlowmeterVenturiProps = LabeledConfig<Primitives.FlowmeterVenturiProps>;
 export const FlowmeterRingPiston = createLabeled(Primitives.FlowmeterRingPiston);
 export type FlowmeterRingPistonProps =
-  LabeledProps<Primitives.FlowmeterRingPistonProps>;
+  LabeledConfig<Primitives.FlowmeterRingPistonProps>;
 export const FlowmeterPositiveDisplacement = createLabeled(
   Primitives.FlowmeterPositiveDisplacement,
 );
 export type FlowmeterPositiveDisplacementProps =
-  LabeledProps<Primitives.FlowmeterPositiveDisplacementProps>;
+  LabeledConfig<Primitives.FlowmeterPositiveDisplacementProps>;
 export const FlowmeterTurbine = createLabeled(Primitives.FlowmeterTurbine);
-export type FlowmeterTurbineProps = LabeledProps<Primitives.FlowmeterTurbineProps>;
+export type FlowmeterTurbineProps = LabeledConfig<Primitives.FlowmeterTurbineProps>;
 export const FlowmeterPulse = createLabeled(Primitives.FlowmeterPulse);
-export type FlowmeterPulseProps = LabeledProps<Primitives.FlowmeterPulseProps>;
+export type FlowmeterPulseProps = LabeledConfig<Primitives.FlowmeterPulseProps>;
 export const FlowmeterFloatSensor = createLabeled(Primitives.FlowmeterFloatSensor);
 export type FlowmeterFloatSensorProps =
-  LabeledProps<Primitives.FlowmeterFloatSensorProps>;
+  LabeledConfig<Primitives.FlowmeterFloatSensorProps>;
 export const FlowmeterOrifice = createLabeled(Primitives.FlowmeterOrifice);
-export type FlowmeterOrificeProps = LabeledProps<Primitives.FlowmeterOrificeProps>;
+export type FlowmeterOrificeProps = LabeledConfig<Primitives.FlowmeterOrificeProps>;
 export const HeatExchangerGeneral = createLabeled(Primitives.HeatExchangerGeneral);
 export type HeatExchangerGeneralProps =
-  LabeledProps<Primitives.HeatExchangerGeneralProps>;
+  LabeledConfig<Primitives.HeatExchangerGeneralProps>;
 export const HeatExchangerM = createLabeled(Primitives.HeatExchangerM);
-export type HeatExchangerMProps = LabeledProps<Primitives.HeatExchangerMProps>;
+export type HeatExchangerMProps = LabeledConfig<Primitives.HeatExchangerMProps>;
 export const HeatExchangerStraightTube = createLabeled(
   Primitives.HeatExchangerStraightTube,
 );
 export type HeatExchangerStraightTubeProps =
-  LabeledProps<Primitives.HeatExchangerStraightTubeProps>;
+  LabeledConfig<Primitives.HeatExchangerStraightTubeProps>;
 export const FlameArrestor = createLabeled(Primitives.FlameArrestor);
-export type FlameArrestorProps = LabeledProps<Primitives.FlameArrestorProps>;
+export type FlameArrestorProps = LabeledConfig<Primitives.FlameArrestorProps>;
 export const FlameArrestorExplosion = createLabeled(Primitives.FlameArrestorExplosion);
 export type FlameArrestorExplosionProps =
-  LabeledProps<Primitives.FlameArrestorExplosionProps>;
+  LabeledConfig<Primitives.FlameArrestorExplosionProps>;
 export const FlameArrestorDetonation = createLabeled(
   Primitives.FlameArrestorDetonation,
 );
 export type FlameArrestorDetonationProps =
-  LabeledProps<Primitives.FlameArrestorDetonationProps>;
+  LabeledConfig<Primitives.FlameArrestorDetonationProps>;
 export const FlameArrestorFireRes = createLabeled(Primitives.FlameArrestorFireRes);
 export type FlameArrestorFireResProps =
-  LabeledProps<Primitives.FlameArrestorFireResProps>;
+  LabeledConfig<Primitives.FlameArrestorFireResProps>;
 export const FlameArrestorFireResDetonation = createLabeled(
   Primitives.FlameArrestorFireResDetonation,
 );
 export type FlameArrestorFireResDetonationProps =
-  LabeledProps<Primitives.FlameArrestorFireResDetonationProps>;
+  LabeledConfig<Primitives.FlameArrestorFireResDetonationProps>;
 export const Thruster = createLabeled(Primitives.Thruster);
-export type ThrusterProps = LabeledProps<Primitives.ThrusterProps>;
+export type ThrusterProps = LabeledConfig<Primitives.ThrusterProps>;
 export const Nozzle = createLabeled(Primitives.Nozzle);
-export type NozzleProps = LabeledProps<Primitives.NozzleProps>;
+export type NozzleProps = LabeledConfig<Primitives.NozzleProps>;
 export const Strainer = createLabeled(Primitives.Strainer);
-export type StrainerProps = LabeledProps<Primitives.StrainerProps>;
+export type StrainerProps = LabeledConfig<Primitives.StrainerProps>;
 export const StrainerCone = createLabeled(Primitives.StrainerCone);
-export type StrainerConeProps = LabeledProps<Primitives.StrainerConeProps>;
+export type StrainerConeProps = LabeledConfig<Primitives.StrainerConeProps>;
 
 // ||||||||| TOGGLE DUMMY ||||||||
 export const NeedleValve = createDummyToggle(Primitives.NeedleValve);
@@ -617,7 +617,7 @@ export const Triangle = createLabeled(
     />
   ),
 );
-export type TriangleProps = LabeledProps<Primitives.PolygonProps>;
+export type TriangleProps = LabeledConfig<Primitives.PolygonProps>;
 
 export const PolygonSymbol = createLabeled(
   ({
@@ -1252,7 +1252,7 @@ export const Cylinder = ({
     </Grid>
   );
 };
-export type CylinderProps = LabeledProps<Omit<Primitives.CylinderProps, "onChange">>;
+export type CylinderProps = LabeledConfig<Omit<Primitives.CylinderProps, "onChange">>;
 
 export const CylinderPreview = (props: CylinderProps): ReactElement => (
   <Primitives.Cylinder {...props} dimensions={{ width: 25, height: 50 }} />

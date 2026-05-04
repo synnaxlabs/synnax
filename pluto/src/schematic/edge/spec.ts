@@ -10,7 +10,7 @@ export interface EdgeProps<Config extends object = object> extends Diagram.EdgeP
 export type Edge<Config extends object = object> = FC<EdgeProps<Config>>;
 
 export interface Spec<Variant extends string = string, P extends object = object> {
-  variant: Variant;
+  key: Variant;
   name: string;
   Form: FC;
   Edge: Edge<P>;

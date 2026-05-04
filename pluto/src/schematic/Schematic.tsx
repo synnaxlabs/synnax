@@ -16,8 +16,9 @@ import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
+import { type Symbol } from "@/schematic/symbol";
 import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
-import { REGISTRY, type Variant } from "@/schematic/symbol/registry";
+import { REGISTRY } from "@/schematic/symbol/registry";
 import { Diagram } from "@/vis/diagram";
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -26,10 +27,6 @@ export interface SchematicProps extends Omit<
   "dragHandleSelector"
 > {
   itemKey: string;
-}
-
-export interface ElementConfig {
-  variant: Variant;
 }
 
 export interface SchematicHooks {
@@ -100,4 +97,8 @@ export const create = ({ useConfig }: SchematicHooks): FC<SchematicProps> => {
     </Key.Provider>
   );
   return Schematic;
+};
+
+export type ElementConfig = (Edge.Config | Symbol.Config) & {
+  variant: Edge.Variant | Symbol.Variant;
 };

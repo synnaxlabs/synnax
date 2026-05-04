@@ -200,7 +200,7 @@ export const createSpec = <V extends string = string>(
   name: string,
   path: FC<PathProps>,
 ): Spec<V, Config> => ({
-  variant,
+  key: variant,
   name,
   Edge: create(path),
   Form,

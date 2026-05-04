@@ -40,7 +40,7 @@ export type Config = ReturnType<
 >;
 
 const SELECT_DATA: record.KeyedNamed<Variant>[] = Object.values(REGISTRY).map(
-  ({ variant, name }) => ({ key: variant, name }),
+  ({ key: variant, name }) => ({ key: variant, name }),
 );
 
 const SELECT_STYLE: CSSProperties = { width: "25rem" };
@@ -59,10 +59,10 @@ export const SelectEdgeType = (props: SelectEdgeTypeProps): ReactElement => (
   />
 );
 
-const resolveSpec = (variant: string): Spec<Variant, any> => {
+const resolveSpec = (variant: string): Spec<Variant, Config> => {
   const spec = REGISTRY[variant as Variant];
   if (spec == null) throw new NotFoundError(`Edge with variant ${variant} not found`);
   return spec;
 };
 
-export const resolve = (variant: string): Edge => resolveSpec(variant).Edge;
+export const resolve = (variant: string): Edge<Config> => resolveSpec(variant).Edge;

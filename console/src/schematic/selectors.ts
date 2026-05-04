@@ -98,20 +98,20 @@ export const selectSelectedElementsProps = (
   if (schematic == null) return [];
   const selected = new Set(schematic.selected);
   const nodes: ElementInfo[] = schematic.nodes
-    .filter((node) => selected.has(node.key) && schematic.props[node.key] != null)
+    .filter((node) => selected.has(node.key) && schematic.configs[node.key] != null)
     .map((node) => ({
       key: node.key,
       type: "node",
       node,
-      props: schematic.props[node.key] as NodeProps,
+      props: schematic.configs[node.key] as NodeProps,
     }));
   const edges: ElementInfo[] = schematic.edges
-    .filter((edge) => selected.has(edge.key) && schematic.props[edge.key] != null)
+    .filter((edge) => selected.has(edge.key) && schematic.configs[edge.key] != null)
     .map((edge) => ({
       key: edge.key,
       type: "edge",
       edge,
-      props: schematic.props[edge.key] as EdgeProps,
+      props: schematic.configs[edge.key] as EdgeProps,
     }));
   return [...nodes, ...edges];
 };
@@ -177,7 +177,7 @@ export const selectNodeProps = (
   layoutKey: string,
   key: string,
 ): NodeProps | undefined =>
-  selectOptional(state, layoutKey)?.props[key] as NodeProps | undefined;
+  selectOptional(state, layoutKey)?.configs[key] as NodeProps | undefined;
 
 export const useSelectNodeProps = (
   layoutKey: string,
@@ -273,7 +273,7 @@ export const selectElementProps = (
   state: StoreState,
   layoutKey: string,
   key: string,
-): Props | undefined => selectOptional(state, layoutKey)?.props[key];
+): Props | undefined => selectOptional(state, layoutKey)?.configs[key];
 
 export const useSelectElementProps = (
   layoutKey: string,

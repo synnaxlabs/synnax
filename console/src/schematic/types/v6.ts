@@ -35,7 +35,7 @@ export const stateZ = v5.stateZ
     version: z.literal(VERSION),
     nodes: z.array(Diagram.nodeZ),
     edges: z.array(Diagram.edgeZ),
-    props: z.record(z.string(), configZ),
+    configs: z.record(z.string(), configZ),
     legend: legendStateZ,
     selected: z.array(z.string()).default([]),
   });
@@ -45,7 +45,7 @@ export const ZERO_STATE: State = {
   version: VERSION,
   nodes: [],
   edges: [],
-  props: {},
+  configs: {},
   legend: ZERO_LEGEND_STATE,
   selected: [],
 };
@@ -136,7 +136,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
       ...state,
       version: VERSION,
       edges,
-      props,
+      configs: props,
       legend: { ...state.legend, colors: migrateLegendColors(state.legend?.colors) },
       selected: [],
     };

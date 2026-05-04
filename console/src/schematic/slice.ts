@@ -193,10 +193,10 @@ const setActiveTabFromSelection = (
 };
 
 const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void => {
-  const source = schematic.props[edge.source.node];
-  const target = schematic.props[edge.target.node];
+  const source = schematic.configs[edge.source.node];
+  const target = schematic.configs[edge.target.node];
   if (color.equals(source.color, target.color) && source.color != null)
-    schematic.props[edge.key].color = color.construct(source.color);
+    schematic.configs[edge.key].color = color.construct(source.color);
 };
 
 export const { actions, reducer } = createSlice({
@@ -212,7 +212,7 @@ export const { actions, reducer } = createSlice({
         pos: xy.ZERO,
       };
       Object.values(schematics).forEach((schematic) => {
-        const { nodes, edges, props, selected } = schematic;
+        const { nodes, edges, configs: props, selected } = schematic;
         const selectedSet = new Set(selected);
         const selectedNodes = nodes.filter((node) => selectedSet.has(node.key));
         const selectedEdges = edges.filter((edge) => selectedSet.has(edge.key));
@@ -239,7 +239,7 @@ export const { actions, reducer } = createSlice({
       const nextNodes = state.copy.nodes.map((node) => {
         const key: string = id.create();
         if (state.copy.props[node.key] != null)
-          schematic.props[key] = state.copy.props[node.key];
+          schematic.configs[key] = state.copy.props[node.key];
         keys[node.key] = key;
         return {
           ...node,
@@ -250,7 +250,7 @@ export const { actions, reducer } = createSlice({
       const nextEdges = state.copy.edges.map((edge) => {
         const key: string = id.create();
         if (state.copy.props[edge.key] != null)
-          schematic.props[key] = state.copy.props[edge.key];
+          schematic.configs[key] = state.copy.props[edge.key];
         return {
           key,
           source: {
@@ -305,12 +305,12 @@ export const { actions, reducer } = createSlice({
       const schematic = state.schematics[layoutKey];
       if (!schematic.editable) return;
       schematic.nodes.push({ position: { ...xy.ZERO }, ...node });
-      schematic.props[node.key] = props;
+      schematic.configs[node.key] = props;
     },
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
       const { key: layoutKey, elKey: key, props } = payload;
       const schematic = state.schematics[layoutKey];
-      schematic.props[key] = { ...schematic.props[key], ...props } as Props;
+      schematic.configs[key] = { ...schematic.configs[key], ...props } as Props;
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
       const { key: layoutKey, nodes, mode = "replace" } = payload;
@@ -357,7 +357,7 @@ export const { actions, reducer } = createSlice({
             schematic.edges = schematic.edges.filter(
               (e) => e.source.node !== change.key && e.target.node !== change.key,
             );
-            delete schematic.props[change.key];
+            delete schematic.configs[change.key];
             schematic.selected = schematic.selected.filter((k) => k !== change.key);
             break;
           }
@@ -375,7 +375,7 @@ export const { actions, reducer } = createSlice({
         switch (change.type) {
           case "add":
             schematic.edges.push(change.edge);
-            schematic.props[change.edge.key] = {
+            schematic.configs[change.edge.key] = {
               type: "edge",
               variant: "pipe",
               color: [...color.ZERO],
@@ -385,7 +385,7 @@ export const { actions, reducer } = createSlice({
             break;
           case "remove":
             schematic.edges = schematic.edges.filter((e) => e.key !== change.key);
-            delete schematic.props[change.key];
+            delete schematic.configs[change.key];
             schematic.selected = schematic.selected.filter((k) => k !== change.key);
             break;
         }
@@ -446,7 +446,7 @@ export const { actions, reducer } = createSlice({
         return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
       };
       Object.values(state.schematics).forEach((schematic) => {
-        Object.values(schematic.props).forEach((p) => {
+        Object.values(schematic.configs).forEach((p) => {
           if ("color" in p && p.color != null && shouldChange(p.color))
             p.color = color.construct(theme.colors.gray.l11);
         });

@@ -81,7 +81,7 @@ describe("Schematic Slice", () => {
       expect(schematic.nodes).toHaveLength(1);
       expect(schematic.nodes[0].key).toBe(nodeKey);
       expect(schematic.nodes[0].position).toEqual({ x: 100, y: 100 });
-      expect(schematic.props[nodeKey]).toEqual({ type: "node", variant: "valve" });
+      expect(schematic.configs[nodeKey]).toEqual({ type: "node", variant: "valve" });
     });
 
     it("should update node positions", () => {
