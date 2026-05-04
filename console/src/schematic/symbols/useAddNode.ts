@@ -18,20 +18,20 @@ import { type NodeProps } from "@/schematic/types";
 
 export interface AddNodeProps {
   key: string;
-  variant: Schematic.Symbol.Variant;
+  variant: Schematic.Node.Variant;
   specKey?: string;
   position?: xy.XY;
 }
 
 export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
-  const store = Flux.useStore<Schematic.Symbol.FluxSubStore>();
+  const store = Flux.useStore<Schematic.Node.FluxSubStore>();
   const theme = Theming.use();
   const baseDispatch = useDispatch();
   const actualDispatch = dispatch ?? baseDispatch;
 
   return useCallback(
     ({ key, variant, position, specKey }: AddNodeProps) => {
-      const spec = Schematic.Symbol.REGISTRY[variant];
+      const spec = Schematic.Node.REGISTRY[variant];
       const props = spec.defaultProps(theme) as NodeProps;
       if (specKey != null)
         props.label = {

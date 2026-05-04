@@ -22,7 +22,7 @@ import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useCallback } from "react";
 
 import { Runtime } from "@/runtime";
-import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/schematic/symbols/types";
+import { groupManifestZ, SYMBOL_FILE_FILTERS } from "@/schematic/nodes/types";
 
 const parseAndCreateSymbol = async (
   client: Client,

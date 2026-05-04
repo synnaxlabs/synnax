@@ -16,9 +16,7 @@ import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
-import { type Symbol } from "@/schematic/symbol";
-import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
-import { REGISTRY } from "@/schematic/symbol/registry";
+import { Node } from "@/schematic/node";
 import { Diagram } from "@/vis/diagram";
 import { type diagram } from "@/vis/diagram/aether";
 
@@ -29,7 +27,13 @@ export interface SchematicProps extends Omit<
   itemKey: string;
 }
 
-export interface SchematicHooks {
+export type ElementConfig = (Edge.Config | Node.Config) & {
+  variant: Edge.Variant | Node.Variant;
+};
+
+const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+
+export interface CreateSchematicParams {
   useConfig: (
     itemKey: string,
     nodeKey: string,
@@ -38,37 +42,27 @@ export interface SchematicHooks {
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
-export const create = ({ useConfig }: SchematicHooks): FC<SchematicProps> => {
-  const NodeRenderer = ({
-    nodeKey,
-    position,
-    selected,
-    draggable,
-  }: Diagram.NodeProps): ReactElement | null => {
+export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
+  const NodeRenderer = ({ nodeKey, ...rest }: Diagram.NodeProps): ReactElement => {
     const itemKey = Key.use<string>("Schematic.NodeRenderer");
     const [config, setConfig] = useConfig(itemKey, nodeKey);
     const { variant } = config;
     const handleChange = useCallback(
-      (next: Partial<ElementConfig>) => setConfig(nodeKey, { variant, ...next }),
-      [nodeKey, variant, setConfig],
+      (next: Partial<ElementConfig>) => setConfig(nodeKey, next),
+      [nodeKey, setConfig],
     );
-    const Spec = REGISTRY[variant];
+    const Spec = Node.resolveSpec(variant);
     return (
-      <Spec.Symbol
+      <Spec.Node
         nodeKey={nodeKey}
-        position={position}
-        selected={selected}
-        draggable={draggable}
         onConfigChange={handleChange}
         config={config}
+        {...rest}
       />
     );
   };
 
-  const EdgeRenderer = ({
-    edgeKey,
-    ...rest
-  }: diagram.EdgeProps): ReactElement | null => {
+  const EdgeRenderer = ({ edgeKey, ...rest }: diagram.EdgeProps): ReactElement => {
     const itemKey = Key.use<string>("Schematic.EdgeRenderer");
     const [config, setConfig] = useConfig(itemKey, edgeKey);
     const { variant } = config;
@@ -77,7 +71,16 @@ export const create = ({ useConfig }: SchematicHooks): FC<SchematicProps> => {
       [edgeKey, setConfig],
     );
     const E = Edge.resolve(variant);
-    return <E {...rest} edgeKey={edgeKey} onChange={handleChange} config={config} />;
+    return (
+      <E
+        {...rest}
+        edgeKey={edgeKey}
+        onChange={handleChange}
+        // eslint is not smart enough to know this type assertion is necessary
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        config={config as Edge.Config}
+      />
+    );
   };
 
   const Base = Diagram.create({
@@ -90,15 +93,11 @@ export const create = ({ useConfig }: SchematicHooks): FC<SchematicProps> => {
     <Key.Provider<string> value={itemKey}>
       <Base
         className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
         autoRenderInterval={AUTO_RENDER_INTERVAL}
         {...rest}
       />
     </Key.Provider>
   );
   return Schematic;
-};
-
-export type ElementConfig = (Edge.Config | Symbol.Config) & {
-  variant: Edge.Variant | Symbol.Variant;
 };

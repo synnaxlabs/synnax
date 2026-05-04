@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/symbols/edit/Edit.css";
+import "@/schematic/nodes/edit/Edit.css";
 
 import { ontology, type schematic } from "@synnaxlabs/client";
 import {
@@ -29,16 +29,16 @@ import { useDispatch } from "react-redux";
 import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import { Modals } from "@/modals";
-import { HandleList } from "@/schematic/symbols/edit/HandleList";
-import { Preview } from "@/schematic/symbols/edit/Preview";
-import { RegionList } from "@/schematic/symbols/edit/RegionList";
-import { StateList } from "@/schematic/symbols/edit/StateList";
-import { SelectVariantField } from "@/schematic/symbols/SelectVariant";
+import { HandleList } from "@/schematic/nodes/edit/HandleList";
+import { Preview } from "@/schematic/nodes/edit/Preview";
+import { RegionList } from "@/schematic/nodes/edit/RegionList";
+import { StateList } from "@/schematic/nodes/edit/StateList";
+import { SelectVariantField } from "@/schematic/nodes/SelectVariant";
 import { Triggers } from "@/triggers";
 
 export const EDIT_LAYOUT_TYPE = "schematic_edit_symbol";
 
-export interface CreateLayoutArgs extends Schematic.Symbol.FormQuery {
+export interface CreateLayoutArgs extends Schematic.Node.FormQuery {
   parent?: ontology.ID;
   scale?: number;
 }
@@ -84,7 +84,7 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   );
 
   const theme = Theming.use();
-  const { form, save } = Schematic.Symbol.useForm({
+  const { form, save } = Schematic.Node.useForm({
     query: { key },
     onHasTouched: handleUnsavedChanges,
     initialValues: {
@@ -180,13 +180,13 @@ export const Edit: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
     }
   };
   const hasSVG =
-    Form.useFieldValue<string, string, typeof Schematic.Symbol.formSchema>("data.svg", {
+    Form.useFieldValue<string, string, typeof Schematic.Node.formSchema>("data.svg", {
       ctx: form,
     }).length > 0;
   const createSaveText = isCreate ? "Create" : "Save";
 
   return (
-    <Form.Form<typeof Schematic.Symbol.formSchema> {...form}>
+    <Form.Form<typeof Schematic.Node.formSchema> {...form}>
       <Flex.Box
         className={CSS.BE("schematic", "symbol-create-layout")}
         empty

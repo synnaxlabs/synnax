@@ -1,0 +1,62 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { color } from "@synnaxlabs/x";
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { type Config } from "@/schematic/node/general/stateIndicator/config";
+import { Text } from "@/text";
+import { Theming } from "@/theming";
+
+interface RenderProps extends Config {
+  className?: string;
+  matchedOptionKey?: string | null;
+}
+
+export const Primitive = ({
+  className,
+  orientation = "left",
+  matchedOptionKey,
+  options,
+  color: colorVal,
+  inlineSize,
+}: RenderProps): ReactElement => {
+  const matched = options.find((o) => o.key === matchedOptionKey);
+  const stateColor = matched?.color;
+  const borderColor = colorVal != null ? color.cssString(colorVal) : undefined;
+  const backgroundColor = stateColor != null ? color.cssString(stateColor) : undefined;
+  const theme = Theming.use();
+  const textColor =
+    stateColor != null
+      ? color.cssString(
+          color.pickByContrast(stateColor, theme.colors.gray.l0, theme.colors.gray.l11),
+        )
+      : undefined;
+  const label = matched != null ? matched.name || `Option ${matched.value}` : "Unknown";
+  return (
+    <Div
+      className={CSS(CSS.B("state-indicator"), className)}
+      style={{ borderColor, backgroundColor, minWidth: inlineSize }}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation="left" left={0} top={50} id="1" />
+        <Handle location="right" orientation="left" left={100} top={50} id="2" />
+        <Handle location="top" orientation="left" left={50} top={-2} id="3" />
+        <Handle location="bottom" orientation="left" left={50} top={102} id="4" />
+      </HandleBoundary>
+      <div className={CSS.BE("state-indicator", "content")}>
+        <Text.Text level="p" color={textColor} variant="code">
+          {label}
+        </Text.Text>
+      </div>
+    </Div>
+  );
+};

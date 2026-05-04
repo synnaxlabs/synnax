@@ -1,0 +1,50 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import {
+  Handle,
+  HandleBoundary,
+  InternalSVG,
+  Line,
+  Path,
+  Toggle,
+} from "@/schematic/node/common/symbol/primitives";
+import { type Props as AgitatorProps } from "@/schematic/node/process/agitator/Primitive";
+export interface Props extends AgitatorProps {}
+
+const DIMENSIONS = { width: 87, height: 87 };
+
+export const Primitive = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...rest
+}: Props): ReactElement => (
+  <Toggle {...rest} className={CSS(CSS.B("agitator"))}>
+    <HandleBoundary orientation={orientation}>
+      <Handle location="top" orientation={orientation} left={51} top={2} id="4" />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={DIMENSIONS}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Line x1={43} y1={1} x2={43} y2={60} strokeLinecap="round" />
+      <Path
+        d="M5.375 36L70.8204 48.7138C74.0584 49.3428 74.0573 53.9765 70.8189 54.6039L14.7952 65.4584C11.5729 66.0827 11.5494 70.6856 14.7651 71.3429L81.5208 84.9873"
+        strokeLinecap="round"
+      />
+    </InternalSVG>
+  </Toggle>
+);

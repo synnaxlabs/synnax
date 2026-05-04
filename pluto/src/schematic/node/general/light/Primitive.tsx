@@ -1,0 +1,67 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import {
+  Circle,
+  Div,
+  Handle,
+  HandleBoundary,
+  InternalSVG,
+} from "@/schematic/node/common/symbol/primitives";
+import { type Config } from "@/schematic/node/general/light/config";
+
+interface RenderProps extends Config {
+  className?: string;
+  enabled?: boolean;
+}
+
+const DIMENSIONS = { width: 64, height: 64 };
+
+export const Primitive = ({
+  className,
+  color,
+  orientation = "left",
+  enabled,
+  scale,
+}: RenderProps): ReactElement => (
+  <Div
+    orientation={orientation}
+    className={CSS(CSS.B("light"), enabled && CSS.M("enabled"), className)}
+  >
+    <HandleBoundary orientation={orientation}>
+      <Handle location="left" orientation={orientation} left={3.125} top={50} id="1" />
+      <Handle
+        location="right"
+        orientation={orientation}
+        left={96.875}
+        top={50}
+        id="2"
+      />
+      <Handle location="top" orientation={orientation} left={50} top={3.125} id="3" />
+      <Handle
+        location="bottom"
+        orientation={orientation}
+        left={50}
+        top={96.75}
+        id="4"
+      />
+    </HandleBoundary>
+    <InternalSVG
+      dimensions={DIMENSIONS}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Circle cx="32" cy="32" r="30" />
+    </InternalSVG>
+  </Div>
+);

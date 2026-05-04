@@ -74,7 +74,7 @@ import {
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
-import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
+import { type AddNodeProps, useAddNode } from "@/schematic/nodes/useAddNode";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";

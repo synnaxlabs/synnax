@@ -1,0 +1,91 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type CSSProperties, type ReactElement } from "react";
+
+import { Button } from "@/button";
+import { Flex } from "@/flex";
+import { Form } from "@/form";
+import { Icon } from "@/icon";
+import { Input } from "@/input";
+import {
+  ColorControl,
+  FormWrapper,
+  OrientationControl,
+} from "@/schematic/node/common/forms";
+import { Select } from "@/select";
+import { type Text } from "@/text";
+
+const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
+  borderLeft: "var(--pluto-border-l5)",
+};
+
+const WRAP_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {
+  bounds: { lower: 0, upper: 2000 },
+  dragScale: 5,
+  endContent: "px",
+};
+
+export const TextBoxForm = (): ReactElement => {
+  const autoFit = Form.useField<boolean>("autoFit", { optional: true });
+  return (
+    <FormWrapper x align="stretch" grow>
+      <Flex.Box y grow>
+        <Flex.Box x align="stretch">
+          <Form.Field<string> path="value" label="Text" padHelpText={false} grow>
+            {(p) => <Input.Text {...p} />}
+          </Form.Field>
+          <Form.Field<Text.Level> path="level" label="Text Size" padHelpText={false}>
+            {({ value, onChange }) => (
+              <Select.Text.Level value={value} onChange={onChange} />
+            )}
+          </Form.Field>
+          <Form.Field<Flex.Alignment>
+            path="align"
+            label="Alignment"
+            padHelpText={false}
+            hideIfNull
+          >
+            {({ value, onChange }) => (
+              <Select.Flex.Alignment value={value} onChange={onChange} />
+            )}
+          </Form.Field>
+        </Flex.Box>
+        <Flex.Box x>
+          <ColorControl path="color" />
+          <Form.Field<number>
+            onChange={(_, { set }) => set("autoFit", false)}
+            path="width"
+            label="Wrap Width"
+            padHelpText={false}
+          >
+            {(p) => (
+              <Input.Numeric {...p} {...WRAP_WIDTH_INPUT_PROPS}>
+                <Button.Button
+                  onClick={() => autoFit?.onChange(true)}
+                  disabled={autoFit?.value === true}
+                  variant="outlined"
+                  style={TEXT_BOX_AUTO_FIT_STYLE}
+                  tooltip={
+                    autoFit?.value === true
+                      ? "Manually enter value to disable auto fit"
+                      : "Enable auto fit"
+                  }
+                >
+                  <Icon.AutoFitWidth />
+                </Button.Button>
+              </Input.Numeric>
+            )}
+          </Form.Field>
+        </Flex.Box>
+      </Flex.Box>
+      <OrientationControl path="" />
+    </FormWrapper>
+  );
+};

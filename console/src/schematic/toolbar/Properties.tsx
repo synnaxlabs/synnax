@@ -37,11 +37,12 @@ import {
   useSelectSelectedElementsProps,
 } from "@/schematic/selectors";
 import { setElementProps, setNodePositions } from "@/schematic/slice";
-import { createEditLayout } from "@/schematic/symbols/edit/Edit";
+import { createEditLayout } from "@/schematic/nodes/edit/Edit";
 import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type nodePropsZ } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
 
+import { Label } from "@/schematic/node/common/label";
 export interface PropertiesProps {
   layoutKey: string;
 }
@@ -83,7 +84,7 @@ const IndividualProperties = ({
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
   const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.Symbol.REGISTRY[props.variant];
+  const C = Schematic.Node.REGISTRY[props.variant];
   const dispatch = useDispatch();
 
   const onChange = (key: string, props: NodeProps): void => {
@@ -350,9 +351,9 @@ const MultiElementProperties = ({
     handleRotateIndividual(dir);
   };
 
-  const handleLabelProp = <K extends keyof Schematic.Symbol.LabelExtensionProps>(
+  const handleLabelProp = <K extends keyof Schematic.Node.Label.Config>(
     key: K,
-    value: Schematic.Symbol.LabelExtensionProps[K],
+    value: Schematic.Node.Label.Config[K],
   ): void => {
     elements.forEach((e) => {
       if (e.type !== "node" || e.props.label == null) return;
@@ -493,7 +494,7 @@ const MultiElementProperties = ({
         />
       </Input.Item>
       <Input.Item label="Label Orientation" align="start">
-        <Schematic.Symbol.SelectOrientation
+        <Schematic.Node.SelectOrientation
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>
             v.outer !== "center" && handleLabelProp("orientation", v.outer)

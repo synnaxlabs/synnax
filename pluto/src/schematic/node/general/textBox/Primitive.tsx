@@ -1,0 +1,68 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { color, direction } from "@synnaxlabs/x";
+import { type CSSProperties, type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Div, Handle, HandleBoundary } from "@/schematic/node/common/symbol/primitives";
+import { type Config } from "@/schematic/node/general/textBox/config";
+import { Text } from "@/text";
+
+interface RenderProps extends Config {
+  className?: string;
+  onChange?: (value: string) => void;
+}
+
+export const Primitive = ({
+  className,
+  orientation = "left",
+  width,
+  color: colorVal,
+  level,
+  autoFit,
+  align = "center",
+  value,
+  onChange,
+}: RenderProps): ReactElement => {
+  const divStyle: CSSProperties = {
+    textAlign: align as CSSProperties["textAlign"],
+  };
+  if (direction.construct(orientation) === "y")
+    divStyle.height = autoFit ? "fit-content" : width;
+  else divStyle.width = autoFit ? "fit-content" : width;
+
+  return (
+    <Div
+      style={divStyle}
+      orientation={orientation}
+      className={CSS(CSS.B("text-box"), CSS.loc(orientation), className)}
+    >
+      <HandleBoundary orientation={orientation}>
+        <Handle location="left" orientation={orientation} left={0} top={50} id="1" />
+        <Handle location="right" orientation={orientation} left={100} top={50} id="2" />
+        <Handle location="top" orientation={orientation} left={50} top={0} id="3" />
+        <Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </HandleBoundary>
+      <Text.MaybeEditable
+        className={CSS.BE("symbol", "label")}
+        color={color.cssString(colorVal)}
+        level={level}
+        value={value ?? ""}
+        onChange={onChange}
+      />
+    </Div>
+  );
+};

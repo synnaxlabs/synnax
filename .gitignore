@@ -72,6 +72,8 @@ work
 # |||| DATA ||||
 
 **/data
+!pluto/src/schematic/edge/variant/data
+!pluto/src/schematic/edge/variant/data/**
 synnax-data
 synnax-data/**
 

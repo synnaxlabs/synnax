@@ -1,0 +1,48 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ReactElement } from "react";
+
+import { Label } from "@/schematic/node/common/label";
+import { type Config } from "@/schematic/node/general/textBox/config";
+import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
+import { Primitive } from "@/schematic/node/general/textBox/Primitive";
+import { Symbol } from "@/schematic/node/general/textBox/Symbol";
+import { type Spec } from "@/schematic/node/spec";
+import { type Theming } from "@/theming";
+
+export type { Config };
+
+export const VARIANT = "textBox";
+export const NAME = "Text Box";
+
+export const defaultConfig = (t: Theming.Theme): Config => ({
+  orientation: "left",
+  color: t.colors.gray.l11,
+  autoFit: true,
+  align: "center",
+  label: Label.defaultConfig("Text Box"),
+  level: "p",
+  value: "Text Box",
+  width: 75,
+});
+
+const Preview = (props: Config): ReactElement => (
+  <Primitive {...props} autoFit value="Text Box" />
+);
+
+export const spec: Spec<typeof VARIANT, Config> = {
+  key: VARIANT,
+  name: NAME,
+  Form: TextBoxForm,
+  Node: Symbol,
+  Preview,
+  defaultConfig,
+  zIndex: 4,
+};

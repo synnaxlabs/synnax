@@ -48,7 +48,7 @@ export const labelZ = z.looseObject({
 });
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.Symbol.variantZ,
+  key: Schematic.Node.variantZ,
   color: color.crudeZ.optional(),
   label: labelZ.optional(),
 });

@@ -1,0 +1,66 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Label } from "@/schematic/node/common/label";
+import { type Config } from "@/schematic/node/general/setpoint/config";
+import { SetpointForm } from "@/schematic/node/general/setpoint/Form";
+import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
+import { Symbol } from "@/schematic/node/general/setpoint/Symbol";
+import { type Spec } from "@/schematic/node/spec";
+import { telem } from "@/telem/aether";
+import { control } from "@/telem/control/aether";
+import { type Theming } from "@/theming";
+
+export type { Config };
+
+export const VARIANT = "setpoint";
+export const NAME = "Setpoint";
+
+export const defaultConfig = (t: Theming.Theme): Config => ({
+  orientation: "left",
+  units: "mV",
+  color: t.colors.gray.l11,
+  size: "small",
+  label: Label.defaultConfig("Setpoint"),
+  source: telem.sourcePipeline("number", {
+    connections: [],
+    segments: { valueStream: telem.streamChannelValue({ channel: 0 }) },
+    outlet: "valueStream",
+  }),
+  sink: telem.sinkPipeline("number", {
+    connections: [],
+    segments: { setter: control.setChannelValue({ channel: 0 }) },
+    inlet: "setter",
+  }),
+});
+
+const Preview = ({ ...rest }: Config): ReactElement => (
+  <Primitive
+    value={12}
+    onChange={() => {}}
+    units="mV"
+    style={{ width: 120, transform: "scale(0.95)" }}
+    className={CSS.BM("setpoint", "preview")}
+    disabled
+    {...rest}
+  />
+);
+
+export const spec: Spec<typeof VARIANT, Config> = {
+  key: VARIANT,
+  name: NAME,
+  Form: SetpointForm,
+  Node: Symbol,
+  Preview,
+  defaultConfig,
+  zIndex: 4,
+};

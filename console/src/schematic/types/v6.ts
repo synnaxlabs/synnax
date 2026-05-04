@@ -94,7 +94,7 @@ const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeProps] => {
   const parseDataResult = record.unknownZ().safeParse(edge.data);
   if (!parseDataResult.success) return [next, edgeProps];
   const data = parseDataResult.data;
-  const segments = z.array(Schematic.Edge.connector.segmentZ).safeParse(data.segments);
+  const segments = z.array(Schematic.Edge.Segmented.segmentZ).safeParse(data.segments);
   if (segments.success) edgeProps.segments = segments.data;
   const parsedColor = color.colorZ.safeParse(data.color);
   if (parsedColor.success) edgeProps.color = parsedColor.data;

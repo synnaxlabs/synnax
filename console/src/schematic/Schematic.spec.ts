@@ -24,7 +24,7 @@ import {
   VALUE_HAUL_TYPE,
   type ValueHaulData,
 } from "@/schematic/Schematic";
-import { type AddNodeProps } from "@/schematic/symbols/useAddNode";
+import { type AddNodeProps } from "@/schematic/nodes/useAddNode";
 
 const VARIANT = "valve";
 const BASE_ADD_PROPS: AddNodeProps = {

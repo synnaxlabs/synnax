@@ -11,7 +11,7 @@ import { type Export } from "@/export";
 import { type Layout } from "@/layout";
 import { extract } from "@/schematic/export";
 import { ContextMenu, LAYOUT_TYPE, Schematic, Selectable } from "@/schematic/Schematic";
-import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
+import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/nodes/edit/Edit";
 import { type Selector } from "@/selector";
 
 export * from "@/schematic/export";
