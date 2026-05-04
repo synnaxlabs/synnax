@@ -10,6 +10,9 @@
 import { bounds, color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-export const redlineZ = z.object({ bounds: bounds.boundsZ, gradient: color.gradientZ });
+export const redlineZ = z.object({
+  bounds: bounds.boundsZ(),
+  gradient: color.gradientZ,
+});
 export type Redline = z.infer<typeof redlineZ>;
 export const ZERO_READLINE: Redline = { bounds: { lower: 0, upper: 1 }, gradient: [] };
