@@ -18,12 +18,11 @@
 package pb
 
 import (
+	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
+	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
-
-	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
-	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 const (
@@ -60,7 +59,6 @@ const (
 	Kind_KIND_FUNCTION                     Kind = 21
 	Kind_KIND_SEQUENCE                     Kind = 22
 	Kind_KIND_STAGE                        Kind = 23
-	Kind_KIND_SIGNED_NUMERIC_CONSTANT      Kind = 24
 )
 
 // Enum value maps for Kind.
@@ -88,7 +86,6 @@ var (
 		21: "KIND_FUNCTION",
 		22: "KIND_SEQUENCE",
 		23: "KIND_STAGE",
-		24: "KIND_SIGNED_NUMERIC_CONSTANT",
 	}
 	Kind_value = map[string]int32{
 		"KIND_INVALID":                      0,
@@ -113,7 +110,6 @@ var (
 		"KIND_FUNCTION":                     21,
 		"KIND_SEQUENCE":                     22,
 		"KIND_STAGE":                        23,
-		"KIND_SIGNED_NUMERIC_CONSTANT":      24,
 	}
 )
 

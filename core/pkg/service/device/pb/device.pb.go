@@ -227,7 +227,7 @@ var File_core_pkg_service_device_pb_device_proto protoreflect.FileDescriptor
 
 const file_core_pkg_service_device_pb_device_proto_rawDesc = "" +
 	"\n" +
-	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\x1a0core/pkg/distribution/ontology/pb/ontology.proto\";\n" +
+	"'core/pkg/service/device/pb/device.proto\x12\x11service.device.pb\x1a0core/pkg/distribution/ontology/pb/ontology.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1bx/go/status/pb/status.proto\";\n" +
 	"\rStatusDetails\x12\x12\n" +
 	"\x04rack\x18\x01 \x01(\rR\x04rack\x12\x16\n" +
 	"\x06device\x18\x02 \x01(\tR\x06device\"\xe4\x02\n" +

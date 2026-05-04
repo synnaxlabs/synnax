@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { ontology } from "@synnaxlabs/client";
+import { ontology, type user } from "@synnaxlabs/client";
 import { Access, type Flux, Icon, Menu, Text, User } from "@synnaxlabs/pluto";
 import { useCallback } from "react";
 
@@ -118,5 +118,6 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.User />,
   TreeContextMenu,
   hasChildren: false,
-  haulItems: ({ id, data }) => [{ ...id, data: data ?? undefined }],
+  haulItems: ({ data }) =>
+    data == null ? [] : [User.createHaulItem(data as user.User)],
 };

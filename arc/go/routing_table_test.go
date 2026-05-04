@@ -590,15 +590,15 @@ var _ = Describe("Routing Table Runtime", func() {
 		})
 	})
 
-	Describe("Routing with selector.select{}", func() {
-		It("Should use selector.select to route a boolean channel using qualified name", func(ctx SpecContext) {
+	Describe("Routing with select{}", func() {
+		It("Should use select to route a boolean channel", func(ctx SpecContext) {
 			resolver := channelSymbols(map[string]channelDef{
 				"flag":     {types.U8(), 100},
 				"open_cmd": {types.U8(), 200},
 				"shut_cmd": {types.U8(), 300},
 			})
 			h := newRuntimeHarness(ctx, `
-				flag -> selector.select{} -> {
+				flag -> select{} -> {
 					true: open_valve,
 					false: shut_valve
 				}
@@ -625,9 +625,9 @@ var _ = Describe("Routing Table Runtime", func() {
 			h.Tick(ctx, telem.Millisecond)
 			h.channelState.ClearReads()
 
-			selectTrue := h.Output("selector.select_0", 0)
+			selectTrue := h.Output("select_0", 0)
 			Expect(selectTrue.Len()).To(Equal(int64(1)))
-			selectFalse := h.Output("selector.select_0", 1)
+			selectFalse := h.Output("select_0", 1)
 			Expect(selectFalse.Len()).To(Equal(int64(0)))
 
 			out, changed := h.Flush()

@@ -127,8 +127,11 @@ func String(name string) string {
 	}
 
 	if len(name) > 1 && lower[len(lower)-1] == 'y' {
-		// All-caps abbreviations (e.g. "XY", "ID") just get "s"
-		if isAllUpper(name) {
+		// Acronym ending in Y (e.g. "XY", "StickyXY"): the trailing "Y" is the
+		// letter Y of an uppercase abbreviation, not a consonant-y suffix. Add
+		// "s" rather than mangling to "ies". This subsumes the all-uppercase
+		// case ("XY" -> "XYs").
+		if name[len(name)-1] == 'Y' && isUpper(name[len(name)-2]) {
 			return name + "s"
 		}
 		if !isVowel(lower[len(lower)-2]) {
