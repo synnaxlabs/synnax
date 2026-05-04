@@ -45,7 +45,6 @@ import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import {
   selectConfig,
-  selectNodeProps,
   selectOptional,
   selectRequired,
   useSelectConfig,

@@ -12,10 +12,7 @@ import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { Toggle } from "@/schematic/node/common/toggle";
-import {
-  type Config,
-  VARIANT,
-} from "@/schematic/node/general/customActuator/config";
+import { type Config, VARIANT } from "@/schematic/node/general/customActuator/config";
 import { Primitive } from "@/schematic/node/general/customActuator/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";

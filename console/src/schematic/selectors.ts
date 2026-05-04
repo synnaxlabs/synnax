@@ -181,7 +181,7 @@ export const selectConfig = (
   state: StoreState,
   layoutKey: string,
   elKey: string,
-): ElementConfig => selectRequired(state, layoutKey).configs[elKey] as ElementConfig;
+): ElementConfig => selectRequired(state, layoutKey).configs[elKey];
 
 export const useSelectConfig = (layoutKey: string, elKey: string): ElementConfig =>
   useMemoSelect(

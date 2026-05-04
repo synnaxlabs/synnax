@@ -11,10 +11,7 @@ import { Custom } from "@/schematic/node/common/custom";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
-import {
-  type Config,
-  VARIANT,
-} from "@/schematic/node/general/customStatic/config";
+import { type Config, VARIANT } from "@/schematic/node/general/customStatic/config";
 import { Primitive } from "@/schematic/node/general/customStatic/Primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Theming } from "@/theming";

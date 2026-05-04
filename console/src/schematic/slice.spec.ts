@@ -531,7 +531,9 @@ describe("Schematic Slice", () => {
     });
 
     it("should store the page prop on an off-page reference element", () => {
-      const props = asOffPageRef(selectNodeProps(store.getState(), schematicKey, nodeKey));
+      const props = asOffPageRef(
+        selectNodeProps(store.getState(), schematicKey, nodeKey),
+      );
       expect(props).toBeDefined();
       expect(props?.variant).toBe("offPageReference");
       expect(props?.page).toBe("");
@@ -547,7 +549,9 @@ describe("Schematic Slice", () => {
         }),
       );
 
-      const props = asOffPageRef(selectNodeProps(store.getState(), schematicKey, nodeKey));
+      const props = asOffPageRef(
+        selectNodeProps(store.getState(), schematicKey, nodeKey),
+      );
       expect(props?.page).toBe(targetPage);
     });
 
@@ -567,7 +571,9 @@ describe("Schematic Slice", () => {
         }),
       );
 
-      const props = asOffPageRef(selectNodeProps(store.getState(), schematicKey, nodeKey));
+      const props = asOffPageRef(
+        selectNodeProps(store.getState(), schematicKey, nodeKey),
+      );
       expect(props?.page).toBe("");
     });
 
@@ -595,7 +601,9 @@ describe("Schematic Slice", () => {
         }),
       );
 
-      const props = asOffPageRef(selectNodeProps(store.getState(), schematicKey, nodeKey));
+      const props = asOffPageRef(
+        selectNodeProps(store.getState(), schematicKey, nodeKey),
+      );
       expect(props?.page).toBe("target-page");
       expect(props?.color).toEqual(color.construct("#00ff00"));
     });

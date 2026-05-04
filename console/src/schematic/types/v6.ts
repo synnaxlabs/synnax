@@ -155,7 +155,8 @@ const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
     configs[edge.key] = edgeProps;
     return edge;
   });
-  return { ...copy, edges, configs };
+  const { props: _, ...rest } = copy;
+  return { ...rest, edges, configs };
 };
 
 export const sliceMigration = migrate.createMigration<v5.SliceState, SliceState>({

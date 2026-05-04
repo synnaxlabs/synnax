@@ -8,13 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { type schematic } from "@synnaxlabs/client";
-import { type CrudeTimeSpan, type location } from "@synnaxlabs/x";
-import {
-  type MouseEventHandler,
-  type ReactElement,
-  useRef,
-  useState,
-} from "react";
+import { type CrudeTimeSpan } from "@synnaxlabs/x";
+import { type MouseEventHandler, type ReactElement, useRef, useState } from "react";
 
 import { CSS } from "@/css";
 import { Custom } from "@/schematic/node/common/custom";
@@ -68,16 +63,16 @@ export const Primitive = ({
       )}
       enabled={enabled}
       triggered={triggered}
-      orientation={orientation as location.Outer}
+      orientation={orientation}
       {...rest}
     >
-      <Handle.Boundary orientation={orientation as location.Outer}>
+      <Handle.Boundary orientation={orientation}>
         {handles.map((handle) => (
           <Handle.Handle
             key={handle.key}
             id={handle.key}
             location={handle.orientation}
-            orientation={orientation as location.Outer}
+            orientation={orientation}
             left={handle.position.x * 100}
             top={handle.position.y * 100}
           />

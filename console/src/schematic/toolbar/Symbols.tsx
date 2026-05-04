@@ -132,7 +132,10 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     return { key: id.create(), variant, specKey };
   }, [symbol?.data.variant, symbol?.data.states, specKey]);
 
-  const Preview = Schematic.Node.REGISTRY[addNodeProps.variant].Preview;
+  const Preview = Schematic.Node.REGISTRY[addNodeProps.variant].Preview as React.FC<{
+    specKey: string;
+    scale?: number;
+  }>;
   const layoutKey = Key.use<string>("Schematic.Toolbar.RemoteListItem");
   const addNode = useAddNode(layoutKey);
 
@@ -549,7 +552,7 @@ const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement =
     string,
     Schematic.Node.Spec<Schematic.Node.Variant, object>
   >({
-    data: ALL_STATIC_SYMBOLS,
+    data: ALL_STATIC_SYMBOLS as Schematic.Node.Spec<Schematic.Node.Variant, object>[],
   });
   const { data, getItem, subscribe } = List.useCombinedData<
     string,

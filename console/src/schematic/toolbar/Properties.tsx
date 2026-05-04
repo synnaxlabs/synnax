@@ -91,8 +91,7 @@ const IndividualProperties = ({
   const formMethods = Form.use({
     values: deep.copy(props),
     sync: true,
-    onChange: ({ values }) =>
-      onChange(nodeKey, deep.copy(values) as NodeConfig),
+    onChange: ({ values }) => onChange(nodeKey, deep.copy(values) as NodeConfig),
   });
   const specKey = Form.useFieldValue<string>("specKey", {
     ctx: formMethods,
