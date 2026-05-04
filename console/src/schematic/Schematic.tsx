@@ -81,16 +81,15 @@ import { Workspace } from "@/workspace";
 
 export const SYMBOL_HAUL_TYPE = "schematic_symbol";
 
-export interface SymbolHaulData {
-  specKey?: string;
-}
+export interface SymbolHaulData extends AddNodeProps {}
 
 export type SymbolHaulItem = Haul.Item<typeof SYMBOL_HAUL_TYPE, string, SymbolHaulData>;
 
-export const createSymbolHaulItem = (
-  variant: string,
-  data: SymbolHaulData = {},
-): SymbolHaulItem => ({ type: SYMBOL_HAUL_TYPE, key: variant, data });
+export const createSymbolHaulItem = (data: SymbolHaulData): SymbolHaulItem => ({
+  type: SYMBOL_HAUL_TYPE,
+  key: data.key,
+  data,
+});
 
 export const isSymbolHaulItem = (item: Haul.Item): item is SymbolHaulItem =>
   item.type === SYMBOL_HAUL_TYPE;

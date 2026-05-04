@@ -65,7 +65,7 @@ const StaticListItem = (
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
   const addNodeProps = useMemo(() => ({ key: id.create(), variant }), [variant]);
   const handleDragStart = useCallback(
-    () => startDrag([createSymbolHaulItem(itemKey)]),
+    () => startDrag([createSymbolHaulItem(addNodeProps)]),
     [startDrag, addNodeProps],
   );
   const spec = List.useItem<string, Schematic.Symbol.Spec>(variant);
@@ -138,7 +138,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
 
   const handleDragStart = useCallback(
-    () => startDrag([createSymbolHaulItem(variant, {specKey: itemKey})]),
+    () => startDrag([createSymbolHaulItem(addNodeProps)]),
     [startDrag, addNodeProps],
   );
   const handleAddNode = useCallback(() => addNode(addNodeProps), [addNodeProps]);

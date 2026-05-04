@@ -98,13 +98,13 @@ const labelGridItem = (
   };
 };
 
-export type SymbolProps<P extends object = object> = {
+export type SymbolProps<Config extends object = object> = {
   nodeKey: string;
-  position?: xy.XY;
   selected: boolean;
+  onConfigChange: (data: Partial<Config>) => void;
+  config: Config;
+  position?: xy.XY;
   draggable?: boolean;
-  onChange: (value: Partial<P>) => void;
-  data: P;
 };
 
 export type PreviewProps<P extends object = object> = P & {
@@ -154,9 +154,9 @@ export const createToggle = <P extends object = object>(
 ) => {
   const C = ({
     nodeKey: symbolKey,
-    onChange,
+    onConfigChange: onChange,
     selected,
-    data,
+    config: data,
   }: SymbolProps<ToggleProps<P>>): ReactElement => {
     const {
       control,
@@ -231,9 +231,9 @@ export const createLabeled = <P extends object = object>(
 ) => {
   const C = ({
     nodeKey: symbolKey,
-    onChange,
+    onConfigChange: onChange,
     selected,
-    data,
+    config: data,
   }: SymbolProps<LabeledProps<P>>): ReactElement => {
     const { label, orientation = "left", ...rest } = data;
     const gridItems: GridItem[] = [];
@@ -276,9 +276,9 @@ type DummyToggleProps<P extends object = object> = LabeledProps<P> & {
 export const createDummyToggle = <P extends object = object>(Primitive: FC<P>) => {
   const DummyToggle = ({
     nodeKey: symbolKey,
-    onChange,
+    onConfigChange: onChange,
     selected,
-    data,
+    config: data,
   }: SymbolProps<DummyToggleProps<P>>): ReactElement => {
     const {
       label,
@@ -551,9 +551,9 @@ export interface TankProps extends Omit<Primitives.TankProps, "boxBorderRadius">
 
 export const Tank = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
-  data,
+  config: data,
 }: SymbolProps<TankProps>): ReactElement => {
   const {
     label,
@@ -664,9 +664,9 @@ export const Circle = createLabeled(
 
 export const Box = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
-  data,
+  config: data,
 }: SymbolProps<BoxProps>): ReactElement => {
   const {
     label,
@@ -718,10 +718,10 @@ export interface InputProps
 
 export const Input = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
   draggable,
-  data,
+  config: data,
 }: SymbolProps<InputProps>): ReactElement => {
   const { label, orientation = "left", control, color, sink, size, disabled } = data;
   const { set } = BaseInput.use({ aetherKey: symbolKey, sink });
@@ -775,10 +775,10 @@ export interface SetpointProps
 
 export const Setpoint = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
   draggable,
-  data,
+  config: data,
 }: SymbolProps<SetpointProps>): ReactElement => {
   const {
     label,
@@ -854,10 +854,10 @@ const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 export const Value = ({
   nodeKey: symbolKey,
   position,
-  onChange,
+  onConfigChange: onChange,
   selected,
   draggable,
-  data,
+  config: data,
 }: SymbolProps<ValueProps>): ReactElement => {
   const {
     label,
@@ -964,9 +964,9 @@ const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
 export const Gauge = ({
   nodeKey: symbolKey,
   position,
-  onChange,
+  onConfigChange: onChange,
   selected,
-  data,
+  config: data,
 }: SymbolProps<GaugeProps>): ReactElement => {
   const {
     label,
@@ -1092,8 +1092,8 @@ export interface ButtonProps
 export const Button = ({
   nodeKey: symbolKey,
   selected,
-  onChange,
-  data,
+  onConfigChange: onChange,
+  config: data,
 }: SymbolProps<ButtonProps>) => {
   const { label, orientation = "left", sink, control, mode, ...rest } = data;
   const { onMouseDown, onMouseUp } = BaseButton.use({
@@ -1142,9 +1142,9 @@ export interface LightProps
 
 export const Light = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
-  data,
+  config: data,
 }: SymbolProps<LightProps>): ReactElement => {
   const { label, source, ...rest } = data;
   const { enabled } = BaseLight.use({ aetherKey: symbolKey, source });
@@ -1186,8 +1186,8 @@ export const offPageReferenceTooltip = (
 };
 
 export const OffPageReference = ({
-  onChange,
-  data,
+  onConfigChange: onChange,
+  config: data,
 }: SymbolProps<OffPageReferenceProps>): ReactElement => {
   const {
     label: { label, level },
@@ -1217,9 +1217,9 @@ export const OffPageReferencePreview = ({
 );
 export const Cylinder = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
-  data,
+  config: data,
 }: SymbolProps<CylinderProps>): ReactElement => {
   const {
     label,
@@ -1262,8 +1262,8 @@ export interface TextBoxProps extends Primitives.TextBoxProps {}
 
 export const TextBox = ({
   nodeKey: symbolKey,
-  onChange,
-  data,
+  onConfigChange: onChange,
+  config: data,
 }: SymbolProps<Omit<TextBoxProps, "onChange">>): ReactElement => {
   const { color, width, align, autoFit, level, value, orientation } = data;
   return (
@@ -1297,10 +1297,10 @@ export interface SelectProps
 
 export const Select = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
   draggable,
-  data,
+  config: data,
 }: SymbolProps<SelectProps>): ReactElement => {
   const {
     label,
@@ -1373,10 +1373,10 @@ export interface StateIndicatorProps
 
 export const StateIndicator = ({
   nodeKey: symbolKey,
-  onChange,
+  onConfigChange: onChange,
   selected,
   draggable,
-  data,
+  config: data,
 }: SymbolProps<StateIndicatorProps>): ReactElement => {
   const { label, source, options, color: colorVal, inlineSize } = data;
   const { key: matchedOptionKey } = BaseStateIndicator.use({

@@ -40,9 +40,9 @@ export const useAddNode = (layoutKey: string, dispatch?: Dispatch) => {
         };
       actualDispatch(
         addNode({
-          key,
+          key: layoutKey,
           node: { key, zIndex: spec.zIndex, position },
-          props,
+          props: { ...props, variant },
         }),
       );
     },

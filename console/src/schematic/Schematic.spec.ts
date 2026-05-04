@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Haul } from "@synnaxlabs/pluto";
+import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -23,40 +24,49 @@ import {
   VALUE_HAUL_TYPE,
   type ValueHaulData,
 } from "@/schematic/Schematic";
+import { type AddNodeProps } from "@/schematic/symbols/useAddNode";
 
 const VARIANT = "valve";
+const BASE_ADD_PROPS: AddNodeProps = {
+  key: id.create(),
+  variant: VARIANT,
+};
 const SPEC_KEY = "spec-1";
-const VALUE_PROPS = {
+const VALUE_PROPS: ValueHaulData = {
   label: { label: "Pressure", level: "p" },
   color: "#ff0000",
-} as ValueHaulData;
+};
 
 const OTHER: Haul.Item = { type: "other_type", key: "other" };
 
 describe("schematic symbol haul utilities", () => {
   describe("createSymbolHaulItem", () => {
     it("creates an item with the symbol HAUL_TYPE", () => {
-      expect(createSymbolHaulItem(VARIANT).type).toEqual(SYMBOL_HAUL_TYPE);
+      expect(createSymbolHaulItem(BASE_ADD_PROPS).type).toEqual(SYMBOL_HAUL_TYPE);
     });
 
     it("creates an item with the variant as the key", () => {
-      expect(createSymbolHaulItem(VARIANT).key).toEqual(VARIANT);
+      expect(createSymbolHaulItem(BASE_ADD_PROPS).key).toEqual(BASE_ADD_PROPS.key);
     });
 
     it("creates an item with empty data when none is provided", () => {
-      expect(createSymbolHaulItem(VARIANT).data).toEqual({});
+      expect(createSymbolHaulItem(BASE_ADD_PROPS).data).toEqual(BASE_ADD_PROPS);
     });
 
     it("creates an item with the provided specKey in data", () => {
-      expect(createSymbolHaulItem(VARIANT, { specKey: SPEC_KEY }).data).toEqual({
+      expect(
+        createSymbolHaulItem({ ...BASE_ADD_PROPS, specKey: SPEC_KEY }).data,
+      ).toEqual({
+        key: BASE_ADD_PROPS.key,
         specKey: SPEC_KEY,
+        variant: "valve",
       });
     });
   });
 
   describe("isSymbolHaulItem", () => {
     it("returns true for a symbol item", () => {
-      expect(isSymbolHaulItem(createSymbolHaulItem(VARIANT))).toBe(true);
+      expect(isSymbolHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(true);
     });
 
     it("returns false for a value item", () => {
@@ -70,7 +80,7 @@ describe("schematic symbol haul utilities", () => {
 
   describe("filterSymbolHaulItems", () => {
     it("keeps only symbol items", () => {
-      const symbol = createSymbolHaulItem(VARIANT);
+      const symbol = createSymbolHaulItem(BASE_ADD_PROPS);
       const value = createValueHaulItem(VALUE_PROPS);
       expect(filterSymbolHaulItems([symbol, value, OTHER])).toEqual([symbol]);
     });
@@ -98,7 +108,7 @@ describe("schematic value haul utilities", () => {
     });
 
     it("returns false for a symbol item", () => {
-      expect(isValueHaulItem(createSymbolHaulItem(VARIANT))).toBe(false);
+      expect(isValueHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(false);
     });
 
     it("returns false for an item of another kind", () => {
@@ -108,7 +118,7 @@ describe("schematic value haul utilities", () => {
 
   describe("filterValueHaulItems", () => {
     it("keeps only value items", () => {
-      const symbol = createSymbolHaulItem(VARIANT);
+      const symbol = createSymbolHaulItem(BASE_ADD_PROPS);
       const value = createValueHaulItem(VALUE_PROPS);
       expect(filterValueHaulItems([symbol, value, OTHER])).toEqual([value]);
     });
@@ -118,7 +128,7 @@ describe("schematic value haul utilities", () => {
 describe("schematic combined haul utilities", () => {
   describe("isSchematicHaulItem", () => {
     it("returns true for a symbol item", () => {
-      expect(isSchematicHaulItem(createSymbolHaulItem(VARIANT))).toBe(true);
+      expect(isSchematicHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(true);
     });
 
     it("returns true for a value item", () => {
@@ -135,7 +145,7 @@ describe("schematic combined haul utilities", () => {
       expect(
         canDropSchematicHaulItem({
           source: OTHER,
-          items: [createSymbolHaulItem(VARIANT), OTHER],
+          items: [createSymbolHaulItem(BASE_ADD_PROPS), OTHER],
         }),
       ).toBe(true);
     });

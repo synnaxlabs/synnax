@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/edge/ConnectionLine";
-export * from "@/schematic/edge/registry";
-export * from "@/schematic/edge/spec";
+import { xy } from "@synnaxlabs/x";
+
+export const offsetPath = (path: xy.XY[], miters: xy.XY[]): xy.XY[] =>
+  path.map((point, i) => xy.translate(point, miters[i]));

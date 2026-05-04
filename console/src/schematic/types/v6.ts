@@ -17,21 +17,7 @@ import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
-export const nodePropsZ = v0.nodePropsZ.omit({ key: true }).extend({
-  type: z.literal("node"),
-  variant: Schematic.Symbol.variantZ,
-});
-export interface NodeProps extends z.infer<typeof nodePropsZ> {}
-export const edgePropsZ = z.object({
-  type: z.literal("edge"),
-  color: color.colorZ,
-  segments: z.array(Schematic.Edge.connector.segmentZ),
-  variant: Schematic.Edge.variantZ,
-});
-export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
-
-export const propsZ = z.discriminatedUnion("type", [nodePropsZ, edgePropsZ]);
-export type Props = z.infer<typeof propsZ>;
+export const configZ = record.unknownZ();
 
 export const legendStateZ = v1.legendStateZ
   .omit({ colors: true })
@@ -49,7 +35,7 @@ export const stateZ = v5.stateZ
     version: z.literal(VERSION),
     nodes: z.array(Diagram.nodeZ),
     edges: z.array(Diagram.edgeZ),
-    props: z.record(z.string(), propsZ),
+    props: z.record(z.string(), configZ),
     legend: legendStateZ,
     selected: z.array(z.string()).default([]),
   });
@@ -68,7 +54,7 @@ export const copyBufferZ = z.object({
   pos: v0.copyBufferZ.shape.pos,
   nodes: z.array(Diagram.nodeZ),
   edges: z.array(Diagram.edgeZ),
-  props: z.record(z.string(), propsZ),
+  props: z.record(z.string(), configZ),
 });
 export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
 const ZERO_COPY_BUFFER: CopyBuffer = {
@@ -140,7 +126,7 @@ const migrateProps = (props: Record<string, v0.NodeProps>): Record<string, Props
 export const stateMigration = migrate.createMigration<v5.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => {
-    const props = migrateProps(state.props);
+    const props = migrateProps(state.config);
     const edges = state.edges.map((e) => {
       const [edge, edgeProps] = migrateEdge(e);
       props[edge.key] = edgeProps;

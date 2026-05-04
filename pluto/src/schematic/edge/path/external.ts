@@ -7,4 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * as connector from "@/schematic/edge/connector/connector";
+export { calcPath as rounded } from "@/schematic/edge/path/calcPath";
+export {
+  computeSymbolPositions,
+  type SymbolPosition,
+} from "@/schematic/edge/path/computeSymbolPositions";
+export { offsetPath } from "@/schematic/edge/path/offsetPath";

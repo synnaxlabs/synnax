@@ -16,5 +16,5 @@ export interface ProviderProps<K extends record.Key> extends PropsWithChildren {
 }
 
 export const Provider = <K extends record.Key>(props: ProviderProps<K>) => (
-  <Provider {...props} />
+  <BaseProvider {...props} />
 );

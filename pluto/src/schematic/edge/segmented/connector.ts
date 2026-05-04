@@ -332,7 +332,7 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
   return next;
 };
 
-export const buildNew = (props: BuildNew): Segment[] =>
+export const createConnector = (props: BuildNew): Segment[] =>
   compressSegments(internalNewConnector(props));
 
 const internalNewConnector = ({
@@ -576,7 +576,7 @@ export const buildNewFromState = ({
     sourceMeasured != null ? box.construct(sourcePos, sourceMeasured) : box.ZERO;
   const targetBox =
     targetMeasured != null ? box.construct(targetPos, targetMeasured) : box.ZERO;
-  return buildNew({
+  return createConnector({
     sourcePos,
     targetPos,
     sourceOrientation,

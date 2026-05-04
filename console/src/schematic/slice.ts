@@ -308,7 +308,7 @@ export const { actions, reducer } = createSlice({
       schematic.props[node.key] = props;
     },
     setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
-      const { elKey: layoutKey, elKey: key, props } = payload;
+      const { key: layoutKey, elKey: key, props } = payload;
       const schematic = state.schematics[layoutKey];
       schematic.props[key] = { ...schematic.props[key], ...props } as Props;
     },
@@ -374,8 +374,14 @@ export const { actions, reducer } = createSlice({
       for (const change of changes)
         switch (change.type) {
           case "add":
-            syncEdgeColorFromEndpoints(schematic, change.edge);
             schematic.edges.push(change.edge);
+            schematic.props[change.edge.key] = {
+              type: "edge",
+              variant: "pipe",
+              color: [...color.ZERO],
+              segments: [],
+            };
+            syncEdgeColorFromEndpoints(schematic, change.edge);
             break;
           case "remove":
             schematic.edges = schematic.edges.filter((e) => e.key !== change.key);

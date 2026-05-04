@@ -10,13 +10,13 @@
 import { box, xy } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { connector } from "@/schematic/edge/connector/index";
+import { Segmented } from "@/schematic/edge/segmented";
 
 describe("connector", () => {
   describe("needToGoAroundSource", () => {
     interface spec {
       name: string;
-      props: connector.NeedToGoAroundSourceProps;
+      props: Segmented.NeedToGoAroundSourceProps;
       expected: boolean;
     }
     const LEFT_TRUE: spec = {
@@ -156,7 +156,7 @@ describe("connector", () => {
 
     for (const spec of SPECS)
       it(spec.name, () => {
-        const actual = connector.needToGoAround(spec.props);
+        const actual = Segmented.needToGoAround(spec.props);
         expect(actual).toEqual(spec.expected);
       });
   });
@@ -165,7 +165,7 @@ describe("connector", () => {
     interface Spec {
       name: string;
       source: xy.XY;
-      segments: connector.Segment[];
+      segments: Segmented.Segment[];
       expected: xy.XY;
     }
 
@@ -201,7 +201,7 @@ describe("connector", () => {
 
     for (const spec of SPECS)
       it(spec.name, () => {
-        const actual = connector.travelSegments(spec.source, ...spec.segments);
+        const actual = Segmented.travelSegments(spec.source, ...spec.segments);
         expect(actual).toEqual(spec.expected);
       });
   });
@@ -209,8 +209,8 @@ describe("connector", () => {
   describe("stump", () => {
     interface Spec {
       description: string;
-      props: connector.PrepareNodeProps;
-      expected: connector.Segment | undefined;
+      props: Segmented.PrepareNodeProps;
+      expected: Segmented.Segment | undefined;
     }
 
     const LEFT_LEFT_TRUE: Spec = {
@@ -224,7 +224,7 @@ describe("connector", () => {
         sourceOrientation: "left",
         targetOrientation: "left",
       },
-      expected: { direction: "y", length: -connector.STUMP_LENGTH },
+      expected: { direction: "y", length: -Segmented.STUMP_LENGTH },
     };
 
     const LEFT_LEFT_FALSE: Spec = {
@@ -250,7 +250,7 @@ describe("connector", () => {
         sourceOrientation: "right",
         targetOrientation: "left",
       },
-      expected: { direction: "y", length: -connector.STUMP_LENGTH },
+      expected: { direction: "y", length: -Segmented.STUMP_LENGTH },
     };
 
     const RIGHT_LEFT_TRUE_LONG_WAY: Spec = {
@@ -275,7 +275,7 @@ describe("connector", () => {
 
     for (const spec of SPECS)
       it(spec.description, () => {
-        const actual = connector.prepareNode(spec.props);
+        const actual = Segmented.prepareNode(spec.props);
         expect(actual).toEqual(spec.expected);
       });
   });
@@ -283,8 +283,8 @@ describe("connector", () => {
   describe("new connector formation", () => {
     interface Spec {
       name: string;
-      props: connector.BuildNew;
-      expected: connector.Segment[];
+      props: Segmented.BuildNew;
+      expected: Segmented.Segment[];
     }
     const SIMPLE_BOTTOM_TO_TOP: Spec = {
       name: "simple bottom to top",
@@ -439,11 +439,11 @@ describe("connector", () => {
 
     for (const spec of SPECS)
       it(spec.name, () => {
-        const actual = connector.buildNew(spec.props);
+        const actual = Segmented.createConnector(spec.props);
         expect(actual).toEqual(spec.expected);
         // We also want to do a sanity check to make sure that the connector actually gets to the target from the
         // source.
-        const target = connector.travelSegments(spec.props.sourcePos, ...actual);
+        const target = Segmented.travelSegments(spec.props.sourcePos, ...actual);
         expect(target).toEqual(spec.props.targetPos);
       });
   });
@@ -451,8 +451,8 @@ describe("connector", () => {
   describe("dragging segments", () => {
     interface Spec {
       name: string;
-      props: connector.MoveConnectorProps;
-      expected: connector.Segment[];
+      props: Segmented.MoveConnectorProps;
+      expected: Segmented.Segment[];
     }
 
     // Props:
@@ -575,10 +575,10 @@ describe("connector", () => {
 
     for (const spec of SPECS)
       it(spec.name, () => {
-        const actual = connector.dragSegment(spec.props);
-        const propsTarget = connector.travelSegments(xy.ZERO, ...spec.props.segments);
-        const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
-        const actualTarget = connector.travelSegments(xy.ZERO, ...actual);
+        const actual = Segmented.dragSegment(spec.props);
+        const propsTarget = Segmented.travelSegments(xy.ZERO, ...spec.props.segments);
+        const expectedTarget = Segmented.travelSegments(xy.ZERO, ...spec.expected);
+        const actualTarget = Segmented.travelSegments(xy.ZERO, ...actual);
         expect(propsTarget).toEqual(expectedTarget);
         expect(actual).toEqual(spec.expected);
         expect(propsTarget).toEqual(actualTarget);
@@ -588,8 +588,8 @@ describe("connector", () => {
   describe("moving nodes", () => {
     interface Spec {
       name: string;
-      props: connector.MoveNodeProps;
-      expected: connector.Segment[];
+      props: Segmented.MoveNodeProps;
+      expected: Segmented.Segment[];
     }
 
     // Props:
@@ -818,9 +818,9 @@ describe("connector", () => {
     ];
     for (const spec of SPECS)
       it(spec.name, () => {
-        const actual = connector.moveSourceNode(spec.props);
-        const expectedTarget = connector.travelSegments(xy.ZERO, ...spec.expected);
-        const actualTarget = connector.travelSegments(xy.ZERO, ...actual);
+        const actual = Segmented.moveSourceNode(spec.props);
+        const expectedTarget = Segmented.travelSegments(xy.ZERO, ...spec.expected);
+        const actualTarget = Segmented.travelSegments(xy.ZERO, ...actual);
         expect(actual).toEqual(spec.expected);
         expect(actualTarget).toEqual(expectedTarget);
       });

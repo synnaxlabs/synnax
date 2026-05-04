@@ -7,6 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/edge/ConnectionLine";
-export * from "@/schematic/edge/registry";
-export * from "@/schematic/edge/spec";
+export * as Path from "@/schematic/edge/path/external";
