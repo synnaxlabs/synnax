@@ -105,7 +105,7 @@ var _ = Describe("Migration v0", func() {
 		// Verify the status is readable with the correct typed key.
 		var restoredStatus task.Status
 		Expect(status.NewRetrieve[task.StatusDetails](stat).
-			WhereKeys(task.OntologyID(taskKey).String()).
+			Where(status.MatchKeys[task.StatusDetails](task.OntologyID(taskKey).String())).
 			Entry(&restoredStatus).
 			Exec(ctx, nil)).To(Succeed())
 		Expect(restoredStatus.Details.Task).To(Equal(taskKey))

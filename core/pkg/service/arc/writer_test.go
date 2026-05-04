@@ -60,7 +60,7 @@ var _ = Describe("Writer", func() {
 			a.Name = "updated-arc"
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			var retrieved arc.Arc
-			Expect(svc.NewRetrieve().WhereKeys(key).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(key)).Entry(&retrieved).Exec(ctx, tx)).To(Succeed())
 			Expect(retrieved.Name).To(Equal("updated-arc"))
 		})
 	})
@@ -74,7 +74,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -86,7 +86,7 @@ var _ = Describe("Writer", func() {
 			Expect(w.Create(ctx, &a2)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a1.Key, a2.Key)).To(Succeed())
 			Expect(svc.NewRetrieve().
-				WhereKeys(a1.Key, a2.Key).
+				Where(arc.MatchKeys(a1.Key, a2.Key)).
 				Exec(ctx, tx),
 			).To(MatchError(query.ErrNotFound))
 		})
@@ -116,9 +116,9 @@ var _ = Describe("Writer", func() {
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
-			Expect(taskSvc.NewRetrieve().WhereKeys(t.Key).Exec(ctx, tx)).
+			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -126,7 +126,7 @@ var _ = Describe("Writer", func() {
 			a := arc.Arc{Name: "arc-without-tasks"}
 			Expect(svc.NewWriter(tx).Create(ctx, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 
@@ -163,11 +163,11 @@ var _ = Describe("Writer", func() {
 
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key)).To(Succeed())
 
-			Expect(svc.NewRetrieve().WhereKeys(a.Key).Exec(ctx, tx)).
+			Expect(svc.NewRetrieve().Where(arc.MatchKeys(a.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
-			Expect(taskSvc.NewRetrieve().WhereKeys(t1.Key).Exec(ctx, tx)).
+			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t1.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
-			Expect(taskSvc.NewRetrieve().WhereKeys(t2.Key).Exec(ctx, tx)).
+			Expect(taskSvc.NewRetrieve().Where(task.MatchKeys(t2.Key)).Exec(ctx, tx)).
 				To(MatchError(query.ErrNotFound))
 		})
 	})

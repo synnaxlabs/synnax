@@ -19,6 +19,7 @@ require (
 	github.com/synnaxlabs/x v0.0.0
 	go.lsp.dev/jsonrpc2 v0.10.0
 	go.uber.org/zap v1.27.1
+	golang.org/x/sync v0.20.0
 	golang.org/x/text v0.36.0
 )
 
@@ -90,7 +91,6 @@ require (
 	golang.org/x/exp v0.0.0-20260410095643-746e56fc9e2f // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
-	golang.org/x/sync v0.20.0 // indirect
 	golang.org/x/sys v0.43.0 // indirect
 	golang.org/x/tools v0.44.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260414002931-afd174a4e478 // indirect

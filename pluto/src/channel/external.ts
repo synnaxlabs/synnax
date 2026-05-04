@@ -13,3 +13,4 @@ export * from "@/channel/LinePlot";
 export * from "@/channel/queries";
 export * from "@/channel/resolveIcon";
 export * from "@/channel/Select";
+export * from "@/channel/types";

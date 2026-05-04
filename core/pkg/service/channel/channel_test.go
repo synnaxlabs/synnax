@@ -173,7 +173,7 @@ var _ = Describe("Service Passthrough", func() {
 			}
 			Expect(svc.Create(ctx, &ch)).To(Succeed())
 			var retrieved svcChannel.Channel
-			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(ch.Name))
 		})
 	})
@@ -251,7 +251,7 @@ var _ = Describe("Service Passthrough", func() {
 			newName := channel.NewRandomName()
 			Expect(svc.Rename(ctx, ch.Key(), newName, false)).To(Succeed())
 			var retrieved svcChannel.Channel
-			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(newName))
 		})
 	})
@@ -267,7 +267,7 @@ var _ = Describe("Service Passthrough", func() {
 			keys := []svcChannel.Key{channels[0].Key(), channels[1].Key()}
 			Expect(svc.RenameMany(ctx, keys, newNames, false)).To(Succeed())
 			var r0 svcChannel.Channel
-			Expect(svc.NewRetrieve().WhereKeys(keys[0]).Entry(&r0).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(keys[0])).Entry(&r0).Exec(ctx, nil)).To(Succeed())
 			Expect(r0.Name).To(Equal(newNames[0]))
 		})
 	})
@@ -283,7 +283,7 @@ var _ = Describe("Service Passthrough", func() {
 			newName := channel.NewRandomName()
 			Expect(svc.MapRename(ctx, map[string]string{ch.Name: newName}, false)).To(Succeed())
 			var retrieved svcChannel.Channel
-			Expect(svc.NewRetrieve().WhereKeys(ch.Key()).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(channel.MatchKeys(ch.Key())).Entry(&retrieved).Exec(ctx, nil)).To(Succeed())
 			Expect(retrieved.Name).To(Equal(newName))
 		})
 	})

@@ -1274,9 +1274,12 @@ var _ = Describe("Go Types Plugin", func() {
 		})
 
 		Context("regression tests", func() {
-			It("Should use snake_case for JSON struct tags regardless of field name casing", func(ctx SpecContext) {
-				// Regression test: JSON tags should always be snake_case, regardless of
-				// whether the field name is PascalCase, camelCase, or SCREAMING_CASE.
+			It("Should emit snake_case JSON struct tags regardless of schema field casing", func(ctx SpecContext) {
+				// The wire format is canonically snake_case across every
+				// language. Schema field names are routed through SnakeCase
+				// regardless of how they're spelled in the schema. TypeScript
+				// converts at the boundary via x/ts caseconv, so it can use
+				// camelCase locally without changing the wire format.
 				source := `
 					@go output "arc/go/compiler"
 
@@ -1286,6 +1289,9 @@ var _ = Describe("Go Types Plugin", func() {
 						camelCaseField string
 						PascalCaseField int32
 						already_snake_case bool
+						clientX float64
+						signedWidth float64
+						targetKey string
 					}
 				`
 				table, diag := analyzer.AnalyzeSource(ctx, source, "compiler", loader)
@@ -1299,12 +1305,14 @@ var _ = Describe("Go Types Plugin", func() {
 				Expect(err).To(BeNil())
 
 				content := string(resp.Files[0].Content)
-				// All JSON tags should be snake_case
 				Expect(content).To(ContainSubstring(`json:"wasm"`))
 				Expect(content).To(ContainSubstring(`json:"output_memory_bases"`))
 				Expect(content).To(ContainSubstring(`json:"camel_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"pascal_case_field"`))
 				Expect(content).To(ContainSubstring(`json:"already_snake_case"`))
+				Expect(content).To(ContainSubstring(`json:"client_x"`))
+				Expect(content).To(ContainSubstring(`json:"signed_width"`))
+				Expect(content).To(ContainSubstring(`json:"target_key"`))
 			})
 
 			It("Should use alias type name in struct fields instead of expanded target", func(ctx SpecContext) {

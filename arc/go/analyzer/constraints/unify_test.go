@@ -295,7 +295,6 @@ var _ = Describe("Type Unification", func() {
 		DescribeTable("should default constraint to expected type",
 			testDefault,
 			Entry("numeric → f64", types.NumericConstraint(), types.F64()),
-			Entry("signed numeric → f64", types.SignedNumericConstraint(), types.F64()),
 			Entry("integer → i64", types.IntegerConstraint(), types.I64()),
 			Entry("float → f64", types.FloatConstraint(), types.F64()),
 			Entry("f32 → f32", types.F32(), types.F32()),
@@ -584,68 +583,6 @@ var _ = Describe("Type Unification", func() {
 			Expect(ok).To(BeTrue())
 			Expect(ue.Hint).To(ContainSubstring("use"))
 			Expect(ue.Hint).To(ContainSubstring("to convert"))
-		})
-	})
-
-	Describe("SignedNumericConstraint", func() {
-		It("should promote u8 to i16", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.U8(), nil, "T = u8")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.Substitutions["T"]).To(Equal(types.I16()))
-		})
-		It("should promote u16 to i32", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.U16(), nil, "T = u16")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.Substitutions["T"]).To(Equal(types.I32()))
-		})
-		It("should promote u64 to f64", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.U64(), nil, "T = u64")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.Substitutions["T"]).To(Equal(types.F64()))
-		})
-		It("should not promote signed types", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.I32(), nil, "T = i32")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.Substitutions["T"]).To(Equal(types.I32()))
-		})
-		It("should reject non-numeric types", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.String(), nil, "T = string")).To(MatchError(ContainSubstring("is not compatible with")))
-		})
-		It("should accept re-unification with the original unsigned type", func() {
-			var (
-				system     = constraints.New()
-				constraint = types.SignedNumericConstraint()
-				tv         = types.Variable("T", &constraint)
-			)
-			Expect(system.AddEquality(tv, types.U8(), nil, "T = u8")).To(Succeed())
-			Expect(system.AddEquality(tv, types.U8(), nil, "T = u8 again")).To(Succeed())
-			Expect(system.Unify()).To(Succeed())
-			Expect(system.Substitutions["T"]).To(Equal(types.I16()))
 		})
 	})
 

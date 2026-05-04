@@ -11,6 +11,31 @@
 
 package spatial
 
+// XLocation is a horizontal-axis location at the left or right edge.
+type XLocation string
+
+const (
+	XLocationLeft  XLocation = "left"
+	XLocationRight XLocation = "right"
+)
+
+// YLocation is a vertical-axis location at the top or bottom edge.
+type YLocation string
+
+const (
+	YLocationTop    YLocation = "top"
+	YLocationBottom YLocation = "bottom"
+)
+
+// StickyUnit is the measurement unit for a sticky coordinate, either pixels or a
+// decimal fraction of the container.
+type StickyUnit string
+
+const (
+	StickyUnitPx      StickyUnit = "px"
+	StickyUnitDecimal StickyUnit = "decimal"
+)
+
 // OuterLocation is a position indicator for elements anchored to the outer edge of a
 // container. Used for orientation and positioning of UI elements.
 type OuterLocation string
@@ -22,6 +47,75 @@ const (
 	OuterLocationLeft   OuterLocation = "left"
 )
 
+// Direction is a 2D axis direction.
+type Direction string
+
+const (
+	DirectionX Direction = "x"
+	DirectionY Direction = "y"
+)
+
+// AngularDirection is a rotational direction in 2D space.
+type AngularDirection string
+
+const (
+	AngularDirectionClockwise        AngularDirection = "clockwise"
+	AngularDirectionCounterclockwise AngularDirection = "counterclockwise"
+)
+
+// CenterLocation is a location at the center of a container.
+type CenterLocation string
+
+const (
+	CenterLocationCenter CenterLocation = "center"
+)
+
+// Location is a position indicator covering the four outer edges of a container and its
+// center.
+type Location string
+
+const (
+	LocationTop    Location = "top"
+	LocationRight  Location = "right"
+	LocationBottom Location = "bottom"
+	LocationLeft   Location = "left"
+	LocationCenter Location = "center"
+)
+
+// Alignment is a positioning indicator for aligning content along an axis within a
+// container.
+type Alignment string
+
+const (
+	AlignmentStart  Alignment = "start"
+	AlignmentCenter Alignment = "center"
+	AlignmentEnd    Alignment = "end"
+)
+
+// Order is a positional ordering indicator for elements in a sequence.
+type Order string
+
+const (
+	OrderFirst Order = "first"
+	OrderLast  Order = "last"
+)
+
+// Dimension is the name of a 2D size axis.
+type Dimension string
+
+const (
+	DimensionWidth  Dimension = "width"
+	DimensionHeight Dimension = "height"
+)
+
+// SignedDimension is the name of a 2D signed size axis.
+type SignedDimension string
+
+const (
+	SignedDimensionSignedWidth  SignedDimension = "signedWidth"
+	SignedDimensionSignedHeight SignedDimension = "signedHeight"
+)
+
 // XY is a 2D coordinate point with x and y values. Used for positioning elements in
 // two-dimensional space.
 type XY struct {
@@ -29,4 +123,77 @@ type XY struct {
 	X float64 `json:"x" msgpack:"x"`
 	// Y is the vertical coordinate.
 	Y float64 `json:"y" msgpack:"y"`
+}
+
+// CornerLocation is an anchor corner for positioning.
+type CornerLocation struct {
+	// X is the horizontal anchor.
+	X XLocation `json:"x" msgpack:"x"`
+	// Y is the vertical anchor.
+	Y YLocation `json:"y" msgpack:"y"`
+}
+
+// StickyUnits specifies the measurement units for sticky positioning.
+type StickyUnits struct {
+	// X is the horizontal unit.
+	X StickyUnit `json:"x" msgpack:"x"`
+	// Y is the vertical unit.
+	Y StickyUnit `json:"y" msgpack:"y"`
+}
+
+// StickyXY is a position that can be anchored to different corners of a container with
+// configurable units (pixels or decimal fractions).
+type StickyXY struct {
+	// X is the horizontal coordinate.
+	X float64 `json:"x" msgpack:"x"`
+	// Y is the vertical coordinate.
+	Y float64 `json:"y" msgpack:"y"`
+	// Root is the optional anchor corner for the position.
+	Root *CornerLocation `json:"root,omitempty" msgpack:"root,omitempty"`
+	// Units is the optional unit specification for the coordinates.
+	Units *StickyUnits `json:"units,omitempty" msgpack:"units,omitempty"`
+}
+
+// Dimensions is a 2D size with width and height values.
+type Dimensions struct {
+	// Width is the width in pixels.
+	Width float64 `json:"width" msgpack:"width"`
+	// Height is the height in pixels.
+	Height float64 `json:"height" msgpack:"height"`
+}
+
+// Viewport is the camera state of a viewport.
+type Viewport struct {
+	// Zoom is the zoom level where 1.0 equals 100%.
+	Zoom float64 `json:"zoom" msgpack:"zoom"`
+	// Position is the (x, y) pan offset of the viewport.
+	Position XY `json:"position" msgpack:"position"`
+}
+
+// SignedDimensions is a 2D size whose width and height components carry sign, allowing
+// negative values to express direction.
+type SignedDimensions struct {
+	// SignedWidth is the signed width.
+	SignedWidth float64 `json:"signed_width" msgpack:"signed_width"`
+	// SignedHeight is the signed height.
+	SignedHeight float64 `json:"signed_height" msgpack:"signed_height"`
+}
+
+// ClientXY is a 2D coordinate point expressed in client (viewport) space, matching the
+// shape of DOM mouse events.
+type ClientXY struct {
+	// ClientX is the horizontal coordinate in client (viewport) space.
+	ClientX float64 `json:"client_x" msgpack:"client_x"`
+	// ClientY is the vertical coordinate in client (viewport) space.
+	ClientY float64 `json:"client_y" msgpack:"client_y"`
+}
+
+// Bounds is a closed-open interval [lower, upper) over an ordered numeric value space.
+// The TypeScript binding is generic over T so callers can express bounds over either
+// number or bigint values; other languages emit a concrete float64-based type.
+type Bounds struct {
+	// Lower is the inclusive lower bound.
+	Lower float64 `json:"lower" msgpack:"lower"`
+	// Upper is the exclusive upper bound.
+	Upper float64 `json:"upper" msgpack:"upper"`
 }

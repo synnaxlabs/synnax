@@ -182,11 +182,11 @@ func (w *kvWriter) set(ctx context.Context, creds SecureCredentials) error {
 }
 
 func (w *kvWriter) delete(ctx context.Context, usernames ...string) error {
-	return w.table.NewDelete().WhereKeys(usernames...).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[string, SecureCredentials](usernames...)).Exec(ctx, w.tx)
 }
 
 func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
-	exists, err := w.service.table.NewRetrieve().WhereKeys(user).Exists(ctx, w.tx)
+	exists, err := w.service.table.NewRetrieve().Where(gorp.MatchKeys[string, SecureCredentials](user)).Exists(ctx, w.tx)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func (w *kvWriter) checkUsernameExists(ctx context.Context, user string) error {
 
 func (kv *KV) retrieve(ctx context.Context, tx gorp.Tx, user string, creds *SecureCredentials) error {
 	return kv.table.NewRetrieve().
-		WhereKeys(user).
+		Where(gorp.MatchKeys[string, SecureCredentials](user)).
 		Entry(creds).
 		Exec(ctx, gorp.OverrideTx(kv.cfg.DB, tx))
 }

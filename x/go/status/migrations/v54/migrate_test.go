@@ -62,7 +62,7 @@ var _ = Describe("v54 -> current Status migration", func() {
 
 		var got xstatus.Status[any]
 		Expect(gorp.NewRetrieve[string, xstatus.Status[any]]().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[string, xstatus.Status[any]](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Variant).To(Equal(xstatus.Variant(seed.Variant)))

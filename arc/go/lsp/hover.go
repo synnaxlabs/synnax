@@ -353,7 +353,7 @@ var keywordDocs = map[string]string{
 	"math.min":        runningStatDoc("math.min", "minimum"),
 	"math.max":        runningStatDoc("math.max", "maximum"),
 	"math.derivative": simpleFuncDoc("math.derivative", "Computes the rate of change (derivative) of input values. Output is always f64.", "sensor -> math.derivative{} -> rate_output"),
-	"selector.select": simpleFuncDoc("selector.select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> selector.select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
+	"select":          simpleFuncDoc("select", "Routes input values to 'true' or 'false' outputs. Values equal to 1 are routed to the true output; all others to false.", "flag -> select{} -> {\n    true: open_valve,\n    false: shut_valve\n}"),
 	"stable.for":      simpleFuncDoc("stable.for", "Emits a value only after it has remained stable for a specified duration. Prevents spurious signals from transient fluctuations.", "sensor -> stable.for{duration=5s} -> output"),
 	"stable_for":      deprecatedDoc("stable_for", "stable.for{}", "sensor -> stable.for{duration=5s} -> output"),
 	"len":             simpleFuncDoc("len", "Returns the length of a series or string as i64.", "length := len(data)"),

@@ -11,6 +11,9 @@
 
 #pragma once
 
+#include <optional>
+#include <string>
+#include <type_traits>
 #include <utility>
 
 #include "x/cpp/errors/errors.h"
@@ -21,11 +24,54 @@
 namespace x::spatial {
 
 struct XY;
+struct Dimensions;
+struct SignedDimensions;
+struct ClientXY;
+struct Viewport;
+struct CornerLocation;
+struct StickyUnits;
+struct StickyXY;
+
+constexpr const char *X_LOCATION_LEFT = "left";
+constexpr const char *X_LOCATION_RIGHT = "right";
+
+constexpr const char *Y_LOCATION_TOP = "top";
+constexpr const char *Y_LOCATION_BOTTOM = "bottom";
+
+constexpr const char *STICKY_UNIT_PX = "px";
+constexpr const char *STICKY_UNIT_DECIMAL = "decimal";
 
 constexpr const char *OUTER_LOCATION_TOP = "top";
 constexpr const char *OUTER_LOCATION_RIGHT = "right";
 constexpr const char *OUTER_LOCATION_BOTTOM = "bottom";
 constexpr const char *OUTER_LOCATION_LEFT = "left";
+
+constexpr const char *DIRECTION_X = "x";
+constexpr const char *DIRECTION_Y = "y";
+
+constexpr const char *ANGULAR_DIRECTION_CLOCKWISE = "clockwise";
+constexpr const char *ANGULAR_DIRECTION_COUNTERCLOCKWISE = "counterclockwise";
+
+constexpr const char *CENTER_LOCATION_CENTER = "center";
+
+constexpr const char *LOCATION_TOP = "top";
+constexpr const char *LOCATION_RIGHT = "right";
+constexpr const char *LOCATION_BOTTOM = "bottom";
+constexpr const char *LOCATION_LEFT = "left";
+constexpr const char *LOCATION_CENTER = "center";
+
+constexpr const char *ALIGNMENT_START = "start";
+constexpr const char *ALIGNMENT_CENTER = "center";
+constexpr const char *ALIGNMENT_END = "end";
+
+constexpr const char *ORDER_FIRST = "first";
+constexpr const char *ORDER_LAST = "last";
+
+constexpr const char *DIMENSION_WIDTH = "width";
+constexpr const char *DIMENSION_HEIGHT = "height";
+
+constexpr const char *SIGNED_DIMENSION_SIGNED_WIDTH = "signedWidth";
+constexpr const char *SIGNED_DIMENSION_SIGNED_HEIGHT = "signedHeight";
 
 /// @brief XY is a 2D coordinate point with x and y values. Used for positioning
 /// elements in two-dimensional space.
@@ -41,5 +87,150 @@ struct XY {
     using proto_type = ::x::spatial::pb::XY;
     [[nodiscard]] std::pair<::x::spatial::pb::XY, x::errors::Error> to_proto() const;
     static std::pair<XY, x::errors::Error> from_proto(const ::x::spatial::pb::XY &pb);
+};
+
+/// @brief Dimensions is a 2D size with width and height values.
+struct Dimensions {
+    /// @brief width is the width in pixels.
+    double width = 0;
+    /// @brief height is the height in pixels.
+    double height = 0;
+
+    static Dimensions parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Dimensions;
+    [[nodiscard]] std::pair<::x::spatial::pb::Dimensions, x::errors::Error>
+    to_proto() const;
+    static std::pair<Dimensions, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Dimensions &pb);
+};
+
+/// @brief SignedDimensions is a 2D size whose width and height components carry sign,
+/// allowing negative values to express direction.
+struct SignedDimensions {
+    /// @brief signed_width is the signed width.
+    double signed_width = 0;
+    /// @brief signed_height is the signed height.
+    double signed_height = 0;
+
+    static SignedDimensions parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::SignedDimensions;
+    [[nodiscard]] std::pair<::x::spatial::pb::SignedDimensions, x::errors::Error>
+    to_proto() const;
+    static std::pair<SignedDimensions, x::errors::Error>
+    from_proto(const ::x::spatial::pb::SignedDimensions &pb);
+};
+
+/// @brief ClientXY is a 2D coordinate point expressed in client (viewport) space,
+/// matching the shape of DOM mouse events.
+struct ClientXY {
+    /// @brief client_x is the horizontal coordinate in client (viewport) space.
+    double client_x = 0;
+    /// @brief client_y is the vertical coordinate in client (viewport) space.
+    double client_y = 0;
+
+    static ClientXY parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::ClientXY;
+    [[nodiscard]] std::pair<::x::spatial::pb::ClientXY, x::errors::Error>
+    to_proto() const;
+    static std::pair<ClientXY, x::errors::Error>
+    from_proto(const ::x::spatial::pb::ClientXY &pb);
+};
+
+/// @brief Bounds is a closed-open interval [lower, upper) over an ordered numeric value
+/// space. The TypeScript binding is generic over T so callers can express bounds over
+/// either number or bigint values; other languages emit a concrete float64-based type.
+struct Bounds {
+    /// @brief lower is the inclusive lower bound.
+    double lower = 0;
+    /// @brief upper is the exclusive upper bound.
+    double upper = 0;
+
+    static Bounds parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Bounds;
+    [[nodiscard]] std::pair<::x::spatial::pb::Bounds, x::errors::Error>
+    to_proto() const;
+    static std::pair<Bounds, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Bounds &pb);
+};
+
+/// @brief Viewport is the camera state of a viewport.
+struct Viewport {
+    /// @brief zoom is the zoom level where 1.0 equals 100%.
+    double zoom = 0;
+    /// @brief position is the (x, y) pan offset of the viewport.
+    XY position;
+
+    static Viewport parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::Viewport;
+    [[nodiscard]] std::pair<::x::spatial::pb::Viewport, x::errors::Error>
+    to_proto() const;
+    static std::pair<Viewport, x::errors::Error>
+    from_proto(const ::x::spatial::pb::Viewport &pb);
+};
+
+/// @brief CornerLocation is an anchor corner for positioning.
+struct CornerLocation {
+    /// @brief x is the horizontal anchor.
+    std::string x;
+    /// @brief y is the vertical anchor.
+    std::string y;
+
+    static CornerLocation parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::CornerLocation;
+    [[nodiscard]] std::pair<::x::spatial::pb::CornerLocation, x::errors::Error>
+    to_proto() const;
+    static std::pair<CornerLocation, x::errors::Error>
+    from_proto(const ::x::spatial::pb::CornerLocation &pb);
+};
+
+/// @brief StickyUnits specifies the measurement units for sticky positioning.
+struct StickyUnits {
+    /// @brief x is the horizontal unit.
+    std::string x;
+    /// @brief y is the vertical unit.
+    std::string y;
+
+    static StickyUnits parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::StickyUnits;
+    [[nodiscard]] std::pair<::x::spatial::pb::StickyUnits, x::errors::Error>
+    to_proto() const;
+    static std::pair<StickyUnits, x::errors::Error>
+    from_proto(const ::x::spatial::pb::StickyUnits &pb);
+};
+
+/// @brief StickyXY is a position that can be anchored to different corners of a
+/// container with configurable units (pixels or decimal fractions).
+struct StickyXY {
+    /// @brief x is the horizontal coordinate.
+    double x = 0;
+    /// @brief y is the vertical coordinate.
+    double y = 0;
+    /// @brief root is the optional anchor corner for the position.
+    std::optional<CornerLocation> root;
+    /// @brief units is the optional unit specification for the coordinates.
+    std::optional<StickyUnits> units;
+
+    static StickyXY parse(x::json::Parser parser);
+    [[nodiscard]] x::json::json to_json() const;
+
+    using proto_type = ::x::spatial::pb::StickyXY;
+    [[nodiscard]] std::pair<::x::spatial::pb::StickyXY, x::errors::Error>
+    to_proto() const;
+    static std::pair<StickyXY, x::errors::Error>
+    from_proto(const ::x::spatial::pb::StickyXY &pb);
 };
 }

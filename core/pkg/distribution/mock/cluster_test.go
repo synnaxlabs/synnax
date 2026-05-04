@@ -45,7 +45,7 @@ var _ = Describe("Cluster", func() {
 			Eventually(func(g Gomega) {
 				var resCh channel.Channel
 				g.Expect(coreThree.Channel.NewRetrieve().
-					WhereKeys(ch.Key()).
+					Where(channel.MatchKeys(ch.Key())).
 					Entry(&resCh).
 					Exec(ctx, nil)).To(Succeed())
 

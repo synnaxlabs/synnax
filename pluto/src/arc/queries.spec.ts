@@ -338,9 +338,10 @@ describe("Arc queries", () => {
     describe("without rack", () => {
       it("should create arc without task when no rack is specified", async () => {
         const { result } = renderHook(() => Arc.useCreate(), { wrapper });
+        const name = `arc_no_rack_${id.create()}`;
         await act(async () => {
           await result.current.updateAsync({
-            name: `arc_no_rack_${id.create()}`,
+            name,
             mode: "text",
             graph: {
               nodes: [],
@@ -354,10 +355,9 @@ describe("Arc queries", () => {
         await waitFor(() => {
           expect(result.current.variant).toEqual("success");
         });
-        expect(result.current.data).toBeDefined();
-        const createdArc = result.current.data!;
+        const createdArc = await client.arcs.retrieve({ name });
         const children = await client.ontology.retrieveChildren(
-          arc.ontologyID(createdArc.key as arc.Key),
+          arc.ontologyID(createdArc.key),
         );
         const taskChildren = children.filter((c) => c.id.type === "task");
         expect(taskChildren).toHaveLength(0);

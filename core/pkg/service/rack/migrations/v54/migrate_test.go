@@ -56,7 +56,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 
 		var got rack.Rack
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(rack.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[rack.Key, rack.Rack](rack.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(rack.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.TaskCounter).To(Equal(seed.TaskCounter))
@@ -105,7 +105,7 @@ var _ = Describe("v54 -> current Rack migration", func() {
 
 		var got rack.Rack
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(rack.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[rack.Key, rack.Rack](rack.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(rack.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Status).To(BeNil())

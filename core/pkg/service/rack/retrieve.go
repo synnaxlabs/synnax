@@ -10,12 +10,7 @@
 package rack
 
 import (
-	"context"
-	"slices"
-
-	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -28,133 +23,20 @@ type Retrieve struct {
 	searchTerm   string
 }
 
-// Search applies a fuzzy search filter to the query. This will be executed before
-// all other filters are applied.
-func (r Retrieve) Search(term string) Retrieve {
-	r.searchTerm = term
-	return r
-}
-
-// WhereKeys filters racks by their keys.
-func (r Retrieve) WhereKeys(keys ...Key) Retrieve {
-	r.gorp = r.gorp.WhereKeys(keys...)
-	return r
-}
-
-// WhereNames filters racks by their names.
-func (r Retrieve) WhereNames(names []string, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
-		return lo.Contains(names, rack.Name), nil
-	}, opts...)
-	return r
-}
-
-// WhereName filters racks by their names.
-func (r Retrieve) WhereName(name string, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
-		return name == rack.Name, nil
-	}, opts...)
-	return r
-}
-
-// WhereEmbedded filters for racks that are embedded within the Synnax server.
-func (r Retrieve) WhereEmbedded(embedded bool, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
-		return rack.Embedded == embedded, nil
-	}, opts...)
-	return r
-}
-
-// WhereNodeIsHost filters for racks that are bound to the provided node and are
-// a gateway.
-func (r Retrieve) WhereNodeIsHost(nodeIsHost bool, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
+// MatchNodeIsHost returns a filter that matches racks whose node is (or is
+// not) the current host, using the host provider held on the Retrieve.
+func MatchNodeIsHost(v bool) Filter {
+	return Match(func(_ gorp.Context, r Retrieve, rack *Rack) (bool, error) {
 		isNodeHost := rack.Key.Node() == r.hostProvider.HostKey()
-		return isNodeHost == nodeIsHost, nil
-	}, opts...)
-	return r
-}
-
-// Entry binds the provided entry as the result container for the query. If multiple
-// entries are found, the first one will be used.
-func (r Retrieve) Entry(rack *Rack) Retrieve {
-	r.gorp = r.gorp.Entry(rack)
-	return r
-}
-
-// Entries binds the provided slice as the result container for the query. If multiple
-// entries are found, they will be appended to the slice.
-func (r Retrieve) Entries(racks *[]Rack) Retrieve {
-	r.gorp = r.gorp.Entries(racks)
-	return r
-}
-
-// Limit sets the maximum number of entries to return.
-func (r Retrieve) Limit(limit int) Retrieve {
-	r.gorp = r.gorp.Limit(limit)
-	return r
-}
-
-// Offset sets the starting index of the entries to return.
-func (r Retrieve) Offset(offset int) Retrieve {
-	r.gorp = r.gorp.Offset(offset)
-	return r
-}
-
-// WhereIntegration filters for racks that support the provided integration.
-func (r Retrieve) WhereIntegration(
-	integration string,
-	opts ...gorp.FilterOption,
-) Retrieve {
-	r.gorp = r.gorp.Where(func(_ gorp.Context, rack *Rack) (bool, error) {
-		return slices.Contains(rack.Integrations, integration), nil
-	}, opts...)
-	return r
-}
-
-// WhereNode filters for racks that are embedded within the provided node.
-func (r Retrieve) WhereNode(node node.Key, opts ...gorp.FilterOption) Retrieve {
-	r.gorp = r.gorp.Where(func(ctx gorp.Context, rack *Rack) (bool, error) {
-		return rack.Key.Node() == node, nil
-	}, opts...)
-	return r
-}
-
-func (r Retrieve) execSearch(ctx context.Context) (Retrieve, error) {
-	if r.searchTerm == "" {
-		return r, nil
-	}
-	ids, err := r.search.Search(ctx, search.Request{
-		Type: ontology.ResourceTypeRack,
-		Term: r.searchTerm,
+		return isNodeHost == v, nil
 	})
-	if err != nil {
-		return r, err
-	}
-	keys, err := KeysFromOntologyIDs(ids)
-	if err != nil {
-		return r, err
-	}
-	r = r.WhereKeys(keys...)
-	return r, err
 }
 
-// Count returns the number of entries matching the query.
-func (r Retrieve) Count(ctx context.Context, tx gorp.Tx) (int, error) {
-	var err error
-	r, err = r.execSearch(ctx)
-	if err != nil {
-		return 0, err
+// MatchNode returns a filter that matches racks on the given cluster node.
+func MatchNode(node node.Key) Filter {
+	return func(_ Retrieve) gorp.Filter[Key, Rack] {
+		return gorp.Match(func(_ gorp.Context, rack *Rack) (bool, error) {
+			return rack.Key.Node() == node, nil
+		})
 	}
-	return r.gorp.Count(ctx, gorp.OverrideTx(r.baseTX, tx))
-}
-
-// Exec executes the query against the provided transaction.
-func (r Retrieve) Exec(ctx context.Context, tx gorp.Tx) error {
-	var err error
-	r, err = r.execSearch(ctx)
-	if err != nil {
-		return err
-	}
-	return r.gorp.Exec(ctx, gorp.OverrideTx(r.baseTX, tx))
 }

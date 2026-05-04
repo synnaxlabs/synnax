@@ -97,7 +97,7 @@ var _ = Describe("Observe", func() {
 			Exec(ctx, db)).To(Succeed())
 
 		tx := db.OpenTx()
-		Expect(gorp.NewDelete[int32, entry]().WhereKeys(42).Exec(ctx, tx)).To(Succeed())
+		Expect(gorp.NewDelete[int32, entry]().Where(gorp.MatchKeys[int32, entry](42)).Exec(ctx, tx)).To(Succeed())
 
 		var deleteChanges []change.Change[int32, entry]
 		entryTable.Observe().OnChange(func(ctx context.Context, r gorp.TxReader[int32, entry]) {

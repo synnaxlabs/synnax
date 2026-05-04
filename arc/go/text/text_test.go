@@ -606,7 +606,7 @@ var _ = Describe("Text", func() {
 				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
-			It("Should emit deprecation warning for bare select", func(ctx SpecContext) {
+			It("Should not emit deprecation warning for bare select", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
 					stl.SymbolResolver,
 					symbol.MapResolver{
@@ -618,12 +618,10 @@ var _ = Describe("Text", func() {
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
 				Expect(diags.Ok()).To(BeTrue())
-				Expect(diags.Warnings()).To(HaveLen(1))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("deprecated"))
-				Expect(diags.Warnings()[0].Message).To(ContainSubstring("selector.select"))
+				Expect(diags.Warnings()).To(BeEmpty())
 			})
 
-			It("Should not emit deprecation warning for qualified selector.select", func(ctx SpecContext) {
+			It("Should not resolve qualified selector.select", func(ctx SpecContext) {
 				resolver := symbol.CompoundResolver{
 					stl.SymbolResolver,
 					symbol.MapResolver{
@@ -634,8 +632,7 @@ var _ = Describe("Text", func() {
 				source := `flag -> selector.select{} -> output`
 				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
 				_, diags := text.Analyze(ctx, parsedText, resolver)
-				Expect(diags.Ok()).To(BeTrue())
-				Expect(diags.Warnings()).To(BeEmpty())
+				Expect(diags.Ok()).To(BeFalse())
 			})
 
 			It("Should emit deprecation warning for bare stable_for", func(ctx SpecContext) {

@@ -27,8 +27,10 @@ func NewUpdate[K Key, E Entry[K]]() Update[K, E] {
 	return Update[K, E]{retrieve: NewRetrieve[K, E]()}
 }
 
-func (u Update[K, E]) WhereKeys(keys ...K) Update[K, E] {
-	u.retrieve = u.retrieve.WhereKeys(keys...)
+// Where adds the provided filter to the query. To update by primary key,
+// compose MatchKeys into the filter (e.g. u.Where(MatchKeys(1, 2, 3))).
+func (u Update[K, E]) Where(filter Filter[K, E]) Update[K, E] {
+	u.retrieve = u.retrieve.Where(filter)
 	return u
 }
 
@@ -55,7 +57,7 @@ func (u Update[K, E]) Exec(ctx context.Context, tx Tx) (err error) {
 			return err
 		}
 	}
-	return WrapWriter[K, E](tx).Set(ctx, entries...)
+	return wrapWriter[K, E](tx, u.retrieve.keyPrefix).Set(ctx, entries...)
 }
 
 type ChangeFunc[K Key, E Entry[K]] = func(Context, E) (E, error)
