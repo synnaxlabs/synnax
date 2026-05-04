@@ -32,6 +32,7 @@ import {
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
+import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import {
   DRAG_HANDLE_CLASS,
@@ -1407,17 +1408,20 @@ export const MediaEmbedBase = ({
   onChange,
 }: SymbolProps<MediaEmbedProps>): ReactElement => {
   const hasURL = url != null && url.length > 0;
+  const onChangeRef = useSyncedRef(onChange);
   useEffect(() => {
     if (!hasURL) return;
     const img = new Image();
     img.onload = () =>
-      onChange({ dimensions: { width: img.naturalWidth, height: img.naturalHeight } });
+      onChangeRef.current({
+        dimensions: { width: img.naturalWidth, height: img.naturalHeight },
+      });
     img.src = url;
     return () => {
       img.onload = null;
       img.src = "";
     };
-  }, [url, onChange]);
+  }, [url, hasURL]);
 
   return (
     <Primitives.Embed dimensions={dims} color={colorVal} placeholder="Enter a URL">
