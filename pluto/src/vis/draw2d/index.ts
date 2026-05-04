@@ -101,7 +101,7 @@ export interface Draw2DTextContainerProps
   extends Omit<Draw2DContainerProps, "region">, Draw2DMeasureTextContainerProps {
   position: xy.XY;
   offset?: xy.XY;
-  root?: location.CornerXY;
+  root?: location.Corner;
 }
 
 export interface DrawList {
@@ -111,7 +111,7 @@ export interface DrawList {
   spacing?: number;
   width: number;
   draw: (index: number, box: box.Box) => void;
-  root?: location.CornerXY;
+  root?: location.Corner;
   offset?: xy.XY;
   padding?: xy.XY;
 }

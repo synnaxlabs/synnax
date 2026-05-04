@@ -39,12 +39,11 @@ func _() {
 	_ = x[KindFunction-19]
 	_ = x[KindSequence-20]
 	_ = x[KindStage-21]
-	_ = x[KindSignedNumericConstant-22]
 }
 
-const _Kind_name = "KindInvalidKindU8KindU16KindU32KindU64KindI8KindI16KindI32KindI64KindF32KindF64KindStringKindChanKindSeriesKindVariableKindNumericConstantKindIntegerConstantKindFloatConstantKindExactIntegerFloatConstantKindFunctionKindSequenceKindStageKindSignedNumericConstant"
+const _Kind_name = "KindInvalidKindU8KindU16KindU32KindU64KindI8KindI16KindI32KindI64KindF32KindF64KindStringKindChanKindSeriesKindVariableKindNumericConstantKindIntegerConstantKindFloatConstantKindExactIntegerFloatConstantKindFunctionKindSequenceKindStage"
 
-var _Kind_index = [...]uint16{0, 11, 17, 24, 31, 38, 44, 51, 58, 65, 72, 79, 89, 97, 107, 119, 138, 157, 174, 203, 215, 227, 236, 260}
+var _Kind_index = [...]uint16{0, 11, 17, 24, 31, 38, 44, 51, 58, 65, 72, 79, 89, 97, 107, 119, 138, 157, 174, 203, 215, 227, 236}
 
 func (i Kind) String() string {
 	idx := int(i) - 0
