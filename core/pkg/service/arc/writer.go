@@ -44,7 +44,7 @@ func (w Writer) Create(
 	if a.Key == uuid.Nil {
 		a.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(a.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Arc](a.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -72,7 +72,7 @@ func (w Writer) Delete(
 			return err
 		}
 	}
-	if err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Arc](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {

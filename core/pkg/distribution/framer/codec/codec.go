@@ -200,7 +200,7 @@ func newCodec(opts ...Option) *Codec {
 func (c *Codec) Update(ctx context.Context, keys []channel.Key) error {
 	channels := make([]channel.Channel, 0, len(keys))
 	if err := c.channels.NewRetrieve().
-		WhereKeys(keys...).
+		Where(channel.MatchKeys(keys...)).
 		Entries(&channels).Exec(ctx, nil); err != nil {
 		return err
 	}

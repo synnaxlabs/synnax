@@ -38,6 +38,6 @@ func (w Writer) SetMany(ctx context.Context, pairs []Pair) error {
 // idempotent and will not return an error if the key does not exist.
 func (w Writer) Delete(ctx context.Context, rng uuid.UUID, key string) error {
 	return w.table.NewDelete().
-		WhereKeys(Pair{Range: rng, Key: key}.GorpKey()).
+		Where(gorp.MatchKeys[string, Pair](Pair{Range: rng, Key: key}.GorpKey())).
 		Exec(ctx, w.tx)
 }

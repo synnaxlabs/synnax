@@ -270,3 +270,6 @@ core/synnax
 .bazelrc.user
 
 .claude
+
+# |||| ORACLE ||||
+.oracle/

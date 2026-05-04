@@ -12,6 +12,7 @@ import { type ReactElement, useCallback, useMemo } from "react";
 
 import { type Component } from "@/component";
 import { CSS } from "@/css";
+import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
@@ -20,7 +21,28 @@ import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
 import { Triggers } from "@/triggers";
 
-export const HAUL_TYPE = "tree-item";
+export const HAUL_TYPE = "tree_item";
+
+export interface HaulData {
+  /** depth is the position of the dragged node in the tree, where 0 is the root. */
+  depth: number;
+}
+
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, HaulData>;
+
+export const createHaulItem = (key: string, depth: number): HaulItem => ({
+  type: HAUL_TYPE,
+  key,
+  data: { depth },
+});
+
+export const isHaulItem = (item: Haul.Item): item is HaulItem =>
+  item.type === HAUL_TYPE;
+
+export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter(isHaulItem);
+
+export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface HandleExpandProps<K extends record.Key = string> {
   current: K[];

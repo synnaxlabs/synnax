@@ -63,7 +63,7 @@ func openGraph(ctx context.Context) *graph.Graph {
 func fetchStatus(ctx context.Context, key channel.Key) (status.Status[types.Nil], bool) {
 	var statuses []status.Status[types.Nil]
 	err := status.NewRetrieve[types.Nil](statusSvc).
-		WhereKeys(channel.OntologyID(key).String()).
+		Where(status.MatchKeys[types.Nil](channel.OntologyID(key).String())).
 		Entries(&statuses).
 		Exec(ctx, nil)
 	if err != nil || len(statuses) == 0 {
@@ -101,7 +101,7 @@ func eventuallyExpectNoStatus(ctx context.Context, key channel.Key) {
 
 func retrieveChannelDataType(ctx context.Context, key channel.Key) telem.DataType {
 	var ch channel.Channel
-	Expect(dist.Channel.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil)).To(Succeed())
+	Expect(dist.Channel.NewRetrieve().Where(channel.MatchKeys(key)).Entry(&ch).Exec(ctx, nil)).To(Succeed())
 	return ch.DataType
 }
 

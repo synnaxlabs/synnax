@@ -65,7 +65,7 @@ func (s *Service) Schema() zyn.Schema { return schema }
 // RetrieveResource implements ontology.Service.
 func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) (ontology.Resource, error) {
 	var st Status[any]
-	if err := s.NewRetrieve().WhereKeys(key).Entry(&st).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys[any](key)).Entry(&st).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(st), nil

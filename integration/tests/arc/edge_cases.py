@@ -222,6 +222,45 @@ func commit() {
 interval{100ms} -> init_seq{}
 """
 
+# ── ExecContext violations (invalid, caught at configure time) ──
+
+# Flow-only function called in a func body
+ARC_FLOW_IN_FUNC = """
+func bad() {
+    ch1 = 1.0
+    interval(100)
+}
+interval{100ms} -> bad{}
+"""
+
+# WASM-only function used as a flow node
+ARC_WASM_IN_FLOW = """
+func print{} () {
+}
+ch1 -> len{} -> print{}
+"""
+
+
+@dataclass
+class ExecContextCase:
+    label: str
+    source: str
+    wait_substr: str
+
+
+EXEC_CONTEXT_CASES = [
+    ExecContextCase(
+        "FlowInFunc",
+        ARC_FLOW_IN_FUNC,
+        "cannot be called inside a func block",
+    ),
+    ExecContextCase(
+        "WasmInFlow",
+        ARC_WASM_IN_FLOW,
+        "cannot be used as a flow statement",
+    ),
+]
+
 # ── Guarded circular calls (valid, should configure successfully) ──
 # Comprehensive guarded topology coverage is in the Go unit tests.
 
@@ -434,6 +473,24 @@ class EdgeCases(ArcConsoleCase):
         for case in GUARDED_CASES:
             self._assert_guarded_configures(case)
 
+    def _verify_exec_context_cases(self) -> None:
+        self.log("=== ExecContext violation detection ===")
+        for case in EXEC_CONTEXT_CASES:
+            self.log(f"[{case.label}] Testing exec context violation")
+            self.load_arc(
+                case.source, f"ExecCtx{case.label}", start=False, configure=False
+            )
+
+            self.console.arc.configure_no_wait()
+            status = self.console.arc.wait_for_status(case.wait_substr)
+            self.log(f"[{case.label}] Got expected error: {status}")
+
+            notifications = self.console.notifications.check(timeout=5)
+            error_notifications = [n for n in notifications if n.get("type") == "error"]
+            assert len(error_notifications) > 0, (
+                f"[{case.label}] Expected error notification, got: {notifications}"
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -457,4 +514,5 @@ class EdgeCases(ArcConsoleCase):
         self._verify_channel_edge_cases()
         self._verify_circular_cases()
         self._verify_guarded_cases()
+        self._verify_exec_context_cases()
         self._verify_read_only_monitor()

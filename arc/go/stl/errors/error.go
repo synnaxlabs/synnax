@@ -24,6 +24,7 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"panic": {
 			Name: "panic",
 			Kind: symbol.KindFunction,
+			Exec: symbol.ExecWASM,
 			Type: types.Function(types.FunctionProperties{
 				Inputs: types.Params{{Name: "ptr", Type: types.I32()}, {Name: "len", Type: types.I32()}},
 			}),

@@ -11,11 +11,13 @@ package channel
 
 import (
 	"context"
+	"sync"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/proxy"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/config"
@@ -25,21 +27,37 @@ import (
 	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
 	"github.com/synnaxlabs/x/validate"
 )
 
 // Service is the central entity for managing channels within Synnax's distribution
-// layer. It provides facilities for creating and retrieving channels.
+// layer. It provides facilities for creating, retrieving, renaming, and deleting
+// channels, and owns the cluster-wide lease routing logic that was previously
+// held by a separate leaseProxy type.
 type Service struct {
 	cfg    ServiceConfig
 	db     *gorp.DB
 	closer io.MultiCloser
 	Writer
-	proxy *leaseProxy
 	otg   *ontology.Ontology
 	group group.Group
 	table *gorp.Table[Key, Channel]
+	// leasedCounter and freeCounter drive local-key assignment for
+	// gateway-leased and free-virtual channels respectively. freeCounter is
+	// only populated on the bootstrapper node.
+	leasedCounter *counter
+	freeCounter   *counter
+	// mu guards externalNonVirtualSet, which tracks the key set used by
+	// validateChannels to enforce the uint20 channel-index overflow limit.
+	mu struct {
+		externalNonVirtualSet *set.Integer[Key]
+		sync.RWMutex
+	}
+	createRouter proxy.BatchFactory[Channel]
+	renameRouter proxy.BatchFactory[renameBatchEntry]
+	keyRouter    proxy.BatchFactory[Key]
 }
 
 type IntOverflowChecker = func(types.Uint20) error
@@ -99,7 +117,14 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{cfg: cfg, db: cfg.ClusterDB, otg: cfg.Ontology}
+	s = &Service{
+		cfg:          cfg,
+		db:           cfg.ClusterDB,
+		otg:          cfg.Ontology,
+		createRouter: proxy.BatchFactory[Channel]{Host: cfg.HostResolver.HostKey()},
+		keyRouter:    proxy.BatchFactory[Key]{Host: cfg.HostResolver.HostKey()},
+		renameRouter: proxy.BatchFactory[renameBatchEntry]{Host: cfg.HostResolver.HostKey()},
+	}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
 	if s.table, err = gorp.OpenTable(ctx, gorp.TableConfig[Channel]{
@@ -114,9 +139,29 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			return nil, err
 		}
 	}
-	if s.proxy, err = newLeaseProxy(ctx, cfg, s.group, s.table); !ok(err, nil) {
+	leasedCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.leasedCounter")
+	if s.leasedCounter, err = openCounter(ctx, cfg.ClusterDB, leasedCounterKey); !ok(err, nil) {
 		return nil, err
 	}
+	var externalNonVirtualChannels []Channel
+	if err = s.table.NewRetrieve().
+		Where(gorp.Match(func(_ gorp.Context, c *Channel) (bool, error) {
+			return !c.Internal && !c.Virtual, nil
+		})).
+		Entries(&externalNonVirtualChannels).
+		Exec(ctx, cfg.ClusterDB); !ok(err, nil) {
+		return nil, err
+	}
+	s.mu.externalNonVirtualSet = set.NewInteger(KeysFromChannels(externalNonVirtualChannels))
+	if cfg.HostResolver.HostKey() == node.KeyBootstrapper {
+		freeCounterKey := []byte(cfg.HostResolver.HostKey().String() + ".distribution.channel.counter.free")
+		if s.freeCounter, err = openCounter(ctx, cfg.ClusterDB, freeCounterKey); !ok(err, nil) {
+			return nil, err
+		}
+	}
+	cfg.Transport.CreateServer().BindHandler(s.createHandler)
+	cfg.Transport.DeleteServer().BindHandler(s.deleteHandler)
+	cfg.Transport.RenameServer().BindHandler(s.renameHandler)
 	s.Writer = s.NewWriter(nil)
 	if cfg.Ontology != nil {
 		cfg.Ontology.RegisterService(s)
@@ -138,37 +183,40 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Channel]] {
 
 func (s *Service) NewRetrieve() Retrieve {
 	return Retrieve{
-		gorp:                      s.table.NewRetrieve(),
-		tx:                        s.db,
-		search:                    s.cfg.Search,
-		validateRetrievedChannels: s.validateChannels,
+		baseTX: s.db,
+		gorp:   s.table.NewRetrieve().Validate(s.validateChannels),
+		search: s.cfg.Search,
 	}
 }
 
 // CountExternalNonVirtual returns the number of external non-virtual channels in the
 // service.
 func (s *Service) CountExternalNonVirtual() uint32 {
-	s.proxy.mu.RLock()
-	defer s.proxy.mu.RUnlock()
-	return uint32(s.proxy.mu.externalNonVirtualSet.Size())
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return uint32(s.mu.externalNonVirtualSet.Size())
 }
 
 func (s *Service) Close() error { return s.closer.Close() }
 
-func (s *Service) validateChannels(channels []Channel) ([]Channel, error) {
-	res := make([]Channel, 0, len(channels))
-	s.proxy.mu.RLock()
-	defer s.proxy.mu.RUnlock()
-	for i, key := range KeysFromChannels(channels) {
-		if s.proxy.mu.externalNonVirtualSet.Contains(key) {
-			channelNumber := s.proxy.mu.externalNonVirtualSet.NumLessThan(key) + 1
-			if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
-				return nil, err
-			}
+// validateChannels runs after every Retrieve.Exec and fails the query if any
+// retrieved external non-virtual channel would push the uint20 channel index
+// past the configured overflow limit. Attached via Validate on NewRetrieve so
+// it propagates through the generated Exec/Count/Exists pipeline.
+func (s *Service) validateChannels(_ gorp.Context, channels []Channel) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	for _, ch := range channels {
+		key := ch.GorpKey()
+		if !s.mu.externalNonVirtualSet.Contains(key) {
+			continue
 		}
-		res = append(res, channels[i])
+		channelNumber := s.mu.externalNonVirtualSet.NumLessThan(key) + 1
+		if err := s.cfg.IntOverflowCheck(types.Uint20(channelNumber)); err != nil {
+			return err
+		}
 	}
-	return res, nil
+	return nil
 }
 
 func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
@@ -176,7 +224,7 @@ func TryToRetrieveStringer(ctx context.Context, svc *Service, key Key) string {
 		return key.String()
 	}
 	var ch Channel
-	if err := svc.NewRetrieve().WhereKeys(key).Entry(&ch).Exec(ctx, nil); err != nil {
+	if err := svc.NewRetrieve().Where(MatchKeys(key)).Entry(&ch).Exec(ctx, nil); err != nil {
 		return key.String()
 	}
 	return ch.String()

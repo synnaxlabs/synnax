@@ -56,7 +56,7 @@ func (w Writer) CreateWithParent(
 	}
 	exists, err := w.table.
 		NewRetrieve().
-		WhereKeys(r.Key).
+		Where(gorp.MatchKeys[uuid.UUID, Range](r.Key)).
 		Exists(ctx, w.tx)
 	if err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
@@ -140,7 +140,7 @@ func (w Writer) CreateManyWithParent(
 func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
 	return w.table.
 		NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Range](key)).
 		Change(func(_ gorp.Context, r Range) Range { r.Name = name; return r }).
 		Exec(ctx, w.tx)
 }
@@ -180,7 +180,7 @@ func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
 	}
 	if err := w.table.
 		NewDelete().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Range](key)).
 		Exec(ctx, w.tx); err != nil {
 		return err
 	}

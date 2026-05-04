@@ -93,6 +93,11 @@ var _ = Describe("Pluralize", func() {
 			Expect(pluralize.String("XY")).To(Equal("XYs"))
 			Expect(pluralize.String("Array")).To(Equal("Arrays"))
 		})
+		It("Should add s when a trailing acronym ends in Y", func() {
+			Expect(pluralize.String("StickyXY")).To(Equal("StickyXYs"))
+			Expect(pluralize.String("ClientXY")).To(Equal("ClientXYs"))
+			Expect(pluralize.String("MyXY")).To(Equal("MyXYs"))
+		})
 	})
 
 	Context("already plural words", func() {

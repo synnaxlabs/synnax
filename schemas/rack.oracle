@@ -47,6 +47,7 @@ Rack struct {
     name         string    {
         @doc value         "is a human-readable name for the rack."
         @validate required
+        @filter
     }
     task_counter uint32?   {
         @doc value """
@@ -57,6 +58,7 @@ Rack struct {
         @doc value """
             is true if this rack is embedded within the Synnax server process.
         """
+        @filter
     }
     status       Status??  {
         @doc value  "is the current operational status of the rack."
@@ -67,20 +69,23 @@ Rack struct {
             is the list of hardware integrations this rack supports (e.g., "ni", "opc",
             "labjack"). An empty or nil list means the rack supports no integrations.
         """
+        @filter
     }
 
-    @doc value     """
+    @doc value       """
         is a collection container for hardware devices and tasks running on a
         specific cluster node. Racks serve as the integration point between the
         Synnax server and physical hardware via the Driver system.
     """
-    @ts name       "Payload"
-    @ontology type "rack"
+    @ts name         "Payload"
+    @ontology type   "rack"
     @go marshal
     @go migrate
-    @py name       "Base"
-    @cpp methods   "task::Client tasks"
-    @cpp includes  "client/cpp/task/task.h"
+    @retrieve custom
+    @search
+    @py name         "Base"
+    @cpp methods     "task::Client tasks"
+    @cpp includes    "client/cpp/task/task.h"
 }
 
 New struct extends Rack {

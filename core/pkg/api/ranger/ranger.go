@@ -143,16 +143,16 @@ func (s *Service) Retrieve(
 		hasLabels       = len(req.HasLabels) > 0
 	)
 	if hasOverlapsWith {
-		q = q.WhereOverlapsWith(req.OverlapsWith)
+		q = q.Where(ranger.MatchOverlap(req.OverlapsWith))
 	}
 	if hasNames {
-		q = q.WhereNames(req.Names...)
+		q = q.Where(ranger.MatchNames(req.Names...))
 	}
 	if hasKeys {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(ranger.MatchKeys(req.Keys...))
 	}
 	if hasLabels {
-		q = q.WhereHasLabels(req.HasLabels...)
+		q = q.Where(ranger.MatchLabels(req.HasLabels...))
 	}
 	if hasSearch {
 		q = q.Search(req.SearchTerm)
@@ -186,7 +186,7 @@ func (s *Service) Retrieve(
 				return RetrieveResponse{}, err
 			}
 			var parent ranger.Range
-			if err = s.internal.NewRetrieve().Entry(&parent).WhereKeys(parentKey).Exec(ctx, nil); err != nil {
+			if err = s.internal.NewRetrieve().Entry(&parent).Where(ranger.MatchKeys(parentKey)).Exec(ctx, nil); err != nil {
 				return RetrieveResponse{}, err
 			}
 			rng.Parent = &Range{Range: parent}

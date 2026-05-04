@@ -8,7 +8,7 @@
 #  included in the file licenses/APL.txt.
 
 import synnax as sy
-from framework.utils import create_virtual_channel
+from framework.utils import create_indexed_pair, create_virtual_channel
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_STL_TIME_SOURCE = """
@@ -18,6 +18,10 @@ func write_now() {
     time_now_out = time.now()
 }
 time_trigger -> write_now{}
+
+// time.now{} as a flow node: triggered by any upstream, outputs timestamp.
+time_now_flow_trigger -> time.now{} -> time_now_flow_out
+
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
 // We use time.interval{} (qualified syntax) to verify module syntax works.
@@ -85,6 +89,7 @@ class StlTime(ArcConsoleCase):
     start_cmd_channel = "start_stl_time_cmd"
     subscribe_channels = [
         "time_now_out",
+        "time_now_flow_out",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -94,31 +99,39 @@ class StlTime(ArcConsoleCase):
     def setup(self) -> None:
         create_virtual_channel(self.client, "time_trigger", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "time_now_out", sy.DataType.INT64)
+        create_virtual_channel(
+            self.client, "time_now_flow_trigger", sy.DataType.FLOAT64
+        )
+        create_virtual_channel(self.client, "time_now_flow_out", sy.DataType.TIMESTAMP)
         create_virtual_channel(self.client, "interval_count", sy.DataType.INT64)
         create_virtual_channel(self.client, "interval_count_mod", sy.DataType.INT64)
         create_virtual_channel(self.client, "start_wait_cmd", sy.DataType.UINT8)
         create_virtual_channel(self.client, "start_wait_mod_cmd", sy.DataType.UINT8)
         for name in ("toggle_cmd", "toggle_cmd_mod"):
-            idx = self.client.channels.create(
-                name=f"{name}_time",
-                is_index=True,
-                data_type=sy.DataType.TIMESTAMP,
-                retrieve_if_name_exists=True,
-            )
-            self.client.channels.create(
-                name=name,
-                data_type=sy.DataType.UINT8,
-                index=idx.key,
-                retrieve_if_name_exists=True,
-            )
+            create_indexed_pair(self.client, name, sy.DataType.UINT8)
         super().setup()
 
     def _test_now(self) -> None:
-        self.log("=== time.now() ===")
+        self.log("=== time.now() [WASM] ===")
         self.writer.write("time_trigger", 1.0)
         self.log(f"Expecting time_now_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
         self.wait_for_gt("time_now_out", JAN_2020_NANOS, is_virtual=True)
         self.log("time.now() returned a valid timestamp")
+
+    def _test_now_flow(self) -> None:
+        self.log("=== time.now{} [Flow] ===")
+        self.writer.write("time_now_flow_trigger", 1.0)
+        self.wait_for_gt("time_now_flow_out", 0, is_virtual=True)
+        ts = self.read_tlm("time_now_flow_out", 0)
+        now = int(sy.TimeStamp.now())
+        drift = abs(ts - now)
+        max_drift = 500 * int(sy.TimeSpan.MILLISECOND)
+        self.log(
+            f"time.now{{}} returned {ts}, current time {now}, "
+            f"drift {drift / 1e6:.1f}ms (max 500ms)"
+        )
+        if drift > max_drift:
+            self.fail(f"time.now{{}} drift {drift / 1e6:.1f}ms exceeds 500ms tolerance")
 
     def _check_interval_rate(self, channel: str, label: str) -> None:
         baseline = self.read_tlm(channel, 0)
@@ -181,5 +194,6 @@ class StlTime(ArcConsoleCase):
 
     def verify_sequence_execution(self) -> None:
         self._test_now()
+        self._test_now_flow()
         self._test_interval_rate()
         self._test_wait_timing()

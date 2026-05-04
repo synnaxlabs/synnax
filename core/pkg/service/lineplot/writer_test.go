@@ -33,7 +33,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).Rename(ctx, plot.Key, "test2")).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Name).To(Equal("test2"))
 		})
 	})
@@ -43,7 +43,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &plot)).To(Succeed())
 			Expect(svc.NewWriter(tx).SetData(ctx, plot.Key, map[string]any{"key": "data2"})).To(Succeed())
 			var res lineplot.LinePlot
-			Expect(svc.NewRetrieve().WhereKeys(plot.Key).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(svc.NewRetrieve().Where(lineplot.MatchKeys(plot.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
 			Expect(res.Data["key"]).To(Equal("data2"))
 		})
 	})

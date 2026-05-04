@@ -13,16 +13,15 @@
 package stl
 
 import (
+	"github.com/synnaxlabs/arc/stl/authority"
 	"github.com/synnaxlabs/arc/stl/channel"
 	"github.com/synnaxlabs/arc/stl/constant"
-	"github.com/synnaxlabs/arc/stl/control"
 	"github.com/synnaxlabs/arc/stl/errors"
 	"github.com/synnaxlabs/arc/stl/math"
 	"github.com/synnaxlabs/arc/stl/op"
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	"github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/time"
@@ -30,16 +29,15 @@ import (
 )
 
 var SymbolResolver = symbol.CompoundResolver{
+	authority.SymbolResolver,
 	channel.SymbolResolver,
 	constant.SymbolResolver,
-	control.SymbolResolver,
 	errors.SymbolResolver,
 	math.SymbolResolver,
 	op.SymbolResolver,
 	selector.SymbolResolver,
 	series.SymbolResolver,
 	stable.SymbolResolver,
-	stat.SymbolResolver,
 	stateful.SymbolResolver,
 	strings.SymbolResolver,
 	time.SymbolResolver,

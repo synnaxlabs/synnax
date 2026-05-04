@@ -1021,6 +1021,76 @@ var _ = Describe("TS Types Plugin", func() {
 			Expect(content).To(ContainSubstring(`name: z.string()`))
 		})
 
+		It("Should preserve trailing acronyms in generated zod schema names", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				ClientXY struct {
+					clientX float64
+					clientY float64
+				}
+
+				StickyXY struct {
+					x float64
+					y float64
+				}
+
+				EntityID struct {
+					value string
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`export const clientXYZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export const stickyXYZ = z.object({`))
+			Expect(content).To(ContainSubstring(`export const entityIDZ = z.object({`))
+			Expect(content).To(ContainSubstring(`typeof clientXYZ`))
+			Expect(content).To(ContainSubstring(`typeof stickyXYZ`))
+			Expect(content).NotTo(ContainSubstring(`clientXyZ`))
+			Expect(content).NotTo(ContainSubstring(`stickyXyZ`))
+			Expect(content).NotTo(ContainSubstring(`entityIdZ`))
+		})
+
+		It("Should emit numeric-constrained generic as function with value-typed generic interface", func(ctx SpecContext) {
+			source := `
+				@ts output "out"
+
+				Bounds struct<T extends numeric = float64> {
+					lower T
+					upper T
+				}
+			`
+			table, diag := analyzer.AnalyzeSource(ctx, source, "test", loader)
+			Expect(diag.Ok()).To(BeTrue())
+
+			req := &plugin.Request{
+				Resolutions: table,
+			}
+
+			resp, err := typesPlugin.Generate(req)
+			Expect(err).To(BeNil())
+
+			content := string(resp.Files[0].Content)
+			Expect(content).To(ContainSubstring(`import { numeric } from "@synnaxlabs/x"`))
+			Expect(content).To(ContainSubstring(`export const boundsZ = <T extends numeric.Value = number>(t?: z.ZodType<T>) =>`))
+			Expect(content).To(ContainSubstring(`lower: t ?? z.number()`))
+			Expect(content).To(ContainSubstring(`upper: t ?? z.number()`))
+			Expect(content).To(ContainSubstring(`export interface Bounds<T extends numeric.Value = number> {`))
+			Expect(content).To(ContainSubstring(`lower: T;`))
+			Expect(content).To(ContainSubstring(`upper: T;`))
+			Expect(content).NotTo(ContainSubstring(`z.infer<T>`))
+			Expect(content).NotTo(ContainSubstring(`<T extends z.ZodType`))
+		})
+
 		It("Should generate fallback pattern for type param fields with concrete_types directive", func(ctx SpecContext) {
 			source := `
 				@ts output "out"

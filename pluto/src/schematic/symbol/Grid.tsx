@@ -89,7 +89,7 @@ const RESIZE_CONTROLS: {
   { position: "bottom-right", keepAspectRatio: true },
 ];
 
-const HAUL_TYPE = "Schematic.Grid";
+const HAUL_TYPE = "schematic_grid";
 
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
 
@@ -105,7 +105,7 @@ const createGridEl = (loc: location.Location): FC<GridElProps> => {
     items: fItems,
     onLocationChange,
   }: GridElProps): ReactElement | null => {
-    const haulType = `${symbolKey}.${HAUL_TYPE}`;
+    const haulType = `${symbolKey}_${HAUL_TYPE}`;
     const [draggingOver, setDraggingOver] = useState(false);
     const canDrop: Haul.CanDrop = useMemo(
       () => Haul.canDropOfType(haulType),

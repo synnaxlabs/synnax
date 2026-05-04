@@ -40,7 +40,7 @@ func (w Writer) Create(
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(s.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Log](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -70,7 +70,7 @@ func (w Writer) Rename(
 	name string,
 ) error {
 	return w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
 		Change(func(_ gorp.Context, l Log) Log {
 			l.Name = name
 			return l
@@ -84,7 +84,7 @@ func (w Writer) SetData(
 	data map[string]any,
 ) error {
 	return w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
 		Change(func(ctx gorp.Context, l Log) Log {
 			l.Data = data
 			return l
@@ -96,7 +96,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) (err error) {
-	if err = w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Log](keys...)).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {

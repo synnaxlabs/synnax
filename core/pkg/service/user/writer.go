@@ -64,7 +64,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 	if usernameExists {
 		return auth.RepeatedUsername
 	}
-	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, User](key)).Change(func(_ gorp.Context, u User) User {
 		u.Username = newUsername
 		return u
 	}).Exec(ctx, w.tx)
@@ -73,7 +73,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 // ChangeName updates the first and last name of the user with the given key. If either
 // first or last is an empty string, the corresponding field will not be updated.
 func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
-	return w.table.NewUpdate().WhereKeys(key).Change(func(_ gorp.Context, u User) User {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, User](key)).Change(func(_ gorp.Context, u User) User {
 		if first != "" {
 			u.FirstName = first
 		}
@@ -89,7 +89,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	if err := w.table.NewDelete().WhereKeys(keys...).Guard(func(_ gorp.Context, u User) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, User](keys...)).Guard(func(_ gorp.Context, u User) error {
 		if u.RootUser {
 			return errors.New("cannot delete root user")
 		}

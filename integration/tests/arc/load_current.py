@@ -10,6 +10,7 @@
 from examples.simulators import LoadCurrentSimDAQ
 
 import synnax as sy
+from framework.utils import create_indexed_pair
 from tests.arc.arc_case import ArcConsoleCase
 
 ARC_LOAD_CURRENT_SOURCE = """
@@ -59,17 +60,7 @@ class LoadCurrent(ArcConsoleCase):
     sim_daq_class = LoadCurrentSimDAQ
 
     def setup(self) -> None:
-        idx = self.client.channels.create(
-            name="lc_tick_count_time",
-            is_index=True,
-            retrieve_if_name_exists=True,
-        )
-        self.client.channels.create(
-            name="lc_tick_count",
-            index=idx.key,
-            data_type=sy.DataType.UINT8,
-            retrieve_if_name_exists=True,
-        )
+        create_indexed_pair(self.client, "lc_tick_count", sy.DataType.UINT8)
         super().setup()
         self.set_manual_timeout(30)
 

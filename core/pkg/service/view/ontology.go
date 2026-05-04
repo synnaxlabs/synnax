@@ -84,7 +84,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var v View
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&v).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&v).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(v), nil

@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { channel, NotFoundError, type Synnax } from "@synnaxlabs/client";
-import { Component, Flex, Form as PForm, type Haul, Icon } from "@synnaxlabs/pluto";
+import { Component, Flex, Form as PForm, Icon } from "@synnaxlabs/pluto";
 import { caseconv, DataType, primitive } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
@@ -100,24 +100,16 @@ const Properties = (): ReactElement => {
   );
 };
 
-const convertHaulItemToChannel = ({ data }: Haul.Item): InputChannel => {
-  if (typeof data?.name !== "string") throw new Error("Invalid name");
-  const nodeName = data?.name;
-  if (typeof data?.nodeId !== "string")
-    throw new Error(`Invalid nodeId for ${nodeName}`);
-  const nodeId = data?.nodeId;
-  const dataType = typeof data?.dataType === "string" ? data.dataType : "float32";
-  return {
-    key: nodeId,
-    nodeName,
-    nodeId,
-    channel: 0,
-    enabled: true,
-    useAsIndex: false,
-    dataType,
-    name: "",
-  };
-};
+const convertHaulItemToChannel = ({ data }: Device.HaulItem): InputChannel => ({
+  key: data.nodeId,
+  nodeName: data.name,
+  nodeId: data.nodeId,
+  channel: 0,
+  enabled: true,
+  useAsIndex: false,
+  dataType: data.dataType,
+  name: "",
+});
 
 const getChannelKeyAndID: ChannelKeyAndIDGetter<InputChannel> = ({ channel, key }) => ({
   key: channel,

@@ -30,7 +30,7 @@ func (r Reader) Get(ctx context.Context, rng uuid.UUID, key string) (string, err
 	var (
 		res = Pair{Range: rng, Key: key}
 		err = r.table.NewRetrieve().
-			WhereKeys(res.GorpKey()).
+			Where(gorp.MatchKeys[string, Pair](res.GorpKey())).
 			Entry(&res).
 			Exec(ctx, r.tx)
 	)
@@ -51,7 +51,7 @@ func (r Reader) GetMany(
 		return Pair{Range: rng, Key: k}.GorpKey()
 	})
 	err := r.table.NewRetrieve().
-		WhereKeys(tKeys...).
+		Where(gorp.MatchKeys[string, Pair](tKeys...)).
 		Entries(&res).
 		Exec(ctx, r.tx)
 	return res, err
@@ -61,9 +61,9 @@ func (r Reader) GetMany(
 func (r Reader) List(ctx context.Context, rng uuid.UUID) ([]Pair, error) {
 	var res []Pair
 	err := r.table.NewRetrieve().
-		Where(func(_ gorp.Context, kv *Pair) (bool, error) {
+		Where(gorp.Match(func(_ gorp.Context, kv *Pair) (bool, error) {
 			return kv.Range == rng, nil
-		}).
+		})).
 		Entries(&res).
 		Exec(ctx, r.tx)
 	return res, err

@@ -1028,7 +1028,7 @@ func analyzeCompoundAssignment(
 
 func analyzeAssignment(ctx context.Context[parser.IAssignmentContext]) {
 	name := ctx.AST.IDENTIFIER().GetText()
-	varScope, err := ctx.Scope.Resolve(ctx, name)
+	varScope, err := ctx.Resolve(name)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 		return

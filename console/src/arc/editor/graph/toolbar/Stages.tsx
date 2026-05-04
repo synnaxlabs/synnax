@@ -25,18 +25,19 @@ import {
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
+import { createHaulItem } from "@/arc/editor/graph/Editor";
 import { useAddSymbol } from "@/arc/useAddSymbol";
 import { CSS } from "@/css";
 
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Diagram-Elements",
+    type: "diagram_elements",
     key: "stages",
   });
   const theme = Theming.use();
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: "arc-element", key: itemKey }]);
+    startDrag([createHaulItem(itemKey)]);
   }, [startDrag, itemKey]);
 
   const spec = List.useItem<string, Arc.Stage.Spec>(itemKey);

@@ -115,10 +115,11 @@ const CHANNELS_PATH = "config.channels";
 
 const VARIABLE_NODE_CLASS = "Variable";
 
-const filterHaulItem = (item: Haul.Item): boolean =>
-  item.type === Device.HAUL_TYPE && item.data?.nodeClass === VARIABLE_NODE_CLASS;
+const isVariableHaulItem = (item: Haul.Item): item is Device.HaulItem =>
+  Device.isHaulItem(item) && item.data.nodeClass === VARIABLE_NODE_CLASS;
 
-const canDrop = ({ items }: Haul.DraggingState): boolean => items.some(filterHaulItem);
+const canDrop = ({ items }: Haul.DraggingState): boolean =>
+  items.some(isVariableHaulItem);
 
 interface ChannelListProps<C extends Channel> extends Pick<
   Common.Task.ChannelListProps<C>,
@@ -126,7 +127,7 @@ interface ChannelListProps<C extends Channel> extends Pick<
 > {
   children: Component.RenderProp<ExtraItemProps>;
   device: Device.Device;
-  convertHaulItemToChannel: (item: Haul.Item) => C;
+  convertHaulItemToChannel: (item: Device.HaulItem) => C;
   getChannelKeyAndID: ChannelKeyAndIDGetter<C>;
 }
 
@@ -143,9 +144,9 @@ const ChannelList = <C extends Channel>({
   const handleDrop = useCallback(
     ({ items }: Haul.OnDropProps): Haul.Item[] => {
       const channels = ctx.get<C[]>(CHANNELS_PATH).value;
-      const dropped = items.filter(filterHaulItem);
+      const dropped = items.filter(isVariableHaulItem);
       const toAdd = dropped
-        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data?.nodeId))
+        .filter(({ data }) => !channels.some(({ nodeId }) => nodeId === data.nodeId))
         .map(convertHaulItemToChannel);
       push(toAdd);
       return dropped;
@@ -159,7 +160,7 @@ const ChannelList = <C extends Channel>({
     onDrop: handleDrop,
   });
 
-  const isDragging = Haul.canDropOfType(Device.HAUL_TYPE)(Haul.useDraggingState());
+  const isDragging = Device.canDropHaulItem(Haul.useDraggingState());
 
   const [selected, setSelected] = useState(data.length > 0 ? [data[0]] : []);
   const listItem = useCallback(
