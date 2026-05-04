@@ -147,19 +147,19 @@ var _ = Describe("Hover", func() {
 			Expect(hover.Contents.Value).To(ContainSubstring("running average"))
 		})
 
-		It("should provide hover for 'selector.select' function", func(ctx SpecContext) {
-			content := "flag -> selector.select{} -> output"
+		It("should provide hover for 'select' function", func(ctx SpecContext) {
+			content := "flag -> select{} -> output"
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{
 				TextDocumentPositionParams: protocol.TextDocumentPositionParams{
 					TextDocument: protocol.TextDocumentIdentifier{URI: uri},
-					Position:     protocol.Position{Line: 0, Character: 16},
+					Position:     protocol.Position{Line: 0, Character: 11},
 				},
 			}))
 
 			Expect(hover).ToNot(BeNil())
-			Expect(hover.Contents.Value).To(ContainSubstring("#### selector.select"))
+			Expect(hover.Contents.Value).To(ContainSubstring("#### select"))
 			Expect(hover.Contents.Value).To(ContainSubstring("Routes input values"))
 		})
 

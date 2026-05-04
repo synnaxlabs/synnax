@@ -7,30 +7,29 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import z from "zod";
+
 import {
   type AngularDirection,
-  type CrudeDirection,
-  crudeDirection,
-  type CrudeXDirection,
-  type CrudeYDirection,
+  CENTER_LOCATIONS,
   type Dimension,
   type Direction,
   DIRECTIONS,
   directionZ,
   type Location,
+  OUTER_LOCATIONS,
   type SignedDimension,
   Y_LOCATIONS,
   type YLocation,
-} from "@/spatial/base";
+} from "@/spatial/types.gen";
 
 export { type Direction, DIRECTIONS, directionZ };
 
-export const crude = crudeDirection;
-
-export type Crude = CrudeDirection;
-export type CrudeX = CrudeXDirection;
-export type CrudeY = CrudeYDirection;
 export type Angular = AngularDirection;
+export const crudeZ = z.enum(["x", "y", ...OUTER_LOCATIONS, ...CENTER_LOCATIONS]);
+export type Crude = z.infer<typeof crudeZ>;
+export type CrudeX = "x" | "left" | "right";
+export type CrudeY = "y" | "top" | "bottom";
 
 export const construct = (c: Crude): Direction => {
   if (DIRECTIONS.includes(c as Direction)) return c as Direction;
@@ -38,24 +37,24 @@ export const construct = (c: Crude): Direction => {
   return "x";
 };
 
-export const swap = (direction: CrudeDirection): Direction =>
+export const swap = (direction: Crude): Direction =>
   construct(direction) === "x" ? "y" : "x";
 
-export const dimension = (direction: CrudeDirection): Dimension =>
+export const dimension = (direction: Crude): Dimension =>
   construct(direction) === "x" ? "width" : "height";
 
-export const location = (direction: CrudeDirection): Location =>
+export const location = (direction: Crude): Location =>
   construct(direction) === "x" ? "left" : "top";
 
-export const isDirection = (c: unknown): c is Direction => crude.safeParse(c).success;
+export const isDirection = (c: unknown): c is Direction => crudeZ.safeParse(c).success;
 
-export const signedDimension = (direction: CrudeDirection): SignedDimension =>
+export const signedDimension = (direction: Crude): SignedDimension =>
   construct(direction) === "x" ? "signedWidth" : "signedHeight";
 
-export const isX = (direction: CrudeDirection): direction is CrudeXDirection => {
+export const isX = (direction: Crude): direction is CrudeX => {
   if (direction === "center") return false;
   return construct(direction) === "x";
 };
 
-export const isY = (direction: CrudeDirection): direction is CrudeYDirection =>
+export const isY = (direction: Crude): direction is CrudeY =>
   construct(direction) === "y";
