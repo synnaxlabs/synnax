@@ -506,18 +506,19 @@ describe("Triggers", () => {
         </Triggers.Provider>,
       );
 
-      // // Move cursor into region but trigger on body
+      // Move cursor into region but trigger on body — both start and end
+      // should be suppressed since body !== regionRef.current
       fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
       fireEvent.keyDown(document.body, { code: "KeyA" });
       fireEvent.keyUp(document.body, { code: "KeyA" });
-      expect(callback).toHaveBeenCalledTimes(1);
+      expect(callback).not.toHaveBeenCalled();
       fireEvent.mouseMove(regionRef.current, { clientX: 10, clientY: 10 });
 
       vi.advanceTimersByTime(500);
 
       // Trigger directly on region element
       fireEvent.keyDown(regionRef.current, { code: "KeyA" });
-      expect(callback).toHaveBeenCalledTimes(2);
+      expect(callback).toHaveBeenCalledOnce();
       expect(callback).toHaveBeenLastCalledWith({
         target: regionRef.current,
         triggers: [["A"]],
@@ -548,11 +549,11 @@ describe("Triggers", () => {
         </Triggers.Provider>,
       );
 
-      // // Mouse click outside region
+      // Mouse click outside region — both start and end should be suppressed
       fireEvent.mouseMove(document.body, { clientX: -10, clientY: -10 });
       fireEvent.mouseDown(document.body, { button: 0 });
       fireEvent.mouseUp(document.body, { button: 0 });
-      expect(callback).toHaveBeenCalledOnce();
+      expect(callback).not.toHaveBeenCalled();
 
       vi.advanceTimersByTime(500);
 
