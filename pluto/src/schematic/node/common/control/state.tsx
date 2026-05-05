@@ -8,11 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { direction, location } from "@synnaxlabs/x";
+import { useCallback } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Grid } from "@/schematic/node/common/grid";
+import { Grid } from "@/schematic/node/common/grid";
 import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";
 
@@ -43,8 +44,13 @@ export interface StateProps extends StateConfig, Omit<Flex.BoxProps, "direction"
   indicator?: Control.IndicatorProps;
 }
 
-export const stateGridItem = (props?: StateConfig): Grid.Item | null => {
-  if (props == null) return null;
+export interface State {
+  config?: StateConfig;
+  onChange?: (next: { control: StateConfig }) => void;
+}
+
+export const State = Grid.createItem<State>(({ config, onChange }) => {
+  if (config == null) return null;
   const {
     show = true,
     showChip = true,
@@ -52,10 +58,18 @@ export const stateGridItem = (props?: StateConfig): Grid.Item | null => {
     chip,
     indicator,
     orientation = "bottom",
-  } = props;
-  return {
-    key: "control",
-    element: (
+  } = config;
+  const handleLocationChange = useCallback(
+    (orientation: location.Location) =>
+      onChange?.({ control: { ...config, orientation } }),
+    [config, orientation],
+  );
+  return (
+    <Grid.Item
+      itemKey="control"
+      location={orientation}
+      onLocationChange={handleLocationChange}
+    >
       <Flex.Box
         direction={direction.swap(orientation)}
         align="center"
@@ -65,7 +79,7 @@ export const stateGridItem = (props?: StateConfig): Grid.Item | null => {
         {show && showChip && <Control.Chip size="small" {...chip} />}
         {show && showIndicator && <Control.Indicator {...indicator} />}
       </Flex.Box>
-    ),
-    location: orientation,
-  };
-};
+    </Grid.Item>
+  );
+});
+State.displayName = "Control.State";

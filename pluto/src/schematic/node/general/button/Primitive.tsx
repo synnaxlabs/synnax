@@ -14,8 +14,7 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";
 
-interface RenderProps extends Omit<Config, "label" | "variant"> {
-  label?: string;
+interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onClick?: MouseEventHandler<HTMLButtonElement>;
   onMouseDown?: MouseEventHandler<HTMLButtonElement>;
@@ -27,7 +26,7 @@ export const Primitive = ({
   onMouseDown,
   onMouseUp,
   orientation = "left",
-  label = "",
+  label,
   color,
   size,
   level,
@@ -44,7 +43,7 @@ export const Primitive = ({
       level={level}
       onClickDelay={delay}
     >
-      {label}
+      {label?.label ?? ""}
     </BaseButton.Button>
     <Handle.Boundary orientation={orientation}>
       <Handle.Handle

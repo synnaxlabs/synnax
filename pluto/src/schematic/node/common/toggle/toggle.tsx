@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { location } from "@synnaxlabs/x";
 import { type FC, memo, type ReactElement } from "react";
 import { z } from "zod";
 
@@ -63,13 +62,11 @@ export const createToggle = <C extends ToggleConfig>(
     grid?: Partial<Omit<Grid.GridProps, "editable">>;
   },
 ): FC<NodeProps<C>> => {
-  const C = ({
-    nodeKey: symbolKey,
-    onConfigChange: onChange,
+  const Inner = ({
+    nodeKey,
+    onConfigChange,
     selected,
-    config: data,
-  }: NodeProps<C>): ReactElement => {
-    const {
+    config: {
       control,
       source,
       sink,
@@ -77,31 +74,19 @@ export const createToggle = <C extends ToggleConfig>(
       orientation = "left",
       onClickDelay,
       ...rest
-    } = data;
-    const { enabled, toggle } = Base.use({ aetherKey: symbolKey, source, sink });
-    const gridItems: Grid.Item[] = [];
-    const labelItem = Label.gridItem(label, onChange as never);
-    if (labelItem != null) gridItems.push(labelItem);
-    const controlItem = Control.stateGridItem(control);
-    if (controlItem != null) gridItems.push(controlItem);
+    },
+  }: NodeProps<ToggleConfig>): ReactElement => {
+    const { enabled, toggle } = Base.use({ aetherKey: nodeKey, source, sink });
     return (
       <Grid.Grid
         editable={selected}
-        symbolKey={symbolKey}
-        items={gridItems}
-        onRotate={() =>
-          onChange({
-            orientation: location.rotate(orientation, "clockwise"),
-          } as Partial<C>)
-        }
-        onLocationChange={(key, loc) => {
-          if (key === "label")
-            onChange({ label: { ...label, orientation: loc } } as Partial<C>);
-          if (key === "control")
-            onChange({ control: { ...control, orientation: loc } } as Partial<C>);
-        }}
+        nodeKey={nodeKey}
+        orientation={orientation}
+        onRotate={onConfigChange}
         {...overrides?.grid}
       >
+        <Label.Label config={label} onChange={onConfigChange} />
+        <Control.State config={control} onChange={onConfigChange} />
         <BaseSymbol
           enabled={enabled}
           onClick={toggle}
@@ -112,7 +97,7 @@ export const createToggle = <C extends ToggleConfig>(
       </Grid.Grid>
     );
   };
-  const M = memo(C);
+  const M = memo(Inner) as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;
 };
@@ -123,46 +108,33 @@ export const dummyToggleConfigZ = Label.labeledConfigZ.extend({
 });
 export type DummyToggleConfig = z.infer<typeof dummyToggleConfigZ>;
 
-export const createDummyToggle = <Config extends DummyToggleConfig>(
+export const createDummyToggle = <C extends DummyToggleConfig>(
   Primitive: FC<any>,
-): FC<NodeProps<Config>> => {
+): FC<NodeProps<C>> => {
   const DummyToggle = ({
-    nodeKey: symbolKey,
-    onConfigChange: onChange,
+    nodeKey,
+    onConfigChange,
     selected,
-    config: data,
-  }: NodeProps<Config>): ReactElement => {
-    const {
+    config: {
       label,
       orientation = "left",
       enabled = false,
       clickable = false,
       ...rest
-    } = data;
-    const gridItems: Grid.Item[] = [];
-    const labelItem = Label.gridItem(label, onChange as never);
-    if (labelItem != null) gridItems.push(labelItem);
+    },
+  }: NodeProps<DummyToggleConfig>): ReactElement => {
     const handleToggleChange = () => {
       if (!clickable) return;
-      onChange({ enabled: !enabled } as Partial<Config>);
+      onConfigChange({ enabled: !enabled });
     };
     return (
       <Grid.Grid
-        items={gridItems}
         editable={selected}
-        symbolKey={symbolKey}
-        onRotate={() =>
-          onChange({
-            orientation: location.rotate(orientation, "clockwise"),
-          } as Partial<Config>)
-        }
-        onLocationChange={(key, loc) => {
-          if (key === "label")
-            onChange({
-              label: { ...label, orientation: loc },
-            } as Partial<Config>);
-        }}
+        nodeKey={nodeKey}
+        orientation={orientation}
+        onRotate={onConfigChange}
       >
+        <Label.Label config={label} onChange={onConfigChange} />
         <Primitive
           orientation={orientation}
           enabled={enabled}
@@ -172,7 +144,7 @@ export const createDummyToggle = <Config extends DummyToggleConfig>(
       </Grid.Grid>
     );
   };
-  const M = memo(DummyToggle);
+  const M = memo(DummyToggle) as unknown as FC<NodeProps<C>>;
   M.displayName = Primitive.displayName;
   return M;
 };

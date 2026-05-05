@@ -13,11 +13,10 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { type Config, VARIANT } from "@/schematic/node/general/customStatic/config";
 import { Primitive } from "@/schematic/node/general/customStatic/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/customStatic/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   specKey: "",
   stateOverrides: [],

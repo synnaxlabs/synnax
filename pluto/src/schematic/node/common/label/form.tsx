@@ -17,14 +17,14 @@ import { type Input } from "@/input";
 import { Select } from "@/select";
 import { type Text } from "@/text";
 
+const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
+
+const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
+
 interface FormProps {
   path: string;
   omit?: string[];
 }
-
-const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
-
-const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };
 
 export const Form = ({ path, omit = [] }: FormProps): ReactElement => (
   <Flex.Box x align="stretch">

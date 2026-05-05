@@ -15,23 +15,20 @@ import { Primitive } from "@/schematic/node/general/textBox/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const { color, width, align, autoFit, level, value, orientation } = data;
-  return (
-    <Primitive
-      className={Grid.DRAG_HANDLE_CLASS}
-      onChange={(v) => onChange({ value: v })}
-      value={value}
-      level={level}
-      color={color}
-      key={symbolKey}
-      width={width}
-      align={align}
-      autoFit={autoFit}
-      orientation={orientation}
-    />
-  );
-};
+  nodeKey,
+  onConfigChange,
+  config: { color, width, align, autoFit, level, value, orientation },
+}: NodeProps<Config>): ReactElement => (
+  <Primitive
+    className={Grid.DRAG_HANDLE_CLASS}
+    onChange={(value) => onConfigChange({ value })}
+    value={value}
+    level={level}
+    color={color}
+    key={nodeKey}
+    width={width}
+    align={align}
+    autoFit={autoFit}
+    orientation={orientation}
+  />
+);

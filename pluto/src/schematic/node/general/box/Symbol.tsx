@@ -16,12 +16,10 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { Primitive as TankPrimitive } from "@/schematic/node/vessels/tank/Primitive";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  config: {
     label,
     orientation = "left",
     backgroundColor,
@@ -29,30 +27,18 @@ export const Symbol = ({
     color,
     dimensions,
     strokeWidth,
-  } = data;
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
-  return (
-    <Grid.Grid
-      allowCenter
-      allowRotate={false}
-      items={gridItems}
-      editable={selected}
-      symbolKey={symbolKey}
-      onLocationChange={(key, loc) => {
-        if (key === "label") onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
-      <TankPrimitive
-        onResize={(dims) => onChange({ dimensions: dims })}
-        orientation={orientation}
-        color={color}
-        dimensions={dimensions}
-        boxBorderRadius={borderRadius}
-        backgroundColor={backgroundColor}
-        strokeWidth={strokeWidth}
-      />
-    </Grid.Grid>
-  );
-};
+  },
+}: NodeProps<Config>): ReactElement => (
+  <Grid.Grid allowCenter allowRotate={false} editable={selected} nodeKey={nodeKey}>
+    <Label.Label config={label} onChange={onConfigChange} />
+    <TankPrimitive
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      boxBorderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+      strokeWidth={strokeWidth}
+    />
+  </Grid.Grid>
+);

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@/schematic/node/common/form/color";
+export * from "@/schematic/node/common/form/Color";
 export * from "@/schematic/node/common/form/input";
-export * from "@/schematic/node/common/form/scale";
-export * from "@/schematic/node/common/form/stateMapping";
-export * from "@/schematic/node/common/form/style";
-export * from "@/schematic/node/common/form/text";
+export * from "@/schematic/node/common/form/Scale";
+export * from "@/schematic/node/common/form/StateMapping";
+export * from "@/schematic/node/common/form/Style";
+export * from "@/schematic/node/common/form/Text";
 export * from "@/schematic/node/common/form/toggle";
-export * from "@/schematic/node/common/form/wrapper";
+export * from "@/schematic/node/common/form/Wrapper";

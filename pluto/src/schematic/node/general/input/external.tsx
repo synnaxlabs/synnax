@@ -37,8 +37,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 const Preview = ({ color }: Config): ReactElement => (
   <Primitive
-    value="send message"
-    onChange={() => {}}
+    initialValue="send message"
     color={color}
     disabled
     className={CSS.BM("input-symbol", "preview")}

@@ -17,27 +17,15 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { Light as BaseLight } from "@/vis/light";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
-  config: data,
+  config: { label, source, ...rest },
 }: NodeProps<Config>): ReactElement => {
-  const { label, source, ...rest } = data;
-  const { enabled } = BaseLight.use({ aetherKey: symbolKey, source });
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
+  const { enabled } = BaseLight.use({ aetherKey: nodeKey, source });
   return (
-    <Grid.Grid
-      items={gridItems}
-      allowRotate={false}
-      editable={selected}
-      symbolKey={symbolKey}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
+    <Grid.Grid allowRotate={false} editable={selected} nodeKey={nodeKey}>
+      <Label.Label config={label} onChange={onConfigChange} />
       <Primitive enabled={enabled} {...rest} />
     </Grid.Grid>
   );

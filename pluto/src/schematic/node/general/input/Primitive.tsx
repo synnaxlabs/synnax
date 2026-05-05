@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
+import { type ReactElement, useState } from "react";
 
 import { Button as BaseButton } from "@/button";
 import { CSS } from "@/css";
@@ -16,70 +16,74 @@ import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/input/config";
 
-interface RenderProps extends Omit<Config, "variant"> {
+interface PrimitiveProps extends Omit<Config, "variant"> {
+  initialValue?: string;
   className?: string;
-  value: string;
-  onChange: (value: string) => void;
   onSend?: (value: string) => void;
 }
 
 export const Primitive = ({
   className,
+  initialValue = "",
   orientation = "left",
   color: colorVal,
-  value,
-  onChange,
   size,
   onSend,
   disabled,
-}: RenderProps): ReactElement => (
-  <Base.Div orientation={orientation} className={CSS(CSS.B("input-symbol"), className)}>
-    <Handle.Boundary orientation={orientation}>
-      <Handle.Handle
-        location="left"
-        orientation={orientation}
-        left={0}
-        top={50}
-        id="1"
-      />
-      <Handle.Handle
-        location="right"
-        orientation={orientation}
-        left={100}
-        top={50}
-        id="2"
-      />
-      <Handle.Handle
-        location="top"
-        orientation={orientation}
-        left={50}
-        top={0}
-        id="3"
-      />
-      <Handle.Handle
-        location="bottom"
-        orientation={orientation}
-        left={50}
-        top={100}
-        id="4"
-      />
-    </Handle.Boundary>
-    <BaseInput.Text
-      value={value}
-      onChange={onChange}
-      size={size}
-      borderWidth={1}
-      disabled={disabled}
-      color={colorVal}
+}: PrimitiveProps): ReactElement => {
+  const [value, setValue] = useState(initialValue);
+  return (
+    <Base.Div
+      orientation={orientation}
+      className={CSS(CSS.B("input-symbol"), className)}
     >
-      <BaseButton.Button
+      <Handle.Boundary orientation={orientation}>
+        <Handle.Handle
+          location="left"
+          orientation={orientation}
+          left={0}
+          top={50}
+          id="1"
+        />
+        <Handle.Handle
+          location="right"
+          orientation={orientation}
+          left={100}
+          top={50}
+          id="2"
+        />
+        <Handle.Handle
+          location="top"
+          orientation={orientation}
+          left={50}
+          top={0}
+          id="3"
+        />
+        <Handle.Handle
+          location="bottom"
+          orientation={orientation}
+          left={50}
+          top={100}
+          id="4"
+        />
+      </Handle.Boundary>
+      <BaseInput.Text
+        value={value}
+        onChange={setValue}
         size={size}
-        variant="filled"
-        onClick={() => onSend?.(value)}
+        borderWidth={1}
+        disabled={disabled}
         color={colorVal}
       >
-        Send
-      </BaseButton.Button>
-    </BaseInput.Text>
-  </Base.Div>
-);
+        <BaseButton.Button
+          size={size}
+          variant="filled"
+          onClick={() => onSend?.(value)}
+          color={colorVal}
+        >
+          Send
+        </BaseButton.Button>
+      </BaseInput.Text>
+    </Base.Div>
+  );
+};

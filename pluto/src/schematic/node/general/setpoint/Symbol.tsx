@@ -15,16 +15,14 @@ import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/setpoint/config";
 import { Primitive } from "@/schematic/node/general/setpoint/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Setpoint as BaseSetpoint } from "@/vis/setpoint";
+import { Setpoint } from "@/vis/setpoint";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
   draggable,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  config: {
     label,
     orientation = "left",
     control,
@@ -34,24 +32,13 @@ export const Symbol = ({
     color,
     size,
     disabled,
-  } = data;
-  const { value, set } = BaseSetpoint.use({ aetherKey: symbolKey, source, sink });
-  const gridItems: Grid.Item[] = [];
-  const controlItem = Control.stateGridItem(control);
-  if (controlItem != null) gridItems.push(controlItem);
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
+  },
+}: NodeProps<Config>): ReactElement => {
+  const { value, set } = Setpoint.use({ aetherKey: nodeKey, source, sink });
   return (
-    <Grid.Grid
-      symbolKey={symbolKey}
-      allowRotate={false}
-      editable={selected && !draggable}
-      items={gridItems}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
+      <Control.State config={control} onChange={onConfigChange} />
+      <Label.Label config={label} onChange={onConfigChange} />
       <Primitive
         value={value}
         onChange={set}

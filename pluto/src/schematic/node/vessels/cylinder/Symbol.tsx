@@ -16,39 +16,27 @@ import { type Config } from "@/schematic/node/vessels/cylinder/config";
 import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  config: {
     label,
     orientation = "left",
     backgroundColor,
     color,
     dimensions,
     borderRadius,
-  } = data;
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
-  return (
-    <Grid.Grid
-      items={gridItems}
-      editable={selected}
-      symbolKey={symbolKey}
-      onLocationChange={(key, loc) => {
-        if (key === "label") onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
-      <Primitive
-        onResize={(dims) => onChange({ dimensions: dims })}
-        orientation={orientation}
-        color={color}
-        dimensions={dimensions}
-        borderRadius={borderRadius}
-        backgroundColor={backgroundColor}
-      />
-    </Grid.Grid>
-  );
-};
+  },
+}: NodeProps<Config>): ReactElement => (
+  <Grid.Grid editable={selected} nodeKey={nodeKey}>
+    <Label.Label config={label} onChange={onConfigChange} />
+    <Primitive
+      onResize={(dimensions) => onConfigChange({ dimensions })}
+      orientation={orientation}
+      color={color}
+      dimensions={dimensions}
+      borderRadius={borderRadius}
+      backgroundColor={backgroundColor}
+    />
+  </Grid.Grid>
+);

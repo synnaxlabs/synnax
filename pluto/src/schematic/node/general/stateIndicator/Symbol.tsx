@@ -24,20 +24,9 @@ export const Symbol = ({
   config: { label, source, options, color: colorVal, inlineSize },
 }: NodeProps<Config>): ReactElement => {
   const { key: optKey } = StateIndicator.use({ aetherKey: nodeKey, source, options });
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onConfigChange);
-  if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid.Grid
-      items={gridItems}
-      allowRotate={false}
-      editable={selected && !draggable}
-      symbolKey={nodeKey}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onConfigChange({ label: { ...label, orientation: loc } });
-      }}
-    >
+    <Grid.Grid allowRotate={false} editable={selected && !draggable} nodeKey={nodeKey}>
+      <Label.Label config={label} onChange={onConfigChange} />
       <Primitive
         matchedOptionKey={optKey}
         options={options}

@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement } from "react";
-
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/button/config";
 import { ButtonForm } from "@/schematic/node/general/button/Form";
@@ -21,11 +19,13 @@ import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/button/config";
 
+const NAME = "Button";
+
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: t.colors.primary.z,
-  label: Label.defaultConfig("Button"),
+  label: Label.defaultConfig(NAME),
   control: { show: true },
   sink: telem.sinkPipeline("boolean", {
     connections: [{ from: "setpoint", to: "setter" }],
@@ -39,16 +39,12 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
   onClickDelay: 0,
 });
 
-const Preview = ({ label: _, ...rest }: Config): ReactElement => (
-  <Primitive label="Button" {...rest} />
-);
-
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Button",
+  name: NAME,
   Form: ButtonForm,
   Node: Symbol,
-  Preview,
+  Preview: Primitive,
   defaultConfig,
   zIndex: 4,
 };

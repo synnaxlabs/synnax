@@ -11,13 +11,16 @@ import "@/schematic/node/common/grid/grid.css";
 
 import { location } from "@synnaxlabs/x";
 import {
+  Children,
   cloneElement,
   type CSSProperties,
   type DragEvent,
   type FC,
   Fragment,
+  isValidElement,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
   useCallback,
   useMemo,
   useRef,
@@ -33,200 +36,198 @@ import { Icon } from "@/icon";
 import { triggerReflow } from "@/util/reflow";
 import { selectNode } from "@/vis/diagram/util";
 
-export interface Item {
-  key: string;
-  element: ReactElement<{
-    style?: CSSProperties;
-    draggable?: boolean;
-    onDragStart?: (e: DragEvent<HTMLElement>) => void;
-    onDragEnd?: (e: DragEvent<HTMLElement>) => void;
-  }>;
+type DraggableElement = ReactElement<{
+  style?: CSSProperties;
+  draggable?: boolean;
+  onDragStart?: (e: DragEvent<HTMLElement>) => void;
+  onDragEnd?: (e: DragEvent<HTMLElement>) => void;
+}>;
+
+export interface ItemProps {
+  itemKey: string;
   location: location.Location;
+  onLocationChange?: (loc: location.Location) => void;
+  children: DraggableElement;
 }
+
+const TAG = Symbol.for("pluto.grid.item");
+
+const tag = <T,>(component: T): T => {
+  (component as unknown as Record<symbol, true>)[TAG] = true;
+  return component;
+};
+
+export const Item: FC<ItemProps> = tag(({ children }) => children);
+
+export const createItem = <P extends {}>(component: FC<P>): FC<P> => tag(component);
+
+const resolveItem = (child: ReactNode): ReactElement<ItemProps> | null => {
+  if (!isValidElement(child)) return null;
+  if (!(child.type as unknown as Record<symbol, true>)?.[TAG]) return null;
+  if (child.type === Item) return child as ReactElement<ItemProps>;
+  const rendered = (child.type as (props: unknown) => ReactNode)(child.props);
+  return isValidElement(rendered) && rendered.type === Item
+    ? (rendered as ReactElement<ItemProps>)
+    : null;
+};
+
+const splitChildren = (
+  children: ReactNode,
+): { items: ItemProps[]; body: ReactNode[] } => {
+  const items: ItemProps[] = [];
+  const body: ReactNode[] = [];
+  Children.forEach(children, (child) => {
+    const item = resolveItem(child);
+    if (item != null) items.push(item.props);
+    else body.push(child);
+  });
+  return { items, body };
+};
 
 export interface GridProps extends PropsWithChildren<{}> {
   editable: boolean;
-  symbolKey: string;
-  items: Item[];
-  onLocationChange: (key: string, loc: location.Location) => void;
-  onRotate?: () => void;
+  nodeKey: string;
+  orientation?: location.Outer;
+  onRotate?: (params: { orientation: location.Outer }) => void;
   allowCenter?: boolean;
   allowRotate?: boolean;
 }
 
-interface GridElProps {
-  editable: boolean;
-  symbolKey: string;
-  items: Item[];
-  onLocationChange: (key: string, loc: location.Location) => void;
-}
-
 const HAUL_TYPE = "schematic_grid";
-
 export const DRAG_HANDLE_CLASS = CSS.B("drag-handle");
 
-const reflowPane = (symbolKey: string) => {
-  const node = selectNode(symbolKey);
+const reflowPane = (nodeKey: string) => {
+  const node = selectNode(nodeKey);
   const nearestDiagram = node.closest(".react-flow__pane");
   if (nearestDiagram != null) triggerReflow(nearestDiagram as HTMLElement);
 };
 
-const createGridEl = (loc: location.Location): FC<GridElProps> => {
-  const EditableGridEl = ({
-    symbolKey,
-    items: fItems,
-    onLocationChange,
-  }: GridElProps): ReactElement | null => {
-    const haulType = `${symbolKey}_${HAUL_TYPE}`;
-    const [draggingOver, setDraggingOver] = useState(false);
-    const canDrop: Haul.CanDrop = useMemo(
-      () => Haul.canDropOfType(haulType),
-      [haulType],
-    );
-    const onLocationChangeRef = useSyncedRef(onLocationChange);
-    const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
-      type: haulType,
-      canDrop,
-      onDrop: useCallback(({ items }) => {
-        setDraggingOver(false);
-        return items;
-      }, []),
-      onDragOver: useCallback((props: Haul.OnDragOverProps) => {
-        const { items } = props;
+interface SlotProps {
+  loc: location.Location;
+  editable: boolean;
+  nodeKey: string;
+  items: ItemProps[];
+}
+
+const EditableSlot: FC<SlotProps> = ({ loc, nodeKey, items }) => {
+  const haulType = `${nodeKey}_${HAUL_TYPE}`;
+  const [draggingOver, setDraggingOver] = useState(false);
+  const canDrop = useMemo(() => Haul.canDropOfType(haulType), [haulType]);
+  const itemsRef = useSyncedRef(items);
+  const { startDrag, onDragEnd, ...dropProps } = Haul.useDragAndDrop({
+    type: haulType,
+    canDrop,
+    onDrop: useCallback(({ items }) => {
+      setDraggingOver(false);
+      return items;
+    }, []),
+    onDragOver: useCallback(
+      (props: Haul.OnDragOverProps) => {
         setDraggingOver(canDrop(props));
-        items.forEach(({ key }) => onLocationChangeRef.current(key as string, loc));
-      }, []),
-    });
-
-    const items = fItems.filter((i) => i.location === loc);
-
-    const onDragStart = useCallback(
-      (_: DragEvent<HTMLElement>, key: string) => {
-        startDrag([{ key, type: haulType }]);
-        // We need to mount this listener because the onDragEnd will not fire if the
-        // element is dragged to a different grid element and then released.
-        document.addEventListener("mousemove", onDragEnd, { once: true });
+        props.items.forEach(({ key }) => {
+          const item = itemsRef.current.find((i) => i.itemKey === key);
+          item?.onLocationChange?.(loc);
+        });
       },
-      [startDrag, haulType, onDragEnd],
-    );
-
-    const isDragging = canDrop(Haul.useDraggingState());
-
-    return (
-      <Flex.Box
-        direction={location.direction(loc)}
-        className={CSS(
-          CSS.BE("grid", "item"),
-          CSS.loc(loc),
-          CSS.dropRegion(isDragging),
-          draggingOver && CSS.B("dragging-over"),
-          isDragging && CSS.B("dragging"),
-        )}
-        onDragLeave={() => setDraggingOver(false)}
-        empty
-        {...dropProps}
-      >
-        {items.map(({ element, key }) => (
-          <Fragment key={key}>
-            {cloneElement(element, {
-              draggable: true,
-              onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, key),
-              onDragEnd,
-              style: { ...element.props.style, cursor: "grab" },
-            })}
-          </Fragment>
-        ))}
-      </Flex.Box>
-    );
-  };
-
-  const GridEl = ({ symbolKey, ...rest }: GridElProps): ReactElement | null => {
-    const { editable, items: fItems } = rest;
-
-    if (editable) return <EditableGridEl symbolKey={symbolKey} {...rest} />;
-    const items = fItems.filter((i) => i.location === loc);
-    if (items.length === 0) return null;
-    return (
-      <Flex.Box
-        direction={location.direction(loc)}
-        className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
-        empty
-      >
-        {items.map(({ element, key }) => (
-          <Fragment key={key}>{element}</Fragment>
-        ))}
-      </Flex.Box>
-    );
-  };
-  return GridEl;
+      [canDrop, loc],
+    ),
+  });
+  const onDragStart = useCallback(
+    (_: DragEvent<HTMLElement>, itemKey: string) => {
+      startDrag([{ key: itemKey, type: haulType }]);
+      // The onDragEnd handler will not fire if the element is dragged into a
+      // different grid slot before being released; this listener cleans up.
+      document.addEventListener("mousemove", onDragEnd, { once: true });
+    },
+    [startDrag, haulType, onDragEnd],
+  );
+  const isDragging = canDrop(Haul.useDraggingState());
+  const filtered = items.filter((i) => i.location === loc);
+  return (
+    <Flex.Box
+      direction={location.direction(loc)}
+      className={CSS(
+        CSS.BE("grid", "item"),
+        CSS.loc(loc),
+        CSS.dropRegion(isDragging),
+        draggingOver && CSS.B("dragging-over"),
+        isDragging && CSS.B("dragging"),
+      )}
+      onDragLeave={() => setDraggingOver(false)}
+      empty
+      {...dropProps}
+    >
+      {filtered.map(({ children, itemKey }) => (
+        <Fragment key={itemKey}>
+          {cloneElement(children, {
+            draggable: true,
+            onDragStart: (e: DragEvent<HTMLElement>) => onDragStart(e, itemKey),
+            onDragEnd,
+            style: { ...children.props.style, cursor: "grab" },
+          })}
+        </Fragment>
+      ))}
+    </Flex.Box>
+  );
 };
 
-const TopGridEl = createGridEl("top");
-const LeftGridEl = createGridEl("left");
-const RightGridEl = createGridEl("right");
-const BottomGridEl = createGridEl("bottom");
-const CenterGridEl = createGridEl("center");
+const StaticSlot: FC<SlotProps> = ({ loc, items }) => {
+  const filtered = items.filter((i) => i.location === loc);
+  if (filtered.length === 0) return null;
+  return (
+    <Flex.Box
+      direction={location.direction(loc)}
+      className={CSS(CSS.BE("grid", "item"), CSS.loc(loc))}
+      empty
+    >
+      {filtered.map(({ children, itemKey }) => (
+        <Fragment key={itemKey}>{children}</Fragment>
+      ))}
+    </Flex.Box>
+  );
+};
 
-export const Grid = ({
+const Slot: FC<SlotProps> = (props) =>
+  props.editable ? <EditableSlot {...props} /> : <StaticSlot {...props} />;
+
+const EDGE_LOCATIONS: location.Location[] = ["top", "left", "right", "bottom"];
+
+export const Grid: FC<GridProps> = ({
   editable,
   allowRotate = true,
   children,
-  allowCenter,
+  allowCenter = false,
   onRotate,
-  symbolKey,
-  ...rest
-}: GridProps) => {
+  nodeKey,
+  orientation = "left",
+}) => {
   const prevEditable = useRef(editable);
   if (editable !== prevEditable.current) {
-    reflowPane(symbolKey);
+    reflowPane(nodeKey);
     prevEditable.current = editable;
   }
-
+  const { items, body } = splitChildren(children);
+  const handleRotate = () =>
+    onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
   return (
     <>
-      <TopGridEl
-        key={`top-${symbolKey}`}
-        editable={editable}
-        symbolKey={symbolKey}
-        {...rest}
-      />
-      <LeftGridEl
-        key={`left-${symbolKey}`}
-        editable={editable}
-        symbolKey={symbolKey}
-        {...rest}
-      />
-      <RightGridEl
-        key={`right-${symbolKey}`}
-        editable={editable}
-        symbolKey={symbolKey}
-        {...rest}
-      />
-      <BottomGridEl
-        key={`bottom-${symbolKey}`}
-        editable={editable}
-        symbolKey={symbolKey}
-        {...rest}
-      />
+      {EDGE_LOCATIONS.map((loc) => (
+        <Slot key={loc} loc={loc} editable={editable} nodeKey={nodeKey} items={items} />
+      ))}
       {allowCenter && (
-        <CenterGridEl
-          key={`center-${symbolKey}`}
-          editable={editable}
-          symbolKey={symbolKey}
-          {...rest}
-        />
+        <Slot loc="center" editable={editable} nodeKey={nodeKey} items={items} />
       )}
       {editable && allowRotate && (
         <Button.Button
           className={CSS.BE("grid", "rotate")}
           size="tiny"
           variant="filled"
-          onClick={onRotate}
+          onClick={handleRotate}
         >
           <Icon.Rotate />
         </Button.Button>
       )}
-      <div className={DRAG_HANDLE_CLASS}>{children}</div>
+      <div className={DRAG_HANDLE_CLASS}>{body}</div>
     </>
   );
 };

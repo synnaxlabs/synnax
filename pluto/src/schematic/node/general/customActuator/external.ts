@@ -14,11 +14,10 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type Config, VARIANT } from "@/schematic/node/general/customActuator/config";
 import { Primitive } from "@/schematic/node/general/customActuator/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/customActuator/config";
 
-export const defaultConfig = (_t: Theming.Theme): Config => ({
+export const defaultConfig = (): Config => ({
   variant: VARIANT,
   specKey: "",
   stateOverrides: [],

@@ -21,17 +21,19 @@ import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/process/flatBladeAgitator/config";
 
+const NAME = "Flat Blad Agitator";
+
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   color: t.colors.gray.l11,
-  label: Label.defaultConfig("Flat Blade Agitator"),
+  label: Label.defaultConfig(NAME),
   ...BasePrimitive.ZERO_PROPS,
   ...Toggle.ZERO_TOGGLE_DEFAULTS,
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Flat Blade Agitator",
+  name: NAME,
   Form: Form.ToggleForm,
   Node: Toggle.createToggle<Config>(Primitive),
   Preview: Primitive,

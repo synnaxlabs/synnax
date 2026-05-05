@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ReactElement, useState } from "react";
+import { type ReactElement } from "react";
 
 import { Control } from "@/schematic/node/common/control";
 import { Grid } from "@/schematic/node/common/grid";
@@ -18,40 +18,18 @@ import { type NodeProps } from "@/schematic/node/spec";
 import { Input as InputTelem } from "@/vis/input";
 
 export const Symbol = ({
-  nodeKey: symbolKey,
-  onConfigChange: onChange,
+  nodeKey,
+  onConfigChange,
   selected,
   draggable,
-  config: data,
+  config: { label, control, sink, ...restConfig },
 }: NodeProps<Config>): ReactElement => {
-  const { label, orientation = "left", control, color, sink, size, disabled } = data;
-  const { set } = InputTelem.use({ aetherKey: symbolKey, sink });
-  const gridItems: Grid.Item[] = [];
-  const controlItem = Control.stateGridItem(control);
-  if (controlItem != null) gridItems.push(controlItem);
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
-  const [value, setValue] = useState("");
+  const { set } = InputTelem.use({ aetherKey: nodeKey, sink });
   return (
-    <Grid.Grid
-      symbolKey={symbolKey}
-      allowRotate={false}
-      editable={selected && !draggable}
-      items={gridItems}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
-      <Primitive
-        value={value}
-        onChange={setValue}
-        onSend={set}
-        color={color}
-        orientation={orientation}
-        disabled={disabled}
-        size={size}
-      />
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
+      <Control.State config={control} />
+      <Label.Label config={label} onChange={onConfigChange} />
+      <Primitive onSend={set} {...restConfig} />
     </Grid.Grid>
   );
 };

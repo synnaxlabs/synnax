@@ -11,11 +11,11 @@ import { type ReactElement, useCallback } from "react";
 
 import { Flex } from "@/flex";
 import { Form as Base } from "@/form";
-import { ColorField } from "@/schematic/node/common/form/color";
+import { ColorField } from "@/schematic/node/common/form/Color";
 import { COMMON_TOGGLE_FORM_TABS } from "@/schematic/node/common/form/input";
-import { ScaleField } from "@/schematic/node/common/form/scale";
-import { StyleForm } from "@/schematic/node/common/form/style";
-import { Wrapper } from "@/schematic/node/common/form/wrapper";
+import { ScaleField } from "@/schematic/node/common/form/Scale";
+import { StyleForm } from "@/schematic/node/common/form/Style";
+import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";

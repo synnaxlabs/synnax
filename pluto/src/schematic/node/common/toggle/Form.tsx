@@ -16,7 +16,7 @@ import { Form as Base } from "@/form";
 import { Input } from "@/input";
 import { type Control } from "@/schematic/node/common/control";
 import { ACTIVATION_DELAY_INPUT_PROPS } from "@/schematic/node/common/form/input";
-import { Wrapper } from "@/schematic/node/common/form/wrapper";
+import { Wrapper } from "@/schematic/node/common/form/Wrapper";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Toggle as VisToggle } from "@/vis/toggle";

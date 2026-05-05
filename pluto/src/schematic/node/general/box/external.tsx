@@ -19,12 +19,14 @@ import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/box/config";
 
+const NAME = "Box";
+
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   orientation: "left",
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
-  label: Label.defaultConfig("Box"),
+  label: Label.defaultConfig(NAME),
   dimensions: { width: 125, height: 200 },
   borderRadius: 3,
   strokeWidth: 2,
@@ -32,7 +34,7 @@ export const defaultConfig = (t: Theming.Theme): Config => ({
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Box",
+  name: NAME,
   Form: () => <TankForm showBorderRadius showStrokeWidth />,
   Node: Symbol,
   Preview: Primitive,

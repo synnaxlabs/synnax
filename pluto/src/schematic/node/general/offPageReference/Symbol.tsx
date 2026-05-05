@@ -18,25 +18,22 @@ import {
 import { type NodeProps } from "@/schematic/node/spec";
 
 export const Symbol = ({
-  onConfigChange: onChange,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  onConfigChange,
+  config: {
     label: { label, level },
     orientation,
     color,
     page,
     dblClickNav,
-  } = data;
-  return (
-    <Primitive
-      className={Grid.DRAG_HANDLE_CLASS}
-      onLabelChange={(label) => onChange({ label: { label, level } })}
-      label={label}
-      level={level}
-      orientation={orientation}
-      color={color}
-      title={offPageReferenceTooltip(page, dblClickNav)}
-    />
-  );
-};
+  },
+}: NodeProps<Config>): ReactElement => (
+  <Primitive
+    className={Grid.DRAG_HANDLE_CLASS}
+    onLabelChange={(label) => onConfigChange({ label: { label, level } })}
+    label={label}
+    level={level}
+    orientation={orientation}
+    color={color}
+    title={offPageReferenceTooltip(page, dblClickNav)}
+  />
+);

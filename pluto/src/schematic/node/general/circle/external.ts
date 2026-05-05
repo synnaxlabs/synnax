@@ -19,18 +19,20 @@ import { type Theming } from "@/theming";
 
 export * from "@/schematic/node/general/circle/config";
 
+const NAME = "Circle";
+
 export const defaultConfig = (t: Theming.Theme): Config => ({
   variant: VARIANT,
   radius: 20,
   color: t.colors.gray.l11,
   backgroundColor: color.setAlpha(t.colors.gray.l1, 0),
-  label: Label.defaultConfig("Circle"),
+  label: Label.defaultConfig(NAME),
   strokeWidth: 2,
 });
 
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
-  name: "Circle",
+  name: NAME,
   Form: CircleForm,
   Node: Label.createLabeled<Config>(Primitive, { grid: { allowRotate: false } }),
   Preview: removeProps(Primitive, ["clickable"]),

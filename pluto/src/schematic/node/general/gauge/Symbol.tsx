@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box, xy } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { box, dimensions, xy } from "@synnaxlabs/x";
+import { type ReactElement, useMemo } from "react";
 
 import { CSS } from "@/css";
 import { Grid } from "@/schematic/node/common/grid";
@@ -29,59 +29,31 @@ const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {
 } as const;
 
 export const Symbol = ({
-  nodeKey: symbolKey,
+  nodeKey,
   position,
-  onConfigChange: onChange,
+  onConfigChange,
   selected,
-  config: data,
+  config: { label, level = "p", color, telem, units, notation, bounds, barWidth },
 }: NodeProps<Config>): ReactElement => {
-  const {
-    label,
-    level = "p",
-    color,
-    telem: t,
-    units,
-    notation,
-    bounds: b,
-    barWidth,
-  } = data;
-  const baseMultiplier = GAUGE_SIZE_MULTIPLIER[level] ?? 100;
-  const gaugeSize = baseMultiplier;
-
+  const dims = useMemo(
+    () => dimensions.construct(GAUGE_SIZE_MULTIPLIER[level] ?? 100),
+    [level],
+  );
   BaseGauge.use({
-    aetherKey: symbolKey,
-    box: box.construct(position || xy.ZERO, {
-      height: gaugeSize,
-      width: gaugeSize,
-    }),
-    telem: t,
+    aetherKey: nodeKey,
+    box: box.construct(position ?? xy.ZERO, dims),
+    telem,
     color,
     level,
     units,
-    bounds: b,
+    bounds,
     notation,
     barWidth,
   });
-
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
-
   return (
-    <Grid.Grid
-      editable={selected}
-      symbolKey={symbolKey}
-      items={gridItems}
-      allowRotate={false}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
-      <div
-        style={{ width: gaugeSize, height: gaugeSize }}
-        className={CSS.B("symbol-primitive")}
-      />
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+      <Label.Label config={label} onChange={onConfigChange} />
+      <div style={dims} className={CSS.B("symbol-primitive")} />
     </Grid.Grid>
   );
 };

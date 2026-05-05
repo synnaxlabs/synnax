@@ -24,14 +24,11 @@ const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);
 const VALUE_BACKGROUND_SHIFT = xy.construct(1, 1);
 
 export const Symbol = ({
-  nodeKey: symbolKey,
+  nodeKey,
   position,
-  onConfigChange: onChange,
+  onConfigChange,
   selected,
-  draggable,
-  config: data,
-}: NodeProps<Config>): ReactElement => {
-  const {
+  config: {
     label,
     level = "p",
     textColor,
@@ -43,7 +40,8 @@ export const Symbol = ({
     stalenessColor,
     stalenessTimeout,
     redline,
-  } = data;
+  },
+}: NodeProps<Config>): ReactElement => {
   const font = Theming.useTypography(level);
   const valueBoxHeight = (font.lineHeight + 0.5) * font.baseSize + 2;
   const backgroundTelem = useMemo(() => {
@@ -65,7 +63,7 @@ export const Symbol = ({
     });
   }, [t, redline]);
   const { width: oWidth } = BaseValue.use({
-    aetherKey: symbolKey,
+    aetherKey: nodeKey,
     color: textColor,
     level,
     box: box.construct(xy.translateY(position ?? xy.ZERO, 1), {
@@ -83,21 +81,9 @@ export const Symbol = ({
     valueBackgroundShift: VALUE_BACKGROUND_SHIFT,
   });
 
-  const gridItems: Grid.Item[] = [];
-  const labelItem = Label.gridItem(label, onChange);
-  if (labelItem != null) gridItems.push(labelItem);
-
   return (
-    <Grid.Grid
-      editable={selected && !draggable}
-      symbolKey={symbolKey}
-      items={gridItems}
-      allowRotate={false}
-      onLocationChange={(key, loc) => {
-        if (key !== "label") return;
-        onChange({ label: { ...label, orientation: loc } });
-      }}
-    >
+    <Grid.Grid editable={selected} nodeKey={nodeKey} allowRotate={false}>
+      <Label.Label config={label} onChange={onConfigChange} />
       <Primitive
         color={color}
         dimensions={{ height: valueBoxHeight, width: oWidth }}

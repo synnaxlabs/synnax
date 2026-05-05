@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { color } from "@synnaxlabs/x";
-import { type ReactElement } from "react";
+import { type CSSProperties, type ReactElement } from "react";
 
 import { type Config } from "@/schematic/node/general/gauge/config";
 import { Text } from "@/text";
@@ -16,6 +16,22 @@ import { Text } from "@/text";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }
+
+const CONTAINER_STYLE: CSSProperties = {
+  width: 67,
+  height: 67,
+  position: "relative",
+};
+
+const SVG_STYLE: CSSProperties = { position: "absolute" };
+
+const METRICS_STYLE: CSSProperties = {
+  position: "absolute",
+  top: "60%",
+  left: "50%",
+  transform: "translate(-50%, -50%)",
+  textAlign: "center",
+};
 
 export const Primitive = ({ color: c }: RenderProps): ReactElement => {
   const radius = 27;
@@ -39,8 +55,8 @@ export const Primitive = ({ color: c }: RenderProps): ReactElement => {
   `;
 
   return (
-    <div style={{ width: 67, height: 67, position: "relative" }}>
-      <svg width="67" height="67" style={{ position: "absolute" }}>
+    <div style={CONTAINER_STYLE}>
+      <svg width="67" height="67" style={SVG_STYLE}>
         <path
           d={backgroundPath}
           fill="none"
@@ -56,15 +72,7 @@ export const Primitive = ({ color: c }: RenderProps): ReactElement => {
           strokeLinecap="round"
         />
       </svg>
-      <div
-        style={{
-          position: "absolute",
-          top: "60%",
-          left: "50%",
-          transform: "translate(-50%, -50%)",
-          textAlign: "center",
-        }}
-      >
+      <div style={METRICS_STYLE}>
         <Text.Text level="h5" weight="bold">
           750
         </Text.Text>

@@ -38,21 +38,10 @@ export const Symbol = ({
   const [selectedKey, setSelectedKey] = useState<string | undefined>(undefined);
   const handleSelectionChange = (key: string | null): void =>
     setSelectedKey(key ?? undefined);
-  const gridItems: Grid.Item[] = [];
-  const controlItem = Control.stateGridItem(control);
-  if (controlItem != null) gridItems.push(controlItem);
-  const labelItem = Label.gridItem(label, onConfigChange);
-  if (labelItem != null) gridItems.push(labelItem);
   return (
-    <Grid.Grid
-      symbolKey={nodeKey}
-      allowRotate={false}
-      editable={selected && !draggable}
-      items={gridItems}
-      onLocationChange={(key, orientation) =>
-        key === "label" && onConfigChange({ label: { ...label, orientation } })
-      }
-    >
+    <Grid.Grid nodeKey={nodeKey} allowRotate={false} editable={selected && !draggable}>
+      <Control.State config={control} onChange={onConfigChange} />
+      <Label.Label config={label} onChange={onConfigChange} />
       <Primitive
         value={selectedKey}
         onChange={handleSelectionChange}
