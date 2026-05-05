@@ -17,10 +17,10 @@ import {
   handleRemoveEdge,
   handleRemoveNode,
   handleSetAuthority,
+  handleSetConfig,
   handleSetEdge,
   handleSetLegend,
   handleSetNodePosition,
-  handleSetProps,
 } from "@/schematic/actions";
 import { edgeZ, legendZ, nodeZ, type Schematic } from "@/schematic/types.gen";
 
@@ -33,17 +33,17 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * AddNode appends a node to the schematic. If props is non-empty it is stored
- * under the node's key in the schematic props map.
+ * AddNode appends a node to the schematic. If config is non-empty it is stored
+ * under the node's key in the schematic configs map.
  */
 export const addNodePayloadZ = z.object({
   node: nodeZ,
-  props: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
+  config: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });
 
 export type AddNodePayload = z.infer<typeof addNodePayloadZ>;
 
-/** RemoveNode removes a node and any props stored under its key. */
+/** RemoveNode removes a node and any config stored under its key. */
 export const removeNodePayloadZ = z.object({
   key: z.string(),
 });
@@ -67,13 +67,13 @@ export const removeEdgePayloadZ = z.object({
 
 export type RemoveEdgePayload = z.infer<typeof removeEdgePayloadZ>;
 
-/** SetProps sets the props entry for the given node or edge key. */
-export const setPropsPayloadZ = z.object({
+/** SetConfig sets the config entry for the given node or edge key. */
+export const setConfigPayloadZ = z.object({
   key: z.string(),
-  props: caseconv.preserveCase(record.nullishToEmpty()),
+  config: caseconv.preserveCase(record.nullishToEmpty()),
 });
 
-export type SetPropsPayload = z.infer<typeof setPropsPayloadZ>;
+export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
 /** SetAuthority sets the control authority level for this schematic. */
 export const setAuthorityPayloadZ = z.object({
@@ -95,7 +95,7 @@ export const ACTION_TYPES = {
   remove_node: "remove_node",
   set_edge: "set_edge",
   remove_edge: "remove_edge",
-  set_props: "set_props",
+  set_config: "set_config",
   set_authority: "set_authority",
   set_legend: "set_legend",
 } as const;
@@ -109,7 +109,7 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("set_edge"), setEdge: setEdgePayloadZ }),
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
-  z.object({ type: z.literal("set_props"), setProps: setPropsPayloadZ }),
+  z.object({ type: z.literal("set_config"), setConfig: setConfigPayloadZ }),
   z.object({ type: z.literal("set_authority"), setAuthority: setAuthorityPayloadZ }),
   z.object({ type: z.literal("set_legend"), setLegend: setLegendPayloadZ }),
 ]);
@@ -141,9 +141,9 @@ export const removeEdge = (payload: RemoveEdgePayload): Action => ({
   removeEdge: payload,
 });
 
-export const setProps = (payload: SetPropsPayload): Action => ({
-  type: "set_props",
-  setProps: payload,
+export const setConfig = (payload: SetConfigPayload): Action => ({
+  type: "set_config",
+  setConfig: payload,
 });
 
 export const setAuthority = (payload: SetAuthorityPayload): Action => ({
@@ -173,8 +173,8 @@ export const reduce = (state: Schematic, action: Action): Schematic => {
     case "remove_edge":
       handleRemoveEdge(state, action.removeEdge);
       break;
-    case "set_props":
-      handleSetProps(state, action.setProps);
+    case "set_config":
+      handleSetConfig(state, action.setConfig);
       break;
     case "set_authority":
       handleSetAuthority(state, action.setAuthority);

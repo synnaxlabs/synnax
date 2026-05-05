@@ -35,20 +35,20 @@ func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle appends the node and, if Props is non-nil, seeds the props map under
-// the node's key.
+// Handle appends the node and, if Config is non-nil, seeds the configs map
+// under the node's key.
 func (a AddNode) Handle(state Schematic) (Schematic, error) {
 	state.Nodes = append(state.Nodes, a.Node)
-	if a.Props != nil {
-		if state.Props == nil {
-			state.Props = make(map[string]msgpack.EncodedJSON)
+	if a.Config != nil {
+		if state.Configs == nil {
+			state.Configs = make(map[string]msgpack.EncodedJSON)
 		}
-		state.Props[a.Node.Key] = a.Props
+		state.Configs[a.Node.Key] = a.Config
 	}
 	return state, nil
 }
 
-// Handle removes the node with the matching key and discards any props entry
+// Handle removes the node with the matching key and discards any config entry
 // stored under that key.
 func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
@@ -57,7 +57,7 @@ func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
 			break
 		}
 	}
-	delete(state.Props, a.Key)
+	delete(state.Configs, a.Key)
 	return state, nil
 }
 
@@ -85,12 +85,12 @@ func (a RemoveEdge) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle sets the props entry for the given key, replacing any prior value.
-func (a SetProps) Handle(state Schematic) (Schematic, error) {
-	if state.Props == nil {
-		state.Props = make(map[string]msgpack.EncodedJSON)
+// Handle sets the configs entry for the given key, replacing any prior value.
+func (a SetConfig) Handle(state Schematic) (Schematic, error) {
+	if state.Configs == nil {
+		state.Configs = make(map[string]msgpack.EncodedJSON)
 	}
-	state.Props[a.Key] = a.Props
+	state.Configs[a.Key] = a.Config
 	return state, nil
 }
 

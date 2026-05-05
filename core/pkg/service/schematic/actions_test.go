@@ -86,24 +86,24 @@ var _ = Describe("Reducer", func() {
 			}).Reduce(state))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n1", 0, 0), node("n2", 1, 2)}))
 		})
-		It("Should write props under the node's key when props is non-nil", func() {
+		It("Should write config under the node's key when config is non-nil", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
-				Node:  node("n1", 0, 0),
-				Props: msgpack.EncodedJSON{"label": "Pump", "color": "#ff0000"},
+				Node:   node("n1", 0, 0),
+				Config: msgpack.EncodedJSON{"label": "Pump", "color": "#ff0000"},
 			}).Reduce(state))
-			Expect(out.Props).To(HaveKey("n1"))
-			Expect(out.Props["n1"]).To(Equal(msgpack.EncodedJSON{
+			Expect(out.Configs).To(HaveKey("n1"))
+			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
 				"label": "Pump",
 				"color": "#ff0000",
 			}))
 		})
-		It("Should leave props untouched when the action's props is nil", func() {
+		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
 			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
 				Node: node("n1", 0, 0),
 			}).Reduce(state))
-			Expect(out.Props).To(BeNil())
+			Expect(out.Configs).To(BeNil())
 		})
 		It("Should not append a duplicate-key node into the slice as a guard - it appends, locking current behavior", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
@@ -117,10 +117,10 @@ var _ = Describe("Reducer", func() {
 	})
 
 	Describe("RemoveNode", func() {
-		It("Should remove the matching node and any props stored under its key", func() {
+		It("Should remove the matching node and any config stored under its key", func() {
 			state := schematic.Schematic{
 				Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-				Props: map[string]msgpack.EncodedJSON{
+				Configs: map[string]msgpack.EncodedJSON{
 					"n1": {"label": "Pump"},
 					"n2": {"label": "Tank"},
 				},
@@ -129,8 +129,8 @@ var _ = Describe("Reducer", func() {
 				Key: "n1",
 			}).Reduce(state))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n2", 1, 1)}))
-			Expect(out.Props).ToNot(HaveKey("n1"))
-			Expect(out.Props).To(HaveKey("n2"))
+			Expect(out.Configs).ToNot(HaveKey("n1"))
+			Expect(out.Configs).To(HaveKey("n2"))
 		})
 		It("Should leave existing edges intact even when they reference the removed node", func() {
 			state := schematic.Schematic{
@@ -145,14 +145,14 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should be a no-op when the key does not match any node", func() {
 			state := schematic.Schematic{
-				Nodes: []schematic.Node{node("n1", 0, 0)},
-				Props: map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
+				Nodes:   []schematic.Node{node("n1", 0, 0)},
+				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "Pump"}},
 			}
 			out := MustSucceed(schematic.NewRemoveNodeAction(schematic.RemoveNode{
 				Key: "ghost",
 			}).Reduce(state))
 			Expect(out.Nodes).To(Equal(state.Nodes))
-			Expect(out.Props).To(Equal(state.Props))
+			Expect(out.Configs).To(Equal(state.Configs))
 		})
 	})
 
@@ -201,32 +201,32 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("SetProps", func() {
-		It("Should write the props entry under the given key", func() {
+	Describe("SetConfig", func() {
+		It("Should write the config entry under the given key", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetPropsAction(schematic.SetProps{
-				Key:   "n1",
-				Props: msgpack.EncodedJSON{"label": "Pump"},
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "n1",
+				Config: msgpack.EncodedJSON{"label": "Pump"},
 			}).Reduce(state))
-			Expect(out.Props["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
+			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
 		})
-		It("Should overwrite an existing props entry", func() {
-			state := schematic.Schematic{Props: map[string]msgpack.EncodedJSON{
+		It("Should overwrite an existing config entry", func() {
+			state := schematic.Schematic{Configs: map[string]msgpack.EncodedJSON{
 				"n1": {"label": "Old"},
 			}}
-			out := MustSucceed(schematic.NewSetPropsAction(schematic.SetProps{
-				Key:   "n1",
-				Props: msgpack.EncodedJSON{"label": "New"},
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "n1",
+				Config: msgpack.EncodedJSON{"label": "New"},
 			}).Reduce(state))
-			Expect(out.Props["n1"]).To(Equal(msgpack.EncodedJSON{"label": "New"}))
+			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "New"}))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewSetPropsAction(schematic.SetProps{
-				Key:   "orphan",
-				Props: msgpack.EncodedJSON{"data": 1},
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "orphan",
+				Config: msgpack.EncodedJSON{"data": 1},
 			}).Reduce(state))
-			Expect(out.Props["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
+			Expect(out.Configs["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
 		})
 	})
 
@@ -277,28 +277,28 @@ var _ = Describe("Reducer", func() {
 				schematic.NewAddNodeAction(schematic.AddNode{Node: node("tank", 200, 0)}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e1", "pump", "out", "valve", "in")}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e2", "valve", "out", "tank", "in")}),
-				schematic.NewSetPropsAction(schematic.SetProps{
-					Key:   "pump",
-					Props: msgpack.EncodedJSON{"label": "Main Pump"},
+				schematic.NewSetConfigAction(schematic.SetConfig{
+					Key:    "pump",
+					Config: msgpack.EncodedJSON{"label": "Main Pump"},
 				}),
-				schematic.NewSetPropsAction(schematic.SetProps{
-					Key:   "e1",
-					Props: msgpack.EncodedJSON{"variant": "pipe"},
+				schematic.NewSetConfigAction(schematic.SetConfig{
+					Key:    "e1",
+					Config: msgpack.EncodedJSON{"variant": "pipe"},
 				}),
 			}
 			out := MustSucceed(schematic.ReduceAll(state, actions))
 			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Edges).To(HaveLen(2))
-			Expect(out.Props).To(HaveLen(2))
-			Expect(out.Props["pump"]).To(Equal(msgpack.EncodedJSON{"label": "Main Pump"}))
-			Expect(out.Props["e1"]).To(Equal(msgpack.EncodedJSON{"variant": "pipe"}))
+			Expect(out.Configs).To(HaveLen(2))
+			Expect(out.Configs["pump"]).To(Equal(msgpack.EncodedJSON{"label": "Main Pump"}))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{"variant": "pipe"}))
 		})
 
-		It("Should drop props but keep dangling edges when a node is removed and re-added", func() {
+		It("Should drop config but keep dangling edges when a node is removed and re-added", func() {
 			state := schematic.Schematic{
-				Nodes: []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
-				Edges: []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
-				Props: map[string]msgpack.EncodedJSON{"n1": {"label": "v1"}},
+				Nodes:   []schematic.Node{node("n1", 0, 0), node("n2", 1, 1)},
+				Edges:   []schematic.Edge{edge("e1", "n1", "o", "n2", "i")},
+				Configs: map[string]msgpack.EncodedJSON{"n1": {"label": "v1"}},
 			}
 			actions := []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
@@ -307,7 +307,7 @@ var _ = Describe("Reducer", func() {
 			out := MustSucceed(schematic.ReduceAll(state, actions))
 			Expect(out.Nodes).To(HaveLen(2))
 			Expect(out.Nodes[1]).To(Equal(node("n1", 50, 50)))
-			Expect(out.Props).ToNot(HaveKey("n1"))
+			Expect(out.Configs).ToNot(HaveKey("n1"))
 			Expect(out.Edges).To(HaveLen(1))
 			Expect(out.Edges[0].Source.Node).To(Equal("n1"))
 		})
@@ -351,14 +351,14 @@ var _ = Describe("Reducer", func() {
 				}))
 			}
 			for i := range 3 {
-				actions = append(actions, schematic.NewSetPropsAction(schematic.SetProps{
-					Key:   "n" + string(rune('0'+i)),
-					Props: msgpack.EncodedJSON{"label": "node " + string(rune('0'+i))},
+				actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfig{
+					Key:    "n" + string(rune('0'+i)),
+					Config: msgpack.EncodedJSON{"label": "node " + string(rune('0'+i))},
 				}))
 			}
-			actions = append(actions, schematic.NewSetPropsAction(schematic.SetProps{
-				Key:   "e1",
-				Props: msgpack.EncodedJSON{"variant": "electric"},
+			actions = append(actions, schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "electric"},
 			}))
 			actions = append(actions, schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 255}))
 			actions = append(actions, schematic.NewSetLegendAction(schematic.SetLegend{
@@ -369,7 +369,7 @@ var _ = Describe("Reducer", func() {
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 0, Y: 100}))
 			Expect(out.Nodes[4].Position).To(Equal(spatial.XY{X: 400, Y: 100}))
 			Expect(out.Edges).To(HaveLen(4))
-			Expect(out.Props).To(HaveLen(4))
+			Expect(out.Configs).To(HaveLen(4))
 			Expect(out.Authority).To(BeEquivalentTo(255))
 			Expect(out.Legend.Visible).To(BeTrue())
 		})

@@ -122,21 +122,21 @@ Schematic struct {
     }
 
     action AddNode {
-        node  Node
-        props record? {
+        node   Node
+        config record? {
             @ts preserve_case
         }
 
         @doc value """
-            appends a node to the schematic. If props is non-empty it is stored
-            under the node's key in the schematic props map.
+            appends a node to the schematic. If config is non-empty it is stored
+            under the node's key in the schematic configs map.
         """
     }
 
     action RemoveNode {
         key string
 
-        @doc value "removes a node and any props stored under its key."
+        @doc value "removes a node and any config stored under its key."
     }
 
     action SetEdge {
@@ -154,13 +154,13 @@ Schematic struct {
         @doc value "removes the edge with the given key, if present."
     }
 
-    action SetProps {
-        key   string
-        props record {
+    action SetConfig {
+        key    string
+        config record {
             @ts preserve_case
         }
 
-        @doc value "sets the props entry for the given node or edge key."
+        @doc value "sets the config entry for the given node or edge key."
     }
 
     action SetAuthority {

@@ -23,7 +23,7 @@ const (
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeSetEdge         = "set_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
-	ActionTypeSetProps        = "set_props"
+	ActionTypeSetConfig       = "set_config"
 	ActionTypeSetAuthority    = "set_authority"
 	ActionTypeSetLegend       = "set_legend"
 )
@@ -34,14 +34,14 @@ type SetNodePosition struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// AddNode appends a node to the schematic. If props is non-empty it is stored under the
-// node's key in the schematic props map.
+// AddNode appends a node to the schematic. If config is non-empty it is stored under
+// the node's key in the schematic configs map.
 type AddNode struct {
-	Node  Node                `json:"node" msgpack:"node"`
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+	Node   Node                `json:"node" msgpack:"node"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 }
 
-// RemoveNode removes a node and any props stored under its key.
+// RemoveNode removes a node and any config stored under its key.
 type RemoveNode struct {
 	Key string `json:"key" msgpack:"key"`
 }
@@ -57,10 +57,10 @@ type RemoveEdge struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
-// SetProps sets the props entry for the given node or edge key.
-type SetProps struct {
-	Key   string              `json:"key" msgpack:"key"`
-	Props msgpack.EncodedJSON `json:"props" msgpack:"props"`
+// SetConfig sets the config entry for the given node or edge key.
+type SetConfig struct {
+	Key    string              `json:"key" msgpack:"key"`
+	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 }
 
 // SetAuthority sets the control authority level for this schematic.
@@ -82,7 +82,7 @@ type Action struct {
 	RemoveNode      *RemoveNode      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
 	RemoveEdge      *RemoveEdge      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
-	SetProps        *SetProps        `json:"set_props,omitempty" msgpack:"set_props,omitempty"`
+	SetConfig       *SetConfig       `json:"set_config,omitempty" msgpack:"set_config,omitempty"`
 	SetAuthority    *SetAuthority    `json:"set_authority,omitempty" msgpack:"set_authority,omitempty"`
 	SetLegend       *SetLegend       `json:"set_legend,omitempty" msgpack:"set_legend,omitempty"`
 }
@@ -101,8 +101,8 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 		return a.SetEdge.Handle(state)
 	case ActionTypeRemoveEdge:
 		return a.RemoveEdge.Handle(state)
-	case ActionTypeSetProps:
-		return a.SetProps.Handle(state)
+	case ActionTypeSetConfig:
+		return a.SetConfig.Handle(state)
 	case ActionTypeSetAuthority:
 		return a.SetAuthority.Handle(state)
 	case ActionTypeSetLegend:
@@ -150,9 +150,9 @@ func NewRemoveEdgeAction(p RemoveEdge) Action {
 	return Action{Type: ActionTypeRemoveEdge, RemoveEdge: &p}
 }
 
-// NewSetPropsAction wraps a SetProps payload in an Action envelope.
-func NewSetPropsAction(p SetProps) Action {
-	return Action{Type: ActionTypeSetProps, SetProps: &p}
+// NewSetConfigAction wraps a SetConfig payload in an Action envelope.
+func NewSetConfigAction(p SetConfig) Action {
+	return Action{Type: ActionTypeSetConfig, SetConfig: &p}
 }
 
 // NewSetAuthorityAction wraps a SetAuthority payload in an Action envelope.
