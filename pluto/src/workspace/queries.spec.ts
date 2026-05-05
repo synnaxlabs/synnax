@@ -38,7 +38,7 @@ const newSchematic = (name: string): schematic.New => ({
   },
   nodes: [],
   edges: [],
-  props: {},
+  configs: {},
 });
 
 describe("queries", () => {

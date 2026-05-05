@@ -253,76 +253,6 @@ func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
 	return result, nil
 }
 
-// EdgePropsToPB converts EdgeProps to EdgeProps.
-func EdgePropsToPB(r schematic.EdgeProps) (*EdgeProps, error) {
-	segmentsVal, err := SegmentsToPB(r.Segments)
-	if err != nil {
-		return nil, err
-	}
-	variantVal, err := EdgeVariantToPB(r.Variant)
-	if err != nil {
-		return nil, err
-	}
-	colorVal, err := colorpb.ColorToPB(r.Color)
-	if err != nil {
-		return nil, err
-	}
-	pb := &EdgeProps{
-		Segments: segmentsVal,
-		Variant:  variantVal,
-		Color:    colorVal,
-	}
-	return pb, nil
-}
-
-// EdgePropsFromPB converts EdgeProps to EdgeProps.
-func EdgePropsFromPB(pb *EdgeProps) (schematic.EdgeProps, error) {
-	var r schematic.EdgeProps
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Segments, err = SegmentsFromPB(pb.Segments)
-	if err != nil {
-		return schematic.EdgeProps{}, err
-	}
-	r.Variant, err = EdgeVariantFromPB(pb.Variant)
-	if err != nil {
-		return schematic.EdgeProps{}, err
-	}
-	r.Color, err = colorpb.ColorFromPB(pb.Color)
-	if err != nil {
-		return schematic.EdgeProps{}, err
-	}
-	return r, nil
-}
-
-// EdgePropsListToPB converts a slice of EdgeProps to EdgeProps.
-func EdgePropsListToPB(rs []schematic.EdgeProps) ([]*EdgeProps, error) {
-	result := make([]*EdgeProps, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = EdgePropsToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// EdgePropsListFromPB converts a slice of EdgeProps to EdgeProps.
-func EdgePropsListFromPB(pbs []*EdgeProps) ([]schematic.EdgeProps, error) {
-	result := make([]schematic.EdgeProps, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = EdgePropsFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // EdgeToPB converts Edge to Edge.
 func EdgeToPB(r schematic.Edge) (*Edge, error) {
 	sourceVal, err := HandleToPB(r.Source)
@@ -409,14 +339,14 @@ func SchematicToPB(r schematic.Schematic) (*Schematic, error) {
 		Nodes:     nodesVal,
 		Edges:     edgesVal,
 	}
-	if r.Props != nil {
-		pb.Props = make(map[string]*structpb.Struct, len(r.Props))
-		for k, v := range r.Props {
+	if r.Configs != nil {
+		pb.Configs = make(map[string]*structpb.Struct, len(r.Configs))
+		for k, v := range r.Configs {
 			converted, err := structpb.NewStruct(v)
 			if err != nil {
 				return nil, err
 			}
-			pb.Props[k] = converted
+			pb.Configs[k] = converted
 		}
 	}
 	return pb, nil
@@ -449,10 +379,10 @@ func SchematicFromPB(pb *Schematic) (schematic.Schematic, error) {
 	r.Name = pb.Name
 	r.Snapshot = pb.Snapshot
 	r.Authority = control.Authority(pb.Authority)
-	if pb.Props != nil {
-		r.Props = make(map[string]msgpack.EncodedJSON, len(pb.Props))
-		for k, v := range pb.Props {
-			r.Props[k] = msgpack.EncodedJSON(v.AsMap())
+	if pb.Configs != nil {
+		r.Configs = make(map[string]msgpack.EncodedJSON, len(pb.Configs))
+		for k, v := range pb.Configs {
+			r.Configs[k] = msgpack.EncodedJSON(v.AsMap())
 		}
 	}
 	return r, nil

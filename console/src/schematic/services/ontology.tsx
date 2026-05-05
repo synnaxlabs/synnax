@@ -181,7 +181,14 @@ const loadSchematic = async (
   placeLayout: Layout.Placer,
 ) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ ...schematic, editable: false, remoteCreated: true }));
+  placeLayout(
+    Schematic.create({
+      ...schematic,
+      configs: schematic.configs as Record<string, Schematic.ElementConfig>,
+      editable: false,
+      remoteCreated: true,
+    }),
+  );
 };
 
 const handleSelect: Ontology.HandleSelect = ({
@@ -212,6 +219,7 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     placeLayout(
       Schematic.create({
         ...schematic,
+        configs: schematic.configs as Record<string, Schematic.ElementConfig>,
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
         remoteCreated: true,
@@ -225,9 +233,7 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Schematic />,
   hasChildren: false,
   onSelect: handleSelect,
-  haulItems: ({ id }) => [
-    { type: Mosaic.HAUL_CREATE_TYPE, key: ontology.idToString(id) },
-  ],
+  haulItems: ({ id }) => [Mosaic.createTabCreateHaulItem(ontology.idToString(id))],
   onMosaicDrop: handleMosaicDrop,
   TreeContextMenu,
 };

@@ -9,10 +9,8 @@
 
 import { configureStore } from "@reduxjs/toolkit";
 import { type Diagram } from "@synnaxlabs/pluto";
-import { color } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { selectNodeProps } from "@/schematic/selectors";
 import {
   actions,
   reducer,
@@ -69,11 +67,10 @@ describe("Schematic Slice", () => {
     it("should add a node to schematic", () => {
       const nodeKey = "valve-1";
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: nodeKey,
-          props: { variant: "valve" },
-          node: { position: { x: 100, y: 100 } },
+          config: { variant: "valve" },
+          node: { key: nodeKey, position: { x: 100, y: 100 } },
         }),
       );
 
@@ -82,28 +79,25 @@ describe("Schematic Slice", () => {
       expect(schematic.nodes).toHaveLength(1);
       expect(schematic.nodes[0].key).toBe(nodeKey);
       expect(schematic.nodes[0].position).toEqual({ x: 100, y: 100 });
-      expect(schematic.props[nodeKey]).toEqual({ variant: "valve" });
+      expect(schematic.configs[nodeKey]).toEqual({ variant: "valve" });
     });
 
     it("should update node positions", () => {
       const node1Key = "valve-1";
       const node2Key = "valve-2";
 
-      // Add two nodes
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: node1Key,
-          props: { variant: "valve" },
-          node: { position: { x: 0, y: 0 } },
+          config: { variant: "valve" },
+          node: { key: node1Key, position: { x: 0, y: 0 } },
         }),
       );
       store.dispatch(
-        actions.addElement({
+        actions.addNode({
           key: schematicKey,
-          elKey: node2Key,
-          props: { variant: "valve" },
-          node: { position: { x: 150, y: 20 } },
+          config: { variant: "valve" },
+          node: { key: node2Key, position: { x: 150, y: 20 } },
         }),
       );
 
@@ -511,93 +505,6 @@ describe("Schematic Slice", () => {
       const state = store.getState()[SLICE_NAME];
       expect(Object.keys(state.schematics)).toHaveLength(1);
       expect(state.schematics["schematic-2"]).toBeDefined();
-    });
-  });
-
-  describe("off-page reference page prop", () => {
-    const schematicKey = "test-schematic";
-    const nodeKey = "opr-1";
-
-    beforeEach(() => {
-      store.dispatch(actions.create({ ...ZERO_STATE, key: schematicKey }));
-      store.dispatch(
-        actions.addElement({
-          key: schematicKey,
-          elKey: nodeKey,
-          props: { variant: "offPageReference", page: "" },
-          node: { position: { x: 0, y: 0 } },
-        }),
-      );
-    });
-
-    it("should store the page prop on an off-page reference element", () => {
-      const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
-      expect(props).toBeDefined();
-      expect(props?.variant).toBe("offPageReference");
-      expect(props?.page).toBe("");
-    });
-
-    it("should update the page prop via setElementProps", () => {
-      const targetPage = "target-schematic-key";
-      store.dispatch(
-        actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
-          props: { variant: "offPageReference", page: targetPage },
-        }),
-      );
-
-      const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
-      expect(props?.page).toBe(targetPage);
-    });
-
-    it("should clear the page prop by setting it to empty string", () => {
-      store.dispatch(
-        actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
-          props: { variant: "offPageReference", page: "some-page" },
-        }),
-      );
-      store.dispatch(
-        actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
-          props: { variant: "offPageReference", page: "" },
-        }),
-      );
-
-      const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
-      expect(props?.page).toBe("");
-    });
-
-    it("should preserve the page prop when other props change", () => {
-      store.dispatch(
-        actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
-          props: {
-            variant: "offPageReference",
-            page: "target-page",
-            color: color.construct("#ff0000"),
-          },
-        }),
-      );
-      store.dispatch(
-        actions.setElementProps({
-          layoutKey: schematicKey,
-          key: nodeKey,
-          props: {
-            variant: "offPageReference",
-            page: "target-page",
-            color: color.construct("#00ff00"),
-          },
-        }),
-      );
-
-      const props = selectNodeProps(store.getState(), schematicKey, nodeKey);
-      expect(props?.page).toBe("target-page");
-      expect(props?.color).toEqual(color.construct("#00ff00"));
     });
   });
 });

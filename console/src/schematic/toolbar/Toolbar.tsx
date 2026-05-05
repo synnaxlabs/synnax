@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/toolbar/Toolbar.css";
+
 import { schematic } from "@synnaxlabs/client";
-import { Access, Breadcrumb, Flex, Icon, Tabs } from "@synnaxlabs/pluto";
+import { Access, Breadcrumb, Flex, Icon, Key, Tabs } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo } from "react";
 import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -82,7 +85,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
-          return <Symbols layoutKey={layoutKey} />;
+          return <Symbols />;
         case "control":
           return <Control layoutKey={layoutKey} />;
         default:
@@ -108,34 +111,38 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={value}>
-      <Base.Content>
-        <Base.Header>
-          <Breadcrumb.Breadcrumb level="h5">
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
-              <Icon.Schematic />
-              {name}
-            </Breadcrumb.Segment>
-            {selectedNames.length === 1 && selectedNames[0] !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="small">
-                {selectedNames[0]}
+      <Key.Provider value={layoutKey}>
+        <Base.Content>
+          <Base.Header>
+            <Breadcrumb.Breadcrumb level="h5">
+              <Breadcrumb.Segment weight={500} color={10} level="h5">
+                <Icon.Schematic />
+                {name}
               </Breadcrumb.Segment>
-            )}
-          </Breadcrumb.Breadcrumb>
-          <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
-              <Cluster.CopyLinkToolbarButton
-                name={name}
-                ontologyID={schematic.ontologyID(layoutKey)}
-              />
+              {selectedNames.length === 1 && selectedNames[0] !== null && (
+                <Breadcrumb.Segment weight={400} color={8} level="small">
+                  {selectedNames[0]}
+                </Breadcrumb.Segment>
+              )}
+            </Breadcrumb.Breadcrumb>
+            <Flex.Box x align="center" empty>
+              <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
+                <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+                <Cluster.CopyLinkToolbarButton
+                  name={name}
+                  ontologyID={schematic.ontologyID(layoutKey)}
+                />
+              </Flex.Box>
+              {hasEditPermission && (
+                <Tabs.Selector
+                  className={CSS.BE("schematic", "toolbar", "tab-selector")}
+                />
+              )}
             </Flex.Box>
-            {hasEditPermission && (
-              <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
-            )}
-          </Flex.Box>
-        </Base.Header>
-        <Tabs.Content />
-      </Base.Content>
+          </Base.Header>
+          <Tabs.Content />
+        </Base.Content>
+      </Key.Provider>
     </Tabs.Provider>
   );
 };

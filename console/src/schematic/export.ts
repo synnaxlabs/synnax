@@ -13,7 +13,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/schematic/Schematic";
 import { selectOptional } from "@/schematic/selectors";
-import { ZERO_STATE } from "@/schematic/slice";
+import { type ElementConfig, ZERO_STATE } from "@/schematic/slice";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
@@ -30,7 +30,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
       legend: schematic.legend,
       nodes: schematic.nodes,
       edges: schematic.edges,
-      props: schematic.props,
+      configs: schematic.configs as Record<string, ElementConfig>,
     };
     name ??= schematic.name;
   }

@@ -87,17 +87,6 @@ export const edgeZ = z.object({
 });
 export interface Edge extends z.infer<typeof edgeZ> {}
 
-/** EdgeProps contains visual properties for an edge, stored in schematic props. */
-export const edgePropsZ = z.object({
-  /** segments defines the orthogonal path segments from source to target. */
-  segments: array.nullishToEmpty(segmentZ),
-  /** variant is the visual style of the edge. */
-  variant: edgeVariantZ.default("pipe"),
-  /** color is the optional display color. */
-  color: color.colorZ.optional(),
-});
-export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
-
 /**
  * Schematic is a visual diagram editor component for drawing system schematics,
  * control flows, and process diagrams. Schematics support interactive
@@ -119,10 +108,11 @@ export const schematicZ = z.object({
   /** edges contains all connections between nodes. */
   edges: array.nullishToEmpty(edgeZ),
   /**
-   * props contains symbol-specific properties keyed by node or edge key,
-   * including colors, labels, segments, and other visual configuration.
+   * configs contains per-element configuration keyed by node or edge key. The
+   * shape of each value is determined by the element's variant; the
+   * wire format intentionally stores it as an opaque record.
    */
-  props: caseconv.preserveCase(z.record(z.string(), record.unknownZ())),
+  configs: caseconv.preserveCase(z.record(z.string(), record.unknownZ())),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 

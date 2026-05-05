@@ -88,7 +88,13 @@ const useCreateSchematic = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...schematic } = data;
       await maybeChangeWorkspace(workspace);
-      placeLayout(Schematic.create({ ...schematic, remoteCreated: true }));
+      placeLayout(
+        Schematic.create({
+          ...schematic,
+          configs: schematic.configs as Record<string, Schematic.ElementConfig>,
+          remoteCreated: true,
+        }),
+      );
     },
   });
   return useCallback(
@@ -101,7 +107,7 @@ const useCreateSchematic = ({
         legend: deep.copy(Schematic.ZERO_STATE.legend),
         nodes: [],
         edges: [],
-        props: {},
+        configs: {},
       }),
     [workspaceID.key],
   );

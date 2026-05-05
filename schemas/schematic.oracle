@@ -88,21 +88,6 @@ Segment struct {
     @doc value "is an orthogonal path segment with a direction and signed length."
 }
 
-EdgeProps struct {
-    segments Segment[]    {
-        @doc value "defines the orthogonal path segments from source to target."
-    }
-    variant  EdgeVariant  {
-        @validate default "pipe"
-        @doc value        "is the visual style of the edge."
-    }
-    color    color.Color? {
-        @doc value "is the optional display color."
-    }
-
-    @doc value "contains visual properties for an edge, stored in schematic props."
-}
-
 Edge struct {
     key    string {
         @doc value "is the unique edge identifier within the schematic."
@@ -143,10 +128,11 @@ Schematic struct {
     edges     Edge[]              {
         @doc value "contains all connections between nodes."
     }
-    props     map<string, record> {
+    configs   map<string, record> {
         @doc value        """
-            contains symbol-specific properties keyed by node or edge key,
-            including colors, labels, segments, and other visual configuration.
+            contains per-element configuration keyed by node or edge key. The
+            shape of each value is determined by the element's variant; the
+            wire format intentionally stores it as an opaque record.
         """
         @ts preserve_case
     }

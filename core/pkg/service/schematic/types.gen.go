@@ -73,16 +73,6 @@ type Segment struct {
 	Length float64 `json:"length" msgpack:"length"`
 }
 
-// EdgeProps contains visual properties for an edge, stored in schematic props.
-type EdgeProps struct {
-	// Segments defines the orthogonal path segments from source to target.
-	Segments []Segment `json:"segments" msgpack:"segments"`
-	// Variant is the visual style of the edge.
-	Variant EdgeVariant `json:"variant" msgpack:"variant"`
-	// Color is the optional display color.
-	Color color.Color `json:"color" msgpack:"color"`
-}
-
 // Edge is a connection between two nodes in the schematic.
 type Edge struct {
 	// Key is the unique edge identifier within the schematic.
@@ -111,7 +101,8 @@ type Schematic struct {
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
 	Edges []Edge `json:"edges" msgpack:"edges"`
-	// Props contains symbol-specific properties keyed by node or edge key, including
-	// colors, labels, segments, and other visual configuration.
-	Props map[string]msgpack.EncodedJSON `json:"props" msgpack:"props"`
+	// Configs contains per-element configuration keyed by node or edge key. The shape of
+	// each value is determined by the element's variant; the wire format intentionally
+	// stores it as an opaque record.
+	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
 }

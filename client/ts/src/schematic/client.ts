@@ -155,5 +155,5 @@ export const ZERO_NEW: New = {
   legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
-  props: {},
+  configs: {},
 };

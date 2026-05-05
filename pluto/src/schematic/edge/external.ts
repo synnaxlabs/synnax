@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { connector } from "@/schematic/edge/connector";
-export { ConnectionLine, Edge, type EdgeProps } from "@/schematic/edge/Edge";
-export {
-  DefaultPath,
-  type EdgeType,
-  edgeTypeZ,
-  PATHS,
-  SelectEdgeType,
-} from "@/schematic/edge/paths";
+export * from "@/schematic/edge/common";
+export * from "@/schematic/edge/config";
+export * from "@/schematic/edge/registry";
+export * from "@/schematic/edge/spec";

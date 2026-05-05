@@ -68,16 +68,6 @@ message Segment {
   double length = 2;
 }
 
-// EdgeProps contains visual properties for an edge, stored in schematic props.
-message EdgeProps {
-  // segments defines the orthogonal path segments from source to target.
-  repeated Segment segments = 1;
-  // variant is the visual style of the edge.
-  EdgeVariant variant = 2;
-  // color is the optional display color.
-  .x.color.pb.Color color = 3;
-}
-
 // Edge is a connection between two nodes in the schematic.
 message Edge {
   // key is the unique edge identifier within the schematic.
@@ -106,7 +96,8 @@ message Schematic {
   repeated Node nodes = 6;
   // edges contains all connections between nodes.
   repeated Edge edges = 7;
-  // props contains symbol-specific properties keyed by node or edge key, including
-  // colors, labels, segments, and other visual configuration.
-  map<string, google.protobuf.Struct> props = 8;
+  // configs contains per-element configuration keyed by node or edge key. The shape of
+  // each value is determined by the element's variant; the wire format intentionally
+  // stores it as an opaque record.
+  map<string, google.protobuf.Struct> configs = 8;
 }
