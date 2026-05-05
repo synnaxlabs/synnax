@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/value/value.css";
+
 import { color, type dimensions } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 

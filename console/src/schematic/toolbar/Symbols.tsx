@@ -106,9 +106,8 @@ export interface SymbolListProps {
 const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   const symbols = useMemo(() => {
     const group = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Schematic.Node.REGISTRY).filter((s) =>
-      group?.symbols.includes(s.key),
-    );
+    if (group == null) return [];
+    return group?.symbols.map((k) => Schematic.Node.REGISTRY[k]);
   }, [groupKey]);
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols as Schematic.Node.Spec[],

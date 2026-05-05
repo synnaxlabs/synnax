@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "@/schematic/node/general/input/input.css";
+
 import { type ReactElement, useState } from "react";
 
 import { Button as BaseButton } from "@/button";

@@ -9,6 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 
+import { Component } from "@/component";
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
@@ -35,7 +36,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Tank",
   Form: TankForm,
   Node: Symbol,
-  Preview: Primitive,
+  Preview: Component.removeProps(Primitive, ["dimensions"]),
   defaultConfig,
   zIndex: 2,
 };
