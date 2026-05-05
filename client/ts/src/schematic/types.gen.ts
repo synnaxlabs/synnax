@@ -21,7 +21,7 @@ export const legendZ = z.object({
   /** position is the legend position within the schematic. */
   position: spatial.stickyXYZ,
   /** colors maps control status keys to their display colors. */
-  colors: z.record(z.string(), color.colorZ),
+  colors: record.nullishToEmpty(z.string(), color.colorZ),
 });
 export interface Legend extends z.infer<typeof legendZ> {}
 
@@ -91,7 +91,7 @@ export const schematicZ = z.object({
    * shape of each value is determined by the element's variant; the
    * wire format intentionally stores it as an opaque record.
    */
-  configs: caseconv.preserveCase(z.record(z.string(), record.unknownZ())),
+  configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ())),
 });
 export interface Schematic extends z.infer<typeof schematicZ> {}
 
