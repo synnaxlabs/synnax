@@ -23,52 +23,50 @@ import {
   Status,
   Text,
 } from "@synnaxlabs/pluto";
-import { box, color, deep, type direction, location, xy } from "@synnaxlabs/x";
-import { memo, type ReactElement, type ReactNode } from "react";
+import {
+  box,
+  color,
+  deep,
+  type dimensions,
+  type direction,
+  location,
+  xy,
+} from "@synnaxlabs/x";
+import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
-  type ElementInfo,
+  selectNode,
   selectViewport,
-  useSelectRequiredEdge,
-  useSelectRequiredNodeProps,
-  useSelectSelectedElementDigests,
-  useSelectSelectedElementsProps,
+  useSelectRequiredConfig,
+  useSelectSelected,
+  useSelectSelectedElementsConfigs,
 } from "@/schematic/selectors";
-import { setElementProps, setNodePositions } from "@/schematic/slice";
+import {
+  type ElementConfig,
+  setElementConfig,
+  setNodePositions,
+} from "@/schematic/slice";
 import { createEditLayout } from "@/schematic/symbols/edit/Edit";
-import { type EdgeProps, type NodeProps } from "@/schematic/types";
-import { type nodePropsZ } from "@/schematic/types/v0";
 import { type RootState } from "@/store";
-
 export interface PropertiesProps {
   layoutKey: string;
 }
 
 export const PropertiesControls = memo(
   ({ layoutKey }: PropertiesProps): ReactElement => {
-    const digests = useSelectSelectedElementDigests(layoutKey);
+    const digests = useSelectSelected(layoutKey);
     if (digests.length === 0)
       return (
         <Text.Text status="disabled" center>
           Select a Schematic element to configure its properties.
         </Text.Text>
       );
-
     if (digests.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
-
     const selected = digests[0];
-
-    if (selected.type === "edge")
-      return <EdgeProperties layoutKey={layoutKey} edgeKey={selected.key} />;
-    return (
-      <IndividualProperties
-        key={selected.key}
-        layoutKey={layoutKey}
-        nodeKey={selected.key}
-      />
-    );
+    return <IndividualConfig key={selected} layoutKey={layoutKey} nodeKey={selected} />;
   },
 );
 PropertiesControls.displayName = "PropertiesControls";
@@ -78,27 +76,28 @@ interface IndividualPropertiesProps {
   nodeKey: string;
 }
 
-const IndividualProperties = ({
+const IndividualConfig = ({
   layoutKey,
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
-  const props = useSelectRequiredNodeProps(layoutKey, nodeKey);
-  const C = Schematic.Symbol.REGISTRY[props.key];
+  const config = useSelectRequiredConfig(layoutKey, nodeKey);
+  const C = Schematic.REGISTRY[config.variant];
   const dispatch = useDispatch();
 
-  const onChange = (key: string, props: NodeProps): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+  const onChange = (elKey: string, config: ElementConfig): void => {
+    dispatch(setElementConfig({ key: layoutKey, elKey, config }));
   };
 
-  const formMethods = Form.use<typeof nodePropsZ>({
-    values: deep.copy(props),
+  const formMethods = Form.use<typeof Schematic.elementConfigZ>({
+    schema: Schematic.elementConfigZ,
+    values: deep.copy(config),
     sync: true,
     onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
   });
-  const specKey = Form.useFieldValue<string, string, typeof nodePropsZ>("specKey", {
-    ctx: formMethods,
-    optional: true,
-  });
+  const specKey = Form.useFieldValue<string, string, typeof Schematic.elementConfigZ>(
+    "specKey",
+    { ctx: formMethods, optional: true },
+  );
   const isRemote = schematic.symbol.keyZ.safeParse(specKey).success;
   let actions: ReactNode = null;
   const placeLayout = Layout.usePlacer();
@@ -107,7 +106,7 @@ const IndividualProperties = ({
       <Button.Button
         variant="filled"
         size="tiny"
-        style={{ marginRight: "1rem" }}
+        className={CSS.BE("schematic", "properties", "edit")}
         onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
       >
         <Icon.Edit />
@@ -115,8 +114,8 @@ const IndividualProperties = ({
     );
 
   return (
-    <Flex.Box style={{ height: "100%" }} y>
-      <Form.Form<typeof nodePropsZ> {...formMethods}>
+    <Flex.Box className={CSS.BE("schematic", "properties")} y>
+      <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
         <C.Form
           {...formMethods}
           key={nodeKey}
@@ -124,45 +123,6 @@ const IndividualProperties = ({
           schematicKey={layoutKey}
         />
       </Form.Form>
-    </Flex.Box>
-  );
-};
-
-interface EdgePropertiesProps {
-  layoutKey: string;
-  edgeKey: string;
-}
-
-const SELECT_EDGE_TYPE_STYLE: React.CSSProperties = {
-  width: "25rem",
-};
-
-const EdgeProperties = ({
-  layoutKey,
-  edgeKey,
-}: EdgePropertiesProps): ReactElement | null => {
-  const edge = useSelectRequiredEdge(layoutKey, edgeKey);
-  const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<EdgeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
-  };
-  return (
-    <Flex.Box style={{ padding: "2rem" }} align="start" x>
-      <Input.Item label="Color" align="start">
-        <Color.Swatch
-          value={(edge.data?.color ?? color.ZERO) as color.Crude}
-          onChange={(v: color.Color) => {
-            onChange(edge.key, { color: color.hex(v) });
-          }}
-        />
-      </Input.Item>
-      <Input.Item label="Type" align="start">
-        <Schematic.SelectEdgeType
-          value={edge.data?.variant as Schematic.EdgeType}
-          onChange={(variant: Schematic.EdgeType) => onChange(edge.key, { variant })}
-          style={SELECT_EDGE_TYPE_STYLE}
-        />
-      </Input.Item>
     </Flex.Box>
   );
 };
@@ -175,45 +135,50 @@ const MultiElementProperties = ({
   layoutKey,
 }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
-  const elements = useSelectSelectedElementsProps(layoutKey);
+  const [selected, selectedConfigs] = useSelectSelectedElementsConfigs(layoutKey);
   const dispatch = useDispatch();
-  const onChange = (key: string, props: Partial<NodeProps>): void => {
-    dispatch(setElementProps({ layoutKey, key, props }));
+  const onChange = (elKey: string, config: Partial<ElementConfig>): void => {
+    dispatch(setElementConfig({ key: layoutKey, elKey, config }));
   };
 
-  const colorGroups: Record<string, ElementInfo[]> = {};
-  elements.forEach((e) => {
-    let colorVal: color.Color | null = null;
-    if (e.type === "edge") colorVal = color.colorZ.parse(e.edge.data?.color);
-    else if (e.props.color != null) colorVal = color.construct(e.props.color);
-    if (colorVal === null) return;
-    const hex = color.hex(colorVal);
-    if (!(hex in colorGroups)) colorGroups[hex] = [];
-    colorGroups[hex].push(e);
+  let firstNodeLabel: Schematic.Node.Label.Config | undefined;
+  selectedConfigs.find((cfg) => {
+    if (!("label" in cfg)) return false;
+    firstNodeLabel = cfg.label;
+    return true;
   });
 
-  const firstNode = elements.find((e) => e.type === "node");
-  const firstNodeLabel = firstNode?.props.label;
+  const colorGroups = useMemo(() => {
+    const colorGroups: Record<color.Hex, string[]> = {};
+    selected.forEach((key, i) => {
+      const cfg = selectedConfigs[i];
+      if (cfg.color == null) return;
+      const hex = color.hex(cfg.color);
+      if (!(hex in colorGroups)) colorGroups[hex] = [];
+      colorGroups[hex].push(key);
+    });
+    return colorGroups;
+  }, [selected, selectedConfigs]);
 
   const store = useStore<RootState>();
 
   const getLayoutsForAlignment = () => {
-    const viewport = selectViewport(store.getState(), layoutKey);
+    const state = store.getState();
+    const viewport = selectViewport(state, layoutKey);
 
-    return elements
-      .map((el) => {
-        if (el.type !== "node") return null;
+    return selected
+      .map((key) => {
         try {
-          const nodeEl = Diagram.selectNode(el.key);
+          const node = selectNode(state, layoutKey, key);
+          if (node == null) return null;
+          const nodeEl = Diagram.selectNode(key);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
-
-          const actualDims = {
+          const actualDims: dimensions.Dimensions = {
             width: rect.width / (viewport?.zoom ?? 1),
             height: rect.height / (viewport?.zoom ?? 1),
           };
-
-          const nodeBox = box.construct(el.node.position, actualDims);
+          const nodeBox = box.construct(node.position, actualDims);
           const handleEls = nodeEl.getElementsByClassName("react-flow__handle");
           const handles = Array.from(handleEls).map((el) => {
             const pos = box.center(box.construct(el));
@@ -227,7 +192,7 @@ const MultiElementProperties = ({
             const orientation = location.outerZ.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+          return new Diagram.NodeLayout(key, nodeBox, handles);
         } catch (e) {
           handleError(e, "failed to calculate schematic node layout");
         }
@@ -240,15 +205,17 @@ const MultiElementProperties = ({
     layouts: Diagram.NodeLayout[];
     adjustPosition: (key: string, pos: xy.XY) => xy.XY;
   } => {
-    const viewport = selectViewport(store.getState(), layoutKey);
+    const state = store.getState();
+    const viewport = selectViewport(state, layoutKey);
     const topOffsets = new Map<string, number>();
 
     // For distribution: use actual extensions to calculate true visual extents
-    const layouts = elements
-      .map((el) => {
-        if (el.type !== "node") return null;
+    const layouts = selected
+      .map((key) => {
         try {
-          const nodeEl = Diagram.selectNode(el.key);
+          const node = selectNode(state, layoutKey, key);
+          if (node == null) return null;
+          const nodeEl = Diagram.selectNode(key);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
 
@@ -270,8 +237,8 @@ const MultiElementProperties = ({
 
           // Adjust position if there are top extensions
           const topExtension = (rect.top - minTop) / (viewport?.zoom ?? 1);
-          topOffsets.set(el.key, topExtension);
-          const adjustedPosition = xy.translate(el.node.position, {
+          topOffsets.set(key, topExtension);
+          const adjustedPosition = xy.translate(node.position, {
             x: 0,
             y: -topExtension,
           });
@@ -290,7 +257,7 @@ const MultiElementProperties = ({
             const orientation = location.outerZ.parse(match[1]);
             return new Diagram.HandleLayout(dist, orientation);
           });
-          return new Diagram.NodeLayout(el.key, nodeBox, handles);
+          return new Diagram.NodeLayout(key, nodeBox, handles);
         } catch (e) {
           handleError(e, "failed to calculate schematic node layout");
         }
@@ -338,11 +305,9 @@ const MultiElementProperties = ({
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
-    elements.forEach((el) => {
-      if (el.type !== "node") return;
-      const parsed = location.outerZ.safeParse(el.props.orientation);
-      if (!parsed.success) return;
-      onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
+    selectedConfigs.forEach((config, i) => {
+      if (!("orientation" in config) || config.orientation == null) return;
+      onChange(selected[i], { orientation: location.rotate(config.orientation, dir) });
     });
   };
 
@@ -351,26 +316,31 @@ const MultiElementProperties = ({
     handleRotateIndividual(dir);
   };
 
-  const handleLabelProp = <K extends keyof Schematic.Symbol.LabelExtensionProps>(
+  const handleLabelProp = <K extends keyof Schematic.Node.Label.Config>(
     key: K,
-    value: Schematic.Symbol.LabelExtensionProps[K],
+    value: Schematic.Node.Label.Config[K],
   ): void => {
-    elements.forEach((e) => {
-      if (e.type !== "node" || e.props.label == null) return;
-      onChange(e.key, { label: { ...e.props.label, [key]: value } });
+    selectedConfigs.forEach((cfg, i) => {
+      if (!("label" in cfg) || cfg.label == null) return;
+      onChange(selected[i], { label: { ...cfg.label, [key]: value } });
     });
   };
 
   return (
-    <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
+    <Flex.Box
+      align="start"
+      x
+      className={CSS.BE("schematic", "properties", "multi")}
+      gap="large"
+    >
       <Input.Item label="Selection Colors" align="start">
         <Flex.Box x>
-          {Object.entries(colorGroups).map(([hex, elements]) => (
+          {Object.entries(colorGroups).map(([hex, keys]) => (
             <Color.Swatch
-              key={elements[0].key}
+              key={keys[0]}
               value={hex}
-              onChange={(v: color.Color) => {
-                elements.forEach((e) => onChange(e.key, { color: color.hex(v) }));
+              onChange={(color: color.Color) => {
+                keys.forEach((key) => onChange(key, { color }));
               }}
             />
           ))}
@@ -417,7 +387,7 @@ const MultiElementProperties = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      {elements.length >= 3 && (
+      {selected.length >= 3 && (
         <Input.Item label="Spacing">
           <Flex.Box x>
             <Button.Button
@@ -494,7 +464,7 @@ const MultiElementProperties = ({
         />
       </Input.Item>
       <Input.Item label="Label Orientation" align="start">
-        <Schematic.Symbol.SelectOrientation
+        <Schematic.Node.Orientation.Select
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>
             v.outer !== "center" && handleLabelProp("orientation", v.outer)

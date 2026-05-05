@@ -11,6 +11,7 @@ import { Flex, Input } from "@synnaxlabs/pluto";
 import { control } from "@synnaxlabs/x";
 import { useDispatch } from "react-redux";
 
+import { CSS } from "@/css";
 import { useSelectAuthority, useSelectLegendVisible } from "@/schematic/selectors";
 import { setAuthority, setLegendVisible } from "@/schematic/slice";
 
@@ -20,7 +21,7 @@ export const Control = ({ layoutKey }: { layoutKey: string }) => {
   const legendVisible = useSelectLegendVisible(layoutKey);
 
   return (
-    <Flex.Box x gap="small" style={{ padding: "1.5rem 2rem" }}>
+    <Flex.Box x gap="small" className={CSS.BE("schematic", "control")}>
       <Input.Item label="Control Authority">
         <Input.Numeric
           value={authority ?? 0}

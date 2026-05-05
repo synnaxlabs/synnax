@@ -18,14 +18,15 @@ import * as v4 from "@/schematic/types/v4";
 import * as v5 from "@/schematic/types/v5";
 import * as v6 from "@/schematic/types/v6";
 
-export type NodeProps = v0.NodeProps;
-export type EdgeProps = v0.EdgeProps;
+export type NodeConfig = v6.NodeConfig;
+export type EdgeConfig = v6.EdgeConfig;
+export type ElementConfig = v6.ElementConfig;
 export type State = v6.State;
 export type SliceState = v6.SliceState;
 export type ToolbarTab = v0.ToolbarTab;
 export type ToolbarState = v0.ToolbarState;
 export type LegendState = v6.LegendState;
-export type CopyBuffer = v0.CopyBuffer;
+export type CopyBuffer = v6.CopyBuffer;
 export type AnyState =
   | v0.State
   | v1.State
