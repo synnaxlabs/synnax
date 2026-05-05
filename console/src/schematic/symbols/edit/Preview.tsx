@@ -178,7 +178,7 @@ export const Preview = ({
     Array.from(svgElement.children[0].children).forEach(addInteractivity);
   };
 
-  Schematic.Symbol.useCustom({
+  Schematic.Node.Custom.useRender({
     container: containerRef.current,
     orientation: "left",
     activeState: selectedState,
@@ -198,7 +198,7 @@ export const Preview = ({
     const parser = new DOMParser();
     const svgDoc = parser.parseFromString(processedSVG, "image/svg+xml");
     const svgElement = svgDoc.documentElement as unknown as SVGElement;
-    const extractedRegions = Schematic.Symbol.extractRegions(svgElement);
+    const extractedRegions = Schematic.Node.Region.extract(svgElement);
     const states = form.get<schematic.symbol.State[]>("data.states").value;
     states.forEach((state) =>
       form.set(`data.states.${state.key}.regions`, extractedRegions),

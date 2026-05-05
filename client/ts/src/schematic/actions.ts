@@ -12,10 +12,10 @@ import {
   type RemoveEdgePayload,
   type RemoveNodePayload,
   type SetAuthorityPayload,
+  type SetConfigPayload,
   type SetEdgePayload,
   type SetLegendPayload,
   type SetNodePositionPayload,
-  type SetPropsPayload,
 } from "@/schematic/actions.gen";
 import { type Schematic } from "@/schematic/types.gen";
 
@@ -29,7 +29,7 @@ export const handleSetNodePosition = (
 
 export const handleAddNode = (state: Schematic, payload: AddNodePayload): void => {
   state.nodes.push(payload.node);
-  if (payload.props != null) state.props[payload.node.key] = payload.props;
+  if (payload.config != null) state.configs[payload.node.key] = payload.config;
 };
 
 export const handleRemoveNode = (
@@ -38,7 +38,7 @@ export const handleRemoveNode = (
 ): void => {
   const idx = state.nodes.findIndex((n) => n.key === payload.key);
   if (idx !== -1) state.nodes.splice(idx, 1);
-  delete state.props[payload.key];
+  delete state.configs[payload.key];
 };
 
 export const handleSetEdge = (state: Schematic, payload: SetEdgePayload): void => {
@@ -55,8 +55,8 @@ export const handleRemoveEdge = (
   if (idx !== -1) state.edges.splice(idx, 1);
 };
 
-export const handleSetProps = (state: Schematic, payload: SetPropsPayload): void => {
-  state.props[payload.key] = payload.props;
+export const handleSetConfig = (state: Schematic, payload: SetConfigPayload): void => {
+  state.configs[payload.key] = payload.config;
 };
 
 export const handleSetAuthority = (

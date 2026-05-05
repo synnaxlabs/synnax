@@ -197,9 +197,9 @@ var _ = Describe("Writer", func() {
 					Source: schematic.Handle{Node: "pump", Param: "out"},
 					Target: schematic.Handle{Node: "valve", Param: "in"},
 				}}),
-				schematic.NewSetPropsAction(schematic.SetProps{
-					Key:   "pump",
-					Props: msgpack.EncodedJSON{"label": "Main Pump"},
+				schematic.NewSetConfigAction(schematic.SetConfig{
+					Key:    "pump",
+					Config: msgpack.EncodedJSON{"label": "Main Pump"},
 				}),
 				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 200}),
 			})).To(Succeed())
@@ -208,7 +208,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Nodes).To(HaveLen(2))
 			Expect(res.Edges).To(HaveLen(1))
 			Expect(res.Authority).To(BeEquivalentTo(200))
-			Expect(res.Props["pump"]).To(HaveKeyWithValue("label", "Main Pump"))
+			Expect(res.Configs["pump"]).To(HaveKeyWithValue("label", "Main Pump"))
 		})
 
 		It("Should notify subscribers with the dispatched ScopedAction on success", func(ctx SpecContext) {

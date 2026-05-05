@@ -7,13 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/pluto";
-import { migrate, sticky, xy } from "@synnaxlabs/x";
+import { schematic } from "@synnaxlabs/client";
+import { control, Schematic } from "@synnaxlabs/pluto";
+import { color, migrate, record, sticky, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
-import type * as v5 from "@/schematic/types/v5";
+import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
@@ -23,18 +24,30 @@ export type ToolbarTab = v0.ToolbarTab;
 export const viewportZ = z.object({ position: xy.xyZ, zoom: z.number() });
 export interface Viewport extends z.infer<typeof viewportZ> {}
 
+export const nodeZ = schematic.nodeZ;
+export type Node = schematic.Node;
+export const edgeZ = schematic.edgeZ;
+export type Edge = schematic.Edge;
+export const handleZ = schematic.handleZ;
+export type Handle = schematic.Handle;
+
+export const elementConfigZ = Schematic.elementConfigZ;
+export type EdgeConfig = Schematic.Edge.Config;
+export type NodeConfig = Schematic.Node.Config;
+export type ElementConfig = Schematic.ElementConfig;
+
 export const legendStateZ = z.object({
   visible: z.boolean(),
   position: sticky.xyZ,
+  colors: z.record(z.string(), color.colorZ).default({}),
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
 export const pendingUploadZ = z.object({
-  version: z.string(),
-  nodes: z.array(z.unknown()),
-  edges: z.array(z.unknown()),
-  props: z.record(z.string(), z.unknown()),
-  legend: z.unknown().optional(),
+  nodes: z.array(nodeZ),
+  edges: z.array(edgeZ),
+  configs: z.record(z.string(), elementConfigZ),
+  legend: legendStateZ,
   snapshot: z.boolean(),
   authority: z.number().optional(),
 });
@@ -61,6 +74,7 @@ export const ZERO_STATE: State = {
   legend: {
     visible: false,
     position: { x: 50, y: 50, units: { x: "px", y: "px" } },
+    colors: {},
   },
   activeToolbarTab: "symbols",
   selectedSymbolGroup: "general",
@@ -81,6 +95,83 @@ export const ZERO_SLICE_STATE: SliceState = {
   schematics: {},
 };
 
+const migrateNode = (node: v0.Node): Node => {
+  const next: Node = { key: node.key, position: node.position };
+  if (node.zIndex != null) next.zIndex = node.zIndex;
+  return next;
+};
+
+const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
+  const next: Edge = {
+    key: edge.key,
+    source: { node: edge.source, param: edge.sourceHandle ?? "" },
+    target: { node: edge.target, param: edge.targetHandle ?? "" },
+  };
+  const edgeConfig: EdgeConfig = {
+    variant: "pipe" as Schematic.Edge.Variant,
+    segments: [],
+    color: color.ZERO,
+  };
+  const parseDataResult = record.unknownZ().safeParse(edge.data);
+  if (!parseDataResult.success) return [next, edgeConfig];
+  const data = parseDataResult.data;
+  const segments = z.array(Schematic.Edge.Segmented.segmentZ).safeParse(data.segments);
+  if (segments.success) edgeConfig.segments = segments.data;
+  const parsedColor = color.colorZ.safeParse(data.color);
+  if (parsedColor.success) edgeConfig.color = parsedColor.data;
+  const parsedVariant = Schematic.Edge.variantZ.safeParse(data.variant);
+  if (parsedVariant.success) edgeConfig.variant = parsedVariant.data;
+  return [next, edgeConfig];
+};
+
+const migrateLegendColors = (
+  colors: Record<string, string> | undefined,
+): LegendState["colors"] => {
+  if (colors == null) return {};
+  const out: LegendState["colors"] = {};
+  for (const [k, v] of Object.entries(colors)) {
+    const parsed = color.colorZ.safeParse(v);
+    if (parsed.success) out[k] = parsed.data;
+  }
+  return out;
+};
+
+const migratePropsToConfigs = (
+  props: Record<string, v0.NodeProps>,
+): Record<string, ElementConfig> =>
+  Object.fromEntries(
+    Object.entries(props).map(([k, p]) => {
+      const { key, ...rest } = p as v0.NodeProps & Record<string, unknown>;
+      return [k, { ...rest, variant: key } as ElementConfig];
+    }),
+  );
+
+const buildPendingUpload = (state: v5.State): PendingUpload => {
+  const configs = migratePropsToConfigs(state.props);
+  const edges = state.edges.map((e) => {
+    const [edge, edgeConfig] = migrateEdge(e);
+    configs[edge.key] = edgeConfig;
+    return edge;
+  });
+  const upload: PendingUpload = {
+    nodes: state.nodes.map(migrateNode),
+    edges,
+    configs,
+    legend: {
+      visible: state.legend?.visible ?? false,
+      position: state.legend?.position ?? {
+        x: 50,
+        y: 50,
+        units: { x: "px", y: "px" },
+      },
+      colors: migrateLegendColors(state.legend?.colors),
+    },
+    snapshot: state.snapshot,
+  };
+  if (state.authority != null) upload.authority = state.authority;
+  return upload;
+};
+
 export const stateMigration = migrate.createMigration<v5.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => ({
@@ -94,21 +185,14 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
         y: 50,
         units: { x: "px", y: "px" },
       },
+      colors: migrateLegendColors(state.legend?.colors),
     },
     activeToolbarTab: state.toolbar.activeTab,
     selectedSymbolGroup: state.toolbar.selectedSymbolGroup,
     editable: state.editable,
     fitViewOnResize: state.fitViewOnResize,
     viewport: state.viewport,
-    pendingUpload: {
-      version: state.version,
-      nodes: state.nodes,
-      edges: state.edges,
-      props: state.props,
-      legend: state.legend,
-      snapshot: state.snapshot,
-      authority: state.authority,
-    },
+    pendingUpload: buildPendingUpload(state),
   }),
 });
 

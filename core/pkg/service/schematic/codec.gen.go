@@ -164,10 +164,10 @@ func (s Schematic) EncodeOrc(w *orc.Writer) error {
 			}
 		}
 	}
-	w.Bool(s.Props != nil)
-	if s.Props != nil {
-		w.Uint32(uint32(len(s.Props)))
-		for key, val := range s.Props {
+	w.Bool(s.Configs != nil)
+	if s.Configs != nil {
+		w.Uint32(uint32(len(s.Configs)))
+		for key, val := range s.Configs {
 			w.String(key)
 			{
 				b, err := json.Marshal(val)
@@ -248,7 +248,7 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 			if err != nil {
 				return err
 			}
-			s.Props = make(map[string]msgpack.EncodedJSON, n)
+			s.Configs = make(map[string]msgpack.EncodedJSON, n)
 			for range n {
 				var key string
 				var val msgpack.EncodedJSON
@@ -264,7 +264,7 @@ func (s *Schematic) DecodeOrc(r *orc.Reader) error {
 						return err
 					}
 				}
-				s.Props[key] = val
+				s.Configs[key] = val
 			}
 		}
 	}

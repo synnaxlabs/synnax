@@ -104,19 +104,19 @@ const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
       const storeState = store.getState();
       const ui = selectOptional(storeState, layoutKey);
       if (ui == null || ui.editable || retrieve == null) return;
-      const props = fluxStore.schematics.get(layoutKey)?.props?.[nodeId] as
+      const config = fluxStore.schematics.get(layoutKey)?.configs?.[nodeId] as
         | Record<string, unknown>
         | undefined;
       if (
-        props?.variant !== "offPageReference" ||
-        typeof props.page !== "string" ||
-        props.page.length === 0
+        config?.variant !== "offPageReference" ||
+        typeof config.page !== "string" ||
+        config.page.length === 0
       )
         return;
-      const dblClickNav = props.dblClickNav !== false;
+      const dblClickNav = config.dblClickNav !== false;
       if (dblClick !== dblClickNav) return;
-      const { page } = props;
-      const labelObj = props.label as { label?: string } | undefined;
+      const { page } = config;
+      const labelObj = config.label as { label?: string } | undefined;
       const label = labelObj?.label;
       const name = label != null && label.length > 0 ? label : "Referenced schematic";
       handleError(

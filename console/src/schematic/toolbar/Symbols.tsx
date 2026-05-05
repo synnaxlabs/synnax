@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/toolbar/Symbols.css";
-
 import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Access,
@@ -62,8 +60,8 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const handleDragStart = useCallback(() => {
     startDrag([{ type: "schematic-element", key: itemKey }]);
   }, [startDrag, itemKey]);
-  const spec = List.useItem<string, Schematic.Symbol.Spec>(itemKey);
-  const defaultProps_ = useMemo(() => spec?.defaultProps(theme), [spec, theme]);
+  const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
+  const defaultProps_ = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
   if (spec == null || defaultProps_ == null) return null;
   const { name, Preview } = spec;
   return (
@@ -93,17 +91,17 @@ export interface SymbolListProps {
 }
 
 const StaticSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
-  const symbols = useMemo(() => {
-    const group = Schematic.Symbol.GROUPS.find((g) => g.key === groupKey);
-    return Object.values(Schematic.Symbol.REGISTRY).filter((s) =>
+  const symbols = useMemo<Schematic.Node.Spec[]>(() => {
+    const group = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
+    return Object.values(Schematic.Node.REGISTRY).filter((s) =>
       group?.symbols.includes(s.key),
-    );
+    ) as unknown as Schematic.Node.Spec[];
   }, [groupKey]);
-  const { data, getItem } = List.useStaticData<string, Schematic.Symbol.Spec>({
+  const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
   return (
-    <Select.Frame<string, Schematic.Symbol.Spec>
+    <Select.Frame<string, Schematic.Node.Spec>
       data={data}
       getItem={getItem}
       value={undefined}
@@ -126,7 +124,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
   const variant = isStatic ? "customStatic" : "customActuator";
-  const Preview = Schematic.Symbol.REGISTRY[variant].Preview;
+  const Preview = Schematic.Node.REGISTRY[variant].Preview;
 
   const { startDrag, onDragEnd } = Haul.useDrag({
     type: "Diagram-Elements",
@@ -154,7 +152,8 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     >
       <Text.Text level="small">{symbol.name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview specKey={itemKey} scale={0.75} />
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <Preview {...({ specKey: itemKey, scale: 0.75 } as any)} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -491,7 +490,7 @@ const GroupList = ({
   symbolGroupID,
 }: GroupListProps): ReactElement => {
   const staticData = List.useStaticData<group.Key, group.Group>({
-    data: Schematic.Symbol.GROUPS,
+    data: Schematic.Node.GROUPS,
   });
   const remoteData = Group.useList({ initialQuery: { parent: symbolGroupID } });
   useEffect(
@@ -525,13 +524,13 @@ interface SearchSymbolListProps {
 }
 
 export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic"]);
-export const ALL_STATIC_SYMBOLS = Object.values(Schematic.Symbol.REGISTRY).filter(
-  (s) => !CUSTOM_VARIANTS.has(s.key),
-);
+export const ALL_STATIC_SYMBOLS: Schematic.Node.Spec[] = Object.values(
+  Schematic.Node.REGISTRY,
+).filter((s) => !CUSTOM_VARIANTS.has(s.key)) as unknown as Schematic.Node.Spec[];
 
 const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
-  const item = List.useItem<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>(
+  const item = List.useItem<string, Schematic.Node.Spec | schematic.symbol.Symbol>(
     itemKey,
   );
   if (item == null) return null;
@@ -549,12 +548,12 @@ const SearchSymbolList = ({
   const remote = Schematic.Symbol.useList({
     initialQuery: { searchTerm },
   });
-  const staticData = List.useStaticData<string, Schematic.Symbol.Spec>({
+  const staticData = List.useStaticData<string, Schematic.Node.Spec>({
     data: ALL_STATIC_SYMBOLS,
   });
   const { data, getItem, subscribe } = List.useCombinedData<
     string,
-    Schematic.Symbol.Spec | schematic.symbol.Symbol
+    Schematic.Node.Spec | schematic.symbol.Symbol
   >({ first: staticData, second: remote });
   const { search } = List.usePager({
     retrieve: useCallback(
@@ -568,7 +567,7 @@ const SearchSymbolList = ({
 
   useEffect(() => search(searchTerm), [search, searchTerm]);
   return (
-    <Select.Frame<string, Schematic.Symbol.Spec | schematic.symbol.Symbol>
+    <Select.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
       data={data}
       getItem={getItem}
       subscribe={subscribe}

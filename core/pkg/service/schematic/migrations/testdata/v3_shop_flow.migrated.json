@@ -663,7 +663,7 @@
       }
     }
   ],
-  "props": {
+  "configs": {
     "0FdBTNPS6Ns": {
       "backgroundColor": [10, 10, 10, 0],
       "color": [213, 213, 213, 1],

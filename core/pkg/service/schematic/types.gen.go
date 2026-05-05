@@ -22,19 +22,6 @@ import (
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
 
-// EdgeVariant is the visual style of an edge connector.
-type EdgeVariant string
-
-const (
-	EdgeVariantPipe      EdgeVariant = "pipe"
-	EdgeVariantElectric  EdgeVariant = "electric"
-	EdgeVariantSecondary EdgeVariant = "secondary"
-	EdgeVariantJacketed  EdgeVariant = "jacketed"
-	EdgeVariantHydraulic EdgeVariant = "hydraulic"
-	EdgeVariantPneumatic EdgeVariant = "pneumatic"
-	EdgeVariantData      EdgeVariant = "data"
-)
-
 // Legend is the control legend overlay configuration.
 type Legend struct {
 	// Visible is whether the legend is visible.
@@ -65,24 +52,6 @@ type Handle struct {
 	Param string `json:"param" msgpack:"param"`
 }
 
-// Segment is an orthogonal path segment with a direction and signed length.
-type Segment struct {
-	// Direction is the axis of travel: x (horizontal) or y (vertical).
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Length is the signed distance along the axis.
-	Length float64 `json:"length" msgpack:"length"`
-}
-
-// EdgeProps contains visual properties for an edge, stored in schematic props.
-type EdgeProps struct {
-	// Segments defines the orthogonal path segments from source to target.
-	Segments []Segment `json:"segments" msgpack:"segments"`
-	// Variant is the visual style of the edge.
-	Variant EdgeVariant `json:"variant" msgpack:"variant"`
-	// Color is the optional display color.
-	Color color.Color `json:"color" msgpack:"color"`
-}
-
 // Edge is a connection between two nodes in the schematic.
 type Edge struct {
 	// Key is the unique edge identifier within the schematic.
@@ -111,7 +80,8 @@ type Schematic struct {
 	Nodes []Node `json:"nodes" msgpack:"nodes"`
 	// Edges contains all connections between nodes.
 	Edges []Edge `json:"edges" msgpack:"edges"`
-	// Props contains symbol-specific properties keyed by node or edge key, including
-	// colors, labels, segments, and other visual configuration.
-	Props map[string]msgpack.EncodedJSON `json:"props" msgpack:"props"`
+	// Configs contains per-element configuration keyed by node or edge key. The shape of
+	// each value is determined by the element's variant; the wire format intentionally
+	// stores it as an opaque record.
+	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
 }

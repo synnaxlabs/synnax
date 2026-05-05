@@ -14,7 +14,8 @@ import z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
-import { connector } from "@/schematic/edge/connector";
+import { Edge } from "@/schematic/edge";
+import { Node } from "@/schematic/node";
 import { Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -79,23 +80,25 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   ],
 });
 
-export interface SelectPropsArgs {
+export interface SelectConfigArgs {
   key: schematic.Key;
-  propKey: string;
+  configKey: string;
 }
 
-export const useSelectProps = Flux.createSelector<
+export const useSelectConfig = Flux.createSelector<
   FluxSubStore,
-  SelectPropsArgs,
+  SelectConfigArgs,
   record.Unknown | undefined
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, propKey }) => {
+  select: (store, { key, configKey }) => {
     const schem = store.schematics.get(key);
     if (schem == null) return undefined;
-    const props = schem.props[propKey] as record.Unknown | undefined;
-    if (props != null) return props;
-    return schem.props[caseconv.snakeToCamel(propKey)] as record.Unknown | undefined;
+    const config = schem.configs[configKey] as record.Unknown | undefined;
+    if (config != null) return config;
+    return schem.configs[caseconv.snakeToCamel(configKey)] as
+      | record.Unknown
+      | undefined;
   },
 });
 
@@ -149,14 +152,14 @@ export interface NodeElementInfo {
   key: string;
   type: "node";
   node: schematic.Node;
-  props: record.Unknown;
+  config: record.Unknown;
 }
 
 export interface EdgeElementInfo {
   key: string;
   type: "edge";
   edge: schematic.Edge;
-  props: record.Unknown;
+  config: record.Unknown;
 }
 
 export type ElementInfo = NodeElementInfo | EdgeElementInfo;
@@ -183,7 +186,7 @@ export const useSelectElementsInfo = Flux.createSelector<
           key: node.key,
           type: "node",
           node,
-          props: (s.props?.[node.key] as record.Unknown) ?? {},
+          config: (s.configs?.[node.key] as record.Unknown) ?? {},
         });
     for (const edge of s.edges)
       if (keySet.has(edge.key))
@@ -191,7 +194,7 @@ export const useSelectElementsInfo = Flux.createSelector<
           key: edge.key,
           type: "edge",
           edge,
-          props: (s.props?.[edge.key] as record.Unknown) ?? {},
+          config: (s.configs?.[edge.key] as record.Unknown) ?? {},
         });
     return result;
   },
@@ -215,8 +218,8 @@ export const useSelectElementNames = Flux.createSelector<
     const result: (string | null)[] = [];
     for (const node of s.nodes) {
       if (!keySet.has(node.key)) continue;
-      const p = s.props?.[node.key] as record.Unknown | undefined;
-      const label = (p?.label as record.Unknown | undefined)?.label;
+      const c = s.configs?.[node.key] as record.Unknown | undefined;
+      const label = (c?.label as record.Unknown | undefined)?.label;
       result.push(typeof label === "string" ? label : null);
     }
     return result;
@@ -338,7 +341,7 @@ const augmentWithEdgeSegments = (
   current: schematic.Schematic,
   actions: schematic.Action[],
 ): schematic.Action[] => {
-  const changes: connector.NodePositionChange[] = [];
+  const changes: Edge.Segmented.NodePositionChange[] = [];
   for (const action of actions)
     if (action.type === "set_node_position")
       changes.push({
@@ -346,27 +349,21 @@ const augmentWithEdgeSegments = (
         newPos: action.setNodePosition.position,
       });
   if (changes.length === 0) return actions;
-  const updates = connector.updateSegmentsForPositionChanges({
+  const updates = Edge.Segmented.updateSegmentsForPositionChanges({
     nodes: current.nodes,
     edges: current.edges,
-    props: current.props as Record<
+    props: current.configs as Record<
       string,
-      { segments?: connector.Segment[] } | undefined
+      { segments?: Edge.Segmented.Segment[] } | undefined
     >,
     changes,
   });
   if (updates.length === 0) return actions;
   const extra = updates.map((u) => {
-    const edgeProps = current.props[u.key] as
-      | { segments?: connector.Segment[]; variant?: string; color?: string }
-      | undefined;
-    return schematic.setProps({
+    const existing = current.configs[u.key] as record.Unknown | undefined;
+    return schematic.setConfig({
       key: u.key,
-      props: {
-        segments: u.segments,
-        variant: edgeProps?.variant,
-        color: edgeProps?.color,
-      },
+      config: { ...existing, segments: u.segments },
     });
   });
   return [...actions, ...extra];
@@ -417,7 +414,7 @@ export const useAddNode = (resourceKey: string) => {
 
   return useCallback(
     (key: string, position?: xy.XY, data?: unknown) => {
-      let variant: Symbol.Variant;
+      let variant: Node.Variant;
       let initialName: string | undefined;
       let symbol: schematic.symbol.Symbol | undefined;
       const parsedData = dropDataZ.safeParse(data);
@@ -426,30 +423,30 @@ export const useAddNode = (resourceKey: string) => {
       if (symbol != null) {
         variant = symbol.data.states.length === 1 ? "customStatic" : "customActuator";
         initialName = symbol.name;
-      } else variant = key as Symbol.Variant;
-      const spec = Symbol.REGISTRY[variant];
-      const initialProps = spec.defaultProps(theme) as record.Unknown & {
+      } else variant = key as Node.Variant;
+      const spec = Node.resolveSpec(variant);
+      const initialConfig = spec.defaultConfig(theme) as record.Unknown & {
         specKey?: string;
         label?: { label?: string };
       };
       if (symbol != null) {
-        initialProps.specKey = key;
-        if (initialProps.label != null && initialName != null)
-          initialProps.label.label = initialName;
+        initialConfig.specKey = key;
+        if (initialConfig.label != null && initialName != null)
+          initialConfig.label.label = initialName;
       }
       const nodeKey = id.create();
       const node: schematic.Node = {
         key: nodeKey,
         position: position ?? xy.ZERO,
       };
-      const props: record.Unknown = {
+      const config: record.Unknown = {
+        ...initialConfig,
         variant,
-        ...initialProps,
         ...(parsedData.success ? parsedData.data : {}),
       };
       dispatch({
         key: resourceKey,
-        actions: [schematic.addNode({ node, props })],
+        actions: [schematic.addNode({ node, config })],
       });
     },
     [dispatch, resourceKey, theme, store],

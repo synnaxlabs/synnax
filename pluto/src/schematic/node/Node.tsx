@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { NotFoundError, schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { useSyncedRef } from "@/hooks";
 import { useKey } from "@/schematic/Context";
-import { useDispatch, useSelectProps } from "@/schematic/queries";
-import { Symbol } from "@/schematic/symbol";
+import { type Config, type Variant, resolveSpec } from "@/schematic/node/registry";
+import { useDispatch, useSelectConfig } from "@/schematic/queries";
 import { type Diagram } from "@/vis/diagram";
 
 export const Node = ({
@@ -24,32 +24,32 @@ export const Node = ({
   draggable,
 }: Diagram.NodeProps): ReactElement | null => {
   const schematicKey = useKey();
-  const nodeProps = useSelectProps({ key: schematicKey, propKey: nodeKey });
-  const propsRef = useSyncedRef(nodeProps);
+  const config = useSelectConfig({ key: schematicKey, configKey: nodeKey });
+  const configRef = useSyncedRef(config);
   const { update: dispatch } = useDispatch();
-  const variant = nodeProps?.variant as Symbol.Variant | undefined;
+  const variant = (config as { variant?: Variant } | undefined)?.variant;
   const handleChange = useCallback(
-    (props: record.Unknown) =>
+    (next: record.Unknown) =>
       dispatch({
         key: schematicKey,
-        actions: schematic.setProps({
+        actions: schematic.setConfig({
           key: nodeKey,
-          props: { ...propsRef.current, ...props },
+          config: { ...configRef.current, ...next },
         }),
       }),
     [nodeKey, schematicKey, dispatch],
   );
-  if (nodeProps == null || variant == null) return null;
-  const Spec = Symbol.REGISTRY[variant];
-  if (Spec == null) throw new NotFoundError(`Symbol ${variant} not found`);
+  if (config == null || variant == null) return null;
+  const Spec = resolveSpec(variant);
   return (
-    <Spec.Symbol
+    <Spec.Node
       nodeKey={nodeKey}
-      position={Spec.needsPosition ? position : undefined}
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      config={config as Config}
+      onConfigChange={handleChange}
+      position={Spec.needsPosition === true ? position : undefined}
       selected={selected}
       draggable={draggable}
-      onChange={handleChange}
-      data={nodeProps}
     />
   );
 };

@@ -46,6 +46,22 @@ const parseNodeID = (key: string): string => key.split("---")[0];
 
 export const HAUL_TYPE = "opc";
 
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, ScannedNode>;
+
+export const createHaulItem = (node: ScannedNode): HaulItem => ({
+  type: HAUL_TYPE,
+  key: node.nodeId,
+  data: node,
+});
+
+export const isHaulItem = (item: Haul.Item): item is HaulItem =>
+  item.type === HAUL_TYPE;
+
+export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter(isHaulItem);
+
+export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
+
 export interface BrowserProps {
   device: Device;
 }
@@ -61,15 +77,14 @@ const itemRenderProp = Component.renderProp((props: Tree.ItemRenderProps<string>
   const { startDrag } = Haul.useDrag({
     type: HAUL_TYPE,
     key: node?.nodeId,
-    data: node,
   });
   const handleDragStart = useCallback(() => {
     if (node == null) return;
     const selected = array.toArray(getState().value);
     if (getItem != null && selected.includes(props.itemKey)) {
       const nodes = getItem(selected);
-      startDrag(nodes.map((n) => ({ key: n.nodeId, type: HAUL_TYPE, data: n })));
-    } else startDrag([{ key: node.nodeId, type: HAUL_TYPE, data: node }]);
+      startDrag(nodes.map(createHaulItem));
+    } else startDrag([createHaulItem(node)]);
   }, [startDrag, node, getState, getItem, props.itemKey]);
   if (node == null) return null;
   const icon = node.isArray ? <ArrayVariableIcon /> : ICONS[node.nodeClass];

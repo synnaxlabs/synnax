@@ -101,7 +101,7 @@ const useCreateSchematic = ({
         legend: deep.copy(schematic.ZERO_LEGEND),
         nodes: [],
         edges: [],
-        props: {},
+        configs: {},
       }),
     [workspaceID.key],
   );

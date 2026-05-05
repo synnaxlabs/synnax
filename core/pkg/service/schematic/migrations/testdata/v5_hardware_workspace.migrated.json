@@ -34,7 +34,7 @@
     }
   ],
   "edges": [],
-  "props": {
+  "configs": {
     "NCVBmjVavN6": {
       "color": [250, 250, 250, 1],
       "inlineSize": 70,

@@ -20,10 +20,10 @@ import {
   removeEdge,
   removeNode,
   setAuthority,
+  setConfig,
   setEdge,
   setLegend,
   setNodePosition,
-  setProps,
 } from "@/schematic/actions.gen";
 import { ZERO_LEGEND } from "@/schematic/client";
 import { type Edge, type Node, type Schematic } from "@/schematic/types.gen";
@@ -53,7 +53,7 @@ const empty = (overrides: Partial<Schematic> = {}): Schematic => ({
   legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
-  props: {},
+  configs: {},
   ...overrides,
 });
 
@@ -89,15 +89,15 @@ describe("schematic reducer", () => {
       const out = reduceAll(state, [addNode({ node: node("n2", 1, 2) })]);
       expect(out.nodes).toEqual([node("n1", 0, 0), node("n2", 1, 2)]);
     });
-    it("should write props under the node's key when props is non-undefined", () => {
+    it("should write config under the node's key when config is non-undefined", () => {
       const out = reduceAll(empty(), [
-        addNode({ node: node("n1", 0, 0), props: { label: "Pump", color: "#f00" } }),
+        addNode({ node: node("n1", 0, 0), config: { label: "Pump", color: "#f00" } }),
       ]);
-      expect(out.props).toEqual({ n1: { label: "Pump", color: "#f00" } });
+      expect(out.configs).toEqual({ n1: { label: "Pump", color: "#f00" } });
     });
-    it("should leave props untouched when the action's props is undefined", () => {
+    it("should leave configs untouched when the action's config is undefined", () => {
       const out = reduceAll(empty(), [addNode({ node: node("n1", 0, 0) })]);
-      expect(out.props).toEqual({});
+      expect(out.configs).toEqual({});
     });
     it("should append a duplicate-key node, locking current behavior", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
@@ -109,14 +109,14 @@ describe("schematic reducer", () => {
   });
 
   describe("removeNode", () => {
-    it("should remove the matching node and any props stored under its key", () => {
+    it("should remove the matching node and any config stored under its key", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1)],
-        props: { n1: { label: "Pump" }, n2: { label: "Tank" } },
+        configs: { n1: { label: "Pump" }, n2: { label: "Tank" } },
       });
       const out = reduceAll(state, [removeNode({ key: "n1" })]);
       expect(out.nodes).toEqual([node("n2", 1, 1)]);
-      expect(out.props).toEqual({ n2: { label: "Tank" } });
+      expect(out.configs).toEqual({ n2: { label: "Tank" } });
     });
     it("should leave existing edges intact even when they reference the removed node", () => {
       const state = empty({
@@ -130,11 +130,11 @@ describe("schematic reducer", () => {
     it("should be a no-op when the key does not match any node", () => {
       const state = empty({
         nodes: [node("n1", 0, 0)],
-        props: { n1: { label: "Pump" } },
+        configs: { n1: { label: "Pump" } },
       });
       const out = reduceAll(state, [removeNode({ key: "ghost" })]);
       expect(out.nodes).toEqual(state.nodes);
-      expect(out.props).toEqual(state.props);
+      expect(out.configs).toEqual(state.configs);
     });
   });
 
@@ -176,21 +176,25 @@ describe("schematic reducer", () => {
     });
   });
 
-  describe("setProps", () => {
-    it("should write the props entry under the given key", () => {
+  describe("setConfig", () => {
+    it("should write the config entry under the given key", () => {
       const out = reduceAll(empty(), [
-        setProps({ key: "n1", props: { label: "Pump" } }),
+        setConfig({ key: "n1", config: { label: "Pump" } }),
       ]);
-      expect(out.props).toEqual({ n1: { label: "Pump" } });
+      expect(out.configs).toEqual({ n1: { label: "Pump" } });
     });
-    it("should overwrite an existing props entry", () => {
-      const state = empty({ props: { n1: { label: "Old" } } });
-      const out = reduceAll(state, [setProps({ key: "n1", props: { label: "New" } })]);
-      expect(out.props).toEqual({ n1: { label: "New" } });
+    it("should overwrite an existing config entry", () => {
+      const state = empty({ configs: { n1: { label: "Old" } } });
+      const out = reduceAll(state, [
+        setConfig({ key: "n1", config: { label: "New" } }),
+      ]);
+      expect(out.configs).toEqual({ n1: { label: "New" } });
     });
     it("should accept a key that does not match any node or edge", () => {
-      const out = reduceAll(empty(), [setProps({ key: "orphan", props: { data: 1 } })]);
-      expect(out.props).toEqual({ orphan: { data: 1 } });
+      const out = reduceAll(empty(), [
+        setConfig({ key: "orphan", config: { data: 1 } }),
+      ]);
+      expect(out.configs).toEqual({ orphan: { data: 1 } });
     });
   });
 
@@ -254,22 +258,22 @@ describe("schematic reducer", () => {
         addNode({ node: node("tank", 200, 0) }),
         setEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),
         setEdge({ edge: edge("e2", "valve", "out", "tank", "in") }),
-        setProps({ key: "pump", props: { label: "Main Pump" } }),
-        setProps({ key: "e1", props: { variant: "pipe" } }),
+        setConfig({ key: "pump", config: { label: "Main Pump" } }),
+        setConfig({ key: "e1", config: { variant: "pipe" } }),
       ]);
       expect(out.nodes).toHaveLength(3);
       expect(out.edges).toHaveLength(2);
-      expect(out.props).toEqual({
+      expect(out.configs).toEqual({
         pump: { label: "Main Pump" },
         e1: { variant: "pipe" },
       });
     });
 
-    it("should drop props but keep dangling edges when a node is removed and re-added", () => {
+    it("should drop config but keep dangling edges when a node is removed and re-added", () => {
       const state = empty({
         nodes: [node("n1", 0, 0), node("n2", 1, 1)],
         edges: [edge("e1", "n1", "o", "n2", "i")],
-        props: { n1: { label: "v1" } },
+        configs: { n1: { label: "v1" } },
       });
       const out = reduceAll(state, [
         removeNode({ key: "n1" }),
@@ -277,7 +281,7 @@ describe("schematic reducer", () => {
       ]);
       expect(out.nodes).toHaveLength(2);
       expect(out.nodes[1]).toEqual(node("n1", 50, 50));
-      expect(out.props).toEqual({});
+      expect(out.configs).toEqual({});
       expect(out.edges).toHaveLength(1);
       expect(out.edges[0].source.node).toBe("n1");
     });
@@ -308,8 +312,8 @@ describe("schematic reducer", () => {
           }),
         );
       for (let i = 0; i < 3; i++)
-        actions.push(setProps({ key: `n${i}`, props: { label: `node ${i}` } }));
-      actions.push(setProps({ key: "e1", props: { variant: "electric" } }));
+        actions.push(setConfig({ key: `n${i}`, config: { label: `node ${i}` } }));
+      actions.push(setConfig({ key: "e1", config: { variant: "electric" } }));
       actions.push(setAuthority({ value: 255 }));
       actions.push(
         setLegend({
@@ -321,7 +325,7 @@ describe("schematic reducer", () => {
       expect(out.nodes[0].position).toEqual({ x: 0, y: 100 });
       expect(out.nodes[4].position).toEqual({ x: 400, y: 100 });
       expect(out.edges).toHaveLength(4);
-      expect(Object.keys(out.props)).toHaveLength(4);
+      expect(Object.keys(out.configs)).toHaveLength(4);
       expect(out.authority).toBe(255);
       expect(out.legend.visible).toBe(true);
     });

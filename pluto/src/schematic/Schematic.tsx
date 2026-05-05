@@ -10,20 +10,25 @@
 import "@/schematic/Schematic.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { box, color, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, type record, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
+import { z } from "zod";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Provider } from "@/schematic/Context";
+import { Provider, useKey } from "@/schematic/Context";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
-import { useAddNode, useDispatch, useRetrieve } from "@/schematic/queries";
-import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
-import { Theming } from "@/theming";
+import {
+  useAddNode,
+  useDispatch,
+  useRetrieve,
+  useSelectConfig,
+} from "@/schematic/queries";
 import { Diagram } from "@/vis/diagram";
+import { type diagram } from "@/vis/diagram/aether";
 
 export interface SchematicProps extends Omit<
   Diagram.DiagramProps,
@@ -40,8 +45,51 @@ export interface SchematicProps extends Omit<
   onSelectionChange?: (selected: string[]) => void;
 }
 
+export const elementConfigZ = z.discriminatedUnion("variant", [
+  ...Node.configZ.options,
+  ...Edge.configZ.options,
+]);
+export type ElementConfig = z.infer<typeof elementConfigZ>;
+
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 export const HAUL_TYPE = "schematic-element";
+
+const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
+  const { edgeKey } = props;
+  const schematicKey = useKey();
+  const config = useSelectConfig({ key: schematicKey, configKey: edgeKey });
+  const configRef = useSyncedRef(config);
+  const { update: dispatch } = useDispatch();
+  const onChange = useCallback(
+    (next: Partial<Edge.Config>) =>
+      dispatch({
+        key: schematicKey,
+        actions: schematic.setConfig({
+          key: edgeKey,
+          config: { ...configRef.current, ...next } as record.Unknown,
+        }),
+      }),
+    [edgeKey, schematicKey, dispatch],
+  );
+  if (config == null) return null;
+  const variant = (config as { variant?: string }).variant;
+  if (variant == null) return null;
+  const E = Edge.resolve(variant);
+  return (
+    <E
+      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+      config={config as Edge.Config}
+      onChange={onChange}
+      {...props}
+    />
+  );
+};
+
+const SchematicDiagram = Diagram.create({
+  node: Component.renderProp(Node.Node),
+  edge: Component.renderProp(EdgeRenderer),
+  connectionLine: Component.renderProp(Edge.ConnectionLine),
+});
 
 const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null => {
   switch (change.type) {
@@ -54,31 +102,16 @@ const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null
   }
 };
 
-const edgeChangeToActions = (
-  change: Diagram.EdgeChange,
-  baseEdgeColor: color.Color,
-): schematic.Action[] => {
+const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => {
   switch (change.type) {
     case "add":
-      return [
-        schematic.setEdge({ edge: change.edge }),
-        schematic.setProps({
-          key: change.edge.key,
-          props: { segments: [], variant: "pipe", color: color.hex(baseEdgeColor) },
-        }),
-      ];
+      return [schematic.setEdge({ edge: change.edge })];
     case "remove":
       return [schematic.removeEdge({ key: change.key })];
     default:
       return [];
   }
 };
-
-const SchematicDiagram = Diagram.create({
-  node: Component.renderProp(Node.Node),
-  edge: Component.renderProp(Edge.Edge),
-  connectionLine: Component.renderProp(Edge.ConnectionLine),
-});
 
 export const Schematic = ({
   className,
@@ -90,7 +123,6 @@ export const Schematic = ({
 }: SchematicProps): ReactElement => {
   const { data: doc } = useRetrieve({ key: resourceKey });
   const { update: dispatch } = useDispatch();
-  const theme = Theming.use();
 
   const handleNodesChange = useCallback(
     (changes: Diagram.NodeChange[]) => {
@@ -104,12 +136,10 @@ export const Schematic = ({
 
   const handleEdgesChange = useCallback(
     (changes: Diagram.EdgeChange[]) => {
-      const actions = changes.flatMap((change) =>
-        edgeChangeToActions(change, theme.colors.gray.l10),
-      );
+      const actions = changes.flatMap(edgeChangeToActions);
       if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
-    [resourceKey, dispatch, theme.colors.gray.l10],
+    [resourceKey, dispatch],
   );
 
   const handleAddNode = useAddNode(resourceKey);
@@ -162,7 +192,7 @@ export const Schematic = ({
       <SchematicDiagram
         ref={ref}
         className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
+        dragHandleSelector={`.${Node.DRAG_HANDLE_CLASS}`}
         autoRenderInterval={AUTO_RENDER_INTERVAL}
         nodes={doc?.nodes ?? []}
         edges={doc?.edges ?? []}
@@ -176,4 +206,9 @@ export const Schematic = ({
       />
     </Provider>
   );
+};
+
+export const REGISTRY = {
+  ...Node.REGISTRY,
+  ...Edge.REGISTRY,
 };

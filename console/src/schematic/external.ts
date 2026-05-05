@@ -15,6 +15,7 @@ import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 
 export * from "@/schematic/export";
+export * from "@/schematic/haul";
 export * from "@/schematic/middleware";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";

@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { Schematic, Status } from "@synnaxlabs/pluto";
-import { type record } from "@synnaxlabs/x";
 import { useEffect, useRef } from "react";
 import { useDispatch } from "react-redux";
 
@@ -40,22 +38,17 @@ export const useAutoUpload = (key: string, name: string): void => {
     inFlight.current = true;
     handleError(async () => {
       try {
-        const payload = {
+        create({
           key,
           name,
           snapshot: pendingUpload.snapshot,
           authority: pendingUpload.authority ?? 1,
-          legend: (pendingUpload.legend as schematic.Legend | undefined) ?? {
-            visible: false,
-            position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-            colors: {},
-          },
-          nodes: pendingUpload.nodes as schematic.Node[],
-          edges: pendingUpload.edges as schematic.Edge[],
-          props: pendingUpload.props as Record<string, record.Unknown>,
+          legend: pendingUpload.legend,
+          nodes: pendingUpload.nodes,
+          edges: pendingUpload.edges,
+          configs: pendingUpload.configs,
           workspace: workspaceKey ?? undefined,
-        };
-        create(payload);
+        });
         dispatch(clearPendingUpload({ key }));
       } finally {
         inFlight.current = false;

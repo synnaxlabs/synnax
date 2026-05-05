@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type schematic } from "@synnaxlabs/client";
 import { type Flex, type Schematic as PSchematic, type Text } from "@synnaxlabs/pluto";
 import { type color, type direction, type location, migrate } from "@synnaxlabs/x";
 import { z } from "zod";
@@ -30,13 +29,13 @@ export interface NodePropsLabel {
 }
 
 export interface NodeProps {
-  variant: PSchematic.Symbol.Variant;
+  variant: PSchematic.Node.Variant;
   label?: NodePropsLabel;
   orientation?: location.Outer;
   color?: color.Crude;
   [key: string]: unknown;
 }
-export type EdgeProps = schematic.EdgeProps;
+export type EdgeProps = PSchematic.Edge.Config;
 export type Props = NodeProps | EdgeProps;
 export type State = v6.State;
 export type SliceState = v6.SliceState;

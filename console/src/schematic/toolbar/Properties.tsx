@@ -43,7 +43,7 @@ import { type EdgeProps, type NodeProps } from "@/schematic/types";
 import { type RootState } from "@/store";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-const nodePropsZ = z.looseObject({ variant: Schematic.Symbol.variantZ });
+const nodePropsZ = z.looseObject({ variant: Schematic.Node.variantZ });
 
 export interface PropertiesProps {
   layoutKey: string;
@@ -85,22 +85,22 @@ const IndividualProperties = ({
   layoutKey,
   nodeKey,
 }: IndividualPropertiesProps): ReactElement | null => {
-  const props = Schematic.useSelectProps({ key: layoutKey, propKey: nodeKey }) as
+  const config = Schematic.useSelectConfig({ key: layoutKey, configKey: nodeKey }) as
     | NodeProps
     | undefined;
   const { update: dispatchSchematic } = Schematic.useDispatch();
 
-  const onChange = (key: string, props: NodeProps): void => {
+  const onChange = (key: string, config: NodeProps): void => {
     dispatchSchematic({
       key: layoutKey,
-      actions: schematic.setProps({ key, props }),
+      actions: schematic.setConfig({ key, config }),
     });
   };
 
   const formMethods = Form.use<typeof nodePropsZ>({
-    values: deep.copy(props ?? ({ variant: "tank" } as NodeProps)),
+    values: deep.copy(config ?? ({ variant: "tank" } as NodeProps)),
     sync: true,
-    onChange: ({ values }) => onChange(nodeKey, deep.copy(values)),
+    onChange: ({ values }) => onChange(nodeKey, deep.copy(values) as NodeProps),
   });
   const specKey = Form.useFieldValue<string, string, typeof nodePropsZ>("specKey", {
     ctx: formMethods,
@@ -121,8 +121,8 @@ const IndividualProperties = ({
       </Button.Button>
     );
 
-  if (props == null) return null;
-  const C = Schematic.Symbol.REGISTRY[props.variant];
+  if (config == null) return null;
+  const C = Schematic.Node.resolveSpec(config.variant);
 
   return (
     <Flex.Box style={{ height: "100%" }} y>
@@ -151,44 +151,34 @@ const EdgeProperties = ({
   layoutKey,
   edgeKey,
 }: EdgePropertiesProps): ReactElement | null => {
-  const edgeProps = Schematic.useSelectProps({
+  const edgeProps = Schematic.useSelectConfig({
     key: layoutKey,
-    propKey: edgeKey,
+    configKey: edgeKey,
   }) as EdgeProps | undefined;
   const { update: dispatchSchematic } = Schematic.useDispatch();
   const onChange = (key: string, props: Partial<EdgeProps>): void => {
     dispatchSchematic({
       key: layoutKey,
-      actions: schematic.setProps({
+      actions: schematic.setConfig({
         key,
-        props: { ...edgeProps, ...props },
+        config: { ...edgeProps, ...props },
       }),
     });
   };
-  // Color.Swatch requires a parseable hex; persisted edges may carry CSS
-  // variables (e.g. "var(--pluto-gray-l11)") inherited from migration defaults.
-  const swatchColor =
-    edgeProps?.color != null && color.colorZ.safeParse(edgeProps.color).success
-      ? (edgeProps.color as color.Crude)
-      : color.ZERO;
+  if (edgeProps == null) return null;
+  const variant = (edgeProps.variant ?? "pipe") as Schematic.Edge.Variant;
+  const Spec = Schematic.Edge.REGISTRY[variant];
+  const formMethods = Form.use({
+    schema: Spec.configZ,
+    values: deep.copy(edgeProps),
+    sync: true,
+    onChange: ({ values }) => onChange(edgeKey, deep.copy(values) as EdgeProps),
+  });
   return (
-    <Flex.Box style={{ padding: "2rem" }} align="start" x>
-      <Input.Item label="Color" align="start">
-        <Color.Swatch
-          value={swatchColor}
-          onChange={(color: color.Color) => onChange(edgeKey, { color })}
-        />
-      </Input.Item>
-      <Input.Item label="Type" align="start">
-        <Schematic.Edge.SelectEdgeType
-          value={edgeProps?.variant ?? "pipe"}
-          onChange={(variant: Schematic.Edge.EdgeType) =>
-            onChange(edgeKey, { variant })
-          }
-          style={SELECT_EDGE_TYPE_STYLE}
-        />
-      </Input.Item>
-    </Flex.Box>
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    <Form.Form {...(formMethods as any)}>
+      <Spec.Form />
+    </Form.Form>
   );
 };
 
@@ -207,12 +197,12 @@ const MultiElementProperties = ({
   });
   const { update: dispatchSchematic } = Schematic.useDispatch();
   const onChange = (key: string, props: Partial<NodeProps>): void => {
-    const existing = elements.find((e) => e.key === key)?.props ?? {};
+    const existing = elements.find((e) => e.key === key)?.config ?? {};
     dispatchSchematic({
       key: layoutKey,
-      actions: schematic.setProps({
+      actions: schematic.setConfig({
         key,
-        props: { ...existing, ...props } as record.Unknown,
+        config: { ...existing, ...props } as record.Unknown,
       }),
     });
   };
@@ -220,7 +210,7 @@ const MultiElementProperties = ({
   const colorGroups: Record<string, Schematic.ElementInfo[]> = {};
   elements.forEach((e) => {
     let colorVal: color.Color | null = null;
-    const rawColor = e.props.color;
+    const rawColor = e.config.color;
     if (rawColor != null) colorVal = color.construct(rawColor as color.Crude);
     if (colorVal === null) return;
     const hex = color.hex(colorVal);
@@ -229,7 +219,7 @@ const MultiElementProperties = ({
   });
 
   const firstNode = elements.find((e) => e.type === "node");
-  const firstNodeLabel = (firstNode?.props as NodeProps | undefined)?.label;
+  const firstNodeLabel = (firstNode?.config as NodeProps | undefined)?.label;
 
   const store = useStore<RootState>();
 
@@ -374,8 +364,8 @@ const MultiElementProperties = ({
   const handleRotateIndividual = (dir: direction.Angular): void => {
     elements.forEach((el) => {
       if (el.type !== "node") return;
-      const props = el.props as NodeProps;
-      const parsed = location.outerZ.safeParse(props.orientation);
+      const config = el.config as NodeProps;
+      const parsed = location.outerZ.safeParse(config.orientation);
       if (!parsed.success) return;
       onChange(el.key, { orientation: location.rotate(parsed.data, dir) });
     });
@@ -386,15 +376,15 @@ const MultiElementProperties = ({
     handleRotateIndividual(dir);
   };
 
-  const handleLabelProp = <K extends keyof Schematic.Symbol.LabelExtensionProps>(
+  const handleLabelProp = <K extends keyof Schematic.Node.Label.Config>(
     key: K,
-    value: Schematic.Symbol.LabelExtensionProps[K],
+    value: Schematic.Node.Label.Config[K],
   ): void => {
     elements.forEach((e) => {
       if (e.type !== "node") return;
-      const props = e.props as NodeProps;
-      if (props.label == null) return;
-      onChange(e.key, { label: { ...props.label, [key]: value } });
+      const config = e.config as NodeProps;
+      if (config.label == null) return;
+      onChange(e.key, { label: { ...config.label, [key]: value } });
     });
   };
 
@@ -531,7 +521,7 @@ const MultiElementProperties = ({
         />
       </Input.Item>
       <Input.Item label="Label Orientation" align="start">
-        <Schematic.Symbol.SelectOrientation
+        <Schematic.Node.Orientation.Select
           value={{ inner: "top", outer: firstNodeLabel?.orientation ?? "top" }}
           onChange={(v) =>
             v.outer !== "center" && handleLabelProp("orientation", v.outer)

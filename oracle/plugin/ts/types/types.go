@@ -1138,6 +1138,7 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 	isAnyOptional := field.IsOptional || field.IsHardOptional
 	typeOverride := getFieldTypeOverride(field, "ts")
 	isJSON := field.Type.Name == "record" || typeOverride == "record"
+	isMap := field.Type.Name == "Map" && len(field.Type.TypeArgs) >= 2
 	if isArray {
 		if isAnyOptional {
 			addXImport(data, xImport{name: "zod", submodule: "zod"})
@@ -1147,6 +1148,20 @@ func (p *Plugin) processField(field resolution.Field, parentType resolution.Type
 			addXImport(data, xImport{name: "array", submodule: "array"})
 			fd.ZodType = fmt.Sprintf("array.nullishToEmpty(%s)", fd.ZodType)
 			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof array.nullishToEmpty<%s>>", fd.ZodSchemaType)
+		}
+	} else if isMap {
+		keyZ := p.typeRefToZod(&field.Type.TypeArgs[0], table, data)
+		valueZ := p.typeRefToZod(&field.Type.TypeArgs[1], table, data)
+		keySchemaType := p.typeRefToZodSchemaType(&field.Type.TypeArgs[0], table, data)
+		valueSchemaType := p.typeRefToZodSchemaType(&field.Type.TypeArgs[1], table, data)
+		if isAnyOptional {
+			addXImport(data, xImport{name: "zod", submodule: "zod"})
+			fd.ZodType = fmt.Sprintf("zod.nullToUndefined(z.record(%s, %s))", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof zod.nullToUndefined<z.ZodRecord<%s, %s>>>", keySchemaType, valueSchemaType)
+		} else {
+			addXImport(data, xImport{name: "record", submodule: "record"})
+			fd.ZodType = fmt.Sprintf("record.nullishToEmpty(%s, %s)", keyZ, valueZ)
+			fd.ZodSchemaType = fmt.Sprintf("ReturnType<typeof record.nullishToEmpty<%s, %s>>", keySchemaType, valueSchemaType)
 		}
 	} else if isJSON {
 		if isAnyOptional {
