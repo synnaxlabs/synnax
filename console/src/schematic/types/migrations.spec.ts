@@ -46,8 +46,8 @@ describe("migrations", () => {
       const populated: v5.State = {
         ...v5.ZERO_STATE,
         props: {
-          n1: { key: "valve", color: "#ff0000" } as v0.NodeProps,
-          n2: { key: "tank" } as v0.NodeProps,
+          n1: { key: "valve", color: "#ff0000" },
+          n2: { key: "tank" },
         },
       };
       const migrated = migrateState(populated);
@@ -66,7 +66,7 @@ describe("migrations", () => {
             target: "n2",
             sourceHandle: "1",
             targetHandle: "2",
-          } as v0.Edge,
+          },
         ],
       };
       const migrated = migrateState(populated);
@@ -90,7 +90,7 @@ describe("migrations", () => {
               color: "#00ff00",
               variant: "pipe",
             },
-          } as unknown as v0.Edge,
+          },
         ],
       };
       const migrated = migrateState(populated);
@@ -127,7 +127,7 @@ describe("migrations", () => {
           ...legendWithoutColors,
           position: { x: 123, y: 456, units: { x: "px", y: "px" } },
         },
-      } as unknown as v5.State;
+      } as v5.State;
       const migrated = migrateState(state);
       expect(migrated.legend.colors).toEqual({});
       expect(migrated.legend.position).toEqual({
@@ -146,7 +146,7 @@ describe("migrations", () => {
             source: "n1",
             target: "n2",
             data: { variant: "electric" },
-          } as unknown as v0.Edge,
+          },
         ],
       };
       const migrated = migrateState(populated);
@@ -163,7 +163,7 @@ describe("migrations", () => {
             target: "n2",
             sourceHandle: null,
             targetHandle: null,
-          } as v0.Edge,
+          },
         ],
       };
       const migrated = migrateState(populated);
@@ -174,7 +174,7 @@ describe("migrations", () => {
     it("should fall back to pipe defaults when an edge has no data", () => {
       const populated: v5.State = {
         ...v5.ZERO_STATE,
-        edges: [{ key: "e1", source: "n1", target: "n2" } as v0.Edge],
+        edges: [{ key: "e1", source: "n1", target: "n2" }],
       };
       const migrated = migrateState(populated);
       expect(migrated.configs.e1).toEqual({
@@ -193,7 +193,7 @@ describe("migrations", () => {
             position: { x: 10, y: 20 },
             selected: true,
             staleField: "junk",
-          } as unknown as v0.Node,
+          },
         ],
       };
       const migrated = migrateState(populated);
@@ -213,9 +213,9 @@ describe("migrations", () => {
             target: "n2",
             sourceHandle: "right",
             targetHandle: "left",
-          } as v0.Edge,
+          },
         ],
-        props: { n1: { key: "valve", color: "#abcdef" } as v0.NodeProps },
+        props: { n1: { key: "valve", color: "#abcdef" } },
       };
       const migrated = migrateState(populated);
       expect(migrated.version).toBe(v6.VERSION);
@@ -261,8 +261,8 @@ describe("migrations", () => {
               key: "n1",
               position: { x: 0, y: 0 },
               selected: true,
-            } as unknown as v0.Node,
-            { key: "n2", position: { x: 100, y: 0 } } as v0.Node,
+            },
+            { key: "n2", position: { x: 100, y: 0 } },
           ],
           edges: [
             {
@@ -272,11 +272,11 @@ describe("migrations", () => {
               sourceHandle: "right",
               targetHandle: "left",
               data: { color: "#abcdef", variant: "electric" },
-            } as unknown as v0.Edge,
+            },
           ],
           props: {
-            n1: { key: "valve", color: "#ff0000" } as v0.NodeProps,
-            n2: { key: "tank" } as v0.NodeProps,
+            n1: { key: "valve", color: "#ff0000" },
+            n2: { key: "tank" },
           },
         },
       };
@@ -309,21 +309,21 @@ describe("migrations", () => {
         schematics: {
           a: {
             ...v5.ZERO_STATE,
-            nodes: [{ key: "n1", position: { x: 0, y: 0 } } as v0.Node],
-            props: { n1: { key: "valve" } as v0.NodeProps },
+            nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+            props: { n1: { key: "valve" } },
           },
           b: {
             ...v5.ZERO_STATE,
-            nodes: [{ key: "n2", position: { x: 5, y: 5 } } as v0.Node],
+            nodes: [{ key: "n2", position: { x: 5, y: 5 } }],
             edges: [
               {
                 key: "e1",
                 source: "n2",
                 target: "n2",
                 data: { variant: "secondary" },
-              } as unknown as v0.Edge,
+              },
             ],
-            props: { n2: { key: "tank" } as v0.NodeProps },
+            props: { n2: { key: "tank" } },
           },
         },
       };

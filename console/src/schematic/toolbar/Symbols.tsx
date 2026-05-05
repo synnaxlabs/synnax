@@ -7,8 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import "@/schematic/toolbar/Symbols.css";
-
 import { group, type ontology, schematic } from "@synnaxlabs/client";
 import {
   Access,
@@ -199,7 +197,7 @@ const RemoteSymbolListContextMenu = (
           label: "Symbol Name",
         },
         {
-          name: "Schematic.Nodes.Rename",
+          name: "Schematic.Symbol.Rename",
           icon: "Schematic",
         },
       );
@@ -457,7 +455,7 @@ const GroupListContextMenu = ({
       const newName = await renameModal(
         { initialValue: name, allowEmpty: false, label: "Group Name" },
         {
-          name: "Schematic.Nodes.Rename Group",
+          name: "Schematic.Symbols.Rename Group",
           icon: "Group",
         },
       );

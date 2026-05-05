@@ -9,6 +9,32 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-schematic__toolbar-actions {
+    height: 100%;
+    width: 66px;
+}
+
+.console-schematic__toolbar-tab-selector {
+    border-bottom: none;
+    width: 251px;
+}
+
+.console-schematic__control {
+    padding: 1.5rem 2rem;
+}
+
+.console-schematic__properties {
+    height: 100%;
+}
+
+.console-schematic__properties-multi {
+    padding: 2rem;
+}
+
+.console-schematic__properties-edit {
+    margin-right: 1rem;
+}
+
 .console-schematic__symbols {
     height: 100%;
 

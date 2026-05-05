@@ -35,6 +35,7 @@ import {
 import { memo, type ReactElement, type ReactNode, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { CSS } from "@/css";
 import { Layout } from "@/layout";
 import {
   selectNode,
@@ -105,7 +106,7 @@ const IndividualConfig = ({
       <Button.Button
         variant="filled"
         size="tiny"
-        style={{ marginRight: "1rem" }}
+        className={CSS.BE("schematic", "properties", "edit")}
         onClick={() => placeLayout(createEditLayout({ args: { key: specKey } }))}
       >
         <Icon.Edit />
@@ -113,7 +114,7 @@ const IndividualConfig = ({
     );
 
   return (
-    <Flex.Box style={{ height: "100%" }} y>
+    <Flex.Box className={CSS.BE("schematic", "properties")} y>
       <Form.Form<typeof Schematic.elementConfigZ> {...formMethods}>
         <C.Form
           {...formMethods}
@@ -326,7 +327,12 @@ const MultiElementProperties = ({
   };
 
   return (
-    <Flex.Box align="start" x style={{ padding: "2rem" }} gap="large">
+    <Flex.Box
+      align="start"
+      x
+      className={CSS.BE("schematic", "properties", "multi")}
+      gap="large"
+    >
       <Input.Item label="Selection Colors" align="start">
         <Flex.Box x>
           {Object.entries(colorGroups).map(([hex, keys]) => (

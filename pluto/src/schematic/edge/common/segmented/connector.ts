@@ -79,19 +79,32 @@ export const prepareNode = ({
   targetOrientation,
   targetBox,
 }: PrepareNodeProps): Segment | undefined => {
+  // This is the case where the final connection line will not overlap with the node,
+  // so we don't need to create an extra segment.
   if (!needToGoAround({ sourcePos, sourceOrientation, targetPos })) return;
+
   const sourceDirection = direction.construct(sourceOrientation);
   const swappedSourceDirection = direction.swap(sourceDirection);
+
+  // This is the direction we need to travel in
   let orientationToTravelIn = orientationFromLength(
     swappedSourceDirection,
     targetPos[swappedSourceDirection] - sourcePos[swappedSourceDirection],
   );
+
+  // We need to grab the edge of the node in this direction
   const nodeEdge = box.loc(sourceBox, orientationToTravelIn);
+
+  // If they are pointing in opposite directions, we need to check if we need to
+  // go completely around the node if there isn't enough space for a connector
+  // between the two nodes.
   if (location.swap(sourceOrientation) === targetOrientation) {
+    // In this case we do need to go around the node.
     const targetNodeEdge = box.loc(targetBox, location.swap(orientationToTravelIn));
     if (Math.abs(nodeEdge - targetNodeEdge) < STUMP_LENGTH)
       orientationToTravelIn = location.swap(orientationToTravelIn) as location.Outer;
   }
+  // We need to travel from the source to the edge of the node plus MIN_LENGTH
   return {
     direction: swappedSourceDirection,
     length:
@@ -224,6 +237,8 @@ export const compressSegments = (segments: Segment[]): Segment[] =>
 const removeShortSegments = (segments: Segment[]): Segment[] => {
   const next: Segment[] = [...segments];
   const ok = segments.findIndex((seg, i) => {
+    // If it's below the compression threshold and the user is making it smaller,
+    // then we compress.
     const mag = Math.abs(seg.length);
     if (mag < COMPRESSION_THRESHOLD) {
       if (i === 0 || i === segments.length - 1) return false;
@@ -243,6 +258,7 @@ const removeShortSegments = (segments: Segment[]): Segment[] => {
     return false;
   });
   if (ok !== -1) {
+    // splice out the short segment
     next.splice(ok, 1);
     return next;
   }
@@ -304,6 +320,7 @@ const removeSameOrientationSegments = (segments: Segment[]): Segment[] => {
       return true;
     }
 
+    // splice out the short segment
     next[i - 1] = {
       direction: next[i - 1].direction,
       length: next[i - 1].length + next[i].length,
@@ -378,6 +395,8 @@ const internalNewConnector = ({
   }
 
   const addTargetSegments = (): void => {
+    // We need to swap the orientations of the target stumps so that
+    // they create the correct path when traversing the segments.
     if (extraTargetSeg != null) {
       extraTargetSeg.length *= -1;
       segments.push(extraTargetSeg);
@@ -386,34 +405,48 @@ const internalNewConnector = ({
     segments.push(targetStump);
   };
 
+  // Here is where we draw the final connection line.
+  // In this case we split the delta in half and draw three lines.
   if (location.swap(sourceStumpOrientation) === targetOrientation) {
     const dir = direction.construct(sourceStumpOrientation);
+    // push three segments on
+    // first segment is in same direction as source stump orientation and half way to the
+    // target stump tip
     const dist = (targetStumpTip[dir] - sourceStumpTip[dir]) / 2;
     segments.push({ direction: dir, length: dist });
     const swappedDir = direction.swap(dir);
+    // second segment is in the swapped direction of the source stump orientation and
+    // the distance between the source stump tip and the target stump tip
     segments.push({
       direction: swappedDir,
       length: targetStumpTip[swappedDir] - sourceStumpTip[swappedDir],
     });
+    // third segment is in the same direction as the source stump orientation and the
+    // remaining distance to the target stump tip
     segments.push({ direction: dir, length: dist });
     addTargetSegments();
     return segments;
   }
 
+  // In this case we draw two lines.
+  // Check the delta in the direction of the source stump
   const delta =
     targetStumpTip[sourceStump.direction] - sourceStumpTip[sourceStump.direction];
   let swapped = direction.swap(sourceStump.direction);
   const swappedDelta = sourceStumpTip[swapped] - targetStumpTip[swapped];
+  // Check if the delta is in the same direction as the source stump
   let firstSeg: Segment;
   if (
     orientationFromLength(sourceStump.direction, delta) === sourceStumpOrientation &&
     orientationFromLength(swapped, swappedDelta) === targetStumpOrientation
   )
+    // This means we're good to go in this direction
     firstSeg = {
       direction: sourceStump.direction,
       length: delta,
     };
   else {
+    // This means we need to go orthogonally
     firstSeg = {
       direction: swapped,
       length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -422,6 +455,7 @@ const internalNewConnector = ({
   }
 
   segments.push(firstSeg);
+  // All we need to do next is draw a line
   const secondSeg = {
     direction: swapped,
     length: targetStumpTip[swapped] - sourceStumpTip[swapped],
@@ -450,18 +484,25 @@ const internalDragSegment = ({
   const dir = direction.swap(seg.direction);
   const orientation = segmentOrientation(seg);
 
+  // If we're dragging on a stump, we need to add two new segments.
   if (index === 0) {
     next.unshift({ direction: dir, length: magnitude });
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
     next.unshift({ direction: seg.direction, length: stumpLength });
+    // Move the index up by two since we added two segments
     index += 2;
+    // Since we added a new stump in the same direction as the old one, we need to
+    // subtract the stump length from the segment.
     next[index] = { ...next[index], length: next[index].length - stumpLength };
-  } else
+  }
+  // If it's not the stump just move it directly.
+  else
     next[index - 1] = {
       direction: next[index - 1].direction,
       length: next[index - 1].length + magnitude,
     };
 
+  // If we're dragging on the target stump, we need to add two new segments.
   if (index === next.length - 1) {
     next.push({ direction: dir, length: -magnitude });
     const stumpLength = setOrientationOnLength(orientation, STUMP_LENGTH);
@@ -646,6 +687,8 @@ const moveNodeInDirection = (
   reverse: boolean,
 ): Segment[] => {
   const swappedDirection = direction.swap(dir);
+  // We'd always like to adjust the stump closest to the node if possible, but only
+  // if compressing it won't make it too small OR cause it to reverse its orientation.
   const stumpIdx = reverse ? segments.length - 1 : 0;
   const stump = segments[stumpIdx];
   if (canAdjustStump(dir, stump, delta)) {
@@ -673,6 +716,7 @@ const moveNodeInDirection = (
       };
       return segments;
     }
+    // If the stump is in the right direction and its larger than the opposite stump
     if (stump.direction === dir && Math.abs(stump.length) > oppositeStump.length)
       segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
     else
@@ -682,6 +726,8 @@ const moveNodeInDirection = (
       };
     return segments;
   }
+  // This means that there is only one segment in the 'swappedDirection' direction in the whole
+  // connector, so we split it in half and add a new segment.
   if (idxToAdjust === -1)
     if (segments.length === 1) {
       if (segments[0].direction === dir)
@@ -693,6 +739,7 @@ const moveNodeInDirection = (
       ];
     } else {
       if (stump.direction === dir) {
+        // just adjust the stump
         segments[stumpIdx] = { ...stump, length: stump.length - delta[dir] };
         return segments;
       }
@@ -721,6 +768,9 @@ const connectPoints = (
   if (!hasX && !hasY) return [];
   if (!hasX) return [{ direction: "y", length: dy }];
   if (!hasY) return [{ direction: "x", length: dx }];
+  // Route in the exit direction first so it merges with the last middle segment
+  // during compression. If exit is unknown, route in the entry direction last
+  // so it merges with the target stump.
   if (exitDirection === "x" || entryDirection === "y")
     return [
       { direction: "x", length: dx },
