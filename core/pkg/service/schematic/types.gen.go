@@ -22,19 +22,6 @@ import (
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
 
-// EdgeVariant is the visual style of an edge connector.
-type EdgeVariant string
-
-const (
-	EdgeVariantPipe      EdgeVariant = "pipe"
-	EdgeVariantElectric  EdgeVariant = "electric"
-	EdgeVariantSecondary EdgeVariant = "secondary"
-	EdgeVariantJacketed  EdgeVariant = "jacketed"
-	EdgeVariantHydraulic EdgeVariant = "hydraulic"
-	EdgeVariantPneumatic EdgeVariant = "pneumatic"
-	EdgeVariantData      EdgeVariant = "data"
-)
-
 // Legend is the control legend overlay configuration.
 type Legend struct {
 	// Visible is whether the legend is visible.
@@ -63,14 +50,6 @@ type Handle struct {
 	Node string `json:"node" msgpack:"node"`
 	// Param is the connection point identifier on the node.
 	Param string `json:"param" msgpack:"param"`
-}
-
-// Segment is an orthogonal path segment with a direction and signed length.
-type Segment struct {
-	// Direction is the axis of travel: x (horizontal) or y (vertical).
-	Direction spatial.Direction `json:"direction" msgpack:"direction"`
-	// Length is the signed distance along the axis.
-	Length float64 `json:"length" msgpack:"length"`
 }
 
 // Edge is a connection between two nodes in the schematic.

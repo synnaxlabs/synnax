@@ -14,18 +14,6 @@ import { z } from "zod";
 
 import { ontology } from "@/ontology";
 
-export const EDGE_VARIANTS = [
-  "pipe",
-  "electric",
-  "secondary",
-  "jacketed",
-  "hydraulic",
-  "pneumatic",
-  "data",
-] as const;
-export const edgeVariantZ = z.enum(EDGE_VARIANTS);
-export type EdgeVariant = z.infer<typeof edgeVariantZ>;
-
 /** Legend is the control legend overlay configuration. */
 export const legendZ = z.object({
   /** visible is whether the legend is visible. */
@@ -63,15 +51,6 @@ export const handleZ = z.object({
   param: z.string(),
 });
 export interface Handle extends z.infer<typeof handleZ> {}
-
-/** Segment is an orthogonal path segment with a direction and signed length. */
-export const segmentZ = z.object({
-  /** direction is the axis of travel: x (horizontal) or y (vertical). */
-  direction: spatial.directionZ,
-  /** length is the signed distance along the axis. */
-  length: z.number(),
-});
-export interface Segment extends z.infer<typeof segmentZ> {}
 
 export const keyZ = z.uuid();
 export type Key = z.infer<typeof keyZ>;

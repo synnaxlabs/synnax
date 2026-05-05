@@ -18,7 +18,6 @@ import (
 	colorpb "github.com/synnaxlabs/x/color/pb"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
-	"github.com/synnaxlabs/x/errors"
 	spatialpb "github.com/synnaxlabs/x/spatial/pb"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -199,60 +198,6 @@ func HandlesFromPB(pbs []*Handle) ([]schematic.Handle, error) {
 	return result, nil
 }
 
-// SegmentToPB converts Segment to Segment.
-func SegmentToPB(r schematic.Segment) (*Segment, error) {
-	directionVal, err := spatialpb.DirectionToPB(r.Direction)
-	if err != nil {
-		return nil, err
-	}
-	pb := &Segment{
-		Length:    r.Length,
-		Direction: directionVal,
-	}
-	return pb, nil
-}
-
-// SegmentFromPB converts Segment to Segment.
-func SegmentFromPB(pb *Segment) (schematic.Segment, error) {
-	var r schematic.Segment
-	if pb == nil {
-		return r, nil
-	}
-	var err error
-	r.Direction, err = spatialpb.DirectionFromPB(pb.Direction)
-	if err != nil {
-		return schematic.Segment{}, err
-	}
-	r.Length = pb.Length
-	return r, nil
-}
-
-// SegmentsToPB converts a slice of Segment to Segment.
-func SegmentsToPB(rs []schematic.Segment) ([]*Segment, error) {
-	result := make([]*Segment, len(rs))
-	for i := range rs {
-		var err error
-		result[i], err = SegmentToPB(rs[i])
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
-// SegmentsFromPB converts a slice of Segment to Segment.
-func SegmentsFromPB(pbs []*Segment) ([]schematic.Segment, error) {
-	result := make([]schematic.Segment, len(pbs))
-	for i, pb := range pbs {
-		var err error
-		result[i], err = SegmentFromPB(pb)
-		if err != nil {
-			return nil, err
-		}
-	}
-	return result, nil
-}
-
 // EdgeToPB converts Edge to Edge.
 func EdgeToPB(r schematic.Edge) (*Edge, error) {
 	sourceVal, err := HandleToPB(r.Source)
@@ -412,48 +357,4 @@ func SchematicsFromPB(pbs []*Schematic) ([]schematic.Schematic, error) {
 		}
 	}
 	return result, nil
-}
-
-// EdgeVariantToPB converts schematic.EdgeVariant to EdgeVariant.
-func EdgeVariantToPB(v schematic.EdgeVariant) (EdgeVariant, error) {
-	switch v {
-	case schematic.EdgeVariantPipe:
-		return EdgeVariant_EDGE_VARIANT_PIPE, nil
-	case schematic.EdgeVariantElectric:
-		return EdgeVariant_EDGE_VARIANT_ELECTRIC, nil
-	case schematic.EdgeVariantSecondary:
-		return EdgeVariant_EDGE_VARIANT_SECONDARY, nil
-	case schematic.EdgeVariantJacketed:
-		return EdgeVariant_EDGE_VARIANT_JACKETED, nil
-	case schematic.EdgeVariantHydraulic:
-		return EdgeVariant_EDGE_VARIANT_HYDRAULIC, nil
-	case schematic.EdgeVariantPneumatic:
-		return EdgeVariant_EDGE_VARIANT_PNEUMATIC, nil
-	case schematic.EdgeVariantData:
-		return EdgeVariant_EDGE_VARIANT_DATA, nil
-	default:
-		return 0, errors.Newf("unrecognized schematic.EdgeVariant value: %v", v)
-	}
-}
-
-// EdgeVariantFromPB converts EdgeVariant to schematic.EdgeVariant.
-func EdgeVariantFromPB(v EdgeVariant) (schematic.EdgeVariant, error) {
-	switch v {
-	case EdgeVariant_EDGE_VARIANT_PIPE:
-		return schematic.EdgeVariantPipe, nil
-	case EdgeVariant_EDGE_VARIANT_ELECTRIC:
-		return schematic.EdgeVariantElectric, nil
-	case EdgeVariant_EDGE_VARIANT_SECONDARY:
-		return schematic.EdgeVariantSecondary, nil
-	case EdgeVariant_EDGE_VARIANT_JACKETED:
-		return schematic.EdgeVariantJacketed, nil
-	case EdgeVariant_EDGE_VARIANT_HYDRAULIC:
-		return schematic.EdgeVariantHydraulic, nil
-	case EdgeVariant_EDGE_VARIANT_PNEUMATIC:
-		return schematic.EdgeVariantPneumatic, nil
-	case EdgeVariant_EDGE_VARIANT_DATA:
-		return schematic.EdgeVariantData, nil
-	default:
-		return schematic.EdgeVariant(""), errors.Newf("unrecognized EdgeVariant value: %v", v)
-	}
 }

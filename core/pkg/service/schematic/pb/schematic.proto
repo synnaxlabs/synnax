@@ -19,17 +19,6 @@ import "x/go/spatial/pb/spatial.proto";
 
 option go_package = "github.com/synnaxlabs/synnax/pkg/service/schematic/pb";
 
-// EdgeVariant is the visual style of an edge connector.
-enum EdgeVariant {
-  EDGE_VARIANT_PIPE = 0;
-  EDGE_VARIANT_ELECTRIC = 1;
-  EDGE_VARIANT_SECONDARY = 2;
-  EDGE_VARIANT_JACKETED = 3;
-  EDGE_VARIANT_HYDRAULIC = 4;
-  EDGE_VARIANT_PNEUMATIC = 5;
-  EDGE_VARIANT_DATA = 6;
-}
-
 // Legend is the control legend overlay configuration.
 message Legend {
   // visible is whether the legend is visible.
@@ -58,14 +47,6 @@ message Handle {
   string node = 1;
   // param is the connection point identifier on the node.
   string param = 2;
-}
-
-// Segment is an orthogonal path segment with a direction and signed length.
-message Segment {
-  // direction is the axis of travel: x (horizontal) or y (vertical).
-  .x.spatial.pb.Direction direction = 1;
-  // length is the signed distance along the axis.
-  double length = 2;
 }
 
 // Edge is a connection between two nodes in the schematic.
