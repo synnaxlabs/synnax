@@ -24,23 +24,6 @@ import { Workspace } from "@/workspace";
 
 const client = createTestClient();
 
-const newSchematic = (name: string): schematic.New => ({
-  name,
-  legend: {
-    visible: true,
-    position: {
-      x: 50,
-      y: 50,
-      root: { x: "left", y: "top" },
-      units: { x: "px", y: "px" },
-    },
-    colors: {},
-  },
-  nodes: [],
-  edges: [],
-  props: {},
-});
-
 describe("queries", () => {
   let wrapper: React.FC<PropsWithChildren>;
   beforeEach(async () => {
@@ -426,7 +409,10 @@ describe("queries", () => {
         name: "single_type_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, newSchematic("A Schematic"));
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "A Schematic",
+      });
       const l1 = await client.logs.create(ws.key, {
         name: "My Log",
         data: {},
@@ -457,10 +443,10 @@ describe("queries", () => {
         name: "multi_type_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(
-        ws.key,
-        newSchematic("Source Schematic"),
-      );
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Source Schematic",
+      });
       const lp = await client.lineplots.create(ws.key, {
         name: "A Plot",
         data: {},
@@ -497,14 +483,14 @@ describe("queries", () => {
         name: "all_but_schematic_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(
-        ws.key,
-        newSchematic("Current Schematic"),
-      );
-      const s2 = await client.schematics.create(
-        ws.key,
-        newSchematic("Other Schematic"),
-      );
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Current Schematic",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Other Schematic",
+      });
       const lp = await client.lineplots.create(ws.key, {
         name: "Plot",
         data: {},
@@ -542,8 +528,14 @@ describe("queries", () => {
         name: "exclude_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, newSchematic("Self"));
-      const s2 = await client.schematics.create(ws.key, newSchematic("Other"));
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Self",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Other",
+      });
 
       const { result } = renderHook(
         () =>
@@ -589,8 +581,14 @@ describe("queries", () => {
         name: "grouped_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, newSchematic("Top Level"));
-      const s2 = await client.schematics.create(ws.key, newSchematic("In Group"));
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Top Level",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "In Group",
+      });
       const g = await client.groups.create({
         parent: workspace.ontologyID(ws.key),
         name: "My Group",
@@ -622,8 +620,14 @@ describe("queries", () => {
         name: "deep_nested_ws",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws.key, newSchematic("Top Level"));
-      const s2 = await client.schematics.create(ws.key, newSchematic("Deeply Nested"));
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Top Level",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Deeply Nested",
+      });
       const outerGroup = await client.groups.create({
         parent: workspace.ontologyID(ws.key),
         name: "Outer Group",
@@ -663,8 +667,14 @@ describe("queries", () => {
         name: "scope_ws_2",
         layout: {},
       });
-      const s1 = await client.schematics.create(ws1.key, newSchematic("WS1 Schematic"));
-      await client.schematics.create(ws2.key, newSchematic("WS2 Schematic"));
+      const s1 = await client.schematics.create(ws1.key, {
+        ...schematic.ZERO_NEW,
+        name: "WS1 Schematic",
+      });
+      await client.schematics.create(ws2.key, {
+        ...schematic.ZERO_NEW,
+        name: "WS2 Schematic",
+      });
       const lp1 = await client.lineplots.create(ws1.key, {
         name: "WS1 Plot",
         data: {},
@@ -728,11 +738,26 @@ describe("queries", () => {
           name: "TestSpace",
           layout: {},
         });
-        sA = await client.schematics.create(ws.key, newSchematic("Schematic A"));
-        sB = await client.schematics.create(ws.key, newSchematic("Schematic B"));
-        sC = await client.schematics.create(ws.key, newSchematic("Schematic C"));
-        sD = await client.schematics.create(ws.key, newSchematic("Schematic D"));
-        sE = await client.schematics.create(ws.key, newSchematic("Schematic E"));
+        sA = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic A",
+        });
+        sB = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic B",
+        });
+        sC = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic C",
+        });
+        sD = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic D",
+        });
+        sE = await client.schematics.create(ws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic E",
+        });
 
         const g1 = await client.groups.create({
           parent: workspace.ontologyID(ws.key),
@@ -774,26 +799,26 @@ describe("queries", () => {
           name: "Mirrored TestSpace",
           layout: {},
         });
-        sAm = await client.schematics.create(
-          mws.key,
-          newSchematic("Schematic A Mirrored"),
-        );
-        sBm = await client.schematics.create(
-          mws.key,
-          newSchematic("Schematic B Mirrored"),
-        );
-        sCm = await client.schematics.create(
-          mws.key,
-          newSchematic("Schematic C Mirrored"),
-        );
-        sDm = await client.schematics.create(
-          mws.key,
-          newSchematic("Schematic D Mirrored"),
-        );
-        sEm = await client.schematics.create(
-          mws.key,
-          newSchematic("Schematic E Mirrored"),
-        );
+        sAm = await client.schematics.create(mws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic A Mirrored",
+        });
+        sBm = await client.schematics.create(mws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic B Mirrored",
+        });
+        sCm = await client.schematics.create(mws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic C Mirrored",
+        });
+        sDm = await client.schematics.create(mws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic D Mirrored",
+        });
+        sEm = await client.schematics.create(mws.key, {
+          ...schematic.ZERO_NEW,
+          name: "Schematic E Mirrored",
+        });
 
         const mg1 = await client.groups.create({
           parent: workspace.ontologyID(mws.key),

@@ -54,7 +54,7 @@ export const labelZ = z.looseObject({
 });
 
 export const nodePropsZ = z.looseObject({
-  key: Schematic.Symbol.variantZ,
+  key: Schematic.Node.variantZ,
   color: color.crudeZ.optional(),
   label: labelZ.optional(),
 });
@@ -62,7 +62,7 @@ export interface NodeProps extends z.infer<typeof nodePropsZ> {}
 
 export const edgePropsZ = z.object({
   color: color.crudeZ.optional(),
-  variant: Schematic.Edge.edgeTypeZ.optional(),
+  variant: Schematic.Edge.variantZ.optional(),
 });
 export interface EdgeProps extends z.infer<typeof edgePropsZ> {}
 

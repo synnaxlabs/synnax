@@ -53,12 +53,12 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 	for i, n := range d.Nodes {
 		out.Nodes[i] = migrateNode(n)
 	}
-	out.Props, err = migrateProps(d.Props)
+	out.Configs, err = migrateProps(d.Props)
 	if err != nil {
 		return Schematic{}, err
 	}
-	if out.Props == nil {
-		out.Props = make(map[string]msgpack.EncodedJSON)
+	if out.Configs == nil {
+		out.Configs = make(map[string]msgpack.EncodedJSON)
 	}
 	out.Edges = make([]Edge, len(d.Edges))
 	for i, e := range d.Edges {
@@ -68,7 +68,7 @@ func MigrateSchematic(ctx context.Context, old v55.Schematic) (Schematic, error)
 		}
 		out.Edges[i] = edge
 		if edgeProps != nil {
-			out.Props[edge.Key] = edgeProps
+			out.Configs[edge.Key] = edgeProps
 		}
 	}
 	out.Authority = control.Authority(d.Authority)

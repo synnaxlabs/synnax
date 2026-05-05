@@ -209,7 +209,7 @@ var _ = Describe("Codec", func() {
 						Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 					},
 				},
-				Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
+				Configs: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 			}),
 			Entry("zero values", schematic.Schematic{
 				Key:       uuid.Nil,
@@ -226,9 +226,9 @@ var _ = Describe("Codec", func() {
 					},
 					Colors: nil,
 				},
-				Nodes: nil,
-				Edges: nil,
-				Props: nil,
+				Nodes:   nil,
+				Edges:   nil,
+				Configs: nil,
 			}),
 			Entry("empty collections", schematic.Schematic{
 				Key:       uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
@@ -254,9 +254,9 @@ var _ = Describe("Codec", func() {
 					},
 					Colors: map[string]color.Color{},
 				},
-				Nodes: []schematic.Node{},
-				Edges: []schematic.Edge{},
-				Props: map[string]msgpack.EncodedJSON{},
+				Nodes:   []schematic.Node{},
+				Edges:   []schematic.Edge{},
+				Configs: map[string]msgpack.EncodedJSON{},
 			}),
 		)
 	})
@@ -405,7 +405,7 @@ func BenchmarkEncodeDecodeSchematic(b *testing.B) {
 				Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 			},
 		},
-		Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
+		Configs: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -725,7 +725,7 @@ func FuzzDecodeSchematic(f *testing.F) {
 					Target: schematic.Handle{Node: "test_33", Param: "test_34"},
 				},
 			},
-			Props: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
+			Configs: map[string]msgpack.EncodedJSON{"test_35": {"key_35": "value_35"}},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -749,9 +749,9 @@ func FuzzDecodeSchematic(f *testing.F) {
 				},
 				Colors: nil,
 			},
-			Nodes: nil,
-			Edges: nil,
-			Props: nil,
+			Nodes:   nil,
+			Edges:   nil,
+			Configs: nil,
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {
@@ -784,9 +784,9 @@ func FuzzDecodeSchematic(f *testing.F) {
 				},
 				Colors: map[string]color.Color{},
 			},
-			Nodes: []schematic.Node{},
-			Edges: []schematic.Edge{},
-			Props: map[string]msgpack.EncodedJSON{},
+			Nodes:   []schematic.Node{},
+			Edges:   []schematic.Edge{},
+			Configs: map[string]msgpack.EncodedJSON{},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

@@ -182,7 +182,7 @@ var _ = Describe("MigrateSchematic", func() {
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Authority).To(BeEquivalentTo(7))
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
-			Expect(got.Props["n1"]["variant"]).To(Equal("tank"))
+			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
 
 		It("Should chain a legacy v0 blob through every migration step on retrieve", func(ctx SpecContext) {
@@ -196,7 +196,7 @@ var _ = Describe("MigrateSchematic", func() {
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
 			Expect(got.Authority).To(BeEquivalentTo(1))
-			Expect(got.Props["n1"]["variant"]).To(Equal("valve"))
+			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
 		})
 	})
 
@@ -235,7 +235,7 @@ var _ = Describe("MigrateSchematic", func() {
 					}]
 				}`),
 			}))
-			Expect(out.Props["e1"]).To(SatisfyAll(
+			Expect(out.Configs["e1"]).To(SatisfyAll(
 				HaveKeyWithValue("variant", "pipe"),
 				HaveKeyWithValue("color", "#0000ff"),
 				HaveKey("segments"),
@@ -251,7 +251,7 @@ var _ = Describe("MigrateSchematic", func() {
 					"edges": [{"key": "e1", "source": "n1", "target": "n2", "data": {}}]
 				}`),
 			}))
-			Expect(out.Props["e1"]["variant"]).To(Equal("pipe"))
+			Expect(out.Configs["e1"]["variant"]).To(Equal("pipe"))
 		})
 
 		It("Should produce no edge-prop entry when edge.data is missing or null", func(ctx SpecContext) {
@@ -266,13 +266,13 @@ var _ = Describe("MigrateSchematic", func() {
 					]
 				}`),
 			}))
-			Expect(out.Props).NotTo(HaveKey("missing"))
-			Expect(out.Props).NotTo(HaveKey("null"))
+			Expect(out.Configs).NotTo(HaveKey("missing"))
+			Expect(out.Configs).NotTo(HaveKey("null"))
 		})
 
 		It("Should rename node-prop key to variant", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "valve", "color": "#ff0000"}}`)
-			Expect(out.Props["n1"]).To(SatisfyAll(
+			Expect(out.Configs["n1"]).To(SatisfyAll(
 				HaveKeyWithValue("variant", "valve"),
 				HaveKeyWithValue("color", "#ff0000"),
 				Not(HaveKey("key")),
@@ -281,7 +281,7 @@ var _ = Describe("MigrateSchematic", func() {
 
 		It("Should overwrite an existing variant with the v0 key field per console v6 contract", func(ctx SpecContext) {
 			out := migrateV5(ctx, `"props": {"n1": {"key": "tank", "variant": "stale"}}`)
-			Expect(out.Props["n1"]["variant"]).To(Equal("tank"))
+			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
 
 		It("Should default authority to 1 when the blob carries zero", func(ctx SpecContext) {

@@ -73,14 +73,14 @@ describe("Schematic", () => {
         ...schematic.ZERO_NEW,
         authority: 5,
         nodes: [{ key: "n1", position: { x: 10, y: 20 }, zIndex: 0 }],
-        props: { n1: { variant: "valve" } },
+        configs: { n1: { variant: "valve" } },
       });
       const res = await client.schematics.retrieve({ key: schem.key });
       expect(res.name).toEqual("Schematic");
       expect(res.authority).toEqual(5);
       expect(res.nodes).toHaveLength(1);
       expect(res.nodes[0].key).toEqual("n1");
-      expect(res.props.n1.variant).toEqual("valve");
+      expect((res.configs.n1 as Record<string, unknown>).variant).toEqual("valve");
     });
   });
 
@@ -101,12 +101,12 @@ describe("Schematic", () => {
     });
   });
 
-  describe("props case preservation", () => {
-    test("preserves arbitrary key casing within prop values", async () => {
+  describe("config case preservation", () => {
+    test("preserves arbitrary key casing within config values", async () => {
       const ws = await client.workspaces.create({ name: "CaseTest", layout: {} });
       const schem = await client.schematics.create(ws.key, {
         ...schematic.ZERO_NEW,
-        props: {
+        configs: {
           n1: {
             camelCaseKey: "value1",
             PascalCaseKey: "value2",
@@ -119,13 +119,19 @@ describe("Schematic", () => {
         },
       });
       const retrieved = await client.schematics.retrieve({ key: schem.key });
-      const props = retrieved.props.n1;
-      expect(props.camelCaseKey).toEqual("value1");
-      expect(props.PascalCaseKey).toEqual("value2");
-      expect(props.snake_case_key).toEqual("value3");
-      const nested = props.nested as Record<string, unknown>;
-      expect(nested.innerCamelCase).toEqual(123);
-      expect((nested.InnerPascalCase as Record<string, unknown>).deepKey).toEqual(true);
+      const config = retrieved.configs.n1 as Record<string, unknown>;
+      expect(config.camelCaseKey).toEqual("value1");
+      expect(config.PascalCaseKey).toEqual("value2");
+      expect(config.snake_case_key).toEqual("value3");
+      expect((config.nested as Record<string, unknown>).innerCamelCase).toEqual(123);
+      expect(
+        (
+          (config.nested as Record<string, unknown>).InnerPascalCase as Record<
+            string,
+            unknown
+          >
+        ).deepKey,
+      ).toEqual(true);
     });
   });
 

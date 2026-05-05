@@ -53,15 +53,27 @@ import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { type RootState } from "@/store";
 
-export const HAUL_TYPE = "arc-element";
+export const HAUL_TYPE = "arc_element";
 
-const StageRenderer = ({
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, undefined>;
+
+export const createHaulItem = (key: string): HaulItem => ({ type: HAUL_TYPE, key });
+
+export const isHaulItem = (item: Haul.Item): item is HaulItem =>
+  item.type === HAUL_TYPE;
+
+export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter(isHaulItem);
+
+export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
+
+const NodeRenderer = ({
   nodeKey,
   position,
   selected,
   draggable,
 }: Diagram.NodeProps): ReactElement | null => {
-  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.StageRenderer");
+  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.NodeRenderer");
   const props = useSelectNodeProps(layoutKey, nodeKey);
   const { key = "", ...rest } = props ?? {};
   const handleChange = useCallback(
@@ -94,7 +106,7 @@ const StageRenderer = ({
 };
 
 const ArcDiagram = Base.create({
-  node: Component.renderProp(StageRenderer),
+  node: Component.renderProp(NodeRenderer),
 });
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
@@ -131,9 +143,15 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleNodesChange = useCallback(
-    (changes: Diagram.NodeChange[]) =>
-      undoableDispatch(applyNodeChanges({ key: layoutKey, changes })),
-    [layoutKey, undoableDispatch],
+    (changes: Diagram.NodeChange[]) => {
+      const dragging = changes.some(
+        (c) => c.type === "position" && c.dragging === true,
+      );
+      const action = applyNodeChanges({ key: layoutKey, changes });
+      if (dragging) dispatch(action);
+      else undoableDispatch(action);
+    },
+    [layoutKey, dispatch, undoableDispatch],
   );
 
   const handleEdgesChange = useCallback(
@@ -172,9 +190,9 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType(HAUL_TYPE, items);
+      const valid = filterHaulItems(items);
       if (ref.current == null || event == null) return valid;
-      valid.forEach(({ key, data }) => {
+      valid.forEach(({ key }) => {
         const spec = Base.Stage.REGISTRY[key];
         if (spec == null) return;
         const pos = xy.truncate(calculateCursorPosition(event), 0);
@@ -183,7 +201,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
             key: layoutKey,
             elKey: id.create(),
             node: { position: pos, zIndex: spec.zIndex },
-            props: { key, ...spec.defaultProps(theme), ...(data ?? {}) },
+            props: { key, ...spec.defaultProps(theme) },
           }),
         );
       });
@@ -195,7 +213,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const dropProps = Haul.useDrop({
     type: "arc",
     key: layoutKey,
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    canDrop: canDropHaulItem,
     onDrop: handleDrop,
   });
 

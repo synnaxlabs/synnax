@@ -42,7 +42,7 @@
     }
   ],
   "edges": [],
-  "props": {
+  "configs": {
     "0etHSmJzqSY": {
       "color": [213, 35, 35, 1],
       "inlineSize": 70,

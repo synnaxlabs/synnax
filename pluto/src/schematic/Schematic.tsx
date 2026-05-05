@@ -9,118 +9,97 @@
 
 import "@/schematic/Schematic.css";
 
-import { type color, TimeSpan } from "@synnaxlabs/x";
-import { type FC, type ReactElement, useCallback } from "react";
+import { TimeSpan } from "@synnaxlabs/x";
+import { type FC, type ReactElement } from "react";
+import { z } from "zod";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
-import { useKey } from "@/schematic/Context";
-import { type connector } from "@/schematic/edge/connector";
-import { ConnectionLine, Edge } from "@/schematic/edge/Edge";
-import { type EdgeType } from "@/schematic/edge/paths";
-import { DRAG_HANDLE_CLASS } from "@/schematic/symbol/Grid";
-import { REGISTRY, type Variant } from "@/schematic/symbol/registry";
+import { Key } from "@/key";
+import { Edge } from "@/schematic/edge";
+import { Node } from "@/schematic/node";
 import { Diagram } from "@/vis/diagram";
 import { type diagram } from "@/vis/diagram/aether";
 
 export interface SchematicProps extends Omit<
   Diagram.DiagramProps,
   "dragHandleSelector"
-> {}
-
-export interface NodeProps extends Record<string, unknown> {
-  variant: Variant;
+> {
+  itemKey: string;
 }
 
-export interface EdgeProps extends Record<string, unknown> {
-  segments?: connector.Segment[];
-  variant?: EdgeType;
-  color?: color.Color;
+export const elementConfigZ = z.discriminatedUnion("variant", [
+  ...Node.configZ.options,
+  ...Edge.configZ.options,
+]);
+export type ElementConfig = z.infer<typeof elementConfigZ>;
+
+const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
+
+export interface UseConfig {
+  (
+    itemKey: string,
+    elKey: string,
+  ): [ElementConfig | undefined, (props: Partial<ElementConfig>) => void];
 }
 
-export interface SchematicHooks {
-  /** Called inside the node renderer to read node props for the given key. */
-  useNodeProps: (entryKey: string, nodeKey: string) => NodeProps | undefined;
-  /** Called inside the edge renderer to read edge props for the given key. */
-  useEdgeProps: (entryKey: string, edgeKey: string) => EdgeProps | undefined;
-  /** Returns a stable callback for persisting a partial props update. */
-  useSetElementProps: (
-    entryKey: string,
-  ) => (key: string, props: NodeProps | EdgeProps) => void;
+export interface CreateSchematicParams {
+  useConfig: UseConfig;
 }
 
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
-export const create = (hooks: SchematicHooks): FC<SchematicProps> => {
+export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
   const NodeRenderer = ({
-    nodeKey,
     position,
-    selected,
-    draggable,
+    ...rest
   }: Diagram.NodeProps): ReactElement | null => {
-    const entryKey = useKey();
-    const props = hooks.useNodeProps(entryKey, nodeKey);
-    const setElementProps = hooks.useSetElementProps(entryKey);
-    const variant = props?.variant;
-    const handleChange = useCallback(
-      (next: object) => {
-        if (variant == null) return;
-        setElementProps(nodeKey, { variant, ...next });
-      },
-      [nodeKey, variant, setElementProps],
-    );
-    if (props == null || variant == null) return null;
-    const C = REGISTRY[variant];
-    if (C == null) throw new Error(`Symbol ${variant} not found`);
-    const { variant: _, ...rest } = props;
+    const { nodeKey } = rest;
+    const itemKey = Key.use<string>("Schematic.NodeRenderer");
+    const [config, setConfig] = useConfig(itemKey, nodeKey);
+    if (config == null) return null;
+    const Spec = Node.resolveSpec(config.variant);
     return (
-      <C.Symbol
-        nodeKey={nodeKey}
-        position={position}
-        selected={selected}
-        draggable={draggable}
-        onChange={handleChange}
-        data={rest}
+      <Spec.Node
+        onConfigChange={setConfig}
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        config={config as Node.Config}
+        position={Spec.needsPosition === true ? position : undefined}
+        {...rest}
       />
     );
   };
 
-  const EdgeRenderer = ({
-    edgeKey,
-    ...rest
-  }: diagram.EdgeProps): ReactElement | null => {
-    const entryKey = useKey();
-    const edgeProps = hooks.useEdgeProps(entryKey, edgeKey);
-    const setElementProps = hooks.useSetElementProps(entryKey);
-    const handleSegmentsChange = useCallback(
-      (segments: connector.Segment[]) => setElementProps(edgeKey, { segments }),
-      [edgeKey, setElementProps],
-    );
-    return (
-      <Edge
-        {...rest}
-        edgeKey={edgeKey}
-        segments={edgeProps?.segments}
-        variant={edgeProps?.variant}
-        color={edgeProps?.color}
-        onSegmentsChange={handleSegmentsChange}
-      />
-    );
+  const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
+    const { edgeKey } = props;
+    const itemKey = Key.use<string>("Schematic.EdgeRenderer");
+    const [config, setConfig] = useConfig(itemKey, edgeKey);
+    if (config == null) return null;
+    const E = Edge.resolve(config.variant);
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+    return <E onChange={setConfig} config={config as Edge.Config} {...props} />;
   };
 
   const Base = Diagram.create({
     node: Component.renderProp(NodeRenderer),
     edge: Component.renderProp(EdgeRenderer),
-    connectionLine: Component.renderProp(ConnectionLine),
+    connectionLine: Component.renderProp(Edge.ConnectionLine),
   });
 
-  const Schematic = ({ className, ...props }: SchematicProps): ReactElement => (
-    <Base
-      className={CSS(CSS.B("schematic"), className)}
-      dragHandleSelector={`.${DRAG_HANDLE_CLASS}`}
-      autoRenderInterval={AUTO_RENDER_INTERVAL}
-      {...props}
-    />
+  const Schematic = ({ className, itemKey, ...rest }: SchematicProps): ReactElement => (
+    <Key.Provider<string> value={itemKey}>
+      <Base
+        className={CSS(CSS.B("schematic"), className)}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
+        autoRenderInterval={AUTO_RENDER_INTERVAL}
+        {...rest}
+      />
+    </Key.Provider>
   );
   return Schematic;
+};
+
+export const REGISTRY = {
+  ...Node.REGISTRY,
+  ...Edge.REGISTRY,
 };
