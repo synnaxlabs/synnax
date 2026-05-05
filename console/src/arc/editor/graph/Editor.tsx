@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { arc } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Arc as Base,
+  Component,
   Diagram,
   Haul,
   Theming,
@@ -24,24 +24,26 @@ import { type ReactElement, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/arc/editor/Controls";
+import { Provider, useArcEditorContext } from "@/arc/editor/graph/Context";
 import {
   select,
   useSelect,
   useSelectNodeProps,
+  useSelectSelected,
   useSelectViewportMode,
 } from "@/arc/selectors";
 import {
   addElement,
-  clearSelection,
+  applyEdgeChanges,
+  applyNodeChanges,
   copySelection,
   internalCreate,
   pasteSelection,
   selectAll,
-  setEdges,
   setEditable,
   setElementProps,
   setFitViewOnResize,
-  setNodes,
+  setSelected,
   setViewport,
   setViewportMode,
   type State,
@@ -65,20 +67,14 @@ export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
 
 export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
-interface SymbolRendererProps extends Diagram.SymbolProps {
-  layoutKey: string;
-  dispatch: Dispatch<UnknownAction>;
-}
-
-const StageRenderer = ({
-  symbolKey,
+const NodeRenderer = ({
+  nodeKey,
   position,
   selected,
   draggable,
-  dispatch,
-  layoutKey,
-}: SymbolRendererProps): ReactElement | null => {
-  const props = useSelectNodeProps(layoutKey, symbolKey);
+}: Diagram.NodeProps): ReactElement | null => {
+  const { layoutKey, dispatch } = useArcEditorContext("ArcEditor.NodeRenderer");
+  const props = useSelectNodeProps(layoutKey, nodeKey);
   const { key = "", ...rest } = props ?? {};
   const handleChange = useCallback(
     (props: object) => {
@@ -86,12 +82,12 @@ const StageRenderer = ({
       dispatch(
         setElementProps({
           layoutKey,
-          key: symbolKey,
+          key: nodeKey,
           props: { key, ...props },
         }),
       );
     },
-    [symbolKey, layoutKey, key, dispatch],
+    [nodeKey, layoutKey, key, dispatch],
   );
   if (props == null) return null;
   const C = Base.Stage.REGISTRY[key];
@@ -99,8 +95,7 @@ const StageRenderer = ({
   return (
     <C.Symbol
       key={key}
-      id={symbolKey}
-      symbolKey={symbolKey}
+      nodeKey={nodeKey}
       position={position}
       selected={selected}
       draggable={draggable}
@@ -109,6 +104,10 @@ const StageRenderer = ({
     />
   );
 };
+
+const ArcDiagram = Base.create({
+  node: Component.renderProp(NodeRenderer),
+});
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CMenu.Menu>
@@ -128,7 +127,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    30, // roughly the right time needed to prevent actions that get dispatch automatically by Diagram.tsx, like setNodes immediately following addElement
+    30,
   );
 
   const theme = Theming.use();
@@ -136,23 +135,29 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const hasUpdatePermission = Access.useUpdateGranted(arc.ontologyID(layoutKey));
   const canEdit = hasUpdatePermission && state.graph.editable;
 
-  const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
-    (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
-    [layoutKey, undoableDispatch],
+  const selected = useSelectSelected(layoutKey);
+
+  const handleSelectionChange = useCallback(
+    (selected: string[]) => dispatch(setSelected({ key: layoutKey, selected })),
+    [layoutKey, dispatch],
   );
 
-  const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
-    (nodes, changes) => {
-      if (
-        // @ts-expect-error - Sometimes, the nodes do have dragging
-        nodes.some((n) => n.dragging) ||
-        changes.some((c) => c.type === "select")
-      )
-        // don't remember dragging a node or selecting an element
-        dispatch(setNodes({ key: layoutKey, nodes }));
-      else undoableDispatch(setNodes({ key: layoutKey, nodes }));
+  const handleNodesChange = useCallback(
+    (changes: Diagram.NodeChange[]) => {
+      const dragging = changes.some(
+        (c) => c.type === "position" && c.dragging === true,
+      );
+      const action = applyNodeChanges({ key: layoutKey, changes });
+      if (dragging) dispatch(action);
+      else undoableDispatch(action);
     },
     [layoutKey, dispatch, undoableDispatch],
+  );
+
+  const handleEdgesChange = useCallback(
+    (changes: Diagram.EdgeChange[]) =>
+      undoableDispatch(applyEdgeChanges({ key: layoutKey, changes })),
+    [layoutKey, undoableDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
@@ -169,13 +174,6 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     (v: boolean) =>
       dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
     [layoutKey, dispatch],
-  );
-
-  const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => (
-      <StageRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
-    ),
-    [layoutKey, undoableDispatch],
   );
 
   const ref = useRef<HTMLDivElement>(null);
@@ -264,7 +262,7 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleClearSelection = useCallback(
-    () => dispatch(clearSelection({ key: layoutKey })),
+    () => dispatch(setSelected({ key: layoutKey, selected: [] })),
     [dispatch, layoutKey],
   );
 
@@ -278,13 +276,15 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     region: ref,
   });
 
+  const ctxValue = useMemo(
+    () => ({ layoutKey, dispatch: undoableDispatch }),
+    [layoutKey, undoableDispatch],
+  );
+
   return (
-    <div
-      ref={ref}
-      onDoubleClick={handleDoubleClick}
-      style={{ width: "inherit", height: "inherit", position: "relative" }}
-    >
-      <Base.Arc
+    <Provider value={ctxValue}>
+      <ArcDiagram
+        ref={ref}
         viewportMode={viewportMode}
         onViewportModeChange={handleViewportModeChange}
         onViewportChange={handleViewportChange}
@@ -294,6 +294,8 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
         // effects on the arc sizing and ensures that we position all the lines
         // in the correct place.
         viewport={{ ...state.graph.viewport, zoom: 1 }}
+        selected={selected}
+        onSelectionChange={handleSelectionChange}
         onEdgesChange={handleEdgesChange}
         onNodesChange={handleNodesChange}
         onEditableChange={handleEditableChange}
@@ -305,14 +307,13 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
         visible={visible}
         {...dropProps}
       >
-        <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
         <Diagram.Background />
         <BaseControls x>
-          <Diagram.FitViewControl />
-          {hasUpdatePermission && <Diagram.ToggleEditControl />}
+          <Diagram.Controls.FitView />
+          {hasUpdatePermission && <Diagram.Controls.ToggleEdit />}
         </BaseControls>
-      </Base.Arc>
+      </ArcDiagram>
       <Controls state={state} />
-    </div>
+    </Provider>
   );
 };
