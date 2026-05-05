@@ -38,6 +38,7 @@ export * from "@/observe";
 export * from "@/optional";
 export * from "@/primitive";
 export * from "@/record";
+export * from "@/require";
 export * from "@/runtime";
 export * from "@/scheduler";
 export * from "@/shallow";

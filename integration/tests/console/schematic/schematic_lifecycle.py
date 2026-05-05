@@ -41,7 +41,7 @@ def assert_exported_json(exported: dict[str, Any]) -> None:
         f"got '{exported['version']}'"
     )
 
-    required_keys = ["nodes", "edges", "props", "viewport"]
+    required_keys = ["nodes", "edges", "configs", "viewport"]
     for key in required_keys:
         assert key in exported, f"Exported JSON should contain '{key}'"
 
