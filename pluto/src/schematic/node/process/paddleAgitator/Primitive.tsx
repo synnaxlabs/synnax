@@ -1,0 +1,72 @@
+// Copyright 2026 Synnax Labs, Inc.
+//
+// Use of this software is governed by the Business Source License included in the file
+// licenses/BSL.txt.
+//
+// As of the Change Date specified in that file, in accordance with the Business Source
+// License, use of this software will be governed by the Apache License, Version 2.0,
+// included in the file licenses/APL.txt.
+
+import { type ReactElement } from "react";
+
+import { CSS } from "@/css";
+import { Handle } from "@/schematic/node/common/handle";
+import { Primitive as Base } from "@/schematic/node/common/primitive";
+import { Toggle } from "@/schematic/node/common/toggle";
+import { type Props as AgitatorProps } from "@/schematic/node/process/agitator/Primitive";
+export interface Props extends AgitatorProps {}
+
+const DIMENSIONS = { width: 87, height: 87 };
+
+export const Primitive = ({
+  className,
+  orientation = "left",
+  color,
+  scale,
+  ...rest
+}: Props): ReactElement => (
+  <Toggle.Button {...rest} className={CSS(CSS.B("agitator"))}>
+    <Handle.Boundary orientation={orientation}>
+      <Handle.Handle
+        location="top"
+        orientation={orientation}
+        left={51}
+        top={2}
+        id="4"
+      />
+    </Handle.Boundary>
+    <Base.SVG
+      dimensions={DIMENSIONS}
+      color={color}
+      orientation={orientation}
+      scale={scale}
+    >
+      <Base.Line x1="43" y1="1" x2="43" y2="49" />
+      <Base.Rect x="3" y="49" width="80" height="34" rx="3" />
+      <Base.Line
+        x1="3.8"
+        y1="82.1"
+        x2="43"
+        y2="49"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+      <Base.Line
+        x1="43"
+        y1="49"
+        x2="43"
+        y2="83"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+      <Base.Line
+        x1="43"
+        y1="83"
+        x2="82.2"
+        y2="49.9"
+        className={CSS(CSS.M("detail"), className)}
+        strokeLinecap="round"
+      />
+    </Base.SVG>
+  </Toggle.Button>
+);

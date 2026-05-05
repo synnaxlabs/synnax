@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -40,6 +41,84 @@ describe("migrations", () => {
         expect({ ...migrated, key: expect.anything() }).toEqual(ZERO_STATE);
       });
     });
+
+    it("should rename nodePropsZ.key to .variant when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        props: {
+          n1: { key: "valve", color: "#ff0000" },
+          n2: { key: "tank" },
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.configs.n1).toMatchObject({ variant: "valve", color: "#ff0000" });
+      expect(migrated.configs.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.configs.n1).not.toHaveProperty("key");
+    });
+
+    it("should reshape edge endpoints to Handle objects when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: "1",
+            targetHandle: "2",
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.edges[0]).toEqual({
+        key: "e1",
+        source: { node: "n1", param: "1" },
+        target: { node: "n2", param: "2" },
+      });
+    });
+
+    it("should move edge.data segments/color/variant into the props record", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            data: {
+              segments: [{ direction: "x", length: 10 }],
+              color: "#00ff00",
+              variant: "pipe",
+            },
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.configs.e1).toMatchObject({
+        segments: [{ direction: "x", length: 10 }],
+        color: color.construct("#00ff00"),
+        variant: "pipe",
+      });
+    });
+
+    it("should add an empty selected array when migrating to v6", () => {
+      const migrated = migrateState(v5.ZERO_STATE);
+      expect(migrated.selected).toEqual([]);
+    });
+
+    it("should widen v5 legend string colors to color.Color when migrating to v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        legend: {
+          ...v5.ZERO_STATE.legend,
+          colors: { a: "#ff0000", b: "#00ff00" },
+        },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.legend.colors.a).toEqual(color.construct("#ff0000"));
+      expect(migrated.legend.colors.b).toEqual(color.construct("#00ff00"));
+    });
+
     it("should migrate a v5 state whose legend has no colors", () => {
       const { colors: _colors, ...legendWithoutColors } = v5.ZERO_STATE.legend;
       const state = {
@@ -48,7 +127,7 @@ describe("migrations", () => {
           ...legendWithoutColors,
           position: { x: 123, y: 456, units: { x: "px", y: "px" } },
         },
-      } as unknown as v5.State;
+      } as v5.State;
       const migrated = migrateState(state);
       expect(migrated.legend.colors).toEqual({});
       expect(migrated.legend.position).toEqual({
@@ -57,7 +136,104 @@ describe("migrations", () => {
         units: { x: "px", y: "px" },
       });
     });
+
+    it("should preserve non-pipe edge variants when migrating v5 → v6", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            data: { variant: "electric" },
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.configs.e1).toMatchObject({ variant: "electric" });
+    });
+
+    it("should normalize null source/target handles to empty strings", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: null,
+            targetHandle: null,
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.edges[0].source).toEqual({ node: "n1", param: "" });
+      expect(migrated.edges[0].target).toEqual({ node: "n2", param: "" });
+    });
+
+    it("should fall back to pipe defaults when an edge has no data", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        edges: [{ key: "e1", source: "n1", target: "n2" }],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.configs.e1).toEqual({
+        variant: "pipe",
+        segments: [],
+        color: color.ZERO,
+      });
+    });
+
+    it("should strip stale selected and unknown fields from migrated nodes", () => {
+      const populated: v5.State = {
+        ...v5.ZERO_STATE,
+        nodes: [
+          {
+            key: "n1",
+            position: { x: 10, y: 20 },
+            selected: true,
+            staleField: "junk",
+          },
+        ],
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.nodes[0]).toEqual({ key: "n1", position: { x: 10, y: 20 } });
+      expect(migrated.nodes[0]).not.toHaveProperty("selected");
+      expect(migrated.nodes[0]).not.toHaveProperty("staleField");
+    });
+
+    it("should migrate a populated v0 state through every version to v6", () => {
+      const populated: v0.State = {
+        ...v0.ZERO_STATE,
+        nodes: [{ key: "n1", position: { x: 10, y: 20 } }],
+        edges: [
+          {
+            key: "e1",
+            source: "n1",
+            target: "n2",
+            sourceHandle: "right",
+            targetHandle: "left",
+          },
+        ],
+        props: { n1: { key: "valve", color: "#abcdef" } },
+      };
+      const migrated = migrateState(populated);
+      expect(migrated.version).toBe(v6.VERSION);
+      expect(migrated.nodes).toEqual([{ key: "n1", position: { x: 10, y: 20 } }]);
+      expect(migrated.edges[0]).toEqual({
+        key: "e1",
+        source: { node: "n1", param: "right" },
+        target: { node: "n2", param: "left" },
+      });
+      expect(migrated.configs.n1).toMatchObject({
+        variant: "valve",
+        color: "#abcdef",
+      });
+      expect(migrated.selected).toEqual([]);
+      expect(migrated.authority).toBe(1);
+    });
   });
+
   describe("slice", () => {
     const STATES = [
       v0.ZERO_SLICE_STATE,
@@ -73,6 +249,91 @@ describe("migrations", () => {
         const migrated = migrateSlice(state);
         expect(migrated).toEqual(ZERO_SLICE_STATE);
       });
+    });
+
+    it("should migrate the v5 copy buffer to v6 shape", () => {
+      const populated: v5.SliceState = {
+        ...v5.ZERO_SLICE_STATE,
+        copy: {
+          pos: { x: 50, y: 60 },
+          nodes: [
+            {
+              key: "n1",
+              position: { x: 0, y: 0 },
+              selected: true,
+            },
+            { key: "n2", position: { x: 100, y: 0 } },
+          ],
+          edges: [
+            {
+              key: "e1",
+              source: "n1",
+              target: "n2",
+              sourceHandle: "right",
+              targetHandle: "left",
+              data: { color: "#abcdef", variant: "electric" },
+            },
+          ],
+          props: {
+            n1: { key: "valve", color: "#ff0000" },
+            n2: { key: "tank" },
+          },
+        },
+      };
+      const migrated = migrateSlice(populated);
+      expect(migrated.copy.pos).toEqual({ x: 50, y: 60 });
+      expect(migrated.copy.nodes).toEqual([
+        { key: "n1", position: { x: 0, y: 0 } },
+        { key: "n2", position: { x: 100, y: 0 } },
+      ]);
+      expect(migrated.copy.edges[0]).toEqual({
+        key: "e1",
+        source: { node: "n1", param: "right" },
+        target: { node: "n2", param: "left" },
+      });
+      expect(migrated.copy.configs.n1).toMatchObject({
+        variant: "valve",
+        color: "#ff0000",
+      });
+      expect(migrated.copy.configs.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.copy.configs.e1).toMatchObject({
+        variant: "electric",
+        color: color.construct("#abcdef"),
+      });
+      expect(migrated).not.toHaveProperty("props");
+    });
+
+    it("should migrate every schematic in a populated v5 slice", () => {
+      const populated: v5.SliceState = {
+        ...v5.ZERO_SLICE_STATE,
+        schematics: {
+          a: {
+            ...v5.ZERO_STATE,
+            nodes: [{ key: "n1", position: { x: 0, y: 0 } }],
+            props: { n1: { key: "valve" } },
+          },
+          b: {
+            ...v5.ZERO_STATE,
+            nodes: [{ key: "n2", position: { x: 5, y: 5 } }],
+            edges: [
+              {
+                key: "e1",
+                source: "n2",
+                target: "n2",
+                data: { variant: "secondary" },
+              },
+            ],
+            props: { n2: { key: "tank" } },
+          },
+        },
+      };
+      const migrated = migrateSlice(populated);
+      expect(migrated.schematics.a.configs.n1).toMatchObject({ variant: "valve" });
+      expect(migrated.schematics.a.selected).toEqual([]);
+      expect(migrated.schematics.a).not.toHaveProperty("props");
+      expect(migrated.schematics.b.configs.n2).toMatchObject({ variant: "tank" });
+      expect(migrated.schematics.b.configs.e1).toMatchObject({ variant: "secondary" });
+      expect(migrated.schematics.b.edges[0].source).toEqual({ node: "n2", param: "" });
     });
   });
 });

@@ -91,14 +91,12 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const schematicSymbolProps: PSchematic.Symbol.ValueProps = {
-    label: {
-      label: name,
-      level: "p",
-    },
+  const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
+    variant: "value",
+    label: { label: name, level: "p" },
     telem: t,
   };
-  const items = [Schematic.createValueHaulItem(schematicSymbolProps)];
+  const items = [Schematic.createValueHaulItem(nodeConfig)];
   if (data?.internal === true) return items;
   return [PChannel.createHaulItem(Number(id.key))];
 };
