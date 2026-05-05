@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Custom } from "@/schematic/node/common/custom";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
@@ -22,22 +21,16 @@ export * from "@/schematic/node/general/customActuator/config";
 export const defaultConfig = (_t: Theming.Theme): Config => ({
   variant: VARIANT,
   specKey: "",
+  stateOverrides: [],
   ...BasePrimitive.ZERO_PROPS,
   ...Toggle.ZERO_TOGGLE_DEFAULTS,
   label: Label.defaultConfig("Custom Actuator"),
 });
 
-const CustomActuatorForm = (): ReturnType<typeof Custom.StateOverrideForm> => (
-  <Form.Wrapper y empty>
-    <Label.Form path="label" />
-    <Custom.StateOverrideForm />
-  </Form.Wrapper>
-);
-
 export const spec: Spec<typeof VARIANT, Config> = {
   key: VARIANT,
   name: "Custom Actuator",
-  Form: CustomActuatorForm,
+  Form: Form.ToggleForm,
   Node: Toggle.createToggle<Config>(Primitive),
   Preview: Primitive,
   defaultConfig,

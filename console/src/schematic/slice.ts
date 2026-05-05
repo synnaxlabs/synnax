@@ -303,7 +303,7 @@ export const { actions, reducer } = createSlice({
       const { key, config, node } = payload;
       const schematic = state.schematics[key];
       if (!schematic.editable) return;
-      schematic.nodes.push({ position: { ...xy.ZERO }, ...node });
+      schematic.nodes.push({ ...node, position: node.position ?? { ...xy.ZERO } });
       schematic.configs[node.key] = config;
     },
     setElementConfig: (state, { payload }: PayloadAction<SetElementConfigPayload>) => {

@@ -180,7 +180,7 @@ export const ZERO_WRITE_PAYLOAD = {
 
 export const SCAN_TYPE = `${PREFIX}_scan`;
 
-export const scannedNodeZ = z
+const scannedNodeZ = z
   .object({
     key: z.string().optional(),
     dataType: z.string(),

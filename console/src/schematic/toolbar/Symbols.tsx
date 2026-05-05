@@ -63,17 +63,17 @@ const StaticListItem = (
   const theme = Theming.use();
   const layoutKey = Key.use<string>("Schematic.Toolbar.StaticListItem");
   const { startDrag, onDragEnd } = Haul.useDrag(USE_DRAG_PROPS);
-  const createNodeProps = useCallback(() => ({ key: id.create(), variant }), [variant]);
+  const createAddParams = useCallback(() => ({ key: id.create(), variant }), [variant]);
   const handleDragStart = useCallback(
-    () => startDrag([createSymbolHaulItem(createNodeProps())]),
-    [startDrag, createNodeProps],
+    () => startDrag([createSymbolHaulItem(createAddParams())]),
+    [startDrag, createAddParams],
   );
   const spec = List.useItem<string, Schematic.Node.Spec>(variant);
   const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
   const addNode = useAddNode(layoutKey);
   const handleAddNode = useCallback(
-    () => addNode(createNodeProps()),
-    [createNodeProps],
+    () => addNode(createAddParams()),
+    [createAddParams],
   );
   if (spec == null || defaultConfig == null) return null;
   const { name, Preview } = spec;
@@ -110,10 +110,9 @@ const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
       group?.symbols.includes(s.key),
     );
   }, [groupKey]);
-  const { data, getItem } = List.useStaticData<
-    string,
-    Schematic.Node.Spec<Schematic.Node.Variant, any>
-  >({ data: symbols });
+  const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
+    data: symbols as Schematic.Node.Spec[],
+  });
   return (
     <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
       <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
