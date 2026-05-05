@@ -11,10 +11,8 @@ import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
-  Button,
   Control,
   Diagram,
-  Flex,
   Flux,
   Haul,
   Icon,
@@ -27,22 +25,17 @@ import {
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, type color, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { box, type color, deep, type sticky, uuid, xy } from "@synnaxlabs/x";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
-import { ContextMenu as CContextMenu, Controls } from "@/components";
+import { ContextMenu as CContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
+import { Controls } from "@/schematic/Controls";
+import { canDropHaulItem, isHaulItem } from "@/schematic/haul";
 import {
   selectConfig,
   selectOptional,
@@ -77,50 +70,6 @@ import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
-
-export const SYMBOL_HAUL_TYPE = "schematic_symbol";
-
-export interface SymbolHaulData extends AddNodeProps {}
-
-export type SymbolHaulItem = Haul.Item<typeof SYMBOL_HAUL_TYPE, string, SymbolHaulData>;
-
-export const createSymbolHaulItem = (data: SymbolHaulData): SymbolHaulItem => ({
-  type: SYMBOL_HAUL_TYPE,
-  key: data.key,
-  data,
-});
-
-export const isSymbolHaulItem = (item: Haul.Item): item is SymbolHaulItem =>
-  item.type === SYMBOL_HAUL_TYPE;
-
-export const filterSymbolHaulItems = (items: Haul.Item[]): SymbolHaulItem[] =>
-  items.filter(isSymbolHaulItem);
-
-export const VALUE_HAUL_TYPE = "schematic_value";
-
-export type ValueHaulData = Base.Node.ConfigOf<"value">;
-
-export type ValueHaulItem = Haul.Item<typeof VALUE_HAUL_TYPE, string, ValueHaulData>;
-
-export const createValueHaulItem = (props: ValueHaulData): ValueHaulItem => ({
-  type: VALUE_HAUL_TYPE,
-  key: "value",
-  data: props,
-});
-
-export const isValueHaulItem = (item: Haul.Item): item is ValueHaulItem =>
-  item.type === VALUE_HAUL_TYPE;
-
-export const filterValueHaulItems = (items: Haul.Item[]): ValueHaulItem[] =>
-  items.filter(isValueHaulItem);
-
-export const isSchematicHaulItem = (
-  item: Haul.Item,
-): item is SymbolHaulItem | ValueHaulItem =>
-  isSymbolHaulItem(item) || isValueHaulItem(item);
-
-export const canDropSchematicHaulItem: Haul.CanDrop = ({ items }) =>
-  items.some(isSchematicHaulItem);
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 
@@ -173,29 +122,6 @@ const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
       );
     },
     [store, layoutKey, retrieve, placeLayout, handleError],
-  );
-};
-
-interface ControlToggleButtonProps {
-  control: Control.Status;
-}
-
-const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
-  const { acquire, release } = Control.useContext();
-  const handleChange = useCallback(
-    (v: boolean) => (v ? acquire() : release()),
-    [acquire, release],
-  );
-  return (
-    <Button.Toggle
-      value={control === "acquired"}
-      onChange={handleChange}
-      tooltipLocation={location.BOTTOM_LEFT}
-      size="small"
-      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
-    >
-      <Icon.Circle />
-    </Button.Toggle>
   );
 };
 
@@ -331,7 +257,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = items.filter(isSchematicHaulItem);
+      const valid = items.filter(isHaulItem);
       if (event == null) return valid;
       valid.forEach(({ data }) => {
         const pos = xy.truncate(calculateCursorPosition(event), 0);
@@ -345,7 +271,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const dropProps = Haul.useDrop({
     type: "schematic",
     key: layoutKey,
-    canDrop: canDropSchematicHaulItem,
+    canDrop: canDropHaulItem,
     onDrop: handleDrop,
   });
 
@@ -473,16 +399,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         {...dropProps}
       >
         <Diagram.Background />
-        <Controls x>
-          <Diagram.Controls.SelectViewportMode />
-          <Diagram.Controls.FitView />
-          <Flex.Box x pack>
-            {hasUpdatePermission && (
-              <Diagram.Controls.ToggleEdit disabled={state.control === "acquired"} />
-            )}
-            {!state.snapshot && <ControlToggleButton control={state.control} />}
-          </Flex.Box>
-        </Controls>
+        <Controls
+          hasUpdatePermission={hasUpdatePermission}
+          controlStatus={state.control}
+          snapshot={state.snapshot}
+        />
       </SchematicComponent>
       {legendVisible && (
         <Control.Legend

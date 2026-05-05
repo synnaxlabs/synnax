@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { color } from "@synnaxlabs/x";
+import { type color } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
@@ -16,12 +16,7 @@ import { Form as Base } from "@/form";
 export const ColorField: Base.FieldT<color.Crude> = (props): ReactElement => (
   <Base.Field hideIfNull label="Color" align="start" padHelpText={false} {...props}>
     {({ value, onChange, variant: _, ...rest }) => (
-      <Color.Swatch
-        value={value ?? color.setAlpha(color.ZERO, 1)}
-        onChange={onChange}
-        {...rest}
-        bordered
-      />
+      <Color.Swatch value={value} onChange={onChange} {...rest} bordered />
     )}
   </Base.Field>
 );

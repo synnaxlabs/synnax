@@ -44,8 +44,9 @@ export const stateZ = v5.stateZ
     selected: z.array(z.string()).default([]),
   });
 export interface State extends z.infer<typeof stateZ> {}
+const { props: _, ...v5Defaults } = v5.ZERO_STATE;
 export const ZERO_STATE: State = {
-  ...v5.ZERO_STATE,
+  ...v5Defaults,
   version: VERSION,
   nodes: [],
   edges: [],
@@ -61,7 +62,7 @@ export const copyBufferZ = z.object({
   configs: z.record(z.string(), configZ),
 });
 export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
-const ZERO_COPY_BUFFER: CopyBuffer = {
+export const ZERO_COPY_BUFFER: CopyBuffer = {
   pos: { x: 0, y: 0 },
   nodes: [],
   edges: [],
@@ -81,6 +82,14 @@ export const ZERO_SLICE_STATE: SliceState = {
   version: VERSION,
   schematics: {},
   copy: ZERO_COPY_BUFFER,
+};
+
+const migrateNode = (node: v0.Node): Diagram.Node => {
+  const next: Diagram.Node = { key: node.key, position: node.position };
+  if (node.zIndex != null) next.zIndex = node.zIndex;
+  if (node.type != null) next.type = node.type;
+  if (node.measured != null) next.measured = node.measured;
+  return next;
 };
 
 const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeConfig] => {
@@ -131,17 +140,19 @@ const migratePropsToConfigs = (
 export const stateMigration = migrate.createMigration<v5.State, State>({
   name: v1.STATE_MIGRATION_NAME,
   migrate: (state) => {
-    const props = migratePropsToConfigs(state.props);
+    const configs = migratePropsToConfigs(state.props);
     const edges = state.edges.map((e) => {
       const [edge, edgeProps] = migrateEdge(e);
-      props[edge.key] = edgeProps;
+      configs[edge.key] = edgeProps;
       return edge;
     });
+    const { props: _props, ...rest } = state;
     return {
-      ...state,
+      ...rest,
       version: VERSION,
+      nodes: state.nodes.map(migrateNode),
       edges,
-      configs: props,
+      configs,
       legend: { ...state.legend, colors: migrateLegendColors(state.legend?.colors) },
       selected: [],
     };
@@ -155,8 +166,7 @@ const migrateCopyBuffer = (copy: v5.SliceState["copy"]): CopyBuffer => {
     configs[edge.key] = edgeProps;
     return edge;
   });
-  const { props: _, ...rest } = copy;
-  return { ...rest, edges, configs };
+  return { pos: copy.pos, nodes: copy.nodes.map(migrateNode), edges, configs };
 };
 
 export const sliceMigration = migrate.createMigration<v5.SliceState, SliceState>({

@@ -11,19 +11,7 @@ import { type Haul } from "@synnaxlabs/pluto";
 import { id } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import {
-  canDropSchematicHaulItem,
-  createSymbolHaulItem,
-  createValueHaulItem,
-  filterSymbolHaulItems,
-  filterValueHaulItems,
-  isSchematicHaulItem,
-  isSymbolHaulItem,
-  isValueHaulItem,
-  SYMBOL_HAUL_TYPE,
-  VALUE_HAUL_TYPE,
-  type ValueHaulData,
-} from "@/schematic/Schematic";
+import { Schematic } from "@/schematic";
 import { type AddNodeProps } from "@/schematic/symbols/useAddNode";
 
 const VARIANT = "valve";
@@ -32,7 +20,7 @@ const BASE_ADD_PROPS: AddNodeProps = {
   variant: VARIANT,
 };
 const SPEC_KEY = "spec-1";
-const VALUE_PROPS: ValueHaulData = {
+const VALUE_PROPS: Schematic.ValueHaulData = {
   variant: "value",
   label: { label: "Pressure", level: "p" },
   color: "#ff0000",
@@ -43,20 +31,26 @@ const OTHER: Haul.Item = { type: "other_type", key: "other" };
 describe("schematic symbol haul utilities", () => {
   describe("createSymbolHaulItem", () => {
     it("creates an item with the symbol HAUL_TYPE", () => {
-      expect(createSymbolHaulItem(BASE_ADD_PROPS).type).toEqual(SYMBOL_HAUL_TYPE);
+      expect(Schematic.createSymbolHaulItem(BASE_ADD_PROPS).type).toEqual(
+        Schematic.SYMBOL_HAUL_TYPE,
+      );
     });
 
     it("creates an item with the variant as the key", () => {
-      expect(createSymbolHaulItem(BASE_ADD_PROPS).key).toEqual(BASE_ADD_PROPS.key);
+      expect(Schematic.createSymbolHaulItem(BASE_ADD_PROPS).key).toEqual(
+        BASE_ADD_PROPS.key,
+      );
     });
 
     it("creates an item with empty data when none is provided", () => {
-      expect(createSymbolHaulItem(BASE_ADD_PROPS).data).toEqual(BASE_ADD_PROPS);
+      expect(Schematic.createSymbolHaulItem(BASE_ADD_PROPS).data).toEqual(
+        BASE_ADD_PROPS,
+      );
     });
 
     it("creates an item with the provided specKey in data", () => {
       expect(
-        createSymbolHaulItem({ ...BASE_ADD_PROPS, specKey: SPEC_KEY }).data,
+        Schematic.createSymbolHaulItem({ ...BASE_ADD_PROPS, specKey: SPEC_KEY }).data,
       ).toEqual({
         key: BASE_ADD_PROPS.key,
         specKey: SPEC_KEY,
@@ -67,23 +61,27 @@ describe("schematic symbol haul utilities", () => {
 
   describe("isSymbolHaulItem", () => {
     it("returns true for a symbol item", () => {
-      expect(isSymbolHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(true);
+      expect(
+        Schematic.isSymbolHaulItem(Schematic.createSymbolHaulItem(BASE_ADD_PROPS)),
+      ).toBe(true);
     });
 
     it("returns false for a value item", () => {
-      expect(isSymbolHaulItem(createValueHaulItem(VALUE_PROPS))).toBe(false);
+      expect(
+        Schematic.isSymbolHaulItem(Schematic.createValueHaulItem(VALUE_PROPS)),
+      ).toBe(false);
     });
 
     it("returns false for an item of another kind", () => {
-      expect(isSymbolHaulItem(OTHER)).toBe(false);
+      expect(Schematic.isSymbolHaulItem(OTHER)).toBe(false);
     });
   });
 
   describe("filterSymbolHaulItems", () => {
     it("keeps only symbol items", () => {
-      const symbol = createSymbolHaulItem(BASE_ADD_PROPS);
-      const value = createValueHaulItem(VALUE_PROPS);
-      expect(filterSymbolHaulItems([symbol, value, OTHER])).toEqual([symbol]);
+      const symbol = Schematic.createSymbolHaulItem(BASE_ADD_PROPS);
+      const value = Schematic.createValueHaulItem(VALUE_PROPS);
+      expect(Schematic.filterSymbolHaulItems([symbol, value, OTHER])).toEqual([symbol]);
     });
   });
 });
@@ -91,37 +89,43 @@ describe("schematic symbol haul utilities", () => {
 describe("schematic value haul utilities", () => {
   describe("createValueHaulItem", () => {
     it("creates an item with the value HAUL_TYPE", () => {
-      expect(createValueHaulItem(VALUE_PROPS).type).toEqual(VALUE_HAUL_TYPE);
+      expect(Schematic.createValueHaulItem(VALUE_PROPS).type).toEqual(
+        Schematic.VALUE_HAUL_TYPE,
+      );
     });
 
     it("creates an item with the literal 'value' as the key", () => {
-      expect(createValueHaulItem(VALUE_PROPS).key).toEqual("value");
+      expect(Schematic.createValueHaulItem(VALUE_PROPS).key).toEqual("value");
     });
 
     it("creates an item carrying the full value props in data", () => {
-      expect(createValueHaulItem(VALUE_PROPS).data).toEqual(VALUE_PROPS);
+      expect(Schematic.createValueHaulItem(VALUE_PROPS).data).toEqual(VALUE_PROPS);
     });
   });
 
   describe("isValueHaulItem", () => {
     it("returns true for a value item", () => {
-      expect(isValueHaulItem(createValueHaulItem(VALUE_PROPS))).toBe(true);
+      expect(
+        Schematic.isValueHaulItem(Schematic.createValueHaulItem(VALUE_PROPS)),
+      ).toBe(true);
     });
 
     it("returns false for a symbol item", () => {
-      expect(isValueHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(false);
+      expect(
+        Schematic.isValueHaulItem(Schematic.createSymbolHaulItem(BASE_ADD_PROPS)),
+      ).toBe(false);
     });
 
     it("returns false for an item of another kind", () => {
-      expect(isValueHaulItem(OTHER)).toBe(false);
+      expect(Schematic.isValueHaulItem(OTHER)).toBe(false);
     });
   });
 
   describe("filterValueHaulItems", () => {
     it("keeps only value items", () => {
-      const symbol = createSymbolHaulItem(BASE_ADD_PROPS);
-      const value = createValueHaulItem(VALUE_PROPS);
-      expect(filterValueHaulItems([symbol, value, OTHER])).toEqual([value]);
+      const symbol = Schematic.createSymbolHaulItem(BASE_ADD_PROPS);
+      const value = Schematic.createValueHaulItem(VALUE_PROPS);
+      expect(Schematic.filterValueHaulItems([symbol, value, OTHER])).toEqual([value]);
     });
   });
 });
@@ -129,39 +133,43 @@ describe("schematic value haul utilities", () => {
 describe("schematic combined haul utilities", () => {
   describe("isSchematicHaulItem", () => {
     it("returns true for a symbol item", () => {
-      expect(isSchematicHaulItem(createSymbolHaulItem(BASE_ADD_PROPS))).toBe(true);
+      expect(Schematic.isHaulItem(Schematic.createSymbolHaulItem(BASE_ADD_PROPS))).toBe(
+        true,
+      );
     });
 
     it("returns true for a value item", () => {
-      expect(isSchematicHaulItem(createValueHaulItem(VALUE_PROPS))).toBe(true);
+      expect(Schematic.isHaulItem(Schematic.createValueHaulItem(VALUE_PROPS))).toBe(
+        true,
+      );
     });
 
     it("returns false for an item of another kind", () => {
-      expect(isSchematicHaulItem(OTHER)).toBe(false);
+      expect(Schematic.isHaulItem(OTHER)).toBe(false);
     });
   });
 
   describe("canDropSchematicHaulItem", () => {
     it("returns true when items contain a symbol item", () => {
       expect(
-        canDropSchematicHaulItem({
+        Schematic.canDropHaulItem({
           source: OTHER,
-          items: [createSymbolHaulItem(BASE_ADD_PROPS), OTHER],
+          items: [Schematic.createSymbolHaulItem(BASE_ADD_PROPS), OTHER],
         }),
       ).toBe(true);
     });
 
     it("returns true when items contain a value item", () => {
       expect(
-        canDropSchematicHaulItem({
+        Schematic.canDropHaulItem({
           source: OTHER,
-          items: [createValueHaulItem(VALUE_PROPS), OTHER],
+          items: [Schematic.createValueHaulItem(VALUE_PROPS), OTHER],
         }),
       ).toBe(true);
     });
 
     it("returns false when items contain neither a symbol nor a value item", () => {
-      expect(canDropSchematicHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
+      expect(Schematic.canDropHaulItem({ source: OTHER, items: [OTHER] })).toBe(false);
     });
   });
 });

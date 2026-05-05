@@ -14,9 +14,10 @@ import {
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { color, id, type require, xy } from "@synnaxlabs/x";
+import { color, deep, id, type require, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
+import { ZERO_COPY_BUFFER } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
@@ -204,12 +205,7 @@ export const { actions, reducer } = createSlice({
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
       const { schematics } = state;
-      const copyBuffer: latest.CopyBuffer = {
-        nodes: [],
-        edges: [],
-        configs: {},
-        pos: xy.ZERO,
-      };
+      const copyBuffer: latest.CopyBuffer = deep.copy(ZERO_COPY_BUFFER);
       Object.values(schematics).forEach((schematic) => {
         const { nodes, edges, configs, selected } = schematic;
         const selectedSet = new Set(selected);

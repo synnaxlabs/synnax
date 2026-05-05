@@ -66,6 +66,7 @@ const resolveItem = (child: ReactNode): ReactElement<ItemProps> | null => {
   if (!(child.type as unknown as Record<symbol, true>)?.[TAG]) return null;
   if (child.type === Item) return child as ReactElement<ItemProps>;
   const rendered = (child.type as (props: unknown) => ReactNode)(child.props);
+  console.log(rendered);
   return isValidElement(rendered) && rendered.type === Item
     ? (rendered as ReactElement<ItemProps>)
     : null;
@@ -109,7 +110,7 @@ interface SlotProps {
   items: ItemProps[];
 }
 
-const EditableSlot: FC<SlotProps> = ({ loc, nodeKey, items }) => {
+const EditableSlot = ({ loc, nodeKey, items }: SlotProps) => {
   const haulType = `${nodeKey}_${HAUL_TYPE}`;
   const [draggingOver, setDraggingOver] = useState(false);
   const canDrop = useMemo(() => Haul.canDropOfType(haulType), [haulType]);
@@ -171,7 +172,7 @@ const EditableSlot: FC<SlotProps> = ({ loc, nodeKey, items }) => {
   );
 };
 
-const StaticSlot: FC<SlotProps> = ({ loc, items }) => {
+const StaticSlot = ({ loc, items }: SlotProps) => {
   const filtered = items.filter((i) => i.location === loc);
   if (filtered.length === 0) return null;
   return (
@@ -187,10 +188,8 @@ const StaticSlot: FC<SlotProps> = ({ loc, items }) => {
   );
 };
 
-const Slot: FC<SlotProps> = (props) =>
+const Zone = (props: SlotProps) =>
   props.editable ? <EditableSlot {...props} /> : <StaticSlot {...props} />;
-
-const EDGE_LOCATIONS: location.Location[] = ["top", "left", "right", "bottom"];
 
 export const Grid: FC<GridProps> = ({
   editable,
@@ -211,11 +210,24 @@ export const Grid: FC<GridProps> = ({
     onRotate?.({ orientation: location.rotate(orientation, "clockwise") });
   return (
     <>
-      {EDGE_LOCATIONS.map((loc) => (
-        <Slot key={loc} loc={loc} editable={editable} nodeKey={nodeKey} items={items} />
-      ))}
+      <Zone key="top" loc="top" editable={editable} nodeKey={nodeKey} items={items} />
+      <Zone
+        key="bottom"
+        loc="bottom"
+        editable={editable}
+        nodeKey={nodeKey}
+        items={items}
+      />
+      <Zone key="left" loc="left" editable={editable} nodeKey={nodeKey} items={items} />
+      <Zone
+        key="right"
+        loc="right"
+        editable={editable}
+        nodeKey={nodeKey}
+        items={items}
+      />
       {allowCenter && (
-        <Slot loc="center" editable={editable} nodeKey={nodeKey} items={items} />
+        <Zone loc="center" editable={editable} nodeKey={nodeKey} items={items} />
       )}
       {editable && allowRotate && (
         <Button.Button

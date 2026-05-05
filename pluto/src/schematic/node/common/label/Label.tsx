@@ -36,51 +36,52 @@ export const configZ = z.object({
 export type Config = z.infer<typeof configZ>;
 
 export interface LabelProps {
-  config?: Config;
+  config: Config;
   onChange?: (next: { label: Config }) => void;
 }
 
-export const Label = Grid.createItem<LabelProps>(({ config, onChange }) => {
-  if (config == null) return null;
-  const {
-    label,
-    level = "p",
-    orientation = "top",
-    direction: dir,
-    align,
-    maxInlineSize,
-  } = config;
-  if (label == null || label.length === 0) return null;
+interface InternalProps
+  extends LabelProps, Omit<Text.EditableProps, "value" | "onChange"> {
+  style?: CSSProperties;
+}
+
+const Internal = ({ config, onChange, style: baseStyle, ...rest }: InternalProps) => {
+  const { label = "", level = "p", direction: dir, align, maxInlineSize } = config;
   const handleLabelChange = useCallback(
     (value: string) => onChange?.({ label: { ...config, label: value } }),
-    [config],
-  );
-  const handleLocationChange = useCallback(
-    (orientation: location.Location) =>
-      onChange?.({ label: { ...config, orientation } }),
     [config],
   );
   const style = useMemo(
     () => ({
       textAlign: align as CSSProperties["textAlign"],
       maxInlineSize,
+      ...baseStyle,
     }),
-    [align, maxInlineSize],
+    [align, maxInlineSize, baseStyle],
   );
+  return (
+    <Text.Editable
+      {...rest}
+      style={style}
+      className={CSS(CSS.BE("symbol", "label"), CSS.dir(dir))}
+      level={level}
+      value={label}
+      onChange={handleLabelChange}
+      allowEmpty
+    />
+  );
+};
+
+export const Label = Grid.createItem(({ config, onChange }: Partial<LabelProps>) => {
+  if (config == null || config.label == null || config.label.length == 0) return null;
+  const orientation = config.orientation ?? "top";
   return (
     <Grid.Item
       itemKey="label"
       location={orientation}
-      onLocationChange={handleLocationChange}
+      onLocationChange={(loc) => onChange?.({ label: { ...config, orientation: loc } })}
     >
-      <Text.Editable
-        className={CSS(CSS.BE("symbol", "label"), CSS.dir(dir))}
-        level={level}
-        value={label}
-        onChange={handleLabelChange}
-        allowEmpty
-        style={style}
-      />
+      <Internal config={config} onChange={onChange} />
     </Grid.Item>
   );
 });
@@ -126,7 +127,7 @@ export const createLabeled = <C extends LabeledConfig>(
       <BaseSymbol orientation={orientation} {...rest} />
     </Grid.Grid>
   );
-  const M = memo(Inner) as unknown as FC<NodeProps<C>>;
+  const M = memo(Inner) as FC<NodeProps<C>>;
   M.displayName = BaseSymbol.displayName;
   return M;
 };

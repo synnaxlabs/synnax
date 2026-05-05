@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { direction, location } from "@synnaxlabs/x";
-import { useCallback } from "react";
 import { z } from "zod";
 
 import { CSS } from "@/css";
@@ -49,36 +48,45 @@ export interface State {
   onChange?: (next: { control: StateConfig }) => void;
 }
 
-export const State = Grid.createItem<State>(({ config, onChange }) => {
-  if (config == null) return null;
-  const {
+interface InternalProps extends Flex.BoxProps {
+  config: StateConfig;
+}
+
+const Internal = ({
+  config: {
     show = true,
     showChip = true,
     showIndicator = true,
     chip,
     indicator,
     orientation = "bottom",
-  } = config;
-  const handleLocationChange = useCallback(
-    (orientation: location.Location) =>
-      onChange?.({ control: { ...config, orientation } }),
-    [config, orientation],
-  );
+  },
+  ...rest
+}: InternalProps) => (
+  <Flex.Box
+    direction={direction.swap(orientation)}
+    align="center"
+    className={CSS(CSS.B("control-state"))}
+    gap="small"
+    {...rest}
+  >
+    {show && showChip && <Control.Chip size="small" {...chip} />}
+    {show && showIndicator && <Control.Indicator {...indicator} />}
+  </Flex.Box>
+);
+
+export const State = Grid.createItem<State>(({ config, onChange }) => {
+  if (config == null) return null;
+  const orientation = config.orientation ?? "bottom";
   return (
     <Grid.Item
       itemKey="control"
       location={orientation}
-      onLocationChange={handleLocationChange}
+      onLocationChange={(loc) =>
+        onChange?.({ control: { ...config, orientation: loc } })
+      }
     >
-      <Flex.Box
-        direction={direction.swap(orientation)}
-        align="center"
-        className={CSS(CSS.B("control-state"))}
-        gap="small"
-      >
-        {show && showChip && <Control.Chip size="small" {...chip} />}
-        {show && showIndicator && <Control.Indicator {...indicator} />}
-      </Flex.Box>
+      <Internal config={config} />
     </Grid.Item>
   );
 });
