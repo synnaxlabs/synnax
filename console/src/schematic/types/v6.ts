@@ -18,18 +18,8 @@ import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
-// Edge, Handle, Segment, and Legend are aliases for the oracle-generated wire
-// types. Keeping them as aliases (not re-declarations) guarantees the console
-// state and the server schema can never drift. nodeZ extends the oracle Node
-// with Pluto-internal runtime fields (`type`, `measured`) that React Flow
-// writes to during layout — these aren't part of the wire schema.
-export const nodeZ = schematic.nodeZ.extend({
-  type: z.string().optional(),
-  measured: z
-    .object({ width: z.number().optional(), height: z.number().optional() })
-    .optional(),
-});
-export interface Node extends z.infer<typeof nodeZ> {}
+export const nodeZ = schematic.nodeZ;
+export type Node = schematic.Node;
 export const edgeZ = schematic.edgeZ;
 export type Edge = schematic.Edge;
 export const handleZ = schematic.handleZ;
@@ -108,8 +98,6 @@ export const ZERO_SLICE_STATE: SliceState = {
 const migrateNode = (node: v0.Node): Node => {
   const next: Node = { key: node.key, position: node.position };
   if (node.zIndex != null) next.zIndex = node.zIndex;
-  if (node.type != null) next.type = node.type;
-  if (node.measured != null) next.measured = node.measured;
   return next;
 };
 

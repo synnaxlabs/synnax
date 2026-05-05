@@ -88,13 +88,7 @@ const useCreateSchematic = ({
     afterSuccess: async ({ data }) => {
       const { workspace, ...schematic } = data;
       await maybeChangeWorkspace(workspace);
-      placeLayout(
-        Schematic.create({
-          ...schematic,
-          configs: schematic.configs as Record<string, Schematic.ElementConfig>,
-          remoteCreated: true,
-        }),
-      );
+      placeLayout(Schematic.create(Schematic.fromRemote(schematic)));
     },
   });
   return useCallback(

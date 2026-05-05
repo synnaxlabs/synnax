@@ -182,12 +182,7 @@ const loadSchematic = async (
 ) => {
   const schematic = await client.schematics.retrieve({ key });
   placeLayout(
-    Schematic.create({
-      ...schematic,
-      configs: schematic.configs as Record<string, Schematic.ElementConfig>,
-      editable: false,
-      remoteCreated: true,
-    }),
+    Schematic.create({ ...Schematic.fromRemote(schematic), editable: false }),
   );
 };
 
@@ -218,11 +213,9 @@ const handleMosaicDrop: Ontology.HandleMosaicDrop = ({
     const schematic = await client.schematics.retrieve({ key });
     placeLayout(
       Schematic.create({
-        ...schematic,
-        configs: schematic.configs as Record<string, Schematic.ElementConfig>,
+        ...Schematic.fromRemote(schematic),
         location: "mosaic",
         tab: { mosaicKey: nodeKey, location },
-        remoteCreated: true,
       }),
     );
   }, "Failed to load schematic");

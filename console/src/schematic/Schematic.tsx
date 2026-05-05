@@ -52,7 +52,7 @@ import {
   applyNodeChanges,
   clearSelection,
   copySelection,
-  type ElementConfig,
+  fromRemote,
   internalCreate,
   pasteSelection,
   selectAll,
@@ -80,12 +80,7 @@ const navigateToLinkedSchematic = async (
   placeLayout: Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(
-    create({
-      ...s,
-      configs: s.configs as Record<string, ElementConfig>,
-    }),
-  );
+  placeLayout(create(fromRemote(s)));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
@@ -433,13 +428,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) =>
-    internalCreate({
-      ...ZERO_STATE,
-      ...v,
-      configs: v.configs as Record<string, ElementConfig>,
-      key: v.key,
-    }),
+  actionCreator: (v) => internalCreate(fromRemote(v)),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
