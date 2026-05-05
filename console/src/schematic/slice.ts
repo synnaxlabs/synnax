@@ -59,7 +59,7 @@ export const PERSIST_EXCLUDE = [purgeSliceState];
 export const fromRemote = (s: schematic.Schematic): State => ({
   ...ZERO_STATE,
   ...s,
-  // TODO: remove this assertion when schematic element ocnfigs are strongly typed on
+  // TODO: remove this assertion when schematic element configs are strongly typed on
   // the core.
   configs: s.configs as Record<string, ElementConfig>,
   remoteCreated: true,
