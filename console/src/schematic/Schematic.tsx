@@ -213,8 +213,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       const dragging = changes.some(
         (c) => c.type === "position" && c.dragging === true,
       );
-      if (dragging) syncDispatch(applyNodeChanges({ key: layoutKey, changes }));
-      else undoableDispatch(applyNodeChanges({ key: layoutKey, changes }));
+      const action = applyNodeChanges({ key: layoutKey, changes });
+      if (dragging) syncDispatch(action);
+      else undoableDispatch(action);
     },
     [layoutKey, syncDispatch, undoableDispatch],
   );

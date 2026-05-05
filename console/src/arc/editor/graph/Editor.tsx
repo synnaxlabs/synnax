@@ -143,9 +143,15 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleNodesChange = useCallback(
-    (changes: Diagram.NodeChange[]) =>
-      undoableDispatch(applyNodeChanges({ key: layoutKey, changes })),
-    [layoutKey, undoableDispatch],
+    (changes: Diagram.NodeChange[]) => {
+      const dragging = changes.some(
+        (c) => c.type === "position" && c.dragging === true,
+      );
+      const action = applyNodeChanges({ key: layoutKey, changes });
+      if (dragging) dispatch(action);
+      else undoableDispatch(action);
+    },
+    [layoutKey, dispatch, undoableDispatch],
   );
 
   const handleEdgesChange = useCallback(
