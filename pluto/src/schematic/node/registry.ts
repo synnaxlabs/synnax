@@ -82,7 +82,7 @@ import { FlameArrestorExplosion } from "@/schematic/node/safety/flameArrestorExp
 import { FlameArrestorFireRes } from "@/schematic/node/safety/flameArrestorFireRes";
 import { FlameArrestorFireResDetonation } from "@/schematic/node/safety/flameArrestorFireResDetonation";
 import { IsoBurstDisc } from "@/schematic/node/safety/isoBurstDisc";
-import { type Node, type Spec } from "@/schematic/node/spec";
+import { type Spec } from "@/schematic/node/spec";
 import { Angled } from "@/schematic/node/valves/angled";
 import { AngledRelief } from "@/schematic/node/valves/angledRelief";
 import { AngledSpringLoadedRelief } from "@/schematic/node/valves/angledSpringLoadedRelief";
@@ -329,5 +329,3 @@ export const resolveSpec = (variant: string): Spec<Variant, Config> => {
   if (spec == null) throw new NotFoundError(`Symbol with variant ${variant} not found`);
   return spec as unknown as Spec<Variant, Config>;
 };
-
-export const resolve = (variant: string): Node<Config> => resolveSpec(variant).Node;

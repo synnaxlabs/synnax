@@ -50,14 +50,24 @@ export interface CreateSchematicParams {
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 
 export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps> => {
-  const NodeRenderer = (props: Diagram.NodeProps): ReactElement | null => {
-    const { nodeKey } = props;
+  const NodeRenderer = ({
+    position,
+    ...rest
+  }: Diagram.NodeProps): ReactElement | null => {
+    const { nodeKey } = rest;
     const itemKey = Key.use<string>("Schematic.NodeRenderer");
     const [config, setConfig] = useConfig(itemKey, nodeKey);
     if (config == null) return null;
-    const N = Node.resolve(config.variant);
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-    return <N onConfigChange={setConfig} config={config as Node.Config} {...props} />;
+    const Spec = Node.resolveSpec(config.variant);
+    return (
+      <Spec.Node
+        onConfigChange={setConfig}
+        // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
+        config={config as Node.Config}
+        position={Spec.needsPosition === true ? position : undefined}
+        {...rest}
+      />
+    );
   };
 
   const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
