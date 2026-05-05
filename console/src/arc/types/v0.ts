@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { Diagram, Viewport } from "@synnaxlabs/pluto";
+import { Viewport } from "@synnaxlabs/pluto";
 import { type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -25,18 +25,46 @@ export const nodePropsZ = z.looseObject({
   key: z.string(),
 });
 
+// Frozen old node schema - nodes had a selected field and used flat xy
+const nodeZ = z.object({
+  key: z.string(),
+  position: xy.xyZ,
+  selected: z.boolean().optional().default(false),
+  zIndex: z.number().optional(),
+  type: z.string().optional(),
+  measured: z
+    .object({ width: z.number().optional(), height: z.number().optional() })
+    .optional(),
+});
+export type Node = z.infer<typeof nodeZ>;
+
+// Frozen old edge schema - edges used flat source/target strings with separate handle fields
+const edgeZ = z.object({
+  key: z.string(),
+  source: z.string(),
+  target: z.string(),
+  id: z.string().optional(),
+  selected: z.boolean().optional().default(false),
+  sourceHandle: z.string().nullable().optional(),
+  targetHandle: z.string().nullable().optional(),
+  segments: z.array(z.unknown()).optional(),
+  color: z.unknown().optional(),
+});
+export type Edge = z.infer<typeof edgeZ>;
+
 const graphStateZ = z.object({
   editable: z.boolean(),
   fitViewOnResize: z.boolean(),
-  viewport: Diagram.viewportZ,
+  viewport: z.object({ position: xy.xyZ, zoom: z.number() }),
+  selected: z.array(z.string()).default([]),
   nodes: z
     .array(z.any())
-    .transform((nodes) => nodes.filter((node) => Diagram.nodeZ.safeParse(node).success))
-    .pipe(z.array(Diagram.nodeZ)),
+    .transform((nodes) => nodes.filter((node) => nodeZ.safeParse(node).success))
+    .pipe(z.array(nodeZ)),
   edges: z
     .array(z.any())
-    .transform((edges) => edges.filter((edge) => Diagram.edgeZ.safeParse(edge).success))
-    .pipe(z.array(Diagram.edgeZ)),
+    .transform((edges) => edges.filter((edge) => edgeZ.safeParse(edge).success))
+    .pipe(z.array(edgeZ)),
   props: z.record(z.string(), nodePropsZ),
 });
 
@@ -57,15 +85,15 @@ export interface State extends z.infer<typeof stateZ> {}
 
 export const copyBufferZ = z.object({
   pos: xy.xyZ,
-  nodes: z.array(Diagram.nodeZ),
+  nodes: z.array(nodeZ),
   edges: z.array(z.unknown()),
   props: z.record(z.string(), z.unknown()),
 });
 
 export interface CopyBuffer {
   pos: xy.Crude;
-  nodes: Diagram.Node[];
-  edges: Diagram.Edge[];
+  nodes: Node[];
+  edges: Edge[];
   props: Record<string, NodeProps>;
 }
 
@@ -97,6 +125,7 @@ export const ZERO_GRAPH_STATE: GraphState = {
   editable: true,
   fitViewOnResize: false,
   viewport: { position: xy.ZERO, zoom: 1 },
+  selected: [],
   nodes: [],
   edges: [],
   props: {},

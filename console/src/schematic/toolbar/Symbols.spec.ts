@@ -20,7 +20,7 @@ describe("Symbols toolbar", () => {
     });
 
     it("should include all non-custom registry entries", () => {
-      const allKeys = Object.keys(Schematic.Symbol.REGISTRY);
+      const allKeys = Object.keys(Schematic.Node.REGISTRY);
       const expectedKeys = allKeys.filter((k) => !CUSTOM_VARIANTS.has(k));
       const actualKeys = ALL_STATIC_SYMBOLS.map((s) => s.key);
       expect(actualKeys).toEqual(expect.arrayContaining(expectedKeys));
@@ -29,7 +29,7 @@ describe("Symbols toolbar", () => {
 
     it("custom variants should exist in the registry", () => {
       for (const variant of CUSTOM_VARIANTS)
-        expect(Schematic.Symbol.REGISTRY).toHaveProperty(variant);
+        expect(Schematic.Node.REGISTRY).toHaveProperty(variant);
     });
   });
 });
