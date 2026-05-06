@@ -99,26 +99,54 @@ type Action struct {
 }
 
 // Reduce applies the action to the given state by dispatching on Type to the
-// matching payload's Handle method. Unknown action types return state unchanged.
+// matching payload's Handle method. Unknown action types and actions with a nil
+// payload pointer for the named Type return state unchanged.
 func (a Action) Reduce(state Schematic) (Schematic, error) {
 	switch a.Type {
 	case ActionTypeSetNodePosition:
+		if a.SetNodePosition == nil {
+			return state, nil
+		}
 		return a.SetNodePosition.Handle(state)
 	case ActionTypeSetNodeMeasured:
+		if a.SetNodeMeasured == nil {
+			return state, nil
+		}
 		return a.SetNodeMeasured.Handle(state)
 	case ActionTypeSetNode:
+		if a.SetNode == nil {
+			return state, nil
+		}
 		return a.SetNode.Handle(state)
 	case ActionTypeRemoveNode:
+		if a.RemoveNode == nil {
+			return state, nil
+		}
 		return a.RemoveNode.Handle(state)
 	case ActionTypeSetEdge:
+		if a.SetEdge == nil {
+			return state, nil
+		}
 		return a.SetEdge.Handle(state)
 	case ActionTypeRemoveEdge:
+		if a.RemoveEdge == nil {
+			return state, nil
+		}
 		return a.RemoveEdge.Handle(state)
 	case ActionTypeSetConfig:
+		if a.SetConfig == nil {
+			return state, nil
+		}
 		return a.SetConfig.Handle(state)
 	case ActionTypeSetAuthority:
+		if a.SetAuthority == nil {
+			return state, nil
+		}
 		return a.SetAuthority.Handle(state)
 	case ActionTypeSetLegend:
+		if a.SetLegend == nil {
+			return state, nil
+		}
 		return a.SetLegend.Handle(state)
 	default:
 		return state, nil

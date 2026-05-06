@@ -390,4 +390,36 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
+	Describe("Action envelope", func() {
+		It("Should return state unchanged when Type is unrecognized", func() {
+			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
+			Expect(MustSucceed(schematic.Action{Type: "totally_made_up"}.Reduce(state))).To(Equal(state))
+		})
+
+		It("Should return state unchanged when Type names a variant whose payload pointer is nil", func() {
+			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodePosition}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNode}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveNode}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetEdge}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveEdge}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetConfig}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetAuthority}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetLegend}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodeMeasured}.Reduce(state))).To(Equal(state))
+		})
+
+		It("Should dispatch on Type and ignore extra payload pointers when more than one is set", func() {
+			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
+			pos := schematic.SetNodePosition{Key: "n1", Position: spatial.XY{X: 50, Y: 60}}
+			edge := schematic.SetEdge{Edge: edge("e_extra", "n1", "o", "n2", "i")}
+			out := MustSucceed(schematic.Action{
+				Type:            schematic.ActionTypeSetNodePosition,
+				SetNodePosition: &pos,
+				SetEdge:         &edge,
+			}.Reduce(state))
+			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
+			Expect(out.Edges).To(BeEmpty())
+		})
+	})
 })

@@ -135,7 +135,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		return nil, err
 	}
 	if cfg.Signals != nil {
-		translated := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
+		actions := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
 			Observable: s.actionObserver,
 			Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
 				b, err := json.Marshal(sa)
@@ -149,11 +149,15 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		}
 		var sig stdio.Closer
 		if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
-			Name:          "schematic_actions",
-			Observable:    translated,
-			SetChannel:    channel.Channel{Name: "sy_schematic_set", DataType: telem.JSONT, Internal: true},
-			DeleteChannel: channel.Channel{Name: "sy_schematic_delete", DataType: telem.UUIDT, Internal: true},
+			Name:       "schematic_actions",
+			Observable: actions,
+			SetChannel: channel.Channel{Name: "sy_schematic_set", DataType: telem.JSONT, Internal: true},
 		}); !ok(err, sig) {
+			return nil, err
+		}
+		deleteCfg := signals.GorpPublisherConfigUUID[Schematic](s.table.Observe())
+		deleteCfg.DisableSet = true
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
 			return nil, err
 		}
 	}

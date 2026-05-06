@@ -245,11 +245,15 @@ type Action struct {
 }
 
 // Reduce applies the action to the given state by dispatching on Type to the
-// matching payload's Handle method. Unknown action types return state unchanged.
+// matching payload's Handle method. Unknown action types and actions with a nil
+// payload pointer for the named Type return state unchanged.
 func (a Action) Reduce(state {{.TargetType}}) ({{.TargetType}}, error) {
 	switch a.Type {
 {{- range .Actions}}
 	case ActionType{{.Name}}:
+		if a.{{.Name}} == nil {
+			return state, nil
+		}
 		return a.{{.Name}}.Handle(state)
 {{- end}}
 	default:

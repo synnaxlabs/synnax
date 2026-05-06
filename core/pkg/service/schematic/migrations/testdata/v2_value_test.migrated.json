@@ -56,12 +56,7 @@
   "edges": [],
   "configs": {
     "0etHSmJzqSY": {
-      "color": [
-        213,
-        35,
-        35,
-        1
-      ],
+      "color": [213, 35, 35, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -117,19 +112,12 @@
         "valueType": "string",
         "variant": "source"
       },
-      "tooltip": [
-        ""
-      ],
+      "tooltip": [""],
       "units": "",
       "variant": "value"
     },
     "2TGioMPbMkt": {
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "control": {
         "show": true
       },
@@ -214,12 +202,7 @@
       "variant": "solenoidValve"
     },
     "68amMvlz9ZC": {
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "inlineSize": 110,
       "label": {
         "align": "end",
@@ -279,19 +262,9 @@
       "variant": "value"
     },
     "AzjrlhbMa9R": {
-      "backgroundColor": [
-        250,
-        250,
-        250,
-        0
-      ],
+      "backgroundColor": [250, 250, 250, 0],
       "borderRadius": 3,
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "dimensions": {
         "height": 200,
         "width": 125
@@ -308,12 +281,7 @@
       "variant": "box"
     },
     "VuTwqDPoTle": {
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "inlineSize": 70,
       "label": {
         "align": "center",
@@ -373,12 +341,7 @@
       "variant": "value"
     },
     "dgTg9E3zfyn": {
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "control": {
         "show": true
       },
@@ -462,12 +425,7 @@
       "variant": "threeWayValve"
     },
     "peHDkIvvdus": {
-      "color": [
-        28,
-        28,
-        28,
-        1
-      ],
+      "color": [28, 28, 28, 1],
       "control": {
         "show": true
       },
