@@ -7,20 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, CSS, Flex, type Text, Theming } from "@synnaxlabs/charon";
 import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Component } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
-import { type Text } from "@synnaxlabs/charon";
-import { Theming } from "@synnaxlabs/charon";
 import { Workspace } from "@/workspace";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 

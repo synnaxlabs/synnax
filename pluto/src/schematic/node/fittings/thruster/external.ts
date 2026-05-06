@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/charon";
+
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
@@ -14,7 +16,6 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type Config, VARIANT } from "@/schematic/node/fittings/thruster/config";
 import { Primitive } from "@/schematic/node/fittings/thruster/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/fittings/thruster/config";
 

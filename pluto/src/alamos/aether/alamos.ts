@@ -8,9 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { z } from "zod";
-
 import { aether } from "@synnaxlabs/charon";
+import { z } from "zod";
 
 export const providerStateZ = z.object({
   include: z.string().array().optional(),

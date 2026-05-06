@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { canDisable, type CanDisabledProps, Haul } from "@synnaxlabs/charon";
+import { Aether, canDisable, type CanDisabledProps, Haul, Status as StatusBase, Theming, Tooltip, Triggers, Worker } from "@synnaxlabs/charon";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";
-import { Aether } from "@synnaxlabs/charon";
 import { Alamos } from "@/alamos";
 import { Arc } from "@/arc";
 import { Channel } from "@/channel";
@@ -29,18 +28,13 @@ import { Ranger } from "@/ranger";
 import { ranger } from "@/ranger/aether";
 import { Schematic } from "@/schematic";
 import { Status } from "@/status";
-import { Status as StatusBase } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 import { Table } from "@/table";
 import { Task } from "@/task";
 import { Telem } from "@/telem";
 import { Control } from "@/telem/control";
-import { Theming } from "@synnaxlabs/charon";
-import { Tooltip } from "@synnaxlabs/charon";
-import { Triggers } from "@synnaxlabs/charon";
 import { User } from "@/user";
 import { View } from "@/view";
-import { Worker } from "@synnaxlabs/charon";
 import { Workspace } from "@/workspace";
 
 const CanDisableTelem = canDisable<Telem.ProviderProps>(Telem.Provider);

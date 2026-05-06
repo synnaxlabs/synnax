@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether, status } from "@synnaxlabs/charon";
 import z from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { base } from "@/flux/base";
-import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 
 /** State schema for the flux provider (currently empty) */

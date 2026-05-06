@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, type Input } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 export interface PolygonFormProps {

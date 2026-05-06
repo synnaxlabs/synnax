@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
+import { Aether, context, Status, useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon";
 import {
   type connection,
   Synnax,
@@ -18,9 +18,6 @@ import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {

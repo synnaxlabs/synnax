@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
 import { type status } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
-import { mockBoundingClientRect } from "@synnaxlabs/charon";
 
 describe("SelectVariant", () => {
   beforeAll(() => {

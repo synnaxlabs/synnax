@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type aether } from "@synnaxlabs/charon";
+
 import { Annotation } from "@/lineplot/range/aether/annotation";
 import { Provider } from "@/lineplot/range/aether/provider";
 

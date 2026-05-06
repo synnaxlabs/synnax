@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether } from "@synnaxlabs/charon";
 import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { aether } from "@synnaxlabs/charon";
 
 const stateZ = z.object({
   props: synnaxParamsZ.nullable(),

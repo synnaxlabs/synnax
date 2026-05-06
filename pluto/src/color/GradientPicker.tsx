@@ -9,18 +9,11 @@
 
 import "@/color/GradientPicker.css";
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { CSS, Flex, type Input, stopPropagation, Text, Triggers, useCombinedStateAndRef, useCursorDrag, useSyncedRef } from "@synnaxlabs/charon";
 import { box, clamp, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
-import { useCursorDrag } from "@synnaxlabs/charon";
-import { type Input } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
-import { Triggers } from "@synnaxlabs/charon";
 interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;
 }

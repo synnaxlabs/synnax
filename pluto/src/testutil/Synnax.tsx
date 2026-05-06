@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aetherTest, Status,status } from "@synnaxlabs/charon";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
-import { aetherTest } from "@synnaxlabs/charon";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Pluto } from "@/pluto";
-import { status } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether, type Theming, theming } from "@synnaxlabs/charon";
 import {
   bounds,
   box,
@@ -19,8 +20,6 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether, Theming } from "@synnaxlabs/charon";
-import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";

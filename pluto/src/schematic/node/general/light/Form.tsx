@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Input, Tabs } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
-import { Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
-import { Tabs } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { type Toggle } from "@/vis/toggle";
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}

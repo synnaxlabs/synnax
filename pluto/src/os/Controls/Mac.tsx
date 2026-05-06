@@ -9,11 +9,9 @@
 
 import "@/os/Controls/Mac.css";
 
+import { type Button, CSS, Flex } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
-import { type Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Icon = {

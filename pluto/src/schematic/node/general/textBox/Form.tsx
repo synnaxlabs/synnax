@@ -7,17 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button, Flex, Icon, Input, type Text } from "@synnaxlabs/charon";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Button } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Icon } from "@synnaxlabs/charon";
-import { Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
-import { type Text } from "@synnaxlabs/charon";
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
   borderLeft: "var(--pluto-border-l5)",
 };

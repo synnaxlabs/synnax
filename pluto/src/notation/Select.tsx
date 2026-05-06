@@ -9,11 +9,10 @@
 
 import "@/notation/Select.css";
 
+import { CSS, Icon } from "@synnaxlabs/charon";
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { Select as BaseSelect } from "@/select";
 
 export interface SelectNotationProps extends Omit<

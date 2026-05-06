@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
@@ -15,7 +16,6 @@ import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/
 import { Primitive } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/offPageReference/config";
 

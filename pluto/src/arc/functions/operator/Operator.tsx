@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Text } from "@synnaxlabs/charon";
 import { type FC } from "react";
 
 import { Minimal } from "@/arc/functions/Base";
-import { Icon } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export const createOperator = (
   operator: string,
   single: boolean = false,

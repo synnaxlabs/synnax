@@ -9,14 +9,9 @@
 
 import "@/vis/legend/Container.css";
 
-import { Input, preventDefault, state } from "@synnaxlabs/charon";
+import { CSS, Flex, type Input, preventDefault, state, useCursorDrag, useSyncedRef } from "@synnaxlabs/charon";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useRef } from "react";
-
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
-import { useCursorDrag } from "@synnaxlabs/charon";
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;

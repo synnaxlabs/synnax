@@ -9,7 +9,7 @@
 
 import "@/lineplot/Axis.css";
 
-import { useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether, CSS, Flex, Key, Text, Theming, useMemoDeepEqual } from "@synnaxlabs/charon";
 import { type bounds, direction } from "@synnaxlabs/x";
 import {
   type FC,
@@ -20,10 +20,6 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { Key } from "@synnaxlabs/charon";
 import { lineplot } from "@/lineplot/aether";
 import {
   baseAxisStateZ,
@@ -31,8 +27,6 @@ import {
   withinSizeThreshold,
 } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/LinePlot";
-import { Text } from "@synnaxlabs/charon";
-import { Theming } from "@synnaxlabs/charon";
 
 export interface AxisProps
   extends

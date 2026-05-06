@@ -9,16 +9,12 @@
 
 import "@/telem/control/Indicator.css";
 
-import { useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether, CSS, Text, Tooltip, useMemoDeepEqual } from "@synnaxlabs/charon";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
-import { Text } from "@synnaxlabs/charon";
-import { Tooltip } from "@synnaxlabs/charon";
 export interface IndicatorProps
   extends
     Omit<z.input<typeof control.indicatorStateZ>, "status" | "color">,

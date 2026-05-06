@@ -9,18 +9,11 @@
 
 import "@/log/Log.css";
 
+import { Button, CSS, type Flex, Icon, Menu, Status, Triggers, useCombinedRefs } from "@synnaxlabs/charon";
 import { box, location, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { type Flex } from "@synnaxlabs/charon";
-import { useCombinedRefs } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { use, type UseProps } from "@/log/use";
-import { Menu } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
-import { Triggers } from "@synnaxlabs/charon";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];

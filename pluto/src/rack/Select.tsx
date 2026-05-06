@@ -7,18 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, type Dialog, Icon, Text } from "@synnaxlabs/charon";
 import { type rack } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component } from "@synnaxlabs/charon";
-import { type Dialog } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { type ListQuery, useList } from "@/rack/queries";
 import { StatusIndicator } from "@/rack/StatusIndicator";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
 export interface SelectSingleProps
   extends
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,

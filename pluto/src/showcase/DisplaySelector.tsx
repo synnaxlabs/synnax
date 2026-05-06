@@ -7,12 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button, Flex, Text } from "@synnaxlabs/charon";
 import { caseconv } from "@synnaxlabs/x";
 
-import { Button } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
+
 import { DISPLAY } from "./constants";
 
 interface DisplaySelectorProps {

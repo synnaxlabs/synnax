@@ -9,18 +9,15 @@
 
 import "@/device/Select.css";
 
+import { Component, CSS, Icon, Text } from "@synnaxlabs/charon";
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
 import { type ListParams, useList } from "@/device/queries";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);

@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button, Flex, Icon, Text } from "@synnaxlabs/charon";
 import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useState } from "react";
 
-import { Button } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { Flex } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
 import { Form as Base } from "@/form";
-import { Icon } from "@synnaxlabs/charon";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
 const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 
 interface RegionControlsProps {

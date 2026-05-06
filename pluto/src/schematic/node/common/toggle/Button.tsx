@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS } from "@synnaxlabs/charon";
 import { color, type CrudeTimeSpan, TimeSpan } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithRef,
@@ -16,7 +17,6 @@ import {
   useRef,
 } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface ButtonBaseProps extends Omit<

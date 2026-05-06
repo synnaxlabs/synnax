@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Text, Theming } from "@synnaxlabs/charon";
 import { box, scale, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
@@ -16,8 +17,6 @@ import { type Config } from "@/schematic/node/general/value/config";
 import { Primitive } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Text } from "@synnaxlabs/charon";
-import { Theming } from "@synnaxlabs/charon";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);

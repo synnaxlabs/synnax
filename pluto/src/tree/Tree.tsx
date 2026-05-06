@@ -7,18 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Haul, state } from "@synnaxlabs/charon";
+import { type Component, CSS, Haul, state, Triggers, useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { type Component } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
-import { Triggers } from "@synnaxlabs/charon";
 export const HAUL_TYPE = "tree_item";
 
 export interface HaulData {

@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/charon";
+import { Dialog, state, Triggers, useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Dialog } from "@synnaxlabs/charon";
-import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
-import { Triggers } from "@synnaxlabs/charon";
 export interface UseHoverProps<K extends record.Key> {
   initialHover?: number;
   data: K[];

@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { aether, status } from "@synnaxlabs/charon";
 import { UnexpectedError } from "@synnaxlabs/client";
 import {
   bounds,
@@ -27,9 +28,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { status } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";

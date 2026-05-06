@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether, text, theming } from "@synnaxlabs/charon";
 import { box, color, location, notation, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
-import { text } from "@synnaxlabs/charon";
-import { theming } from "@synnaxlabs/charon";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";

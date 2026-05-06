@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, Icon, Text } from "@synnaxlabs/charon";
 import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
-import { Component } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,

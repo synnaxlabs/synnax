@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Text } from "@synnaxlabs/charon";
 import { color, status } from "@synnaxlabs/x";
 import z from "zod/v4";
 
 import { Base } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
-import { Icon } from "@synnaxlabs/charon";
 import { Status } from "@/status";
-import { Text } from "@synnaxlabs/charon";
 export const config = z.object({
   statusKey: z.string(),
   variant: status.variantZ,

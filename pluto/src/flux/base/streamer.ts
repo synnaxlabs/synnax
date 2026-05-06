@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Status } from "@synnaxlabs/charon";
 import { framer, NotFoundError, type Synnax } from "@synnaxlabs/client";
 import { DataType, type destructor, strings, unique } from "@synnaxlabs/x";
 import type z from "zod";
 
 import { type ChannelListener, type Store, type StoreConfig } from "@/flux/base/store";
-import { type Status } from "@synnaxlabs/charon";
 
 /**
  * Sorts channel names to ensure deletions are processed before other changes.

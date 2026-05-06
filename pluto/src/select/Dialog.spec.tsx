@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dialog } from "@synnaxlabs/charon";
 import { status } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Dialog } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 
 describe("Select.Dialog", () => {

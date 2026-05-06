@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Icon } from "@synnaxlabs/charon";
 import { type group } from "@synnaxlabs/client";
 
-import { type Icon } from "@synnaxlabs/charon";
 import { GROUP as fittings } from "@/schematic/node/fittings/group";
 import { GROUP as general } from "@/schematic/node/general/group";
 import { GROUP as meters } from "@/schematic/node/meters/group";

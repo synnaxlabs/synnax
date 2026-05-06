@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/charon";
+
 import { Constant } from "@/arc/functions/constant";
 import { Operator } from "@/arc/functions/operator";
 import { Select } from "@/arc/functions/select";
@@ -15,7 +17,6 @@ import { Source } from "@/arc/functions/source";
 import { StableFor } from "@/arc/functions/stable";
 import { Status } from "@/arc/functions/status";
 import { type Spec } from "@/arc/functions/types/spec";
-import { Icon } from "@synnaxlabs/charon";
 export const REGISTRY: Record<string, Spec<any>> = {
   ...Source.SYMBOLS,
   ...Sink.SYMBOLS,

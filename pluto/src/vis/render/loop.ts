@@ -8,8 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-
 import { type status } from "@synnaxlabs/charon";
+
 import { type CanvasVariant } from "@/vis/render/context";
 
 /**

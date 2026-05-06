@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { aether, status, theming } from "@synnaxlabs/charon";
 import {
   type channel,
   control,
@@ -17,11 +18,8 @@ import {
 import { color, type destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
-import { theming } from "@synnaxlabs/charon";
 
 export const stateProviderStateZ = z.object({});
 

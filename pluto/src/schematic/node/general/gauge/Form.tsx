@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, type Input, Tabs, type Text } from "@synnaxlabs/charon";
 import { type ReactElement, useCallback } from "react";
 
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Select } from "@/select";
-import { Tabs } from "@synnaxlabs/charon";
-import { type Text } from "@synnaxlabs/charon";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {

@@ -9,12 +9,9 @@
 
 import "@/os/Controls/Windows.css";
 
+import { Button as BaseButton, CSS, Flex, Icon } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
-import { Button as BaseButton } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { type InternalControlsProps } from "@/os/Controls/types";
 
 export const Windows = ({

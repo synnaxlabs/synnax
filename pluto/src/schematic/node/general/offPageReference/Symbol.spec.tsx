@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Theming } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Primitive as OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
-import { Theming } from "@synnaxlabs/charon";
 
 const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Theming.Provider>{children}</Theming.Provider>

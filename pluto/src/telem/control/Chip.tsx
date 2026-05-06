@@ -7,18 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether, Button, CSS, Icon, Text, useMemoDeepEqual } from "@synnaxlabs/charon";
 import { control as clientControl } from "@synnaxlabs/client";
 import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
-import { Text } from "@synnaxlabs/charon";
 export interface ChipProps
   extends
     Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,

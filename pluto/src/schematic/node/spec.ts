@@ -7,11 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Tabs, type Theming } from "@synnaxlabs/charon";
 import { type xy } from "@synnaxlabs/x";
 import { type FC } from "react";
-
-import { type Tabs } from "@synnaxlabs/charon";
-import { type Theming } from "@synnaxlabs/charon";
 
 export interface FormProps extends Pick<Tabs.TabsProps, "actions"> {
   schematicKey?: string;

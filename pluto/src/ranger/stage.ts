@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/charon";
 import { type ranger } from "@synnaxlabs/client";
 import {
   type CrudeTimeRange,
@@ -15,8 +16,6 @@ import {
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
-
-import { Icon } from "@synnaxlabs/charon";
 export const STAGES = ["to_do", "in_progress", "completed"] as const;
 
 export type Stage = (typeof STAGES)[number];

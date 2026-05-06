@@ -7,20 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Haul } from "@synnaxlabs/charon";
+import { Button, Caret, Component, CSS, Dialog, Haul, Icon, Tag, Text, useSyncedRef } from "@synnaxlabs/charon";
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Button } from "@synnaxlabs/charon";
-import { Caret } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Dialog } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useContext, useItemState, useSelection } from "@/select/Frame";
-import { Tag } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
   color?: color.Crude;

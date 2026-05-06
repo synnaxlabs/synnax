@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Aether } from "@synnaxlabs/charon";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 
 export interface ProviderProps extends PropsWithChildren<any> {}

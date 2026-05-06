@@ -7,16 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, Icon, Status, Text } from "@synnaxlabs/charon";
 import { type status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component, Status } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select as Base } from "@/select";
 import { type ListParams, useList } from "@/status/queries";
-import { Text } from "@synnaxlabs/charon";
 export interface SelectProps
   extends
     Omit<

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Breadcrumb as Base } from "@synnaxlabs/charon";
 import { type ranger } from "@synnaxlabs/client";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
-import { Breadcrumb as Base } from "@synnaxlabs/charon";
 import { StageIcon } from "@/ranger/StageIcon";
 
 export interface BreadcrumbProps extends Omit<Base.BreadcrumbProps, "children"> {

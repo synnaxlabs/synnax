@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dialog } from "@synnaxlabs/charon";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Dialog } from "@synnaxlabs/charon";
 import { type List } from "@/list";
 import { Dialog as SelectDialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type SingleFrameProps } from "@/select/Frame";

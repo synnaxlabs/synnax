@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { resolveIcon } from "@/channel/resolveIcon";
-import { Icon } from "@synnaxlabs/charon";
 describe("resolveIcon", () => {
   it("should return Icon.Channel when no channel is provided", () => {
     expect(resolveIcon()).toBe(Icon.Channel);

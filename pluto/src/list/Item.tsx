@@ -9,10 +9,9 @@
 
 import "@/list/Item.css";
 
+import { Button, type Component, CSS, Menu } from "@synnaxlabs/charon";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Button, Component, CSS, Menu, Triggers } from "@synnaxlabs/charon";
 export interface ItemRenderProps<K extends record.Key = record.Key> {
   index: number;
   key: K;

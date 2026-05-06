@@ -7,16 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Aether, type Component, Flex, Key, Menu, useSyncedRef } from "@synnaxlabs/charon";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { Aether, Component } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
-import { Key } from "@synnaxlabs/charon";
 import { useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { range } from "@/lineplot/range/aether";
-import { Menu } from "@synnaxlabs/charon";
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;

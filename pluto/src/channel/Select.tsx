@@ -7,15 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, Icon } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
-import { Component } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
 

@@ -9,13 +9,9 @@
 
 import "@/color/Swatch.css";
 
-import { Haul } from "@synnaxlabs/charon";
+import { Button, CSS, Haul, Theming } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
-
-import { Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Theming } from "@synnaxlabs/charon";
 
 export const HAUL_TYPE = "color";
 

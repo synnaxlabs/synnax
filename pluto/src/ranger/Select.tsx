@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, CSS, type Dialog, Flex, Icon, Tag } from "@synnaxlabs/charon";
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { type Dialog } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListQuery, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
 import { Select as Base } from "@/select";
-import { Tag } from "@synnaxlabs/charon";
 import { Telem } from "@/telem";
 
 export interface SelectProps

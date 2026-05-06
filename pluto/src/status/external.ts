@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export * from "@synnaxlabs/charon/status";
 export * from "@/status/queries";
 export * from "@/status/Select";
 export * from "@/status/SelectMultipleVariants";
 export * from "@/status/SelectVariant";
+export * from "@synnaxlabs/charon/status";

@@ -9,17 +9,14 @@
 
 import "@/select/Dialog.css";
 
+import { CSS, Dialog as BaseDialog, Status, Text } from "@synnaxlabs/charon";
 import { type record, type status } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 import { type z } from "zod";
 
-import { CSS } from "@synnaxlabs/charon";
-import { Dialog as BaseDialog } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
-import { Status } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export interface DialogProps<K extends record.Key>
   extends
     Omit<BaseDialog.DialogProps, "children">,

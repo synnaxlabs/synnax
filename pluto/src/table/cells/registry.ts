@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { type FC } from "react";
 import { z } from "zod";
@@ -20,7 +21,6 @@ import {
 } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@synnaxlabs/charon";
 import { Value as BaseValue } from "@/vis/value";
 
 const VARIANTS = ["text", "value"] as const;

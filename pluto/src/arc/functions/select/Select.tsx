@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, Icon } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 
 import { Minimal } from "@/arc/functions/Base";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 const ORANGE_HEX = color.construct("#FF8A00");
 
 export const Symbol = () => (

@@ -7,15 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button, Icon, Input, Status, Text } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useState } from "react";
 
-import { Button } from "@synnaxlabs/charon";
 import { useRetrieve, useUpdateAlias } from "@/channel/queries";
-import { Icon } from "@synnaxlabs/charon";
-import { Input } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Tabs } from "@synnaxlabs/charon";
 import { direction } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { Tabs } from "@synnaxlabs/charon";
 /**
  * Base interface for a mosaic node in the tree. Used to make sure that
  * zod type inference works correctly with recursive types.

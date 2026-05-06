@@ -9,7 +9,7 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
-import { Haul, triggerReflow } from "@synnaxlabs/charon";
+import { Button, CSS, Flex, Haul, Icon, triggerReflow, useSyncedRef } from "@synnaxlabs/charon";
 import { location } from "@synnaxlabs/x";
 import {
   Children,
@@ -28,11 +28,6 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { selectNode } from "@/vis/diagram/util";
 
 type DraggableElement = ReactElement<{

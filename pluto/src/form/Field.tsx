@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, CSS, Input } from "@synnaxlabs/charon";
 import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { Component } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
-import { Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>

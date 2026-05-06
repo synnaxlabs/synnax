@@ -9,6 +9,7 @@
 
 import "@/lineplot/Viewport.css";
 
+import { CSS } from "@synnaxlabs/charon";
 import { box, xy } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -17,7 +18,6 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
 import { useContext } from "@/lineplot/LinePlot";
 import { Viewport as Base } from "@/viewport";
 

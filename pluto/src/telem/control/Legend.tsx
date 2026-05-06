@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type state } from "@synnaxlabs/charon";
+import { Aether, CSS, Flex, Icon, type state, Text } from "@synnaxlabs/charon";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Aether } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Text } from "@synnaxlabs/charon";
 import { Legend as Base } from "@/vis/legend";
 
 const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;

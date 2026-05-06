@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Status, useInitializerRef, useSyncedRef } from "@synnaxlabs/charon";
 import { deep, type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 import { type z } from "zod";
@@ -19,8 +20,6 @@ import {
   type SetFunc,
 } from "@/form/Context";
 import { type FieldState, type GetOptions, State } from "@/form/state";
-import { useInitializerRef, useSyncedRef } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
 
 export interface OnChangeArgs<Z extends z.ZodType> {
   /** The values in the form AFTER the change. */

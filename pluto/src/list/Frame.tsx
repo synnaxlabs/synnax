@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
+import { context, Dialog, useCombinedRefs, usePrevious, useSyncedRef } from "@synnaxlabs/charon";
 import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {
@@ -21,9 +21,6 @@ import {
   useRef,
   useSyncExternalStore,
 } from "react";
-
-import { Dialog } from "@synnaxlabs/charon";
-import { useCombinedRefs, usePrevious, useSyncedRef } from "@synnaxlabs/charon";
 /**
  * Function interface for getting items from a list by key(s).
  *

@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, Icon, Text } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
+
 import { SubcategorySection } from "./SubcategorySection";
 
 const SelectMultiple = () => {

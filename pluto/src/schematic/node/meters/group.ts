@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/charon";
+
 import { type Group } from "@/schematic/node/group";
 
 export const GROUP: Group = {

@@ -9,7 +9,7 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { Haul, Portal } from "@synnaxlabs/charon";
+import { CSS, type Flex, Haul, Portal, Tabs } from "@synnaxlabs/charon";
 import { type box, type location, type xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
@@ -21,13 +21,10 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
 import { Errors } from "@/errors";
-import { type Flex } from "@synnaxlabs/charon";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
-import { Tabs } from "@synnaxlabs/charon";
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
   extends

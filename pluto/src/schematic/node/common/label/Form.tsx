@@ -7,15 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, type Input, type Text } from "@synnaxlabs/charon";
 import { type direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { type Text } from "@synnaxlabs/charon";
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };

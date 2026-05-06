@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { aether, status, theming } from "@synnaxlabs/charon";
 import { ranger, type Synnax } from "@synnaxlabs/client";
 import {
   bounds,
@@ -21,12 +22,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { flux } from "@/flux/aether";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
-import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 

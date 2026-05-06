@@ -7,12 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether, text, useMemoDeepEqual } from "@synnaxlabs/charon";
 import { useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { text } from "@synnaxlabs/charon";
 import { gauge } from "@/vis/gauge/aether";
 
 export const basePropsZ = gauge.Gauge.z

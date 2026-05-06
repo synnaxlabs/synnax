@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useInitializerRef } from "@synnaxlabs/charon";
 import { array, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { useInitializerRef } from "@synnaxlabs/charon";
 import { type FrameProps } from "@/list/Frame";
 
 interface GetItem<

@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/charon";
 import { type xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
-
-import { Triggers } from "@synnaxlabs/charon";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {

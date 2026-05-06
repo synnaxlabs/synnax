@@ -7,19 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Component, Flex, Input, Tabs } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Select } from "@/select";
-import { Input } from "@synnaxlabs/charon";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Tabs } from "@synnaxlabs/charon";
+import { Select } from "@/select";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Input as BaseInput } from "@/vis/input";

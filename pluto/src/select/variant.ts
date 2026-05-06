@@ -7,9 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Button } from "@synnaxlabs/charon";
-import { type Dialog } from "@synnaxlabs/charon";
-
+import { type Button, type Dialog } from "@synnaxlabs/charon";
 export type Variant = Dialog.FrameProps["variant"] | "preview";
 
 export const transformDialogVariant = (

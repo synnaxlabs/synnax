@@ -9,11 +9,6 @@
 
 import "@/input/DateTime.css";
 
-import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
-import compromise from "compromise";
-import compromiseDates, { type DatesMethods } from "compromise-dates";
-import { type CSSProperties, type FC, type ReactElement, useState } from "react";
-
 import {
   Button,
   Component,
@@ -31,6 +26,10 @@ import {
   type TextProps,
 } from "@synnaxlabs/charon/input";
 import { Text as TelemText } from "@synnaxlabs/charon/telem";
+import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
+import compromise from "compromise";
+import compromiseDates, { type DatesMethods } from "compromise-dates";
+import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
 import { List } from "@/list";
 import { Nav } from "@/nav";

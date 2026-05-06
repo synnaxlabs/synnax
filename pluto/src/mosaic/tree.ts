@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Tabs } from "@synnaxlabs/charon";
 import { type direction, type location, type spatial } from "@synnaxlabs/x";
 
 import { type Node } from "@/mosaic/types";
-import { Tabs } from "@synnaxlabs/charon";
 /**
  * Inserts a tab into a node in the mosaic. If the given key is not found,
  * the tab is inserted into the closest ancestor. This is to deal

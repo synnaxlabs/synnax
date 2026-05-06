@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";
@@ -16,7 +17,6 @@ import { Primitive } from "@/schematic/node/general/stateIndicator/Primitive";
 import { Symbol } from "@/schematic/node/general/stateIndicator/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/stateIndicator/config";
 

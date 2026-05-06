@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { type aether, CSS, status } from "@synnaxlabs/charon";
 import {
   box,
   color,
@@ -18,10 +19,7 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { CSS } from "@synnaxlabs/charon";
-import { status } from "@synnaxlabs/charon";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";

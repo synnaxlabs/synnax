@@ -9,15 +9,14 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
+import { CSS, Theming } from "@synnaxlabs/charon";
 import { color, type dimensions } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
 import { Border } from "@/schematic/node/common/border";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/vessels/tank/config";
-import { Theming } from "@synnaxlabs/charon";
 
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;

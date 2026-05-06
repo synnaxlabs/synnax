@@ -7,14 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Text, type Tooltip, Triggers } from "@synnaxlabs/charon";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@synnaxlabs/charon";
-import { type Tooltip } from "@synnaxlabs/charon";
-import { Triggers } from "@synnaxlabs/charon";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Theming } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 
 import { Label } from "@/schematic/node/common/label";
@@ -15,7 +16,6 @@ import { type Config, VARIANT } from "@/schematic/node/vessels/cylinder/config";
 import { CylinderForm } from "@/schematic/node/vessels/cylinder/Form";
 import { Primitive } from "@/schematic/node/vessels/cylinder/Primitive";
 import { Symbol } from "@/schematic/node/vessels/cylinder/Symbol";
-import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/vessels/cylinder/config";
 

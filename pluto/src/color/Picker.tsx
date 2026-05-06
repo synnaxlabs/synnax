@@ -9,19 +9,13 @@
 
 import "@/color/Picker.css";
 
+import { Button, CSS, Flex, Icon, type Input, Text, useDebouncedCallback } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";
 
-import { Button } from "@synnaxlabs/charon";
 import { BaseSwatch } from "@/color/BaseSwatch";
 import { useFrequent, useFrequentUpdater } from "@/color/Provider";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { useDebouncedCallback } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
-import { type Input } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export interface PickerProps
   extends
     Input.Control<color.Crude, color.Color>,

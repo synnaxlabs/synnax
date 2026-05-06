@@ -7,16 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component, mockBoundingClientRect, Text, Triggers } from "@synnaxlabs/charon";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Component } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockBoundingClientRect } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
-import { Triggers } from "@synnaxlabs/charon";
 describe("Select.Multiple", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);

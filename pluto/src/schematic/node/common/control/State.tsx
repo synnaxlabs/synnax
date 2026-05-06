@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS, Flex } from "@synnaxlabs/charon";
 import { direction, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Grid } from "@/schematic/node/common/grid";
 import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";

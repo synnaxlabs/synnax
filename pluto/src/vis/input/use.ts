@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Aether } from "@synnaxlabs/charon";
+
 import { input } from "@/vis/input/aether";
 
 export interface UseProps extends Pick<input.State, "sink"> {

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/charon";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { type FC, type PropsWithChildren } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { Log } from "@/log/Log";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
-import { Triggers } from "@synnaxlabs/charon";
 // Partial Aether mock: only intercepts type "log" for controlling worker-computed
 // state (empty, scrolling, selectionStart, etc.). All other Aether consumers
 // (Status, Flux, etc.) get the real implementation via the test providers.

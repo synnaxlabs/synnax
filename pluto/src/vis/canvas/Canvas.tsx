@@ -9,6 +9,7 @@
 
 import "@/vis/canvas/Canvas.css";
 
+import { Aether, CSS, useCombinedRefs, useResize, type UseResizeHandler, type UseResizeOpts } from "@synnaxlabs/charon";
 import { box, runtime, scale, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
@@ -20,10 +21,6 @@ import {
   useRef,
 } from "react";
 
-import { Aether } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { type UseResizeHandler, type UseResizeOpts } from "@synnaxlabs/charon";
-import { useCombinedRefs, useResize } from "@synnaxlabs/charon";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<

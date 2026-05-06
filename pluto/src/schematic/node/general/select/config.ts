@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Component } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Component } from "@synnaxlabs/charon";
 import { Control } from "@/schematic/node/common/control";
 import { Label } from "@/schematic/node/common/label";
 import { stateMappingZ } from "@/schematic/node/general/stateIndicator/config";

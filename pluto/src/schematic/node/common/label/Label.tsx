@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { CSS, Flex, Text, text } from "@synnaxlabs/charon";
 import { direction, location } from "@synnaxlabs/x";
 import {
   type CSSProperties,
@@ -18,12 +19,8 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
 import { Grid } from "@/schematic/node/common/grid";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Text } from "@synnaxlabs/charon";
-import { text } from "@synnaxlabs/charon";
 
 export const configZ = z.object({
   label: z.string().optional(),

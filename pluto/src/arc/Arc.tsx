@@ -9,9 +9,9 @@
 
 import "@/arc/Arc.css";
 
+import { CSS } from "@synnaxlabs/charon";
 import { type FC, type ReactElement } from "react";
 
-import { CSS } from "@synnaxlabs/charon";
 import { Diagram } from "@/vis/diagram";
 
 export type ArcProps = Diagram.DiagramProps;

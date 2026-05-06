@@ -7,14 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Dialog, Triggers, useSyncedRef } from "@synnaxlabs/charon";
 import { array, type optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Dialog } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
-import { Triggers } from "@synnaxlabs/charon";
 /**
  * Extra information passed as an additional argument to the `onChange` callback.
  * of the {@link useMultiple} hook.

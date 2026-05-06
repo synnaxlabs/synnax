@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { aether, status } from "@synnaxlabs/charon";
 import { type Synnax } from "@synnaxlabs/client";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 import { Context, CONTEXT_KEY, setContext } from "@/telem/aether/context";
 import { CompoundFactory, createFactory, type Factory } from "@/telem/aether/factory";

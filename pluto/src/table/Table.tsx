@@ -9,7 +9,7 @@
 
 import "@/table/Table.css";
 
-import { stopPropagation } from "@synnaxlabs/charon";
+import { Aether, CSS, Menu, stopPropagation, Text, useCursorDrag, useSyncedRef } from "@synnaxlabs/charon";
 import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
@@ -21,13 +21,7 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { useSyncedRef } from "@synnaxlabs/charon";
-import { useCursorDrag } from "@synnaxlabs/charon";
-import { Menu } from "@synnaxlabs/charon";
 import { table } from "@/table/aether";
-import { Text } from "@synnaxlabs/charon";
 import { Canvas } from "@/vis/canvas";
 
 export interface TableProps

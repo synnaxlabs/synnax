@@ -9,15 +9,13 @@
 
 import "@/table/cells/Cells.css";
 
+import { CSS, Menu, Text as BaseText } from "@synnaxlabs/charon";
 import { type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";
 
-import { CSS } from "@synnaxlabs/charon";
-import { Menu } from "@synnaxlabs/charon";
 import { Cell as Base } from "@/table/Table";
 import { telem } from "@/telem/aether";
-import { Text as BaseText } from "@synnaxlabs/charon";
 import { Value as BaseValue } from "@/vis/value";
 
 export const TEXT_TYPE = "text";

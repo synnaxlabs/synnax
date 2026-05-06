@@ -7,13 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Button, CSS, Flex, Icon, type Input } from "@synnaxlabs/charon";
 import { Fragment, type ReactElement } from "react";
-
-import { Button } from "@synnaxlabs/charon";
-import { CSS } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
-import { type Input } from "@synnaxlabs/charon";
 
 export interface Step {
   key: string;

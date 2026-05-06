@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Aether, Key } from "@synnaxlabs/charon";
 import { type ReactElement, useEffect } from "react";
 
-import { type Aether } from "@synnaxlabs/charon";
-import { Key } from "@synnaxlabs/charon";
 import { useContext } from "@/lineplot/LinePlot";
 import { Line as Base } from "@/vis/line";
 

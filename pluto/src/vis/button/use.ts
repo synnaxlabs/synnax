@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Aether } from "@synnaxlabs/charon";
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@synnaxlabs/charon";
 import { button } from "@/vis/button/aether";
 
 export type Mode = button.Mode;

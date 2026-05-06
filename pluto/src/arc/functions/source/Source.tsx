@@ -7,14 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Icon, Text } from "@synnaxlabs/charon";
 import { channel } from "@synnaxlabs/client";
 import z from "zod/v4";
 
 import { Base } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
 import { Channel } from "@/channel";
-import { Icon } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export const config = z.object({
   channel: channel.keyZ,
 });

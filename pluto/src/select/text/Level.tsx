@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { text } from "@synnaxlabs/charon";
 import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
-import { text } from "@synnaxlabs/charon";
 
 export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"> {}
 

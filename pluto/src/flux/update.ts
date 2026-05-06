@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/charon";
+import { state, Status, useDebouncedCallback } from "@synnaxlabs/charon";
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
@@ -26,8 +26,6 @@ import {
   resultStatusDetails,
   successResult,
 } from "@/flux/result";
-import { useDebouncedCallback } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<

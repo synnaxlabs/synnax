@@ -7,10 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button } from "@synnaxlabs/charon";
-import { Flex } from "@synnaxlabs/charon";
-import { Icon } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
+import { Button, Flex, Icon, Text } from "@synnaxlabs/charon";
+
 import { SubcategorySection } from "./SubcategorySection";
 
 export const ButtonShowcase = () => (

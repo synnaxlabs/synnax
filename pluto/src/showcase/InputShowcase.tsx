@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, Icon, Text } from "@synnaxlabs/charon";
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { Flex } from "@synnaxlabs/charon";
-import { Icon, Text } from "@synnaxlabs/charon";
-
 import { Input } from "@/input";
+
 import { SubcategorySection } from "./SubcategorySection";
 
 export interface InputShowcaseTextProps extends optional.Optional<

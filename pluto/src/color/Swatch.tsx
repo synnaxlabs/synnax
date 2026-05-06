@@ -9,14 +9,11 @@
 
 import "@/color/Swatch.css";
 
-import { state } from "@synnaxlabs/charon";
+import { CSS, Dialog, state, Text } from "@synnaxlabs/charon";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";
 import { Picker, type PickerProps } from "@/color/Picker";
-import { CSS } from "@synnaxlabs/charon";
-import { Dialog } from "@synnaxlabs/charon";
-import { Text } from "@synnaxlabs/charon";
 export interface SwatchProps
   extends
     BaseSwatchProps,

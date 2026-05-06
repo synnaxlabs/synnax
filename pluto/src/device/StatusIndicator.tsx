@@ -9,11 +9,8 @@
 
 import "@/device/StatusIndicator.css";
 
+import { CSS, Status, Tooltip } from "@synnaxlabs/charon";
 import { type device } from "@synnaxlabs/client";
-
-import { CSS } from "@synnaxlabs/charon";
-import { Status } from "@synnaxlabs/charon";
-import { Tooltip } from "@synnaxlabs/charon";
 export interface StatusIndicatorProps {
   status?: device.Status;
   tooltipLocation?: Tooltip.DialogProps["location"];

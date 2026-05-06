@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type text, Theming,type theming } from "@synnaxlabs/charon";
+import { dimensions as textDimensions } from "@synnaxlabs/charon/text/base";
 import {
   array,
   box,
@@ -18,8 +20,6 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type text, type theming, Theming } from "@synnaxlabs/charon";
-import { dimensions as textDimensions } from "@synnaxlabs/charon/text/base";
 import {
   type FillTextOptions,
   type SugaredOffscreenCanvasRenderingContext2D,

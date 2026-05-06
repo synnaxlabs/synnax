@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/charon";
+
 import { Form as Base } from "@/form";
 
 export const Form = () => (

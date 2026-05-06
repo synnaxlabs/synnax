@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Triggers } from "@synnaxlabs/charon";
 import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, useState } from "react";
 import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Triggers } from "@synnaxlabs/charon";
 interface UseSelectMultipleWrapperReturn {
   value: string[];
   clear: () => void;

@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Flex, Input } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { color, type notation, primitive } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
@@ -14,9 +15,7 @@ import { type ReactElement, useCallback } from "react";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { telem } from "@/ether";
-import { Flex } from "@synnaxlabs/charon";
 import { Form } from "@/form";
-import { Input } from "@synnaxlabs/charon";
 import { Notation } from "@/notation";
 
 interface ValueTelemFormT {

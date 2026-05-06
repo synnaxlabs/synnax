@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
+import { aether, status } from "@synnaxlabs/charon";
 import {
   channel,
   control,
@@ -29,10 +30,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
-import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { AbstractSink } from "@/telem/aether/telem";

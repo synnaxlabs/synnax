@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
+import { context, Store, useSyncedRef } from "@synnaxlabs/charon";
 import { array, type record } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -19,7 +19,6 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import {
   useMultiple,
@@ -27,7 +26,6 @@ import {
   useSingle,
   type UseSingleProps,
 } from "@/select/use";
-import { Store } from "@synnaxlabs/charon";
 
 interface SelectionState<K extends record.Key = record.Key> {
   value: K | K[] | null | undefined;

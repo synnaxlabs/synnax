@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { mockRenderContext, Theming } from "@synnaxlabs/charon";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -21,7 +22,6 @@ import { type LogEntry } from "@/log/aether/telem/types";
 import { Context as TelemContext } from "@/telem/aether/context";
 import { CompoundFactory } from "@/telem/aether/factory";
 import { TestFactory } from "@/telem/aether/test/factory";
-import { mockRenderContext, Theming } from "@synnaxlabs/charon";
 const MockSender = { send: vi.fn() };
 
 const THEME: Theming.Theme = Theming.themeZ.parse(Theming.SYNNAX_DARK);

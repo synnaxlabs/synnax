@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type aether } from "@synnaxlabs/charon";
+
 import { Chip } from "@/telem/control/aether/chip";
 import { Controller } from "@/telem/control/aether/controller";
 import { Indicator } from "@/telem/control/aether/indicator";
