@@ -16,6 +16,7 @@ authority 200
 // ──────────────────────────── time.now ───────────────────────────────
 func write_now() {
     time_now_out = time.now()
+    time_now_ts_out = time.now()
 }
 time_trigger -> write_now{}
 
@@ -89,6 +90,7 @@ class StlTime(ArcConsoleCase):
     start_cmd_channel = "start_stl_time_cmd"
     subscribe_channels = [
         "time_now_out",
+        "time_now_ts_out",
         "time_now_flow_out",
         "interval_count",
         "interval_count_mod",
@@ -99,6 +101,7 @@ class StlTime(ArcConsoleCase):
     def setup(self) -> None:
         create_virtual_channel(self.client, "time_trigger", sy.DataType.FLOAT64)
         create_virtual_channel(self.client, "time_now_out", sy.DataType.INT64)
+        create_virtual_channel(self.client, "time_now_ts_out", sy.DataType.TIMESTAMP)
         create_virtual_channel(
             self.client, "time_now_flow_trigger", sy.DataType.FLOAT64
         )
@@ -116,7 +119,10 @@ class StlTime(ArcConsoleCase):
         self.writer.write("time_trigger", 1.0)
         self.log(f"Expecting time_now_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
         self.wait_for_gt("time_now_out", JAN_2020_NANOS, is_virtual=True)
-        self.log("time.now() returned a valid timestamp")
+        self.log("time.now() returned a valid timestamp (int64 channel)")
+        self.log(f"Expecting time_now_ts_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
+        self.wait_for_gt("time_now_ts_out", JAN_2020_NANOS, is_virtual=True)
+        self.log("time.now() wrote successfully to a timestamp channel")
 
     def _test_now_flow(self) -> None:
         self.log("=== time.now{} [Flow] ===")
