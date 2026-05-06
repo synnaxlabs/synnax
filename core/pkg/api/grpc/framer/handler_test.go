@@ -356,6 +356,17 @@ var _ = Describe("gRPC Framer Translators", func() {
 			t := frameStreamerResponseTranslator{codec: cdec}
 			Expect(t.Backward(ctx, &StreamerResponse{Buffer: []byte{0x01, 0x02}})).Error().To(HaveOccurred())
 		})
+
+		It("Should fall back to the protobuf frame when the codec is nil", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int64T, 1)
+			t := frameStreamerResponseTranslator{}
+			res := apifra.StreamerResponse{
+				Frame: frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int64](1, 2, 3)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, res))
+			Expect(pb.Buffer).To(BeEmpty())
+			Expect(pb.Frame).ToNot(BeNil())
+		})
 	})
 
 	Describe("Frame Writer Request Translator", func() {

@@ -313,7 +313,7 @@ func (t frameStreamerResponseTranslator) Forward(
 	ctx context.Context,
 	msg apifra.StreamerResponse,
 ) (*StreamerResponse, error) {
-	if t.codec.Initialized() {
+	if t.codec != nil && t.codec.Initialized() {
 		buf, err := t.codec.Encode(ctx, msg.Frame)
 		if err != nil {
 			return nil, err
