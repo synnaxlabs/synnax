@@ -692,5 +692,48 @@ describe("caseconv", () => {
         expect(decoded.linePlots[0].data.my_custom_key).toBeUndefined();
       });
     });
+
+    describe("discriminated union shape merging", () => {
+      it("should resolve a per-variant field schema when walking a discriminated union", () => {
+        const variantA = z.object({
+          type: z.literal("a"),
+          fieldA: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const variantB = z.object({
+          type: z.literal("b"),
+          fieldB: caseconv.preserveCase(z.record(z.string(), z.unknown())),
+        });
+        const unionZ = z.discriminatedUnion("type", [variantA, variantB]);
+        const wrapperZ = z.object({ envelope: unionZ });
+        const inputB = {
+          envelope: {
+            type: "b",
+            fieldB: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } },
+          },
+        };
+        const encoded = caseconv.camelToSnake(inputB, { schema: wrapperZ }) as R;
+        expect(encoded.envelope.field_b.CamelKey).toBe(1);
+        expect(encoded.envelope.field_b.snake_key).toBe(2);
+        expect(encoded.envelope.field_b.PascalKey.Inner_Key).toBe(3);
+        expect(encoded.envelope.field_b.camel_key).toBeUndefined();
+      });
+
+      it("should preserve case through preserveCase wrapping a union (record.nullishToEmpty)", () => {
+        const innerZ = caseconv.preserveCase(
+          z.union([
+            z.union([z.null(), z.undefined()]).transform(() => ({})),
+            z.record(z.string(), z.unknown()),
+          ]),
+        );
+        const schema = z.object({ payload: innerZ });
+        const input = {
+          payload: { CamelKey: 1, snake_key: 2, PascalKey: { Inner_Key: 3 } },
+        };
+        const encoded = caseconv.camelToSnake(input, { schema }) as R;
+        expect(encoded.payload.CamelKey).toBe(1);
+        expect(encoded.payload.snake_key).toBe(2);
+        expect(encoded.payload.PascalKey.Inner_Key).toBe(3);
+      });
+    });
   });
 });

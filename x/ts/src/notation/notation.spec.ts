@@ -12,7 +12,7 @@ import { describe, expect, it } from "vitest";
 import { notation } from "@/notation";
 
 interface TestCase {
-  number: number;
+  number: number | bigint;
   precision: number;
   expected: Record<notation.Notation, string>;
 }
@@ -72,6 +72,38 @@ const TEST_CASES: TestCase[] = [
     number: 0.0001234,
     precision: 0,
     expected: { standard: "0", scientific: "1ᴇ-4", engineering: "123ᴇ-6" },
+  },
+  {
+    number: 1778020940471336960n,
+    precision: 0,
+    expected: {
+      standard: "1778020940471336960",
+      scientific: "2ᴇ18",
+      engineering: "2ᴇ18",
+    },
+  },
+  {
+    number: 1778020940471336960n,
+    precision: 11,
+    expected: {
+      standard: "1778020940471336960.00000000000",
+      scientific: "1.77802094047ᴇ18",
+      engineering: "1.77802094047ᴇ18",
+    },
+  },
+  {
+    number: 0n,
+    precision: 0,
+    expected: { standard: "0", scientific: "0ᴇ0", engineering: "0ᴇ0" },
+  },
+  {
+    number: 0n,
+    precision: 11,
+    expected: {
+      standard: "0.00000000000",
+      scientific: "0.00000000000ᴇ0",
+      engineering: "0.00000000000ᴇ0",
+    },
   },
 ];
 

@@ -694,7 +694,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate maximum on a variable length data type");
     if (this.writePos === 0) return -Infinity;
     this.cachedMax ??= this.calcRawMax();
-    return math.add(this.cachedMax, this.sampleOffset);
+    return this.applyOffset(this.cachedMax);
   }
 
   private calcRawMin(): math.Numeric {
@@ -720,7 +720,7 @@ export class Series<T extends TelemValue = TelemValue>
       throw new Error("cannot calculate minimum on a variable length data type");
     if (this.writePos === 0) return Infinity;
     this.cachedMin ??= this.calcRawMin();
-    return math.add(this.cachedMin, this.sampleOffset);
+    return this.applyOffset(this.cachedMin);
   }
 
   /** @returns the bounds of the series. */
@@ -785,7 +785,16 @@ export class Series<T extends TelemValue = TelemValue>
       if (required === true) throw new Error(`[series] - no value at index ${index}`);
       return undefined;
     }
-    return math.add(v, this.sampleOffset) as T;
+    return this.applyOffset(v) as T;
+  }
+
+  // For huge bigint offsets (i64 timestamps narrowed to float32 for GL), math.add would
+  // coerce through Number() and lose precision above 2^53; do the addition in bigint
+  // space when the offset is a bigint.
+  private applyOffset(v: math.Numeric): math.Numeric {
+    if (typeof this.sampleOffset === "bigint" && typeof v === "number")
+      return BigInt(Math.round(v)) + this.sampleOffset;
+    return math.add(v, this.sampleOffset);
   }
 
   private atUUID(index: number, required: boolean): string | undefined {

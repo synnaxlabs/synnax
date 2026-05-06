@@ -237,6 +237,10 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		for _, fo := range body.AllFieldOmit() {
 			form.OmittedFields = append(form.OmittedFields, fo.IDENT().GetText())
 		}
+		for _, a := range body.AllActionDef() {
+			action := collectAction(c, a, form.TypeParams)
+			form.Actions = append(form.Actions, action)
+		}
 		for _, d := range body.AllDomain() {
 			de := collectDomain(d)
 			if existing, ok := domains[de.Name]; ok {
@@ -256,6 +260,39 @@ func collectStructFull(c *analysisCtx, def *parser.StructFullContext) {
 		Domains:       domains,
 		AST:           def,
 	}))
+}
+
+// collectAction translates a parsed action block into a resolution.Action,
+// reusing collectField for payload fields so action-field semantics match
+// struct-field semantics (optionality, validation, type refs).
+func collectAction(
+	c *analysisCtx,
+	def parser.IActionDefContext,
+	typeParams []resolution.TypeParam,
+) resolution.Action {
+	action := resolution.Action{
+		Name:    def.IDENT().GetText(),
+		Domains: make(map[string]resolution.Domain),
+		AST:     def,
+	}
+	body := def.ActionBody()
+	if body == nil {
+		return action
+	}
+	hasKeyDomain := false
+	for _, f := range body.AllFieldDef() {
+		field := collectField(c, f, typeParams, &hasKeyDomain)
+		action.Fields = append(action.Fields, field)
+	}
+	for _, d := range body.AllDomain() {
+		de := collectDomain(d)
+		if existing, ok := action.Domains[de.Name]; ok {
+			action.Domains[de.Name] = de.Merge(existing)
+		} else {
+			action.Domains[de.Name] = de
+		}
+	}
+	return action
 }
 
 func collectStructAlias(c *analysisCtx, def *parser.StructAliasContext) {
@@ -671,6 +708,11 @@ func resolveTypeRefs(c *analysisCtx, typ *resolution.Type) {
 	case resolution.StructForm:
 		for i := range form.Fields {
 			resolveTypeRef(c, typ, &form.Fields[i].Type)
+		}
+		for i := range form.Actions {
+			for j := range form.Actions[i].Fields {
+				resolveTypeRef(c, typ, &form.Actions[i].Fields[j].Type)
+			}
 		}
 		for i := range form.TypeParams {
 			if form.TypeParams[i].Constraint != nil {
