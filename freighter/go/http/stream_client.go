@@ -100,7 +100,7 @@ func (s *streamClient[RQ, RS]) Stream(
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			ctx.Params[fiber.HeaderContentType] = s.codec.ContentType()
 			conn, res, err := s.dialer.DialContext(
-				ctx, "ws://"+target.String(), mdToHeaders(ctx),
+				ctx, "ws://"+target.String(), ctxToHeaders(ctx),
 			)
 			oCtx := parseResponseCtx(res, target, true)
 			if err != nil {
@@ -131,9 +131,9 @@ func (s *streamClient[RQ, RS]) Stream(
 	return stream, err
 }
 
-func mdToHeaders(md freighter.Context) http.Header {
-	headers := make(http.Header, len(md.Params))
-	for k, v := range md.Params {
+func ctxToHeaders(ctx freighter.Context) http.Header {
+	headers := make(http.Header, len(ctx.Params))
+	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
 			headers[k] = []string{vStr}
 		}

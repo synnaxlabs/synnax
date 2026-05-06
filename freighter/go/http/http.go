@@ -72,7 +72,7 @@ func parseRequestCtx(
 	target address.Address,
 	stream bool,
 ) freighter.Context {
-	md := freighter.Context{
+	freighterCtx := freighter.Context{
 		Context:  socketCtx,
 		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
 		Target:   target,
@@ -81,18 +81,18 @@ func parseRequestCtx(
 		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
 	}
 	headers := fiberCtx.GetReqHeaders()
-	md.Params = make(freighter.Params, len(headers))
+	freighterCtx.Params = make(freighter.Params, len(headers))
 	for k, v := range fiberCtx.GetReqHeaders() {
 		if len(v) > 0 {
-			md.Params[k] = v[0]
+			freighterCtx.Params[k] = v[0]
 		}
 	}
 	for k, v := range parseQueryString(fiberCtx) {
 		if isFreighterQueryStringParam(k) {
-			md.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
+			freighterCtx.Params[strings.TrimPrefix(k, freighterCtxPrefix)] = v
 		}
 	}
-	return md
+	return freighterCtx
 }
 
 func setRequestCtx(c *http.Request, ctx freighter.Context) {
@@ -103,10 +103,10 @@ func setRequestCtx(c *http.Request, ctx freighter.Context) {
 	}
 }
 
-func setResponseCtx(c fiber.Ctx, md freighter.Context) {
-	for k, v := range md.Params {
+func setResponseCtx(fiberCtx fiber.Ctx, freighterCtx freighter.Context) {
+	for k, v := range freighterCtx.Params {
 		if vStr, ok := v.(string); ok {
-			c.Set(k, vStr)
+			fiberCtx.Set(k, vStr)
 		}
 	}
 }
@@ -116,7 +116,7 @@ func parseResponseCtx(
 	target address.Address,
 	stream bool,
 ) freighter.Context {
-	md := freighter.Context{
+	freighterCtx := freighter.Context{
 		Role:     freighter.RoleClient,
 		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
 		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
@@ -128,9 +128,9 @@ func parseResponseCtx(
 		),
 	}
 	for k, v := range c.Header {
-		md.Params[k] = v[0]
+		freighterCtx.Params[k] = v[0]
 	}
-	return md
+	return freighterCtx
 }
 
 var (
