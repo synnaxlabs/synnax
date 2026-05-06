@@ -19,7 +19,7 @@ import (
 
 const (
 	ActionTypeSetNodePosition = "set_node_position"
-	ActionTypeAddNode         = "add_node"
+	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeSetEdge         = "set_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
@@ -34,9 +34,10 @@ type SetNodePosition struct {
 	Position spatial.XY `json:"position" msgpack:"position"`
 }
 
-// AddNode appends a node to the schematic. If config is non-empty it is stored under
-// the node's key in the schematic configs map.
-type AddNode struct {
+// SetNode inserts the node if no node with the same key exists, otherwise replaces the
+// existing node in place. If config is non-empty it is stored under the node's key in
+// the schematic configs map.
+type SetNode struct {
 	Node   Node                `json:"node" msgpack:"node"`
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
 }
@@ -78,7 +79,7 @@ type SetLegend struct {
 type Action struct {
 	Type            string           `json:"type" msgpack:"type"`
 	SetNodePosition *SetNodePosition `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
-	AddNode         *AddNode         `json:"add_node,omitempty" msgpack:"add_node,omitempty"`
+	SetNode         *SetNode         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNode      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
 	RemoveEdge      *RemoveEdge      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
@@ -93,8 +94,8 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 	switch a.Type {
 	case ActionTypeSetNodePosition:
 		return a.SetNodePosition.Handle(state)
-	case ActionTypeAddNode:
-		return a.AddNode.Handle(state)
+	case ActionTypeSetNode:
+		return a.SetNode.Handle(state)
 	case ActionTypeRemoveNode:
 		return a.RemoveNode.Handle(state)
 	case ActionTypeSetEdge:
@@ -130,9 +131,9 @@ func NewSetNodePositionAction(p SetNodePosition) Action {
 	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
 }
 
-// NewAddNodeAction wraps a AddNode payload in an Action envelope.
-func NewAddNodeAction(p AddNode) Action {
-	return Action{Type: ActionTypeAddNode, AddNode: &p}
+// NewSetNodeAction wraps a SetNode payload in an Action envelope.
+func NewSetNodeAction(p SetNode) Action {
+	return Action{Type: ActionTypeSetNode, SetNode: &p}
 }
 
 // NewRemoveNodeAction wraps a RemoveNode payload in an Action envelope.

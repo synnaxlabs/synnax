@@ -71,7 +71,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 
 		Context("structs with actions", func() {
-			It("Should emit a discriminated-union codec with reduce/reduceAll", func(ctx SpecContext) {
+			It("Should emit a discriminated-union codec with a Handlers interface and createReducer/createReduceAll factories", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/counter"
 
@@ -103,17 +103,24 @@ var _ = Describe("TS Actions Plugin", func() {
 						"export type Action",
 						"export const setValue = (payload: SetValuePayload): Action",
 						"export const increment = (payload: IncrementPayload): Action",
-						"export const reduce = (state: Counter, action: Action): Counter",
+						"export interface Handlers {",
+						"setValue: (state: Counter, payload: SetValuePayload) => void;",
+						"increment: (state: Counter, payload: IncrementPayload) => void;",
+						"export const createReducer =",
+						"(handlers: Handlers) =>",
+						"(state: Counter, action: Action): Counter =>",
 						"case \"set_value\":",
-						"handleSetValue(state, action.setValue);",
+						"handlers.setValue(state, action.setValue);",
 						"case \"increment\":",
-						"handleIncrement(state, action.increment);",
-						"export const reduceAll = (state: Counter, actions: Action[]): Counter",
+						"handlers.increment(state, action.increment);",
+						"export const createReduceAll = (handlers: Handlers) =>",
+						"const reduce = createReducer(handlers);",
+						"(state: Counter, actions: Action[]): Counter =>",
 						"produce(state, (draft) => actions.forEach((action) => reduce(draft, action)))",
 					)
 			})
 
-			It("Should snake_case action types and camelCase constructor names", func(ctx SpecContext) {
+			It("Should snake_case action types and camelCase handler/constructor names", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/board"
 
@@ -130,12 +137,13 @@ var _ = Describe("TS Actions Plugin", func() {
 					ToContain(
 						"set_node_position: \"set_node_position\"",
 						"export const setNodePosition",
-						"handleSetNodePosition",
+						"setNodePosition: (state: Board, payload: SetNodePositionPayload) => void;",
+						"handlers.setNodePosition(state, action.setNodePosition);",
 						"z.literal(\"set_node_position\")",
 					)
 			})
 
-			It("Should import handler functions from the sibling actions module", func(ctx SpecContext) {
+			It("Should not import handler functions from any sibling module", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/widget"
 
@@ -148,7 +156,7 @@ var _ = Describe("TS Actions Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "widget", loader, p)
 				ExpectContent(resp, "actions.gen.ts").
-					ToContain(
+					ToNotContain(
 						"handleToggle",
 						`from "@/widget/actions"`,
 					)

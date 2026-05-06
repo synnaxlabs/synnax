@@ -121,10 +121,10 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "test", Authority: 1}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewAddNodeAction(schematic.AddNode{
+				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 				}),
-				schematic.NewAddNodeAction(schematic.AddNode{
+				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 				}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{
@@ -186,10 +186,10 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "graph", Authority: 1}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewAddNodeAction(schematic.AddNode{
+				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "pump", Position: spatial.XY{X: 0, Y: 0}},
 				}),
-				schematic.NewAddNodeAction(schematic.AddNode{
+				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "valve", Position: spatial.XY{X: 100, Y: 0}},
 				}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: schematic.Edge{
@@ -218,7 +218,7 @@ var _ = Describe("Writer", func() {
 			disconnect := svc.OnAction(rec.record)
 			DeferCleanup(disconnect)
 			actions := []schematic.Action{
-				schematic.NewAddNodeAction(schematic.AddNode{
+				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "n1"},
 				}),
 				schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 5}),
@@ -229,7 +229,7 @@ var _ = Describe("Writer", func() {
 			Expect(seen[0].Key).To(Equal(s.Key))
 			Expect(seen[0].SessionKey).To(Equal("client-xyz"))
 			Expect(seen[0].Actions).To(HaveLen(2))
-			Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeAddNode))
+			Expect(seen[0].Actions[0].Type).To(Equal(schematic.ActionTypeSetNode))
 			Expect(seen[0].Actions[1].Type).To(Equal(schematic.ActionTypeSetAuthority))
 		})
 

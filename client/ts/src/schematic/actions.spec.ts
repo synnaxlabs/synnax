@@ -11,12 +11,11 @@ import { color } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
+import { reduce, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   actionZ,
-  addNode,
-  reduce,
-  reduceAll,
+  setNode,
   removeEdge,
   removeNode,
   setAuthority,
@@ -83,28 +82,31 @@ describe("schematic reducer", () => {
     });
   });
 
-  describe("addNode", () => {
-    it("should append the node to the end of the slice", () => {
+  describe("setNode", () => {
+    it("should append the node to the end of the slice when no node has the same key", () => {
       const state = empty({ nodes: [node("n1", 0, 0)] });
-      const out = reduceAll(state, [addNode({ node: node("n2", 1, 2) })]);
+      const out = reduceAll(state, [setNode({ node: node("n2", 1, 2) })]);
       expect(out.nodes).toEqual([node("n1", 0, 0), node("n2", 1, 2)]);
     });
     it("should write config under the node's key when config is non-undefined", () => {
       const out = reduceAll(empty(), [
-        addNode({ node: node("n1", 0, 0), config: { label: "Pump", color: "#f00" } }),
+        setNode({ node: node("n1", 0, 0), config: { label: "Pump", color: "#f00" } }),
       ]);
       expect(out.configs).toEqual({ n1: { label: "Pump", color: "#f00" } });
     });
     it("should leave configs untouched when the action's config is undefined", () => {
-      const out = reduceAll(empty(), [addNode({ node: node("n1", 0, 0) })]);
+      const out = reduceAll(empty(), [setNode({ node: node("n1", 0, 0) })]);
       expect(out.configs).toEqual({});
     });
-    it("should append a duplicate-key node, locking current behavior", () => {
-      const state = empty({ nodes: [node("n1", 0, 0)] });
-      const out = reduceAll(state, [addNode({ node: node("n1", 9, 9) })]);
-      expect(out.nodes).toHaveLength(2);
+    it("should replace an existing node in place when the key already exists, preserving slice index", () => {
+      const state = empty({
+        nodes: [node("n1", 0, 0), node("n2", 1, 1), node("n3", 2, 2)],
+      });
+      const out = reduceAll(state, [setNode({ node: node("n2", 9, 9) })]);
+      expect(out.nodes).toHaveLength(3);
       expect(out.nodes[0]).toEqual(node("n1", 0, 0));
-      expect(out.nodes[1]).toEqual(node("n1", 9, 9));
+      expect(out.nodes[1]).toEqual(node("n2", 9, 9));
+      expect(out.nodes[2]).toEqual(node("n3", 2, 2));
     });
   });
 
@@ -253,9 +255,9 @@ describe("schematic reducer", () => {
 
     it("should build a complete graph from an empty schematic", () => {
       const out = reduceAll(empty(), [
-        addNode({ node: node("pump", 0, 0) }),
-        addNode({ node: node("valve", 100, 0) }),
-        addNode({ node: node("tank", 200, 0) }),
+        setNode({ node: node("pump", 0, 0) }),
+        setNode({ node: node("valve", 100, 0) }),
+        setNode({ node: node("tank", 200, 0) }),
         setEdge({ edge: edge("e1", "pump", "out", "valve", "in") }),
         setEdge({ edge: edge("e2", "valve", "out", "tank", "in") }),
         setConfig({ key: "pump", config: { label: "Main Pump" } }),
@@ -277,7 +279,7 @@ describe("schematic reducer", () => {
       });
       const out = reduceAll(state, [
         removeNode({ key: "n1" }),
-        addNode({ node: node("n1", 50, 50) }),
+        setNode({ node: node("n1", 50, 50) }),
       ]);
       expect(out.nodes).toHaveLength(2);
       expect(out.nodes[1]).toEqual(node("n1", 50, 50));
@@ -296,7 +298,7 @@ describe("schematic reducer", () => {
       const state = empty();
       const actions: Action[] = [];
       for (let i = 0; i < 5; i++)
-        actions.push(addNode({ node: node(`n${i}`, i * 100, 0) }));
+        actions.push(setNode({ node: node(`n${i}`, i * 100, 0) }));
       for (let i = 0; i < 5; i++) {
         actions.push(
           setNodePosition({ key: `n${i}`, position: { x: i * 100, y: 50 } }),
@@ -338,7 +340,7 @@ describe("schematic reducer", () => {
 
   describe("single-action reduce", () => {
     it("should apply a single action without wrapping it in an array", () => {
-      const out = reduce(empty(), addNode({ node: node("n1", 1, 2) }));
+      const out = reduce(empty(), setNode({ node: node("n1", 1, 2) }));
       expect(out.nodes).toEqual([node("n1", 1, 2)]);
     });
   });

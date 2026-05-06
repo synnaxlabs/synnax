@@ -36,8 +36,8 @@ type Writer struct {
 	actionObserver observe.Observer[ScopedAction]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given schematic within the workspace provided. If the
+// schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -87,7 +87,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	return k, true, err
 }
 
-// Rename renames the log with the given key to the provided name.
+// Rename renames the schematic with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,
 	key uuid.UUID,
@@ -100,9 +100,10 @@ func (w Writer) Rename(
 		}).Exec(ctx, w.tx)
 }
 
-// Copy creates a copy of the log with the given key and name. If the snapshot flag is
-// set to true, the copy will be a snapshot and will no longer be editable. The copied
-// log will be bound into the result parameter.
+// Copy creates a copy of the schematic with the given key and name. If the
+// snapshot flag is set to true, the copy will be a snapshot and will no
+// longer be editable. The copied schematic will be bound into the result
+// parameter.
 func (w Writer) Copy(
 	ctx context.Context,
 	key uuid.UUID,
@@ -199,7 +200,7 @@ func (w Writer) Dispatch(
 	return nil
 }
 
-// Delete deletes the logs with the given keys.
+// Delete deletes the schematics with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,

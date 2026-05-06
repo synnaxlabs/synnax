@@ -35,10 +35,21 @@ func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle appends the node and, if Config is non-nil, seeds the configs map
+// Handle inserts the node if no node with the same key exists, otherwise
+// replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.
-func (a AddNode) Handle(state Schematic) (Schematic, error) {
-	state.Nodes = append(state.Nodes, a.Node)
+func (a SetNode) Handle(state Schematic) (Schematic, error) {
+	replaced := false
+	for i := range state.Nodes {
+		if state.Nodes[i].Key == a.Node.Key {
+			state.Nodes[i] = a.Node
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		state.Nodes = append(state.Nodes, a.Node)
+	}
 	if a.Config != nil {
 		if state.Configs == nil {
 			state.Configs = make(map[string]msgpack.EncodedJSON)

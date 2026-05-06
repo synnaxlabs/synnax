@@ -78,17 +78,17 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("AddNode", func() {
-		It("Should append the node to the end of the slice", func() {
+	Describe("SetNode", func() {
+		It("Should append the node to the end of the slice when no node has the same key", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
+			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
 				Node: node("n2", 1, 2),
 			}).Reduce(state))
 			Expect(out.Nodes).To(Equal([]schematic.Node{node("n1", 0, 0), node("n2", 1, 2)}))
 		})
 		It("Should write config under the node's key when config is non-nil", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
+			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
 				Node:   node("n1", 0, 0),
 				Config: msgpack.EncodedJSON{"label": "Pump", "color": "#ff0000"},
 			}).Reduce(state))
@@ -100,19 +100,24 @@ var _ = Describe("Reducer", func() {
 		})
 		It("Should leave configs untouched when the action's config is nil", func() {
 			state := schematic.Schematic{}
-			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
+			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
 				Node: node("n1", 0, 0),
 			}).Reduce(state))
 			Expect(out.Configs).To(BeNil())
 		})
-		It("Should not append a duplicate-key node into the slice as a guard - it appends, locking current behavior", func() {
-			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
-			out := MustSucceed(schematic.NewAddNodeAction(schematic.AddNode{
-				Node: node("n1", 9, 9),
+		It("Should replace an existing node in place when the key already exists, preserving slice index", func() {
+			state := schematic.Schematic{Nodes: []schematic.Node{
+				node("n1", 0, 0),
+				node("n2", 1, 1),
+				node("n3", 2, 2),
+			}}
+			out := MustSucceed(schematic.NewSetNodeAction(schematic.SetNode{
+				Node: node("n2", 9, 9),
 			}).Reduce(state))
-			Expect(out.Nodes).To(HaveLen(2))
+			Expect(out.Nodes).To(HaveLen(3))
 			Expect(out.Nodes[0]).To(Equal(node("n1", 0, 0)))
-			Expect(out.Nodes[1]).To(Equal(node("n1", 9, 9)))
+			Expect(out.Nodes[1]).To(Equal(node("n2", 9, 9)))
+			Expect(out.Nodes[2]).To(Equal(node("n3", 2, 2)))
 		})
 	})
 
@@ -272,9 +277,9 @@ var _ = Describe("Reducer", func() {
 		It("Should build a complete graph from an empty schematic", func() {
 			state := schematic.Schematic{Legend: emptyLegend()}
 			actions := []schematic.Action{
-				schematic.NewAddNodeAction(schematic.AddNode{Node: node("pump", 0, 0)}),
-				schematic.NewAddNodeAction(schematic.AddNode{Node: node("valve", 100, 0)}),
-				schematic.NewAddNodeAction(schematic.AddNode{Node: node("tank", 200, 0)}),
+				schematic.NewSetNodeAction(schematic.SetNode{Node: node("pump", 0, 0)}),
+				schematic.NewSetNodeAction(schematic.SetNode{Node: node("valve", 100, 0)}),
+				schematic.NewSetNodeAction(schematic.SetNode{Node: node("tank", 200, 0)}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e1", "pump", "out", "valve", "in")}),
 				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e2", "valve", "out", "tank", "in")}),
 				schematic.NewSetConfigAction(schematic.SetConfig{
@@ -302,7 +307,7 @@ var _ = Describe("Reducer", func() {
 			}
 			actions := []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
-				schematic.NewAddNodeAction(schematic.AddNode{Node: node("n1", 50, 50)}),
+				schematic.NewSetNodeAction(schematic.SetNode{Node: node("n1", 50, 50)}),
 			}
 			out := MustSucceed(schematic.ReduceAll(state, actions))
 			Expect(out.Nodes).To(HaveLen(2))
@@ -328,7 +333,7 @@ var _ = Describe("Reducer", func() {
 			state := schematic.Schematic{Legend: emptyLegend()}
 			var actions []schematic.Action
 			for i := range 5 {
-				actions = append(actions, schematic.NewAddNodeAction(schematic.AddNode{
+				actions = append(actions, schematic.NewSetNodeAction(schematic.SetNode{
 					Node: node("n"+string(rune('0'+i)), float64(i*100), 0),
 				}))
 			}
