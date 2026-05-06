@@ -20,9 +20,6 @@ on:
       - buf.gen.yaml
   workflow_dispatch:
 
-permissions:
-  pull-requests: write
-
 jobs:
   test:
     name: Test
@@ -35,3 +32,4 @@ jobs:
         uses: bufbuild/buf-action@v1
         with:
           breaking: false
+          pr_comment: false
