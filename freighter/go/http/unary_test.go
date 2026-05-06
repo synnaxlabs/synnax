@@ -26,7 +26,6 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
-	xhttp "github.com/synnaxlabs/x/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -46,12 +45,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			return c.SendStatus(fiber.StatusOK)
 		})
 		server = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
-		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
-			fhttp.UnaryClientConfig{
-				Encoder:  json.Codec,
-				Decoders: []xhttp.Decoder{json.Codec},
-			},
-		))
+		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()

@@ -21,6 +21,8 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/override"
@@ -45,7 +47,7 @@ type UnaryClientConfig struct {
 func (c UnaryClientConfig) Validate() error {
 	v := validate.New("http.unary_client")
 	validate.NotNil(v, "encoder", c.Encoder)
-	v.Ternary("decoders", len(c.Decoders) == 0, "at least one decoder is required")
+	validate.NotEmptySlice(v, "decoders", c.Decoders)
 	return v.Error()
 }
 
@@ -63,7 +65,10 @@ func (c UnaryClientConfig) Override(other UnaryClientConfig) UnaryClientConfig {
 func NewUnaryClient[RQ, RS freighter.Payload](
 	configs ...UnaryClientConfig,
 ) (freighter.UnaryClient[RQ, RS], error) {
-	cfg, err := config.New(UnaryClientConfig{}, configs...)
+	cfg, err := config.New(UnaryClientConfig{
+		Encoder:  json.Codec,
+		Decoders: []xhttp.Decoder{json.Codec, msgpack.Codec},
+	}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -85,22 +90,23 @@ type unaryClient[RQ, RS freighter.Payload] struct {
 // and the content types it can decode from responses.
 func (u *unaryClient[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
-		"protocol":             unaryProtocol,
-		"sentContentType":      u.encoder.ContentType(),
-		"acceptedContentTypes": lo.Map(u.decoders, func(d xhttp.Decoder, _ int) string { return d.ContentType() }),
+		"protocol":        unaryProtocol,
+		"sentContentType": u.encoder.ContentType(),
+		"acceptedContentTypes": lo.Map(u.decoders, func(d xhttp.Decoder, _ int) string {
+			return d.ContentType()
+		}),
 	}
 }
 
-func (u *unaryClient[RQ, RS]) resolveResponseDecoder(contentType string) (xhttp.Decoder, error) {
+func (u *unaryClient[RQ, RS]) resolveResponseDecoder(
+	contentType string,
+) (xhttp.Decoder, error) {
 	for _, d := range u.decoders {
 		if d.ContentType() == contentType {
 			return d, nil
 		}
 	}
-	return nil, errors.Newf(
-		"[encoding] - no decoder for response content type %q",
-		contentType,
-	)
+	return nil, errors.Newf("no decoder for response content type %q", contentType)
 }
 
 func buildAcceptHeader(decoders []xhttp.Decoder) string {

@@ -18,7 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
-	xhttp "github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/http"
 )
 
 // unaryServerOptions configures a unary HTTP server. Unary handlers are stateless
@@ -27,10 +27,10 @@ import (
 type unaryServerOptions struct {
 	// requestDecoders is the set of decoders the unary server will consider when
 	// resolving the request body codec from the Content-Type header.
-	requestDecoders []xhttp.Decoder
+	requestDecoders []http.Decoder
 	// responseEncoders is the set of encoders the unary server will consider when
 	// resolving the response body codec from the Accept header.
-	responseEncoders []xhttp.Encoder
+	responseEncoders []http.Encoder
 }
 
 // UnaryServerOption configures a unary HTTP server.
@@ -38,13 +38,13 @@ type UnaryServerOption func(*unaryServerOptions)
 
 // WithRequestDecoders overrides the set of decoders the unary server matches against
 // the request's Content-Type header.
-func WithRequestDecoders(decoders ...xhttp.Decoder) UnaryServerOption {
+func WithRequestDecoders(decoders ...http.Decoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.requestDecoders = decoders }
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
 // the request's Accept header.
-func WithResponseEncoders(encoders ...xhttp.Encoder) UnaryServerOption {
+func WithResponseEncoders(encoders ...http.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
 
@@ -64,7 +64,6 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 	handle func(context.Context, RQ) (RS, error)
 	path   string
 	freighter.MiddlewareCollector
-	internal bool
 }
 
 // Report describes the unary server's protocol and the content types it accepts on
@@ -73,25 +72,25 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol":             unaryProtocol,
-		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d xhttp.Decoder, _ int) string { return d.ContentType() }),
-		"emittedContentTypes":  lo.Map(s.responseEncoders, func(e xhttp.Encoder, _ int) string { return e.ContentType() }),
+		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d http.Decoder, _ int) string { return d.ContentType() }),
+		"emittedContentTypes":  lo.Map(s.responseEncoders, func(e http.Encoder, _ int) string { return e.ContentType() }),
 	}
 }
 
 func (s *unaryServer[RQ, RS]) BindHandler(
-	handle func(context.Context, RQ) (RS, error),
+	handler func(context.Context, RQ) (RS, error),
 ) {
-	s.handle = handle
+	s.handle = handler
 }
 
 func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
-	decoder, err := s.resolveRequestDecoder(fCtx.Get(fiber.HeaderContentType))
-	if err != nil {
-		return err
+	decoder, ok := s.resolveRequestDecoder(fCtx.Get(fiber.HeaderContentType))
+	if !ok {
+		return fCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	encoder, ok := s.resolveResponseEncoder(fCtx)
 	if !ok {
-		return fCtx.Status(fiber.StatusNotAcceptable).SendString("Not Acceptable")
+		return fCtx.SendStatus(fiber.StatusNotAcceptable)
 	}
 	fCtx.Set(fiber.HeaderContentType, encoder.ContentType())
 	var res RS
@@ -112,7 +111,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 		}),
 	)
 	setResponseCtx(fCtx, oMD)
-	fErr := errors.Encode(fCtx.RequestCtx(), err, s.internal)
+	fErr := errors.Encode(fCtx.RequestCtx(), err, false)
 	if fErr.Type == errors.TypeNil {
 		return encodeAndWrite(fCtx, encoder, res)
 	}
@@ -122,25 +121,21 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
 	contentType string,
-) (xhttp.Decoder, error) {
+) (http.Decoder, bool) {
 	for _, d := range s.requestDecoders {
 		if d.ContentType() == contentType {
-			return d, nil
+			return d, true
 		}
 	}
-	return nil, errors.Newf(
-		"[encoding] - unable to determine encoding type for %s",
-		contentType,
-	)
+	return nil, false
 }
 
 func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	fCtx fiber.Ctx,
-) (xhttp.Encoder, bool) {
-	offers := make([]string, len(s.responseEncoders))
-	for i, e := range s.responseEncoders {
-		offers[i] = e.ContentType()
-	}
+) (http.Encoder, bool) {
+	offers := lo.Map(s.responseEncoders, func(e http.Encoder, _ int) string {
+		return e.ContentType()
+	})
 	matched := fCtx.Accepts(offers...)
 	if matched == "" {
 		return nil, false
@@ -153,7 +148,7 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	return nil, false
 }
 
-func encodeAndWrite(c fiber.Ctx, encoder xhttp.Encoder, v any) error {
+func encodeAndWrite(c fiber.Ctx, encoder http.Encoder, v any) error {
 	b, err := encoder.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err
