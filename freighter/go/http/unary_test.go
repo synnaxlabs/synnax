@@ -27,7 +27,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
 	xhttp "github.com/synnaxlabs/x/http"
-	xnet "github.com/synnaxlabs/x/net"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -58,7 +58,7 @@ func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
 }
 
 var _ = BeforeSuite(func() {
-	unaryAddr = address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
+	unaryAddr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 	unaryApp = fiber.New(fiber.Config{})
 	router := MustSucceed(fhttp.NewRouter())
 	unaryApp.Get("/health", func(ctx fiber.Ctx) error {

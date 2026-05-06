@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -35,7 +36,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
-		addr = address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
+		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app = fiber.New(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
