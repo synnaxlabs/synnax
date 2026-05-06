@@ -95,6 +95,11 @@ const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null
   switch (change.type) {
     case "position":
       return schematic.setNodePosition({ key: change.key, position: change.position });
+    case "dimensions":
+      return schematic.setNodeMeasured({
+        key: change.key,
+        measured: change.dimensions,
+      });
     case "remove":
       return schematic.removeNode({ key: change.key });
     default:
@@ -112,7 +117,8 @@ const edgeChangeToActions = (
         | { color?: color.Crude }
         | undefined;
       const config = Edge.REGISTRY.pipe.defaultConfig();
-      if (sourceConfig?.color != null) config.color = color.construct(sourceConfig.color);
+      if (sourceConfig?.color != null)
+        config.color = color.construct(sourceConfig.color);
       return [
         schematic.setEdge({ edge: change.edge }),
         schematic.setConfig({
