@@ -38,7 +38,7 @@ CodecFlags CodecFlags::decode(const uint8_t b) {
 }
 
 x::errors::Error Codec::update(const std::vector<channel::Key> &keys) {
-   if (this->seq_num >= 1) {
+    if (this->seq_num >= 1) {
         const auto &cur = this->states[this->seq_num].keys;
         if (cur.size() == keys.size() &&
             std::all_of(keys.begin(), keys.end(), [&](const channel::Key k) {
