@@ -75,14 +75,7 @@ const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
   const variant = (config as { variant?: string }).variant;
   if (variant == null) return null;
   const E = Edge.resolve(variant);
-  return (
-    <E
-      // eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion
-      config={config as Edge.Config}
-      onChange={onChange}
-      {...props}
-    />
-  );
+  return <E config={config as Edge.Config} onChange={onChange} {...props} />;
 };
 
 const SchematicDiagram = Diagram.create({
