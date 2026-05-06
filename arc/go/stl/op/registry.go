@@ -15,19 +15,9 @@ import (
 )
 
 var (
-	logicalOps    = map[string]op.Binary{orSymbolName: op.OrU8, andSymbolName: op.AndU8}
-	unaryOps      = map[string]op.Unary{notSymbolName: op.NotU8}
-	typedUnaryOps = map[string]map[telem.DataType]op.Unary{
-		negSymbolName: {
-			telem.Float64T: op.NegateF64,
-			telem.Float32T: op.NegateF32,
-			telem.Int64T:   op.NegateI64,
-			telem.Int32T:   op.NegateI32,
-			telem.Int16T:   op.NegateI16,
-			telem.Int8T:    op.NegateI8,
-		},
-	}
-	typedOps = map[string]map[telem.DataType]op.Binary{
+	logicalOps = map[string]op.Binary{orSymbolName: op.OrU8, andSymbolName: op.AndU8}
+	unaryOps   = map[string]op.Unary{notSymbolName: op.NotU8}
+	typedOps   = map[string]map[telem.DataType]op.Binary{
 		geSymbolName: {
 			telem.Float64T: op.GreaterThanOrEqualF64,
 			telem.Float32T: op.GreaterThanOrEqualF32,
@@ -99,66 +89,6 @@ var (
 			telem.Uint32T:  op.NotEqualU32,
 			telem.Uint16T:  op.NotEqualU16,
 			telem.Uint8T:   op.NotEqualU8,
-		},
-		addSymbolName: {
-			telem.Float64T: op.AddF64,
-			telem.Float32T: op.AddF32,
-			telem.Int64T:   op.AddI64,
-			telem.Int32T:   op.AddI32,
-			telem.Int16T:   op.AddI16,
-			telem.Int8T:    op.AddI8,
-			telem.Uint64T:  op.AddU64,
-			telem.Uint32T:  op.AddU32,
-			telem.Uint16T:  op.AddU16,
-			telem.Uint8T:   op.AddU8,
-		},
-		subSymbolName: {
-			telem.Float64T: op.SubtractF64,
-			telem.Float32T: op.SubtractF32,
-			telem.Int64T:   op.SubtractI64,
-			telem.Int32T:   op.SubtractI32,
-			telem.Int16T:   op.SubtractI16,
-			telem.Int8T:    op.SubtractI8,
-			telem.Uint64T:  op.SubtractU64,
-			telem.Uint32T:  op.SubtractU32,
-			telem.Uint16T:  op.SubtractU16,
-			telem.Uint8T:   op.SubtractU8,
-		},
-		mulSymbolName: {
-			telem.Float64T: op.MultiplyF64,
-			telem.Float32T: op.MultiplyF32,
-			telem.Int64T:   op.MultiplyI64,
-			telem.Int32T:   op.MultiplyI32,
-			telem.Int16T:   op.MultiplyI16,
-			telem.Int8T:    op.MultiplyI8,
-			telem.Uint64T:  op.MultiplyU64,
-			telem.Uint32T:  op.MultiplyU32,
-			telem.Uint16T:  op.MultiplyU16,
-			telem.Uint8T:   op.MultiplyU8,
-		},
-		divSymbolName: {
-			telem.Float64T: op.DivideF64,
-			telem.Float32T: op.DivideF32,
-			telem.Int64T:   op.DivideI64,
-			telem.Int32T:   op.DivideI32,
-			telem.Int16T:   op.DivideI16,
-			telem.Int8T:    op.DivideI8,
-			telem.Uint64T:  op.DivideU64,
-			telem.Uint32T:  op.DivideU32,
-			telem.Uint16T:  op.DivideU16,
-			telem.Uint8T:   op.DivideU8,
-		},
-		modSymbolName: {
-			telem.Float64T: op.ModuloF64,
-			telem.Float32T: op.ModuloF32,
-			telem.Int64T:   op.ModuloI64,
-			telem.Int32T:   op.ModuloI32,
-			telem.Int16T:   op.ModuloI16,
-			telem.Int8T:    op.ModuloI8,
-			telem.Uint64T:  op.ModuloU64,
-			telem.Uint32T:  op.ModuloU32,
-			telem.Uint16T:  op.ModuloU16,
-			telem.Uint8T:   op.ModuloU8,
 		},
 	}
 )

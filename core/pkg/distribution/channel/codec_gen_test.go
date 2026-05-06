@@ -20,7 +20,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -39,7 +39,7 @@ var _ = Describe("Codec", func() {
 			},
 			Entry("fully populated", channel.Channel{
 				Name:        "test_1",
-				Leaseholder: cluster.NodeKey(3),
+				Leaseholder: node.Key(3),
 				DataType:    telem.DataType("test_3"),
 				IsIndex:     false,
 				LocalKey:    channel.LocalKey(6),
@@ -58,7 +58,7 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("zero values", channel.Channel{
 				Name:        "",
-				Leaseholder: cluster.NodeKey(0),
+				Leaseholder: node.Key(0),
 				DataType:    telem.DataType(""),
 				IsIndex:     false,
 				LocalKey:    channel.LocalKey(0),
@@ -71,7 +71,7 @@ var _ = Describe("Codec", func() {
 			}),
 			Entry("empty collections", channel.Channel{
 				Name:        "test_1",
-				Leaseholder: cluster.NodeKey(3),
+				Leaseholder: node.Key(3),
 				DataType:    telem.DataType("test_3"),
 				IsIndex:     false,
 				LocalKey:    channel.LocalKey(6),
@@ -112,7 +112,7 @@ var _ = Describe("Codec", func() {
 func BenchmarkEncodeDecodeChannel(b *testing.B) {
 	c := channel.Channel{
 		Name:        "test_1",
-		Leaseholder: cluster.NodeKey(3),
+		Leaseholder: node.Key(3),
 		DataType:    telem.DataType("test_3"),
 		IsIndex:     false,
 		LocalKey:    channel.LocalKey(6),
@@ -169,7 +169,7 @@ func FuzzDecodeChannel(f *testing.F) {
 	{
 		seed := channel.Channel{
 			Name:        "test_1",
-			Leaseholder: cluster.NodeKey(3),
+			Leaseholder: node.Key(3),
 			DataType:    telem.DataType("test_3"),
 			IsIndex:     false,
 			LocalKey:    channel.LocalKey(6),
@@ -195,7 +195,7 @@ func FuzzDecodeChannel(f *testing.F) {
 	{
 		seed := channel.Channel{
 			Name:        "",
-			Leaseholder: cluster.NodeKey(0),
+			Leaseholder: node.Key(0),
 			DataType:    telem.DataType(""),
 			IsIndex:     false,
 			LocalKey:    channel.LocalKey(0),
@@ -215,7 +215,7 @@ func FuzzDecodeChannel(f *testing.F) {
 	{
 		seed := channel.Channel{
 			Name:        "test_1",
-			Leaseholder: cluster.NodeKey(3),
+			Leaseholder: node.Key(3),
 			DataType:    telem.DataType("test_3"),
 			IsIndex:     false,
 			LocalKey:    channel.LocalKey(6),

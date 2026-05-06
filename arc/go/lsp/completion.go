@@ -152,10 +152,10 @@ var completions = []completionInfo{
 		Category:     categoryFunction | categoryValue,
 	},
 	{
-		Label:        "now",
-		Detail:       "now() timestamp",
+		Label:        "time.now",
+		Detail:       "time.now() timestamp",
 		Doc:          "Returns the current timestamp",
-		Insert:       "now()",
+		Insert:       "time.now()",
 		Kind:         protocol.CompletionItemKindFunction,
 		InsertFormat: protocol.InsertTextFormatSnippet,
 		Category:     categoryFunction | categoryValue,
@@ -456,6 +456,13 @@ func (s *Server) getCompletionItems(
 	}
 
 	if completionCtx != ContextTypeAnnotation {
+		var execFilter symbol.ExecContext
+		switch nesting {
+		case NestingFunction:
+			execFilter = symbol.ExecWASM
+		case NestingTopLevel, NestingStageBody, NestingSequenceBody:
+			execFilter = symbol.ExecFlow
+		}
 		modulePrefix := ""
 		if dotIdx := strings.LastIndex(prefix, "."); dotIdx >= 0 {
 			modulePrefix = prefix[:dotIdx+1]
@@ -470,6 +477,12 @@ func (s *Server) getCompletionItems(
 				if err == nil {
 					for _, sym := range symbols {
 						if sym.Kind != symbol.KindFunction {
+							continue
+						}
+						if sym.Internal {
+							continue
+						}
+						if !sym.Exec.Compatible(execFilter) {
 							continue
 						}
 						qualifiedName := modulePrefix + sym.Name
@@ -492,6 +505,9 @@ func (s *Server) getCompletionItems(
 				scopes, err := scopeAtCursor.Search(ctx, prefix)
 				if err == nil {
 					for _, scope := range scopes {
+						if scope.Kind == symbol.KindFunction && !scope.Exec.Compatible(execFilter) {
+							continue
+						}
 						items = append(items, symbolCompletionItem(scope.Name, scope.Type))
 					}
 				}
@@ -499,6 +515,9 @@ func (s *Server) getCompletionItems(
 				symbols, err := s.cfg.GlobalResolver.Search(ctx, prefix)
 				if err == nil {
 					for _, sym := range symbols {
+						if sym.Kind == symbol.KindFunction && !sym.Exec.Compatible(execFilter) {
+							continue
+						}
 						items = append(items, symbolCompletionItem(sym.Name, sym.Type))
 					}
 				}

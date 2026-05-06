@@ -8,20 +8,23 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type schematic } from "@synnaxlabs/client";
 import {
   type Control,
   type Diagram,
   type Theming,
   type Viewport,
 } from "@synnaxlabs/pluto";
-import { color, id, xy } from "@synnaxlabs/x";
+import { color, deep, id, type require, xy } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
+import { ZERO_COPY_BUFFER } from "@/schematic/types/v6";
 import { type RootState } from "@/store";
 
 export type SliceState = latest.SliceState;
-export type NodeProps = latest.NodeProps;
-export type EdgeProps = latest.EdgeProps;
+export type NodeConfig = latest.NodeConfig;
+export type EdgeConfig = latest.EdgeConfig;
+export type ElementConfig = latest.ElementConfig;
 export type State = latest.State;
 export type LegendState = latest.LegendState;
 export type ToolbarTab = latest.ToolbarTab;
@@ -40,9 +43,9 @@ export interface StoreState {
 
 /** Purges fields in schematic state that should not be persisted. */
 export const purgeState = (state: State): State => {
-  // Reset control states.
   state.control = "released";
   state.toolbar = { ...state.toolbar, activeTab: "symbols" };
+  state.selected = [];
   return state;
 };
 
@@ -53,22 +56,30 @@ export const purgeSliceState = (state: RootState): RootState => {
 
 export const PERSIST_EXCLUDE = [purgeSliceState];
 
+export const fromRemote = (s: schematic.Schematic): State => ({
+  ...ZERO_STATE,
+  ...s,
+  // TODO: remove this assertion when schematic element configs are strongly typed on
+  // the core.
+  configs: s.configs as Record<string, ElementConfig>,
+  remoteCreated: true,
+});
+
 export interface SetViewportPayload {
   key: string;
   viewport: Diagram.Viewport;
 }
 
-export interface AddElementPayload {
+export interface AddNodePayload {
   key: string;
-  elKey: string;
-  props: NodeProps;
-  node?: Partial<Diagram.Node>;
+  config: NodeConfig;
+  node: require.Require<Partial<Diagram.Node>, "key">;
 }
 
-export interface SetElementPropsPayload {
-  layoutKey: string;
+export interface SetElementConfigPayload {
   key: string;
-  props: Partial<NodeProps> | Partial<EdgeProps>;
+  elKey: string;
+  config: Partial<ElementConfig>;
 }
 
 export interface FixThemeContrastPayload {
@@ -153,6 +164,11 @@ export interface SelectAllPayload {
   key: string;
 }
 
+export interface SetSelectedPayload {
+  key: string;
+  selected: string[];
+}
+
 export interface SetAuthorityPayload {
   key: string;
   authority: number;
@@ -163,33 +179,56 @@ export interface SetSelectedSymbolGroupPayload {
   group: string;
 }
 
+export interface ApplyNodeChangesPayload {
+  key: string;
+  changes: Diagram.NodeChange[];
+}
+
+export interface ApplyEdgeChangesPayload {
+  key: string;
+  changes: Diagram.EdgeChange[];
+}
+
+const setActiveTabFromSelection = (
+  state: SliceState,
+  layoutKey: string,
+  hasSelection: boolean,
+): void => {
+  const schematic = state.schematics[layoutKey];
+  if (schematic == null) return;
+  if (hasSelection) {
+    if (schematic.toolbar.activeTab !== "properties")
+      clearOtherSelections(state, layoutKey);
+    schematic.toolbar.activeTab = "properties";
+  } else schematic.toolbar.activeTab = "symbols";
+};
+
+const syncEdgeColorFromEndpoints = (schematic: State, edge: Diagram.Edge): void => {
+  const source = schematic.configs[edge.source.node];
+  if (source.color == null) return;
+  schematic.configs[edge.key].color = color.construct(source.color);
+};
+
 export const { actions, reducer } = createSlice({
   name: SLICE_NAME,
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     copySelection: (state, _: PayloadAction<CopySelectionPayload>) => {
-      // for each schematic, find the keys of the selected nodes and edges
-      // and add them to the copy buffer. Then get the props of each
-      // selected node and edge and add them to the copy buffer.
       const { schematics } = state;
-      const copyBuffer: latest.CopyBuffer = {
-        nodes: [],
-        edges: [],
-        props: {},
-        pos: xy.ZERO,
-      };
+      const copyBuffer: latest.CopyBuffer = deep.copy(ZERO_COPY_BUFFER);
       Object.values(schematics).forEach((schematic) => {
-        const { nodes, edges, props } = schematic;
-        const selectedNodes = nodes.filter((node) => node.selected);
-        const selectedEdges = edges.filter((edge) => edge.selected);
+        const { nodes, edges, configs, selected } = schematic;
+        const selectedSet = new Set(selected);
+        const selectedNodes = nodes.filter((node) => selectedSet.has(node.key));
+        const selectedEdges = edges.filter((edge) => selectedSet.has(edge.key));
         copyBuffer.nodes = [...copyBuffer.nodes, ...selectedNodes];
         copyBuffer.edges = [...copyBuffer.edges, ...selectedEdges];
-        selectedNodes.forEach((node) => {
-          copyBuffer.props[node.key] = props[node.key];
-        });
-        selectedEdges.forEach((edge) => {
-          copyBuffer.props[edge.key] = props[edge.key];
-        });
+        selectedNodes.forEach(
+          (node) => (copyBuffer.configs[node.key] = configs[node.key]),
+        );
+        selectedEdges.forEach(
+          (edge) => (copyBuffer.configs[edge.key] = configs[edge.key]),
+        );
       });
       const { nodes } = copyBuffer;
       if (nodes.length > 0) {
@@ -202,101 +241,85 @@ export const { actions, reducer } = createSlice({
       state.copy = copyBuffer;
     },
     pasteSelection: (state, { payload }: PayloadAction<PasteSelectionPayload>) => {
-      const { pos, key: layoutKey } = payload;
-      const console = xy.translation(state.copy.pos, pos);
-      const schematic = state.schematics[layoutKey];
+      const { pos, key } = payload;
+      const offset = xy.translation(state.copy.pos, pos);
+      const schematic = state.schematics[key];
       const keys: Record<string, string> = {};
       const nextNodes = state.copy.nodes.map((node) => {
         const key: string = id.create();
-        schematic.props[key] = state.copy.props[node.key];
+        if (state.copy.configs[node.key] != null)
+          schematic.configs[key] = state.copy.configs[node.key];
         keys[node.key] = key;
         return {
           ...node,
-          position: xy.translate(node.position, console),
+          position: xy.translate(node.position, offset),
           key,
-          selected: true,
         };
       });
       const nextEdges = state.copy.edges.map((edge) => {
         const key: string = id.create();
+        if (state.copy.configs[edge.key] != null)
+          schematic.configs[key] = state.copy.configs[edge.key];
         return {
-          ...edge,
           key,
-          source: keys[edge.source],
-          target: keys[edge.target],
-          selected: true,
+          source: {
+            node: keys[edge.source.node] ?? edge.source.node,
+            param: edge.source.param,
+          },
+          target: {
+            node: keys[edge.target.node] ?? edge.target.node,
+            param: edge.target.param,
+          },
         };
       });
-      schematic.edges = [
-        ...schematic.edges.map((edge) => ({ ...edge, selected: false })),
-        ...nextEdges,
+      schematic.edges = [...schematic.edges, ...nextEdges];
+      schematic.nodes = [...schematic.nodes, ...nextNodes];
+      schematic.selected = [
+        ...nextNodes.map((n) => n.key),
+        ...nextEdges.map((e) => e.key),
       ];
-      schematic.nodes = [
-        ...schematic.nodes.map((node) => ({ ...node, selected: false })),
-        ...nextNodes,
-      ];
+      setActiveTabFromSelection(state, key, schematic.selected.length > 0);
     },
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const { key: layoutKey } = payload;
+      const { key } = payload;
       const schematic: State = purgeState({
         ...ZERO_STATE,
         ...latest.migrateState(payload),
-        key: layoutKey,
       });
-      if (schematic.snapshot) {
-        schematic.editable = false;
-        clearSelections(schematic);
-      }
-      state.schematics[layoutKey] = schematic;
+      if (schematic.snapshot) schematic.editable = false;
+      state.schematics[key] = schematic;
     },
     clearSelection: (state, { payload }: PayloadAction<ClearSelectionPayload>) => {
-      const { key: layoutKey } = payload;
-      const schematic = state.schematics[layoutKey];
-      schematic.nodes.forEach((node) => {
-        node.selected = false;
-      });
-      schematic.edges.forEach((edge) => {
-        edge.selected = false;
-      });
-      state.schematics[layoutKey].toolbar.activeTab = "symbols";
+      const { key } = payload;
+      const schematic = state.schematics[key];
+      schematic.selected = [];
+      schematic.toolbar.activeTab = "symbols";
+    },
+    setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {
+      const { key, selected } = payload;
+      const schematic = state.schematics[key];
+      schematic.selected = selected;
+      setActiveTabFromSelection(state, key, selected.length > 0);
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
-      const { keys: layoutKeys } = payload;
-      layoutKeys.forEach((layoutKey) => {
-        const schematic = state.schematics[layoutKey];
-        if (schematic == null) return;
-        delete state.schematics[layoutKey];
-      });
+      const { keys } = payload;
+      keys.forEach((key) => delete state.schematics[key]);
     },
-    addElement: (state, { payload }: PayloadAction<AddElementPayload>) => {
-      const { key: layoutKey, elKey: key, props, node } = payload;
-      const schematic = state.schematics[layoutKey];
+    addNode: (state, { payload }: PayloadAction<AddNodePayload>) => {
+      const { key, config, node } = payload;
+      const schematic = state.schematics[key];
       if (!schematic.editable) return;
-      schematic.nodes.push({
-        key,
-        selected: false,
-        position: xy.ZERO,
-        ...node,
-      });
-      schematic.props[key] = props;
+      schematic.nodes.push({ ...node, position: node.position ?? { ...xy.ZERO } });
+      schematic.configs[node.key] = config;
     },
-    setElementProps: (state, { payload }: PayloadAction<SetElementPropsPayload>) => {
-      const { layoutKey, key, props } = payload;
-      const schematic = state.schematics[layoutKey];
-      if (key in schematic.props)
-        schematic.props[key] = {
-          ...schematic.props[key],
-          ...props,
-        } as NodeProps;
-      else {
-        const edge = schematic.edges.findIndex((edge) => edge.key === key);
-        if (edge !== -1)
-          schematic.edges[edge].data = { ...schematic.edges[edge].data, ...props };
-      }
+    setElementConfig: (state, { payload }: PayloadAction<SetElementConfigPayload>) => {
+      const { key, elKey, config } = payload;
+      const schem = state.schematics[key];
+      schem.configs[elKey] = { ...schem.configs[elKey], ...config } as ElementConfig;
     },
     setNodes: (state, { payload }: PayloadAction<SetNodesPayload>) => {
-      const { key: layoutKey, nodes, mode = "replace" } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, nodes, mode = "replace" } = payload;
+      const schematic = state.schematics[key];
       if (mode === "replace") schematic.nodes = nodes;
       else {
         const keys = nodes.map((node) => node.key);
@@ -305,18 +328,10 @@ export const { actions, reducer } = createSlice({
           ...nodes,
         ];
       }
-      const anySelected =
-        nodes.some((node) => node.selected) ||
-        schematic.edges.some((edge) => edge.selected);
-      if (anySelected) {
-        if (state.schematics[layoutKey].toolbar.activeTab !== "properties")
-          clearOtherSelections(state, layoutKey);
-        state.schematics[layoutKey].toolbar.activeTab = "properties";
-      } else state.schematics[layoutKey].toolbar.activeTab = "symbols";
     },
     setNodePositions: (state, { payload }: PayloadAction<SetNodePositionsPayload>) => {
-      const { key: layoutKey, positions } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, positions } = payload;
+      const schematic = state.schematics[key];
       positions.forEach(([key, position]) => {
         const node = schematic.nodes.find((node) => node.key === key);
         if (node == null) return;
@@ -324,33 +339,55 @@ export const { actions, reducer } = createSlice({
       });
     },
     setEdges: (state, { payload }: PayloadAction<SetEdgesPayload>) => {
-      const { key: layoutKey, edges } = payload;
-      const schematic = state.schematics[layoutKey];
-      // check for new edges
-      const prevKeys = schematic.edges.map((edge) => edge.key);
-      const newEdges = edges.filter((edge) => !prevKeys.includes(edge.key));
-      newEdges.forEach((edge) => {
-        const source = schematic.nodes.find((node) => node.key === edge.source);
-        const target = schematic.nodes.find((node) => node.key === edge.target);
-        if (source == null || target == null) return;
-        const sourceProps = schematic.props[source.key];
-        const targetProps = schematic.props[target.key];
-        if (
-          sourceProps.color === targetProps.color &&
-          sourceProps.color != null &&
-          edge.data != null
-        )
-          edge.data.color = sourceProps.color;
-      });
+      const { key, edges } = payload;
+      const schematic = state.schematics[key];
+      const prevKeys = new Set(schematic.edges.map((edge) => edge.key));
+      edges
+        .filter((edge) => !prevKeys.has(edge.key))
+        .forEach((edge) => syncEdgeColorFromEndpoints(schematic, edge));
       schematic.edges = edges;
-      const anySelected =
-        edges.some((edge) => edge.selected) ||
-        schematic.nodes.some((node) => node.selected);
-      if (anySelected) {
-        if (state.schematics[layoutKey].toolbar.activeTab !== "properties")
-          clearOtherSelections(state, layoutKey);
-        state.schematics[layoutKey].toolbar.activeTab = "properties";
-      } else state.schematics[layoutKey].toolbar.activeTab = "symbols";
+    },
+    applyNodeChanges: (state, { payload }: PayloadAction<ApplyNodeChangesPayload>) => {
+      const { key, changes } = payload;
+      const schematic = state.schematics[key];
+      for (const change of changes)
+        switch (change.type) {
+          case "position": {
+            const node = schematic.nodes.find((n) => n.key === change.key);
+            if (node != null) node.position = change.position;
+            break;
+          }
+          case "remove": {
+            schematic.nodes = schematic.nodes.filter((n) => n.key !== change.key);
+            schematic.edges = schematic.edges.filter(
+              (e) => e.source.node !== change.key && e.target.node !== change.key,
+            );
+            delete schematic.configs[change.key];
+            schematic.selected = schematic.selected.filter((k) => k !== change.key);
+            break;
+          }
+        }
+    },
+    applyEdgeChanges: (state, { payload }: PayloadAction<ApplyEdgeChangesPayload>) => {
+      const { key, changes } = payload;
+      const schematic = state.schematics[key];
+      for (const change of changes)
+        switch (change.type) {
+          case "add":
+            schematic.edges.push(change.edge);
+            schematic.configs[change.edge.key] = {
+              variant: "pipe",
+              color: [...color.ZERO],
+              segments: [],
+            };
+            syncEdgeColorFromEndpoints(schematic, change.edge);
+            break;
+          case "remove":
+            schematic.edges = schematic.edges.filter((e) => e.key !== change.key);
+            delete schematic.configs[change.key];
+            schematic.selected = schematic.selected.filter((k) => k !== change.key);
+            break;
+        }
     },
     setActiveToolbarTab: (
       state,
@@ -367,7 +404,7 @@ export const { actions, reducer } = createSlice({
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const { key: layoutKey, editable } = payload;
       const schematic = state.schematics[layoutKey];
-      clearSelections(schematic);
+      schematic.selected = [];
       if (schematic.snapshot) return;
       schematic.editable = editable;
     },
@@ -375,17 +412,17 @@ export const { actions, reducer } = createSlice({
       state,
       { payload }: PayloadAction<SetFitViewOnResizePayload>,
     ) => {
-      const { key: layoutKey, fitViewOnResize } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, fitViewOnResize } = payload;
+      const schematic = state.schematics[key];
       schematic.fitViewOnResize = fitViewOnResize;
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const { key: layoutKey, control } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, control } = payload;
+      const schematic = state.schematics[key];
       if (schematic == null) return;
       schematic.control = control;
       if (control === "acquired") {
-        clearSelections(schematic);
+        schematic.selected = [];
         schematic.editable = false;
       }
     },
@@ -396,8 +433,8 @@ export const { actions, reducer } = createSlice({
       state.schematics[key].mode = mode;
     },
     setRemoteCreated: (state, { payload }: PayloadAction<SetRemoteCreatedPayload>) => {
-      const { key: layoutKey } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key } = payload;
+      const schematic = state.schematics[key];
       schematic.remoteCreated = true;
     },
     fixThemeContrast: (state, { payload }: PayloadAction<FixThemeContrastPayload>) => {
@@ -408,35 +445,30 @@ export const { actions, reducer } = createSlice({
         return color.grayness(c) > 0.85 && color.contrast(c, bgColor) < 1.3;
       };
       Object.values(state.schematics).forEach((schematic) => {
-        const { nodes, edges, props } = schematic;
-        nodes.forEach((node) => {
-          const nodeProps = props[node.key];
-          if ("color" in nodeProps)
-            if (shouldChange(nodeProps.color as string))
-              nodeProps.color = theme.colors.gray.l11;
-        });
-        edges.forEach((edge) => {
-          if (edge.data?.color != null && shouldChange(edge.data.color as string))
-            edge.data.color = theme.colors.gray.l11;
-          else if (edge.data != null) edge.data.color ??= theme.colors.gray.l11;
+        Object.values(schematic.configs).forEach((p) => {
+          if ("color" in p && p.color != null && shouldChange(p.color))
+            p.color = color.construct(theme.colors.gray.l11);
         });
       });
     },
     setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
-      const { key: layoutKey, legend } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, legend } = payload;
+      const schematic = state.schematics[key];
       schematic.legend = { ...schematic.legend, ...legend };
     },
     setLegendVisible: (state, { payload }: PayloadAction<SetLegendVisiblePayload>) => {
-      const { key: layoutKey, visible } = payload;
-      const schematic = state.schematics[layoutKey];
+      const { key, visible } = payload;
+      const schematic = state.schematics[key];
       schematic.legend.visible = visible;
     },
     selectAll: (state, { payload }: PayloadAction<SelectAllPayload>) => {
-      const { key: layoutKey } = payload;
-      const schematic = state.schematics[layoutKey];
-      schematic.nodes.forEach((node) => (node.selected = true));
-      schematic.edges.forEach((edge) => (edge.selected = true));
+      const { key } = payload;
+      const schematic = state.schematics[key];
+      schematic.selected = [
+        ...schematic.nodes.map((n) => n.key),
+        ...schematic.edges.map((e) => e.key),
+      ];
+      setActiveTabFromSelection(state, key, schematic.selected.length > 0);
     },
     setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
       const { key, authority } = payload;
@@ -453,20 +485,9 @@ export const { actions, reducer } = createSlice({
   },
 });
 
-const clearOtherSelections = (state: SliceState, layoutKey: string): void => {
+const clearOtherSelections = (state: SliceState, target: string): void => {
   Object.keys(state.schematics).forEach((key) => {
-    // If any of the nodes or edges in other Diagram slices are selected, deselect them.
-    if (key === layoutKey) return;
-    clearSelections(state.schematics[key]);
-  });
-};
-
-const clearSelections = (state: State): void => {
-  state.nodes.forEach((node) => {
-    node.selected = false;
-  });
-  state.edges.forEach((edge) => {
-    edge.selected = false;
+    if (key !== target) state.schematics[key].selected = [];
   });
 };
 
@@ -475,16 +496,17 @@ export const {
   setLegendVisible,
   setNodePositions,
   setControlStatus,
-  addElement,
+  addNode,
   selectAll,
   setEdges,
   setNodes,
   remove,
   clearSelection,
+  setSelected,
   setSelectedSymbolGroup,
   setFitViewOnResize,
   create: internalCreate,
-  setElementProps,
+  setElementConfig,
   setActiveToolbarTab,
   setViewport,
   setEditable,
@@ -494,6 +516,8 @@ export const {
   setRemoteCreated,
   fixThemeContrast,
   setAuthority,
+  applyNodeChanges,
+  applyEdgeChanges,
 } = actions;
 
 export type Action = ReturnType<(typeof actions)[keyof typeof actions]>;

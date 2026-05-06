@@ -33,7 +33,7 @@ func (w Writer) Create(
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().WhereKeys(p.Key).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, LinePlot](p.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -65,7 +65,7 @@ func (w Writer) Rename(
 	name string,
 ) error {
 	return w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
 			p.Name = name
 			return p
@@ -78,7 +78,7 @@ func (w Writer) SetData(
 	data map[string]any,
 ) error {
 	return w.table.NewUpdate().
-		WhereKeys(key).
+		Where(gorp.MatchKeys[uuid.UUID, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
 			p.Data = data
 			return p
@@ -89,7 +89,7 @@ func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
 ) error {
-	err := w.table.NewDelete().WhereKeys(keys...).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, LinePlot](keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

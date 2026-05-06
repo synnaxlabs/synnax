@@ -51,10 +51,12 @@ Device struct<
     rack       rack.Key      {
         @doc value         "is the key of the rack that owns this device."
         @validate required
+        @filter
     }
     location   string        {
         @doc value         "is the physical location or address of the device."
         @validate required
+        @filter
     }
     make       Make          {
         @doc value         """
@@ -62,14 +64,17 @@ Device struct<
             Instruments').
         """
         @validate required
+        @filter
     }
     model      Model         {
         @doc value         "is the device model identifier."
         @validate required
+        @filter
     }
     name       string        {
         @doc value         "is a human-readable name for the device."
         @validate required
+        @filter
     }
     configured bool          {
         @doc value        """
@@ -104,6 +109,8 @@ Device struct<
     @ontology type     "device"
     @go marshal
     @go migrate
+    @retrieve
+    @search
     @ts concrete_types
 }
 

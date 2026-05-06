@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { primitive, type record, status } from "@synnaxlabs/x";
+import { primitive, status } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -91,27 +91,14 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     },
     outlet: "stringifier",
   });
-  const schematicSymbolProps: PSchematic.Symbol.ValueProps = {
-    label: {
-      label: name,
-      level: "p",
-    },
+  const nodeConfig: PSchematic.Node.ConfigOf<"value"> = {
+    variant: "value",
+    label: { label: name, level: "p" },
     telem: t,
   };
-  const items = [
-    {
-      type: Schematic.HAUL_TYPE,
-      key: "value",
-      data: schematicSymbolProps as record.Unknown,
-    },
-  ];
+  const items = [Schematic.createValueHaulItem(nodeConfig)];
   if (data?.internal === true) return items;
-  return [
-    {
-      type: "channel",
-      key: Number(id.key),
-    },
-  ];
+  return [PChannel.createHaulItem(Number(id.key))];
 };
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;

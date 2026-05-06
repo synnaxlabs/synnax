@@ -23,7 +23,6 @@ import (
 	"github.com/synnaxlabs/arc/stl/selector"
 	"github.com/synnaxlabs/arc/stl/series"
 	"github.com/synnaxlabs/arc/stl/stable"
-	"github.com/synnaxlabs/arc/stl/stat"
 	"github.com/synnaxlabs/arc/stl/stateful"
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/stl/wasm"
@@ -105,13 +104,18 @@ func Open(
 		return nil, err
 	}
 
+	mathMod, err := stlmath.NewModule(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+
 	f := node.CompoundFactory{
 		channelMod,
 		selector.NewModule(),
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
-		&stat.Module{},
+		mathMod,
 	}
 
 	var closers io.MultiCloser

@@ -58,11 +58,11 @@ func (d dagWriter) DeleteResource(ctx context.Context, id ID) error {
 	if err := d.deleteOutgoingRelationships(ctx, id); err != nil {
 		return err
 	}
-	return d.resourceTable.NewDelete().WhereKeys(id.String()).Exec(ctx, d.tx)
+	return d.resourceTable.NewDelete().Where(gorp.MatchKeys[string, Resource](id.String())).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) HasResource(ctx context.Context, id ID) (bool, error) {
-	return d.resourceTable.NewRetrieve().WhereKeys(id.String()).Exists(ctx, d.tx)
+	return d.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](id.String())).Exists(ctx, d.tx)
 }
 
 func (d dagWriter) HasRelationship(ctx context.Context, from ID, t RelationshipType, to ID) (bool, error) {
@@ -82,7 +82,7 @@ func (d dagWriter) DeleteManyResources(ctx context.Context, ids []ID) error {
 			return err
 		}
 	}
-	return d.resourceTable.NewDelete().WhereKeys(IDsToKeys(ids)...).Exec(ctx, d.tx)
+	return d.resourceTable.NewDelete().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, d.tx)
 }
 
 // DefineRelationship implements the Writer interface.
@@ -133,8 +133,7 @@ func (d dagWriter) DeleteRelationship(
 	t RelationshipType,
 	to ID,
 ) error {
-	return d.relationshipTable.NewDelete().
-		WhereKeys(Relationship{From: from, To: to, Type: t}.GorpKey()).
+	return d.relationshipTable.NewDelete().Where(gorp.MatchKeys[[]byte, Relationship](Relationship{From: from, To: to, Type: t}.GorpKey())).
 		Exec(ctx, d.tx)
 }
 
@@ -160,8 +159,7 @@ func (d dagWriter) retrieveOutgoingRelationships(ctx context.Context, key ID) ([
 
 func (d dagWriter) retrieveResources(ctx context.Context, ids []ID) ([]Resource, error) {
 	var resources []Resource
-	if err := d.resourceTable.NewRetrieve().
-		WhereKeys(IDsToKeys(ids)...).
+	if err := d.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).
 		Entries(&resources).
 		Exec(ctx, d.tx); err != nil {
 		return nil, err
@@ -190,39 +188,37 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 }
 
 func (d dagWriter) deleteIncomingRelationships(ctx context.Context, id ID) error {
-	return d.relationshipTable.NewDelete().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return d.relationshipTable.NewDelete().Where(gorp.Match(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 		return rel.To == id, nil
-	}).Exec(ctx, d.tx)
+	})).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) deleteOutgoingRelationships(ctx context.Context, from ID) error {
-	return d.relationshipTable.NewDelete().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return d.relationshipTable.NewDelete().Where(gorp.Match(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 		return rel.From == from, nil
-	}).Exec(ctx, d.tx)
+	})).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteOutgoingRelationshipsOfType(ctx context.Context, from ID, relationshipType RelationshipType) error {
-	return d.relationshipTable.NewDelete().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return d.relationshipTable.NewDelete().Where(gorp.Match(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 		return rel.From == from && rel.Type == relationshipType, nil
-	}).Exec(ctx, d.tx)
+	})).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) DeleteIncomingRelationshipsOfType(ctx context.Context, to ID, relationshipType RelationshipType) error {
-	return d.relationshipTable.NewDelete().Where(func(ctx gorp.Context, rel *Relationship) (bool, error) {
+	return d.relationshipTable.NewDelete().Where(gorp.Match(func(ctx gorp.Context, rel *Relationship) (bool, error) {
 		return rel.To == to && rel.Type == relationshipType, nil
-	}).Exec(ctx, d.tx)
+	})).Exec(ctx, d.tx)
 }
 
 func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship) (bool, error) {
-	exists, err := d.relationshipTable.NewRetrieve().
-		WhereKeys(rel.GorpKey()).
+	exists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[[]byte, Relationship](rel.GorpKey())).
 		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err
 	}
 	reverseRel := Relationship{From: rel.To, To: rel.From, Type: rel.Type}
-	reverseExists, err := d.relationshipTable.NewRetrieve().
-		WhereKeys(reverseRel.GorpKey()).
+	reverseExists, err := d.relationshipTable.NewRetrieve().Where(gorp.MatchKeys[[]byte, Relationship](reverseRel.GorpKey())).
 		Exists(ctx, d.tx)
 	if err != nil {
 		return false, err
@@ -234,5 +230,5 @@ func (d dagWriter) checkRelationshipExists(ctx context.Context, rel Relationship
 }
 
 func (d dagWriter) validateResourcesExist(ctx context.Context, ids ...ID) error {
-	return d.resourceTable.NewRetrieve().WhereKeys(IDsToKeys(ids)...).Exec(ctx, d.tx)
+	return d.resourceTable.NewRetrieve().Where(gorp.MatchKeys[string, Resource](IDsToKeys(ids)...)).Exec(ctx, d.tx)
 }

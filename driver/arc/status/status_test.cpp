@@ -13,6 +13,7 @@
 #include "x/cpp/test/test.h"
 
 #include "arc/cpp/runtime/errors/errors.h"
+#include "arc/cpp/runtime/node/factory.h"
 #include "arc/cpp/runtime/state/state.h"
 #include "driver/arc/status/status.h"
 
@@ -102,6 +103,33 @@ TEST(SetStatusModuleTest, CreatesSetStatusNode) {
     Module module(client);
     auto node = ASSERT_NIL_P(
         module.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
+    );
+    ASSERT_NE(node, nullptr);
+}
+
+/// @brief Test that module creates a node with qualified type via MultiFactory.
+TEST(SetStatusModuleTest, CreatesNodeWithQualifiedTypeViaMultiFactory) {
+    auto status_node = make_ir_node();
+    status_node.type = "status.set";
+
+    ::arc::ir::Function fn;
+    fn.key = "test";
+
+    ::arc::ir::IR ir;
+    ir.nodes.push_back(status_node);
+    ir.functions.push_back(fn);
+
+    ::arc::runtime::state::State s(
+        ::arc::runtime::state::Config{.ir = ir, .channels = {}},
+        ::arc::runtime::errors::noop_handler
+    );
+    auto st = ASSERT_NIL_P(s.node("status"));
+
+    auto client = std::make_shared<synnax::Synnax>(new_test_client());
+    auto module = std::make_shared<Module>(client);
+    ::arc::runtime::node::MultiFactory multi({module});
+    auto node = ASSERT_NIL_P(
+        multi.create(::arc::runtime::node::Config(ir, ir.nodes[0], std::move(st)))
     );
     ASSERT_NE(node, nullptr);
 }

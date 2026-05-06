@@ -7,94 +7,122 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dispatch, type UnknownAction } from "@reduxjs/toolkit";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
-  Button,
   Control,
   Diagram,
-  Flex,
+  Flux,
   Haul,
   Icon,
+  type Pluto,
   Schematic as Base,
+  Status,
+  Synnax,
   Theming,
   usePrevious,
-  User,
   useSyncedRef,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { box, deep, location, type sticky, uuid, xy } from "@synnaxlabs/x";
-import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-import { useDispatch } from "react-redux";
+import { box, type color, deep, type sticky, uuid, xy } from "@synnaxlabs/x";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useDispatch, useStore } from "react-redux";
 
-import { ContextMenu as CContextMenu, Controls } from "@/components";
+import { ContextMenu as CContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
+import { Controller } from "@/schematic/Controller";
+import { Controls } from "@/schematic/Controls";
+import { canDropHaulItem, isHaulItem } from "@/schematic/haul";
 import {
+  selectConfig,
   selectOptional,
   selectRequired,
+  useSelectConfig,
   useSelectLegendVisible,
-  useSelectNodeProps,
   useSelectRequired,
   useSelectRequiredViewportMode,
+  useSelectSelected,
   useSelectVersion,
 } from "@/schematic/selectors";
 import {
+  applyEdgeChanges,
+  applyNodeChanges,
   clearSelection,
   copySelection,
+  fromRemote,
   internalCreate,
   pasteSelection,
   selectAll,
-  setControlStatus,
-  setEdges,
   setEditable,
-  setElementProps,
+  setElementConfig,
   setFitViewOnResize,
   setLegend,
-  setNodes,
   setRemoteCreated,
+  setSelected,
   setViewport,
   setViewportMode,
   type State,
   ZERO_STATE,
 } from "@/schematic/slice";
-import { useAddSymbol } from "@/schematic/symbols/useAddSymbol";
+import { type AddNodeProps, useAddNode } from "@/schematic/symbols/useAddNode";
 import { Selector } from "@/selector";
 import { type RootState } from "@/store";
 import { Workspace } from "@/workspace";
 
-export const HAUL_TYPE = "schematic-element";
+type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
 
-interface ControlToggleButtonProps {
-  control: Control.Status;
-}
+const navigateToLinkedSchematic = async (
+  retrieve: SchematicRetriever,
+  page: string,
+  placeLayout: Layout.Placer,
+): Promise<void> => {
+  const s = await retrieve(page);
+  placeLayout(create(fromRemote(s)));
+};
 
-const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
-  const { acquire, release } = Control.useContext();
-  const handleChange = useCallback(
-    (v: boolean) => (v ? acquire() : release()),
-    [acquire, release],
+type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
+
+const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
+  const store = useStore<RootState>();
+  const client = Synnax.use();
+  const fluxStore = Flux.useStore<Pluto.FluxStore>();
+  const retrieve: SchematicRetriever | null = useMemo(
+    () =>
+      client != null
+        ? (key: string) =>
+            Base.retrieveSingle({ store: fluxStore, client, query: { key } })
+        : null,
+    [fluxStore, client],
   );
-  return (
-    <Button.Toggle
-      value={control === "acquired"}
-      onChange={handleChange}
-      tooltipLocation={location.BOTTOM_LEFT}
-      size="small"
-      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
-    >
-      <Icon.Circle />
-    </Button.Toggle>
+  const handleError = Status.useErrorHandler();
+  const placeLayout = Layout.usePlacer();
+
+  return useCallback(
+    (nodeId: string, dblClick: boolean) => {
+      const storeState = store.getState();
+      const state = selectOptional(storeState, layoutKey);
+      if (state == null || state.editable || retrieve == null) return;
+      const props = selectConfig(storeState, layoutKey, nodeId);
+      if (
+        props?.variant !== "offPageReference" ||
+        typeof props.page !== "string" ||
+        props.page.length === 0
+      )
+        return;
+      const dblClickNav = props.dblClickNav !== false;
+      if (dblClick !== dblClickNav) return;
+      const { page } = props;
+      const label = props.label?.label;
+      const name = label != null && label.length > 0 ? label : "Referenced schematic";
+      handleError(
+        () => navigateToLinkedSchematic(retrieve, page, placeLayout),
+        `Schematic "${name}" not found`,
+      );
+    },
+    [store, layoutKey, retrieve, placeLayout, handleError],
   );
 };
 
@@ -113,65 +141,34 @@ const useSyncComponent = Workspace.createSyncComponent(
       await client.schematics.rename(key, layout.name);
       return;
     }
-    const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.schematics.create(workspace, {
       key,
       name: layout.name,
-      data: setData,
+      snapshot: data.snapshot,
+      authority: data.authority,
+      legend: data.legend,
+      nodes: data.nodes,
+      edges: data.edges,
+      configs: data.configs,
     });
   },
 );
 
-interface SymbolRendererProps extends Diagram.SymbolProps {
-  layoutKey: string;
-  dispatch: Dispatch<UnknownAction>;
-}
-
-const SymbolRenderer = ({
-  symbolKey,
-  position,
-  selected,
-  layoutKey,
-  dispatch,
-}: SymbolRendererProps): ReactElement | null => {
-  const props = useSelectNodeProps(layoutKey, symbolKey);
-  const key = props?.key;
-  const handleChange = useCallback(
-    (props: object) => {
-      if (key == null) return;
-      dispatch(
-        setElementProps({
-          layoutKey,
-          key: symbolKey,
-          props: { key, ...props },
-        }),
-      );
-    },
-    [symbolKey, layoutKey, key, dispatch],
-  );
-
-  if (props == null) return null;
-
-  const C = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
-
-  if (C == null) throw new Error(`Symbol ${key} not found`);
-
-  // Just here to make sure we don't spread the key into the symbol.
-  const { key: _, ...rest } = props;
-
-  return (
-    <C.Symbol
-      key={key}
-      id={symbolKey}
-      symbolKey={symbolKey}
-      position={position}
-      selected={selected}
-      onChange={handleChange}
-      {...rest}
-    />
-  );
+const useConfig: Base.UseConfig = (key, elKey) => {
+  const dispatch = useDispatch();
+  const config = useSelectConfig(key, elKey);
+  return [
+    config,
+    useCallback(
+      (config: Partial<Base.ElementConfig>) =>
+        dispatch(setElementConfig({ key, elKey, config })),
+      [key, dispatch],
+    ),
+  ];
 };
+
+const SchematicComponent = Base.create({ useConfig });
 
 export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
   <CContextMenu.Menu>
@@ -182,9 +179,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
-  const { data: user } = User.useRetrieve({}, { addStatusOnFailure: false });
-  const username = user?.username ?? "";
-  const controlName = username.length > 0 ? `${name} (${username})` : name;
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
@@ -213,23 +207,28 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
   const canEdit = hasUpdatePermission && state.editable;
 
-  const handleEdgesChange: Diagram.DiagramProps["onEdgesChange"] = useCallback(
-    (edges) => undoableDispatch(setEdges({ key: layoutKey, edges })),
+  const handleEdgesChange = useCallback(
+    (changes: Diagram.EdgeChange[]) =>
+      undoableDispatch(applyEdgeChanges({ key: layoutKey, changes })),
     [layoutKey, undoableDispatch],
   );
 
-  const handleNodesChange: Diagram.DiagramProps["onNodesChange"] = useCallback(
-    (nodes, changes) => {
-      if (
-        // @ts-expect-error - Sometimes, the nodes do have dragging
-        nodes.some((n) => n.dragging) ||
-        changes.some((c) => c.type === "select")
-      )
-        // don't remember dragging a node or selecting an element
-        syncDispatch(setNodes({ key: layoutKey, nodes }));
-      else undoableDispatch(setNodes({ key: layoutKey, nodes }));
+  const handleNodesChange = useCallback(
+    (changes: Diagram.NodeChange[]) => {
+      const dragging = changes.some(
+        (c) => c.type === "position" && c.dragging === true,
+      );
+      const action = applyNodeChanges({ key: layoutKey, changes });
+      if (dragging) syncDispatch(action);
+      else undoableDispatch(action);
     },
     [layoutKey, syncDispatch, undoableDispatch],
+  );
+
+  const selected = useSelectSelected(layoutKey);
+  const handleSelectionChange = useCallback(
+    (next: string[]) => syncDispatch(setSelected({ key: layoutKey, selected: next })),
+    [layoutKey, syncDispatch],
   );
 
   const handleViewportChange: Diagram.DiagramProps["onViewportChange"] = useCallback(
@@ -248,22 +247,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [layoutKey, syncDispatch],
   );
 
-  const handleControlStatusChange = useCallback(
-    (control: Control.Status) =>
-      syncDispatch(setControlStatus({ key: layoutKey, control })),
-    [layoutKey, syncDispatch],
-  );
-
-  const elRenderer = useCallback(
-    (props: Diagram.SymbolProps) => (
-      <SymbolRenderer layoutKey={layoutKey} dispatch={undoableDispatch} {...props} />
-    ),
-    [layoutKey, undoableDispatch],
-  );
-
   const ref = useRef<HTMLDivElement>(null);
 
-  const handleAddElement = useAddSymbol(undoableDispatch, layoutKey);
+  const handleAddElement = useAddNode(layoutKey, undoableDispatch);
 
   const calculateCursorPosition = useCallback(
     (cursor: xy.Crude) =>
@@ -277,13 +263,11 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType(HAUL_TYPE, items);
+      const valid = items.filter(isHaulItem);
       if (event == null) return valid;
-      valid.forEach(({ key, data }) => {
-        const spec = Base.Symbol.REGISTRY[key as Base.Symbol.Variant];
-        if (spec == null) return;
+      valid.forEach(({ data }) => {
         const pos = xy.truncate(calculateCursorPosition(event), 0);
-        handleAddElement(key.toString(), pos, data);
+        handleAddElement({ ...(data as AddNodeProps), position: pos });
       });
       return valid;
     },
@@ -291,9 +275,9 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const dropProps = Haul.useDrop({
-    type: "Schematic",
+    type: "schematic",
     key: layoutKey,
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    canDrop: canDropHaulItem,
     onDrop: handleDrop,
   });
 
@@ -310,6 +294,20 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
       }),
     );
   }, [windowKey, state.editable, syncDispatch]);
+
+  const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
+
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction(node.id, false),
+    [handleNodeClickAction],
+  );
+
+  const handleNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: { id: string }) =>
+      handleNodeClickAction(node.id, true),
+    [handleNodeClickAction],
+  );
 
   const [legendPosition, setLegendPosition] = useState<sticky.XY>(
     state.legend.position,
@@ -330,7 +328,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   );
 
   const handleLegendColorsChange = useCallback(
-    (colors: Record<string, string>) =>
+    (colors: Record<string, color.Color>) =>
       syncDispatch(setLegend({ key: layoutKey, legend: { colors } })),
     [layoutKey, syncDispatch],
   );
@@ -378,61 +376,51 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   });
 
   return (
-    <div
-      ref={ref}
-      onDoubleClick={handleDoubleClick}
-      style={{ width: "inherit", height: "inherit", position: "relative" }}
-    >
-      <Control.Controller
-        name={controlName}
-        authority={state.authority}
-        onStatusChange={handleControlStatusChange}
+    <Controller resourceKey={layoutKey} authority={state.authority}>
+      <SchematicComponent
+        itemKey={layoutKey}
+        ref={ref}
+        onViewportChange={handleViewportChange}
+        viewportMode={mode}
+        onViewportModeChange={handleViewportModeChange}
+        edges={state.edges}
+        nodes={state.nodes}
+        selected={selected}
+        onSelectionChange={handleSelectionChange}
+        // Turns out that setting the zoom value to 1 here doesn't have any negative
+        // effects on the schematic sizing and ensures that we position all the lines
+        // in the correct place.
+        viewport={{ ...state.viewport, zoom: 1 }}
+        onEdgesChange={handleEdgesChange}
+        onNodesChange={handleNodesChange}
+        onEditableChange={handleEditableChange}
+        editable={canEdit}
+        triggers={triggers}
+        onDoubleClick={handleDoubleClick}
+        onNodeClick={handleNodeClick}
+        onNodeDoubleClick={handleNodeDoubleClick}
+        fitViewOnResize={state.fitViewOnResize}
+        setFitViewOnResize={handleSetFitViewOnResize}
+        visible={visible}
+        {...dropProps}
       >
-        <Base.Schematic
-          onViewportChange={handleViewportChange}
-          viewportMode={mode}
-          onViewportModeChange={handleViewportModeChange}
-          edges={state.edges}
-          nodes={state.nodes}
-          // Turns out that setting the zoom value to 1 here doesn't have any negative
-          // effects on the schematic sizing and ensures that we position all the lines
-          // in the correct place.
-          viewport={{ ...state.viewport, zoom: 1 }}
-          onEdgesChange={handleEdgesChange}
-          onNodesChange={handleNodesChange}
-          onEditableChange={handleEditableChange}
-          editable={canEdit}
-          triggers={triggers}
-          onDoubleClick={handleDoubleClick}
-          fitViewOnResize={state.fitViewOnResize}
-          setFitViewOnResize={handleSetFitViewOnResize}
-          visible={visible}
-          {...dropProps}
-        >
-          <Diagram.NodeRenderer>{elRenderer}</Diagram.NodeRenderer>
-          <Diagram.Background />
-          <Controls x>
-            <Diagram.SelectViewportModeControl />
-            <Diagram.FitViewControl />
-            <Flex.Box x pack>
-              {hasUpdatePermission && (
-                <Diagram.ToggleEditControl disabled={state.control === "acquired"} />
-              )}
-              {!state.snapshot && <ControlToggleButton control={state.control} />}
-            </Flex.Box>
-          </Controls>
-        </Base.Schematic>
-        {legendVisible && (
-          <Control.Legend
-            position={legendPosition}
-            onPositionChange={handleLegendPositionChange}
-            colors={state.legend.colors}
-            onColorsChange={handleLegendColorsChange}
-            allowVisibleChange={false}
-          />
-        )}
-      </Control.Controller>
-    </div>
+        <Diagram.Background />
+        <Controls
+          hasUpdatePermission={hasUpdatePermission}
+          controlStatus={state.control}
+          snapshot={state.snapshot}
+        />
+      </SchematicComponent>
+      {legendVisible && (
+        <Control.Legend
+          position={legendPosition}
+          onPositionChange={handleLegendPositionChange}
+          colors={state.legend.colors}
+          onColorsChange={handleLegendColorsChange}
+          allowVisibleChange={false}
+        />
+      )}
+    </Controller>
   );
 };
 
@@ -440,7 +428,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(fromRemote(v)),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {

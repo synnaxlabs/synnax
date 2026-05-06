@@ -188,6 +188,7 @@ func analyze(c *analysisCtx) {
 
 	for _, typ := range c.table.TypesInNamespace(c.namespace) {
 		validateExtends(c, typ)
+		validateTypeParams(c, typ)
 	}
 }
 
@@ -881,6 +882,44 @@ func validateExtends(c *analysisCtx, typ resolution.Type) {
 			d := diagnostics.Errorf(nil,
 				"cannot omit field %q: not found in any parent struct",
 				omitted)
+			d.File = c.filePath
+			c.diag.Add(d)
+		}
+	}
+}
+
+func typeParamsOf(form resolution.TypeForm) []resolution.TypeParam {
+	switch f := form.(type) {
+	case resolution.StructForm:
+		return f.TypeParams
+	case resolution.AliasForm:
+		return f.TypeParams
+	case resolution.DistinctForm:
+		return f.TypeParams
+	}
+	return nil
+}
+
+func validateTypeParams(c *analysisCtx, typ resolution.Type) {
+	for _, tp := range typeParamsOf(typ.Form) {
+		if tp.Constraint == nil {
+			continue
+		}
+		if tp.Constraint.Name != "numeric" {
+			continue
+		}
+		if tp.Default == nil {
+			d := diagnostics.Errorf(nil,
+				"type parameter %s of %s constrained by 'numeric' requires a default (e.g. = float64); the constraint cannot be expressed concretely in Go, C++, Python, or Proto",
+				tp.Name, typ.Name)
+			d.File = c.filePath
+			c.diag.Add(d)
+			continue
+		}
+		if !resolution.IsNumberPrimitive(tp.Default.Name) {
+			d := diagnostics.Errorf(nil,
+				"type parameter %s of %s constrained by 'numeric' has non-numeric default %q; default must be a number primitive (int*, uint*, float32, float64)",
+				tp.Name, typ.Name, tp.Default.Name)
 			d.File = c.filePath
 			c.diag.Add(d)
 		}

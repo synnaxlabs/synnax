@@ -13,7 +13,7 @@ import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { LAYOUT_TYPE } from "@/schematic/Schematic";
 import { selectOptional } from "@/schematic/selectors";
-import { type State } from "@/schematic/slice";
+import { fromRemote } from "@/schematic/slice";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();
@@ -22,11 +22,7 @@ export const extract: Export.Extractor = async (key, { store, client }) => {
   if (state == null || name == null) {
     if (client == null) throw new DisconnectedError();
     const schematic = await client.schematics.retrieve({ key });
-    state ??= {
-      ...(schematic.data as State),
-      snapshot: schematic.snapshot,
-      key: schematic.key,
-    };
+    state ??= fromRemote(schematic);
     name ??= schematic.name;
   }
   return { data: JSON.stringify({ ...state, type: LAYOUT_TYPE }), name };

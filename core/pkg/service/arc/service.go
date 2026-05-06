@@ -126,7 +126,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 // The returned Arc has its Module field populated with the compiled module.
 func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
 	var entry Arc
-	err := s.NewRetrieve().WhereKeys(key).Entry(&entry).Exec(ctx, nil)
+	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
 		return Arc{}, err
 	}

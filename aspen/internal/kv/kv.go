@@ -27,14 +27,18 @@ import (
 
 type DB struct {
 	xkv.DB
-	xkv.Observable
 	source struct {
 		confluence.NopFlow
 		confluence.AbstractUnarySource[TxRequest]
 	}
-	shutdown   io.Closer
-	leaseAlloc *leaseAllocator
-	config     Config
+	// txObservable fires after a TxRequest has been persisted, carrying the
+	// full TxRequest (not just its flattened reader) so per-handler wrappers
+	// can inspect leaseholder / sender metadata before invoking the user
+	// callback. Wired in Open from the persistDelta stage.
+	txObservable *confluence.ObservableSubscriber[TxRequest]
+	shutdown     io.Closer
+	leaseAlloc   *leaseAllocator
+	config       Config
 }
 
 var _ xkv.DB = (*DB)(nil)
@@ -76,8 +80,47 @@ func (d *DB) OpenTx() xkv.Tx {
 	}
 }
 
-func (d *DB) OnChange(f func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
-	return d.Observable.OnChange(f)
+// OnChange satisfies xkv.Observable: handler receives every persisted
+// TxRequest as a flattened xkv.TxReader, regardless of which node was the
+// leaseholder. For filtered views over the same stream, see NewObservable.
+func (d *DB) OnChange(handler func(ctx context.Context, reader xkv.TxReader)) observe.Disconnect {
+	return d.NewObservable().OnChange(handler)
+}
+
+// NewObservable returns a view over this DB's persisted tx stream.
+//
+// Without options, the returned observable is equivalent to OnChange: every
+// persisted TxRequest is yielded to subscribers as a flattened xkv.TxReader.
+// Options reshape what subscribers see — for example, IgnoreHostLeaseholder
+// drops TxRequests led by the host node so subscribers only observe writes
+// that originated on a remote node and were replicated here via gossip.
+//
+// Each call to NewObservable returns an independent observable; multiple
+// subscribers to the same observable share its filter, while subscribers
+// that need different filters should construct separate observables.
+func (d *DB) NewObservable(opts ...ObservableOption) observe.Observable[xkv.TxReader] {
+	return &observable{db: d, opts: resolveObservableOptions(opts)}
+}
+
+// observable is the concrete observable returned by NewObservable. It
+// subscribes to the DB's TxRequest pump on every OnChange call, applies the
+// configured filter, and forwards accepted requests to handler as flattened
+// xkv.TxReaders.
+type observable struct {
+	db   *DB
+	opts observableOptions
+}
+
+// OnChange implements observe.Observable.
+func (o *observable) OnChange(
+	handler func(ctx context.Context, reader xkv.TxReader),
+) observe.Disconnect {
+	return o.db.txObservable.OnChange(func(ctx context.Context, tx TxRequest) {
+		if o.opts.ignoreHostLeaseholder && tx.Leaseholder == o.db.config.Cluster.HostKey() {
+			return
+		}
+		handler(ctx, tx.reader())
+	})
 }
 
 func (d *DB) apply(b []TxRequest) (err error) {
@@ -189,21 +232,21 @@ func Open(ctx context.Context, cfgs ...Config) (db *DB, err error) {
 		newPersistSplitter(observableRelayBuffer, cfg.Instrumentation),
 	)
 
-	// We use a generator observable to generate a unique transaction reader for
-	// each handler in the observable chain. This is necessary because the transaction
-	// reader can be exhausted.
-	observable := confluence.NewGeneratorTransformObservable[TxRequest, xkv.TxReader](
-		func(_ context.Context, tx TxRequest) (func() xkv.TxReader, bool, error) {
-			return func() xkv.TxReader { return tx.reader() }, true, nil
-		})
-	observable.Observer = observe.NewAsync[xkv.TxReader](
+	// The observable fans persisted TxRequests out to subscribers, preserving
+	// the full TxRequest (rather than the flattened reader) so per-handler
+	// wrappers can filter on leaseholder / sender before yielding to the user
+	// callback. Each handler builds its own xkv.TxReader from tx.reader(),
+	// which produces a fresh iterator per call, so there is no need for the
+	// generator-style observable used previously.
+	observable := confluence.NewObservableSubscriber[TxRequest]()
+	observable.Observer = observe.NewAsync[TxRequest](
 		sCtx,
 		signal.WithRetryOnPanic(100),
 		signal.WithBaseRetryInterval(500*time.Millisecond),
 		signal.WithRetryScale(1.1),
 	)
 	plumber.SetSink[TxRequest](pipe, observableAddr, observable)
-	db.Observable = observable
+	db.txObservable = observable
 
 	plumber.MultiRouter[TxRequest]{
 		SourceTargets: []address.Address{executorAddr, leaseReceiverAddr},

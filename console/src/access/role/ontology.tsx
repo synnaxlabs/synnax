@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { access } from "@synnaxlabs/client";
-import { Access, Icon, Menu } from "@synnaxlabs/pluto";
+import { Access, Icon, Menu, User } from "@synnaxlabs/pluto";
 
 import { ContextMenu } from "@/components";
 import { Ontology } from "@/ontology";
@@ -68,10 +68,8 @@ export const ONTOLOGY_SERVICE: Ontology.Service = {
   icon: <Icon.Role />,
   TreeContextMenu,
   hasChildren: true,
-  canDrop: ({ items }) =>
-    items.every(
-      ({ key, type, data }) =>
-        (key.toString().startsWith("user:") || type === "user") &&
-        data?.rootUser !== true,
-    ),
+  canDrop: ({ items }) => {
+    const users = User.filterHaulItems(items);
+    return users.length === items.length && users.every(({ data }) => !data.rootUser);
+  },
 };

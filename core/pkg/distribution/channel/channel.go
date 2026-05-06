@@ -16,7 +16,7 @@ import (
 	"strconv"
 
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/storage/ts"
 	"github.com/synnaxlabs/x/errors"
@@ -27,7 +27,7 @@ import (
 )
 
 // NewKey generates a new Key from the provided components.
-func NewKey(nodeKey cluster.NodeKey, localKey LocalKey) Key {
+func NewKey(nodeKey node.Key, localKey LocalKey) Key {
 	// Node key is the first 12 bits,
 	k1 := uint32(nodeKey) << 20
 	// Local key is the last 20 bits
@@ -48,11 +48,11 @@ func ParseKey(s string) (Key, error) {
 
 // Leaseholder returns the id of the node embedded in the key. This node is the
 // leaseholder node for the Channel.
-func (c Key) Leaseholder() cluster.NodeKey { return cluster.NodeKey(c >> 20) }
+func (c Key) Leaseholder() node.Key { return node.Key(c >> 20) }
 
 // Free returns true when the channel has a leaseholder node i.e. it is not a non-leased
 // virtual channel.
-func (c Key) Free() bool { return c.Leaseholder() == cluster.NodeKeyFree }
+func (c Key) Free() bool { return c.Leaseholder() == node.KeyFree }
 
 // StorageKey returns the storage layer representation of the channel key.
 func (c Key) StorageKey() ts.ChannelKey { return ts.ChannelKey(c) }
@@ -62,7 +62,7 @@ func (c Key) LocalKey() LocalKey { return LocalKey(c & 0xFFFFF) }
 
 // Lease implements the proxy.Entry interface, which routes Channel operations to the
 // correct node in the cluster.
-func (c Key) Lease() cluster.NodeKey { return c.Leaseholder() }
+func (c Key) Lease() node.Key { return c.Leaseholder() }
 
 // String implements fmt.Stringer.
 func (c Key) String() string { return strconv.Itoa(int(c)) }
@@ -110,10 +110,8 @@ func (k Keys) Storage() []ts.ChannelKey { return k.Uint32() }
 func (k Keys) Uint32() []uint32 { return unsafe.ReinterpretSlice[Key, uint32](k) }
 
 // UniqueLeaseholders returns a slice of all UNIQUE leaseholders for the given Keys.
-func (k Keys) UniqueLeaseholders() []cluster.NodeKey {
-	return lo.UniqMap(k, func(key Key, _ int) cluster.NodeKey {
-		return key.Leaseholder()
-	})
+func (k Keys) UniqueLeaseholders() []node.Key {
+	return lo.UniqMap(k, func(key Key, _ int) node.Key { return key.Leaseholder() })
 }
 
 // Contains returns true if the slice contains the given key, false otherwise.
@@ -187,17 +185,17 @@ func (c Channel) GorpKey() Key { return c.Key() }
 // aspen.DB to properly lease the Channel to the node it will be recording data from.
 func (c Channel) SetOptions() []any {
 	if c.Free() {
-		return []any{cluster.NodeKeyBootstrapper}
+		return []any{node.KeyBootstrapper}
 	}
 	return []any{c.Lease()}
 }
 
 // Lease implements the proxy.UnaryServer interface.
-func (c Channel) Lease() cluster.NodeKey { return c.Leaseholder }
+func (c Channel) Lease() node.Key { return c.Leaseholder }
 
 // Free returns true if the channel is leased to a particular node i.e. it is not a
 // non-leased virtual channel.
-func (c Channel) Free() bool { return c.Leaseholder == cluster.NodeKeyFree }
+func (c Channel) Free() bool { return c.Leaseholder == node.KeyFree }
 
 // Storage returns the storage layer representation of the channel for creation in the
 // storage ts.DB.
@@ -227,7 +225,7 @@ func (c *Channel) UnmarshalJSON(data []byte) error {
 	}
 	if c.Leaseholder == 0 {
 		var legacy struct {
-			NodeID cluster.NodeKey `json:"node_id"`
+			NodeID node.Key `json:"node_id"`
 		}
 		if err := json.Unmarshal(data, &legacy); err != nil {
 			return err
@@ -278,7 +276,7 @@ func (c *Channel) DecodeMsgpack(dec *msgpack.Decoder) error {
 	}
 	if c.Leaseholder == 0 {
 		var legacy struct {
-			NodeID cluster.NodeKey `msgpack:"node_id"`
+			NodeID node.Key `msgpack:"node_id"`
 		}
 		if err = msgpack.Unmarshal(raw, &legacy); err != nil {
 			return err

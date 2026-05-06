@@ -12,7 +12,7 @@
 package channel
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/orc"
 	"github.com/synnaxlabs/x/telem"
@@ -51,7 +51,7 @@ func (c *Channel) DecodeOrc(r *orc.Reader) error {
 		if err != nil {
 			return err
 		}
-		c.Leaseholder = cluster.NodeKey(v)
+		c.Leaseholder = node.Key(v)
 	}
 	{
 		v, err := r.String()

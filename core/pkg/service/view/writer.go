@@ -70,8 +70,7 @@ func (w Writer) CreateMany(ctx context.Context, views *[]View) error {
 
 // Delete deletes the view with the given key. Delete is idempotent.
 func (w Writer) Delete(ctx context.Context, key uuid.UUID) error {
-	if err := w.table.NewDelete().
-		WhereKeys(key).
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, View](key)).
 		Exec(ctx, w.tx); err != nil && !errors.Is(err, query.ErrNotFound) {
 		return err
 	}

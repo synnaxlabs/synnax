@@ -36,6 +36,7 @@ var userSymbols = symbol.MapResolver{
 	"len": {
 		Name: "len",
 		Kind: symbol.KindFunction,
+		Exec: symbol.ExecWASM,
 		Type: types.Function(types.FunctionProperties{
 			Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.Variable("T", nil)}},
 			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
@@ -44,7 +45,7 @@ var userSymbols = symbol.MapResolver{
 }
 
 func hostSym(name string, t types.Type) symbol.Symbol {
-	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Internal: true, Type: t}
+	return symbol.Symbol{Name: name, Kind: symbol.KindFunction, Exec: symbol.ExecWASM, Internal: true, Type: t}
 }
 
 var hostSymbols = symbol.MapResolver{

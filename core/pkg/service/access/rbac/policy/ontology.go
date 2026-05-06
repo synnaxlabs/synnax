@@ -81,7 +81,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var p Policy
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&p).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&p).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(p), nil

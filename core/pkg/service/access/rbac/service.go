@@ -153,9 +153,13 @@ func (e *Enforcer) retrievePolicies(
 	ctx context.Context,
 	subject ontology.ID,
 ) ([]policy.Policy, error) {
+	keys, err := e.policy.ResolveSubjects(ctx, e.tx, subject)
+	if err != nil {
+		return nil, err
+	}
 	var policies []policy.Policy
 	if err := e.policy.NewRetrieve().
-		WhereSubjects(subject).
+		Where(policy.MatchKeys(keys...)).
 		Entries(&policies).
 		Exec(ctx, e.tx); err != nil {
 		return nil, err

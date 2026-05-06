@@ -1643,7 +1643,7 @@ sequence main {
 
 	Describe("Qualified Identifiers", func() {
 		It("Should parse a qualified identifier in an expression", func() {
-			expr := mustParseExpression("math.pow")
+			expr := mustParseExpression("math.avg")
 			primary := parser.GetPrimaryExpression(expr)
 			Expect(primary).ToNot(BeNil())
 			qid := primary.QualifiedIdentifier()
@@ -1651,21 +1651,21 @@ sequence main {
 			ids := qid.AllIDENTIFIER()
 			Expect(ids).To(HaveLen(2))
 			Expect(ids[0].GetText()).To(Equal("math"))
-			Expect(ids[1].GetText()).To(Equal("pow"))
+			Expect(ids[1].GetText()).To(Equal("avg"))
 		})
 
 		It("Should parse a qualified function call", func() {
-			expr := mustParseExpression("math.pow(2.0, 3.0)")
+			expr := mustParseExpression("math.avg(x)")
 			postfix := getPostfixExpression(expr)
 			Expect(postfix).ToNot(BeNil())
 			primary := postfix.PrimaryExpression()
 			qid := primary.QualifiedIdentifier()
 			Expect(qid).ToNot(BeNil())
-			Expect(parser.QualifiedName(qid)).To(Equal("math.pow"))
+			Expect(parser.QualifiedName(qid)).To(Equal("math.avg"))
 			funcCalls := postfix.AllFunctionCallSuffix()
 			Expect(funcCalls).To(HaveLen(1))
 			args := funcCalls[0].ArgumentList().AllExpression()
-			Expect(args).To(HaveLen(2))
+			Expect(args).To(HaveLen(1))
 		})
 
 		It("Should not confuse float literals with qualified identifiers", func() {

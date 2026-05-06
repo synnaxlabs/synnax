@@ -112,9 +112,9 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 	}
 }
 
-func (s *Service) NewRetrieve() Retriever {
-	return Retriever{
-		baseTx:   s.cfg.DB,
+func (s *Service) NewRetrieve() Retrieve {
+	return Retrieve{
+		baseTX:   s.cfg.DB,
 		gorp:     s.table.NewRetrieve(),
 		ontology: s.cfg.Ontology,
 	}

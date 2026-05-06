@@ -120,5 +120,5 @@ func (s *Service) NewWriter(tx gorp.Tx, allowInternal bool) Writer {
 }
 
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{baseTx: s.cfg.DB, gorp: s.table.NewRetrieve()}
+	return Retrieve{baseTX: s.cfg.DB, gorp: s.table.NewRetrieve()}
 }

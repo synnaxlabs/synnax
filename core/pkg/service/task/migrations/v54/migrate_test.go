@@ -58,7 +58,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 
 		var got task.Task
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(task.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
@@ -113,7 +113,7 @@ var _ = Describe("v54 -> current Task migration", func() {
 
 		var got task.Task
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(task.Key(seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[task.Key, task.Task](task.Key(seed.Key))).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(task.Key(seed.Key)))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Type).To(Equal(seed.Type))
