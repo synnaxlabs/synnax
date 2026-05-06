@@ -129,7 +129,9 @@ func parseResponseCtx(
 		),
 	}
 	for k, v := range res.Header {
-		ctx.Params[k] = v[0]
+		if len(v) > 0 {
+			ctx.Params[k] = v[0]
+		}
 	}
 	return ctx
 }
