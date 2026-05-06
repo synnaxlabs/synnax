@@ -11,6 +11,7 @@ package http
 
 import (
 	"context"
+	"net/http"
 	"sync"
 	"time"
 
@@ -100,7 +101,7 @@ func (r *Router) BindTo(app *fiber.App) {
 		return nil
 	})
 	for _, route := range r.routes {
-		if route.method == "GET" {
+		if route.method == http.MethodGet {
 			app.Get(route.path, route.handler)
 		} else {
 			app.Post(route.path, route.handler)
@@ -153,7 +154,7 @@ func NewStreamServer[RQ, RS freighter.Payload](
 		writeDeadline:       r.cfg.StreamWriteDeadline,
 		wg:                  r.streamWg,
 	}
-	r.register(path, "GET", s, s.fiberHandler)
+	r.register(path, http.MethodGet, s, s.fiberHandler)
 	return s
 }
 
@@ -169,6 +170,6 @@ func NewUnaryServer[RQ, RS freighter.Payload](
 		unaryServerOptions: newUnaryServerOptions(opts),
 		path:               path,
 	}
-	r.register(path, "POST", us, us.fiberHandler)
+	r.register(path, http.MethodPost, us, us.fiberHandler)
 	return us
 }

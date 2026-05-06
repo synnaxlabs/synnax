@@ -109,7 +109,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			body []byte,
 		) (*http.Response, []byte) {
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, "POST", "http://"+addr.String()+"/", bytes.NewReader(body),
+				ctx, http.MethodPost, "http://"+addr.String()+"/", bytes.NewReader(body),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, contentType)
 			if accept != "" {
@@ -243,7 +243,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			req := test.Request{ID: 1, Message: "json-only"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, "POST", "http://"+addr.String()+"/json-only",
+				ctx, http.MethodPost, "http://"+addr.String()+"/json-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
@@ -259,7 +259,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			req := test.Request{ID: 2, Message: "msgpack-only"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, "POST", "http://"+addr.String()+"/msgpack-only",
+				ctx, http.MethodPost, "http://"+addr.String()+"/msgpack-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
@@ -275,7 +275,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			})
 			req := test.Request{ID: 3, Message: "round-trip"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, "POST", "http://"+addr.String()+"/msgpack-only",
+				ctx, http.MethodPost, "http://"+addr.String()+"/msgpack-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
