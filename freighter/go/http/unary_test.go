@@ -40,7 +40,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	BeforeAll(func() {
 		addr = "localhost:8081"
 		app = fiber.New(fiber.Config{})
-		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{}))
+		router := MustSucceed(fhttp.NewRouter())
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
@@ -70,7 +70,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	})
 
 	Describe("Content Negotiation", func() {
-		bgCtx := context.Background()
+		// bgCtx := context.Background()
 
 		bindEcho := func() {
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
@@ -84,12 +84,13 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		}
 
 		roundTrip := func(
+			ctx context.Context,
 			contentType string,
 			accept string,
 			body []byte,
 		) (*http.Response, []byte) {
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				bgCtx, "POST", "http://"+addr.String()+"/", bytes.NewReader(body),
+				ctx, "POST", "http://"+addr.String()+"/", bytes.NewReader(body),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, contentType)
 			if accept != "" {
@@ -101,88 +102,88 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			return httpRes, respBody
 		}
 
-		It("should decode JSON request and encode msgpack response when Accept asks for msgpack", func() {
+		It("should decode JSON request and encode msgpack response when Accept asks for msgpack", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 7, Message: "hello"}
-			body := MustSucceed(json.Codec.Encode(bgCtx, req))
-			httpRes, respBody := roundTrip("application/json", "application/msgpack", body)
+			body := MustSucceed(json.Codec.Encode(ctx, req))
+			httpRes, respBody := roundTrip(ctx, "application/json", "application/msgpack", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/msgpack"))
 			var got test.Response
-			Expect(msgpack.Codec.Decode(bgCtx, respBody, &got)).To(Succeed())
+			Expect(msgpack.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 			Expect(got).To(Equal(test.Response(req)))
 		})
 
-		It("should decode msgpack request and encode JSON response when Accept asks for JSON", func() {
+		It("should decode msgpack request and encode JSON response when Accept asks for JSON", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 8, Message: "world"}
-			body := MustSucceed(msgpack.Codec.Encode(bgCtx, req))
-			httpRes, respBody := roundTrip("application/msgpack", "application/json", body)
+			body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+			httpRes, respBody := roundTrip(ctx, "application/msgpack", "application/json", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
 			var got test.Response
-			Expect(json.Codec.Decode(bgCtx, respBody, &got)).To(Succeed())
+			Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 			Expect(got).To(Equal(test.Response(req)))
 		})
 
-		It("should honor q-values and pick the highest-quality offer", func() {
+		It("should honor q-values and pick the highest-quality offer", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 1, Message: "q"}
-			body := MustSucceed(json.Codec.Encode(bgCtx, req))
+			body := MustSucceed(json.Codec.Encode(ctx, req))
 			httpRes, respBody := roundTrip(
-				"application/json",
+				ctx, "application/json",
 				"application/json, application/msgpack;q=0.5",
 				body,
 			)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
 			var got test.Response
-			Expect(json.Codec.Decode(bgCtx, respBody, &got)).To(Succeed())
+			Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 			Expect(got).To(Equal(test.Response(req)))
 		})
 
-		It("should fall back to the first registered encoder when Accept is omitted", func() {
+		It("should fall back to the first registered encoder when Accept is omitted", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 2, Message: "no-accept"}
-			body := MustSucceed(msgpack.Codec.Encode(bgCtx, req))
-			httpRes, respBody := roundTrip("application/msgpack", "", body)
+			body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+			httpRes, respBody := roundTrip(ctx, "application/msgpack", "", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
 			var got test.Response
-			Expect(json.Codec.Decode(bgCtx, respBody, &got)).To(Succeed())
+			Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 			Expect(got).To(Equal(test.Response(req)))
 		})
 
-		It("should fall back to the first registered encoder when Accept is */*", func() {
+		It("should fall back to the first registered encoder when Accept is */*", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 3, Message: "wildcard"}
-			body := MustSucceed(json.Codec.Encode(bgCtx, req))
-			httpRes, respBody := roundTrip("application/json", "*/*", body)
+			body := MustSucceed(json.Codec.Encode(ctx, req))
+			httpRes, respBody := roundTrip(ctx, "application/json", "*/*", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
 			var got test.Response
-			Expect(json.Codec.Decode(bgCtx, respBody, &got)).To(Succeed())
+			Expect(json.Codec.Decode(ctx, respBody, &got)).To(Succeed())
 			Expect(got).To(Equal(test.Response(req)))
 		})
 
-		It("should return 406 Not Acceptable when no registered encoder matches Accept", func() {
+		It("should return 406 Not Acceptable when no registered encoder matches Accept", func(ctx context.Context) {
 			bindEcho()
 			req := test.Request{ID: 4, Message: "nope"}
-			body := MustSucceed(json.Codec.Encode(bgCtx, req))
-			httpRes, _ := roundTrip("application/json", "application/octet-stream", body)
+			body := MustSucceed(json.Codec.Encode(ctx, req))
+			httpRes, _ := roundTrip(ctx, "application/json", "application/octet-stream", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusNotAcceptable))
 		})
 
-		It("should encode handler errors via the response codec selected by Accept", func() {
+		It("should encode handler errors via the response codec selected by Accept", func(ctx context.Context) {
 			bindError()
 			req := test.Request{ID: 5, Message: "err"}
-			body := MustSucceed(msgpack.Codec.Encode(bgCtx, req))
-			httpRes, respBody := roundTrip("application/msgpack", "application/json", body)
+			body := MustSucceed(msgpack.Codec.Encode(ctx, req))
+			httpRes, respBody := roundTrip(ctx, "application/msgpack", "application/json", body)
 			Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
 			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
 			var pld errors.Payload
-			Expect(json.Codec.Decode(bgCtx, respBody, &pld)).To(Succeed())
-			Expect(errors.Decode(bgCtx, pld)).To(MatchError(test.ErrCustom))
+			Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+			Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
 		})
 	})
 })

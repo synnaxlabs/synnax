@@ -44,13 +44,13 @@ const (
 	freighterCtxPrefix = "freighterctx"
 )
 
-func isFreighterQueryStringParam(k string) bool {
-	return strings.HasPrefix(k, freighterCtxPrefix)
+func isFreighterQueryStringParam(key string) bool {
+	return strings.HasPrefix(key, freighterCtxPrefix)
 }
 
-func parseQueryString(c fiber.Ctx) map[string]string {
+func parseQueryString(ctx fiber.Ctx) map[string]string {
 	data := make(map[string]string)
-	for key, val := range c.RequestCtx().QueryArgs().All() {
+	for key, val := range ctx.RequestCtx().QueryArgs().All() {
 		k := utils.UnsafeString(key)
 		v := utils.UnsafeString(val)
 		data[k] = v
@@ -58,22 +58,23 @@ func parseQueryString(c fiber.Ctx) map[string]string {
 	return data
 }
 
-func parseSecurityInfo(c fiber.Ctx) (info freighter.SecurityInfo) {
-	if c.RequestCtx().IsTLS() {
+func parseSecurityInfo(ctx fiber.Ctx) freighter.SecurityInfo {
+	var info freighter.SecurityInfo
+	if ctx.RequestCtx().IsTLS() {
 		info.TLS.Used = true
-		info.TLS.ConnectionState = c.RequestCtx().Conn().(*tls.Conn).ConnectionState()
+		info.TLS.ConnectionState = ctx.RequestCtx().Conn().(*tls.Conn).ConnectionState()
 	}
 	return info
 }
 
 func parseRequestCtx(
-	socketCtx context.Context,
+	ctx context.Context,
 	fiberCtx fiber.Ctx,
 	target address.Address,
 	stream bool,
 ) freighter.Context {
 	freighterCtx := freighter.Context{
-		Context:  socketCtx,
+		Context:  ctx,
 		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
 		Target:   target,
 		Sec:      parseSecurityInfo(fiberCtx),
@@ -95,10 +96,10 @@ func parseRequestCtx(
 	return freighterCtx
 }
 
-func setRequestCtx(c *http.Request, ctx freighter.Context) {
+func setRequestCtx(req *http.Request, ctx freighter.Context) {
 	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
-			c.Header.Set(k, vStr)
+			req.Header.Set(k, vStr)
 		}
 	}
 }
@@ -112,25 +113,25 @@ func setResponseCtx(fiberCtx fiber.Ctx, freighterCtx freighter.Context) {
 }
 
 func parseResponseCtx(
-	c *http.Response,
+	res *http.Response,
 	target address.Address,
 	stream bool,
 ) freighter.Context {
-	freighterCtx := freighter.Context{
+	ctx := freighter.Context{
 		Role:     freighter.RoleClient,
 		Variant:  lo.Ternary(stream, freighter.VariantStream, freighter.VariantUnary),
 		Protocol: lo.Ternary(stream, streamProtocol, unaryProtocol),
 		Target:   target,
 		Params: lo.Ternary(
-			len(c.Header) > 0,
-			make(freighter.Params, len(c.Header)),
+			len(res.Header) > 0,
+			make(freighter.Params, len(res.Header)),
 			nil,
 		),
 	}
-	for k, v := range c.Header {
-		freighterCtx.Params[k] = v[0]
+	for k, v := range res.Header {
+		ctx.Params[k] = v[0]
 	}
-	return freighterCtx
+	return ctx
 }
 
 var (

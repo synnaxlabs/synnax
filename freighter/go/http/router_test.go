@@ -187,7 +187,7 @@ var _ = Describe("Router", func() {
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
-			calls := 0
+			var calls int
 			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
@@ -228,7 +228,7 @@ var _ = Describe("Router", func() {
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
-			calls := 0
+			var calls int
 			router.Use(freighter.MiddlewareFunc(func(
 				ctx freighter.Context,
 				next freighter.Next,

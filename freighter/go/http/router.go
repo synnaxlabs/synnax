@@ -70,10 +70,10 @@ func NewRouter(configs ...RouterConfig) (*Router, error) {
 	}, nil
 }
 
-// Router collects unary and stream servers and binds them to a fiber.App as a
-// single BindableTransport. It also owns the lifecycle of any websocket
-// streams: BindTo installs a post-shutdown hook that cancels in-flight streams
-// and waits for them to drain.
+// Router collects unary and stream servers and binds them to a fiber.App as a single
+// BindableTransport. It also owns the lifecycle of any websocket streams: BindTo
+// installs a post-shutdown hook that cancels in-flight streams and waits for them to
+// drain.
 type Router struct {
 	cfg RouterConfig
 	// fiber doesn't manage the lifecycle of websocket connections (streams), so we need

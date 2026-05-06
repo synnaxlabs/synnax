@@ -110,10 +110,9 @@ func (u *unaryClient[RQ, RS]) resolveResponseDecoder(
 }
 
 func buildAcceptHeader(decoders []xhttp.Decoder) string {
-	cts := make([]string, len(decoders))
-	for i, d := range decoders {
-		cts[i] = d.ContentType()
-	}
+	cts := lo.Map(decoders, func(d xhttp.Decoder, _ int) string {
+		return d.ContentType()
+	})
 	return strings.Join(cts, ", ")
 }
 
