@@ -16,6 +16,7 @@ import { useCallback } from "react";
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import {
   select,
   useSelect,
@@ -30,7 +31,6 @@ import {
   ZERO_STATE,
 } from "@/log/slice";
 import { Selector } from "@/selector";
-import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "log";

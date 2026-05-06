@@ -43,6 +43,7 @@ import { useDispatch } from "react-redux";
 import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import {
   type AxisKey,
   axisLocation,
@@ -87,7 +88,6 @@ import {
 } from "@/lineplot/slice";
 import { useDownloadAsCSV } from "@/lineplot/useDownloadAsCSV";
 import { Range } from "@/range";
-import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 const useSyncComponent = Workspace.createSyncComponent(

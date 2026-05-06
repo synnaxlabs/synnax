@@ -47,7 +47,9 @@ class RenameSynchronization(ConsoleCase):
     def _assert_visualization_toolbar(self, name: str) -> None:
         self.console.layout.show_visualization_toolbar()
         title = self.console.layout.get_visualization_toolbar_title()
-        assert title == name, f"Visualization Toolbar should show '{name}', got '{title}'"
+        assert title == name, (
+            f"Visualization Toolbar should show '{name}', got '{title}'"
+        )
         self.console.layout.hide_visualization_toolbar()
 
     def test_tree_to_tab(self, page_type: PageType) -> None:

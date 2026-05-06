@@ -176,7 +176,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();

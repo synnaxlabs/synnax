@@ -28,6 +28,7 @@ import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { Selector } from "@/selector";
 import {
   select,
@@ -60,7 +61,6 @@ import {
   type State,
   ZERO_STATE,
 } from "@/table/slice";
-import { createFluxUseName } from "@/layout/useFluxName";
 import { Workspace } from "@/workspace";
 
 export const LAYOUT_TYPE = "table";

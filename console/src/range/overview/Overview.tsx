@@ -13,11 +13,11 @@ import { Flex, Ranger } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
+import { createFluxUseName } from "@/layout/useFluxName";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
 import { Snapshots } from "@/range/overview/Snapshots";
-import { createFluxUseName } from "@/layout/useFluxName";
 
 export const Overview: Layout.Renderer = ({ layoutKey }) => (
   <Flex.Box
