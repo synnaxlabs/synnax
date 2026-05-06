@@ -37,13 +37,6 @@ class ReadFrameAdapter:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
         new_keys = [ch.key for ch in fetched]
-        # Only advance the codec when the key set actually changes. The server mirrors
-        # this on the streamer/iterator request paths: an empty or unchanged keys list
-        # does not trigger a codec.Update on the server, so the client must not advance
-        # its seqNum either or the two sides go out of sync (e.g. open_streamer([])
-        # followed by update_channels([k]) — without this guard the client lands on
-        # seqNum=2 while the server is on seqNum=1, and the next frame decodes as
-        # empty).
         if set(new_keys) != set(self.keys):
             self.codec.update(new_keys, [ch.data_type for ch in fetched])
 
