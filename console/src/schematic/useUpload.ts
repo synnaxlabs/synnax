@@ -15,16 +15,9 @@ import { useSelectPendingUpload } from "@/schematic/selectors";
 import { clearPendingUpload } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 
-// useAutoUpload pushes a v5→v6 migrated schematic's local graph state to the
-// server on first mount. The v6 console migration parks v0–v5 graph fields in
-// pendingUpload because the canvas now reads from Pluto / the server. This
-// hook is the bridge that ensures the schematic exists on the server before
-// the canvas tries to load it.
-//
-// Schematics that came from a workspace already exist on the server and have
-// no pendingUpload. Schematics that were standalone (no workspace) only lived
-// in console redux state pre-v6 — those are the ones this hook lifts to the
-// server, attached to the user's currently active workspace if any.
+// useAutoUpload uploads a schematic's pendingUpload to the server and clears
+// it. Used to lift schematics migrated from pre-v6 console state, which only
+// existed locally, onto the server.
 export const useAutoUpload = (key: string, name: string): void => {
   const pendingUpload = useSelectPendingUpload(key);
   const workspaceKey = Workspace.useSelectActiveKey();
