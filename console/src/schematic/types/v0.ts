@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { control, Flex, Schematic, Text, Value, Viewport } from "@synnaxlabs/pluto";
-import { color, direction, location, xy } from "@synnaxlabs/x";
+import { color, dimensions, direction, location, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -24,9 +24,7 @@ export const nodeZ = z.looseObject({
   position: xy.xyZ,
   zIndex: z.number().optional(),
   type: z.string().optional(),
-  measured: z
-    .object({ width: z.number().optional(), height: z.number().optional() })
-    .optional(),
+  measured: dimensions.dimensionsZ.optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 

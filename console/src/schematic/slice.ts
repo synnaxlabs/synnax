@@ -357,6 +357,11 @@ export const { actions, reducer } = createSlice({
             if (node != null) node.position = change.position;
             break;
           }
+          case "dimensions": {
+            const node = schematic.nodes.find((n) => n.key === change.key);
+            if (node != null) node.measured = change.dimensions;
+            break;
+          }
           case "remove": {
             schematic.nodes = schematic.nodes.filter((n) => n.key !== change.key);
             schematic.edges = schematic.edges.filter(
