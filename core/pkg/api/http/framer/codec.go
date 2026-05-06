@@ -233,10 +233,11 @@ func (c *Codec) decodeStreamRequest(
 // streaming server. A fresh codec instance is constructed per connection because the
 // framer codec is stateful (it tracks the channel keys for the active stream).
 func WithCodec(channelSvc *channel.Service) fhttp.StreamServerOption {
-	return fhttp.WithAdditionalCodec("application/sy-framer", func() xencoding.Codec {
-		return &Codec{
-			LowerPerfCodec: json.Codec,
-			Codec:          codec.NewDynamic(channelSvc),
-		}
-	})
+	return fhttp.WithAdditionalCodec("application/vnd.synnax.frame",
+		func() xencoding.Codec {
+			return &Codec{
+				LowerPerfCodec: json.Codec,
+				Codec:          codec.NewDynamic(channelSvc),
+			}
+		})
 }
