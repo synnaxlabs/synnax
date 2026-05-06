@@ -10,9 +10,11 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,5 +68,33 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	Describe("Report", func() {
+		It("should report the stream server's protocol and the content types it can negotiate at upgrade time", func() {
+			report := server.Report()
+			Expect(report["protocol"]).To(Equal("websocket"))
+			Expect(report["encodings"]).To(Equal([]string{
+				"application/json", "application/msgpack",
+			}))
+		})
+	})
+
+	Describe("Upgrade Negotiation", func() {
+		It("should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec", func(ctx context.Context) {
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+			_, res, err := (&ws.Dialer{}).DialContext(ctx, "ws://"+addr.String()+"/", headers)
+			Expect(err).To(MatchError(ws.ErrBadHandshake))
+			Expect(res).ToNot(BeNil())
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+		})
+
+		It("should return 426 Upgrade Required when the request is not a websocket upgrade", func() {
+			res := MustSucceed(http.Get("http://" + addr.String() + "/"))
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
+		})
 	})
 })
