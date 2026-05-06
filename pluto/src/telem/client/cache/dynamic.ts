@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  type DataType,
+  DataType,
   math,
   MultiSeries,
   Series,
@@ -117,14 +117,29 @@ export class Dynamic {
     };
   }
 
-  private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
+  private allocate(
+    capacity: number,
+    alignment: bigint,
+    start: TimeStamp,
+    sampleHint?: math.Numeric,
+  ): Series {
     this.counter++;
-    const isVariable = this.props.dataType.isVariable;
+    const dt = this.props.dataType;
+    // Bigint channels render into float32 GL buffers, so each value is stored as a
+    // small delta off a per-buffer anchor to avoid losing precision. For timestamps,
+    // now() is close enough to the values being written. For int64 and uint64 the
+    // values can be anything, so the first sample we see is used as the anchor.
+    // Non-bigint channels do not have this problem and stay at zero.
+    const sampleOffset = dt.equals(DataType.TIMESTAMP)
+      ? start.valueOf()
+      : dt.usesBigInt && sampleHint != null
+        ? BigInt(sampleHint.valueOf())
+        : 0;
     return Series.alloc({
-      capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
-      dataType: resolveGLDataType(this.props.dataType),
+      capacity: dt.isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
+      dataType: resolveGLDataType(dt),
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: this.props.dataType.usesBigInt ? start.valueOf() : 0,
+      sampleOffset,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,
@@ -139,7 +154,7 @@ export class Dynamic {
     };
     // This only happens on the first write to the cache
     if (this.curr == null) {
-      this.curr = this.allocate(cap, series.alignment, this.now());
+      this.curr = this.allocate(cap, series.alignment, this.now(), series.data[0]);
       res.allocated.push(this.curr);
     } else if (
       Math.abs(
@@ -152,7 +167,7 @@ export class Dynamic {
       const now = this.now();
       this.curr.timeRange.end = now;
       res.flushed.push(this.curr);
-      this.curr = this.allocate(cap, series.alignment, now);
+      this.curr = this.allocate(cap, series.alignment, now, series.data[0]);
       res.allocated.push(this.curr);
     }
     const converted = convertSeriesToSupportedGL(series, this.curr.sampleOffset);
@@ -167,7 +182,12 @@ export class Dynamic {
     const now = this.now();
     this.curr.timeRange.end = now;
     res.flushed.push(this.curr);
-    this.curr = this.allocate(cap, series.alignment + BigInt(amountWritten), now);
+    this.curr = this.allocate(
+      cap,
+      series.alignment + BigInt(amountWritten),
+      now,
+      series.data[amountWritten],
+    );
     res.allocated.push(this.curr);
     const nextRes = this._write(series.slice(amountWritten));
     res.flushed.push(nextRes.flushed);
