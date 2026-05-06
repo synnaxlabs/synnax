@@ -251,6 +251,28 @@ var _ = Describe("Codec", func() {
 		})
 	})
 
+	Describe("Int64 / TimeStamp Equivalence", func() {
+		It("Should accept an int64 series for a timestamp channel", func(ctx SpecContext) {
+			c := codec.NewStatic(
+				[]channel.Key{1},
+				[]telem.DataType{telem.TimeStampT},
+			)
+			fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
+			encoded := MustSucceed(c.Encode(ctx, fr))
+			Expect(encoded).ToNot(BeEmpty())
+		})
+
+		It("Should accept a timestamp series for an int64 channel", func(ctx SpecContext) {
+			c := codec.NewStatic(
+				[]channel.Key{1},
+				[]telem.DataType{telem.Int64T},
+			)
+			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+			encoded := MustSucceed(c.Encode(ctx, fr))
+			Expect(encoded).ToNot(BeEmpty())
+		})
+	})
+
 	Describe("Dynamic Codec", Ordered, func() {
 		ShouldNotLeakGoroutinesPerSpec()
 		var (
