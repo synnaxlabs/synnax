@@ -301,6 +301,83 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 	r.EmitCall(w, wID, "string.len", ct)
 }
 
+// EmitStringFromI32 emits a call to string.from_i32.
+func (r *Resolver) EmitStringFromI32(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I32()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_i32", ct)
+}
+
+// EmitStringFromU32 emits a call to string.from_u32.
+func (r *Resolver) EmitStringFromU32(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I32()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_u32", ct)
+}
+
+// EmitStringFromI64 emits a call to string.from_i64.
+func (r *Resolver) EmitStringFromI64(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I64()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_i64", ct)
+}
+
+// EmitStringFromU64 emits a call to string.from_u64.
+func (r *Resolver) EmitStringFromU64(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.I64()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_u64", ct)
+}
+
+// EmitStringFromF32 emits a call to string.from_f32.
+func (r *Resolver) EmitStringFromF32(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.F32()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_f32", ct)
+}
+
+// EmitStringFromF64 emits a call to string.from_f64.
+func (r *Resolver) EmitStringFromF64(w *wasm.Writer, wID int) {
+	ct := types.Function(types.FunctionProperties{
+		Inputs:  types.Params{{Type: types.F64()}},
+		Outputs: types.Params{{Type: types.I32()}},
+	})
+	r.EmitCall(w, wID, "string.from_f64", ct)
+}
+
+// EmitNumericToString dispatches to the appropriate string.from_* host function
+// based on the source numeric type. Shared by the str() typecast and the future
+// f-string compiler so both produce identical output for the same input.
+func (r *Resolver) EmitNumericToString(w *wasm.Writer, wID int, from types.Type) error {
+	switch from.Kind {
+	case types.KindI8, types.KindI16, types.KindI32:
+		r.EmitStringFromI32(w, wID)
+	case types.KindU8, types.KindU16, types.KindU32:
+		r.EmitStringFromU32(w, wID)
+	case types.KindI64:
+		r.EmitStringFromI64(w, wID)
+	case types.KindU64:
+		r.EmitStringFromU64(w, wID)
+	case types.KindF32:
+		r.EmitStringFromF32(w, wID)
+	case types.KindF64:
+		r.EmitStringFromF64(w, wID)
+	default:
+		return errors.Newf("cannot convert %s to str", from)
+	}
+	return nil
+}
+
 // EmitMathPow emits a call to math.pow for the given type.
 func (r *Resolver) EmitMathPow(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{
