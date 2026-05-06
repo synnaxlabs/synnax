@@ -9,13 +9,13 @@
 
 import "@/dialog/Dialog.css";
 
+import { getRootElement } from "@synnaxlabs/charon";
 import { createPortal } from "react-dom";
 
 import { CSS } from "@/css";
 import { Background } from "@/dialog/Background";
 import { useContext, useInternalContext } from "@/dialog/Frame";
 import { Flex } from "@/flex";
-import { getRootElement } from "@/util/rootElement";
 
 export interface DialogProps extends Flex.BoxProps<"div"> {
   passthrough?: boolean;

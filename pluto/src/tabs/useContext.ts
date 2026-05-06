@@ -7,9 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/charon";
 import { type ReactElement, type ReactNode } from "react";
 
-import { context } from "@/context";
 import { type RenderProp, type Spec, type Tab } from "@/tabs/types";
 
 export interface ContextValue {

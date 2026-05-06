@@ -409,6 +409,9 @@ importers:
       '@synnaxlabs/arc':
         specifier: workspace:^
         version: link:../arc/ts
+      '@synnaxlabs/charon':
+        specifier: workspace:^
+        version: link:../charon
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../client/ts
@@ -788,6 +791,9 @@ importers:
       '@synnaxlabs/alamos':
         specifier: workspace:^
         version: link:../alamos/ts
+      '@synnaxlabs/charon':
+        specifier: workspace:^
+        version: link:../charon
       '@synnaxlabs/client':
         specifier: workspace:^
         version: link:../client/ts

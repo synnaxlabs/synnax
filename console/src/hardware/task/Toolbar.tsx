@@ -9,6 +9,7 @@
 
 import "@/hardware/task/Toolbar.css";
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { task, UnexpectedError } from "@synnaxlabs/client";
 import {
   Access,
@@ -20,7 +21,6 @@ import {
   Menu,
   Select,
   Status,
-  stopPropagation,
   Synnax,
   Task,
   Text,

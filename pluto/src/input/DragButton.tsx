@@ -9,16 +9,15 @@
 
 import "@/input/DragButton.css";
 
+import { Cursor, preventDefault } from "@synnaxlabs/charon";
 import { box, type direction, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo, useRef } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Cursor } from "@/cursor";
 import { useVirtualCursorDragWebKit } from "@/hooks/useCursorDrag/useVirtualCursorDragWebKit";
 import { Icon } from "@/icon";
 import { type Control } from "@/input/types";
-import { preventDefault } from "@/util/event";
 
 export interface DragButtonExtraProps {
   direction?: direction.Crude;

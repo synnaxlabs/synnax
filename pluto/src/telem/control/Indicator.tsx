@@ -9,13 +9,13 @@
 
 import "@/telem/control/Indicator.css";
 
+import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
 import { CSS } from "@/css";
-import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 import { Text } from "@/text";
 import { Tooltip } from "@/tooltip";

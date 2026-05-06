@@ -9,9 +9,9 @@
 
 import "@/header/Header.css";
 
+import { context } from "@synnaxlabs/charon";
 import { type ReactElement, type ReactNode, useMemo } from "react";
 
-import { context } from "@/context";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { type Text } from "@/text";

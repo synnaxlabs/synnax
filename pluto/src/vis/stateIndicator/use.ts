@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { useEffect } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { stateIndicator } from "@/vis/stateIndicator/aether";
 
 export interface UseProps extends Pick<

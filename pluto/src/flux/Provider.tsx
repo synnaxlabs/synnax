@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/charon";
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
 import { useInitializerRef } from "@/hooks";

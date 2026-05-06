@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import {
   access,
   ontology,
@@ -20,7 +21,6 @@ import { z } from "zod";
 import { Flux } from "@/flux";
 import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export type UseDeleteArgs = user.Key | user.Key[];
 

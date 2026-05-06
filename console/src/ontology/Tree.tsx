@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/charon";
 import {
   DisconnectedError,
   NotFoundError,
@@ -15,7 +16,6 @@ import {
 } from "@synnaxlabs/client";
 import {
   Component,
-  context,
   Flux,
   Haul,
   Icon,

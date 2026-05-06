@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
@@ -16,7 +17,6 @@ import { Haul } from "@/haul";
 import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { state } from "@/state";
 import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
 import { Triggers } from "@/triggers";

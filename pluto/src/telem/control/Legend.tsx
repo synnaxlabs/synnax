@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type state } from "@synnaxlabs/charon";
 import { UnexpectedError } from "@synnaxlabs/client";
 import { type color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
@@ -16,7 +17,6 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type state } from "@/state";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
 import { Text } from "@/text";

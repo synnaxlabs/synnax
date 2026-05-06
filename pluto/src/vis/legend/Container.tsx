@@ -9,6 +9,7 @@
 
 import "@/vis/legend/Container.css";
 
+import { preventDefault, state } from "@synnaxlabs/charon";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 
@@ -17,8 +18,6 @@ import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type OptionalControl } from "@/input/types";
-import { state } from "@/state";
-import { preventDefault } from "@/util/event";
 
 export interface ContainerProps
   extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {

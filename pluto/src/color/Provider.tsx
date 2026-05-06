@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context, type state } from "@synnaxlabs/charon";
 import { color, TimeStamp } from "@synnaxlabs/x";
 import React, {
   type PropsWithChildren,
@@ -16,9 +17,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 
-import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
-import { type state } from "@/state";
 
 export const relevancyZ = z.object({
   lastUsed: z.number(),

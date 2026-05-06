@@ -9,6 +9,7 @@
 
 import "@/status/list/Item.css";
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { type status } from "@synnaxlabs/client";
 import {
   Flex,
@@ -18,7 +19,6 @@ import {
   List,
   Select,
   Status,
-  stopPropagation,
   Tag,
   Telem,
   Text,

@@ -9,12 +9,12 @@
 
 import "@/resize/Base.css";
 
+import { preventDefault } from "@synnaxlabs/charon";
 import { direction, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { preventDefault } from "@/util/event";
 
 export type BaseProps = Omit<
   Flex.BoxProps<"div">,

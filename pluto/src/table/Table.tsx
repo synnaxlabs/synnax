@@ -9,6 +9,7 @@
 
 import "@/table/Table.css";
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { box, direction } from "@synnaxlabs/x";
 import {
   type ComponentPropsWithoutRef,
@@ -27,7 +28,6 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { Menu } from "@/menu";
 import { table } from "@/table/aether";
 import { Text } from "@/text";
-import { stopPropagation } from "@/util/event";
 import { Canvas } from "@/vis/canvas";
 
 export interface TableProps

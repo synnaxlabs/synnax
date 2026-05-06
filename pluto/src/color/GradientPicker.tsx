@@ -9,6 +9,7 @@
 
 import "@/color/GradientPicker.css";
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { box, clamp, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
@@ -20,7 +21,6 @@ import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { type Input } from "@/input";
 import { Text } from "@/text";
 import { Triggers } from "@/triggers";
-import { stopPropagation } from "@/util/event";
 
 interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;

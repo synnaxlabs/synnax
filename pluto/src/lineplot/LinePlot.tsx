@@ -9,6 +9,7 @@
 
 import "@/lineplot/LinePlot.css";
 
+import { context, useMemoDeepEqual } from "@synnaxlabs/charon";
 import {
   box,
   type color,
@@ -35,11 +36,9 @@ import {
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
 import { CSS } from "@/css";
 import { useEffectCompare } from "@/hooks";
 import { lineplot } from "@/lineplot/aether";
-import { useMemoDeepEqual } from "@/memo";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { grid } from "@/vis/grid";

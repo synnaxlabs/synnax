@@ -8,8 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type PayloadAction } from "@reduxjs/toolkit";
+import { type state } from "@synnaxlabs/charon";
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type Flux, type state, useAsyncEffect } from "@synnaxlabs/pluto";
+import { type Flux, useAsyncEffect } from "@synnaxlabs/pluto";
 import { migrate } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";

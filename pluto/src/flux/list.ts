@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import {
   compare,
   type CrudeTimeSpan,
@@ -39,7 +40,6 @@ import {
   useInitializerRef,
   useSyncedRef,
 } from "@/hooks";
-import { state } from "@/state";
 import { Synnax } from "@/synnax";
 
 export interface GetItem<K extends record.Key, E extends record.Keyed<K>> {

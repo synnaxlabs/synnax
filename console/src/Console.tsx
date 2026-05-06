@@ -11,14 +11,13 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
+import { preventDefault, type state } from "@synnaxlabs/charon";
 import { Provider } from "@synnaxlabs/drift/react";
 import {
   type Alamos,
   type Color,
   type Haul,
   Pluto,
-  preventDefault,
-  type state,
   type Triggers,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";

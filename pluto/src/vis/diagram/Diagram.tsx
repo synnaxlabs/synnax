@@ -10,6 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
+import { useMemoCompare } from "@synnaxlabs/charon";
 import { box, type xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
@@ -46,7 +47,6 @@ import { Aether } from "@/aether";
 import { type RenderProp } from "@/component/renderProp";
 import { CSS } from "@/css";
 import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
-import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";

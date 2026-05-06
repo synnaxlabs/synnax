@@ -9,6 +9,7 @@
 
 import "@/range/list/List.css";
 
+import { type state } from "@synnaxlabs/charon";
 import { ranger } from "@synnaxlabs/client";
 import {
   Access,
@@ -21,7 +22,6 @@ import {
   List as PList,
   Menu,
   Select,
-  type state,
 } from "@synnaxlabs/pluto";
 import { type ReactElement, type ReactNode, useCallback, useState } from "react";
 

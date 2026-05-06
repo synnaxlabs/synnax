@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { type ranger } from "@synnaxlabs/client";
 import {
   Flex,
@@ -15,7 +16,6 @@ import {
   List,
   Ranger,
   Select,
-  stopPropagation,
   Tag,
   Telem,
 } from "@synnaxlabs/pluto";

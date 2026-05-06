@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type state, stopPropagation } from "@synnaxlabs/charon";
 import { type color, type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
@@ -15,10 +16,8 @@ import { Color } from "@/color";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
-import { type state } from "@/state";
 import { Text } from "@/text";
 import { type Theming } from "@/theming";
-import { stopPropagation } from "@/util/event";
 
 export interface EntryData {
   color: color.Crude;

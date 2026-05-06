@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoCompare } from "@synnaxlabs/charon";
 import { compare, type xy } from "@synnaxlabs/x";
 import { z } from "zod";
-
-import { useMemoCompare } from "@/memo";
 
 /** All the mouse keys that can be used in a trigger */
 export const MOUSE_KEYS = ["MouseLeft", "MouseMiddle", "MouseRight"] as const;

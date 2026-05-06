@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import { label, ontology } from "@synnaxlabs/client";
 import { color, primitive } from "@synnaxlabs/x";
 import type z from "zod";
@@ -15,7 +16,6 @@ import { Flux } from "@/flux";
 import { type RetrieveParams } from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
 import { type Ontology } from "@/ontology";
-import { state } from "@/state";
 
 export const FLUX_STORE_KEY = "labels";
 export const RESOURCE_NAME = "label";

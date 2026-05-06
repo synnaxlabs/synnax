@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { canDisable, type CanDisabledProps } from "@synnaxlabs/charon";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";
@@ -39,7 +40,6 @@ import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
 import { User } from "@/user";
-import { canDisable, type CanDisabledProps } from "@/util/canDisable";
 import { View } from "@/view";
 import { Worker } from "@/worker";
 import { Workspace } from "@/workspace";

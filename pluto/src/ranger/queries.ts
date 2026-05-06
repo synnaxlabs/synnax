@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { array, type optional, primitive } from "@synnaxlabs/x";
 import { useEffect } from "react";
@@ -17,7 +18,6 @@ import { Label } from "@/label";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { state } from "@/state";
 
 export interface KVFluxStore extends Flux.UnaryStore<string, ranger.kv.Pair> {}
 export interface AliasFluxStore extends Flux.UnaryStore<

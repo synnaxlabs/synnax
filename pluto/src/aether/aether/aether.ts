@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
+import { state } from "@synnaxlabs/charon";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import {
   deep,
@@ -26,7 +27,6 @@ import {
   type MainMessage,
   type MainUpdateRequest,
 } from "@/aether/message";
-import { state } from "@/state";
 
 const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
   if (e instanceof Error) {

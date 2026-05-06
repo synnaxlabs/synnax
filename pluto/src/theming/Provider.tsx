@@ -18,6 +18,7 @@ import inter600 from "@fontsource/inter/files/inter-latin-600-normal.woff2";
 import inter700 from "@fontsource/inter/files/inter-latin-700-normal.woff2";
 import inter800 from "@fontsource/inter/files/inter-latin-800-normal.woff2";
 import inter900 from "@fontsource-variable/inter/files/inter-latin-standard-normal.woff2";
+import { context } from "@synnaxlabs/charon";
 import { caseconv, deep } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -30,7 +31,6 @@ import {
 } from "react";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
 import { CSS } from "@/css";
 import { theming } from "@/theming/aether";
 import { toCSSVars } from "@/theming/css";

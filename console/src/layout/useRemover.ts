@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status, useMemoCompare } from "@synnaxlabs/pluto";
+import { useMemoCompare } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/pluto";
 import { compare, unique } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";

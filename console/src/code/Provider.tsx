@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import type * as monacoT from "@codingame/monaco-vscode-editor-api";
-import { context } from "@synnaxlabs/pluto";
+import { context } from "@synnaxlabs/charon";
 import { type destructor } from "@synnaxlabs/x";
 import { type PropsWithChildren, useEffect, useRef, useState } from "react";
 

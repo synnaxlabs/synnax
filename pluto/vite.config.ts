@@ -63,6 +63,7 @@ export default defineConfig({
         "react-hook-form",
         "zod",
         "@synnaxlabs/x",
+        "@synnaxlabs/charon",
         "@synnaxlabs/client",
         "@synnaxlabs/alamos",
         "@synnaxlabs/freighter",

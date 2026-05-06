@@ -9,6 +9,7 @@
 
 import "@/text/Editable.css";
 
+import { type state, triggerReflow } from "@synnaxlabs/charon";
 import {
   type CSSProperties,
   type KeyboardEvent,
@@ -22,9 +23,7 @@ import {
 import { CSS as PCSS } from "@/css";
 import { useCombinedRefs, useSyncedRef } from "@/hooks/ref";
 import { type Input } from "@/input";
-import { type state } from "@/state";
 import { Text, type TextProps } from "@/text/Text";
-import { triggerReflow } from "@/util/reflow";
 
 export type EditableProps = Omit<TextProps<"p">, "children" | "onChange"> &
   Input.Control<string> & {

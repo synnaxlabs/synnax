@@ -9,6 +9,7 @@
 
 import "@/vis/rule/Rule.css";
 
+import { state } from "@synnaxlabs/charon";
 import { box, color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -21,7 +22,6 @@ import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
 import { useCursorDrag } from "@/hooks/useCursorDrag";
 import { LinePlot } from "@/lineplot";
-import { state } from "@/state";
 import { Text } from "@/text";
 import { rule } from "@/vis/rule/aether";
 

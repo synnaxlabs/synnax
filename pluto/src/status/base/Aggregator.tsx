@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context } from "@synnaxlabs/charon";
 import { id, type status as xstatus, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,
@@ -18,7 +19,6 @@ import {
 import type z from "zod";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { status } from "@/status/aether";
 

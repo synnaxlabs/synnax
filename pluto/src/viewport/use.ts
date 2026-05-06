@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { findParent, useMemoCompare } from "@synnaxlabs/charon";
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,
@@ -20,9 +21,7 @@ import {
 import { z } from "zod";
 
 import { useCombinedStateAndRef, useStateRef } from "@/hooks/ref";
-import { useMemoCompare } from "@/memo";
 import { Triggers } from "@/triggers";
-import { findParent } from "@/util/findParent";
 
 export interface UseEvent {
   box: box.Box;

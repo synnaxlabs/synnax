@@ -9,6 +9,7 @@
 
 import "@/tabs/Tabs.css";
 
+import { state } from "@synnaxlabs/charon";
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
@@ -16,7 +17,6 @@ import { type Component } from "@/component";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { useSyncedRef } from "@/hooks";
-import { state } from "@/state";
 import { Selector, type SelectorProps } from "@/tabs/Selector";
 import { type RenderProp, type Tab } from "@/tabs/types";
 import { type ContextValue, Provider, useContext } from "@/tabs/useContext";

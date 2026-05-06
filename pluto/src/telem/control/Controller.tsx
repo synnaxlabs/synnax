@@ -7,13 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { context, useMemoDeepEqual } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
 import { Aether } from "@/aether";
-import { context } from "@/context";
-import { useMemoDeepEqual } from "@/memo";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps

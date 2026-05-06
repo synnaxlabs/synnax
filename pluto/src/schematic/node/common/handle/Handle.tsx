@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { stopPropagation } from "@synnaxlabs/charon";
 import { type location } from "@synnaxlabs/x";
 import {
   Handle as RFHandle,
@@ -17,7 +18,6 @@ import { type ReactElement } from "react";
 
 import { CSS } from "@/css";
 import { adjust, smart, swap } from "@/schematic/node/common/handle/position";
-import { stopPropagation } from "@/util/event";
 
 export interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {
   orientation: location.Outer;

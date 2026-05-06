@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { type destructor } from "@synnaxlabs/x";
 import { useCallback, useRef } from "react";
 import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
 
 import { type base } from "@/flux/base";
 import { useStore } from "@/flux/Provider";
-import { useMemoDeepEqual } from "@/memo";
 
 export interface CreateSelectorParams<
   ScopedStore extends base.Store,

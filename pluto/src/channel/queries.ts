@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { state } from "@synnaxlabs/charon";
 import {
   channel,
   DataType,
@@ -23,7 +24,6 @@ import { Flux } from "@/flux";
 import { type Group } from "@/group";
 import { Ontology } from "@/ontology";
 import { type Ranger } from "@/ranger";
-import { state } from "@/state";
 import { Status } from "@/status";
 
 export const FLUX_STORE_KEY = "channels";

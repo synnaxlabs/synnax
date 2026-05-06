@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { useMemoCompare } from "@synnaxlabs/charon";
 import { box, compare, unique, type xy } from "@synnaxlabs/x";
 import { type RefObject, useCallback, useEffect, useState } from "react";
 
 import { useStateRef } from "@/hooks/ref";
-import { useMemoCompare } from "@/memo";
 import { useContext } from "@/triggers/Provider";
 import {
   diff,

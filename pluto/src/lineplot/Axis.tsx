@@ -9,6 +9,7 @@
 
 import "@/lineplot/Axis.css";
 
+import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { type bounds, direction } from "@synnaxlabs/x";
 import {
   type FC,
@@ -30,7 +31,6 @@ import {
   withinSizeThreshold,
 } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/LinePlot";
-import { useMemoDeepEqual } from "@/memo";
 import { Text } from "@/text";
 import { Theming } from "@/theming";
 
