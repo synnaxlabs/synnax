@@ -10,7 +10,7 @@
 import "@/schematic/Schematic.css";
 
 import { schematic } from "@synnaxlabs/client";
-import { box, type record, TimeSpan, xy } from "@synnaxlabs/x";
+import { box, color, type record, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 import { z } from "zod";
 
@@ -102,10 +102,25 @@ const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null
   }
 };
 
-const edgeChangeToActions = (change: Diagram.EdgeChange): schematic.Action[] => {
+const edgeChangeToActions = (
+  change: Diagram.EdgeChange,
+  doc: schematic.Schematic | undefined,
+): schematic.Action[] => {
   switch (change.type) {
-    case "add":
-      return [schematic.setEdge({ edge: change.edge })];
+    case "add": {
+      const sourceConfig = doc?.configs[change.edge.source.node] as
+        | { color?: color.Crude }
+        | undefined;
+      const config = Edge.REGISTRY.pipe.defaultConfig();
+      if (sourceConfig?.color != null) config.color = color.construct(sourceConfig.color);
+      return [
+        schematic.setEdge({ edge: change.edge }),
+        schematic.setConfig({
+          key: change.edge.key,
+          config: config as unknown as record.Unknown,
+        }),
+      ];
+    }
     case "remove":
       return [schematic.removeEdge({ key: change.key })];
     default:
@@ -122,6 +137,7 @@ export const Schematic = ({
   ...props
 }: SchematicProps): ReactElement => {
   const { data: doc } = useRetrieve({ key: resourceKey });
+  const docRef = useSyncedRef(doc);
   const { update: dispatch } = useDispatch();
 
   const handleNodesChange = useCallback(
@@ -136,7 +152,7 @@ export const Schematic = ({
 
   const handleEdgesChange = useCallback(
     (changes: Diagram.EdgeChange[]) => {
-      const actions = changes.flatMap(edgeChangeToActions);
+      const actions = changes.flatMap((c) => edgeChangeToActions(c, docRef.current));
       if (actions.length > 0) dispatch({ key: resourceKey, actions });
     },
     [resourceKey, dispatch],

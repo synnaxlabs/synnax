@@ -23,6 +23,7 @@ import { useDispatch } from "react-redux";
 
 import { Cluster } from "@/cluster";
 import { EmptyAction, Toolbar as Base } from "@/components";
+import { CSS } from "@/css";
 import { Export } from "@/export";
 import { Layout } from "@/layout";
 import { useExport } from "@/schematic/export";
@@ -135,7 +136,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
             )}
           </Breadcrumb.Breadcrumb>
           <Flex.Box x align="center" empty>
-            <Flex.Box x empty style={{ height: "100%", width: 66 }}>
+            <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
               <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
               <Cluster.CopyLinkToolbarButton
                 name={name}
@@ -143,7 +144,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
               />
             </Flex.Box>
             {hasEditPermission && (
-              <Tabs.Selector style={{ borderBottom: "none", width: 251 }} />
+              <Tabs.Selector
+                className={CSS.BE("schematic", "toolbar", "tab-selector")}
+              />
             )}
           </Flex.Box>
         </Base.Header>
