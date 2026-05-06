@@ -2,19 +2,6 @@
   "key": "00000000-0000-0000-0000-000000000001",
   "name": "v3_shop_flow.json",
   "snapshot": false,
-  "authority": 1,
-  "legend": {
-    "visible": false,
-    "position": {
-      "x": 50,
-      "y": 50,
-      "units": {
-        "x": "px",
-        "y": "px"
-      }
-    },
-    "colors": {}
-  },
   "nodes": [
     {
       "key": "2rRWxC8VmtK",

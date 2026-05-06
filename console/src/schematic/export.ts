@@ -11,7 +11,7 @@ import { DisconnectedError } from "@synnaxlabs/client";
 
 import { Export } from "@/export";
 import { Layout } from "@/layout";
-import { LAYOUT_TYPE } from "@/schematic/Schematic";
+import { LAYOUT_TYPE } from "@/schematic/layout";
 
 export const extract: Export.Extractor = async (key, { store, client }) => {
   const storeState = store.getState();

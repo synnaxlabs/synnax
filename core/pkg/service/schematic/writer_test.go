@@ -127,7 +127,7 @@ var _ = Describe("Writer", func() {
 				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 				}),
-				schematic.NewSetEdgeAction(schematic.SetEdge{
+				schematic.NewAddEdgeAction(schematic.AddEdge{
 					Edge: schematic.Edge{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1"},
@@ -192,7 +192,7 @@ var _ = Describe("Writer", func() {
 				schematic.NewSetNodeAction(schematic.SetNode{
 					Node: schematic.Node{Key: "valve", Position: spatial.XY{X: 100, Y: 0}},
 				}),
-				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: schematic.Edge{
+				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: schematic.Edge{
 					Key:    "e1",
 					Source: schematic.Handle{Node: "pump", Param: "out"},
 					Target: schematic.Handle{Node: "valve", Param: "in"},

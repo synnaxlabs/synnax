@@ -9,13 +9,16 @@
 
 import { type Export } from "@/export";
 import { type Layout } from "@/layout";
+import { ContextMenu } from "@/schematic/ContextMenu";
 import { extract } from "@/schematic/export";
-import { ContextMenu, LAYOUT_TYPE, Schematic, Selectable } from "@/schematic/Schematic";
+import { LAYOUT_TYPE } from "@/schematic/layout";
+import { Schematic } from "@/schematic/Schematic";
+import { Selectable } from "@/schematic/Selectable";
 import { Edit, EDIT_LAYOUT_TYPE } from "@/schematic/symbols/edit/Edit";
 import { type Selector } from "@/selector";
 
 export * from "@/schematic/export";
-export * from "@/schematic/haul";
+export * from "@/schematic/layout";
 export * from "@/schematic/middleware";
 export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";

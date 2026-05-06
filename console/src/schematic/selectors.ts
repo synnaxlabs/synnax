@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Control, type Diagram } from "@synnaxlabs/pluto";
+import { type control } from "@synnaxlabs/x";
 
 import { useMemoSelect } from "@/hooks";
 import {
@@ -32,14 +33,26 @@ export const useSelectOptional = (key: string): State | undefined =>
 export const selectSelected = (state: StoreState, key: string): string[] =>
   selectOptional(state, key)?.selected ?? [];
 
+export const select = (state: StoreState, key: string): State =>
+  selectSliceState(state).schematics[key];
+
+export const useSelect = (key: string): State =>
+  useMemoSelect((state: StoreState) => select(state, key), [key]);
+
 export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
 
 export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
-  selectOptional(state, key)?.control ?? "released";
+  selectOptional(state, key)?.controlStatus ?? "released";
 
 export const useSelectControlStatus = (key: string): Control.Status =>
   useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
+
+export const selectAuthority = (state: StoreState, key: string): control.Authority =>
+  selectOptional(state, key)?.authority ?? 1;
+
+export const useSelectAuthority = (key: string): control.Authority =>
+  useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
 
 export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
   selectOptional(state, key)?.activeToolbarTab ?? "symbols";

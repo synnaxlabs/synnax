@@ -12,7 +12,6 @@
 package schematic
 
 import (
-	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 )
@@ -22,11 +21,9 @@ const (
 	ActionTypeSetNodeMeasured = "set_node_measured"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
-	ActionTypeSetEdge         = "set_edge"
+	ActionTypeAddEdge         = "add_edge"
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetConfig       = "set_config"
-	ActionTypeSetAuthority    = "set_authority"
-	ActionTypeSetLegend       = "set_legend"
 )
 
 // SetNodePosition moves a node to a new position.
@@ -56,9 +53,9 @@ type RemoveNode struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
-// SetEdge inserts the edge if no edge with the same key exists, otherwise replaces the
-// existing edge with the same key.
-type SetEdge struct {
+// AddEdge appends the edge to the schematic. No-op when an edge with the same key
+// already exists.
+type AddEdge struct {
 	Edge Edge `json:"edge" msgpack:"edge"`
 }
 
@@ -67,20 +64,14 @@ type RemoveEdge struct {
 	Key string `json:"key" msgpack:"key"`
 }
 
-// SetConfig sets the config entry for the given node or edge key.
+// SetConfig merges the given config fields into the existing config entry for the given
+// node or edge key. Top-level fields present in the payload overwrite existing fields;
+// fields absent from the payload are preserved. When no entry exists yet and the key
+// matches an edge, the new edge's color is inherited from the source node's config (if
+// any) when the payload does not specify a color.
 type SetConfig struct {
 	Key    string              `json:"key" msgpack:"key"`
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`
-}
-
-// SetAuthority sets the control authority level for this schematic.
-type SetAuthority struct {
-	Value control.Authority `json:"value" msgpack:"value"`
-}
-
-// SetLegend replaces the schematic's control-legend overlay configuration.
-type SetLegend struct {
-	Legend Legend `json:"legend" msgpack:"legend"`
 }
 
 // Action is a discriminated union for all Schematic mutations. Type names
@@ -91,11 +82,9 @@ type Action struct {
 	SetNodeMeasured *SetNodeMeasured `json:"set_node_measured,omitempty" msgpack:"set_node_measured,omitempty"`
 	SetNode         *SetNode         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNode      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
-	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
+	AddEdge         *AddEdge         `json:"add_edge,omitempty" msgpack:"add_edge,omitempty"`
 	RemoveEdge      *RemoveEdge      `json:"remove_edge,omitempty" msgpack:"remove_edge,omitempty"`
 	SetConfig       *SetConfig       `json:"set_config,omitempty" msgpack:"set_config,omitempty"`
-	SetAuthority    *SetAuthority    `json:"set_authority,omitempty" msgpack:"set_authority,omitempty"`
-	SetLegend       *SetLegend       `json:"set_legend,omitempty" msgpack:"set_legend,omitempty"`
 }
 
 // Reduce applies the action to the given state by dispatching on Type to the
@@ -123,11 +112,11 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 			return state, nil
 		}
 		return a.RemoveNode.Handle(state)
-	case ActionTypeSetEdge:
-		if a.SetEdge == nil {
+	case ActionTypeAddEdge:
+		if a.AddEdge == nil {
 			return state, nil
 		}
-		return a.SetEdge.Handle(state)
+		return a.AddEdge.Handle(state)
 	case ActionTypeRemoveEdge:
 		if a.RemoveEdge == nil {
 			return state, nil
@@ -138,16 +127,6 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 			return state, nil
 		}
 		return a.SetConfig.Handle(state)
-	case ActionTypeSetAuthority:
-		if a.SetAuthority == nil {
-			return state, nil
-		}
-		return a.SetAuthority.Handle(state)
-	case ActionTypeSetLegend:
-		if a.SetLegend == nil {
-			return state, nil
-		}
-		return a.SetLegend.Handle(state)
 	default:
 		return state, nil
 	}
@@ -186,9 +165,9 @@ func NewRemoveNodeAction(p RemoveNode) Action {
 	return Action{Type: ActionTypeRemoveNode, RemoveNode: &p}
 }
 
-// NewSetEdgeAction wraps a SetEdge payload in an Action envelope.
-func NewSetEdgeAction(p SetEdge) Action {
-	return Action{Type: ActionTypeSetEdge, SetEdge: &p}
+// NewAddEdgeAction wraps a AddEdge payload in an Action envelope.
+func NewAddEdgeAction(p AddEdge) Action {
+	return Action{Type: ActionTypeAddEdge, AddEdge: &p}
 }
 
 // NewRemoveEdgeAction wraps a RemoveEdge payload in an Action envelope.
@@ -199,14 +178,4 @@ func NewRemoveEdgeAction(p RemoveEdge) Action {
 // NewSetConfigAction wraps a SetConfig payload in an Action envelope.
 func NewSetConfigAction(p SetConfig) Action {
 	return Action{Type: ActionTypeSetConfig, SetConfig: &p}
-}
-
-// NewSetAuthorityAction wraps a SetAuthority payload in an Action envelope.
-func NewSetAuthorityAction(p SetAuthority) Action {
-	return Action{Type: ActionTypeSetAuthority, SetAuthority: &p}
-}
-
-// NewSetLegendAction wraps a SetLegend payload in an Action envelope.
-func NewSetLegendAction(p SetLegend) Action {
-	return Action{Type: ActionTypeSetLegend, SetLegend: &p}
 }

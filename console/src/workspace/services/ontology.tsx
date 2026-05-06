@@ -86,22 +86,17 @@ const useCreateSchematic = ({
   const workspaceID = ids[0];
   const { update } = PSchematic.useCreate({
     afterSuccess: async ({ data }) => {
-      const { workspace, ...schematic } = data;
+      const { workspace, key, name } = data;
       if (workspace != null) await maybeChangeWorkspace(workspace);
-      placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
+      placeLayout(Schematic.create({ key, name }));
     },
   });
   return useCallback(
     () =>
       update({
+        ...schematic.ZERO_NEW,
         workspace: workspaceID.key,
         name: "New Schematic",
-        snapshot: false,
-        authority: 1,
-        legend: deep.copy(schematic.ZERO_LEGEND),
-        nodes: [],
-        edges: [],
-        configs: {},
       }),
     [workspaceID.key],
   );

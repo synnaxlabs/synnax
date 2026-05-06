@@ -10,4 +10,5 @@
 export * from "@/schematic/edge/common";
 export * from "@/schematic/edge/config";
 export * from "@/schematic/edge/registry";
+export * from "@/schematic/edge/Renderer";
 export * from "@/schematic/edge/spec";

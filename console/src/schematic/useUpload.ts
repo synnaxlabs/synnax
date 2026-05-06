@@ -7,45 +7,30 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Schematic, Status } from "@synnaxlabs/pluto";
-import { useEffect, useRef } from "react";
+import { type Flux, Schematic } from "@synnaxlabs/pluto";
+import { useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 
+import { Layout } from "@/layout";
 import { useSelectPendingUpload } from "@/schematic/selectors";
 import { clearPendingUpload } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 
-// useAutoUpload uploads a schematic's pendingUpload to the server and clears
-// it. Used to lift schematics migrated from pre-v6 console state, which only
-// existed locally, onto the server.
-export const useAutoUpload = (key: string, name: string): void => {
+export const useAutoUpload = (key: string): void => {
   const pendingUpload = useSelectPendingUpload(key);
+  const name = Layout.useSelectRequiredName(key);
   const workspaceKey = Workspace.useSelectActiveKey();
-  const { update: create } = Schematic.useCreate();
   const dispatch = useDispatch();
-  const handleError = Status.useErrorHandler();
-  const inFlight = useRef(false);
-
-  useEffect(() => {
-    if (pendingUpload == null || inFlight.current) return;
-    inFlight.current = true;
-    handleError(async () => {
-      try {
-        create({
-          key,
-          name,
-          snapshot: pendingUpload.snapshot,
-          authority: pendingUpload.authority ?? 1,
-          legend: pendingUpload.legend,
-          nodes: pendingUpload.nodes,
-          edges: pendingUpload.edges,
-          configs: pendingUpload.configs,
-          workspace: workspaceKey ?? undefined,
-        });
+  const { update: create } = Schematic.useCreate({
+    afterSuccess: useCallback(
+      ({ data: { key } }: Flux.AfterSuccessParams<Schematic.UseCreateResult>) => {
         dispatch(clearPendingUpload({ key }));
-      } finally {
-        inFlight.current = false;
-      }
-    }, `Failed to migrate schematic ${name} to the server`);
-  }, [pendingUpload, workspaceKey, key, name, dispatch, create, handleError]);
+      },
+      [dispatch],
+    ),
+  });
+  useEffect(() => {
+    if (pendingUpload == null) return;
+    create({ ...pendingUpload, workspace: workspaceKey ?? undefined, name });
+  }, [pendingUpload, workspaceKey, key, create, name]);
 };

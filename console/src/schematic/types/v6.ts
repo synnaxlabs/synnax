@@ -8,21 +8,25 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { control, Schematic } from "@synnaxlabs/pluto";
-import { color, migrate, record, sticky, xy } from "@synnaxlabs/x";
+import { control, Schematic, Viewport } from "@synnaxlabs/pluto";
+import { color, control as xControl, migrate, record, sticky, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import * as v0 from "@/schematic/types/v0";
 import * as v1 from "@/schematic/types/v1";
-import * as v5 from "@/schematic/types/v5";
+import type * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
 export const toolbarTabZ = v0.toolbarTabZ;
 export type ToolbarTab = v0.ToolbarTab;
 
-export const viewportZ = z.object({ position: xy.xyZ, zoom: z.number() });
-export interface Viewport extends z.infer<typeof viewportZ> {}
+export const viewportZ = z.object({
+  position: xy.xyZ,
+  zoom: z.number(),
+  mode: Viewport.modeZ.default("select"),
+});
+export interface ViewportState extends z.infer<typeof viewportZ> {}
 
 export const nodeZ = schematic.nodeZ;
 export type Node = schematic.Node;
@@ -43,20 +47,18 @@ export const legendStateZ = z.object({
 });
 export interface LegendState extends z.infer<typeof legendStateZ> {}
 
-export const pendingUploadZ = z.object({
-  nodes: z.array(nodeZ),
-  edges: z.array(edgeZ),
-  configs: z.record(z.string(), elementConfigZ),
-  legend: legendStateZ,
-  snapshot: z.boolean(),
-  authority: z.number().optional(),
-});
+export const pendingUploadZ = schematic.schematicZ
+  .omit({ configs: true, name: true })
+  .extend({
+    configs: z.record(z.string(), elementConfigZ),
+  });
 export interface PendingUpload extends z.infer<typeof pendingUploadZ> {}
 
 export const stateZ = z.object({
   version: z.literal(VERSION),
   selected: z.array(z.string()).default([]),
-  control: control.statusZ,
+  controlStatus: control.statusZ,
+  authority: xControl.authorityZ,
   legend: legendStateZ,
   activeToolbarTab: toolbarTabZ,
   selectedSymbolGroup: z.string().default("general"),
@@ -70,7 +72,8 @@ export interface State extends z.infer<typeof stateZ> {}
 export const ZERO_STATE: State = {
   version: VERSION,
   selected: [],
-  control: "released",
+  controlStatus: "released",
+  authority: 1,
   legend: {
     visible: false,
     position: { x: 50, y: 50, units: { x: "px", y: "px" } },
@@ -80,7 +83,7 @@ export const ZERO_STATE: State = {
   selectedSymbolGroup: "general",
   editable: true,
   fitViewOnResize: false,
-  viewport: { position: xy.ZERO, zoom: 1 },
+  viewport: { position: xy.ZERO, zoom: 1, mode: "select" },
   pendingUpload: undefined,
 };
 
@@ -153,23 +156,13 @@ const buildPendingUpload = (state: v5.State): PendingUpload => {
     configs[edge.key] = edgeConfig;
     return edge;
   });
-  const upload: PendingUpload = {
+  return {
+    key: state.key,
     nodes: state.nodes.map(migrateNode),
     edges,
     configs,
-    legend: {
-      visible: state.legend?.visible ?? false,
-      position: state.legend?.position ?? {
-        x: 50,
-        y: 50,
-        units: { x: "px", y: "px" },
-      },
-      colors: migrateLegendColors(state.legend?.colors),
-    },
     snapshot: state.snapshot,
   };
-  if (state.authority != null) upload.authority = state.authority;
-  return upload;
 };
 
 export const stateMigration = migrate.createMigration<v5.State, State>({
@@ -177,7 +170,8 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
   migrate: (state) => ({
     version: VERSION,
     selected: [],
-    control: state.control,
+    authority: state.authority,
+    controlStatus: state.control,
     legend: {
       visible: state.legend?.visible ?? false,
       position: state.legend?.position ?? {
@@ -191,7 +185,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     selectedSymbolGroup: state.toolbar.selectedSymbolGroup,
     editable: state.editable,
     fitViewOnResize: state.fitViewOnResize,
-    viewport: state.viewport,
+    viewport: { ...state.viewport, mode: "select" },
     pendingUpload: buildPendingUpload(state),
   }),
 });

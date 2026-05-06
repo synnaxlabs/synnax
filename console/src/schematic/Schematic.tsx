@@ -11,210 +11,117 @@ import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
-  Button,
   Control,
   Diagram,
-  Flex,
-  Flux,
-  Icon,
-  type Pluto,
   Schematic as Base,
-  Status,
-  Synnax,
   Viewport,
 } from "@synnaxlabs/pluto";
-import { location, type sticky, uuid } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
-import { useDispatch, useStore } from "react-redux";
+import { type color, type sticky } from "@synnaxlabs/x";
+import { useCallback, useMemo } from "react";
+import { useDispatch } from "react-redux";
 
-import { ContextMenu as CContextMenu, Controls } from "@/components";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
+import { Controls } from "@/schematic/Controls";
+import { useHandleNodeClickAction } from "@/schematic/navigate";
+import { useSelect } from "@/schematic/selectors";
 import {
-  selectOptional,
-  useSelectEditable,
-  useSelectLegend,
-  useSelectLegendVisible,
-  useSelectSelected,
-} from "@/schematic/selectors";
-import {
-  internalCreate,
   setEditable,
   setFitViewOnResize,
+  setLegend,
   setSelected,
   setViewport,
+  setViewportMode,
 } from "@/schematic/slice";
 import { useAutoUpload } from "@/schematic/useUpload";
-import { Selector } from "@/selector";
-import { type RootState } from "@/store";
 
-interface ControlToggleButtonProps {
-  control: Control.Status;
-}
-
-const ControlToggleButton = ({ control }: ControlToggleButtonProps): ReactElement => {
-  const { acquire, release } = Control.useContext();
-  const handleChange = useCallback(
-    (v: boolean) => (v ? acquire() : release()),
-    [acquire, release],
-  );
-  return (
-    <Button.Toggle
-      value={control === "acquired"}
-      onChange={handleChange}
-      tooltipLocation={location.BOTTOM_LEFT}
-      size="small"
-      tooltip={`${control === "acquired" ? "Release" : "Acquire"} control`}
-    >
-      <Icon.Circle />
-    </Button.Toggle>
-  );
-};
-
-type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
-
-const navigateToLinkedSchematic = async (
-  retrieve: SchematicRetriever,
-  page: string,
-  placeLayout: Layout.Placer,
-): Promise<void> => {
-  const s = await retrieve(page);
-  placeLayout(create({ key: s.key, name: s.name }));
-};
-
-type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
-
-const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler => {
-  const store = useStore<RootState>();
-  const client = Synnax.use();
-  const fluxStore = Flux.useStore<Pluto.FluxStore>();
-  const retrieve: SchematicRetriever | null = useMemo(
-    () =>
-      client != null
-        ? (key: string) =>
-            Base.retrieveSingle({ store: fluxStore, client, query: { key } })
-        : null,
-    [fluxStore, client],
-  );
-  const handleError = Status.useErrorHandler();
-  const placeLayout = Layout.usePlacer();
-
-  return useCallback(
-    (nodeId: string, dblClick: boolean) => {
-      const storeState = store.getState();
-      const ui = selectOptional(storeState, layoutKey);
-      if (ui == null || ui.editable || retrieve == null) return;
-      const config = fluxStore.schematics.get(layoutKey)?.configs?.[nodeId] as
-        | Record<string, unknown>
-        | undefined;
-      if (
-        config?.variant !== "offPageReference" ||
-        typeof config.page !== "string" ||
-        config.page.length === 0
-      )
-        return;
-      const dblClickNav = config.dblClickNav !== false;
-      if (dblClick !== dblClickNav) return;
-      const { page } = config;
-      const labelObj = config.label as { label?: string } | undefined;
-      const label = labelObj?.label;
-      const name = label != null && label.length > 0 ? label : "Referenced schematic";
-      handleError(
-        () => navigateToLinkedSchematic(retrieve, page, placeLayout),
-        `Schematic "${name}" not found`,
-      );
-    },
-    [store, layoutKey, retrieve, placeLayout, handleError, fluxStore],
-  );
-};
-
-export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
-  <CContextMenu.Menu>
-    <Layout.MenuItems layoutKey={layoutKey} />
-  </CContextMenu.Menu>
-);
-
-export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
+export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
-  const { data: doc } = Base.useRetrieve({ key: layoutKey });
-  const dispatch = useDispatch();
-  const editable = useSelectEditable(layoutKey);
-  const legend = useSelectLegend(layoutKey);
-  const legendVisible = useSelectLegendVisible(layoutKey);
-  const selected = useSelectSelected(layoutKey);
-
-  useAutoUpload(layoutKey, name);
-
-  const authority = Base.useSelectAuthority({ key: layoutKey }) ?? 1;
-  const control =
-    (doc?.snapshot ?? false) ? "released" : ("released" as Control.Status);
-  const hasUpdatePermission =
-    Access.useUpdateGranted(schematic.ontologyID(layoutKey)) &&
-    !(doc?.snapshot ?? false);
-  const canEdit = hasUpdatePermission && editable;
+  const { data: doc } = Base.useRetrieve({ key });
   const snapshot = doc?.snapshot ?? false;
 
+  const dispatch = useDispatch();
+  const { editable, viewport, controlStatus, selected, legend, authority } =
+    useSelect(key);
+  useAutoUpload(key);
+
+  const hasUpdatePermission =
+    Access.useUpdateGranted(schematic.ontologyID(key)) && !snapshot;
+  const canEdit = hasUpdatePermission && editable;
+
   const handleSelectionChange = useCallback(
-    (next: string[]) => dispatch(setSelected({ key: layoutKey, selected: next })),
-    [dispatch, layoutKey],
+    (selected: string[]) => dispatch(setSelected({ key, selected })),
+    [dispatch, key],
   );
 
   const handleViewportChange = useCallback(
-    (vp: Diagram.Viewport) => dispatch(setViewport({ key: layoutKey, viewport: vp })),
-    [dispatch, layoutKey],
+    (viewport: Diagram.Viewport) => dispatch(setViewport({ key, viewport })),
+    [dispatch, key],
   );
 
   const handleEditableChange = useCallback(
-    (v: boolean) => dispatch(setEditable({ key: layoutKey, editable: v })),
-    [dispatch, layoutKey],
+    (editable: boolean) => dispatch(setEditable({ key, editable })),
+    [dispatch, key],
   );
 
   const handleFitViewOnResizeChange = useCallback(
-    (v: boolean) =>
-      dispatch(setFitViewOnResize({ key: layoutKey, fitViewOnResize: v })),
-    [dispatch, layoutKey],
+    (fitViewOnResize: boolean) =>
+      dispatch(setFitViewOnResize({ key, fitViewOnResize })),
+    [dispatch, key],
   );
 
-  const [mode, setMode] = useState<Viewport.Mode>("select");
-  const triggers = useMemo(() => Viewport.DEFAULT_TRIGGERS[mode], [mode]);
+  const handleViewportModeChange = useCallback(
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ key, mode })),
+    [dispatch, key],
+  );
+  const triggers = useMemo(
+    () => Viewport.DEFAULT_TRIGGERS[viewport.mode],
+    [viewport.mode],
+  );
+
+  const handleLegendPositionChange = useCallback(
+    (position: sticky.XY) => dispatch(setLegend({ key, legend: { position } })),
+    [dispatch, key],
+  );
+
+  const handleLegendColorsChange = useCallback(
+    (colors: Record<string, color.Color>) =>
+      dispatch(setLegend({ key, legend: { colors } })),
+    [key, dispatch],
+  );
 
   const handleDoubleClick = useCallback(() => {
-    if (!editable) return;
-    dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
+    if (editable)
+      dispatch(
+        Layout.setNavDrawerVisible({
+          windowKey,
+          key: "visualization",
+          value: true,
+        }),
+      );
   }, [windowKey, editable, dispatch]);
 
-  const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
+  const handleNodeClickAction = useHandleNodeClickAction(key);
+
   const handleNodeClick = useCallback(
-    (_event: React.MouseEvent, node: { id: string }) =>
+    (_: React.MouseEvent, node: { id: string }) =>
       handleNodeClickAction(node.id, false),
     [handleNodeClickAction],
   );
   const handleNodeDoubleClick = useCallback(
-    (_event: React.MouseEvent, node: { id: string }) =>
-      handleNodeClickAction(node.id, true),
+    (_: React.MouseEvent, node: { id: string }) => handleNodeClickAction(node.id, true),
     [handleNodeClickAction],
   );
 
-  const [legendPosition, setLegendPosition] = useState<sticky.XY>(legend.position);
-  const ref = useRef<HTMLDivElement>(null);
-
   return (
-    <Controller resourceKey={layoutKey} authority={authority}>
+    <Controller resourceKey={key} authority={authority}>
       <Base.Schematic
-        ref={ref}
-        resourceKey={layoutKey}
+        resourceKey={key}
         selected={selected}
         onSelectionChange={handleSelectionChange}
-        viewportMode={mode}
-        onViewportModeChange={setMode}
-        viewport={{ position: { x: 0, y: 0 }, zoom: 1 }}
+        viewportMode={viewport.mode}
+        onViewportModeChange={handleViewportModeChange}
+        viewport={viewport}
         onViewportChange={handleViewportChange}
         editable={canEdit}
         onEditableChange={handleEditableChange}
@@ -227,75 +134,21 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
         visible={visible}
       >
         <Diagram.Background />
-        <Controls x>
-          <Diagram.Controls.SelectViewportMode />
-          <Diagram.Controls.FitView />
-          <Flex.Box x pack>
-            {hasUpdatePermission && (
-              <Diagram.Controls.ToggleEdit disabled={control === "acquired"} />
-            )}
-            {!snapshot && <ControlToggleButton control={control} />}
-          </Flex.Box>
-        </Controls>
+        <Controls
+          controlStatus={controlStatus}
+          snapshot={snapshot}
+          hasUpdatePermission={hasUpdatePermission}
+        />
       </Base.Schematic>
-      {legendVisible && (
+      {legend.colors && (
         <Control.Legend
-          position={legendPosition}
-          onPositionChange={setLegendPosition}
-          colors={doc?.legend?.colors ?? {}}
+          position={legend.position}
+          onPositionChange={handleLegendPositionChange}
+          colors={legend.colors}
+          onColorsChange={handleLegendColorsChange}
           allowVisibleChange={false}
         />
       )}
     </Controller>
   );
 };
-
-export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => (
-  <Loaded layoutKey={layoutKey} {...rest} />
-);
-
-export const LAYOUT_TYPE = "schematic";
-export type LayoutType = typeof LAYOUT_TYPE;
-
-export const HAUL_TYPE = Base.HAUL_TYPE;
-
-export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
-  const hasCreatePermission = Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
-  const handleClick = useCallback(() => {
-    onPlace(create({ key: layoutKey }));
-  }, [onPlace, layoutKey]);
-
-  if (!hasCreatePermission) return null;
-
-  return (
-    <Selector.Item
-      key={LAYOUT_TYPE}
-      title="Schematic"
-      icon={<Icon.Schematic />}
-      onClick={handleClick}
-    />
-  );
-};
-Selectable.type = LAYOUT_TYPE;
-Selectable.useVisible = () => Access.useCreateGranted(schematic.TYPE_ONTOLOGY_ID);
-
-export interface CreateArg extends Partial<Layout.BaseState> {
-  key?: string;
-}
-
-export const create =
-  (initial: CreateArg = {}): Layout.Creator =>
-  ({ dispatch }) => {
-    const { name = "Schematic", location = "mosaic", tab } = initial;
-    const key = schematic.keyZ.safeParse(initial.key).data ?? uuid.create();
-    dispatch(internalCreate({ key }));
-    return {
-      key,
-      location,
-      name,
-      icon: "Schematic",
-      type: LAYOUT_TYPE,
-      window: { navTop: true, showTitle: true },
-      tab,
-    };
-  };

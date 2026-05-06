@@ -15,6 +15,7 @@ import {
   Breadcrumb,
   Flex,
   Icon,
+  Key,
   Schematic as PSchematic,
   Tabs,
 } from "@synnaxlabs/pluto";
@@ -83,10 +84,16 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   const editMode = useSelectEditable(layoutKey) === true;
   const handleExport = useExport();
   const selected = useSelectSelected(layoutKey);
-  const selectedNames = PSchematic.useSelectElementNames({
+  const singleSelectedConfig = PSchematic.useSelectElementConfig({
     key: layoutKey,
-    keys: selected,
+    elKey: selected.length === 1 ? selected[0] : "",
   });
+  const singleSelectedName =
+    selected.length === 1 &&
+    singleSelectedConfig != null &&
+    "label" in singleSelectedConfig
+      ? ((singleSelectedConfig.label as { label?: string } | undefined)?.label ?? null)
+      : null;
   const hasUpdatePermission = Access.useUpdateGranted(schematic.ontologyID(layoutKey));
   const isSnapshot = PSchematic.useSelectSnapshot({ key: layoutKey }) ?? false;
   const hasEditPermission = hasUpdatePermission && !isSnapshot;
@@ -96,7 +103,7 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       if (!canEdit) return <NotEditableContent layoutKey={layoutKey} />;
       switch (tabKey) {
         case "symbols":
-          return <Symbols layoutKey={layoutKey} />;
+          return <Symbols />;
         case "control":
           return <Control layoutKey={layoutKey} />;
         default:
@@ -122,36 +129,38 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   );
   return (
     <Tabs.Provider value={value}>
-      <Base.Content>
-        <Base.Header>
-          <Breadcrumb.Breadcrumb level="h5">
-            <Breadcrumb.Segment weight={500} color={10} level="h5">
-              <Icon.Schematic />
-              {name}
-            </Breadcrumb.Segment>
-            {selectedNames.length === 1 && selectedNames[0] !== null && (
-              <Breadcrumb.Segment weight={400} color={8} level="small">
-                {selectedNames[0]}
+      <Key.Provider value={layoutKey}>
+        <Base.Content>
+          <Base.Header>
+            <Breadcrumb.Breadcrumb level="h5">
+              <Breadcrumb.Segment weight={500} color={10} level="h5">
+                <Icon.Schematic />
+                {name}
               </Breadcrumb.Segment>
-            )}
-          </Breadcrumb.Breadcrumb>
-          <Flex.Box x align="center" empty>
-            <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
-              <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
-              <Cluster.CopyLinkToolbarButton
-                name={name}
-                ontologyID={schematic.ontologyID(layoutKey)}
-              />
+              {singleSelectedName !== null && (
+                <Breadcrumb.Segment weight={400} color={8} level="small">
+                  {singleSelectedName}
+                </Breadcrumb.Segment>
+              )}
+            </Breadcrumb.Breadcrumb>
+            <Flex.Box x align="center" empty>
+              <Flex.Box x empty className={CSS.BE("schematic", "toolbar", "actions")}>
+                <Export.ToolbarButton onExport={() => handleExport(layoutKey)} />
+                <Cluster.CopyLinkToolbarButton
+                  name={name}
+                  ontologyID={schematic.ontologyID(layoutKey)}
+                />
+              </Flex.Box>
+              {hasEditPermission && (
+                <Tabs.Selector
+                  className={CSS.BE("schematic", "toolbar", "tab-selector")}
+                />
+              )}
             </Flex.Box>
-            {hasEditPermission && (
-              <Tabs.Selector
-                className={CSS.BE("schematic", "toolbar", "tab-selector")}
-              />
-            )}
-          </Flex.Box>
-        </Base.Header>
-        <Tabs.Content />
-      </Base.Content>
+          </Base.Header>
+          <Tabs.Content />
+        </Base.Content>
+      </Key.Provider>
     </Tabs.Provider>
   );
 };

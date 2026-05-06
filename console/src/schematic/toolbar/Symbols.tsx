@@ -17,6 +17,7 @@ import {
   Haul,
   Icon,
   Input,
+  Key,
   List,
   Menu,
   Schematic,
@@ -25,7 +26,7 @@ import {
   Text,
   Theming,
 } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { id, uuid } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 
@@ -48,70 +49,76 @@ import {
 } from "@/schematic/symbols/import";
 import { useDeleteSymbolGroup } from "@/schematic/symbols/useDeleteSymbolGroup";
 
+const HAUL_DRAG_PROPS: Haul.UseDragProps = {
+  type: "Diagram-Elements",
+  key: "symbols",
+};
+
 const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
   const { itemKey } = props;
   const theme = Theming.use();
-
-  const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Diagram-Elements",
-    key: "symbols",
-  });
-
-  const handleDragStart = useCallback(() => {
-    startDrag([{ type: "schematic-element", key: itemKey }]);
-  }, [startDrag, itemKey]);
+  const layoutKey = Key.use<string>("Schematic.Toolbar.StaticListItem");
+  const addNode = Schematic.useAddNode(layoutKey);
+  const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
+  const variant = itemKey as Schematic.Node.Variant;
+  const createParams = useCallback(
+    (): Schematic.AddNodeProps => ({ key: id.create(), variant }),
+    [variant],
+  );
+  const handleDragStart = useCallback(
+    () => startDrag([Schematic.createHaulItem(id.create(), { variant })]),
+    [startDrag, variant],
+  );
+  const handleAddNode = useCallback(
+    () => addNode(createParams()),
+    [addNode, createParams],
+  );
   const spec = List.useItem<string, Schematic.Node.Spec>(itemKey);
-  const defaultProps_ = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
-  if (spec == null || defaultProps_ == null) return null;
+  const defaultConfig = useMemo(() => spec?.defaultConfig(theme), [spec, theme]);
+  if (spec == null || defaultConfig == null) return null;
   const { name, Preview } = spec;
   return (
-    <Select.ListItem
+    <List.Item
       className={CSS(CSS.BE("schematic-symbols", "button"))}
       align="center"
       gap="tiny"
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onClick={handleAddNode}
       y
       {...props}
     >
       <Text.Text level="small">{name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        <Preview {...defaultProps_} scale={0.75} />
+        <Preview {...defaultConfig} scale={0.75} />
       </Flex.Box>
-    </Select.ListItem>
+    </List.Item>
   );
 };
 
 const staticListItem = Component.renderProp(StaticListItem);
 
 export interface SymbolListProps {
-  onSelect: (key: string) => void;
   groupKey: group.Key;
 }
 
-const StaticSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
+const StaticSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   const symbols = useMemo<Schematic.Node.Spec[]>(() => {
-    const group = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
+    const g = Schematic.Node.GROUPS.find((g) => g.key === groupKey);
     return Object.values(Schematic.Node.REGISTRY).filter((s) =>
-      group?.symbols.includes(s.key),
+      g?.symbols.includes(s.key),
     ) as unknown as Schematic.Node.Spec[];
   }, [groupKey]);
   const { data, getItem } = List.useStaticData<string, Schematic.Node.Spec>({
     data: symbols,
   });
   return (
-    <Select.Frame<string, Schematic.Node.Spec>
-      data={data}
-      getItem={getItem}
-      value={undefined}
-      allowNone
-      onChange={onSelect}
-    >
+    <List.Frame<string, Schematic.Node.Spec> data={data} getItem={getItem}>
       <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
         {staticListItem}
       </List.Items>
-    </Select.Frame>
+    </List.Frame>
   );
 };
 
@@ -120,22 +127,30 @@ export interface RemoteListItemProps extends List.ItemProps<string> {}
 const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
   const { itemKey } = props;
   const symbol = List.useItem<string, schematic.symbol.Symbol>(itemKey);
-  // Determine if symbol is static or dynamic based on variant or number of states
   const isStatic =
     symbol?.data?.variant === "static" || symbol?.data?.states?.length === 1;
-  const variant = isStatic ? "customStatic" : "customActuator";
-  const Preview = Schematic.Node.REGISTRY[variant].Preview;
+  const variant: Schematic.Node.Variant = isStatic ? "customStatic" : "customActuator";
+  const Preview = Schematic.Node.REGISTRY[variant].Preview as React.FC<{
+    specKey: string;
+    scale?: number;
+  }>;
+  const layoutKey = Key.use<string>("Schematic.Toolbar.RemoteListItem");
+  const addNode = Schematic.useAddNode(layoutKey);
+  const { startDrag, onDragEnd } = Haul.useDrag(HAUL_DRAG_PROPS);
 
-  const { startDrag, onDragEnd } = Haul.useDrag({
-    type: "Diagram-Elements",
-    key: "symbols",
-  });
-
-  const handleDragStart = useCallback(() => {
-    startDrag([
-      { type: "schematic-element", key: variant, data: { specKey: itemKey } },
-    ]);
-  }, [startDrag, itemKey, variant]);
+  const createParams = useCallback(
+    (): Schematic.AddNodeProps => ({ key: id.create(), variant, specKey: itemKey }),
+    [variant, itemKey],
+  );
+  const handleDragStart = useCallback(
+    () =>
+      startDrag([Schematic.createHaulItem(id.create(), { variant, specKey: itemKey })]),
+    [startDrag, variant, itemKey],
+  );
+  const handleAddNode = useCallback(
+    () => addNode(createParams()),
+    [addNode, createParams],
+  );
 
   if (symbol == null) return null;
 
@@ -147,13 +162,13 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
       draggable
       onDragStart={handleDragStart}
       onDragEnd={onDragEnd}
+      onClick={handleAddNode}
       y
       {...props}
     >
       <Text.Text level="small">{symbol.name}</Text.Text>
       <Flex.Box align="center" justify="center" grow>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <Preview {...({ specKey: itemKey, scale: 0.75 } as any)} />
+        <Preview specKey={itemKey} scale={0.75} />
       </Flex.Box>
     </Select.ListItem>
   );
@@ -255,7 +270,7 @@ const RemoteListEmptyContent = ({
   );
 };
 
-const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement => {
+const RemoteSymbolList = ({ groupKey }: SymbolListProps): ReactElement => {
   const listData = Schematic.Symbol.useList({
     initialQuery: { parent: group.ontologyID(groupKey) },
   });
@@ -263,12 +278,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement
   useEffect(() => fetchMore(), [fetchMore]);
   const menuProps = Menu.useContextMenu();
   return (
-    <Select.Frame<string, schematic.symbol.Symbol>
-      {...listData}
-      value={undefined}
-      allowNone
-      onChange={onSelect}
-    >
+    <List.Frame<string, schematic.symbol.Symbol> {...listData}>
       <Menu.ContextMenu
         {...menuProps}
         menu={(props) => <RemoteSymbolListContextMenu {...props} groupKey={groupKey} />}
@@ -283,7 +293,7 @@ const RemoteSymbolList = ({ groupKey, onSelect }: SymbolListProps): ReactElement
           {remoteListItem}
         </List.Items>
       </Menu.ContextMenu>
-    </Select.Frame>
+    </List.Frame>
   );
 };
 
@@ -520,7 +530,6 @@ const GroupList = ({
 
 interface SearchSymbolListProps {
   searchTerm: string;
-  onSelect: (key: string) => void;
 }
 
 export const CUSTOM_VARIANTS = new Set(["customActuator", "customStatic"]);
@@ -541,10 +550,7 @@ const SearchListItem = (props: List.ItemProps<string>): ReactElement | null => {
 
 const searchListItem = Component.renderProp(SearchListItem);
 
-const SearchSymbolList = ({
-  searchTerm,
-  onSelect,
-}: SearchSymbolListProps): ReactElement => {
+const SearchSymbolList = ({ searchTerm }: SearchSymbolListProps): ReactElement => {
   const remote = Schematic.Symbol.useList({
     initialQuery: { searchTerm },
   });
@@ -567,53 +573,35 @@ const SearchSymbolList = ({
 
   useEffect(() => search(searchTerm), [search, searchTerm]);
   return (
-    <Select.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
+    <List.Frame<string, Schematic.Node.Spec | schematic.symbol.Symbol>
       data={data}
       getItem={getItem}
       subscribe={subscribe}
-      value={undefined}
-      allowNone
-      onChange={onSelect}
     >
       <List.Items x className={CSS.BE("schematic", "symbols", "group")} wrap>
         {searchListItem}
       </List.Items>
-    </Select.Frame>
+    </List.Frame>
   );
 };
 
-export const Symbols = ({ layoutKey }: { layoutKey: string }): ReactElement => {
+export const Symbols = (): ReactElement => {
   const dispatch = useDispatch();
+  const layoutKey = Key.use<string>("Schematic.Symbols");
   const groupKey = useSelectSelectedSymbolGroup(layoutKey);
   const setGroupKey = useCallback(
     (group: group.Key) => dispatch(setSelectedSymbolGroup({ key: layoutKey, group })),
     [dispatch, layoutKey],
   );
   const isRemoteGroup = group.keyZ.safeParse(groupKey).success;
-  const addElement = Schematic.useAddNode(layoutKey);
-  const handleAddElement = useCallback(
-    (key: string) => addElement(key, undefined, { specKey: key }),
-    [addElement],
-  );
 
   const [searchTerm, setSearchTerm] = useState("");
   const symbolGroup = Schematic.Symbol.useRetrieveGroup({ query: {} });
   const searchMode = searchTerm.length > 0;
-  let symbolList = (
-    <StaticSymbolList key={groupKey} groupKey={groupKey} onSelect={handleAddElement} />
-  );
+  let symbolList = <StaticSymbolList key={groupKey} groupKey={groupKey} />;
   if (isRemoteGroup)
-    symbolList = (
-      <RemoteSymbolList
-        key={groupKey}
-        groupKey={groupKey}
-        onSelect={handleAddElement}
-      />
-    );
-  else if (searchMode)
-    symbolList = (
-      <SearchSymbolList searchTerm={searchTerm} onSelect={handleAddElement} />
-    );
+    symbolList = <RemoteSymbolList key={groupKey} groupKey={groupKey} />;
+  else if (searchMode) symbolList = <SearchSymbolList searchTerm={searchTerm} />;
   const symbolGroupID =
     symbolGroup.data?.key != null ? group.ontologyID(symbolGroup.data.key) : undefined;
   return (

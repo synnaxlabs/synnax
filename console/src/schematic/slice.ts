@@ -9,6 +9,7 @@
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 import { type Control, type Diagram, type Viewport } from "@synnaxlabs/pluto";
+import { type control } from "@synnaxlabs/x";
 
 import * as latest from "@/schematic/types";
 
@@ -42,6 +43,11 @@ export interface SetSelectedPayload {
 export interface SetControlStatusPayload {
   key: string;
   control: Control.Status;
+}
+
+export interface SetAuthorityPayload {
+  key: string;
+  authority: control.Authority;
 }
 
 export interface SetLegendPayload {
@@ -113,7 +119,12 @@ export const { actions, reducer } = createSlice({
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      s.control = payload.control;
+      s.controlStatus = payload.control;
+    },
+    setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
+      const s = state.schematics[payload.key];
+      if (s == null) return;
+      s.authority = payload.authority;
     },
     setLegend: (state, { payload }: PayloadAction<SetLegendPayload>) => {
       const s = state.schematics[payload.key];
@@ -158,15 +169,12 @@ export const { actions, reducer } = createSlice({
     setViewport: (state, { payload }: PayloadAction<SetViewportPayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      s.viewport = payload.viewport;
+      s.viewport = { ...s.viewport, ...payload.viewport };
     },
     setViewportMode: (state, { payload }: PayloadAction<SetViewportModePayload>) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      // viewport.mode currently lives outside the persisted state; wire as no-op
-      // until a UI-only mode field lands.
-      void payload.mode;
-      void s;
+      s.viewport.mode = payload.mode;
     },
     remove: (state, { payload }: PayloadAction<RemovePayload>) => {
       payload.keys.forEach((key) => delete state.schematics[key]);
@@ -186,6 +194,7 @@ export const {
   create: internalCreate,
   setSelected,
   setControlStatus,
+  setAuthority,
   setLegend,
   setLegendVisible,
   setActiveToolbarTab,

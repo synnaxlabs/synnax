@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Node } from "@/schematic/node/Node";
 export * from "@/schematic/node/common/border";
 export * from "@/schematic/node/common/control";
 export * from "@/schematic/node/common/custom";
@@ -23,4 +22,5 @@ export * from "@/schematic/node/common/region";
 export * from "@/schematic/node/common/toggle";
 export * from "@/schematic/node/group";
 export * from "@/schematic/node/registry";
+export * from "@/schematic/node/Renderer";
 export * from "@/schematic/node/spec";

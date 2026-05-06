@@ -7,6 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { color } from "@synnaxlabs/x";
+
 import { createReduceAll, createReducer, type Handlers } from "@/schematic/actions.gen";
 
 const handlers: Handlers = {
@@ -29,23 +31,30 @@ const handlers: Handlers = {
     if (idx !== -1) state.nodes.splice(idx, 1);
     delete state.configs[payload.key];
   },
-  setEdge: (state, payload) => {
-    const idx = state.edges.findIndex((e) => e.key === payload.edge.key);
-    if (idx !== -1) state.edges[idx] = payload.edge;
-    else state.edges.push(payload.edge);
+  addEdge: (state, payload) => {
+    if (state.edges.some((e) => e.key === payload.edge.key)) return;
+    state.edges.push(payload.edge);
   },
   removeEdge: (state, payload) => {
     const idx = state.edges.findIndex((e) => e.key === payload.key);
     if (idx !== -1) state.edges.splice(idx, 1);
   },
   setConfig: (state, payload) => {
-    state.configs[payload.key] = payload.config;
-  },
-  setAuthority: (state, payload) => {
-    state.authority = payload.value;
-  },
-  setLegend: (state, payload) => {
-    state.legend = payload.legend;
+    const existing = state.configs[payload.key];
+    if (existing != null) {
+      state.configs[payload.key] = { ...existing, ...payload.config };
+      return;
+    }
+    let cfg = payload.config;
+    const edge = state.edges.find((e) => e.key === payload.key);
+    if (edge != null) {
+      const srcCfg = state.configs[edge.source.node] as
+        | { color?: color.Crude }
+        | undefined;
+      if (srcCfg?.color != null && !color.isZero(srcCfg.color))
+        cfg = { ...cfg, color: srcCfg.color };
+    }
+    state.configs[payload.key] = cfg;
   },
 };
 

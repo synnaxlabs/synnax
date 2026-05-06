@@ -7,9 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@/context";
+import { ContextMenu as CContextMenu } from "@/components";
+import { Layout } from "@/layout";
 
-export const [Provider, useKey] = context.create<string>({
-  defaultValue: "",
-  displayName: "Schematic.Context",
-});
+export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
+  <CContextMenu.Menu>
+    <Layout.MenuItems layoutKey={layoutKey} />
+  </CContextMenu.Menu>
+);

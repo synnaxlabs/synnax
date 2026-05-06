@@ -14,18 +14,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
-	"github.com/synnaxlabs/x/color"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/spatial"
 	. "github.com/synnaxlabs/x/testutil"
 )
-
-// emptyLegend returns the zero-value Legend used when a test does not care
-// about legend state. It is non-nil so equality comparisons against a default
-// schematic don't trip on a nil colors map.
-func emptyLegend() schematic.Legend {
-	return schematic.Legend{Colors: map[string]color.Color{}}
-}
 
 // node constructs a node at the given coordinates. zIndex is left zero.
 func node(key string, x, y float64) schematic.Node {
@@ -161,28 +153,24 @@ var _ = Describe("Reducer", func() {
 		})
 	})
 
-	Describe("SetEdge", func() {
+	Describe("AddEdge", func() {
 		It("Should append an edge whose key is not yet present", func() {
 			state := schematic.Schematic{Edges: []schematic.Edge{edge("e1", "a", "o", "b", "i")}}
-			out := MustSucceed(schematic.NewSetEdgeAction(schematic.SetEdge{
+			out := MustSucceed(schematic.NewAddEdgeAction(schematic.AddEdge{
 				Edge: edge("e2", "b", "o", "c", "i"),
 			}).Reduce(state))
 			Expect(out.Edges).To(HaveLen(2))
 			Expect(out.Edges[1].Key).To(Equal("e2"))
 		})
-		It("Should replace an existing edge in place, preserving slice index", func() {
+		It("Should be a no-op when an edge with the same key already exists", func() {
 			state := schematic.Schematic{Edges: []schematic.Edge{
 				edge("e1", "a", "o", "b", "i"),
 				edge("e2", "b", "o", "c", "i"),
-				edge("e3", "c", "o", "d", "i"),
 			}}
-			out := MustSucceed(schematic.NewSetEdgeAction(schematic.SetEdge{
-				Edge: edge("e2", "x", "y", "z", "w"),
+			out := MustSucceed(schematic.NewAddEdgeAction(schematic.AddEdge{
+				Edge: edge("e1", "x", "y", "z", "w"),
 			}).Reduce(state))
-			Expect(out.Edges).To(HaveLen(3))
-			Expect(out.Edges[0].Key).To(Equal("e1"))
-			Expect(out.Edges[1]).To(Equal(edge("e2", "x", "y", "z", "w")))
-			Expect(out.Edges[2].Key).To(Equal("e3"))
+			Expect(out.Edges).To(Equal(state.Edges))
 		})
 	})
 
@@ -215,15 +203,18 @@ var _ = Describe("Reducer", func() {
 			}).Reduce(state))
 			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "Pump"}))
 		})
-		It("Should overwrite an existing config entry", func() {
+		It("Should merge payload fields into an existing config entry", func() {
 			state := schematic.Schematic{Configs: map[string]msgpack.EncodedJSON{
-				"n1": {"label": "Old"},
+				"n1": {"label": "Old", "color": "#ff0000"},
 			}}
 			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
 				Key:    "n1",
 				Config: msgpack.EncodedJSON{"label": "New"},
 			}).Reduce(state))
-			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{"label": "New"}))
+			Expect(out.Configs["n1"]).To(Equal(msgpack.EncodedJSON{
+				"label": "New",
+				"color": "#ff0000",
+			}))
 		})
 		It("Should accept a key that does not match any node or edge", func() {
 			state := schematic.Schematic{}
@@ -233,29 +224,83 @@ var _ = Describe("Reducer", func() {
 			}).Reduce(state))
 			Expect(out.Configs["orphan"]).To(Equal(msgpack.EncodedJSON{"data": 1}))
 		})
-	})
-
-	Describe("SetAuthority", func() {
-		It("Should replace the authority value", func() {
-			state := schematic.Schematic{Authority: 1}
-			out := MustSucceed(schematic.NewSetAuthorityAction(schematic.SetAuthority{
-				Value: 200,
-			}).Reduce(state))
-			Expect(out.Authority).To(BeEquivalentTo(200))
-		})
-	})
-
-	Describe("SetLegend", func() {
-		It("Should replace the legend wholesale", func() {
-			state := schematic.Schematic{Legend: schematic.Legend{Visible: false}}
-			newLegend := schematic.Legend{
-				Visible: true,
-				Colors:  map[string]color.Color{"on": {R: 255, G: 0, B: 0, A: 1}},
+		It("Should override the payload color with the edge's source color on insert", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"color": "#00ff00"},
+				},
 			}
-			out := MustSucceed(schematic.NewSetLegendAction(schematic.SetLegend{
-				Legend: newLegend,
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
 			}).Reduce(state))
-			Expect(out.Legend).To(Equal(newLegend))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
+				"variant": "pipe",
+				"color":   "#00ff00",
+			}))
+		})
+		It("Should inherit the edge's source color when the payload omits color", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"color": "#00ff00"},
+				},
+			}
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "pipe"},
+			}).Reduce(state))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
+				"variant": "pipe",
+				"color":   "#00ff00",
+			}))
+		})
+		It("Should leave the payload untouched when the source node has no color", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"label": "Pump"},
+				},
+			}
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
+			}).Reduce(state))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
+				"variant": "pipe",
+				"color":   "#000000",
+			}))
+		})
+		It("Should leave the payload untouched when the source node has no config", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+			}
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "pipe", "color": "#000000"},
+			}).Reduce(state))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
+				"variant": "pipe",
+				"color":   "#000000",
+			}))
+		})
+		It("Should not override the color when merging into an existing edge config", func() {
+			state := schematic.Schematic{
+				Edges: []schematic.Edge{edge("e1", "src", "o", "tgt", "i")},
+				Configs: map[string]msgpack.EncodedJSON{
+					"src": {"color": "#00ff00"},
+					"e1":  {"variant": "pipe", "color": "#000000"},
+				},
+			}
+			out := MustSucceed(schematic.NewSetConfigAction(schematic.SetConfig{
+				Key:    "e1",
+				Config: msgpack.EncodedJSON{"variant": "electric"},
+			}).Reduce(state))
+			Expect(out.Configs["e1"]).To(Equal(msgpack.EncodedJSON{
+				"variant": "electric",
+				"color":   "#000000",
+			}))
 		})
 	})
 
@@ -275,13 +320,13 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should build a complete graph from an empty schematic", func() {
-			state := schematic.Schematic{Legend: emptyLegend()}
+			state := schematic.Schematic{}
 			actions := []schematic.Action{
 				schematic.NewSetNodeAction(schematic.SetNode{Node: node("pump", 0, 0)}),
 				schematic.NewSetNodeAction(schematic.SetNode{Node: node("valve", 100, 0)}),
 				schematic.NewSetNodeAction(schematic.SetNode{Node: node("tank", 200, 0)}),
-				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e1", "pump", "out", "valve", "in")}),
-				schematic.NewSetEdgeAction(schematic.SetEdge{Edge: edge("e2", "valve", "out", "tank", "in")}),
+				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: edge("e1", "pump", "out", "valve", "in")}),
+				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: edge("e2", "valve", "out", "tank", "in")}),
 				schematic.NewSetConfigAction(schematic.SetConfig{
 					Key:    "pump",
 					Config: msgpack.EncodedJSON{"label": "Main Pump"},
@@ -330,7 +375,7 @@ var _ = Describe("Reducer", func() {
 		})
 
 		It("Should apply a 50-action editor session and converge to a coherent schematic", func() {
-			state := schematic.Schematic{Legend: emptyLegend()}
+			state := schematic.Schematic{}
 			var actions []schematic.Action
 			for i := range 5 {
 				actions = append(actions, schematic.NewSetNodeAction(schematic.SetNode{
@@ -351,7 +396,7 @@ var _ = Describe("Reducer", func() {
 			for i := range 4 {
 				src := "n" + string(rune('0'+i))
 				dst := "n" + string(rune('0'+i+1))
-				actions = append(actions, schematic.NewSetEdgeAction(schematic.SetEdge{
+				actions = append(actions, schematic.NewAddEdgeAction(schematic.AddEdge{
 					Edge: edge("e"+string(rune('0'+i)), src, "out", dst, "in"),
 				}))
 			}
@@ -365,18 +410,12 @@ var _ = Describe("Reducer", func() {
 				Key:    "e1",
 				Config: msgpack.EncodedJSON{"variant": "electric"},
 			}))
-			actions = append(actions, schematic.NewSetAuthorityAction(schematic.SetAuthority{Value: 255}))
-			actions = append(actions, schematic.NewSetLegendAction(schematic.SetLegend{
-				Legend: schematic.Legend{Visible: true, Colors: map[string]color.Color{}},
-			}))
 			out := MustSucceed(schematic.ReduceAll(state, actions))
 			Expect(out.Nodes).To(HaveLen(5))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 0, Y: 100}))
 			Expect(out.Nodes[4].Position).To(Equal(spatial.XY{X: 400, Y: 100}))
 			Expect(out.Edges).To(HaveLen(4))
 			Expect(out.Configs).To(HaveLen(4))
-			Expect(out.Authority).To(BeEquivalentTo(255))
-			Expect(out.Legend.Visible).To(BeTrue())
 		})
 
 		It("Should leave state untouched when given an empty action list", func() {
@@ -401,22 +440,20 @@ var _ = Describe("Reducer", func() {
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodePosition}.Reduce(state))).To(Equal(state))
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNode}.Reduce(state))).To(Equal(state))
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveNode}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetEdge}.Reduce(state))).To(Equal(state))
+			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeAddEdge}.Reduce(state))).To(Equal(state))
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeRemoveEdge}.Reduce(state))).To(Equal(state))
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetConfig}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetAuthority}.Reduce(state))).To(Equal(state))
-			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetLegend}.Reduce(state))).To(Equal(state))
 			Expect(MustSucceed(schematic.Action{Type: schematic.ActionTypeSetNodeMeasured}.Reduce(state))).To(Equal(state))
 		})
 
 		It("Should dispatch on Type and ignore extra payload pointers when more than one is set", func() {
 			state := schematic.Schematic{Nodes: []schematic.Node{node("n1", 0, 0)}}
 			pos := schematic.SetNodePosition{Key: "n1", Position: spatial.XY{X: 50, Y: 60}}
-			edge := schematic.SetEdge{Edge: edge("e_extra", "n1", "o", "n2", "i")}
+			edge := schematic.AddEdge{Edge: edge("e_extra", "n1", "o", "n2", "i")}
 			out := MustSucceed(schematic.Action{
 				Type:            schematic.ActionTypeSetNodePosition,
 				SetNodePosition: &pos,
-				SetEdge:         &edge,
+				AddEdge:         &edge,
 			}.Reduce(state))
 			Expect(out.Nodes[0].Position).To(Equal(spatial.XY{X: 50, Y: 60}))
 			Expect(out.Edges).To(BeEmpty())

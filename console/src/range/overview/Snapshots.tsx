@@ -31,7 +31,7 @@ import { CSS } from "@/css";
 import { retrieveAndPlaceLayout as retrieveAndPlaceTaskLayout } from "@/hardware/task/layouts";
 import { Layout } from "@/layout";
 import { useConfirmDelete } from "@/ontology/hooks";
-import { create } from "@/schematic/Schematic";
+import { create } from "@/schematic/layout";
 
 interface SnapshotCtx {
   client: Client | null;

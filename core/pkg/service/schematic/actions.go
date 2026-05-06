@@ -84,12 +84,11 @@ func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle inserts the edge if no edge with the same key exists, otherwise
-// replaces the existing edge in place.
-func (a SetEdge) Handle(state Schematic) (Schematic, error) {
+// Handle appends the edge to the schematic. No-op when an edge with the
+// same key already exists.
+func (a AddEdge) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
 		if state.Edges[i].Key == a.Edge.Key {
-			state.Edges[i] = a.Edge
 			return state, nil
 		}
 	}
@@ -108,23 +107,47 @@ func (a RemoveEdge) Handle(state Schematic) (Schematic, error) {
 	return state, nil
 }
 
-// Handle sets the configs entry for the given key, replacing any prior value.
+// Handle merges the payload config into the configs entry for the given key.
+// Top-level fields present in the payload overwrite existing fields; fields
+// absent from the payload are preserved. When no entry exists yet and the
+// key matches an edge whose source node carries a color, the source color
+// overrides whatever color (if any) was in the payload.
 func (a SetConfig) Handle(state Schematic) (Schematic, error) {
 	if state.Configs == nil {
 		state.Configs = make(map[string]msgpack.EncodedJSON)
 	}
-	state.Configs[a.Key] = a.Config
-	return state, nil
-}
-
-// Handle replaces the schematic's control authority level with the new value.
-func (a SetAuthority) Handle(state Schematic) (Schematic, error) {
-	state.Authority = a.Value
-	return state, nil
-}
-
-// Handle replaces the schematic's legend configuration with the new value.
-func (a SetLegend) Handle(state Schematic) (Schematic, error) {
-	state.Legend = a.Legend
+	if existing := state.Configs[a.Key]; existing != nil {
+		merged := make(msgpack.EncodedJSON, len(existing)+len(a.Config))
+		for k, v := range existing {
+			merged[k] = v
+		}
+		for k, v := range a.Config {
+			merged[k] = v
+		}
+		state.Configs[a.Key] = merged
+		return state, nil
+	}
+	cfg := a.Config
+	for _, e := range state.Edges {
+		if e.Key != a.Key {
+			continue
+		}
+		srcCfg := state.Configs[e.Source.Node]
+		if srcCfg == nil {
+			break
+		}
+		c, ok := srcCfg["color"]
+		if !ok || c == nil {
+			break
+		}
+		next := make(msgpack.EncodedJSON, len(cfg)+1)
+		for k, v := range cfg {
+			next[k] = v
+		}
+		next["color"] = c
+		cfg = next
+		break
+	}
+	state.Configs[a.Key] = cfg
 	return state, nil
 }

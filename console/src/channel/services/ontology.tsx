@@ -15,14 +15,14 @@ import {
   type Haul,
   Icon,
   Menu,
-  type Schematic as PSchematic,
+  Schematic as PSchematic,
   Status,
   telem,
   Text,
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { primitive, status } from "@synnaxlabs/x";
+import { primitive, type record, status, uuid } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -36,7 +36,6 @@ import { Ontology } from "@/ontology";
 import { createUseDelete } from "@/ontology/createUseDelete";
 import { createUseRename } from "@/ontology/createUseRename";
 import { Range } from "@/range";
-import { Schematic } from "@/schematic";
 
 const handleSelect: Ontology.HandleSelect = ({
   store,
@@ -96,7 +95,12 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     label: { label: name, level: "p" },
     telem: t,
   };
-  const items = [Schematic.createValueHaulItem(nodeConfig)];
+  const items = [
+    PSchematic.createHaulItem(uuid.create(), {
+      variant: "value",
+      config: nodeConfig as record.Unknown,
+    }),
+  ];
   if (data?.internal === true) return items;
   return [PChannel.createHaulItem(Number(id.key))];
 };

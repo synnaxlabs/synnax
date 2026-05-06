@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { Provider, useKey } from "@/schematic/Context";
 export * from "@/schematic/edge";
+export * from "@/schematic/element";
+export * from "@/schematic/haul";
 export * from "@/schematic/Icons";
 export * from "@/schematic/node";
 export { DRAG_HANDLE_CLASS } from "@/schematic/node/common/grid/Grid";

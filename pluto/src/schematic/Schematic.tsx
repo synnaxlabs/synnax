@@ -9,175 +9,79 @@
 
 import "@/schematic/Schematic.css";
 
-import { schematic } from "@synnaxlabs/client";
-import { box, color, type record, TimeSpan, xy } from "@synnaxlabs/x";
+import { type schematic } from "@synnaxlabs/client";
+import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
-import { z } from "zod";
 
-import { Component } from "@/component";
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
-import { Provider, useKey } from "@/schematic/Context";
-import { Edge } from "@/schematic/edge";
-import { Node } from "@/schematic/node";
+import { Key } from "@/key";
 import {
-  useAddNode,
-  useDispatch,
-  useRetrieve,
-  useSelectConfig,
-} from "@/schematic/queries";
-import { Diagram } from "@/vis/diagram";
-import { type diagram } from "@/vis/diagram/aether";
+  Diagram,
+  edgeChangesToActions,
+  nodeChangesToActions,
+} from "@/schematic/Diagram";
+import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
+import { Node } from "@/schematic/node";
+import { useAddNode, useDispatch, useRetrieve } from "@/schematic/queries";
+import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
-  Diagram.DiagramProps,
-  | "dragHandleSelector"
-  | "nodes"
-  | "edges"
-  | "onNodesChange"
-  | "onEdgesChange"
-  | "selected"
-  | "onSelectionChange"
+  BaseDiagram.DiagramProps,
+  "dragHandleSelector" | "nodes" | "edges" | "onNodesChange" | "onEdgesChange"
 > {
   resourceKey: string;
-  selected?: string[];
-  onSelectionChange?: (selected: string[]) => void;
 }
-
-export const elementConfigZ = z.discriminatedUnion("variant", [
-  ...Node.configZ.options,
-  ...Edge.configZ.options,
-]);
-export type ElementConfig = z.infer<typeof elementConfigZ>;
-
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
-export const HAUL_TYPE = "schematic-element";
+const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 
-const EdgeRenderer = (props: diagram.EdgeProps): ReactElement | null => {
-  const { edgeKey } = props;
-  const schematicKey = useKey();
-  const config = useSelectConfig({ key: schematicKey, configKey: edgeKey });
-  const configRef = useSyncedRef(config);
-  const { update: dispatch } = useDispatch();
-  const onChange = useCallback(
-    (next: Partial<Edge.Config>) =>
-      dispatch({
-        key: schematicKey,
-        actions: schematic.setConfig({
-          key: edgeKey,
-          config: { ...configRef.current, ...next } as record.Unknown,
-        }),
-      }),
-    [edgeKey, schematicKey, dispatch],
-  );
-  if (config == null) return null;
-  const variant = (config as { variant?: string }).variant;
-  if (variant == null) return null;
-  const E = Edge.resolve(variant);
-  return <E config={config as Edge.Config} onChange={onChange} {...props} />;
-};
-
-const SchematicDiagram = Diagram.create({
-  node: Component.renderProp(Node.Node),
-  edge: Component.renderProp(EdgeRenderer),
-  connectionLine: Component.renderProp(Edge.ConnectionLine),
-});
-
-const nodeChangeToAction = (change: Diagram.NodeChange): schematic.Action | null => {
-  switch (change.type) {
-    case "position":
-      return schematic.setNodePosition({ key: change.key, position: change.position });
-    case "dimensions":
-      return schematic.setNodeMeasured({
-        key: change.key,
-        measured: change.dimensions,
-      });
-    case "remove":
-      return schematic.removeNode({ key: change.key });
-    default:
-      return null;
-  }
-};
-
-const edgeChangeToActions = (
-  change: Diagram.EdgeChange,
-  doc: schematic.Schematic | undefined,
-): schematic.Action[] => {
-  switch (change.type) {
-    case "add": {
-      const sourceConfig = doc?.configs[change.edge.source.node] as
-        | { color?: color.Crude }
-        | undefined;
-      const config = Edge.REGISTRY.pipe.defaultConfig();
-      if (sourceConfig?.color != null)
-        config.color = color.construct(sourceConfig.color);
-      return [
-        schematic.setEdge({ edge: change.edge }),
-        schematic.setConfig({
-          key: change.edge.key,
-          config: config as unknown as record.Unknown,
-        }),
-      ];
-    }
-    case "remove":
-      return [schematic.removeEdge({ key: change.key })];
-    default:
-      return [];
-  }
-};
-
-export const Schematic = ({
+const Internal = ({
   className,
-  resourceKey,
+  resourceKey: key,
   viewport,
   onDoubleClick,
   onSelectionChange,
   ...props
-}: SchematicProps): ReactElement => {
-  const { data: doc } = useRetrieve({ key: resourceKey });
-  const docRef = useSyncedRef(doc);
+}: SchematicProps & schematic.Schematic): ReactElement => {
   const { update: dispatch } = useDispatch();
 
   const handleNodesChange = useCallback(
-    (changes: Diagram.NodeChange[]) => {
-      const actions = changes
-        .map(nodeChangeToAction)
-        .filter((a): a is schematic.Action => a != null);
-      if (actions.length > 0) dispatch({ key: resourceKey, actions });
+    (changes: BaseDiagram.NodeChange[]) => {
+      const actions = nodeChangesToActions(changes);
+      if (actions.length > 0) dispatch({ key, actions });
     },
-    [resourceKey, dispatch],
+    [key, dispatch],
   );
 
   const handleEdgesChange = useCallback(
-    (changes: Diagram.EdgeChange[]) => {
-      const actions = changes.flatMap((c) => edgeChangeToActions(c, docRef.current));
-      if (actions.length > 0) dispatch({ key: resourceKey, actions });
+    (changes: BaseDiagram.EdgeChange[]) => {
+      const actions = edgeChangesToActions(changes);
+      if (actions.length > 0) dispatch({ key, actions });
     },
-    [resourceKey, dispatch],
+    [key, dispatch],
   );
 
-  const handleAddNode = useAddNode(resourceKey);
+  const handleAddNode = useAddNode(key);
   const ref = useRef<HTMLDivElement>(null);
   const viewportRef = useSyncedRef(viewport);
-  const calculateCursorPosition = useCallback(
-    (cursor: xy.Crude) =>
-      Diagram.calculateCursorPosition(
-        box.construct(ref.current ?? box.ZERO),
-        cursor,
-        viewportRef.current,
-      ),
-    [],
-  );
+  const calculateCursorPosition = useCallback((cursor: xy.Crude) => {
+    if (ref.current == null) return xy.ZERO;
+    return BaseDiagram.calculateCursorPosition(
+      box.construct(ref.current),
+      cursor,
+      viewportRef.current,
+    );
+  }, []);
 
   const handleDrop = useCallback(
     ({ items, event }: Haul.OnDropProps): Haul.Item[] => {
-      const valid = Haul.filterByType(HAUL_TYPE, items);
+      const valid = filterHaulItems(items);
       if (event == null) return valid;
-      valid.forEach(({ key, data }) => {
-        const pos = xy.truncate(calculateCursorPosition(event), 0);
-        handleAddNode(key.toString(), pos, data);
-      });
+      const position = xy.truncate(calculateCursorPosition(event), 0);
+      valid.forEach(({ key, data }) =>
+        handleAddNode({ key: key.toString(), position, ...data }),
+      );
       return valid;
     },
     [handleAddNode, calculateCursorPosition],
@@ -185,14 +89,14 @@ export const Schematic = ({
 
   const dropProps = Haul.useDrop({
     type: "Schematic",
-    key: resourceKey,
-    canDrop: Haul.canDropOfType(HAUL_TYPE),
+    key,
+    canDrop: canDropHaulItem,
     onDrop: handleDrop,
   });
 
   const handleClearSelection = useCallback(() => onSelectionChange?.([]), []);
 
-  Diagram.useTriggers({
+  BaseDiagram.useTriggers({
     onCopy: () => {},
     onPaste: () => {},
     onSelectAll: () => {},
@@ -203,14 +107,12 @@ export const Schematic = ({
   });
 
   return (
-    <Provider value={resourceKey}>
-      <SchematicDiagram
+    <Key.Provider value={key}>
+      <Diagram
         ref={ref}
         className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={`.${Node.DRAG_HANDLE_CLASS}`}
+        dragHandleSelector={DRAG_HANDLE_SELECTOR}
         autoRenderInterval={AUTO_RENDER_INTERVAL}
-        nodes={doc?.nodes ?? []}
-        edges={doc?.edges ?? []}
         onNodesChange={handleNodesChange}
         onEdgesChange={handleEdgesChange}
         viewport={viewport}
@@ -219,11 +121,13 @@ export const Schematic = ({
         {...dropProps}
         {...props}
       />
-    </Provider>
+    </Key.Provider>
   );
 };
 
-export const REGISTRY = {
-  ...Node.REGISTRY,
-  ...Edge.REGISTRY,
+export const Schematic = (props: SchematicProps): ReactElement | null => {
+  const { resourceKey: key } = props;
+  const { data } = useRetrieve({ key });
+  if (data == null) return null;
+  return <Internal {...props} {...data} />;
 };

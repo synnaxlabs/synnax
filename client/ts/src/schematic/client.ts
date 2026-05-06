@@ -16,7 +16,6 @@ import { symbol } from "@/schematic/symbol";
 import {
   type Key,
   keyZ,
-  type Legend,
   type New,
   newZ,
   type Schematic,
@@ -168,15 +167,8 @@ export class Client {
   }
 }
 
-export const ZERO_LEGEND: Legend = {
-  visible: true,
-  position: { x: 50, y: 50, units: { x: "px", y: "px" } },
-  colors: {},
-};
-
 export const ZERO_NEW: New = {
   name: "",
-  legend: ZERO_LEGEND,
   nodes: [],
   edges: [],
   configs: {},

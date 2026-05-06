@@ -7,14 +7,19 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type ontology, schematic, type workspace } from "@synnaxlabs/client";
-import { array, caseconv, id, type record, uuid, xy } from "@synnaxlabs/x";
+import {
+  NotFoundError,
+  type ontology,
+  schematic,
+  type workspace,
+} from "@synnaxlabs/client";
+import { array, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
-import z from "zod";
 
 import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
+import { type ElementConfig } from "@/schematic/element";
 import { Node } from "@/schematic/node";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
@@ -82,23 +87,19 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
 
 export interface SelectConfigArgs {
   key: schematic.Key;
-  configKey: string;
+  elKey: string;
 }
 
-export const useSelectConfig = Flux.createSelector<
+export const useSelectElementConfig = Flux.createSelector<
   FluxSubStore,
   SelectConfigArgs,
-  record.Unknown | undefined
+  ElementConfig
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, configKey }) => {
+  select: (store, { key, elKey }) => {
     const schem = store.schematics.get(key);
-    if (schem == null) return undefined;
-    const config = schem.configs[configKey] as record.Unknown | undefined;
-    if (config != null) return config;
-    return schem.configs[caseconv.snakeToCamel(configKey)] as
-      | record.Unknown
-      | undefined;
+    if (schem == null) throw new NotFoundError(`Schematic with key ${key} not found`);
+    return schem.configs[elKey] as ElementConfig;
   },
 });
 
@@ -119,110 +120,45 @@ export const useSelectEdge = Flux.createSelector<
   },
 });
 
-export interface ElementDigest {
-  key: string;
-  type: "node" | "edge";
-}
-
-export interface SelectElementDigestsArgs {
+export interface SelectConfigsArgs {
   key: schematic.Key;
   keys: string[];
 }
 
-export const useSelectElementDigests = Flux.createSelector<
+export const useSelectConfigs = Flux.createSelector<
   FluxSubStore,
-  SelectElementDigestsArgs,
-  ElementDigest[]
+  SelectConfigsArgs,
+  ElementConfig[]
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, keys }) => {
     const s = store.schematics.get(key);
     if (s == null || keys.length === 0) return [];
-    const keySet = new Set(keys);
-    const digests: ElementDigest[] = [];
-    for (const node of s.nodes)
-      if (keySet.has(node.key)) digests.push({ key: node.key, type: "node" });
-    for (const edge of s.edges)
-      if (keySet.has(edge.key)) digests.push({ key: edge.key, type: "edge" });
-    return digests;
-  },
-});
-
-export interface NodeElementInfo {
-  key: string;
-  type: "node";
-  node: schematic.Node;
-  config: record.Unknown;
-}
-
-export interface EdgeElementInfo {
-  key: string;
-  type: "edge";
-  edge: schematic.Edge;
-  config: record.Unknown;
-}
-
-export type ElementInfo = NodeElementInfo | EdgeElementInfo;
-
-export interface SelectElementsInfoArgs {
-  key: schematic.Key;
-  keys: string[];
-}
-
-export const useSelectElementsInfo = Flux.createSelector<
-  FluxSubStore,
-  SelectElementsInfoArgs,
-  ElementInfo[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return [];
-    const keySet = new Set(keys);
-    const result: ElementInfo[] = [];
-    for (const node of s.nodes)
-      if (keySet.has(node.key))
-        result.push({
-          key: node.key,
-          type: "node",
-          node,
-          config: (s.configs?.[node.key] as record.Unknown) ?? {},
-        });
-    for (const edge of s.edges)
-      if (keySet.has(edge.key))
-        result.push({
-          key: edge.key,
-          type: "edge",
-          edge,
-          config: (s.configs?.[edge.key] as record.Unknown) ?? {},
-        });
-    return result;
-  },
-});
-
-export interface SelectElementNamesArgs {
-  key: schematic.Key;
-  keys: string[];
-}
-
-export const useSelectElementNames = Flux.createSelector<
-  FluxSubStore,
-  SelectElementNamesArgs,
-  (string | null)[]
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, keys }) => {
-    const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return [];
-    const keySet = new Set(keys);
-    const result: (string | null)[] = [];
-    for (const node of s.nodes) {
-      if (!keySet.has(node.key)) continue;
-      const c = s.configs?.[node.key] as record.Unknown | undefined;
-      const label = (c?.label as record.Unknown | undefined)?.label;
-      result.push(typeof label === "string" ? label : null);
+    const result: ElementConfig[] = [];
+    for (const elKey of keys) {
+      const cfg = s.configs?.[elKey];
+      if (cfg != null) result.push(cfg as ElementConfig);
     }
     return result;
+  },
+});
+
+export interface SelectNodesArgs {
+  key: schematic.Key;
+  keys: string[];
+}
+
+export const useSelectNodes = Flux.createSelector<
+  FluxSubStore,
+  SelectNodesArgs,
+  schematic.Node[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, keys }) => {
+    const s = store.schematics.get(key);
+    if (s == null || keys.length === 0) return [];
+    const keySet = new Set(keys);
+    return s.nodes.filter((n) => keySet.has(n.key));
   },
 });
 
@@ -237,15 +173,6 @@ export const useSelectSnapshot = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key }) => store.schematics.get(key)?.snapshot,
-});
-
-export const useSelectAuthority = Flux.createSelector<
-  FluxSubStore,
-  SelectFieldArgs,
-  number | undefined
->({
-  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => store.schematics.get(key)?.authority,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];
@@ -403,9 +330,13 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-const dropDataZ = z.object({
-  specKey: schematic.symbol.keyZ,
-});
+export interface AddNodeProps {
+  key: string;
+  variant: Node.Variant;
+  position?: xy.XY;
+  specKey?: string;
+  config?: record.Unknown;
+}
 
 export const useAddNode = (resourceKey: string) => {
   const store = Flux.useStore<Symbol.FluxSubStore>();
@@ -413,40 +344,25 @@ export const useAddNode = (resourceKey: string) => {
   const { update: dispatch } = useDispatch();
 
   return useCallback(
-    (key: string, position?: xy.XY, data?: unknown) => {
-      let variant: Node.Variant;
-      let initialName: string | undefined;
-      let symbol: schematic.symbol.Symbol | undefined;
-      const parsedData = dropDataZ.safeParse(data);
-      if (parsedData.success)
-        symbol = store.schematicSymbols.get(parsedData.data.specKey);
-      if (symbol != null) {
-        variant = symbol.data.states.length === 1 ? "customStatic" : "customActuator";
-        initialName = symbol.name;
-      } else variant = key as Node.Variant;
+    ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
       const spec = Node.resolveSpec(variant);
-      const initialConfig = spec.defaultConfig(theme) as record.Unknown & {
+      const config = spec.defaultConfig(theme) as record.Unknown & {
         specKey?: string;
         label?: { label?: string };
       };
-      if (symbol != null) {
-        initialConfig.specKey = key;
-        if (initialConfig.label != null && initialName != null)
-          initialConfig.label.label = initialName;
+      if (specKey != null) {
+        config.specKey = specKey;
+        const sym = store.schematicSymbols.get(specKey);
+        if (config.label != null && sym != null) config.label.label = sym.name;
       }
-      const nodeKey = id.create();
-      const node: schematic.Node = {
-        key: nodeKey,
-        position: position ?? xy.ZERO,
-      };
-      const config: record.Unknown = {
-        ...initialConfig,
-        variant,
-        ...(parsedData.success ? parsedData.data : {}),
-      };
       dispatch({
         key: resourceKey,
-        actions: [schematic.setNode({ node, config })],
+        actions: [
+          schematic.setNode({
+            node: { key, position: position ?? xy.ZERO },
+            config: { ...config, ...(override ?? {}), variant },
+          }),
+        ],
       });
     },
     [dispatch, resourceKey, theme, store],
