@@ -57,6 +57,9 @@ catalogs:
     eslint:
       specifier: ^10.2.1
       version: 10.2.1
+    immer:
+      specifier: ^11.1.4
+      version: 11.1.4
     jsdom:
       specifier: ^27.4.0
       version: 27.4.0
@@ -192,6 +195,9 @@ importers:
       async-mutex:
         specifier: 'catalog:'
         version: 0.5.0
+      immer:
+        specifier: 'catalog:'
+        version: 11.1.4
       zod:
         specifier: 'catalog:'
         version: 4.3.6

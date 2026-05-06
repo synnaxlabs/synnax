@@ -17,10 +17,11 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create, update, and delete logs within Synnax. The writer
+// Writer is used to create, update, and delete schematics within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
@@ -29,10 +30,14 @@ type Writer struct {
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
 	table     *gorp.Table[uuid.UUID, Schematic]
+	// actionObserver is notified after a successful Dispatch so the cluster
+	// signals subsystem can broadcast the action sequence on the schematic
+	// channels. Nil when the service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given schematic within the workspace provided. If the
+// schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -82,7 +87,7 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 	return k, true, err
 }
 
-// Rename renames the log with the given key to the provided name.
+// Rename renames the schematic with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,
 	key uuid.UUID,
@@ -95,9 +100,10 @@ func (w Writer) Rename(
 		}).Exec(ctx, w.tx)
 }
 
-// Copy creates a copy of the log with the given key and name. If the snapshot flag is
-// set to true, the copy will be a snapshot and will no longer be editable. The copied
-// log will be bound into the result parameter.
+// Copy creates a copy of the schematic with the given key and name. If the
+// snapshot flag is set to true, the copy will be a snapshot and will no
+// longer be editable. The copied schematic will be bound into the result
+// parameter.
 func (w Writer) Copy(
 	ctx context.Context,
 	key uuid.UUID,
@@ -158,7 +164,43 @@ func (w Writer) SetData(
 		}).Exec(ctx, w.tx)
 }
 
-// Delete deletes the logs with the given keys.
+// Dispatch applies a sequence of actions atomically to the schematic with the
+// given key. After a successful update the actions are notified to the
+// service-level observer so subscribers (cluster signals) can broadcast them.
+// sessionKey identifies the originating client so subscribers can self-dedup.
+// Returns validate.ErrValidation if the target schematic is a snapshot, since
+// snapshots are immutable.
+func (w Writer) Dispatch(
+	ctx context.Context,
+	key uuid.UUID,
+	sessionKey string,
+	actions []Action,
+) error {
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
+			if s.Snapshot {
+				return s, errors.Wrapf(
+					validate.ErrValidation,
+					"[Schematic] - cannot dispatch actions on snapshot %s:%s",
+					key,
+					s.Name,
+				)
+			}
+			return ReduceAll(s, actions)
+		}).Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if w.actionObserver != nil {
+		w.actionObserver.Notify(ctx, ScopedAction{
+			Key:        key,
+			SessionKey: sessionKey,
+			Actions:    actions,
+		})
+	}
+	return nil
+}
+
+// Delete deletes the schematics with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
 	keys ...uuid.UUID,
