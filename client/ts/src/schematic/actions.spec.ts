@@ -180,18 +180,100 @@ describe("schematic reducer", () => {
       ]);
       expect(out.configs).toEqual({ n1: { label: "Pump" } });
     });
-    it("should overwrite an existing config entry", () => {
-      const state = empty({ configs: { n1: { label: "Old" } } });
+    it("should merge payload fields into an existing config entry", () => {
+      const state = empty({
+        configs: { n1: { label: "Old", color: "#ff0000" } },
+      });
       const out = reduceAll(state, [
         setConfig({ key: "n1", config: { label: "New" } }),
       ]);
-      expect(out.configs).toEqual({ n1: { label: "New" } });
+      expect(out.configs).toEqual({ n1: { label: "New", color: "#ff0000" } });
     });
     it("should accept a key that does not match any node or edge", () => {
       const out = reduceAll(empty(), [
         setConfig({ key: "orphan", config: { data: 1 } }),
       ]);
       expect(out.configs).toEqual({ orphan: { data: 1 } });
+    });
+    it("should override the payload color with the source node's color when the new entry is for an edge", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 1, 0, 1] });
+    });
+    it("should inherit the source node's color when the payload omits color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe" } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 1, 0, 1] });
+    });
+    it("should leave the payload untouched when the source node has a zero color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { color: [0, 0, 0, 0] } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should leave the payload untouched when the source node has no color", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: { src: { label: "Pump" } },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should leave the payload untouched when the source node has no config", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "pipe", color: [0, 0, 0, 0] } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "pipe", color: [0, 0, 0, 0] });
+    });
+    it("should not override the color when merging into an existing edge config", () => {
+      const state = empty({
+        edges: [edge("e1", "src", "o", "tgt", "i")],
+        configs: {
+          src: { color: [0, 1, 0, 1] },
+          e1: { variant: "pipe", color: [0, 0, 0, 0] },
+        },
+      });
+      const out = reduceAll(state, [
+        setConfig({ key: "e1", config: { variant: "electric" } }),
+      ]);
+      expect(out.configs.e1).toEqual({ variant: "electric", color: [0, 0, 0, 0] });
+    });
+    it("should inherit the source color end-to-end when addEdge is followed by setConfig in one batch", () => {
+      const state = empty({
+        nodes: [node("src", 0, 0), node("tgt", 100, 0)],
+        configs: { src: { color: [0, 1, 0, 1] } },
+      });
+      const out = reduceAll(state, [
+        addEdge({ edge: edge("e1", "src", "o", "tgt", "i") }),
+        setConfig({
+          key: "e1",
+          config: { variant: "pipe", color: [0, 0, 0, 0], segments: [] },
+        }),
+      ]);
+      expect(out.configs.e1).toEqual({
+        variant: "pipe",
+        color: [0, 1, 0, 1],
+        segments: [],
+      });
     });
   });
 

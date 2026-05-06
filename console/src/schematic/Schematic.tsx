@@ -41,8 +41,15 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
   const snapshot = doc?.snapshot ?? false;
 
   const dispatch = useDispatch();
-  const { editable, viewport, controlStatus, selected, legend, authority } =
-    useSelect(key);
+  const {
+    editable,
+    viewport,
+    controlStatus,
+    selected,
+    legend,
+    authority,
+    fitViewOnResize,
+  } = useSelect(key);
   useAutoUpload(key);
 
   const hasUpdatePermission =
@@ -125,12 +132,12 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
         onViewportChange={handleViewportChange}
         editable={canEdit}
         onEditableChange={handleEditableChange}
+        fitViewOnResize={fitViewOnResize}
         setFitViewOnResize={handleFitViewOnResizeChange}
         triggers={triggers}
         onDoubleClick={handleDoubleClick}
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
-        fitViewOnResize={false}
         visible={visible}
       >
         <Diagram.Background />
