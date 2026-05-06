@@ -15,12 +15,14 @@ ARC_STL_TIME_SOURCE = """
 authority 200
 // ──────────────────────────── time.now ───────────────────────────────
 func write_now() {
-    time_now_out = time.now()
+    time_now_int_out = time.now()
+    time_now_ts_out = time.now()
 }
 time_trigger -> write_now{}
 
 // time.now{} as a flow node: triggered by any upstream, outputs timestamp.
-time_now_flow_trigger -> time.now{} -> time_now_flow_out
+time_now_flow_ts_trigger -> time.now{} -> time_now_flow_ts_out
+time_now_flow_int_trigger -> time.now{} -> time_now_flow_int_out
 
 // ─────────────────────────── time.interval ──────────────────────────
 // interval is inherently time-triggered (that's the point of the function).
@@ -88,8 +90,10 @@ class StlTime(ArcConsoleCase):
     arc_name_prefix = "ArcStlTime"
     start_cmd_channel = "start_stl_time_cmd"
     subscribe_channels = [
-        "time_now_out",
-        "time_now_flow_out",
+        "time_now_int_out",
+        "time_now_ts_out",
+        "time_now_flow_ts_out",
+        "time_now_flow_int_out",
         "interval_count",
         "interval_count_mod",
         "toggle_cmd",
@@ -98,11 +102,18 @@ class StlTime(ArcConsoleCase):
 
     def setup(self) -> None:
         create_virtual_channel(self.client, "time_trigger", sy.DataType.FLOAT64)
-        create_virtual_channel(self.client, "time_now_out", sy.DataType.INT64)
+        create_virtual_channel(self.client, "time_now_int_out", sy.DataType.INT64)
+        create_virtual_channel(self.client, "time_now_ts_out", sy.DataType.TIMESTAMP)
         create_virtual_channel(
-            self.client, "time_now_flow_trigger", sy.DataType.FLOAT64
+            self.client, "time_now_flow_ts_trigger", sy.DataType.FLOAT64
         )
-        create_virtual_channel(self.client, "time_now_flow_out", sy.DataType.TIMESTAMP)
+        create_virtual_channel(
+            self.client, "time_now_flow_ts_out", sy.DataType.TIMESTAMP
+        )
+        create_virtual_channel(
+            self.client, "time_now_flow_int_trigger", sy.DataType.FLOAT64
+        )
+        create_virtual_channel(self.client, "time_now_flow_int_out", sy.DataType.INT64)
         create_virtual_channel(self.client, "interval_count", sy.DataType.INT64)
         create_virtual_channel(self.client, "interval_count_mod", sy.DataType.INT64)
         create_virtual_channel(self.client, "start_wait_cmd", sy.DataType.UINT8)
@@ -114,15 +125,18 @@ class StlTime(ArcConsoleCase):
     def _test_now(self) -> None:
         self.log("=== time.now() [WASM] ===")
         self.writer.write("time_trigger", 1.0)
-        self.log(f"Expecting time_now_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
-        self.wait_for_gt("time_now_out", JAN_2020_NANOS, is_virtual=True)
-        self.log("time.now() returned a valid timestamp")
+        self.log(f"Expecting time_now_int_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
+        self.wait_for_gt("time_now_int_out", JAN_2020_NANOS, is_virtual=True)
+        self.log("time.now() returned a valid timestamp (int64 channel)")
+        self.log(f"Expecting time_now_ts_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)")
+        self.wait_for_gt("time_now_ts_out", JAN_2020_NANOS, is_virtual=True)
+        self.log("time.now() wrote successfully to a timestamp channel")
 
     def _test_now_flow(self) -> None:
         self.log("=== time.now{} [Flow] ===")
-        self.writer.write("time_now_flow_trigger", 1.0)
-        self.wait_for_gt("time_now_flow_out", 0, is_virtual=True)
-        ts = self.read_tlm("time_now_flow_out", 0)
+        self.writer.write("time_now_flow_ts_trigger", 1.0)
+        self.wait_for_gt("time_now_flow_ts_out", 0, is_virtual=True)
+        ts = self.read_tlm("time_now_flow_ts_out", 0)
         now = int(sy.TimeStamp.now())
         drift = abs(ts - now)
         max_drift = 500 * int(sy.TimeSpan.MILLISECOND)
@@ -132,6 +146,11 @@ class StlTime(ArcConsoleCase):
         )
         if drift > max_drift:
             self.fail(f"time.now{{}} drift {drift / 1e6:.1f}ms exceeds 500ms tolerance")
+        self.log(
+            f"Expecting time_now_flow_int_out > {JAN_2020_NANOS} (Jan 1, 2020 nanos)"
+        )
+        self.writer.write("time_now_flow_int_trigger", 1.0)
+        self.wait_for_gt("time_now_flow_int_out", JAN_2020_NANOS, is_virtual=True)
 
     def _check_interval_rate(self, channel: str, label: str) -> None:
         baseline = self.read_tlm(channel, 0)
