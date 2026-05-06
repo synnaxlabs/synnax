@@ -132,11 +132,12 @@ var _ = Describe("Check", func() {
 	})
 
 	Describe("Unit Compatibility", func() {
-		It("should succeed for same kind with different units", func() {
+		It("should fail for same kind with different non-nil units", func() {
 			ast := testutil.NewMockAST(1)
 			t1 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "psi"}}
 			t2 := types.Type{Kind: types.KindF32, Unit: &types.Unit{Name: "bar"}}
-			Expect(atypes.Check(cs, t1, t2, ast, "test")).To(Succeed())
+			Expect(atypes.Check(cs, t1, t2, ast, "test")).Error().
+				To(MatchError(ContainSubstring("type mismatch")))
 		})
 
 		It("should succeed for type with unit vs type without unit", func() {

@@ -636,61 +636,21 @@ var _ = Describe("Types", func() {
 		})
 	})
 
-	Describe("Equivalent", func() {
-		It("Should return true for identical primitive types", func() {
-			Expect(types.Equivalent(types.I32(), types.I32())).To(BeTrue())
-			Expect(types.Equivalent(types.F64(), types.F64())).To(BeTrue())
-		})
+	Describe("UnitsAssignable", func() {
+		ns := &types.Unit{Dimensions: types.DimTime, Scale: 1, Name: "ns"}
+		psi := &types.Unit{Name: "psi", Scale: 1}
+		bar := &types.Unit{Name: "bar", Scale: 1}
 
-		It("Should return false for different primitive kinds", func() {
-			Expect(types.Equivalent(types.I32(), types.I64())).To(BeFalse())
-			Expect(types.Equivalent(types.F32(), types.F64())).To(BeFalse())
-		})
-
-		It("Should ignore unit metadata for matching primitive kinds", func() {
-			Expect(types.Equivalent(types.TimeStamp(), types.I64())).To(BeTrue())
-			Expect(types.Equivalent(types.I64(), types.TimeStamp())).To(BeTrue())
-			Expect(types.Equivalent(types.TimeSpan(), types.I64())).To(BeTrue())
-		})
-
-		It("Should ignore unit metadata recursively for chan and series", func() {
-			Expect(types.Equivalent(
-				types.Chan(types.TimeStamp()),
-				types.Chan(types.I64()),
-			)).To(BeTrue())
-			Expect(types.Equivalent(
-				types.Series(types.I64()),
-				types.Series(types.TimeStamp()),
-			)).To(BeTrue())
-		})
-
-		It("Should still reject chan vs series", func() {
-			Expect(types.Equivalent(
-				types.Chan(types.I64()),
-				types.Series(types.I64()),
-			)).To(BeFalse())
-		})
-
-		It("Should still reject mismatched element kinds in chan/series", func() {
-			Expect(types.Equivalent(
-				types.Chan(types.I64()),
-				types.Chan(types.F64()),
-			)).To(BeFalse())
-		})
-
-		It("Should defer to Equal for type variables and functions", func() {
-			tv1 := types.Variable("T", nil)
-			tv2 := types.Variable("U", nil)
-			Expect(types.Equivalent(tv1, tv2)).To(BeFalse())
-
-			props1 := types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.I32()}},
-			}
-			props2 := types.FunctionProperties{
-				Inputs: types.Params{{Name: "x", Type: types.F64()}},
-			}
-			Expect(types.Equivalent(types.Function(props1), types.Function(props2))).To(BeFalse())
-		})
+		DescribeTable("unit compatibility",
+			func(a, b *types.Unit, want bool) {
+				Expect(types.UnitsAssignable(a, b)).To(Equal(want))
+			},
+			Entry("nil + nil", (*types.Unit)(nil), (*types.Unit)(nil), true),
+			Entry("nil + ns (wildcard)", (*types.Unit)(nil), ns, true),
+			Entry("ns + nil (wildcard)", ns, (*types.Unit)(nil), true),
+			Entry("ns + ns (match)", ns, ns, true),
+			Entry("psi + bar (mismatch)", psi, bar, false),
+		)
 	})
 
 	Describe("Function constructor", func() {

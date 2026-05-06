@@ -68,12 +68,13 @@ package types
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/samber/lo"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/telem"
 	"maps"
 	"math"
 	"slices"
+
+	"github.com/samber/lo"
+	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/telem"
 )
 
 // IsRead returns true if the direction includes read.
@@ -549,27 +550,16 @@ func Equal(t Type, v Type) bool {
 	return t.Unit.Equal(*v.Unit)
 }
 
-// Equivalent compares two types for assignment compatibility. It is identical to
-// Equal except that primitive types with matching kinds are considered compatible
-// regardless of unit metadata. This mirrors the WASM and Cesium layers, which both
-// treat values like i64 ns and i64 as the same underlying representation.
-func Equivalent(t Type, v Type) bool {
-	if t.Kind != v.Kind {
-		return false
+// UnitsAssignable reports whether a value with unit a may be assigned to a
+// target with unit b. A nil unit on either side is treated as a wildcard,
+// matching the WASM and Cesium representation where i64 and i64 ns share the
+// same wire type (timestamp <-> int64). Two non-nil units must match exactly,
+// so f32 psi vs f32 bar still fails.
+func UnitsAssignable(a, b *Unit) bool {
+	if a == nil || b == nil {
+		return true
 	}
-	if t.Kind == KindChan || t.Kind == KindSeries {
-		if t.Elem == nil && v.Elem == nil {
-			return true
-		}
-		if t.Elem == nil || v.Elem == nil {
-			return false
-		}
-		return Equivalent(*t.Elem, *v.Elem)
-	}
-	if t.Kind == KindVariable || t.Kind == KindFunction {
-		return Equal(t, v)
-	}
-	return true
+	return a.Equal(*b)
 }
 
 func paramsEqual(a, b Params) bool {
