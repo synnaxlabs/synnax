@@ -24,6 +24,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
 	xhttp "github.com/synnaxlabs/x/http"
+	xnet "github.com/synnaxlabs/x/net"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -107,7 +108,7 @@ var _ = Describe("Router", func() {
 
 	Describe("BindTo", func() {
 		It("should register a unary route on the bound fiber app", func(specCtx SpecContext) {
-			addr := address.Address("localhost:8095")
+			addr := address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
@@ -139,7 +140,7 @@ var _ = Describe("Router", func() {
 		})
 
 		It("should cancel in-flight streams when the bound fiber app shuts down", func(specCtx SpecContext) {
-			addr := address.Address("localhost:8096")
+			addr := address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
@@ -183,7 +184,7 @@ var _ = Describe("Router", func() {
 
 	Describe("Use", func() {
 		It("should install middleware on every server registered before the call", func(specCtx SpecContext) {
-			addr := address.Address("localhost:8097")
+			addr := address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
@@ -224,7 +225,7 @@ var _ = Describe("Router", func() {
 		})
 
 		It("should not install middleware on servers registered after the call", func(specCtx SpecContext) {
-			addr := address.Address("localhost:8098")
+			addr := address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
@@ -268,7 +269,7 @@ var _ = Describe("Router", func() {
 		})
 
 		It("should chain multiple middlewares in registration order", func(specCtx SpecContext) {
-			addr := address.Address("localhost:8099")
+			addr := address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
 
