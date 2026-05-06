@@ -121,6 +121,9 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 		return err
 	}
 	w.Int16(int16(nv.ZIndex))
+	if err := nv.Measured.EncodeOrc(w); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -133,6 +136,9 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if nv.ZIndex, err = r.Int16(); err != nil {
+		return err
+	}
+	if err = nv.Measured.DecodeOrc(r); err != nil {
 		return err
 	}
 	return nil
