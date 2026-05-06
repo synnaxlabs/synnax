@@ -104,7 +104,11 @@ Codec::encode(const x::telem::Frame &frame, std::vector<uint8_t> &output) {
                 "frame contains extra key " + std::to_string(k) +
                     "not provided when opening the writer"
             );
-        if (dt->second != ser.data_type())
+        const bool is_equivalent = (dt->second == x::telem::INT64_T ||
+                                    dt->second == x::telem::TIMESTAMP_T) &&
+                                   (ser.data_type() == x::telem::INT64_T ||
+                                    ser.data_type() == x::telem::TIMESTAMP_T);
+        if (dt->second != ser.data_type() && !is_equivalent)
             return x::errors::Error(
                 x::errors::VALIDATION,
                 "data type " + dt->second + " for channel + " + std::to_string(k) +

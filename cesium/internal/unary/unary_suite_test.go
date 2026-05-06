@@ -12,17 +12,9 @@ package unary_test
 import (
 	"testing"
 
-	"github.com/synnaxlabs/x/encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	. "github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-)
-
-var (
-	fileSystems = FileSystems
-	codec       = json.Codec
 )
 
 func TestUnary(t *testing.T) {

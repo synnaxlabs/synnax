@@ -113,20 +113,19 @@ describe("View", () => {
 
     it("should search for views by name", async () => {
       const client = createTestClient();
+      const prefix = id.create();
+      const name = `${prefix} View`;
       await client.views.create({
-        name: "Searchable View",
+        name,
         type: "lineplot",
         query: { channels: ["search"] },
       });
       await expect
-        .poll(
-          async () =>
-            (await client.views.retrieve({ searchTerm: "Searchable" })).length,
-        )
-        .toBeGreaterThan(0);
-      const results = await client.views.retrieve({ searchTerm: "Searchable" });
-      expect(results[0].name).toContain("Searchable");
-      expect(results[0].query).toEqual({ channels: ["search"] });
+        .poll(async () => {
+          const results = await client.views.retrieve({ searchTerm: prefix });
+          return results.find((v) => v.name === name);
+        })
+        .toMatchObject({ query: { channels: ["search"] } });
     });
   });
 

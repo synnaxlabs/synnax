@@ -22,18 +22,16 @@ import (
 )
 
 var _ = Describe("Open", func() {
-	for fsName, makeFS := range fileSystems {
+	for fsName, openFS := range FileSystems {
 		Context("FS: "+fsName, Ordered, func() {
 			ShouldNotLeakGoroutinesPerSpec()
 			var (
-				fs      fs.FS
-				cleanUp func() error
+				fs fs.FS
 			)
 			BeforeAll(func() {
-				fs, cleanUp = makeFS()
+				fs = openFS()
 			})
 			AfterAll(func() {
-				Expect(cleanUp()).To(Succeed())
 			})
 			Describe("Opening db on existing folder", func() {
 				It("Should not panic when opening a db in a directory with already existing files", func(ctx SpecContext) {

@@ -28,18 +28,41 @@ var _ = Describe("AST Utilities", func() {
 			Entry("float", "3.14"),
 			Entry("string", `"hello"`),
 			Entry("unit literal", "5ms"),
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
 		)
 
 		DescribeTable("false cases",
 			func(code string) { Expect(parser.IsLiteral(parseExpr(code))).To(BeFalse()) },
 			Entry("addition", "1 + 2"),
-			Entry("unary minus", "-1"),
+			Entry("logical not", "not 1"),
 			Entry("identifier", "x"),
 			Entry("function call", "foo()"),
 			Entry("index", "arr[0]"),
 			Entry("parenthesized", "(42)"),
 			Entry("comparison", "1 > 0"),
 			Entry("logical", "1 and 0"),
+		)
+	})
+
+	Describe("IsNegatedLiteral", func() {
+		DescribeTable("true cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeTrue()) },
+			Entry("negated integer", "-1"),
+			Entry("negated float", "-3.14"),
+			Entry("negated unit literal", "-5ms"),
+		)
+
+		DescribeTable("false cases",
+			func(code string) { Expect(parser.IsNegatedLiteral(parseExpr(code))).To(BeFalse()) },
+			Entry("positive integer", "42"),
+			Entry("positive float", "3.14"),
+			Entry("positive unit literal", "5ms"),
+			Entry("string", `"hello"`),
+			Entry("identifier", "x"),
+			Entry("addition", "1 + 2"),
+			Entry("logical not", "not 1"),
 		)
 	})
 
@@ -54,6 +77,9 @@ var _ = Describe("AST Utilities", func() {
 			Entry("float", "3.14", "3.14"),
 			Entry("string", `"hello"`, `"hello"`),
 			Entry("unit literal", "5ms", "5ms"),
+			Entry("negated integer extracts inner literal", "-1", "1"),
+			Entry("negated float extracts inner literal", "-3.14", "3.14"),
+			Entry("negated unit extracts inner literal", "-5ms", "5ms"),
 		)
 
 		It("returns nil for non-literal", func() {

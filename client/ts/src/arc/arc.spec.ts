@@ -31,12 +31,14 @@ describe("arc", () => {
   describe("retrieve", () => {
     it("should retrieve arcs by search term", async () => {
       const prefix = `searchable-arc-${id.create()}`;
-      await client.arcs.create([newTextArc(`${prefix}-1`), newTextArc(`${prefix}-2`)]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.arcs.create(names.map((name) => newTextArc(name)));
       await expect
-        .poll(async () => (await client.arcs.retrieve({ searchTerm: prefix })).length)
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.arcs.retrieve({ searchTerm: prefix });
-      expect(results.every((a) => a.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.arcs.retrieve({ searchTerm: prefix });
+          return results.map((a) => a.name).sort();
+        })
+        .toEqual(names);
     });
   });
 });

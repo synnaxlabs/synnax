@@ -98,29 +98,22 @@ describe("Symbol Client", () => {
 
     it("should retrieve symbols by search term", async () => {
       const prefix = `searchable-symbol-${id.create()}`;
+      const names = [`${prefix}-1`, `${prefix}-2`];
       await client.schematics.symbols.create({
-        symbols: [
-          {
-            name: `${prefix}-1`,
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-          },
-          {
-            name: `${prefix}-2`,
-            data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
-          },
-        ],
+        symbols: names.map((name) => ({
+          name,
+          data: { svg: "<svg></svg>", states: [], handles: [], variant: "sensor" },
+        })),
         parent: group.ontologyID(symbolGroup.key),
       });
       await expect
-        .poll(
-          async () =>
-            (await client.schematics.symbols.retrieve({ searchTerm: prefix })).length,
-        )
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.schematics.symbols.retrieve({
-        searchTerm: prefix,
-      });
-      expect(results.every((s) => s.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.schematics.symbols.retrieve({
+            searchTerm: prefix,
+          });
+          return results.map((s) => s.name).sort();
+        })
+        .toEqual(names);
     });
   });
 

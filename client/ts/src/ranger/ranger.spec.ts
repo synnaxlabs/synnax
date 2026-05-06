@@ -188,15 +188,14 @@ describe("range", () => {
     it("should retrieve ranges by search term", async () => {
       const prefix = `searchable-range-${id.create()}`;
       const timeRange = TimeStamp.now().spanRange(TimeSpan.seconds(1));
-      await client.ranges.create([
-        { name: `${prefix}-1`, timeRange },
-        { name: `${prefix}-2`, timeRange },
-      ]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.ranges.create(names.map((name) => ({ name, timeRange })));
       await expect
-        .poll(async () => (await client.ranges.retrieve({ searchTerm: prefix })).length)
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.ranges.retrieve({ searchTerm: prefix });
-      expect(results.every((r) => r.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.ranges.retrieve({ searchTerm: prefix });
+          return results.map((r) => r.name).sort();
+        })
+        .toEqual(names);
     });
   });
 

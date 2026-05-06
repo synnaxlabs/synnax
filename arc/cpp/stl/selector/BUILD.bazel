@@ -21,6 +21,7 @@ cc_test(
     deps = [
         ":selector",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//x/cpp/mem",
         "//x/cpp/test",

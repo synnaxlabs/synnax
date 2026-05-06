@@ -48,6 +48,14 @@ type WriterConfig struct {
 	// invalid if EnableAutoCommit is off.
 	// [OPTIONAL] Defaults to 1s
 	AutoIndexPersistInterval telem.TimeSpan
+	// OnRollover is invoked from inside Commit when the writer transitions from one
+	// underlying file to the next, immediately after the new file is acquired and
+	// before Commit returns. commitEnd is the timestamp of the just-finished domain's
+	// end, which is also the start timestamp of the new domain. Callers use this hook
+	// to flush per-domain state that accumulates across writes (e.g., per-domain
+	// offset tables, per-domain sample counters) and reset it for the new domain.
+	// [OPTIONAL]
+	OnRollover func(commitEnd telem.TimeStamp)
 }
 
 var (
@@ -81,6 +89,7 @@ func (w WriterConfig) Override(other WriterConfig) WriterConfig {
 	w.End = override.Zero(w.End, other.End)
 	w.EnableAutoCommit = override.Nil(w.EnableAutoCommit, other.EnableAutoCommit)
 	w.AutoIndexPersistInterval = override.Zero(w.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
+	w.OnRollover = override.Nil(w.OnRollover, other.OnRollover)
 	return w
 }
 
@@ -294,6 +303,9 @@ func (w *Writer) commit(ctx context.Context, end telem.TimeStamp, shouldPersist 
 		w.fileSize = telem.Size(newFileSize)
 		w.Start = commitEnd
 		w.prevCommit = 0
+		if w.OnRollover != nil {
+			w.OnRollover(commitEnd)
+		}
 	} else {
 		w.prevCommit = commitEnd
 	}

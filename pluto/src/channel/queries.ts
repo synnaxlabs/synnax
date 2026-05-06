@@ -82,10 +82,6 @@ export const formSchema = channel.newZ
   .refine((v) => v.isIndex || v.index !== 0 || v.virtual || v.expression !== "", {
     message: "Data channel must have an index",
     path: ["index"],
-  })
-  .refine((v) => v.virtual || !DataType.z.parse(v.dataType).isVariable, {
-    message: "Persisted channels must have a fixed-size data type",
-    path: ["dataType"],
   });
 
 export const calculatedFormSchema = formSchema.safeExtend({

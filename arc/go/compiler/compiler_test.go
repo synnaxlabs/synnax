@@ -3755,7 +3755,7 @@ var _ = Describe("Compiler", func() {
 		It("Should resolve type variables consistently across arguments", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func square(val f32) f32 {
-				return math.pow(val, 2)
+				return val ^ 2
 			}
 			`, stl.SymbolResolver))
 
@@ -3767,10 +3767,10 @@ var _ = Describe("Compiler", func() {
 			Expect(math.Float32frombits(uint32(results[0]))).To(BeNumerically("~", 9.0, 0.001))
 		})
 
-		It("Should execute math.pow with literal arguments", func(ctx SpecContext) {
+		It("Should execute ^ operator with literal integer arguments", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
-				return math.pow(2, 3)
+				return 2 ^ 3
 			}
 			`, stl.SymbolResolver))
 
@@ -3782,32 +3782,10 @@ var _ = Describe("Compiler", func() {
 			Expect(results[0]).To(Equal(uint64(8)))
 		})
 
-		It("Should compile string.len() via qualified name", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
-				return string.len("hello")
-			}
-			`, stl.SymbolResolver))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
-		})
-
-		It("Should compile string.concat() via qualified name", func(ctx SpecContext) {
-			output := MustSucceed(compileWithHostImports(ctx, `
-			func compute() i64 {
-				return string.len(string.concat("ab", "cd"))
-			}
-			`, stl.SymbolResolver))
-
-			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
-			Expect(mod.ExportedFunction("compute")).ToNot(BeNil())
-		})
-
 		It("Should resolve output type variable from input types", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() f64 {
-				return math.pow(2.5, 2.0)
+				return 2.5 ^ 2.0
 			}
 			`, stl.SymbolResolver))
 
@@ -3819,15 +3797,12 @@ var _ = Describe("Compiler", func() {
 			Expect(math.Float64frombits(results[0])).To(BeNumerically("~", 6.25, 0.001))
 		})
 
-		It("Should use qualified and bare now() interchangeably", func(ctx SpecContext) {
+		// Deprecated: bare now() is retained for backwards compatibility.
+		// Prefer time.now(). See "Should execute time.now() via qualified name" above.
+		It("Should execute bare now() (deprecated)", func(ctx SpecContext) {
 			output := MustSucceed(compileWithHostImports(ctx, `
 			func compute() i64 {
-				a := time.now()
-				b := now()
-				if a > b {
-					return a
-				}
-				return b
+				return now()
 			}
 			`, stl.SymbolResolver))
 

@@ -80,11 +80,19 @@ func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.Semant
 func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []uint32 {
 	allTokens := tokenizeContent(content)
 	var tokens []lsp.Token
-	for _, t := range allTokens {
+	// Track prev/next token types so classifyToken can handle qualified names (e.g., authority.set).
+	for i, t := range allTokens {
 		if t.GetTokenType() == antlr.TokenEOF {
 			continue
 		}
-		tokenType := classifyToken(ctx, t, docIR)
+		var prevType, nextType int
+		if i > 0 {
+			prevType = allTokens[i-1].GetTokenType()
+		}
+		if i+1 < len(allTokens) {
+			nextType = allTokens[i+1].GetTokenType()
+		}
+		tokenType := classifyToken(ctx, t, prevType, nextType, docIR)
 		if tokenType == nil {
 			continue
 		}
@@ -98,10 +106,22 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 	return lsp.EncodeSemanticTokens(tokens)
 }
 
-func classifyToken(ctx context.Context, t antlr.Token, docIR ir.IR) *uint32 {
+func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenType int, docIR ir.IR) *uint32 {
 	antlrType := t.GetTokenType()
+	// IDENTIFIER after DOT is the member part of a qualified name
+	// (e.g., "set" in "authority.set"). Color it as a function.
+	if antlrType == parser.ArcLexerIDENTIFIER && prevTokenType == parser.ArcLexerDOT {
+		tokenType := uint32(SemanticTokenTypeFunction)
+		return &tokenType
+	}
 	if antlrType == parser.ArcLexerIDENTIFIER && docIR.Symbols != nil {
 		return classifyIdentifier(ctx, t, docIR.Symbols)
+	}
+	// AUTHORITY followed by DOT is a module prefix (authority.set), not the
+	// authority keyword. Color it as a namespace/variable instead of a keyword.
+	if antlrType == parser.ArcLexerAUTHORITY && nextTokenType == parser.ArcLexerDOT {
+		tokenType := uint32(SemanticTokenTypeVariable)
+		return &tokenType
 	}
 	return mapLexerTokenType(antlrType)
 }

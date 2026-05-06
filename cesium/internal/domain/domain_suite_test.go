@@ -14,12 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
 	. "github.com/synnaxlabs/x/testutil"
-)
-
-var (
-	fileSystems = testutil.FileSystems
 )
 
 func TestDomain(t *testing.T) {

@@ -15,43 +15,16 @@ import (
 
 	"github.com/synnaxlabs/x/errors"
 	xfs "github.com/synnaxlabs/x/io/fs"
-	"github.com/synnaxlabs/x/testutil"
+	fstestutil "github.com/synnaxlabs/x/io/fs/testutil"
 )
 
-type FSFactory func() (xfs.FS, func() error)
+// FSFactory is the FS constructor type used by table-style tests in cesium.
+// See [fstestutil.Factory].
+type FSFactory = fstestutil.Factory
 
-var FileSystems = map[string]FSFactory{
-	"memFS": func() (xfs.FS, func() error) {
-		return testutil.MustSucceed(xfs.NewMem().Sub("testData")),
-			func() error { return nil }
-	},
-	"osFS": func() (xfs.FS, func() error) {
-		dirName := testutil.MustSucceed(os.MkdirTemp("", "test-*"))
-		return testutil.MustSucceed(xfs.Default.Sub(dirName)),
-			func() error { return xfs.Default.Remove(dirName) }
-	},
-}
-
-var FileSystemsWithoutAssertion = map[string]FSFactory{
-	"memFS": func() (xfs.FS, func() error) {
-		m, err := xfs.NewMem().Sub("testData")
-		if err != nil {
-			panic(err)
-		}
-		return m, func() error { return nil }
-	},
-	"osFS": func() (xfs.FS, func() error) {
-		dirName, err := os.MkdirTemp("", "test-*")
-		if err != nil {
-			panic(err)
-		}
-		d, err := xfs.Default.Sub(dirName)
-		if err != nil {
-			panic(err)
-		}
-		return d, func() error { return xfs.Default.Remove(dirName) }
-	},
-}
+// FileSystems is the canonical map of FS implementation names to factories
+// shared across cesium tests. See [fstestutil.FileSystems].
+var FileSystems = fstestutil.FileSystems
 
 func CopyFS(srcFS, destFS xfs.FS) error {
 	items, err := srcFS.List("")

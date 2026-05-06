@@ -61,17 +61,14 @@ describe("Workspace", () => {
   describe("retrieve", () => {
     test("retrieve workspaces by search term", async () => {
       const prefix = `searchable-workspace-${id.create()}`;
-      await client.workspaces.create([
-        { name: `${prefix}-1`, layout: {} },
-        { name: `${prefix}-2`, layout: {} },
-      ]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await client.workspaces.create(names.map((name) => ({ name, layout: {} })));
       await expect
-        .poll(
-          async () => (await client.workspaces.retrieve({ searchTerm: prefix })).length,
-        )
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.workspaces.retrieve({ searchTerm: prefix });
-      expect(results.every((w) => w.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.workspaces.retrieve({ searchTerm: prefix });
+          return results.map((w) => w.name).sort();
+        })
+        .toEqual(names);
     });
   });
   describe("case preservation", () => {

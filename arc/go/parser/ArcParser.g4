@@ -170,8 +170,14 @@ function
     | IDENTIFIER configValues
     ;
 
+// AUTHORITY is a lexer keyword but also a valid module name
+// (authority.set). FOR is a lexer keyword but also a valid module
+// member name (stable.for). Without these alternatives the lexer
+// tokenizes them as keywords and the IDENTIFIER-only rule rejects them.
 qualifiedIdentifier
     : IDENTIFIER DOT IDENTIFIER
+    | IDENTIFIER DOT FOR
+    | AUTHORITY DOT IDENTIFIER
     ;
 
 configValues

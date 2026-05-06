@@ -79,7 +79,7 @@ func (m *monitor) checkAlive(ctx context.Context) error {
 	}
 	racks := make([]Rack, 0, len(toAlert))
 	if err := m.svc.NewRetrieve().
-		WhereKeys(toAlert...).
+		Where(MatchKeys(toAlert...)).
 		Entries(&racks).
 		Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
 		return err

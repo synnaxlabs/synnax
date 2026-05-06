@@ -35,7 +35,8 @@ type TableConfig[E any] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB *DB
+	DB        *DB
+	keyPrefix []byte
 }
 
 func (t *Table[K, E]) Close() error {
@@ -62,40 +63,48 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	return &Table[K, E]{DB: cfg.DB}, nil
+	return &Table[K, E]{DB: cfg.DB, keyPrefix: newKeyPrefix[E]()}, nil
 }
 
 // NewCreate returns a Create query builder.
 func (t *Table[K, E]) NewCreate() Create[K, E] {
-	return NewCreate[K, E]()
+	c := NewCreate[K, E]()
+	c.keyPrefix = t.keyPrefix
+	return c
 }
 
 // NewRetrieve returns a Retrieve query builder.
 func (t *Table[K, E]) NewRetrieve() Retrieve[K, E] {
-	return NewRetrieve[K, E]()
+	r := NewRetrieve[K, E]()
+	r.keyPrefix = t.keyPrefix
+	return r
 }
 
 // NewUpdate returns an Update query builder.
 func (t *Table[K, E]) NewUpdate() Update[K, E] {
-	return NewUpdate[K, E]()
+	u := NewUpdate[K, E]()
+	u.retrieve.keyPrefix = t.keyPrefix
+	return u
 }
 
 // NewDelete returns a Delete query builder.
 func (t *Table[K, E]) NewDelete() Delete[K, E] {
-	return NewDelete[K, E]()
+	d := NewDelete[K, E]()
+	d.retrieve.keyPrefix = t.keyPrefix
+	return d
 }
 
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	return WrapReader[K, E](t.DB).OpenNexter(ctx)
+	return wrapReader[K, E](t.DB, t.keyPrefix).OpenNexter(ctx)
 }
 
 var normalizeKeysMigrationKey = "normalize_keys"
 
 func normalizeKeysMigration[K Key, E Entry[K]]() migrate.Migration {
 	return NewMigration(normalizeKeysMigrationKey, func(ctx context.Context, tx Tx, _ alamos.Instrumentation) (err error) {
-		kc := newKeyCodec[K, E]()
+		kc := newKeyCodec[K, E](nil)
 		oldPrefix, err := msgpack.Codec.Encode(ctx, types.Name[E]())
 		if err != nil {
 			return err

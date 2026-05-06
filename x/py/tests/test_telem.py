@@ -440,6 +440,30 @@ class TestDataType:
         """Should return the correct numpy representation of the data type"""
         assert value.np == expected
 
+    @pytest.mark.parametrize(
+        "data_type, expected",
+        [
+            (sy.DataType.STRING, True),
+            (sy.DataType.JSON, True),
+            (sy.DataType.BYTES, True),
+            (sy.DataType.UUID, False),
+            (sy.DataType.TIMESTAMP, False),
+            (sy.DataType.FLOAT64, False),
+            (sy.DataType.FLOAT32, False),
+            (sy.DataType.INT64, False),
+            (sy.DataType.INT32, False),
+            (sy.DataType.INT16, False),
+            (sy.DataType.INT8, False),
+            (sy.DataType.UINT64, False),
+            (sy.DataType.UINT32, False),
+            (sy.DataType.UINT16, False),
+            (sy.DataType.UINT8, False),
+        ],
+    )
+    def test_is_variable(self, data_type: sy.DataType, expected: bool) -> None:
+        """is_variable should return True only for variable-length data types."""
+        assert data_type.is_variable is expected
+
 
 @pytest.mark.telem
 class TestSize:

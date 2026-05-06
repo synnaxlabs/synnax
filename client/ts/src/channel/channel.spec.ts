@@ -228,17 +228,16 @@ describe("Channel", () => {
     });
     test("retrieve by search term", async () => {
       const prefix = id.create();
-      await client.channels.create([
-        { name: `${prefix}_1`, virtual: true, dataType: DataType.FLOAT32 },
-        { name: `${prefix}_2`, virtual: true, dataType: DataType.FLOAT32 },
-      ]);
+      const names = [`${prefix}_1`, `${prefix}_2`];
+      await client.channels.create(
+        names.map((name) => ({ name, virtual: true, dataType: DataType.FLOAT32 })),
+      );
       await expect
-        .poll(
-          async () => (await client.channels.retrieve({ searchTerm: prefix })).length,
-        )
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.channels.retrieve({ searchTerm: prefix });
-      expect(results.every((c) => c.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.channels.retrieve({ searchTerm: prefix });
+          return results.map((c) => c.name).sort();
+        })
+        .toEqual(names);
     });
   });
 

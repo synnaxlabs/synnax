@@ -61,7 +61,8 @@ var _ = Describe("v54 -> current Device migration", func() {
 
 		var got device.Device
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Rack).To(BeEquivalentTo(seed.Rack))
 		Expect(got.Location).To(Equal(seed.Location))
@@ -120,7 +121,8 @@ var _ = Describe("v54 -> current Device migration", func() {
 
 		var got device.Device
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[device.Key, device.Device](seed.Key)).
+			Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Status).To(BeNil())

@@ -16,7 +16,7 @@ import (
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/analyzer"
-	graph "github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
+	"github.com/synnaxlabs/synnax/pkg/service/channel/calculation/graph"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -38,6 +38,7 @@ var (
 	CreateWithoutGroupRelationship              = distchannel.CreateWithoutGroupRelationship
 	ParseKey                                    = distchannel.ParseKey
 	OntologyID                                  = distchannel.OntologyID
+	MatchKeys                                   = distchannel.MatchKeys
 )
 
 // ServiceConfig configures a channel Service.

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError } from "@synnaxlabs/client";
+import { createTestClient, NotFoundError, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -15,6 +15,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+import { Workspace } from "@/workspace";
 
 const client = createTestClient();
 
@@ -30,21 +31,18 @@ describe("schematic queries", () => {
         name: "test_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "retrieve_test",
-        data: {},
       });
 
-      const { result } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
-        {
-          wrapper,
-        },
-      );
+      const { result } = renderHook(() => Schematic.useRetrieve({ key: schem.key }), {
+        wrapper,
+      });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
       });
-      expect(result.current.data?.key).toEqual(schematic.key);
+      expect(result.current.data?.key).toEqual(schem.key);
       expect(result.current.data?.name).toEqual("retrieve_test");
     });
 
@@ -53,19 +51,19 @@ describe("schematic queries", () => {
         name: "cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "cached_schematic",
-        data: {},
       });
 
       const { result: result1 } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
+        () => Schematic.useRetrieve({ key: schem.key }),
         { wrapper },
       );
       await waitFor(() => expect(result1.current.variant).toEqual("success"));
 
       const { result: result2 } = renderHook(
-        () => Schematic.useRetrieve({ key: schematic.key }),
+        () => Schematic.useRetrieve({ key: schem.key }),
         { wrapper },
       );
       await waitFor(() => expect(result2.current.variant).toEqual("success"));
@@ -85,10 +83,10 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await result.current.updateAsync({
+          ...schematic.ZERO_NEW,
+          name: "created_schematic",
           key,
           workspace: workspace.key,
-          name: "created_schematic",
-          data: {},
         });
       });
 
@@ -113,10 +111,10 @@ describe("schematic queries", () => {
       const key = uuid.create();
       await act(async () => {
         await createResult.current.updateAsync({
+          ...schematic.ZERO_NEW,
+          name: "stored_schematic",
           key,
           workspace: workspace.key,
-          name: "stored_schematic",
-          data: {},
         });
       });
 
@@ -135,14 +133,14 @@ describe("schematic queries", () => {
         name: "rename_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "original_name",
-        data: {},
       });
 
       const { result } = renderHook(
         () => {
-          const retrieve = Schematic.useRetrieve({ key: schematic.key });
+          const retrieve = Schematic.useRetrieve({ key: schem.key });
           const rename = Schematic.useRename();
           return { retrieve, rename };
         },
@@ -154,13 +152,13 @@ describe("schematic queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: schematic.key,
+          key: schem.key,
           name: "renamed_schematic",
         });
       });
 
       const retrieved = await client.schematics.retrieve({
-        key: schematic.key,
+        key: schem.key,
       });
       expect(retrieved.name).toEqual("renamed_schematic");
     });
@@ -170,14 +168,14 @@ describe("schematic queries", () => {
         name: "rename_cache_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "cache_original",
-        data: {},
       });
 
       const { result } = renderHook(
         () => ({
-          retrieve: Schematic.useRetrieve({ key: schematic.key }),
+          retrieve: Schematic.useRetrieve({ key: schem.key }),
           rename: Schematic.useRename(),
         }),
         { wrapper },
@@ -186,7 +184,7 @@ describe("schematic queries", () => {
 
       await act(async () => {
         await result.current.rename.updateAsync({
-          key: schematic.key,
+          key: schem.key,
           name: "cache_renamed",
         });
       });
@@ -203,18 +201,18 @@ describe("schematic queries", () => {
         name: "delete_workspace",
         layout: {},
       });
-      const schematic = await client.schematics.create(workspace.key, {
+      const schem = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "delete_single",
-        data: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(schematic.key);
+        await result.current.updateAsync(schem.key);
       });
       expect(result.current.variant).toEqual("success");
-      await expect(client.schematics.retrieve({ key: schematic.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
         NotFoundError,
       );
     });
@@ -224,29 +222,61 @@ describe("schematic queries", () => {
         name: "delete_multi_workspace",
         layout: {},
       });
-      const schematic1 = await client.schematics.create(workspace.key, {
+      const schem1 = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "delete_multi_1",
-        data: {},
       });
-      const schematic2 = await client.schematics.create(workspace.key, {
+      const schem2 = await client.schematics.create(workspace.key, {
+        ...schematic.ZERO_NEW,
         name: "delete_multi_2",
-        data: {},
       });
 
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync([schematic1.key, schematic2.key]);
+        await result.current.updateAsync([schem1.key, schem2.key]);
       });
 
       expect(result.current.variant).toEqual("success");
 
-      await expect(client.schematics.retrieve({ key: schematic1.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem1.key })).rejects.toThrow(
         NotFoundError,
       );
-      await expect(client.schematics.retrieve({ key: schematic2.key })).rejects.toThrow(
+      await expect(client.schematics.retrieve({ key: schem2.key })).rejects.toThrow(
         NotFoundError,
       );
+    });
+  });
+
+  describe("off-page reference sibling schematics", () => {
+    it("should return sibling schematics in the same workspace", async () => {
+      const ws = await client.workspaces.create({
+        name: "opr_sibling_ws",
+        layout: {},
+      });
+      const s1 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Current",
+      });
+      const s2 = await client.schematics.create(ws.key, {
+        ...schematic.ZERO_NEW,
+        name: "Sibling",
+      });
+
+      const { result } = renderHook(
+        () =>
+          Workspace.useRetrieveChildren({
+            resourceID: schematic.ontologyID(s1.key),
+            types: ["schematic"],
+          }),
+        { wrapper },
+      );
+      await waitFor(() => {
+        expect((result.current.data ?? []).length).toBeGreaterThanOrEqual(1);
+      });
+      const keys = (result.current.data ?? []).map((p) => p.key);
+      expect(keys).toContain(s2.key);
+      expect(keys).not.toContain(s1.key);
     });
   });
 });

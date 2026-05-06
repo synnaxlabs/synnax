@@ -21,7 +21,6 @@ import (
 	"github.com/synnaxlabs/oracle/domain/omit"
 	"github.com/synnaxlabs/oracle/domain/ontology"
 	"github.com/synnaxlabs/oracle/domain/validation"
-	"github.com/synnaxlabs/oracle/exec"
 	"github.com/synnaxlabs/oracle/plugin"
 	"github.com/synnaxlabs/oracle/plugin/domain"
 	"github.com/synnaxlabs/oracle/plugin/enum"
@@ -59,18 +58,6 @@ func (p *Plugin) Domains() []string { return nil }
 func (p *Plugin) Requires() []string { return nil }
 
 func (p *Plugin) Check(req *plugin.Request) error { return nil }
-
-var postWriter = &exec.PostWriter{
-	ConfigFile: "pyproject.toml",
-	Commands: [][]string{
-		{"uv", "run", "ruff", "format"},
-		{"uv", "run", "ruff", "check", "--fix"},
-	},
-}
-
-func (p *Plugin) PostWrite(files []string) error {
-	return postWriter.PostWrite(files)
-}
 
 func (p *Plugin) Generate(req *plugin.Request) (*plugin.Response, error) {
 	gen := &framework.Generator{

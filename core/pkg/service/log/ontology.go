@@ -67,7 +67,7 @@ func (s *Service) RetrieveResource(ctx context.Context, key string, tx gorp.Tx) 
 		return ontology.Resource{}, err
 	}
 	var log Log
-	if err = s.NewRetrieve().WhereKeys(k).Entry(&log).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Where(MatchKeys(k)).Entry(&log).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(log), nil

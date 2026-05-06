@@ -17,12 +17,12 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apifra "github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
-	"github.com/synnaxlabs/synnax/pkg/distribution/cluster"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/codec"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/frame"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/iterator"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
+	"github.com/synnaxlabs/synnax/pkg/distribution/node"
 	controlpb "github.com/synnaxlabs/x/control/pb"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
@@ -250,7 +250,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	return apifra.IteratorResponse{
 		Variant: iterator.ResponseVariant(msg.Variant),
 		Command: iterator.Command(msg.Command),
-		NodeKey: cluster.NodeKey(msg.NodeKey),
+		NodeKey: node.Key(msg.NodeKey),
 		Ack:     msg.Ack,
 		SeqNum:  int(msg.SeqNum),
 		Frame:   framer.Frame{Frame: frm},

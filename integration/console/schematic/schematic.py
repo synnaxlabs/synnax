@@ -33,7 +33,7 @@ class SchematicProperties(TypedDict):
     show_control_legend: bool
 
 
-SCHEMATIC_VERSION = "5.0.0"
+SCHEMATIC_VERSION = "6.0.0"
 
 AlignmentType = Literal[
     "vertical",
@@ -456,7 +456,7 @@ class Schematic(ConsolePage):
         if self.get_edit_status():
             edit_button = (
                 self.page.locator(".console-controls button.pluto-btn--filled")
-                .filter(has=self.page.locator("svg.pluto-icon--edit"))
+                .filter(has=self.page.locator("svg.pluto-icon--edit-off"))
                 .first
             )
             if edit_button.count() > 0:

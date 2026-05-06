@@ -67,11 +67,12 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
 
 const multipleTag = renderProp(MultipleTag);
 
-export interface MultipleTriggerProps<K extends record.Key> extends Pick<
-  Button.ButtonProps,
-  "variant" | "disabled"
-> {
+export interface MultipleTriggerProps<
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
+> extends Pick<Button.ButtonProps, "variant" | "disabled"> {
   haulType?: string;
+  createHaulItem?: (entry: NonNullable<E>) => Haul.Item;
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   hideTags?: boolean;
@@ -90,8 +91,12 @@ export const staticCanDrop = <K extends record.Key>(
   return f.length > 0 && !f.every((h) => value.includes(h.key as K));
 };
 
-export const MultipleTrigger = <K extends record.Key>({
+export const MultipleTrigger = <
+  K extends record.Key,
+  E extends record.Keyed<K> | undefined = MultipleEntry<K> | undefined,
+>({
   haulType = "",
+  createHaulItem,
   disabled,
   placeholder = "Select...",
   variant = "outlined",
@@ -99,10 +104,11 @@ export const MultipleTrigger = <K extends record.Key>({
   hideTags = false,
   children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
   renderIcon,
-}: MultipleTriggerProps<K>): ReactElement => {
+}: MultipleTriggerProps<K, E>): ReactElement => {
   const value = useSelection<K>();
   const valueRef = useSyncedRef(value);
   const { setSelected } = useContext<K>();
+  const { getItem } = List.useUtilContext<K, E>();
   const { toggle, visible } = Dialog.useContext();
   const canDrop = useCallback(
     (hauled: Haul.DraggingState) =>
@@ -135,9 +141,15 @@ export const MultipleTrigger = <K extends record.Key>({
 
   const onTagDragStart = useCallback(
     (key: K) => {
+      if (createHaulItem != null && getItem != null) {
+        const entry = getItem(key);
+        if (entry == null) return;
+        startDrag([createHaulItem(entry)], handleSuccessfulDrop);
+        return;
+      }
       startDrag([{ key, type: haulType }], handleSuccessfulDrop);
     },
-    [startDrag, handleSuccessfulDrop, haulType],
+    [startDrag, handleSuccessfulDrop, haulType, createHaulItem, getItem],
   );
   const dragging = Haul.useDraggingState();
   const showAddButton = variant === "text" && value.length !== 0;

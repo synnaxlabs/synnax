@@ -79,7 +79,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		var got arc.Arc
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))
@@ -141,7 +141,7 @@ var _ = Describe("v54 -> current Arc migration", func() {
 
 		var got arc.Arc
 		Expect(currentTable.NewRetrieve().
-			WhereKeys(seed.Key).Entry(&got).Exec(ctx, db)).To(Succeed())
+			Where(gorp.MatchKeys[arc.Key, arc.Arc](seed.Key)).Entry(&got).Exec(ctx, db)).To(Succeed())
 		Expect(got.Key).To(Equal(seed.Key))
 		Expect(got.Name).To(Equal(seed.Name))
 		Expect(got.Mode).To(Equal(arc.Mode(seed.Mode)))

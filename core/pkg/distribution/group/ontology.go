@@ -58,7 +58,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var g Group
-	if err = s.NewRetrieve().Entry(&g).WhereKeys(k).Exec(ctx, tx); err != nil {
+	if err = s.NewRetrieve().Entry(&g).Where(MatchKeys(k)).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(g), nil

@@ -36,7 +36,6 @@ const createEmptyService = (
 export const SERVICES: Ontology.Services = {
   schematic: SchematicServices.ONTOLOGY_SERVICE,
   schematic_symbol: createEmptyService("schematic_symbol", <Icon.Schematic />),
-  cluster: createEmptyService("cluster", <Icon.Cluster />),
   user: UserServices.ONTOLOGY_SERVICE,
   builtin: createEmptyService("builtin"),
   node: createEmptyService("node", <Icon.Node />),

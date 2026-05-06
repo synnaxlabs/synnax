@@ -56,7 +56,7 @@ func (s *Service) RetrieveResource(
 		return ontology.Resource{}, err
 	}
 	var r Role
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&r).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&r).Exec(ctx, tx); err != nil {
 		return ontology.Resource{}, err
 	}
 	return newResource(r), nil

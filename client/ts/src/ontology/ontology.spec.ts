@@ -156,12 +156,13 @@ describe("Ontology", () => {
     });
     test("retrieve by search term", async () => {
       const name = randomName();
-      await client.groups.create({ parent: ontology.ROOT_ID, name });
+      const g = await client.groups.create({ parent: ontology.ROOT_ID, name });
       await expect
-        .poll(async () => (await client.ontology.retrieve({ searchTerm: name })).length)
-        .toBeGreaterThanOrEqual(1);
-      const results = await client.ontology.retrieve({ searchTerm: name });
-      expect(results.some((r) => r.name === name)).toBe(true);
+        .poll(async () => {
+          const results = await client.ontology.retrieve({ searchTerm: name });
+          return results.find((r) => r.id.key === g.key);
+        })
+        .toMatchObject({ name, id: { type: "group", key: g.key } });
     });
   });
 

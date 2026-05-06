@@ -61,21 +61,20 @@ const List = (): ReactElement => {
   };
 
   const dropProps = Haul.useDrop({
-    type: "range-toolbar",
-    canDrop: Haul.canDropOfType("range"),
+    type: "range_toolbar",
+    canDrop: Ranger.canDropHaulItem,
     onDrop: ({ items }) => {
-      const ranges = items.map(
-        ({ data, key }) =>
-          ({
-            key,
-            name: data?.name,
-            variant: "static",
+      const dropped = Ranger.filterHaulItems(items);
+      dispatch(
+        add({
+          ranges: dropped.map(({ data }) => ({
+            ...data,
             persisted: true,
-            timeRange: data?.timeRange,
-          }) as StaticRange,
+            variant: "static",
+          })),
+        }),
       );
-      dispatch(add({ ranges }));
-      return items;
+      return dropped;
     },
   });
 

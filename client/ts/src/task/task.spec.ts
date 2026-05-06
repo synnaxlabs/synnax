@@ -116,15 +116,16 @@ describe("Task", async () => {
 
     it("should retrieve tasks by search term", async () => {
       const prefix = `searchable-task-${id.create()}`;
-      await Promise.all([
-        testRack.createTask({ name: `${prefix}-1`, config: {}, type: "ni" }),
-        testRack.createTask({ name: `${prefix}-2`, config: {}, type: "ni" }),
-      ]);
+      const names = [`${prefix}-1`, `${prefix}-2`];
+      await Promise.all(
+        names.map((name) => testRack.createTask({ name, config: {}, type: "ni" })),
+      );
       await expect
-        .poll(async () => (await client.tasks.retrieve({ searchTerm: prefix })).length)
-        .toBeGreaterThanOrEqual(2);
-      const results = await client.tasks.retrieve({ searchTerm: prefix });
-      expect(results.every((t) => t.name.includes(prefix))).toBe(true);
+        .poll(async () => {
+          const results = await client.tasks.retrieve({ searchTerm: prefix });
+          return results.map((t) => t.name).sort();
+        })
+        .toEqual(names);
     });
 
     describe("status", () => {

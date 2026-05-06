@@ -33,14 +33,14 @@ var _ = Describe("update", func() {
 
 	It("Should correctly update set of entries", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().
-			WhereKeys(entries[0].GorpKey()).
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
 			}).Exec(ctx, tx)).To(Succeed())
 		var res entry
 		Expect(gorp.NewRetrieve[int32, entry]().
-			WhereKeys(entries[0].GorpKey()).
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
 			Entry(&res).
 			Exec(ctx, tx)).To(Succeed())
 		Expect(res).To(Equal(entry{ID: 0, Data: "new data"}))
@@ -48,13 +48,13 @@ var _ = Describe("update", func() {
 
 	It("Should return an error if no change function was specified", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().
-			WhereKeys(entries[0].GorpKey()).
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
 			Exec(ctx, tx)).To(MatchError(query.ErrInvalidParameters))
 	})
 
 	It("Should return an error if the the key cannot be found", func(ctx SpecContext) {
 		Expect(gorp.NewUpdate[int32, entry]().
-			WhereKeys(999).
+			Where(gorp.MatchKeys[int32, entry](999)).
 			Change(func(_ gorp.Context, e entry) entry {
 				e.Data = "new data"
 				return e
@@ -64,7 +64,7 @@ var _ = Describe("update", func() {
 	It("Should pass the correct transaction into the gorp.Context in the where function", func(ctx SpecContext) {
 		count := 0
 		Expect(gorp.NewUpdate[int32, entry]().
-			WhereKeys(entries[0].GorpKey()).
+			Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey())).
 			Change(func(gCtx gorp.Context, e entry) entry {
 				e.Data = "new data"
 				Expect(gCtx.Context).To(BeIdenticalTo(ctx))

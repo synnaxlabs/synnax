@@ -752,24 +752,6 @@ describe("queries", () => {
       );
     });
 
-    it("should validate that persisted channels have fixed-size data types", async () => {
-      const { result } = renderHook(() => Channel.useForm({ query: {} }), {
-        wrapper,
-      });
-
-      act(() => {
-        result.current.form.set("name", id.create());
-        result.current.form.set("dataType", DataType.STRING.toString());
-        result.current.form.set("virtual", false);
-        result.current.form.set("isIndex", false);
-      });
-
-      expect(result.current.form.validate()).toBe(false);
-      expect(result.current.form.get("dataType").status.message).toContain(
-        "Persisted channels must have a fixed-size data type",
-      );
-    });
-
     it("should validate that name cannot be empty", async () => {
       const { result } = renderHook(() => Channel.useForm({ query: {} }), {
         wrapper,

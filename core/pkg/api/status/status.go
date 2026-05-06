@@ -134,13 +134,13 @@ func (s *Service) Retrieve(
 		q = q.Offset(req.Offset)
 	}
 	if len(req.HasLabels) > 0 {
-		q = q.WhereHasLabels(req.HasLabels...)
+		q = q.Where(status.MatchLabels[any](req.HasLabels...))
 	}
 	if len(req.Variants) > 0 {
-		q = q.WhereVariants(req.Variants...)
+		q = q.Where(status.MatchVariants[any](req.Variants...))
 	}
 	if len(req.Keys) != 0 {
-		q = q.WhereKeys(req.Keys...)
+		q = q.Where(status.MatchKeys[any](req.Keys...))
 	}
 	if err = q.Entries(&resStatuses).Exec(ctx, nil); err != nil {
 		return RetrieveResponse{}, err

@@ -17,7 +17,22 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { Theming } from "@/theming";
 
-const HAUL_TYPE = "color";
+export const HAUL_TYPE = "color";
+
+export type HaulItem = Haul.Item<typeof HAUL_TYPE, color.Hex, undefined>;
+
+export const createHaulItem = (key: color.Hex): HaulItem => ({
+  type: HAUL_TYPE,
+  key,
+});
+
+export const isHaulItem = (item: Haul.Item): item is HaulItem =>
+  item.type === HAUL_TYPE;
+
+export const filterHaulItems = (items: Haul.Item[]): HaulItem[] =>
+  items.filter(isHaulItem);
+
+export const canDropHaulItem = Haul.canDropOfType<HaulItem>(HAUL_TYPE);
 
 export interface BaseSwatchProps extends Omit<
   Button.ButtonProps,
@@ -42,26 +57,26 @@ export const BaseSwatch = ({
   const dragging = Haul.useDraggingState();
   const canDrop: Haul.CanDrop = useCallback(
     ({ items }) => {
-      const [k] = Haul.filterByType(HAUL_TYPE, items);
+      const [k] = filterHaulItems(items);
       return k != null && k.key !== color.hex(clr);
     },
     [clr],
   );
   const handleDrop: Haul.OnDrop = useCallback(
     ({ items }) => {
-      const [k] = Haul.filterByType(HAUL_TYPE, items);
-      if (k != null) onChange?.(color.construct(k.key as string));
+      const [k] = filterHaulItems(items);
+      if (k != null) onChange?.(color.construct(k.key));
       return items;
     },
     [onChange],
   );
   const { startDrag, ...haulProps } = Haul.useDragAndDrop({
-    type: "Color.Swatch",
+    type: "color_swatch",
     onDrop: handleDrop,
     canDrop,
   });
   const handleDragStart = useCallback(() => {
-    startDrag([{ type: HAUL_TYPE, key: color.hex(clr) }]);
+    startDrag([createHaulItem(color.hex(clr))]);
   }, [startDrag, clr]);
   return (
     <Button.Button

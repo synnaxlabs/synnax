@@ -16,26 +16,15 @@ import (
 	. "github.com/onsi/gomega"
 	xfs "github.com/synnaxlabs/x/io/fs"
 	invariants "github.com/synnaxlabs/x/io/fs/internal/invariants"
+	. "github.com/synnaxlabs/x/io/fs/testutil"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("FS", func() {
-	fileSystems := map[string]func() xfs.FS{
-		"memFS": func() xfs.FS { return xfs.NewMem() },
-		"osFS":  func() xfs.FS { return MustSucceed(xfs.Default.Sub("./testData")) },
-	}
-
-	for fsName, makeFS := range fileSystems {
-		var fsRoot, fs xfs.FS
-		Context("FS:"+fsName, Ordered, func() {
-			BeforeEach(func() {
-				fsRoot = makeFS()
-				fs = MustSucceed(fsRoot.Sub("test-spec"))
-				DeferCleanup(func() {
-					Expect(fsRoot.Remove("test-spec")).To(Succeed())
-				})
-			})
-			AfterAll(func() { Expect(xfs.Default.Remove("testData")).To(Succeed()) })
+	for fsName, openFS := range FileSystems {
+		var fs xfs.FS
+		Context("FS: "+fsName, Ordered, func() {
+			BeforeEach(func() { fs = openFS() })
 			Describe("Stat", func() {
 				It("Should return the correct file info", func() {
 					file := MustSucceed(fs.Open("test_file.txt", os.O_CREATE|os.O_RDWR))
@@ -204,8 +193,6 @@ var _ = Describe("FS", func() {
 						Expect(f.Read(buf)).To(Equal(15))
 						Expect(buf).To(Equal([]byte("oldoldoldnewnew")))
 						Expect(f.Close()).To(Succeed())
-
-						Expect(xfs.Default.Remove("testData")).To(Succeed())
 					})
 					It("Should overwrite when there is no Append flag", func() {
 						f := MustSucceed(

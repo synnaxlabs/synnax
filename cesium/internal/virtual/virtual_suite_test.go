@@ -14,14 +14,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/cesium/internal/testutil"
-	"github.com/synnaxlabs/x/encoding/json"
 	. "github.com/synnaxlabs/x/testutil"
-)
-
-var (
-	codec       = json.Codec
-	fileSystems = testutil.FileSystems
 )
 
 func TestVirtual(t *testing.T) {

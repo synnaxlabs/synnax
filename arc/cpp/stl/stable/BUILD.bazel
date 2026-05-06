@@ -22,6 +22,7 @@ cc_test(
     deps = [
         ":stable",
         "//arc/cpp/runtime/errors",
+        "//arc/cpp/runtime/node",
         "//arc/cpp/runtime/state",
         "//x/cpp/mem",
         "//x/cpp/test",
