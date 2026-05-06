@@ -12,9 +12,9 @@ import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
-import { Tabs } from "@/tabs";
+import { Tabs } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { type Toggle } from "@/vis/toggle";
 interface LightTelemFormT extends Omit<Toggle.UseProps, "aetherKey"> {}

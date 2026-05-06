@@ -13,13 +13,12 @@ import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
+import { Aether } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 export interface ChipProps
   extends
     Pick<z.input<typeof control.chipStateZ>, "source" | "sink">,

@@ -20,7 +20,7 @@ import {
 } from "@/table/cells/Cells";
 import { type FormProps, TextForm, ValueForm } from "@/table/cells/Forms";
 import { telem } from "@/telem/aether";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 import { Value as BaseValue } from "@/vis/value";
 
 const VARIANTS = ["text", "value"] as const;

@@ -10,8 +10,8 @@
 import { location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { Icon } from "@/icon";
+import { Button } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { useContext } from "@/vis/diagram/Context";
 
 export interface ToggleEditProps extends Omit<

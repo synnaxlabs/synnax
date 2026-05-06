@@ -11,13 +11,13 @@ import { type state, stopPropagation } from "@synnaxlabs/charon";
 import { type color, type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { Button } from "@/button";
+import { Button } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-import { type Theming } from "@/theming";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
+import { type Theming } from "@synnaxlabs/charon";
 
 export interface EntryData {
   color: color.Crude;

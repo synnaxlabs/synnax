@@ -14,7 +14,7 @@ import { Toggle } from "@/schematic/node/common/toggle";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/valves/angledRelief/config";
 import { Primitive } from "@/schematic/node/valves/angledRelief/Primitive";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/valves/angledRelief/config";
 

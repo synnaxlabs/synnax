@@ -13,11 +13,10 @@ import z from "zod/v4";
 import { type types } from "@/arc/functions/types";
 import { Handle } from "@/arc/handle";
 import { Channel } from "@/channel";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { Divider } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export const config = z.object({
   channel: channel.keyZ,
 });

@@ -17,7 +17,7 @@ import {
   VARIANT,
 } from "@/schematic/node/valves/springLoadedRelief/config";
 import { Primitive } from "@/schematic/node/valves/springLoadedRelief/Primitive";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/valves/springLoadedRelief/config";
 

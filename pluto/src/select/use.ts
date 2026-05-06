@@ -10,12 +10,11 @@
 import { array, type optional, type record, unique } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks/ref";
+import { Dialog } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useHover, type UseHoverProps, type UseHoverReturn } from "@/select/useHover";
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 /**
  * Extra information passed as an additional argument to the `onChange` callback.
  * of the {@link useMultiple} hook.

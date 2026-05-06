@@ -10,8 +10,7 @@
 import { direction } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Tabs } from "@/tabs";
-
+import { Tabs } from "@synnaxlabs/charon";
 /**
  * Base interface for a mosaic node in the tree. Used to make sure that
  * zod type inference works correctly with recursive types.

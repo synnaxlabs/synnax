@@ -10,7 +10,7 @@
 import { control, deep, type destructor, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 
 export const chipStatusDetailsZ = z

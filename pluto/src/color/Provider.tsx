@@ -17,8 +17,7 @@ import React, {
 } from "react";
 import { z } from "zod";
 
-import { useSyncedRef } from "@/hooks";
-
+import { useSyncedRef } from "@synnaxlabs/charon";
 export const relevancyZ = z.object({
   lastUsed: z.number(),
   count: z.number(),

@@ -12,10 +12,10 @@ import "@/schematic/node/common/orientation/select.css";
 import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { type Input } from "@/input";
+import { Button as BaseButton } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { type Input } from "@synnaxlabs/charon";
 
 export interface Value {
   inner: location.Outer;

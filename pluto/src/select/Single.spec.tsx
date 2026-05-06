@@ -11,12 +11,11 @@ import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { renderProp } from "@/component/renderProp";
+import { Component } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { mockBoundingClientRect } from "@/testutil/dom";
-import { Text } from "@/text";
-
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 describe("Select.Single", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);
@@ -41,7 +40,7 @@ describe("Select.Single", () => {
     { key: "3", name: "Third Item" },
   ];
 
-  const listItemRenderProp = renderProp((props: List.ItemProps<string>) => {
+  const listItemRenderProp = Component.renderProp((props: List.ItemProps<string>) => {
     const { itemKey } = props;
     const item = testData.find((i) => i.key === itemKey);
     return (

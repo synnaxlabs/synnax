@@ -10,10 +10,9 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
+import { Component, Status } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Indicator } from "@/status/base/Indicator";
 import { VARIANT_DATA } from "@/status/variantData";
 
 type Entry = Select.StaticEntry<status.Variant>;
@@ -57,4 +56,4 @@ export const SelectMultipleVariants = (
   );
 };
 
-const icon = <Indicator variant="success" />;
+const icon = <Status.Indicator variant="success" />;

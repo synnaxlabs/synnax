@@ -15,7 +15,7 @@ import { Symbol } from "@/schematic/node/general/button/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/button/config";
 

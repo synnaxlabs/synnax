@@ -11,7 +11,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 
 export const Form = (): ReactElement => (

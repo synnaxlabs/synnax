@@ -21,14 +21,13 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Errors } from "@/errors";
-import { type Flex } from "@/flex";
+import { type Flex } from "@synnaxlabs/charon";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
 import { Resize } from "@/resize";
-import { Tabs } from "@/tabs";
-
+import { Tabs } from "@synnaxlabs/charon";
 /** Props for the {@link Mosaic} component */
 export interface MosaicProps
   extends

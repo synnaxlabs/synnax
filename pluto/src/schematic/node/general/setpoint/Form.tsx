@@ -11,15 +11,16 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Component } from "@/component";
-import { Flex } from "@/flex";
+import { Component } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Select } from "@/select";
+import { Input } from "@synnaxlabs/charon";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Tabs } from "@/tabs";
+import { Tabs } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Setpoint } from "@/vis/setpoint";
@@ -96,7 +97,7 @@ export const SetpointForm = (): ReactElement => {
                   padHelpText={false}
                 >
                   {({ value, onChange }) => (
-                    <Component.SelectSize value={value} onChange={onChange} />
+                    <Select.SelectSize value={value} onChange={onChange} />
                   )}
                 </Base.Field>
                 <Form.ColorField path="color" />

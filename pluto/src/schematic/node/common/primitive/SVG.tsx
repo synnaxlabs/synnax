@@ -10,9 +10,9 @@
 import { color, dimensions, direction } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { type SVGBasedProps } from "@/schematic/node/common/primitive/orientable";
-import { Theming } from "@/theming";
+import { Theming } from "@synnaxlabs/charon";
 
 export interface SVGProps
   extends

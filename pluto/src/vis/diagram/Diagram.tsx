@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { useMemoCompare } from "@synnaxlabs/charon";
+import { Component, useMemoCompare } from "@synnaxlabs/charon";
 import { box, type xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
@@ -43,11 +43,10 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { type RenderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@/hooks";
-import { Triggers } from "@/triggers";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 import { Viewport as BaseViewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";
 import { diagram } from "@/vis/diagram/aether";
@@ -74,9 +73,9 @@ export interface NodeProps {
 }
 
 export interface RendererConfig {
-  node: RenderProp<NodeProps, ReactElement>;
-  edge?: RenderProp<diagram.EdgeProps, ReactElement>;
-  connectionLine?: RenderProp<diagram.ConnectionLineProps, ReactElement>;
+  node: Component.RenderProp<NodeProps, ReactElement>;
+  edge?: Component.RenderProp<diagram.EdgeProps, ReactElement>;
+  connectionLine?: Component.RenderProp<diagram.ConnectionLineProps, ReactElement>;
 }
 
 const isValidConnection: IsValidConnection = (): boolean => true;

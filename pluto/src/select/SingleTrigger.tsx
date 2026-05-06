@@ -11,9 +11,9 @@ import { Haul } from "@synnaxlabs/charon";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
-import { type Icon } from "@/icon";
+import { CSS } from "@synnaxlabs/charon";
+import { Dialog } from "@synnaxlabs/charon";
+import { type Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useContext, useSelection } from "@/select/Frame";
 import { staticCanDrop } from "@/select/MultipleTrigger";

@@ -9,7 +9,7 @@
 
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { range } from "@/lineplot/range/aether";
 
 interface AnnotationProps

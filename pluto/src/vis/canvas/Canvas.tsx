@@ -20,14 +20,10 @@ import {
   useRef,
 } from "react";
 
-import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import {
-  useCombinedRefs,
-  useResize,
-  type UseResizeHandler,
-  type UseResizeOpts,
-} from "@/hooks";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { type UseResizeHandler, type UseResizeOpts } from "@synnaxlabs/charon";
+import { useCombinedRefs, useResize } from "@synnaxlabs/charon";
 import { canvas } from "@/vis/canvas/aether";
 
 type HTMLDivProps = DetailedHTMLProps<

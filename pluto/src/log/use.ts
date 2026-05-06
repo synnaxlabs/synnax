@@ -12,7 +12,7 @@ import { box, type optional } from "@synnaxlabs/x";
 import { type Dispatch, type SetStateAction, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { Channel } from "@/channel";
 import { log } from "@/log/aether";
 

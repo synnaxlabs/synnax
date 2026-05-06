@@ -18,9 +18,9 @@ import { type breaker, caseconv, migrate, type status } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback, useMemo } from "react";
 import z from "zod";
 
-import { Aether } from "@/aether";
-import { useAsyncEffect, useCombinedStateAndRef } from "@/hooks";
-import { Status } from "@/status/base";
+import { Aether } from "@synnaxlabs/charon";
+import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 
 export interface ContextValue extends synnax.ContextValue {

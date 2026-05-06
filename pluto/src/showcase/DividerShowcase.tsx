@@ -7,10 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Text } from "@/text";
-
+import { Divider } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 import { SubcategorySection } from "./SubcategorySection";
 
 export const DividerShowcase = () => (

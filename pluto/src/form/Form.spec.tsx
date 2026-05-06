@@ -14,7 +14,7 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Form } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 
 const basicFormSchema = z
   .object({

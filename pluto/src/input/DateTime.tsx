@@ -14,22 +14,27 @@ import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
-import { Button } from "@/button";
-import { renderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Numeric } from "@/input/Numeric";
-import { Text as InputText, type TextProps } from "@/input/Text";
-import { type Control } from "@/input/types";
+import {
+  Button,
+  Component,
+  CSS,
+  Dialog,
+  Flex,
+  Icon,
+  Text,
+  Triggers,
+} from "@synnaxlabs/charon";
+import {
+  type Control,
+  Numeric,
+  Text as InputText,
+  type TextProps,
+} from "@synnaxlabs/charon/input";
+import { Text as TelemText } from "@synnaxlabs/charon/telem";
+
 import { List } from "@/list";
 import { Nav } from "@/nav";
 import { Select } from "@/select";
-import { Text as TelemText } from "@/telem/text";
-import { Text } from "@/text";
-import { Triggers } from "@/triggers";
-
 export interface DateTimeProps
   extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
 
@@ -162,7 +167,7 @@ const AIListItem = (props: List.ItemRenderProps<string>): ReactElement => {
   );
 };
 
-const aiListItem = renderProp(AIListItem);
+const aiListItem = Component.renderProp(AIListItem);
 
 interface AISelectorProps {
   value: TimeStamp;
@@ -381,7 +386,7 @@ interface TimeListProps {
   onChange: (next: number) => void;
 }
 
-const timeListItem = renderProp(TimeListItem);
+const timeListItem = Component.renderProp(TimeListItem);
 
 const createTimeList = (count: number): FC<TimeListProps> => {
   const data = Array.from({ length: count }, (_, i) => i);

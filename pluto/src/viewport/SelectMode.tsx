@@ -10,19 +10,18 @@
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@/text";
-import { type Tooltip } from "@/tooltip";
-import { Triggers } from "@/triggers";
-import { type Trigger } from "@/triggers/triggers";
+import { Text } from "@synnaxlabs/charon";
+import { type Tooltip } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;
 
 interface TooltipProps {
   mode: FilteredMode;
-  triggers: Trigger[];
+  triggers: Triggers.Trigger[];
 }
 
 export const TooltipText = ({ mode, triggers }: TooltipProps): ReactElement => (

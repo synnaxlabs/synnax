@@ -10,7 +10,7 @@
 import { alamos } from "@synnaxlabs/alamos";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 
 export const providerStateZ = z.object({
   include: z.string().array().optional(),

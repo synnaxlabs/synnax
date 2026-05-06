@@ -14,13 +14,12 @@ import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";
 import { type z } from "zod";
 
-import { CSS } from "@/css";
-import { Dialog as BaseDialog } from "@/dialog";
+import { CSS } from "@synnaxlabs/charon";
+import { Dialog as BaseDialog } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { SearchInput, type SearchInputProps } from "@/select/SearchInput";
-import { Status } from "@/status/base";
-import { Text } from "@/text";
-
+import { Status } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export interface DialogProps<K extends record.Key>
   extends
     Omit<BaseDialog.DialogProps, "children">,

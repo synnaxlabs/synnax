@@ -10,7 +10,7 @@
 import { type record, type xy } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export type PreviewProps<P extends object = record.Unknown> = P & {
   scale?: number;

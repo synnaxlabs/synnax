@@ -18,10 +18,8 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type text } from "@/text/base";
-import { dimensions as textDimensions } from "@/text/base/dimensions";
-import { type theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
+import { type text, type theming, Theming } from "@synnaxlabs/charon";
+import { dimensions as textDimensions } from "@synnaxlabs/charon/text/base";
 import {
   type FillTextOptions,
   type SugaredOffscreenCanvasRenderingContext2D,
@@ -325,7 +323,7 @@ export class Draw2D {
     spacing = 1,
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
-    const font = fontString(this.theme, { level });
+    const font = Theming.fontString(this.theme, { level });
     const textDims = text.map((t) => textDimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
@@ -339,7 +337,7 @@ export class Draw2D {
       },
 
       (position: xy.XY) => {
-        const font = fontString(this.theme, { level });
+        const font = Theming.fontString(this.theme, { level });
         this.canvas.font = font;
         this.canvas.fillStyle = color.hex(this.theme.colors.text);
         this.canvas.textBaseline = "top";
@@ -389,7 +387,7 @@ export class Draw2D {
   measureCharWidth(level: text.Level): number {
     const cached = this.charWidthCache[level];
     if (cached != null) return cached;
-    this.canvas.font = fontString(this.theme, { level, code: true });
+    this.canvas.font = Theming.fontString(this.theme, { level, code: true });
     const width = this.canvas.measureText("M").width;
     this.charWidthCache[level] = width;
     return width;
@@ -414,7 +412,7 @@ export class Draw2D {
     useAtlas,
     color: colorVal,
   }: DrawTextProps): void {
-    this.canvas.font = fontString(this.theme, { level, weight, code });
+    this.canvas.font = Theming.fontString(this.theme, { level, weight, code });
     if (colorVal != null)
       this.canvas.fillStyle = color.hex(this.resolveColor(colorVal));
     else if (shade == null) this.canvas.fillStyle = color.hex(this.theme.colors.text);

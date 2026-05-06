@@ -9,16 +9,15 @@
 
 import { type CSSProperties, type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { Flex } from "@/flex";
+import { Button } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
+import { Icon } from "@synnaxlabs/charon";
+import { Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
-import { type Text } from "@/text";
-
+import { type Text } from "@synnaxlabs/charon";
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
   borderLeft: "var(--pluto-border-l5)",
 };

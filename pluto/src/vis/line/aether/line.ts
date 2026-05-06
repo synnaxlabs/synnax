@@ -27,9 +27,9 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import FRAG_SHADER from "@/vis/line/aether/frag.glsl?raw";
 import F32_VERT_SHADER from "@/vis/line/aether/vert_f32.glsl?raw";

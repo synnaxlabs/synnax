@@ -10,7 +10,7 @@
 import { array, type record } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
-import { useInitializerRef } from "@/hooks";
+import { useInitializerRef } from "@synnaxlabs/charon";
 import { type FrameProps } from "@/list/Frame";
 
 interface GetItem<

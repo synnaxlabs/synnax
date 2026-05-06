@@ -9,8 +9,7 @@
 
 import { DataType } from "@synnaxlabs/x";
 
-import { Icon } from "@/icon";
-
+import { Icon } from "@synnaxlabs/charon";
 export const resolveDataTypeIcon = (d: DataType): Icon.FC | undefined => {
   if (d.equals(DataType.JSON)) return Icon.JSON;
   if (d.equals(DataType.BYTES)) return Icon.Binary;

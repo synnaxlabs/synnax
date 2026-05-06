@@ -16,8 +16,7 @@ import {
   TimeStamp,
 } from "@synnaxlabs/x";
 
-import { Icon } from "@/icon";
-
+import { Icon } from "@synnaxlabs/charon";
 export const STAGES = ["to_do", "in_progress", "completed"] as const;
 
 export type Stage = (typeof STAGES)[number];

@@ -11,8 +11,8 @@ import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Aether } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { tooltip } from "@/lineplot/tooltip/aether";
 
 export interface TooltipProps
@@ -21,7 +21,7 @@ export interface TooltipProps
     Aether.ComponentProps {}
 
 export const Tooltip = ({ aetherKey, ...rest }: TooltipProps): ReactElement | null => {
-  const cKey = useUniqueKey(aetherKey);
+  const cKey = Key.useUnique(aetherKey);
   const [, , setState] = Aether.use({
     aetherKey: cKey,
     type: tooltip.Tooltip.TYPE,

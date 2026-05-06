@@ -11,7 +11,7 @@ import { type color, type record } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 import { Select } from "@/select";
 

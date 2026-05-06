@@ -9,7 +9,7 @@
 
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 
 export interface ProviderProps extends PropsWithChildren<any> {}

@@ -11,11 +11,10 @@ import { type channel } from "@synnaxlabs/client";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 import { SubcategorySection } from "./SubcategorySection";
 
 const SelectMultiple = () => {

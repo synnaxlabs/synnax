@@ -10,12 +10,12 @@
 import { box, dimensions, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 import { type Config } from "@/schematic/node/general/gauge/config";
 import { type NodeProps } from "@/schematic/node/spec";
-import { type Text } from "@/text";
+import { type Text } from "@synnaxlabs/charon";
 import { Gauge as BaseGauge } from "@/vis/gauge";
 
 const GAUGE_SIZE_MULTIPLIER: Record<Text.Level, number> = {

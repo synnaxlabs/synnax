@@ -11,7 +11,7 @@ import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { useCallback, useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { toggle } from "@/vis/toggle/aether";
 
 export interface UseProps extends Pick<

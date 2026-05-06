@@ -9,7 +9,7 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 import { ColorField } from "@/schematic/node/common/form/Color";
 import { COMMON_TOGGLE_FORM_TABS } from "@/schematic/node/common/form/input";
@@ -20,8 +20,7 @@ import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Toggle } from "@/schematic/node/common/toggle";
 import { type FormProps } from "@/schematic/node/spec";
-import { Tabs } from "@/tabs";
-
+import { Tabs } from "@synnaxlabs/charon";
 interface ToggleFormProps extends FormProps {
   hideInnerOrientation?: boolean;
   omit?: string[];

@@ -10,7 +10,7 @@
 import { type ranger } from "@synnaxlabs/client";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 
-import { Breadcrumb as Base } from "@/breadcrumb";
+import { Breadcrumb as Base } from "@synnaxlabs/charon";
 import { StageIcon } from "@/ranger/StageIcon";
 
 export interface BreadcrumbProps extends Omit<Base.BreadcrumbProps, "children"> {

@@ -22,7 +22,7 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type status } from "@/status/aether";
+import { type status } from "@synnaxlabs/charon";
 import { type CreateOptions } from "@/telem/aether/factory";
 import {
   AbstractSource,

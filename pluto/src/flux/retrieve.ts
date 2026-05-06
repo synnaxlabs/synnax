@@ -21,9 +21,9 @@ import {
   type Result,
   successResult,
 } from "@/flux/result";
-import { useAsyncEffect } from "@/hooks";
-import { useDestructors } from "@/hooks/useDestructors";
-import { useAdder } from "@/status/base/Aggregator";
+import { useAsyncEffect } from "@synnaxlabs/charon";
+import { useDestructors } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 
 export interface RetrieveParams<
@@ -199,7 +199,7 @@ const useObservableBase = <
   const queryRef = useRef<Query | null>(null);
   const store = useStore<ScopedStore>(scope);
   const listeners = useDestructors();
-  const addStatus = useAdder();
+  const addStatus = Status.useAdder();
   const handleListenerChange = useCallback(
     (value: state.SetArg<Data | undefined>) => {
       if (queryRef.current == null) return;

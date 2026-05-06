@@ -11,7 +11,7 @@ import { type ReactElement } from "react";
 
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
-import { text } from "@/text/base";
+import { text } from "@synnaxlabs/charon";
 
 export interface LevelProps extends Omit<Select.ButtonsProps<text.Level>, "keys"> {}
 

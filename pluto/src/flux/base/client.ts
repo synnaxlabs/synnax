@@ -18,7 +18,7 @@ import {
   type StoreConfig,
 } from "@/flux/base/store";
 import { openStreamer as fluxOpenStreamer } from "@/flux/base/streamer";
-import { type status } from "@/status/aether";
+import { type status } from "@synnaxlabs/charon";
 
 interface ClientArgs<ScopedStore extends Store> {
   client: Synnax | null;

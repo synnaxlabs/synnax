@@ -15,8 +15,7 @@ import { Source } from "@/arc/functions/source";
 import { StableFor } from "@/arc/functions/stable";
 import { Status } from "@/arc/functions/status";
 import { type Spec } from "@/arc/functions/types/spec";
-import { Icon } from "@/icon";
-
+import { Icon } from "@synnaxlabs/charon";
 export const REGISTRY: Record<string, Spec<any>> = {
   ...Source.SYMBOLS,
   ...Sink.SYMBOLS,

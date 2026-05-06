@@ -15,7 +15,7 @@ import { OffPageReferenceForm } from "@/schematic/node/general/offPageReference/
 import { Primitive } from "@/schematic/node/general/offPageReference/Primitive";
 import { Symbol } from "@/schematic/node/general/offPageReference/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/offPageReference/config";
 

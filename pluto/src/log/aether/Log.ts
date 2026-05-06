@@ -10,15 +10,15 @@
 import { box, color, type destructor, notation, TimeStamp, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import {
   type LogEntry,
   type LogSource,
   logSourceSpecZ,
 } from "@/log/aether/telem/types";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
-import { theming } from "@/theming/aether";
+import { text } from "@synnaxlabs/charon";
+import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 

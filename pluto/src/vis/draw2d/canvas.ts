@@ -9,7 +9,8 @@
 
 import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/base/dimensions";
+import { dimensionsFromMetrics } from "@synnaxlabs/charon/text/base";
+
 import { applyOverScan } from "@/vis/render/util";
 import { type text } from "@/vis/text";
 

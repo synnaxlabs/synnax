@@ -10,7 +10,7 @@
 import { box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { render } from "@/vis/render";
 
 export const eraserStateZ = z.object({

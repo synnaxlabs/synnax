@@ -11,9 +11,9 @@ import "@/schematic/node/general/setpoint/setpoint.css";
 
 import { type CSSProperties, type ReactElement, useState } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { Input as BaseInput } from "@/input";
+import { Button as BaseButton } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Input as BaseInput } from "@synnaxlabs/charon";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/setpoint/config";

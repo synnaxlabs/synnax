@@ -12,7 +12,7 @@ import { type channel } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement, useEffect, useMemo } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
 
 export interface ControllerProps

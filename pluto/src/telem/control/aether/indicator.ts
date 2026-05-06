@@ -10,7 +10,7 @@
 import { color, status } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 
 export const indicatorStatusDetailsZ = z

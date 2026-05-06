@@ -10,8 +10,8 @@
 import { type xy } from "@synnaxlabs/x";
 import { type FC } from "react";
 
-import { type Tabs } from "@/tabs";
-import { type Theming } from "@/theming";
+import { type Tabs } from "@synnaxlabs/charon";
+import { type Theming } from "@synnaxlabs/charon";
 
 export interface FormProps extends Pick<Tabs.TabsProps, "actions"> {
   schematicKey?: string;

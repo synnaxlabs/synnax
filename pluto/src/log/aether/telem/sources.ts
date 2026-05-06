@@ -24,7 +24,7 @@ import {
   type LogSource,
   type LogSourceSpec,
 } from "@/log/aether/telem/types";
-import { type status } from "@/status/aether";
+import { type status } from "@synnaxlabs/charon";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { AbstractSource } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";

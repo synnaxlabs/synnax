@@ -17,7 +17,7 @@ import {
   useLayoutEffect,
 } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { useContext } from "@/lineplot/LinePlot";
 import { Viewport as Base } from "@/viewport";
 

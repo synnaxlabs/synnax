@@ -16,8 +16,8 @@ import { type Config } from "@/schematic/node/general/value/config";
 import { Primitive } from "@/schematic/node/general/value/Primitive";
 import { type NodeProps } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { Text } from "@synnaxlabs/charon";
+import { Theming } from "@synnaxlabs/charon";
 import { Value as BaseValue } from "@/vis/value";
 
 const VALUE_BACKGROUND_OVERSCAN = xy.construct(10, -3);

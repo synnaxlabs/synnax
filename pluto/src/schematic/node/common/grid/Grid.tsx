@@ -28,11 +28,11 @@ import {
   useState,
 } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { selectNode } from "@/vis/diagram/util";
 
 type DraggableElement = ReactElement<{

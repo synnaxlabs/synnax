@@ -11,10 +11,10 @@ import "@/tree/Item.css";
 
 import { type record } from "@synnaxlabs/x";
 
-import { type Button } from "@/button";
-import { Caret } from "@/caret";
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
+import { type Button } from "@synnaxlabs/charon";
+import { Caret } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 import { useContext } from "@/tree/Context";
 

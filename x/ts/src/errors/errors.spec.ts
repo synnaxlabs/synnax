@@ -149,4 +149,54 @@ describe("errors", () => {
       expect(SubError.matches(e1)).toBe(false);
     });
   });
+
+  describe("ValidationError", () => {
+    it("should construct with the validation type", () => {
+      const e = new errors.ValidationError("bad input");
+      expect(e.type).toEqual("validation");
+      expect(e.message).toEqual("bad input");
+    });
+
+    it("should match itself via the static matcher", () => {
+      const e = new errors.ValidationError("bad input");
+      expect(errors.ValidationError.matches(e)).toBe(true);
+    });
+
+    it("should not match an unrelated typed error", () => {
+      const e = new ErrorOne("nope");
+      expect(errors.ValidationError.matches(e)).toBe(false);
+    });
+  });
+
+  describe("UnexpectedError", () => {
+    it("should construct with the unexpected type and a wrapped message", () => {
+      const e = new errors.UnexpectedError("internal");
+      expect(e.type).toEqual("unexpected");
+      expect(e.message).toContain("Unexpected error encountered");
+      expect(e.message).toContain("internal");
+    });
+
+    it("should match itself via the static matcher", () => {
+      const e = new errors.UnexpectedError("internal");
+      expect(errors.UnexpectedError.matches(e)).toBe(true);
+    });
+  });
+
+  describe("NotFoundError", () => {
+    it("should construct with the not_found type", () => {
+      const e = new errors.NotFoundError("missing key");
+      expect(e.type).toEqual("not_found");
+      expect(e.message).toEqual("missing key");
+    });
+
+    it("should match itself via the static matcher", () => {
+      const e = new errors.NotFoundError("missing key");
+      expect(errors.NotFoundError.matches(e)).toBe(true);
+    });
+
+    it("should not match an UnexpectedError", () => {
+      const e = new errors.UnexpectedError("internal");
+      expect(errors.NotFoundError.matches(e)).toBe(false);
+    });
+  });
 });

@@ -11,7 +11,7 @@ import { Synnax, synnaxParamsZ } from "@synnaxlabs/client";
 import { deep } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 
 const stateZ = z.object({
   props: synnaxParamsZ.nullable(),

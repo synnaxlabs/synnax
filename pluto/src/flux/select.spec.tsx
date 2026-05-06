@@ -12,14 +12,14 @@ import { act, renderHook } from "@testing-library/react";
 import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@synnaxlabs/charon";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { type base } from "@/flux/base";
 import { Client } from "@/flux/base/client";
 import { createSelector } from "@/flux/select";
-import { status } from "@/status/aether";
-import { Status } from "@/status/base";
+import { status } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 

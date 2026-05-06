@@ -12,9 +12,8 @@ import z from "zod/v4";
 
 import { Base, type HandleSpec } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export const configZ = z.object({
   duration: z.number(),
 });

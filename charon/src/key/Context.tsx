@@ -7,9 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
 import { type record } from "@synnaxlabs/x";
 import { type PropsWithChildren } from "react";
+
+import { context } from "@/context";
 
 export const [BaseProvider, baseUse] = context.create<record.Key>({
   displayName: "Key.Context",

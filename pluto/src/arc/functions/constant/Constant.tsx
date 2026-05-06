@@ -11,9 +11,8 @@ import z from "zod/v4";
 
 import { Base } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 const constant = z.object({
   value: z.number(),
 });

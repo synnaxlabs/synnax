@@ -11,8 +11,8 @@ import { useMemoDeepEqual } from "@synnaxlabs/charon";
 import { useEffect } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { text } from "@/text/base";
+import { Aether } from "@synnaxlabs/charon";
+import { text } from "@synnaxlabs/charon";
 import { Value } from "@/vis/value/aether/value";
 
 export const basePropsZ = Value.z

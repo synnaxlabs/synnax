@@ -10,7 +10,7 @@
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Icon } from "@/icon";
+import { type Icon } from "@synnaxlabs/charon";
 import { getStage, STAGE_ICONS } from "@/ranger/stage";
 
 export interface StageIconProps extends Icon.IconProps {

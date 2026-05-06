@@ -10,9 +10,9 @@
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { type Triggers } from "@/triggers";
+import { type Triggers } from "@synnaxlabs/charon";
 import { Viewport as BaseViewport } from "@/viewport";
 import { useContext } from "@/vis/diagram/Context";
 

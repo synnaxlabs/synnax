@@ -9,11 +9,10 @@
 
 import { caseconv } from "@synnaxlabs/x";
 
-import { Button } from "@/button";
-import { Flex } from "@/flex";
+import { Button } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 import { DISPLAY } from "./constants";
 
 interface DisplaySelectorProps {

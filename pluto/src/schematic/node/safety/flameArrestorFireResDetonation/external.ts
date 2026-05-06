@@ -16,7 +16,7 @@ import {
 } from "@/schematic/node/safety/flameArrestorFireResDetonation/config";
 import { Primitive } from "@/schematic/node/safety/flameArrestorFireResDetonation/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/safety/flameArrestorFireResDetonation/config";
 

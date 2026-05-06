@@ -7,6 +7,5 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon } from "@/icon";
-
+import { Icon } from "@synnaxlabs/charon";
 export const CreateIcon = Icon.createComposite(Icon.Range, { topRight: Icon.Add });

@@ -12,7 +12,7 @@ import { type status, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 import { type z } from "zod";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { type control as controlAether } from "@/telem/control/aether";
 import { tooltipMessage } from "@/telem/control/Chip";
 

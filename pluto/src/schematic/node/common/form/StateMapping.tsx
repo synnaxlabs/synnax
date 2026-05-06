@@ -10,16 +10,15 @@
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
+import { Button } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 interface StateMappingFormProps {
   path: string;
   showColor?: boolean;

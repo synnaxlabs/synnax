@@ -12,11 +12,10 @@ import "@/select/Button.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button as BaseButton } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { Button as BaseButton, Triggers } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex, Menu } from "@synnaxlabs/charon";
 import { List } from "@/list";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
 import { Frame, type FrameProps, useItemState } from "@/select/Frame";
 
 export interface ButtonsProps<
@@ -71,7 +70,7 @@ export const Button = <K extends record.Key = record.Key>({
       id={itemKey.toString()}
       onChange={onSelect}
       value={selected}
-      className={CSS(className, selected && CONTEXT_SELECTED, CONTEXT_TARGET)}
+      className={CSS(className, selected && Menu.CONTEXT_SELECTED, Menu.CONTEXT_TARGET)}
     />
   );
 };

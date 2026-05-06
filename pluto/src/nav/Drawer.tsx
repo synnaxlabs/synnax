@@ -12,7 +12,7 @@ import "@/nav/Drawer.css";
 import { type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Errors } from "@/errors";
 import { type BarProps } from "@/nav/Bar";
 import { Resize } from "@/resize";

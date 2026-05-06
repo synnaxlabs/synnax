@@ -9,16 +9,16 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Flex } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { useGridEntry } from "@/lineplot/LinePlot";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { Text } from "@synnaxlabs/charon";
+import { Theming } from "@synnaxlabs/charon";
 
 export type TitleProps = Text.MaybeEditableProps;
 
 export const Title = ({ level = "h2", ...rest }: TitleProps): ReactElement => {
-  const key = useUniqueKey();
+  const key = Key.useUnique();
   const font = Theming.useTypography(level);
   const gridStyle = useGridEntry(
     { key, size: (font.lineHeight + 2) * font.baseSize, loc: "top", order: 10 },

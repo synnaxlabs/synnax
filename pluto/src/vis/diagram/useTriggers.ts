@@ -10,8 +10,7 @@
 import { type xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 type Mode = "copy" | "paste" | "clear" | "all" | "undo" | "redo" | "default";
 
 const CONFIG: Triggers.ModeConfig<Mode> = {

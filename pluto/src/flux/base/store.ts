@@ -18,7 +18,7 @@ import {
 } from "@synnaxlabs/x";
 import type z from "zod";
 
-import { type status } from "@/status/aether";
+import { type status } from "@synnaxlabs/charon";
 
 interface ListenerScope<K extends record.Key> {
   scope: string;

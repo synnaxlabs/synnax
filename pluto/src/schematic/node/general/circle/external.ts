@@ -9,14 +9,13 @@
 
 import { color } from "@synnaxlabs/x";
 
-import { removeProps } from "@/component/removeProps";
+import { Component } from "@synnaxlabs/charon";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/circle/config";
 import { CircleForm } from "@/schematic/node/general/circle/Form";
 import { Primitive } from "@/schematic/node/general/circle/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
-
+import { type Theming } from "@synnaxlabs/charon";
 export * from "@/schematic/node/general/circle/config";
 
 const NAME = "Circle";
@@ -35,7 +34,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: NAME,
   Form: CircleForm,
   Node: Label.createLabeled<Config>(Primitive, { grid: { allowRotate: false } }),
-  Preview: removeProps(Primitive, ["clickable"]),
+  Preview: Component.removeProps(Primitive, ["clickable"]),
   defaultConfig,
   zIndex: 2,
 };

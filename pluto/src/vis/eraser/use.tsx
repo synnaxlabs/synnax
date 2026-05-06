@@ -10,9 +10,9 @@
 import { box } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
-import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { useResize, useSyncedRef } from "@/hooks";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { useResize, useSyncedRef } from "@synnaxlabs/charon";
 import { eraser } from "@/vis/eraser/aether";
 
 export interface UseProps {

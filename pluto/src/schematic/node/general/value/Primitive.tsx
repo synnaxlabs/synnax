@@ -12,12 +12,12 @@ import "@/schematic/node/general/value/value.css";
 import { color, type dimensions } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/value/config";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { Text } from "@synnaxlabs/charon";
+import { Theming } from "@synnaxlabs/charon";
 
 interface RenderProps extends PropsWithChildren<Omit<Config, "label" | "variant">> {
   className?: string;

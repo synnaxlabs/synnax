@@ -25,10 +25,15 @@ export default defineConfig({
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
+        input: path.resolve(".", "src/input/external.ts"),
+        status: path.resolve(".", "src/status/external.ts"),
+        telem: path.resolve(".", "src/telem/external.ts"),
+        "text-base": path.resolve(".", "src/text/base/external.ts"),
+        "theming-base": path.resolve(".", "src/theming/base/external.ts"),
       },
     },
     rolldownOptions: {
-      external: ["@synnaxlabs/x"],
+      external: ["@synnaxlabs/alamos", "@synnaxlabs/media", "@synnaxlabs/x"],
       output: {
         globals: {
           react: "React",

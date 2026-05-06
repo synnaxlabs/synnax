@@ -9,10 +9,7 @@
 
 import { useState } from "react";
 
-import { type Dialog } from "@/dialog";
-import { Flex } from "@/flex";
-import { type Input } from "@/input";
-import { Text as InputText } from "@/input/Text";
+import { type Dialog, Flex, Input } from "@synnaxlabs/charon";
 
 export interface SearchInputProps {
   searchPlaceholder?: string;
@@ -29,7 +26,7 @@ export const SearchInput = ({
 }: SearchInputProps) => {
   const [term, setTerm] = useState<string>("");
   const inputContent = (
-    <InputText
+    <Input.Text
       value={term}
       autoFocus
       placeholder={searchPlaceholder}

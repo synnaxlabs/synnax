@@ -10,9 +10,8 @@
 import { type FC } from "react";
 
 import { Minimal } from "@/arc/functions/Base";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export const createOperator = (
   operator: string,
   single: boolean = false,

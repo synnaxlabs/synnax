@@ -11,7 +11,7 @@ import { type bounds, color, deep, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form } from "@/form";
 import { type Redline, ZERO_READLINE } from "@/vis/value/redline";
 

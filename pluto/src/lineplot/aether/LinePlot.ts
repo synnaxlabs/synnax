@@ -11,12 +11,12 @@ import { type Instrumentation } from "@synnaxlabs/alamos";
 import { type bounds, box, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
 import { XAxis } from "@/lineplot/aether/XAxis";
 import { YAxis } from "@/lineplot/aether/YAxis";
 import { tooltip } from "@/lineplot/tooltip/aether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { grid } from "@/vis/grid";
 import { type FindResult } from "@/vis/line/aether/line";
 import { measure } from "@/vis/measure/aether";

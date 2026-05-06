@@ -10,10 +10,10 @@
 import { type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement, useMemo } from "react";
 
-import { Flex } from "@/flex";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Flex } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { type LineSpec, useContext, useGridEntry } from "@/lineplot/LinePlot";
-import { Text } from "@/text";
+import { Text } from "@synnaxlabs/charon";
 import { Legend as Base } from "@/vis/legend";
 import { Entries, type EntryData } from "@/vis/legend/Entries";
 
@@ -60,7 +60,7 @@ const useGroupData = (lines: LineSpec[]): Base.GroupData[] => {
 const Fixed = ({ onLineChange }: FixedProps): ReactElement | null => {
   const { lines } = useContext("LinePlot.Legend");
   const groups: Base.GroupData[] = useGroupData(lines);
-  const key = useUniqueKey();
+  const key = Key.useUnique();
   const gridStyle = useGridEntry(
     { key, size: lines.length > 0 ? 36 : 0, loc: "top", order: 5 },
     "LinePlot.Legend",

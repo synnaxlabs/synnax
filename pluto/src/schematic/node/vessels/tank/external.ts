@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 
-import { Component } from "@/component";
+import { Component } from "@synnaxlabs/charon";
 import { Border } from "@/schematic/node/common/border";
 import { Label } from "@/schematic/node/common/label";
 import { type Spec } from "@/schematic/node/spec";
@@ -17,7 +17,7 @@ import { type Config, VARIANT } from "@/schematic/node/vessels/tank/config";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
 import { Primitive } from "@/schematic/node/vessels/tank/Primitive";
 import { Symbol } from "@/schematic/node/vessels/tank/Symbol";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/vessels/tank/config";
 

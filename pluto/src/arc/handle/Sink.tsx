@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { Base, type BaseProps } from "@/arc/handle/Base";
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 
 export interface SinkProps extends Omit<BaseProps, "type"> {}
 

@@ -13,7 +13,7 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { type Config, VARIANT } from "@/schematic/node/meters/orifice/config";
 import { Primitive } from "@/schematic/node/meters/orifice/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/meters/orifice/config";
 

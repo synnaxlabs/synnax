@@ -11,7 +11,7 @@ import { color, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
-import { text } from "@/text/base";
+import { text } from "@synnaxlabs/charon";
 
 export const VARIANT = "offPageReference" as const;
 

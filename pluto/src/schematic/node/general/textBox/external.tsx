@@ -15,7 +15,7 @@ import { TextBoxForm } from "@/schematic/node/general/textBox/Form";
 import { Primitive } from "@/schematic/node/general/textBox/Primitive";
 import { Symbol } from "@/schematic/node/general/textBox/Symbol";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/textBox/config";
 

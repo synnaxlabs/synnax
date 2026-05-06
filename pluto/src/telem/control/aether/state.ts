@@ -17,11 +17,11 @@ import {
 import { color, type destructor, observe, unique } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
-import { theming } from "@/theming/aether";
+import { theming } from "@synnaxlabs/charon";
 
 export const stateProviderStateZ = z.object({});
 

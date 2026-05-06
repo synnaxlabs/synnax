@@ -11,12 +11,11 @@ import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/access/role/queries";
-import { Component } from "@/component";
+import { Component } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
 import { List } from "@/list";
 import { Select as Base } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,

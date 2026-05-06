@@ -10,12 +10,12 @@
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 
-import { aetherTest } from "@/aether/test";
+import { aetherTest } from "@synnaxlabs/charon";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
 import { Pluto } from "@/pluto";
-import { status } from "@/status/aether";
-import { Status } from "@/status/base";
+import { status } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 

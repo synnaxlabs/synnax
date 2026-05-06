@@ -19,7 +19,7 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { useSyncedRef } from "@/hooks/ref";
+import { useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import {
   useMultiple,
@@ -27,7 +27,7 @@ import {
   useSingle,
   type UseSingleProps,
 } from "@/select/use";
-import { Store } from "@/store";
+import { Store } from "@synnaxlabs/charon";
 
 interface SelectionState<K extends record.Key = record.Key> {
   value: K | K[] | null | undefined;

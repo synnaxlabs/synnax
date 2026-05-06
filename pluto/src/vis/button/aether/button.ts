@@ -9,7 +9,7 @@
 
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 
 export const MODES = ["fire", "momentary", "pulse"] as const;

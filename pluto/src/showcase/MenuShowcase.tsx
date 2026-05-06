@@ -9,11 +9,10 @@
 
 import { useState } from "react";
 
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Menu } from "@/menu";
-import { Text } from "@/text";
-
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Menu } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 import { SubcategorySection } from "./SubcategorySection";
 
 export const MenuShowcase = () => {

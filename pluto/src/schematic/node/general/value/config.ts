@@ -12,7 +12,7 @@ import { z } from "zod";
 
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
+import { text } from "@synnaxlabs/charon";
 import { redlineZ } from "@/vis/value/redline";
 
 export const VARIANT = "value" as const;

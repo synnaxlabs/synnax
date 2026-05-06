@@ -10,19 +10,17 @@
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 
-import { Aether } from "@/aether";
-import { type RenderProp } from "@/component/renderProp";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Aether, Component } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { useContext, useGridEntry } from "@/lineplot/LinePlot";
 import { range } from "@/lineplot/range/aether";
-import { Menu } from "@/menu";
-
+import { Menu } from "@synnaxlabs/charon";
 export interface ProviderProps extends Aether.ComponentProps {
   visible?: boolean;
   onHasAnnotationsChange?: (hasAnnotations: boolean) => void;
-  menu?: RenderProp<range.SelectedState>;
+  menu?: Component.RenderProp<range.SelectedState>;
 }
 
 export const Provider = ({
@@ -32,7 +30,7 @@ export const Provider = ({
   onHasAnnotationsChange,
   ...rest
 }: ProviderProps): ReactElement => {
-  const cKey = useUniqueKey(aetherKey);
+  const cKey = Key.useUnique(aetherKey);
   const { setViewport, setHold } = useContext("Range.Provider");
   const [, { hovered, count }, setState] = Aether.use({
     aetherKey: cKey,

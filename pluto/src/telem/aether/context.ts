@@ -10,7 +10,7 @@
 import { UnexpectedError } from "@synnaxlabs/client";
 import { array, deep, type destructor, id, type observe } from "@synnaxlabs/x";
 
-import { type aether } from "@/aether/aether";
+import { type aether } from "@synnaxlabs/charon";
 import {
   CompoundFactory,
   type CreateOptions,

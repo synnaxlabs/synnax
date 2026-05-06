@@ -9,15 +9,15 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { Select } from "@/select";
-import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
+import { Tabs } from "@synnaxlabs/charon";
+import { type Text } from "@synnaxlabs/charon";
 import { Value } from "@/vis/value";
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [

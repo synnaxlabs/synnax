@@ -263,3 +263,25 @@ export interface NativePayload {
 
 /** Error for representing a method that is not implemented */
 export class NotImplemented extends createTyped("not_implemented") {}
+
+/** Error raised when a validation check fails. */
+export class ValidationError extends createTyped("validation") {}
+
+/**
+ * Error raised when an unexpected condition is encountered. Indicates a programmer
+ * error or impossible state rather than a recoverable runtime condition.
+ */
+export class UnexpectedError extends createTyped("unexpected") {
+  constructor(message: string) {
+    super(`
+    Unexpected error encountered:
+
+    ${message}
+
+    Please report this to the Synnax team.
+    `);
+  }
+}
+
+/** Error raised when a lookup targets a resource that does not exist. */
+export class NotFoundError extends createTyped("not_found") {}

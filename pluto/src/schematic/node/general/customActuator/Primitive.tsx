@@ -11,7 +11,7 @@ import { type schematic } from "@synnaxlabs/client";
 import { type CrudeTimeSpan } from "@synnaxlabs/x";
 import { type MouseEventHandler, type ReactElement, useRef, useState } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Custom } from "@/schematic/node/common/custom";
 import { Handle } from "@/schematic/node/common/handle";
 import { Toggle } from "@/schematic/node/common/toggle";

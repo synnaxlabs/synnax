@@ -9,9 +9,9 @@
 
 import z from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { base } from "@/flux/base";
-import { useAsyncErrorHandler, useErrorHandler } from "@/status/aether/aggregator";
+import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 
 /** State schema for the flux provider (currently empty) */
@@ -81,8 +81,8 @@ const createProvider = <ScopedStore extends base.Store>(
     return new base.Client<ScopedStore>({
       client: nextClient,
       storeConfig: cfg.storeConfig,
-      handleError: useErrorHandler(ctx),
-      handleAsyncError: useAsyncErrorHandler(ctx),
+      handleError: status.useErrorHandler(ctx),
+      handleAsyncError: status.useAsyncErrorHandler(ctx),
     });
   };
   return class Provider extends aether.Composite<typeof providerStateZ, InternalState> {

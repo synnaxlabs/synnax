@@ -9,7 +9,7 @@
 
 import { color } from "@synnaxlabs/x";
 
-import { removeProps } from "@/component/removeProps";
+import { Component } from "@synnaxlabs/charon";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/polygon/config";
 import { CommonPolygonForm } from "@/schematic/node/general/polygon/Form";
@@ -18,8 +18,7 @@ import {
   Primitive,
 } from "@/schematic/node/general/polygon/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
-
+import { type Theming } from "@synnaxlabs/charon";
 export * from "@/schematic/node/general/polygon/config";
 
 export const defaultConfig = (t: Theming.Theme): Config => ({
@@ -39,7 +38,7 @@ export const spec: Spec<typeof VARIANT, Config> = {
   name: "Polygon",
   Form: CommonPolygonForm,
   Node: Label.createLabeled<Config>(Primitive),
-  Preview: removeProps(Primitive, ["clickable"]),
+  Preview: Component.removeProps(Primitive, ["clickable"]),
   defaultConfig,
   zIndex: 2,
 };

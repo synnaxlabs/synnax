@@ -17,7 +17,7 @@ import {
 } from "@/schematic/node/process/crossBeamAgitator/config";
 import { Primitive } from "@/schematic/node/process/crossBeamAgitator/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/process/crossBeamAgitator/config";
 

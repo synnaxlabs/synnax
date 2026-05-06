@@ -11,7 +11,7 @@ import { type bounds, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 
 const SCALE_BOUNDS: bounds.Bounds = { lower: 5, upper: 1000 };
 const SCALE_DRAG_SCALE: xy.Crude = { x: 0.75, y: 0.5 };

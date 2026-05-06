@@ -11,12 +11,12 @@ import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
-import { Tabs } from "@/tabs";
+import { Tabs } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { Button as BaseButton } from "@/vis/button";

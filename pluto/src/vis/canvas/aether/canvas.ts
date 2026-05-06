@@ -11,7 +11,7 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { box, runtime } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { line } from "@/vis/line/aether";
 import { render } from "@/vis/render";
 

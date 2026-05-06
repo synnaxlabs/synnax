@@ -9,7 +9,7 @@
 
 import { type record } from "@synnaxlabs/x";
 
-import { type Button } from "@/button";
+import { type Button } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useItemState } from "@/select/Frame";
 

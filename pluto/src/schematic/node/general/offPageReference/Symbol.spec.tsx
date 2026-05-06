@@ -13,7 +13,7 @@ import { type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Primitive as OffPageReference } from "@/schematic/node/general/offPageReference/Primitive";
-import { Theming } from "@/theming";
+import { Theming } from "@synnaxlabs/charon";
 
 const ThemeWrapper = ({ children }: PropsWithChildren): ReactElement => (
   <Theming.Provider>{children}</Theming.Provider>

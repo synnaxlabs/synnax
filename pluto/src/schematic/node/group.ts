@@ -9,7 +9,7 @@
 
 import { type group } from "@synnaxlabs/client";
 
-import { type Icon } from "@/icon";
+import { type Icon } from "@synnaxlabs/charon";
 import { GROUP as fittings } from "@/schematic/node/fittings/group";
 import { GROUP as general } from "@/schematic/node/general/group";
 import { GROUP as meters } from "@/schematic/node/meters/group";

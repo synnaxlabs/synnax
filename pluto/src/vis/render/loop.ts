@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 
-import { type status } from "@/status/aether";
+import { type status } from "@synnaxlabs/charon";
 import { type CanvasVariant } from "@/vis/render/context";
 
 /**

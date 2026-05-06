@@ -28,9 +28,9 @@ import {
 } from "@/flux/retrieve";
 import { type UpdateParams } from "@/flux/update";
 import { Form } from "@/form";
-import { useAsyncEffect, useDestructors } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Status } from "@/status/base";
+import { useAsyncEffect, useDestructors } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 
 export interface FormUpdateParams<
@@ -154,7 +154,7 @@ export const createForm =
     const [result, setResult] = useState<Result<undefined>>(
       loadingResult(`retrieving ${name}`),
     );
-    const scope = useUniqueKey(argsScope);
+    const scope = Key.useUnique(argsScope);
     const client = Synnax.use();
     const store = useStore<Store>(scope);
     const listeners = useDestructors();

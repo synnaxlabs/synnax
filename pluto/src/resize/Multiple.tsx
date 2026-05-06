@@ -17,8 +17,8 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Base } from "@/resize/Base";
 
 /** Props for the {@link Resize.Multiple} component. */

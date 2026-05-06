@@ -14,9 +14,9 @@ import { type ReactElement, useCallback } from "react";
 import { Channel } from "@/channel";
 import { Color } from "@/color";
 import { telem } from "@/ether";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 import { Notation } from "@/notation";
 
 interface ValueTelemFormT {

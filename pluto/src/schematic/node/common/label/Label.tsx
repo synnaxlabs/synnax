@@ -18,12 +18,12 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Grid } from "@/schematic/node/common/grid";
 import { type NodeProps } from "@/schematic/node/spec";
-import { Text } from "@/text";
-import { text } from "@/text/base";
+import { Text } from "@synnaxlabs/charon";
+import { text } from "@synnaxlabs/charon";
 
 export const configZ = z.object({
   label: z.string().optional(),

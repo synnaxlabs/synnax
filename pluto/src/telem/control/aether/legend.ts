@@ -11,7 +11,7 @@ import { channel } from "@synnaxlabs/client";
 import { color, control, type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { StateProvider, sugaredStateZ } from "@/telem/control/aether/state";
 
 export const legendStateZ = z.object({

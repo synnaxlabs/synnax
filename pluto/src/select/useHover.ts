@@ -11,11 +11,10 @@ import { state } from "@synnaxlabs/charon";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 
-import { Dialog } from "@/dialog";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { Dialog } from "@synnaxlabs/charon";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 export interface UseHoverProps<K extends record.Key> {
   initialHover?: number;
   data: K[];

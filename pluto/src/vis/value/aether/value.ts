@@ -10,11 +10,11 @@
 import { box, color, location, notation, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { noopColorSourceSpec } from "@/telem/aether/noop";
-import { text } from "@/text/base";
-import { theming } from "@/theming/aether";
+import { text } from "@synnaxlabs/charon";
+import { theming } from "@synnaxlabs/charon";
 import { type Element } from "@/vis/diagram/aether/Diagram";
 import { type FillTextOptions } from "@/vis/draw2d/canvas";
 import { render } from "@/vis/render";

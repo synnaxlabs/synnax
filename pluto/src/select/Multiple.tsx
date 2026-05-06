@@ -11,7 +11,7 @@ import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";
 
-import { Dialog as BaseDialog } from "@/dialog";
+import { Dialog as BaseDialog } from "@synnaxlabs/charon";
 import { type List } from "@/list";
 import { Dialog, type DialogProps } from "@/select/Dialog";
 import { Frame, type MultipleFrameProps } from "@/select/Frame";

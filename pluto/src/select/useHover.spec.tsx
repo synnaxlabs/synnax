@@ -10,11 +10,10 @@
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Dialog } from "@/dialog";
+import { Dialog } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 describe("useHover", () => {
   const renderHover = (
     data: string[],

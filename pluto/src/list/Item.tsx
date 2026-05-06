@@ -12,11 +12,7 @@ import "@/list/Item.css";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { type RenderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { CONTEXT_SELECTED, CONTEXT_TARGET } from "@/menu/types";
-
+import { Button, Component, CSS, Menu, Triggers } from "@synnaxlabs/charon";
 export interface ItemRenderProps<K extends record.Key = record.Key> {
   index: number;
   key: K;
@@ -38,7 +34,7 @@ export type ItemProps<
     hovered?: boolean;
   };
 
-export type ItemRenderProp<K extends record.Key> = RenderProp<ItemRenderProps<K>>;
+export type ItemRenderProp<K extends record.Key> = Component.RenderProp<ItemRenderProps<K>>;
 
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,
@@ -68,8 +64,8 @@ export const Item = <K extends record.Key, E extends Button.ElementType = "div">
     }}
     className={CSS(
       className,
-      CONTEXT_TARGET,
-      selected && CONTEXT_SELECTED,
+      Menu.CONTEXT_TARGET,
+      selected && Menu.CONTEXT_SELECTED,
       hovered && CSS.M("hovered"),
       rightAligned && CSS.M("right-aligned"),
       highlightHovered && CSS.M("highlight-hover"),

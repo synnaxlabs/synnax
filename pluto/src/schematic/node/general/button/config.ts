@@ -10,18 +10,18 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { size as componentSize } from "@/component/size";
+import { Component } from "@synnaxlabs/charon";
 import { Control } from "@/schematic/node/common/control";
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
-import { text } from "@/text/base";
+import { text } from "@synnaxlabs/charon";
 import { Button as ButtonTelem } from "@/vis/button";
 
 export const VARIANT = "button" as const;
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
-  size: componentSize.optional(),
+  size: Component.size.optional(),
   level: text.levelZ.optional(),
   onClickDelay: z.number().optional(),
   sink: telem.booleanSinkSpecZ.optional(),

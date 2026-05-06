@@ -9,18 +9,16 @@
 
 import "@/vis/legend/Container.css";
 
-import { preventDefault, state } from "@synnaxlabs/charon";
+import { Input, preventDefault, state } from "@synnaxlabs/charon";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { type OptionalControl } from "@/input/types";
-
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { useCursorDrag } from "@synnaxlabs/charon";
 export interface ContainerProps
-  extends Omit<Flex.BoxProps, "onChange">, Partial<OptionalControl<sticky.XY>> {
+  extends Omit<Flex.BoxProps, "onChange">, Partial<Input.OptionalControl<sticky.XY>> {
   dragEnabled?: boolean;
   initial?: sticky.XY;
 }
@@ -60,7 +58,7 @@ export const Container = memo(
       const bounds = box.construct(ref.current.parentElement);
       const decimalScale = scale.XY.scale(bounds).scale(TOP_LEFT_DECIMAL);
       const elDecimal = decimalScale.box(box.construct(ref.current));
-      // Clamp the position to the bounds of the parent --along-- with the dimensions
+      // Clamp the position to the bounds of the parent --along-- with the text.dimensions
       // of the element being dragged. This prevents the right and bottom edges from
       // going outside the parent.
       const clampScale = scale.XY.clamp(
@@ -86,7 +84,7 @@ export const Container = memo(
     const handleCursorDragStart = useCursorDrag({
       onStart: useCallback(() => {
         // When we start dragging, we need to re-calculate the sticky position of the
-        // element based on the new dimensions of the parent. This removes strange
+        // element based on the new text.dimensions of the parent. This removes strange
         // 'jumping' behavior when starting to drag.
         if (ref.current == null || ref.current.parentElement == null) return;
         positionRef.current = sticky.toDecimal({

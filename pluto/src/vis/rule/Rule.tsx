@@ -15,14 +15,14 @@ import { type ReactElement, useCallback, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Divider } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { useCursorDrag } from "@synnaxlabs/charon";
 import { LinePlot } from "@/lineplot";
-import { Text } from "@/text";
+import { Text } from "@synnaxlabs/charon";
 import { rule } from "@/vis/rule/aether";
 
 export interface RuleProps

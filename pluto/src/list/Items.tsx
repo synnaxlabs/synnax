@@ -12,8 +12,8 @@ import "@/list/Items.css";
 import { type record } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { useData } from "@/list/Frame";
 import { type ItemRenderProp } from "@/list/Item";
 

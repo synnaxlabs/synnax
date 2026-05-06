@@ -13,7 +13,7 @@ import { Primitive as BasePrimitive } from "@/schematic/node/common/primitive";
 import { type Spec } from "@/schematic/node/spec";
 import { type Config, VARIANT } from "@/schematic/node/valves/electricRegulator/config";
 import { Primitive } from "@/schematic/node/valves/electricRegulator/Primitive";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/valves/electricRegulator/config";
 

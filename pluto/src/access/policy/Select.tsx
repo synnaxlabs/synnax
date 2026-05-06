@@ -12,13 +12,12 @@ import { type ReactElement } from "react";
 
 import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
-import { Component } from "@/component";
+import { Component } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,

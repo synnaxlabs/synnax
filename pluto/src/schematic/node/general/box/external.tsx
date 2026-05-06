@@ -9,14 +9,14 @@
 
 import { color } from "@synnaxlabs/x";
 
-import { Component } from "@/component";
+import { Component } from "@synnaxlabs/charon";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/box/config";
 import { Primitive } from "@/schematic/node/general/box/Primitive";
 import { Symbol } from "@/schematic/node/general/box/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { TankForm } from "@/schematic/node/vessels/tank/Form";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/box/config";
 

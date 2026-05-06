@@ -11,12 +11,11 @@ import { type direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@/input";
+import { type Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { type Text } from "@/text";
-
+import { type Text } from "@synnaxlabs/charon";
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };

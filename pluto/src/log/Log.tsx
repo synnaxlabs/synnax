@@ -12,15 +12,15 @@ import "@/log/Log.css";
 import { box, location, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { type Flex } from "@/flex";
-import { useCombinedRefs } from "@/hooks/ref";
-import { Icon } from "@/icon";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { type Flex } from "@synnaxlabs/charon";
+import { useCombinedRefs } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { use, type UseProps } from "@/log/use";
-import { Menu } from "@/menu";
-import { Status } from "@/status/base";
-import { Triggers } from "@/triggers";
+import { Menu } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 import { Canvas } from "@/vis/canvas";
 
 const COPY_TRIGGER: Triggers.Trigger = ["Control", "C"];

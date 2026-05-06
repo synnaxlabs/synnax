@@ -10,11 +10,11 @@
 import { xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useRef } from "react";
 
-import { Aether } from "@/aether";
-import { useSyncedRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Aether } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { LinePlot } from "@/lineplot";
-import { Triggers } from "@/triggers";
+import { Triggers } from "@synnaxlabs/charon";
 import { type Viewport } from "@/viewport";
 import { measure } from "@/vis/measure/aether";
 
@@ -39,7 +39,7 @@ export const Measure = ({
   mode = "one",
   onModeChange,
 }: MeasureProps): ReactElement => {
-  const cKey = useUniqueKey(aetherKey);
+  const cKey = Key.useUnique(aetherKey);
   const [, state, setState] = Aether.use({
     aetherKey: cKey,
     type: measure.Measure.TYPE,

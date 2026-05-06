@@ -12,8 +12,8 @@ import "@/nav/Bar.css";
 import { direction, location, type spatial } from "@synnaxlabs/x";
 import { type FunctionComponent, type ReactElement } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 
 export interface BarProps extends Omit<Flex.BoxProps, "direction" | "size" | "ref"> {
   location?: location.Crude;

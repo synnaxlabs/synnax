@@ -10,16 +10,15 @@
 import { type rack } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
-import { type Dialog } from "@/dialog";
+import { Component } from "@synnaxlabs/charon";
+import { type Dialog } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { type ListQuery, useList } from "@/rack/queries";
 import { StatusIndicator } from "@/rack/StatusIndicator";
 import { Select } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 export interface SelectSingleProps
   extends
     Omit<Select.SingleFrameProps<rack.Key, rack.Payload | undefined>, "data">,

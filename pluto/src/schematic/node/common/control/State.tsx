@@ -10,8 +10,8 @@
 import { direction, location } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Grid } from "@/schematic/node/common/grid";
 import { telem } from "@/telem/aether";
 import { Control } from "@/telem/control";

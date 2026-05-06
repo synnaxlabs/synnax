@@ -21,12 +21,12 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { flux } from "@/flux/aether";
 import { type ranger as aetherRanger } from "@/ranger/aether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
-import { theming } from "@/theming/aether";
+import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 

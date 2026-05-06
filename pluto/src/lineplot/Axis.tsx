@@ -20,10 +20,10 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { lineplot } from "@/lineplot/aether";
 import {
   baseAxisStateZ,
@@ -31,8 +31,8 @@ import {
   withinSizeThreshold,
 } from "@/lineplot/aether/axis";
 import { useGridEntry } from "@/lineplot/LinePlot";
-import { Text } from "@/text";
-import { Theming } from "@/theming";
+import { Text } from "@synnaxlabs/charon";
+import { Theming } from "@synnaxlabs/charon";
 
 export interface AxisProps
   extends
@@ -74,7 +74,7 @@ export const axisFactory = (dir: direction.Direction): FC<AxisProps> => {
     ...rest
   }: AxisProps): ReactElement => {
     const showLabel = (label?.length ?? 0) > 0;
-    const cKey = useUniqueKey(aetherKey);
+    const cKey = Key.useUnique(aetherKey);
 
     const aetherProps = useMemoDeepEqual({
       location,

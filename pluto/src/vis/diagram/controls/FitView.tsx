@@ -11,9 +11,9 @@ import { location } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import { type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
+import { Button } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 import { diagram } from "@/vis/diagram/aether";
 import { useContext } from "@/vis/diagram/Context";
 

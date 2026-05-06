@@ -11,7 +11,7 @@ import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos"
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { access } from "@/access/aether";
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
@@ -21,12 +21,12 @@ import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { theming } from "@/theming/aether";
+import { theming } from "@synnaxlabs/charon";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";

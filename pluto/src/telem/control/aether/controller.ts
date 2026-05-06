@@ -29,10 +29,10 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
+import { aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
 import { type theming } from "@/ether";
-import { status } from "@/status/aether";
+import { status } from "@synnaxlabs/charon";
 import { synnax } from "@/synnax/aether";
 import { telem } from "@/telem/aether";
 import { AbstractSink } from "@/telem/aether/telem";

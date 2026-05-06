@@ -18,10 +18,10 @@ import {
   xy,
 } from "@synnaxlabs/x";
 
-import { type aether } from "@/aether/aether";
+import { type aether } from "@synnaxlabs/charon";
 import { alamos } from "@/alamos/aether";
-import { CSS } from "@/css";
-import { status } from "@/status/aether";
+import { CSS } from "@synnaxlabs/charon";
+import { status } from "@synnaxlabs/charon";
 import { SugaredOffscreenCanvasRenderingContext2D } from "@/vis/draw2d/canvas";
 import { clear } from "@/vis/render/clear";
 import { Loop } from "@/vis/render/loop";

@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Haul } from "@synnaxlabs/charon";
+import { Component, Haul } from "@synnaxlabs/charon";
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 
-import { Button } from "@/button";
-import { Caret } from "@/caret";
-import { type RenderProp, renderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
-import { Dialog } from "@/dialog";
-import { useSyncedRef } from "@/hooks";
-import { Icon } from "@/icon";
+import { Button } from "@synnaxlabs/charon";
+import { Caret } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Dialog } from "@synnaxlabs/charon";
+import { useSyncedRef } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { useContext, useItemState, useSelection } from "@/select/Frame";
-import { Tag } from "@/tag";
-import { Text } from "@/text";
-
+import { Tag } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export interface MultipleEntry<K extends record.Key> extends record.KeyedNamed<K> {
   icon?: Icon.ReactElement;
   color?: color.Crude;
@@ -65,7 +63,7 @@ const MultipleTag = <K extends record.Key, E extends MultipleEntry<K>>({
   );
 };
 
-const multipleTag = renderProp(MultipleTag);
+const multipleTag = Component.renderProp(MultipleTag);
 
 export interface MultipleTriggerProps<
   K extends record.Key,
@@ -76,7 +74,7 @@ export interface MultipleTriggerProps<
   placeholder?: ReactNode;
   icon?: Icon.ReactElement;
   hideTags?: boolean;
-  children?: RenderProp<MultipleTagProps<K>>;
+  children?: Component.RenderProp<MultipleTagProps<K>>;
   renderIcon?: (entry: unknown) => Icon.ReactElement | undefined;
 }
 
@@ -102,7 +100,7 @@ export const MultipleTrigger = <
   variant = "outlined",
   icon,
   hideTags = false,
-  children = multipleTag as unknown as RenderProp<MultipleTagProps<K>>,
+  children = multipleTag as unknown as Component.RenderProp<MultipleTagProps<K>>,
   renderIcon,
 }: MultipleTriggerProps<K, E>): ReactElement => {
   const value = useSelection<K>();

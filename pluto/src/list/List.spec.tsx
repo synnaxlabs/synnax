@@ -12,11 +12,9 @@ import { render } from "@testing-library/react";
 import { act, useState } from "react";
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Button } from "@/button";
-import { renderProp } from "@/component/renderProp";
+import { Button, Component } from "@synnaxlabs/charon";
 import { List } from "@/list";
-import { mockBoundingClientRect } from "@/testutil/dom";
-
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
 describe("List", () => {
   interface Context {
     virtual: boolean;
@@ -102,7 +100,7 @@ describe("List", () => {
             return undefined;
           }) as List.GetItem<string, record.KeyedNamed<string>>;
           const obs = new observe.Observer<void>();
-          const itemProp = renderProp(({ itemKey }: List.ItemProps<string>) => {
+          const itemProp = Component.renderProp(({ itemKey }: List.ItemProps<string>) => {
             const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
             return <div key={itemKey}>{item?.name}</div>;
           });

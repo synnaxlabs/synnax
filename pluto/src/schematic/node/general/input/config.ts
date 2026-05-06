@@ -10,7 +10,7 @@
 import { color, dimensions } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { size as componentSize } from "@/component/size";
+import { Component } from "@synnaxlabs/charon";
 import { Control } from "@/schematic/node/common/control";
 import { Label } from "@/schematic/node/common/label";
 import { telem } from "@/telem/aether";
@@ -19,7 +19,7 @@ export const VARIANT = "input" as const;
 
 export const configZ = Label.labeledConfigZ.extend({
   variant: z.literal(VARIANT),
-  size: componentSize.optional(),
+  size: Component.size.optional(),
   sink: telem.stringSinkSpecZ.optional(),
   dimensions: dimensions.dimensionsZ.optional(),
   color: color.crudeZ.optional(),

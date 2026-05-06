@@ -9,8 +9,8 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { type Select } from "@/select";
 import { Button, Buttons } from "@/select/Button";
 

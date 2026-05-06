@@ -22,8 +22,9 @@ import {
   useState,
 } from "react";
 
-import { CSS } from "@/css";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
+import { CSS } from "@synnaxlabs/charon";
+import { type Triggers } from "@synnaxlabs/charon";
+import { useCursorDrag } from "@synnaxlabs/charon";
 import { type Base } from "@/schematic/edge/common/base";
 import {
   type Config,
@@ -40,7 +41,6 @@ import {
 } from "@/schematic/edge/common/segmented/connector";
 import { Form } from "@/schematic/edge/common/segmented/Form";
 import { type Edge, type Spec } from "@/schematic/edge/spec";
-import { type Key } from "@/triggers/triggers";
 import { selectNodeBox } from "@/vis/diagram/util";
 
 interface CurrentlyDragging {
@@ -108,7 +108,7 @@ const create = <V extends string>(Path: FC<PathProps>): Edge<Config<V>> => {
 
     const dragStart = useCursorDrag({
       onStart: useCallback(
-        (_: xy.XY, __: Key, e: DragEvent) => {
+        (_: xy.XY, __: Triggers.Key, e: DragEvent) => {
           dragRef.current = {
             index: Number(e.currentTarget.id.split("-")[1]),
             segments: [...segments],

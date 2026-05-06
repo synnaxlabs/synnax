@@ -9,10 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { type Input } from "@/input";
+import { type Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { type Text } from "@/text";
-
+import { type Text } from "@synnaxlabs/charon";
 export const SelectTextLevel = ({
   value,
   onChange,

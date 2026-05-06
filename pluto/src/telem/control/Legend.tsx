@@ -12,14 +12,14 @@ import { UnexpectedError } from "@synnaxlabs/client";
 import { type color, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { control } from "@/telem/control/aether";
 import { useContext } from "@/telem/control/Controller";
-import { Text } from "@/text";
+import { Text } from "@synnaxlabs/charon";
 import { Legend as Base } from "@/vis/legend";
 
 const SUBJECT_NAME_RE = /^(.+)\s*\(([^)]+)\)$/;

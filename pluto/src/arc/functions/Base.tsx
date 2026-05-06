@@ -11,11 +11,10 @@ import { type location } from "@synnaxlabs/x";
 import { type CSSProperties, type FC } from "react";
 
 import { Handle } from "@/arc/handle";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { type Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { type Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export interface HandleSpec {
   key: string;
   Icon: Icon.FC;

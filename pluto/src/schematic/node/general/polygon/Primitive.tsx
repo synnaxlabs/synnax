@@ -10,10 +10,10 @@
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/polygon/config";
-import { Theming } from "@/theming";
+import { Theming } from "@synnaxlabs/charon";
 
 export const DEFAULT_POLYGON_SIDE_LENGTH = 20;
 

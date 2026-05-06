@@ -9,7 +9,7 @@
 
 import { type MouseEventHandler, type ReactElement } from "react";
 
-import { Button as BaseButton } from "@/button";
+import { Button as BaseButton } from "@synnaxlabs/charon";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/button/config";

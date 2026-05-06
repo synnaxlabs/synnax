@@ -13,16 +13,15 @@ import { Logo } from "@synnaxlabs/media";
 import { primitive, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback } from "react";
 
-import { Breadcrumb } from "@/breadcrumb";
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Divider } from "@/divider";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { Breadcrumb } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Divider } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 // NOTE: Import Bar directly to avoid circular dependency (Nav.Drawer -> Errors -> Fallback)
 import { Bar } from "@/nav/Bar";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 /** Props for the error fallback component. */
 export interface FallbackProps extends PropsWithChildren {
   /** The error that was caught. */

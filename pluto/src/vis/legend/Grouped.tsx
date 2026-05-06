@@ -11,9 +11,9 @@ import "@/vis/legend/Grouped.css";
 
 import { Fragment, type ReactElement, useState } from "react";
 
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Text } from "@/text";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntriesProps } from "@/vis/legend/Entries";
 

@@ -35,9 +35,9 @@ import {
 } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
-import { CSS } from "@/css";
-import { useEffectCompare } from "@/hooks";
+import { Aether } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { useEffectCompare } from "@synnaxlabs/charon";
 import { lineplot } from "@/lineplot/aether";
 import { type Viewport } from "@/viewport";
 import { Canvas } from "@/vis/canvas";

@@ -10,7 +10,7 @@
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select as BaseSelect } from "@/select";
 
 export interface SelectProps extends Omit<

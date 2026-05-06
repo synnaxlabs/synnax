@@ -9,7 +9,7 @@
 
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Label } from "@/schematic/node/common/label";
 import { type Config, VARIANT } from "@/schematic/node/general/input/config";
 import { InputForm } from "@/schematic/node/general/input/Form";
@@ -18,7 +18,7 @@ import { Symbol } from "@/schematic/node/general/input/Symbol";
 import { type Spec } from "@/schematic/node/spec";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/general/input/config";
 

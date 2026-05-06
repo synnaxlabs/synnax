@@ -15,7 +15,7 @@ import {
   useUpdateNodeInternals,
 } from "@xyflow/react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 
 export interface BaseProps extends Omit<HandleProps, "position"> {
   location: location.Outer;

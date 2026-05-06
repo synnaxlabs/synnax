@@ -11,7 +11,7 @@ import { status } from "@synnaxlabs/x";
 import { render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Dialog } from "@/dialog";
+import { Dialog } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 
 describe("Select.Dialog", () => {

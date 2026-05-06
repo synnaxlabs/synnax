@@ -13,9 +13,8 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
-import { mockBoundingClientRect } from "@/testutil/dom";
-import { Triggers } from "@/triggers";
-
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 describe("SelectMultipleVariants", () => {
   beforeAll(() => {
     Element.prototype.getBoundingClientRect = mockBoundingClientRect(0, 0, 100, 100);

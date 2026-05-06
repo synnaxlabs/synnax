@@ -11,9 +11,9 @@ import "@/user/Avatar.css";
 
 import { useMemo } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { type Flex } from "@/flex";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { type Flex } from "@synnaxlabs/charon";
 
 const stringToHash = (str: string): number => {
   let hash = 0;

@@ -10,16 +10,15 @@
 import { type label } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
-import { Component } from "@/component";
+import { Component } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { type ListQuery, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Tag } from "@/tag";
-import { Text } from "@/text";
-
+import { Tag } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 const ListItem = ({
   itemKey,
   ...rest

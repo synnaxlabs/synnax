@@ -10,13 +10,12 @@
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useState } from "react";
 
-import { Button } from "@/button";
+import { Button } from "@synnaxlabs/charon";
 import { useRetrieve, useUpdateAlias } from "@/channel/queries";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
-import { Status } from "@/status/base";
-import { Text } from "@/text";
-
+import { Icon } from "@synnaxlabs/charon";
+import { Input } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export interface AliasInputProps extends Input.TextProps {
   channel: channel.Key;
   range?: string;

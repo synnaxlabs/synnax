@@ -9,7 +9,7 @@
 
 import { type ComponentPropsWithRef, type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { type OrientableProps } from "@/schematic/node/common/primitive/orientable";
 
 export interface DivProps

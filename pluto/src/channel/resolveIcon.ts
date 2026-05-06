@@ -10,7 +10,7 @@
 import { channel } from "@synnaxlabs/client";
 import { DataType } from "@synnaxlabs/x";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Telem } from "@/telem";
 
 export const resolveIcon = (ch?: channel.Payload): Icon.FC => {

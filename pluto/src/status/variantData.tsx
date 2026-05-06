@@ -10,13 +10,12 @@
 import { type status } from "@synnaxlabs/x";
 
 import { type Select } from "@/select";
-import { Indicator } from "@/status/base/Indicator";
-
+import { Status } from "@synnaxlabs/charon";
 export const VARIANT_DATA: Select.StaticEntry<status.Variant>[] = [
-  { key: "success", name: "Success", icon: <Indicator variant="success" /> },
-  { key: "error", name: "Error", icon: <Indicator variant="error" /> },
-  { key: "warning", name: "Warning", icon: <Indicator variant="warning" /> },
-  { key: "info", name: "Info", icon: <Indicator variant="info" /> },
-  { key: "loading", name: "Loading", icon: <Indicator variant="loading" /> },
-  { key: "disabled", name: "Disabled", icon: <Indicator variant="disabled" /> },
+  { key: "success", name: "Success", icon: <Status.Indicator variant="success" /> },
+  { key: "error", name: "Error", icon: <Status.Indicator variant="error" /> },
+  { key: "warning", name: "Warning", icon: <Status.Indicator variant="warning" /> },
+  { key: "info", name: "Info", icon: <Status.Indicator variant="info" /> },
+  { key: "loading", name: "Loading", icon: <Status.Indicator variant="loading" /> },
+  { key: "disabled", name: "Disabled", icon: <Status.Indicator variant="disabled" /> },
 ];

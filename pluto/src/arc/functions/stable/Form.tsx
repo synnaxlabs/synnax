@@ -10,7 +10,7 @@
 import { TimeSpan } from "@synnaxlabs/x";
 
 import { Form as Base } from "@/form";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 
 export const Form = () => (
   <Base.Field<number> path="duration">

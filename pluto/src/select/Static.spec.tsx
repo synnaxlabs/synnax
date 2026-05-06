@@ -11,9 +11,9 @@ import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Select } from "@/select";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
 
 interface TestEntry {
   key: string;

@@ -9,8 +9,7 @@
 
 import { color, type dimensions, unique } from "@synnaxlabs/x";
 
-import { dimensionsFromMetrics } from "@/text/base/dimensions";
-
+import { dimensionsFromMetrics } from "@synnaxlabs/charon/text/base";
 export interface AtlasProps {
   font: string;
   textColor: color.Crude;
@@ -27,7 +26,7 @@ const SCALE_FACTOR = 2;
 export class MonospacedAtlas {
   // A canvas buffer that holds rendered characters.
   private readonly atlas: OffscreenCanvas;
-  // Cached dimensions of a character.
+  // Cached text.dimensions of a character.
   private readonly charDims: dimensions.Dimensions;
   // A map of characters to their index in the atlas.
   private readonly charMap: Map<string, number>;

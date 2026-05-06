@@ -9,9 +9,8 @@
 
 import { state } from "@synnaxlabs/charon";
 
-import { Flex } from "@/flex";
-import { Text } from "@/text";
-
+import { Flex } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 import { BreadcrumbShowcase } from "./BreadcrumbShowcase";
 import { ButtonShowcase } from "./ButtonShowcase";
 import { DISPLAY, PADDING_STYLE } from "./constants";

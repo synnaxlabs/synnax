@@ -30,13 +30,13 @@ import {
 } from "react";
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
-import { CSS } from "@/css";
-import { usePrevious } from "@/hooks";
+import { CSS } from "@synnaxlabs/charon";
+import { usePrevious } from "@synnaxlabs/charon";
 import { LinePlot as Base } from "@/lineplot";
 import { Range } from "@/lineplot/range";
 import { Tooltip } from "@/lineplot/tooltip";
 import { telem } from "@/telem/aether";
-import { type Text } from "@/text";
+import { type Text } from "@synnaxlabs/charon";
 import { type Viewport } from "@/viewport";
 import { Measure } from "@/vis/measure";
 import { type measure } from "@/vis/measure/aether";

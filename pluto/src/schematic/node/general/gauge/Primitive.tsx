@@ -11,8 +11,7 @@ import { color } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { type Config } from "@/schematic/node/general/gauge/config";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
 }

@@ -19,9 +19,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import { theming } from "@/theming/aether";
-import { type Theme } from "@/theming/base/theme";
+import { aether, Theming } from "@synnaxlabs/charon";
+import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { type FindResult } from "@/vis/line/aether/line";
 import { render } from "@/vis/render";
@@ -51,7 +50,7 @@ export const measureStateZ = z.object({
 
 interface InternalState {
   renderCtx: render.Context;
-  theme: Theme;
+  theme: Theming.Theme;
   draw: Draw2D;
   dataOne: xy.XY | null;
   dataTwo: xy.XY | null;
@@ -95,9 +94,9 @@ const measureModeText = (mode: Mode): string => {
   return "2";
 };
 
-const xLabelColor = (t: Theme) => t.colors.error.z;
-const yLabelColor = (t: Theme) => t.colors.secondary.z;
-const slopeLabelColor = (t: Theme) => t.colors.gray.l9;
+const xLabelColor = (t: Theming.Theme) => t.colors.error.z;
+const yLabelColor = (t: Theming.Theme) => t.colors.secondary.z;
+const slopeLabelColor = (t: Theming.Theme) => t.colors.gray.l9;
 
 const LABEL_CONTAINER_PADDING = 6;
 const LABEL_CONTAINER_HEIGHT = 14;
@@ -251,7 +250,7 @@ export class Measure extends aether.Leaf<typeof measureStateZ, InternalState> {
     label: string,
     value: string,
     position: xy.XY,
-    labelColor: (t: Theme) => color.Color,
+    labelColor: (t: Theming.Theme) => color.Color,
   ): void {
     const { draw } = this.internal;
     const padding = xy.construct(LABEL_CONTAINER_PADDING);

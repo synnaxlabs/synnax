@@ -9,8 +9,8 @@
 
 import { type ReactElement, useEffect } from "react";
 
-import { type Aether } from "@/aether";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { type Aether } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
 import { useContext } from "@/lineplot/LinePlot";
 import { Line as Base } from "@/vis/line";
 
@@ -26,7 +26,7 @@ export const Line = ({
   visible = true,
   ...rest
 }: LineProps): ReactElement => {
-  const cKey = useUniqueKey(aetherKey);
+  const cKey = Key.useUnique(aetherKey);
   const { setLine, removeLine } = useContext("Line");
   useEffect(() => {
     setLine({ key: cKey, color, label, visible, legendGroup });

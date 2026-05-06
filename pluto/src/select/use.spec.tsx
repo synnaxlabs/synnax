@@ -13,8 +13,7 @@ import { describe, expect, it } from "vitest";
 
 import { List } from "@/list";
 import { Select } from "@/select";
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 interface UseSelectMultipleWrapperReturn {
   value: string[];
   clear: () => void;

@@ -16,7 +16,7 @@ import {
   VARIANT,
 } from "@/schematic/node/valves/electricRegulatorMotorized/config";
 import { Primitive } from "@/schematic/node/valves/electricRegulatorMotorized/Primitive";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/valves/electricRegulatorMotorized/config";
 

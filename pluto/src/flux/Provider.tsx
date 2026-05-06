@@ -11,12 +11,12 @@ import { context } from "@synnaxlabs/charon";
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { type PropsWithChildren, type ReactElement, useMemo, useRef } from "react";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
-import { useInitializerRef } from "@/hooks";
-import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { Status } from "@/status/base";
+import { useInitializerRef } from "@synnaxlabs/charon";
+import { Key } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 
 const [Context, useContext] = context.create<base.Client>({
@@ -28,7 +28,7 @@ export const useStore = <ScopedStore extends flux.Store>(
   scope?: string,
 ): ScopedStore => {
   const client = useContext("Flux.useStore");
-  const uniqueKey = useUniqueKey(scope);
+  const uniqueKey = Key.useUnique(scope);
   return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
 };
 

@@ -9,7 +9,7 @@
 
 import { type MouseEventHandler, type ReactElement } from "react";
 
-import { Input as BaseInput } from "@/input";
+import { Input as BaseInput } from "@synnaxlabs/charon";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Toggle } from "@/schematic/node/common/toggle";

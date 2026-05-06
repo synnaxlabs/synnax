@@ -10,7 +10,7 @@
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 import { Status } from "@/status";
 

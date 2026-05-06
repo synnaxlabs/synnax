@@ -18,9 +18,8 @@ import {
 } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import { theming } from "@/theming/aether";
-import { fontString } from "@/theming/base/fontString";
+import { aether, Theming } from "@synnaxlabs/charon";
+import { theming } from "@synnaxlabs/charon";
 import { axis } from "@/vis/axis";
 import { type TickType } from "@/vis/axis/ticks";
 import { grid } from "@/vis/grid";
@@ -117,7 +116,7 @@ export class BaseAxis<
       dir === "x" ? DEFAULT_Y_BOUND_PADDING : DEFAULT_X_BOUND_PADDING;
     i.base = axis.newCanvas(location, i.render, {
       color: theme.colors.gray.l10,
-      font: fontString(theme, { level: "small", code: true }),
+      font: Theming.fontString(theme, { level: "small", code: true }),
       gridColor: theme.colors.gray.l1,
       ...this.state,
     });

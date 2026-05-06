@@ -16,7 +16,7 @@ import {
 } from "@xyflow/react";
 import { type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { adjust, smart, swap } from "@/schematic/node/common/handle/position";
 
 export interface HandleProps extends Omit<RFHandleProps, "type" | "position"> {

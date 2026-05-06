@@ -9,14 +9,14 @@
 
 import { type ReactElement, useCallback } from "react";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@/input";
+import { type Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Select } from "@/select";
-import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
+import { Tabs } from "@synnaxlabs/charon";
+import { type Text } from "@synnaxlabs/charon";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {

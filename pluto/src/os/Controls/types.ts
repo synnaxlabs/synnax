@@ -9,8 +9,8 @@
 
 import { type runtime } from "@synnaxlabs/x";
 
-import { type Flex } from "@/flex";
-import { type Theming } from "@/theming";
+import { type Flex } from "@synnaxlabs/charon";
+import { type Theming } from "@synnaxlabs/charon";
 
 export type ControlsAction = "close" | "minimize" | "maximize";
 

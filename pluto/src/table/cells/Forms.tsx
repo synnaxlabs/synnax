@@ -11,14 +11,14 @@ import { color } from "@synnaxlabs/x";
 import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form } from "@/form";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
+import { Icon } from "@synnaxlabs/charon";
+import { Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
-import { Tabs } from "@/tabs";
-import { type Text } from "@/text";
+import { Tabs } from "@synnaxlabs/charon";
+import { type Text } from "@synnaxlabs/charon";
 import { Value } from "@/vis/value";
 
 export interface FormProps {

@@ -10,7 +10,7 @@
 import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 describe("resolveDataTypeIcon", () => {

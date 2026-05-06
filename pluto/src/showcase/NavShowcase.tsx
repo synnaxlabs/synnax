@@ -9,12 +9,11 @@
 
 import { useState } from "react";
 
-import { Button } from "@/button";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
+import { Button } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 import { Nav } from "@/nav";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 import { SubcategorySection } from "./SubcategorySection";
 
 export const NavShowcase = () => {

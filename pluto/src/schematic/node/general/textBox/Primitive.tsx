@@ -12,12 +12,11 @@ import "@/schematic/node/general/textBox/textBox.css";
 import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
-import { CSS } from "@/css";
+import { CSS } from "@synnaxlabs/charon";
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/textBox/config";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 interface RenderProps extends Omit<Config, "variant"> {
   className?: string;
   onChange?: (value: string) => void;

@@ -12,10 +12,9 @@ import z from "zod/v4";
 
 import { Base } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { Status } from "@/status";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 export const config = z.object({
   statusKey: z.string(),
   variant: status.variantZ,

@@ -21,19 +21,17 @@ import { type LogEntry } from "@/log/aether/telem/types";
 import { Context as TelemContext } from "@/telem/aether/context";
 import { CompoundFactory } from "@/telem/aether/factory";
 import { TestFactory } from "@/telem/aether/test/factory";
-import { mockRenderContext } from "@/testutil/render";
-import { SYNNAX_DARK, SYNNAX_LIGHT, type Theme, themeZ } from "@/theming/base/theme";
-
+import { mockRenderContext, Theming } from "@synnaxlabs/charon";
 const MockSender = { send: vi.fn() };
 
-const THEME: Theme = themeZ.parse(SYNNAX_DARK);
+const THEME: Theming.Theme = Theming.themeZ.parse(Theming.SYNNAX_DARK);
 
 // DONE: uses registerInstance pattern from telem/aether/test/factory.ts.
 // The test owns the source instance and registers it before afterUpdate runs.
 let testIdCounter = 0;
 const createLogContext = (
   entries: LogEntry[] = [],
-  theme: Theme = THEME,
+  theme: Theming.Theme = THEME,
 ): {
   log: Log;
   source: MockLogSource;
@@ -99,7 +97,7 @@ const setupWithContext = (
   entries: LogEntry[] = [],
   region: box.Box = REGION_500,
   stateOverrides: Record<string, unknown> = {},
-  theme: Theme = THEME,
+  theme: Theming.Theme = THEME,
 ): {
   log: Log;
   source: MockLogSource;
@@ -880,7 +878,7 @@ describe("log/aether/Log", () => {
 
   describe("theme handling", () => {
     it("should work with light theme", () => {
-      const lightTheme = themeZ.parse(SYNNAX_LIGHT);
+      const lightTheme = Theming.themeZ.parse(Theming.SYNNAX_LIGHT);
       const entries = Array.from({ length: 5 }, (_, i) => makeEntry(i));
       const { log } = setupWithContext(entries, REGION_500, {}, lightTheme);
       expect(log.lineHeight).toBeGreaterThan(0);

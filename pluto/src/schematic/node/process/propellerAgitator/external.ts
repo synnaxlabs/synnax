@@ -17,7 +17,7 @@ import {
 } from "@/schematic/node/process/propellerAgitator/config";
 import { Primitive } from "@/schematic/node/process/propellerAgitator/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/process/propellerAgitator/config";
 

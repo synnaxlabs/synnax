@@ -10,11 +10,10 @@
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Input } from "@/input";
-import { Text } from "@/text";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon, Text } from "@synnaxlabs/charon";
 
+import { Input } from "@/input";
 import { SubcategorySection } from "./SubcategorySection";
 
 export interface InputShowcaseTextProps extends optional.Optional<

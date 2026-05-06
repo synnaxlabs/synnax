@@ -12,8 +12,7 @@ import { DataType } from "@synnaxlabs/x";
 import { describe, expect, it } from "vitest";
 
 import { resolveIcon } from "@/channel/resolveIcon";
-import { Icon } from "@/icon";
-
+import { Icon } from "@synnaxlabs/charon";
 describe("resolveIcon", () => {
   it("should return Icon.Channel when no channel is provided", () => {
     expect(resolveIcon()).toBe(Icon.Channel);

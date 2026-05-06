@@ -10,7 +10,7 @@
 import { useCallback } from "react";
 import { type z } from "zod";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { button } from "@/vis/button/aether";
 
 export type Mode = button.Mode;

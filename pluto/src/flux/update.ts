@@ -26,8 +26,8 @@ import {
   resultStatusDetails,
   successResult,
 } from "@/flux/result";
-import { useDebouncedCallback } from "@/hooks";
-import { useAdder } from "@/status/base/Aggregator";
+import { useDebouncedCallback } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
 import { Synnax } from "@/synnax";
 
 export interface UpdateParams<
@@ -211,7 +211,7 @@ const useObservable = <
   } = params;
   const maybeClient = Synnax.use();
   const store = useStore<Store>(scope);
-  const addStatus = useAdder();
+  const addStatus = Status.useAdder();
   const handleUpdate = useDebouncedCallback(
     async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;

@@ -14,14 +14,13 @@ import { box, clamp, color, id, scale } from "@synnaxlabs/x";
 import { type ReactElement, useRef } from "react";
 
 import { Swatch } from "@/color/Swatch";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
-import { useCursorDrag } from "@/hooks/useCursorDrag";
-import { type Input } from "@/input";
-import { Text } from "@/text";
-import { Triggers } from "@/triggers";
-
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
+import { useCursorDrag } from "@synnaxlabs/charon";
+import { type Input } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 interface GradientProps extends Input.Control<color.Stop[]> {
   scale?: scale.Scale<number>;
 }

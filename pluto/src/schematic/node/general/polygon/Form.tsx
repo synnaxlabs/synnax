@@ -9,9 +9,9 @@
 
 import { type ReactElement } from "react";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
-import { type Input } from "@/input";
+import { type Input } from "@synnaxlabs/charon";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 export interface PolygonFormProps {

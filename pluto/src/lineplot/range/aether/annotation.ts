@@ -10,8 +10,8 @@
 import { TimeStamp } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import { theming } from "@/theming/aether";
+import { aether } from "@synnaxlabs/charon";
+import { theming } from "@synnaxlabs/charon";
 import { Draw2D } from "@/vis/draw2d";
 import { render } from "@/vis/render";
 

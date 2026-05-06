@@ -14,10 +14,9 @@ import z from "zod/v4";
 import { Base } from "@/arc/functions/Base";
 import { type types } from "@/arc/functions/types";
 import { Channel } from "@/channel";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
 export const config = z.object({
   channel: channel.keyZ,
   value: z.number(),

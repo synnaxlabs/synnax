@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { input } from "@/vis/input/aether";
 
 export interface UseProps extends Pick<input.State, "sink"> {

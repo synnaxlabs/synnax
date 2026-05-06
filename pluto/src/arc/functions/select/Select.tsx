@@ -10,9 +10,8 @@
 import { color } from "@synnaxlabs/x";
 
 import { Minimal } from "@/arc/functions/Base";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
 const ORANGE_HEX = color.construct("#FF8A00");
 
 export const Symbol = () => (

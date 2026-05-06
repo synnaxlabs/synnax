@@ -10,12 +10,12 @@
 import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
-import { type RenderProp, renderProp } from "@/component/renderProp";
-import { CSS } from "@/css";
+import { Component } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
-import { Input } from "@/input";
+import { Input } from "@synnaxlabs/charon";
 import { Select } from "@/select";
 
 interface FieldChild<I, O>
@@ -25,19 +25,19 @@ export type FieldProps<I = string | number, O = I> = GetOptions<I> &
   UseFieldOptions<I, O> &
   Omit<Input.ItemProps, "children" | "onChange" | "defaultValue"> & {
     path: string;
-    children?: RenderProp<FieldChild<I, O>>;
+    children?: Component.RenderProp<FieldChild<I, O>>;
     padHelpText?: boolean;
     visible?: boolean | ((state: FieldState<I>, ctx: ContextValue) => boolean);
     hideIfNull?: boolean;
   };
 
-const defaultInput = renderProp((p: Input.TextProps) => <Input.Text {...p} />);
+const defaultInput = Component.renderProp((p: Input.TextProps) => <Input.Text {...p} />);
 
 export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 
 export const Field = <I = string | number, O = I>({
   path,
-  children = defaultInput as unknown as RenderProp<FieldChild<I, O>>,
+  children = defaultInput as unknown as Component.RenderProp<FieldChild<I, O>>,
   label,
   padHelpText = true,
   visible = true,

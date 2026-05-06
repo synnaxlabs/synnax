@@ -10,7 +10,7 @@
 import { type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { Aether } from "@/aether";
+import { Aether } from "@synnaxlabs/charon";
 import { line } from "@/vis/line/aether";
 
 export interface LineProps

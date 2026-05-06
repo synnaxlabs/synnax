@@ -11,16 +11,15 @@ import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useState } from "react";
 
-import { Button } from "@/button";
+import { Button } from "@synnaxlabs/charon";
 import { Color } from "@/color";
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { type Flux } from "@/flux";
 import { Form as Base } from "@/form";
-import { Icon } from "@/icon";
+import { Icon } from "@synnaxlabs/charon";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
 import { Select } from "@/select";
-import { Text } from "@/text";
-
+import { Text } from "@synnaxlabs/charon";
 const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 
 interface RegionControlsProps {

@@ -11,15 +11,14 @@ import { Haul, state } from "@synnaxlabs/charon";
 import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 
-import { type Component } from "@/component";
-import { CSS } from "@/css";
-import { useCombinedStateAndRef, useSyncedRef } from "@/hooks";
+import { type Component } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { Select } from "@/select";
 import { flatten, getNodeShape, type Node, type Shape } from "@/tree/base";
 import { Context } from "@/tree/Context";
-import { Triggers } from "@/triggers";
-
+import { Triggers } from "@synnaxlabs/charon";
 export const HAUL_TYPE = "tree_item";
 
 export interface HaulData {

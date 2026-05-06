@@ -13,7 +13,7 @@ import { useState } from "react";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { Status } from "@/status";
-import { mockBoundingClientRect } from "@/testutil/dom";
+import { mockBoundingClientRect } from "@synnaxlabs/charon";
 
 describe("SelectVariant", () => {
   beforeAll(() => {

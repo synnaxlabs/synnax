@@ -16,7 +16,7 @@ import {
 } from "@/schematic/node/process/heatExchangerGeneral/config";
 import { Primitive } from "@/schematic/node/process/heatExchangerGeneral/Primitive";
 import { type Spec } from "@/schematic/node/spec";
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 
 export * from "@/schematic/node/process/heatExchangerGeneral/config";
 

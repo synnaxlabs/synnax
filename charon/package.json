@@ -14,12 +14,26 @@
     "stylelint": "stylelint \"src/**/*.css\""
   },
   "dependencies": {
+    "@fontsource-variable/inter": "^5.2.8",
+    "@fontsource/geist-mono": "catalog:",
+    "@fontsource/inter": "catalog:",
+    "@synnaxlabs/alamos": "workspace:^",
+    "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
+    "async-mutex": "catalog:",
+    "clsx": "catalog:",
+    "compromise": "catalog:",
+    "compromise-dates": "catalog:",
+    "mathjs": "^15.2.0",
     "react": "catalog:",
+    "react-icons": "catalog:",
+    "use-sync-external-store": "^1.6.0",
     "zod": "catalog:"
   },
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
+    "@testing-library/user-event": "^14.6.1",
+    "@types/use-sync-external-store": "^0.0.6",
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
     "@synnaxlabs/tsconfig": "workspace:^",
@@ -53,6 +67,31 @@
       "types": "./dist/src/index.d.ts",
       "import": "./dist/charon.js",
       "require": "./dist/charon.cjs"
+    },
+    "./input": {
+      "types": "./dist/src/input/external.d.ts",
+      "import": "./dist/input.js",
+      "require": "./dist/input.cjs"
+    },
+    "./status": {
+      "types": "./dist/src/status/external.d.ts",
+      "import": "./dist/status.js",
+      "require": "./dist/status.cjs"
+    },
+    "./telem": {
+      "types": "./dist/src/telem/external.d.ts",
+      "import": "./dist/telem.js",
+      "require": "./dist/telem.cjs"
+    },
+    "./text/base": {
+      "types": "./dist/src/text/base/external.d.ts",
+      "import": "./dist/text-base.js",
+      "require": "./dist/text-base.cjs"
+    },
+    "./theming/base": {
+      "types": "./dist/src/theming/base/external.d.ts",
+      "import": "./dist/theming-base.js",
+      "require": "./dist/theming-base.cjs"
     },
     "./dist/*": "./dist/*"
   },

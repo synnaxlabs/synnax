@@ -12,11 +12,10 @@ import "@/rack/StatusIndicator.css";
 import { type rack } from "@synnaxlabs/client";
 import { useEffect, useRef } from "react";
 
-import { CSS } from "@/css";
-import { Icon } from "@/icon";
-import { Status } from "@/status/base";
-import { Tooltip } from "@/tooltip";
-
+import { CSS } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon";
+import { Tooltip } from "@synnaxlabs/charon";
 export interface StatusIndicatorProps {
   status?: rack.Status;
   tooltipLocation?: Tooltip.DialogProps["location"];

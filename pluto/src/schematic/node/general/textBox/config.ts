@@ -10,9 +10,9 @@
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { Flex } from "@/flex";
+import { Flex } from "@synnaxlabs/charon";
 import { Label } from "@/schematic/node/common/label";
-import { text } from "@/text/base";
+import { text } from "@synnaxlabs/charon";
 
 export const VARIANT = "textBox" as const;
 

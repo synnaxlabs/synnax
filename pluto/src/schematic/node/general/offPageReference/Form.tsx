@@ -11,16 +11,16 @@ import { schematic } from "@synnaxlabs/client";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
-import { Component } from "@/component";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
+import { Component } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
 import { Select } from "@/select";
-import { type Text } from "@/text";
-import { Theming } from "@/theming";
+import { type Text } from "@synnaxlabs/charon";
+import { Theming } from "@synnaxlabs/charon";
 import { Workspace } from "@/workspace";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 

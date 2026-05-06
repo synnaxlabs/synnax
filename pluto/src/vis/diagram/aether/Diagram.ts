@@ -10,8 +10,8 @@
 import { box, color, primitive, scale, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
+import { aether } from "@synnaxlabs/charon";
+import { status } from "@synnaxlabs/charon";
 import { render } from "@/vis/render";
 
 export const diagramStateZ = z.object({

@@ -22,9 +22,8 @@ import {
   useSyncExternalStore,
 } from "react";
 
-import { Dialog } from "@/dialog";
-import { useCombinedRefs, usePrevious, useSyncedRef } from "@/hooks";
-
+import { Dialog } from "@synnaxlabs/charon";
+import { useCombinedRefs, usePrevious, useSyncedRef } from "@synnaxlabs/charon";
 /**
  * Function interface for getting items from a list by key(s).
  *

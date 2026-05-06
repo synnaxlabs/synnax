@@ -10,8 +10,8 @@
 import { type destructor } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { aether } from "@/aether/aether";
-import { status } from "@/status/aether";
+import { aether } from "@synnaxlabs/charon";
+import { status } from "@synnaxlabs/charon";
 import { telem } from "@/telem/aether";
 import { type diagram } from "@/vis/diagram/aether";
 

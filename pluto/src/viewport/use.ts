@@ -20,9 +20,8 @@ import {
 } from "react";
 import { z } from "zod";
 
-import { useCombinedStateAndRef, useStateRef } from "@/hooks/ref";
-import { Triggers } from "@/triggers";
-
+import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 export interface UseEvent {
   box: box.Box;
   cursor: xy.XY;

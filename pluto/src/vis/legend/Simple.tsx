@@ -10,7 +10,7 @@
 import { type optional } from "@synnaxlabs/x";
 import { type ReactElement, useState } from "react";
 
-import { type Theming } from "@/theming";
+import { type Theming } from "@synnaxlabs/charon";
 import { Container, type ContainerProps } from "@/vis/legend/Container";
 import { Entries, type EntryData } from "@/vis/legend/Entries";
 

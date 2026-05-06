@@ -9,11 +9,11 @@
 
 import { Fragment, type ReactElement } from "react";
 
-import { Button } from "@/button";
-import { CSS } from "@/css";
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { type Input } from "@/input";
+import { Button } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { type Input } from "@synnaxlabs/charon";
 
 export interface Step {
   key: string;

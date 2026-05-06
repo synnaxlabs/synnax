@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex } from "@/flex";
-import { Icon } from "@/icon";
-import { Text } from "@/text";
-import { Triggers } from "@/triggers";
-
+import { Flex } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon";
+import { Text } from "@synnaxlabs/charon";
+import { Triggers } from "@synnaxlabs/charon";
 import { SubcategorySection } from "./SubcategorySection";
 
 export const TextShowcase = () => (

@@ -9,8 +9,8 @@
 
 import { type optional, type record } from "@synnaxlabs/x";
 
-import { Component } from "@/component";
-import { type Icon } from "@/icon";
+import { Component } from "@synnaxlabs/charon";
+import { type Icon } from "@synnaxlabs/charon";
 import { List } from "@/list";
 import { ListItem } from "@/select/ListItem";
 import { Single, type SingleProps } from "@/select/Single";
