@@ -79,10 +79,6 @@ func (t frameWriterRequestTranslator) Forward(
 	ctx context.Context,
 	msg apifra.WriterRequest,
 ) (*WriterRequest, error) {
-	frm, err := telempb.FrameToPB(msg.Frame.Frame)
-	if err != nil {
-		return nil, err
-	}
 	subj, err := controlpb.SubjectToPB(msg.Config.ControlSubject)
 	if err != nil {
 		return nil, err
@@ -99,9 +95,14 @@ func (t frameWriterRequestTranslator) Forward(
 			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		},
-		Frame: frm,
 	}
-	if r.Buffer, err = t.codec.Encode(ctx, msg.Frame); err != nil {
+	if t.codec != nil && t.codec.Initialized() && !msg.Frame.Empty() {
+		if r.Buffer, err = t.codec.Encode(ctx, msg.Frame); err != nil {
+			return nil, err
+		}
+		return r, nil
+	}
+	if r.Frame, err = telempb.FrameToPB(msg.Frame.Frame); err != nil {
 		return nil, err
 	}
 	return r, nil
@@ -116,10 +117,6 @@ func (t frameWriterRequestTranslator) Backward(
 	}
 	r := apifra.WriterRequest{
 		Command: writer.Command(msg.Command),
-	}
-	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
-	if err != nil {
-		return apifra.WriterRequest{}, err
 	}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
@@ -141,12 +138,19 @@ func (t frameWriterRequestTranslator) Backward(
 			return apifra.WriterRequest{}, err
 		}
 	}
-	r.Frame = frame.Frame{Frame: frm}
 	if t.codec != nil && len(msg.Buffer) > 0 {
-		if r.Frame, err = t.codec.Decode(msg.Buffer); err != nil {
+		fr, err := t.codec.Decode(msg.Buffer)
+		if err != nil {
 			return apifra.WriterRequest{}, err
 		}
+		r.Frame = fr
+		return r, nil
 	}
+	frm, err := telempb.FrameFromPB[channel.Key](msg.Frame)
+	if err != nil {
+		return apifra.WriterRequest{}, err
+	}
+	r.Frame = frame.Frame{Frame: frm}
 	return r, nil
 }
 

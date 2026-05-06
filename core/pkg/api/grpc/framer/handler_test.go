@@ -51,10 +51,48 @@ var _ = Describe("gRPC Framer Translators", func() {
 			}
 			pb := MustSucceed(t.Forward(ctx, req))
 			Expect(pb.Buffer).ToNot(BeEmpty())
+			Expect(pb.Frame).To(BeNil())
 
 			out := MustSucceed(t.Backward(ctx, pb))
 			Expect(channel.Keys(out.Frame.KeysSlice())).To(Equal(keys))
 			Expect(out.Frame.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[int32](1, 2, 3)))
+		})
+
+		It("Should fall back to the protobuf frame when the codec is not initialized", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+
+			t := frameWriterRequestTranslator{codec: cdec}
+			req := apifra.WriterRequest{
+				Command: writer.CommandWrite,
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](4, 5, 6)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, req))
+			Expect(pb.Buffer).To(BeEmpty())
+			Expect(pb.Frame).ToNot(BeNil())
+		})
+
+		It("Should fall back to the protobuf frame when the codec is nil", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			t := frameWriterRequestTranslator{}
+			req := apifra.WriterRequest{
+				Command: writer.CommandWrite,
+				Frame:   frame.NewMulti(keys, []telem.Series{telem.NewSeriesV[int32](7, 8, 9)}),
+			}
+			pb := MustSucceed(t.Forward(ctx, req))
+			Expect(pb.Buffer).To(BeEmpty())
+			Expect(pb.Frame).ToNot(BeNil())
+		})
+
+		It("Should not encode an empty frame into the buffer", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			cdec := codec.NewDynamic(dist.Channel)
+			Expect(cdec.Update(ctx, keys)).To(Succeed())
+
+			t := frameWriterRequestTranslator{codec: cdec}
+			req := apifra.WriterRequest{Command: writer.CommandWrite}
+			pb := MustSucceed(t.Forward(ctx, req))
+			Expect(pb.Buffer).To(BeEmpty())
 		})
 
 		It("Should round-trip a writer response", func(ctx SpecContext) {
