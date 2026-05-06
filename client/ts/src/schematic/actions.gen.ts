@@ -23,6 +23,18 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
+ * SetNodeMeasured updates the rendered pixel size of a node. Emitted by the
+ * renderer after measuring the mounted node and stored on the
+ * node so diagram measurements stay consistent across re-renders.
+ */
+export const setNodeMeasuredPayloadZ = z.object({
+  key: z.string(),
+  measured: spatial.dimensionsZ,
+});
+
+export type SetNodeMeasuredPayload = z.infer<typeof setNodeMeasuredPayloadZ>;
+
+/**
  * SetNode inserts the node if no node with the same key exists, otherwise
  * replaces the existing node in place. If config is non-empty it is
  * stored under the node's key in the schematic configs map.
@@ -82,6 +94,7 @@ export type SetLegendPayload = z.infer<typeof setLegendPayloadZ>;
 
 export const ACTION_TYPES = {
   set_node_position: "set_node_position",
+  set_node_measured: "set_node_measured",
   set_node: "set_node",
   remove_node: "remove_node",
   set_edge: "set_edge",
@@ -95,6 +108,10 @@ export const actionZ = z.discriminatedUnion("type", [
   z.object({
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
+  }),
+  z.object({
+    type: z.literal("set_node_measured"),
+    setNodeMeasured: setNodeMeasuredPayloadZ,
   }),
   z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
@@ -110,6 +127,11 @@ export type Action = z.infer<typeof actionZ>;
 export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
   type: "set_node_position",
   setNodePosition: payload,
+});
+
+export const setNodeMeasured = (payload: SetNodeMeasuredPayload): Action => ({
+  type: "set_node_measured",
+  setNodeMeasured: payload,
 });
 
 export const setNode = (payload: SetNodePayload): Action => ({
@@ -149,6 +171,7 @@ export const setLegend = (payload: SetLegendPayload): Action => ({
 
 export interface Handlers {
   setNodePosition: (state: Schematic, payload: SetNodePositionPayload) => void;
+  setNodeMeasured: (state: Schematic, payload: SetNodeMeasuredPayload) => void;
   setNode: (state: Schematic, payload: SetNodePayload) => void;
   removeNode: (state: Schematic, payload: RemoveNodePayload) => void;
   setEdge: (state: Schematic, payload: SetEdgePayload) => void;
@@ -164,6 +187,9 @@ export const createReducer =
     switch (action.type) {
       case "set_node_position":
         handlers.setNodePosition(state, action.setNodePosition);
+        break;
+      case "set_node_measured":
+        handlers.setNodeMeasured(state, action.setNodeMeasured);
         break;
       case "set_node":
         handlers.setNode(state, action.setNode);

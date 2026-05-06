@@ -14,6 +14,10 @@ const handlers: Handlers = {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node != null) node.position = payload.position;
   },
+  setNodeMeasured: (state, payload) => {
+    const node = state.nodes.find((n) => n.key === payload.key);
+    if (node != null) node.measured = payload.measured;
+  },
   setNode: (state, payload) => {
     const idx = state.nodes.findIndex((n) => n.key === payload.node.key);
     if (idx !== -1) state.nodes[idx] = payload.node;

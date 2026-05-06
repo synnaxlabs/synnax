@@ -19,6 +19,7 @@ import (
 
 const (
 	ActionTypeSetNodePosition = "set_node_position"
+	ActionTypeSetNodeMeasured = "set_node_measured"
 	ActionTypeSetNode         = "set_node"
 	ActionTypeRemoveNode      = "remove_node"
 	ActionTypeSetEdge         = "set_edge"
@@ -32,6 +33,14 @@ const (
 type SetNodePosition struct {
 	Key      string     `json:"key" msgpack:"key"`
 	Position spatial.XY `json:"position" msgpack:"position"`
+}
+
+// SetNodeMeasured updates the rendered pixel size of a node. Emitted by the renderer
+// after measuring the mounted node and stored on the node so diagram measurements stay
+// consistent across re-renders.
+type SetNodeMeasured struct {
+	Key      string             `json:"key" msgpack:"key"`
+	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
 }
 
 // SetNode inserts the node if no node with the same key exists, otherwise replaces the
@@ -79,6 +88,7 @@ type SetLegend struct {
 type Action struct {
 	Type            string           `json:"type" msgpack:"type"`
 	SetNodePosition *SetNodePosition `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
+	SetNodeMeasured *SetNodeMeasured `json:"set_node_measured,omitempty" msgpack:"set_node_measured,omitempty"`
 	SetNode         *SetNode         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
 	RemoveNode      *RemoveNode      `json:"remove_node,omitempty" msgpack:"remove_node,omitempty"`
 	SetEdge         *SetEdge         `json:"set_edge,omitempty" msgpack:"set_edge,omitempty"`
@@ -94,6 +104,8 @@ func (a Action) Reduce(state Schematic) (Schematic, error) {
 	switch a.Type {
 	case ActionTypeSetNodePosition:
 		return a.SetNodePosition.Handle(state)
+	case ActionTypeSetNodeMeasured:
+		return a.SetNodeMeasured.Handle(state)
 	case ActionTypeSetNode:
 		return a.SetNode.Handle(state)
 	case ActionTypeRemoveNode:
@@ -129,6 +141,11 @@ func ReduceAll(state Schematic, actions []Action) (Schematic, error) {
 // NewSetNodePositionAction wraps a SetNodePosition payload in an Action envelope.
 func NewSetNodePositionAction(p SetNodePosition) Action {
 	return Action{Type: ActionTypeSetNodePosition, SetNodePosition: &p}
+}
+
+// NewSetNodeMeasuredAction wraps a SetNodeMeasured payload in an Action envelope.
+func NewSetNodeMeasuredAction(p SetNodeMeasured) Action {
+	return Action{Type: ActionTypeSetNodeMeasured, SetNodeMeasured: &p}
 }
 
 // NewSetNodeAction wraps a SetNode payload in an Action envelope.
