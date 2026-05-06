@@ -138,7 +138,7 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	// for the lifetime of this function. As this function will exit long before the
 	// stream stops processing values, we need to use the underlying server ctx as the
 	// valid context instead of the fiber context itself.
-	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path))
+	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path), true)
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
 	codec, err := s.resolveStreamCodec(headerContentType)
 	if err != nil {

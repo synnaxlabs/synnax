@@ -97,7 +97,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 	fCtx.Set(fiber.HeaderContentType, encoder.ContentType())
 	var res RS
 	oMD, err := s.Exec(
-		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path())),
+		parseRequestCtx(fCtx.RequestCtx(), fCtx, address.Address(fCtx.Path()), false),
 		freighter.FinalizerFunc(func(ctx freighter.Context) (freighter.Context, error) {
 			var req RQ
 			err := decoder.Decode(ctx, fCtx.BodyRaw(), &req)

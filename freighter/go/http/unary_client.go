@@ -143,7 +143,7 @@ func (u *unaryClient[RQ, RS]) Send(
 			httpReq.Header.Set(fiber.HeaderAccept, u.acceptHeader)
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
-			outCtx := parseResponseCtx(httpRes, target)
+			outCtx := parseResponseCtx(httpRes, target, false)
 			if err != nil {
 				return outCtx, err
 			}

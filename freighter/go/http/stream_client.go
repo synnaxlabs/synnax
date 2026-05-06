@@ -101,7 +101,7 @@ func (s *streamClient[RQ, RS]) Stream(
 			conn, res, err := s.dialer.DialContext(
 				ctx, "ws://"+target.String(), mdToHeaders(ctx),
 			)
-			oCtx := parseResponseCtx(res, target)
+			oCtx := parseResponseCtx(res, target, true)
 			if err != nil {
 				return oCtx, err
 			}
