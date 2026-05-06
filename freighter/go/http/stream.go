@@ -61,20 +61,20 @@ const (
 )
 
 func newStreamCore[RQ, RS freighter.Payload](
-	cfg coreConfig,
+	cfg streamCoreConfig,
 	serverShutdownSig <-chan struct{},
 ) streamCore[RQ, RS] {
 	b := streamCore[RQ, RS]{
 		serverShutdownSig:  serverShutdownSig,
 		normalShutdownSig:  make(chan struct{}),
 		successfulShutdown: make(chan struct{}),
-		coreConfig:         cfg,
+		streamCoreConfig:   cfg,
 	}
 	go b.listenForContextCancellation()
 	return b
 }
 
-type coreConfig struct {
+type streamCoreConfig struct {
 	codec encoding.Codec
 	conn  *websocket.Conn
 	alamos.Instrumentation
@@ -88,7 +88,7 @@ type streamCore[I, O freighter.Payload] struct {
 	serverShutdownSig  <-chan struct{}
 	normalShutdownSig  chan struct{}
 	successfulShutdown chan struct{}
-	coreConfig
+	streamCoreConfig
 }
 
 func (c *streamCore[I, O]) send(msg WSMessage[O]) error {

@@ -110,7 +110,7 @@ func (s *streamClient[RQ, RS]) Stream(
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
 			}
 			core := newStreamCore[RS, RQ](
-				coreConfig{
+				streamCoreConfig{
 					conn:            conn,
 					codec:           s.codec,
 					Instrumentation: s.Instrumentation,

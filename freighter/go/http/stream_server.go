@@ -164,7 +164,7 @@ func (s *streamServer[RQ, RS]) handleSocket(
 	c *fiberws.Conn,
 ) {
 	stream := &serverStream[RQ, RS]{streamCore: newStreamCore[RQ, RS](
-		coreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
+		streamCoreConfig{writeDeadline: s.writeDeadline, conn: c.Conn, codec: codec},
 		ctx.Done(),
 	)}
 	// Register the stream with the server so it gets gracefully shut down.
