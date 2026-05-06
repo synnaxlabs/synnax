@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import {
-  DataType,
+  type DataType,
   math,
   MultiSeries,
   Series,
@@ -120,12 +120,11 @@ export class Dynamic {
   private allocate(capacity: number, alignment: bigint, start: TimeStamp): Series {
     this.counter++;
     const isVariable = this.props.dataType.isVariable;
-    const isTimestamp = this.props.dataType.equals(DataType.TIMESTAMP);
     return Series.alloc({
       capacity: isVariable ? capacity * VARIABLE_DT_MULTIPLIER : capacity,
       dataType: resolveGLDataType(this.props.dataType),
       timeRange: start.range(TimeStamp.MAX),
-      sampleOffset: isTimestamp ? start.valueOf() : 0,
+      sampleOffset: this.props.dataType.usesBigInt ? start.valueOf() : 0,
       glBufferUsage: "dynamic",
       alignment,
       key: `dynamic-${this.counter}`,

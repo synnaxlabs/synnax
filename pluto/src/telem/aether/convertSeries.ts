@@ -16,9 +16,11 @@ import { DataType, type math, type Series } from "@synnaxlabs/x";
  * offset applied.
  *
  * @param series - The series to convert.
- * @param offset - An optional offset to apply to the series. If the series is a timestamp
- * series, the default offset is applied to the first value in the series. This helps fix
- * issues with reducing precision from uint64s to float32s at high nanosecond values.
+ * @param offset - An optional offset to apply to the series. If the series uses bigint
+ * storage (timestamp, int64, uint64) and no offset is provided, the first sample is used
+ * as the default offset. This preserves precision when narrowing 64-bit integers to
+ * float32, which would otherwise quantize values above 2^53 to multiples of the float32
+ * ULP at that magnitude.
  * @returns The converted series.
  */
 export const convertSeriesToSupportedGL = (
@@ -27,8 +29,7 @@ export const convertSeriesToSupportedGL = (
 ): Series => {
   if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
     return series;
-  if (offset == null && series.dataType.equals(DataType.TIMESTAMP))
-    offset = BigInt(series.data[0]);
+  if (offset == null && series.dataType.usesBigInt) offset = BigInt(series.data[0]);
   return series.convert(DataType.FLOAT32, offset);
 };
 

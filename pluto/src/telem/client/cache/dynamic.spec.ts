@@ -146,6 +146,35 @@ describe("DynamicCache", () => {
         expect(flushed.series[0]).toBe(allocated.series[0]);
         expect(allocated).toHaveLength(6);
       });
+      it("should allocate the buffer with a bigint sampleOffset for bigint data types", () => {
+        const nowTs = TimeStamp.seconds(1);
+        const cache = new Dynamic({
+          dynamicBufferSize: 100,
+          dataType: DataType.INT64,
+          now: () => nowTs,
+        });
+        const ser = new Series({
+          data: [nowTs.valueOf(), nowTs.valueOf() + 1n, nowTs.valueOf() + 2n],
+          dataType: DataType.INT64,
+        });
+        const { allocated } = cache.write(new MultiSeries([ser]));
+        expect(allocated.series).toHaveLength(1);
+        expect(allocated.series[0].sampleOffset).toBe(nowTs.valueOf());
+        expect(allocated.series[0].dataType.equals(DataType.FLOAT32)).toBe(true);
+      });
+      it("should allocate the buffer with a numeric sampleOffset for non-bigint data types", () => {
+        const cache = new Dynamic({
+          dynamicBufferSize: 100,
+          dataType: DataType.FLOAT32,
+        });
+        const ser = new Series({
+          data: new Float32Array([1, 2, 3]),
+          dataType: DataType.FLOAT32,
+        });
+        const { allocated } = cache.write(new MultiSeries([ser]));
+        expect(allocated.series).toHaveLength(1);
+        expect(allocated.series[0].sampleOffset).toBe(0);
+      });
       it("should allocate a buffer properly using a TimeSpan", () => {
         let nowF = () => TimeStamp.seconds(1);
         const now = () => nowF();

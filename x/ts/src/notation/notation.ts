@@ -41,10 +41,16 @@ export type Notation = z.infer<typeof notationZ>;
  * ```
  */
 export const stringifyNumber = (
-  value: number,
+  value: number | bigint,
   precision: number,
   notation: Notation,
 ): string => {
+  // Standard notation on bigint must preserve full integer precision; coercing through
+  // Number() would quantize values above 2^53. All other branches are float-mantissa
+  // truncated by definition, so coercing bigint to number is safe.
+  if (typeof value === "bigint" && notation === "standard")
+    return precision === 0 ? value.toString() : `${value}.${"0".repeat(precision)}`;
+  if (typeof value === "bigint") value = Number(value);
   if (Number.isNaN(value)) return "NaN";
   if (value === Infinity) return "∞";
   if (value === -Infinity) return "-∞";
