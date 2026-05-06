@@ -1,6 +1,7 @@
 packages:
   - alamos/ts
   - arc/ts
+  - charon
   - client/ts
   - configs/**
   - console

@@ -1,0 +1,67 @@
+{
+  "name": "@synnaxlabs/charon",
+  "version": "0.55.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit && vite build",
+    "check-types": "tsc --noEmit",
+    "watch": "vite build --watch",
+    "test": "vitest",
+    "cov": "vitest --coverage",
+    "lint": "eslint",
+    "fix": "eslint --fix",
+    "madge": "madge --circular src",
+    "stylelint": "stylelint \"src/**/*.css\""
+  },
+  "dependencies": {
+    "@synnaxlabs/x": "workspace:^",
+    "react": "catalog:"
+  },
+  "devDependencies": {
+    "@synnaxlabs/eslint-config": "workspace:^",
+    "@synnaxlabs/stylelint-config": "workspace:^",
+    "@synnaxlabs/tsconfig": "workspace:^",
+    "@synnaxlabs/vite-plugin": "workspace:^",
+    "@testing-library/react": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "@vitejs/plugin-react": "catalog:",
+    "@vitest/coverage-v8": "catalog:",
+    "eslint": "catalog:",
+    "jsdom": "catalog:",
+    "madge": "catalog:",
+    "react-dom": "catalog:",
+    "stylelint": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
+  "files": [
+    "dist"
+  ],
+  "main": "./dist/charon.cjs",
+  "module": "./dist/charon.js",
+  "types": "./dist/src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/src/index.d.ts",
+      "import": "./dist/charon.js",
+      "require": "./dist/charon.cjs"
+    },
+    "./dist/*": "./dist/*"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synnaxlabs/synnax.git",
+    "directory": "charon"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/synnaxlabs/synnax/issues"
+  },
+  "homepage": "https://github.com/synnaxlabs/synnax#readme"
+}

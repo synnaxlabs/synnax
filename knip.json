@@ -13,6 +13,10 @@
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
     },
+    "charon": {
+      "entry": ["src/index.ts"],
+      "project": ["src/**/*.{ts,tsx}"]
+    },
     "client/ts": {
       "entry": ["src/index.ts"],
       "project": ["src/**/*.ts"]
