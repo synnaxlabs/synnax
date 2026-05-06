@@ -506,7 +506,9 @@ func (c *Codec) encodeInternal(ctx context.Context, src framer.Frame) error {
 				channel.TryToRetrieveStringer(ctx, c.channels, key),
 			)
 		}
-		if dt != s.DataType {
+		isEquivalent := (dt == telem.Int64T || dt == telem.TimeStampT) &&
+			(s.DataType == telem.Int64T || s.DataType == telem.TimeStampT)
+		if dt != s.DataType && !isEquivalent {
 			return errors.Wrapf(
 				validate.ErrValidation, "data type %s for channel %s does not match series data type %s",
 				dt, channel.TryToRetrieveStringer(ctx, c.channels, key), s.DataType,
