@@ -121,15 +121,16 @@ Schematic struct {
         @doc value "moves a node to a new position."
     }
 
-    action AddNode {
+    action SetNode {
         node   Node
         config record? {
             @ts preserve_case
         }
 
         @doc value """
-            appends a node to the schematic. If config is non-empty it is stored
-            under the node's key in the schematic configs map.
+            inserts the node if no node with the same key exists, otherwise
+            replaces the existing node in place. If config is non-empty it is
+            stored under the node's key in the schematic configs map.
         """
     }
 

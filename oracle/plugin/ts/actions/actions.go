@@ -9,10 +9,11 @@
 
 // Package actions emits a TypeScript discriminated-union action codec for any
 // oracle struct that declares one or more actions. Each action becomes a zod
-// payload schema, an Action union dispatches by literal type, and reduce /
-// reduceAll apply actions to the target struct via immer's produce. The
-// per-action handler functions (handleX) are hand-written in a sibling
-// actions module and imported by name; this plugin does not generate them.
+// payload schema, an Action union dispatches by literal type, and the plugin
+// emits a Handlers interface together with createReducer / createReduceAll
+// factories that bind a caller-provided Handlers object via immer's produce.
+// The per-action handler functions are hand-written and supplied by the
+// caller; this plugin does not generate them.
 package actions
 
 import (
@@ -113,9 +114,6 @@ func (p *Plugin) generateFile(
 	mgr.AddImport("immer", "produce")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
-	for _, action := range form.Actions {
-		mgr.AddImport(sameDir+"/actions", "handle"+lo.PascalCase(action.Name))
-	}
 
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, data); err != nil {
@@ -185,17 +183,28 @@ export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   {{ camelCase .Name }}: payload,
 });
 {{end}}
-export const reduce = (state: {{ .TargetTypeName }}, action: Action): {{ .TargetTypeName }} => {
-  switch (action.type) {
+export interface Handlers {
 {{- range .Actions}}
-    case "{{ .TypeName }}":
-      handle{{ .Name }}(state, action.{{ camelCase .Name }});
-      break;
+  {{ camelCase .Name }}: (state: {{ $.TargetTypeName }}, payload: {{ .Name }}Payload) => void;
 {{- end}}
-  }
-  return state;
-};
+}
 
-export const reduceAll = (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} =>
-  produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
+export const createReducer =
+  (handlers: Handlers) =>
+  (state: {{ .TargetTypeName }}, action: Action): {{ .TargetTypeName }} => {
+    switch (action.type) {
+{{- range .Actions}}
+      case "{{ .TypeName }}":
+        handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
+        break;
+{{- end}}
+    }
+    return state;
+  };
+
+export const createReduceAll = (handlers: Handlers) => {
+  const reduce = createReducer(handlers);
+  return (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} =>
+    produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
+};
 `))

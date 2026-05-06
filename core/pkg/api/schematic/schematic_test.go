@@ -84,10 +84,10 @@ var _ = Describe("api.Service.Dispatch", func() {
 				Key:        s.Key,
 				SessionKey: "sess-1",
 				Actions: []schematic.Action{
-					schematic.NewAddNodeAction(schematic.AddNode{
+					schematic.NewSetNodeAction(schematic.SetNode{
 						Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 					}),
-					schematic.NewAddNodeAction(schematic.AddNode{
+					schematic.NewSetNodeAction(schematic.SetNode{
 						Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 					}),
 					schematic.NewSetEdgeAction(schematic.SetEdge{Edge: schematic.Edge{

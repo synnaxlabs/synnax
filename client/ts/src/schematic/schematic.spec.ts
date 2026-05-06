@@ -194,10 +194,10 @@ describe("Schematic", () => {
       expect(res.nodes[0].position).toEqual({ x: 100, y: 200 });
     });
 
-    test("addNode appends a node and writes its config", async () => {
+    test("setNode inserts a node and writes its config", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.addNode({
+        schematic.setNode({
           node: { key: "n1", position: { x: 1, y: 2 } },
           config: { label: "Pump" },
         }),
@@ -311,8 +311,8 @@ describe("Schematic", () => {
     test("applies a multi-action sequence atomically", async () => {
       const { schem } = await newWorkspaceSchematic(client);
       await client.schematics.dispatch(schem.key, "sess-1", [
-        schematic.addNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
-        schematic.addNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
+        schematic.setNode({ node: { key: "pump", position: { x: 0, y: 0 } } }),
+        schematic.setNode({ node: { key: "valve", position: { x: 100, y: 0 } } }),
         schematic.setEdge({
           edge: {
             key: "e1",

@@ -12,16 +12,6 @@ import { caseconv, control, record, spatial, zod } from "@synnaxlabs/x";
 import { produce } from "immer";
 import { z } from "zod";
 
-import {
-  handleAddNode,
-  handleRemoveEdge,
-  handleRemoveNode,
-  handleSetAuthority,
-  handleSetConfig,
-  handleSetEdge,
-  handleSetLegend,
-  handleSetNodePosition,
-} from "@/schematic/actions";
 import { edgeZ, legendZ, nodeZ, type Schematic } from "@/schematic/types.gen";
 
 /** SetNodePosition moves a node to a new position. */
@@ -33,15 +23,16 @@ export const setNodePositionPayloadZ = z.object({
 export type SetNodePositionPayload = z.infer<typeof setNodePositionPayloadZ>;
 
 /**
- * AddNode appends a node to the schematic. If config is non-empty it is stored
- * under the node's key in the schematic configs map.
+ * SetNode inserts the node if no node with the same key exists, otherwise
+ * replaces the existing node in place. If config is non-empty it is
+ * stored under the node's key in the schematic configs map.
  */
-export const addNodePayloadZ = z.object({
+export const setNodePayloadZ = z.object({
   node: nodeZ,
   config: caseconv.preserveCase(zod.nullToUndefined(record.unknownZ())),
 });
 
-export type AddNodePayload = z.infer<typeof addNodePayloadZ>;
+export type SetNodePayload = z.infer<typeof setNodePayloadZ>;
 
 /** RemoveNode removes a node and any config stored under its key. */
 export const removeNodePayloadZ = z.object({
@@ -91,7 +82,7 @@ export type SetLegendPayload = z.infer<typeof setLegendPayloadZ>;
 
 export const ACTION_TYPES = {
   set_node_position: "set_node_position",
-  add_node: "add_node",
+  set_node: "set_node",
   remove_node: "remove_node",
   set_edge: "set_edge",
   remove_edge: "remove_edge",
@@ -105,7 +96,7 @@ export const actionZ = z.discriminatedUnion("type", [
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
   }),
-  z.object({ type: z.literal("add_node"), addNode: addNodePayloadZ }),
+  z.object({ type: z.literal("set_node"), setNode: setNodePayloadZ }),
   z.object({ type: z.literal("remove_node"), removeNode: removeNodePayloadZ }),
   z.object({ type: z.literal("set_edge"), setEdge: setEdgePayloadZ }),
   z.object({ type: z.literal("remove_edge"), removeEdge: removeEdgePayloadZ }),
@@ -121,9 +112,9 @@ export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
   setNodePosition: payload,
 });
 
-export const addNode = (payload: AddNodePayload): Action => ({
-  type: "add_node",
-  addNode: payload,
+export const setNode = (payload: SetNodePayload): Action => ({
+  type: "set_node",
+  setNode: payload,
 });
 
 export const removeNode = (payload: RemoveNodePayload): Action => ({
@@ -156,35 +147,51 @@ export const setLegend = (payload: SetLegendPayload): Action => ({
   setLegend: payload,
 });
 
-export const reduce = (state: Schematic, action: Action): Schematic => {
-  switch (action.type) {
-    case "set_node_position":
-      handleSetNodePosition(state, action.setNodePosition);
-      break;
-    case "add_node":
-      handleAddNode(state, action.addNode);
-      break;
-    case "remove_node":
-      handleRemoveNode(state, action.removeNode);
-      break;
-    case "set_edge":
-      handleSetEdge(state, action.setEdge);
-      break;
-    case "remove_edge":
-      handleRemoveEdge(state, action.removeEdge);
-      break;
-    case "set_config":
-      handleSetConfig(state, action.setConfig);
-      break;
-    case "set_authority":
-      handleSetAuthority(state, action.setAuthority);
-      break;
-    case "set_legend":
-      handleSetLegend(state, action.setLegend);
-      break;
-  }
-  return state;
-};
+export interface Handlers {
+  setNodePosition: (state: Schematic, payload: SetNodePositionPayload) => void;
+  setNode: (state: Schematic, payload: SetNodePayload) => void;
+  removeNode: (state: Schematic, payload: RemoveNodePayload) => void;
+  setEdge: (state: Schematic, payload: SetEdgePayload) => void;
+  removeEdge: (state: Schematic, payload: RemoveEdgePayload) => void;
+  setConfig: (state: Schematic, payload: SetConfigPayload) => void;
+  setAuthority: (state: Schematic, payload: SetAuthorityPayload) => void;
+  setLegend: (state: Schematic, payload: SetLegendPayload) => void;
+}
 
-export const reduceAll = (state: Schematic, actions: Action[]): Schematic =>
-  produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
+export const createReducer =
+  (handlers: Handlers) =>
+  (state: Schematic, action: Action): Schematic => {
+    switch (action.type) {
+      case "set_node_position":
+        handlers.setNodePosition(state, action.setNodePosition);
+        break;
+      case "set_node":
+        handlers.setNode(state, action.setNode);
+        break;
+      case "remove_node":
+        handlers.removeNode(state, action.removeNode);
+        break;
+      case "set_edge":
+        handlers.setEdge(state, action.setEdge);
+        break;
+      case "remove_edge":
+        handlers.removeEdge(state, action.removeEdge);
+        break;
+      case "set_config":
+        handlers.setConfig(state, action.setConfig);
+        break;
+      case "set_authority":
+        handlers.setAuthority(state, action.setAuthority);
+        break;
+      case "set_legend":
+        handlers.setLegend(state, action.setLegend);
+        break;
+    }
+    return state;
+  };
+
+export const createReduceAll = (handlers: Handlers) => {
+  const reduce = createReducer(handlers);
+  return (state: Schematic, actions: Action[]): Schematic =>
+    produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
+};
