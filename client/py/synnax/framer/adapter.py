@@ -36,10 +36,16 @@ class ReadFrameAdapter:
     def update(self, channels: channel.Params) -> None:
         normal = channel.normalize_params(channels)
         fetched = self.retriever.retrieve(normal.channels)
-        self.codec.update(
-            [ch.key for ch in fetched],
-            [ch.data_type for ch in fetched],
-        )
+        new_keys = [ch.key for ch in fetched]
+        # Only advance the codec when the key set actually changes. The server mirrors
+        # this on the streamer/iterator request paths: an empty or unchanged keys list
+        # does not trigger a codec.Update on the server, so the client must not advance
+        # its seqNum either or the two sides go out of sync (e.g. open_streamer([])
+        # followed by update_channels([k]) — without this guard the client lands on
+        # seqNum=2 while the server is on seqNum=1, and the next frame decodes as
+        # empty).
+        if set(new_keys) != set(self.keys):
+            self.codec.update(new_keys, [ch.data_type for ch in fetched])
 
         if isinstance(normal, channel.NormalizedKeyResult):
             self.__adapter = None
@@ -190,26 +196,32 @@ class WriteFrameAdapter:
     ) -> Frame:
         if isinstance(channels_or_data, (str, channel.Key, channel.Payload)):
             if series is None:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                 but no data.
-                """)
+                """
+                )
             if isinstance(series, list) and len(series) > 1:
                 first = series[0]
                 if not isinstance(first, (float, int)):
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                     Received a single channel {"name" if isinstance(channels_or_data, str) else "key"}
                     but multiple series.
-                    """)
+                    """
+                    )
 
             pld = self.__adapt_ch(channels_or_data)
             return Frame([pld.key], [Series(cast(CrudeSeries, series))])
 
         if isinstance(channels_or_data, list):
             if series is None:
-                raise ValidationError(f"""
+                raise ValidationError(
+                    f"""
                 Received {len(channels_or_data)} channels but no series.
-                """)
+                """
+                )
             series_list: list[CrudeSeries] = (
                 [series]
                 if not isinstance(series, list)
@@ -220,9 +232,11 @@ class WriteFrameAdapter:
             for i, ch in enumerate(channels_or_data):
                 pld = self.__adapt_ch(ch)
                 if i >= len(series_list):
-                    raise ValidationError(f"""
+                    raise ValidationError(
+                        f"""
                     Received {len(channels_or_data)} channels but only {len(series_list)} series.
-                    """)
+                    """
+                    )
                 channels.append(pld.key)
                 o_series.append(Series(series_list[i]))
 
