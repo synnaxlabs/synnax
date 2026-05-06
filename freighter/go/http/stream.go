@@ -13,7 +13,7 @@ import (
 	"context"
 	"time"
 
-	ws "github.com/fasthttp/websocket"
+	"github.com/fasthttp/websocket"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/encoding"
@@ -56,7 +56,7 @@ type WSMessage[P freighter.Payload] struct {
 }
 
 const (
-	contextCancelledCloseCode = ws.CloseGoingAway
+	contextCancelledCloseCode = websocket.CloseGoingAway
 	closeReadWriteDeadline    = 500 * time.Millisecond
 )
 
@@ -76,7 +76,7 @@ func newStreamCore[RQ, RS freighter.Payload](
 
 type coreConfig struct {
 	codec encoding.Codec
-	conn  *ws.Conn
+	conn  *websocket.Conn
 	alamos.Instrumentation
 	writeDeadline time.Duration
 }
@@ -97,7 +97,7 @@ func (c *streamCore[I, O]) send(msg WSMessage[O]) error {
 			return err
 		}
 	}
-	w, err := c.conn.NextWriter(ws.BinaryMessage)
+	w, err := c.conn.NextWriter(websocket.BinaryMessage)
 	if err != nil {
 		return err
 	}
@@ -121,14 +121,14 @@ func (c *streamCore[I, O]) Receive() (I, error) {
 	}
 	msg, err := c.receiveRaw()
 	if err != nil {
-		if ws.IsCloseError(
+		if websocket.IsCloseError(
 			err,
-			ws.CloseNormalClosure,
-			ws.CloseNoStatusReceived,
-			ws.CloseAbnormalClosure,
+			websocket.CloseNormalClosure,
+			websocket.CloseNoStatusReceived,
+			websocket.CloseAbnormalClosure,
 		) {
 			c.peerCloseErr = freighter.EOF
-		} else if ws.IsCloseError(err, contextCancelledCloseCode) {
+		} else if websocket.IsCloseError(err, contextCancelledCloseCode) {
 			c.peerCloseErr = context.Canceled
 		} else {
 			c.peerCloseErr = freighter.ErrStreamClosed
@@ -162,10 +162,10 @@ func (c *streamCore[I, O]) listenForContextCancellation() {
 		return
 	case <-c.serverShutdownSig:
 		if err := c.conn.WriteControl(
-			ws.CloseMessage,
-			ws.FormatCloseMessage(contextCancelledCloseCode, ""),
+			websocket.CloseMessage,
+			websocket.FormatCloseMessage(contextCancelledCloseCode, ""),
 			time.Now().Add(time.Second),
-		); err != nil && !errors.Is(err, ws.ErrCloseSent) {
+		); err != nil && !errors.Is(err, websocket.ErrCloseSent) {
 			c.L.Error("error sending close message: %v \n", zap.Error(err))
 		}
 	}

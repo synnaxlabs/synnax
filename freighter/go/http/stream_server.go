@@ -24,7 +24,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
-	xhttp "github.com/synnaxlabs/x/http"
+	"github.com/synnaxlabs/x/http"
 	"go.uber.org/zap"
 )
 
@@ -71,7 +71,7 @@ func WithAdditionalCodec(
 // WithCodec registers a stateless stream-server codec. The same instance is reused
 // across every connection that negotiates the codec's content type. For codecs that
 // hold per-stream state, use WithAdditionalCodec instead.
-func WithCodec(c xhttp.Codec) StreamServerOption {
+func WithCodec(c http.Codec) StreamServerOption {
 	return WithAdditionalCodec(
 		c.ContentType(),
 		func() encoding.Codec { return c },
