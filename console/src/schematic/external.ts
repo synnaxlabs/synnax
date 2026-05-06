@@ -24,6 +24,7 @@ export * from "@/schematic/Schematic";
 export * from "@/schematic/selectors";
 export * from "@/schematic/slice";
 export * from "@/schematic/toolbar";
+export * from "@/schematic/useCreate";
 
 export const CONTEXT_MENUS: Record<string, Layout.ContextMenuRenderer> = {
   [LAYOUT_TYPE]: ContextMenu,

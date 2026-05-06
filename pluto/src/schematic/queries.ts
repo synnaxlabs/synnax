@@ -346,11 +346,11 @@ export const useAddNode = (resourceKey: string) => {
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
       const spec = Node.resolveSpec(variant);
-      const config = spec.defaultConfig(theme) as record.Unknown & {
-        specKey?: string;
-        label?: { label?: string };
-      };
-      if (specKey != null) {
+      const config = spec.defaultConfig(theme);
+      if (
+        (config.variant == "customActuator" || config.variant === "customStatic") &&
+        specKey != null
+      ) {
         config.specKey = specKey;
         const sym = store.schematicSymbols.get(specKey);
         if (config.label != null && sym != null) config.label.label = sym.name;
@@ -360,7 +360,7 @@ export const useAddNode = (resourceKey: string) => {
         actions: [
           schematic.setNode({
             node: { key, position: position ?? xy.ZERO },
-            config: { ...config, ...(override ?? {}), variant },
+            config: { ...config, ...override, variant },
           }),
         ],
       });

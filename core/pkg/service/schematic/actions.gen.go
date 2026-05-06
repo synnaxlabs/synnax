@@ -67,8 +67,8 @@ type RemoveEdge struct {
 // SetConfig merges the given config fields into the existing config entry for the given
 // node or edge key. Top-level fields present in the payload overwrite existing fields;
 // fields absent from the payload are preserved. When no entry exists yet and the key
-// matches an edge, the new edge's color is inherited from the source node's config (if
-// any) when the payload does not specify a color.
+// matches an edge whose source node carries a color, the source color overrides
+// whatever color (if any) was in the payload.
 type SetConfig struct {
 	Key    string              `json:"key" msgpack:"key"`
 	Config msgpack.EncodedJSON `json:"config" msgpack:"config"`

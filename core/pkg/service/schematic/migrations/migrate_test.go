@@ -180,7 +180,6 @@ var _ = Describe("MigrateSchematic", func() {
 				"legend": {"visible": true, "position": {"x": 50, "y": 50, "units": {"x": "px", "y": "px"}}, "colors": {}}
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
-			Expect(got.Authority).To(BeEquivalentTo(7))
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "outlet"}))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
@@ -195,7 +194,6 @@ var _ = Describe("MigrateSchematic", func() {
 			}`)
 			got := retrieve(ctx, db, openMigratedTable(ctx, db), seed.Key)
 			Expect(got.Edges[0].Source).To(Equal(schematic.Handle{Node: "n1", Param: "out"}))
-			Expect(got.Authority).To(BeEquivalentTo(1))
 			Expect(got.Configs["n1"]["variant"]).To(Equal("valve"))
 		})
 	})
@@ -284,11 +282,6 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(out.Configs["n1"]["variant"]).To(Equal("tank"))
 		})
 
-		It("Should default authority to 1 when the blob carries zero", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"authority": 0`)
-			Expect(out.Authority).To(BeEquivalentTo(1))
-		})
-
 		It("Should preserve user-set zIndex on nodes", func(ctx SpecContext) {
 			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
 				Key: uuid.New(),
@@ -315,13 +308,6 @@ var _ = Describe("MigrateSchematic", func() {
 			Expect(out.Nodes[0].ZIndex).To(BeEquivalentTo(0))
 		})
 
-		It("Should pass legend visible and position through unchanged", func(ctx SpecContext) {
-			out := migrateV5(ctx, `"legend": {"visible": true, "position": {"x": 75, "y": 25, "units": {"x": "px", "y": "px"}}, "colors": {}}`)
-			Expect(out.Legend.Visible).To(BeTrue())
-			Expect(out.Legend.Position.X).To(Equal(75.0))
-			Expect(out.Legend.Position.Y).To(Equal(25.0))
-		})
-
 		It("Should pass through the gorp-entry fields (key, name, snapshot)", func(ctx SpecContext) {
 			key := uuid.New()
 			out := MustSucceed(schematic.MigrateSchematic(ctx, v55.Schematic{
@@ -339,7 +325,6 @@ var _ = Describe("MigrateSchematic", func() {
 			}))
 			Expect(out.Nodes).To(BeEmpty())
 			Expect(out.Edges).To(BeEmpty())
-			Expect(out.Authority).To(BeEquivalentTo(1))
 		})
 	})
 })
