@@ -66,7 +66,6 @@ const resolveItem = (child: ReactNode): ReactElement<ItemProps> | null => {
   if (!(child.type as unknown as Record<symbol, true>)?.[TAG]) return null;
   if (child.type === Item) return child as ReactElement<ItemProps>;
   const rendered = (child.type as (props: unknown) => ReactNode)(child.props);
-  console.log(rendered);
   return isValidElement(rendered) && rendered.type === Item
     ? (rendered as ReactElement<ItemProps>)
     : null;

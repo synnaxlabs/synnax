@@ -13,6 +13,12 @@ import { z } from "zod";
 
 export const VERSION = "0.0.0";
 
+// These schemas are a frozen snapshot of the diagram node/edge/viewport shapes
+// that shipped at state version 0.0.0. Do NOT replace with Diagram.nodeZ /
+// Diagram.edgeZ / Diagram.viewportZ — those references drift with Pluto
+// refactors (the diagram edge reshape on this branch turned `source` from a
+// string into `{node, param}`) and cause migration parsing to reject or drop
+// real historical persisted state.
 export const nodeZ = z.looseObject({
   key: z.string(),
   position: xy.xyZ,

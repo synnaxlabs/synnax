@@ -1,0 +1,2913 @@
+{
+  "control": "released",
+  "controlAcquireTrigger": -1,
+  "edges": [
+    {
+      "key": "reactflow__edge-leJ0XMdhUd61-N55mpAqxtig1",
+      "segments": [
+        { "direction": "x", "length": -142.59375 },
+        { "direction": "y", "length": 51.90625 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -142.59375 },
+          { "direction": "y", "length": 51.90625 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-leJ0XMdhUd61-N55mpAqxtig1",
+      "source": "leJ0XMdhUd6",
+      "sourceHandle": "1",
+      "target": "N55mpAqxtig",
+      "targetHandle": "1"
+    },
+    {
+      "key": "reactflow__edge-8HkrrziwHFu2-N55mpAqxtig4",
+      "segments": [
+        { "direction": "x", "length": 89.09873930950499 },
+        { "direction": "y", "length": -36.08166753759275 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": 89.09873930950499 },
+          { "direction": "y", "length": -36.08166753759275 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-8HkrrziwHFu2-N55mpAqxtig4",
+      "source": "8HkrrziwHFu",
+      "sourceHandle": "2",
+      "target": "N55mpAqxtig",
+      "targetHandle": "4"
+    },
+    {
+      "key": "reactflow__edge-8HkrrziwHFu2-2rRWxC8VmtK1",
+      "segments": [{ "direction": "x", "length": 233.69248930950505 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [{ "direction": "x", "length": 233.69248930950505 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-8HkrrziwHFu2-2rRWxC8VmtK1",
+      "source": "8HkrrziwHFu",
+      "sourceHandle": "2",
+      "target": "2rRWxC8VmtK",
+      "targetHandle": "1"
+    },
+    {
+      "key": "reactflow__edge-2rRWxC8VmtK1-N55mpAqxtig4",
+      "segments": [
+        { "direction": "x", "length": -144.59375 },
+        { "direction": "y", "length": -36.08164204375839 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -144.59375 },
+          { "direction": "y", "length": -36.08164204375839 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-2rRWxC8VmtK1-N55mpAqxtig4",
+      "source": "2rRWxC8VmtK",
+      "sourceHandle": "1",
+      "target": "N55mpAqxtig",
+      "targetHandle": "4"
+    },
+    {
+      "key": "reactflow__edge-N55mpAqxtig4-N0ej5631ZHf2",
+      "segments": [
+        { "direction": "y", "length": 36.94351672275033 },
+        { "direction": "x", "length": 97.890625 },
+        { "direction": "y", "length": 112.65023327724967 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "y", "length": 36.94351672275033 },
+          { "direction": "x", "length": 97.890625 },
+          { "direction": "y", "length": 112.65023327724967 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-N55mpAqxtig4-N0ej5631ZHf2",
+      "source": "N55mpAqxtig",
+      "sourceHandle": "4",
+      "target": "N0ej5631ZHf",
+      "targetHandle": "2"
+    },
+    {
+      "key": "reactflow__edge-EFz4TR0P7TH2-8HkrrziwHFu1",
+      "segments": [],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": { "segments": [], "color": "#6877a8", "variant": "pipe" },
+      "id": "reactflow__edge-EFz4TR0P7TH2-8HkrrziwHFu1",
+      "source": "EFz4TR0P7TH",
+      "sourceHandle": "2",
+      "target": "8HkrrziwHFu",
+      "targetHandle": "1"
+    },
+    {
+      "key": "reactflow__edge-hy4uZDdAK9B2-DPj1Hvvts7e7",
+      "segments": [{ "direction": "x", "length": 30.796875 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [{ "direction": "x", "length": 30.796875 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-hy4uZDdAK9B2-DPj1Hvvts7e7",
+      "source": "hy4uZDdAK9B",
+      "sourceHandle": "2",
+      "target": "DPj1Hvvts7e",
+      "targetHandle": "7"
+    },
+    {
+      "key": "reactflow__edge-rBKwmwcXyf91-hy4uZDdAK9B1",
+      "segments": [
+        { "direction": "x", "length": -12.78125 },
+        { "direction": "y", "length": -114.4026658425986 },
+        { "direction": "x", "length": 12 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -12.78125 },
+          { "direction": "y", "length": -114.4026658425986 },
+          { "direction": "x", "length": 12 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-rBKwmwcXyf91-hy4uZDdAK9B1",
+      "source": "rBKwmwcXyf9",
+      "sourceHandle": "1",
+      "target": "hy4uZDdAK9B",
+      "targetHandle": "1"
+    },
+    {
+      "key": "reactflow__edge-O6UJ2hUN0n31-hy4uZDdAK9B1",
+      "segments": [
+        { "direction": "x", "length": -14.921875 },
+        { "direction": "y", "length": -168.4026658425986 },
+        { "direction": "x", "length": 10 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -14.921875 },
+          { "direction": "y", "length": -168.4026658425986 },
+          { "direction": "x", "length": 10 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-O6UJ2hUN0n31-hy4uZDdAK9B1",
+      "source": "O6UJ2hUN0n3",
+      "sourceHandle": "1",
+      "target": "hy4uZDdAK9B",
+      "targetHandle": "1"
+    },
+    {
+      "key": "reactflow__edge-P5fwcfCVkbA3-N55mpAqxtig4",
+      "segments": [{ "direction": "y", "length": -97.97218412235918 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [{ "direction": "y", "length": -97.97218412235918 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-P5fwcfCVkbA3-N55mpAqxtig4",
+      "source": "P5fwcfCVkbA",
+      "sourceHandle": "3",
+      "target": "N55mpAqxtig",
+      "targetHandle": "4"
+    },
+    {
+      "key": "reactflow__edge-Z75hZQ7lGoz4-N55mpAqxtig1",
+      "segments": [{ "direction": "y", "length": 80.79109343557695 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "data": {
+        "segments": [{ "direction": "y", "length": 80.79109343557695 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      },
+      "id": "reactflow__edge-Z75hZQ7lGoz4-N55mpAqxtig1",
+      "source": "Z75hZQ7lGoz",
+      "sourceHandle": "4",
+      "target": "N55mpAqxtig",
+      "targetHandle": "1"
+    },
+    {
+      "key": "xy-edge__urgwRD2Ugyp1-EFz4TR0P7TH1",
+      "segments": [{ "direction": "x", "length": 27.57098747687047 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "urgwRD2Ugyp",
+      "sourceHandle": "1",
+      "target": "EFz4TR0P7TH",
+      "targetHandle": "1",
+      "id": "xy-edge__urgwRD2Ugyp1-EFz4TR0P7TH1",
+      "data": {
+        "segments": [{ "direction": "x", "length": 27.57098747687047 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__urgwRD2Ugyp2-9bRr3bsfINK1",
+      "segments": [
+        { "direction": "x", "length": -45.39061393562247 },
+        { "direction": "y", "length": -15.089852480280172 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "urgwRD2Ugyp",
+      "sourceHandle": "2",
+      "target": "9bRr3bsfINK",
+      "targetHandle": "1",
+      "id": "xy-edge__urgwRD2Ugyp2-9bRr3bsfINK1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -45.39061393562247 },
+          { "direction": "y", "length": -15.089852480280172 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__YnakL0Pyxmh1-0FdBTNPS6Ns1",
+      "segments": [
+        { "direction": "x", "length": -35.88617566189271 },
+        { "direction": "y", "length": -19.23796427755053 }
+      ],
+      "selected": false,
+      "color": "#d5d5d5",
+      "variant": "pipe",
+      "source": "YnakL0Pyxmh",
+      "sourceHandle": "1",
+      "target": "0FdBTNPS6Ns",
+      "targetHandle": "1",
+      "id": "xy-edge__YnakL0Pyxmh1-0FdBTNPS6Ns1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -35.88617566189271 },
+          { "direction": "y", "length": -19.23796427755053 }
+        ],
+        "color": "#d5d5d5",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__IV5SRzMttnc1-f2mid9HljO71",
+      "segments": [{ "direction": "x", "length": 16.00000300669103 }],
+      "selected": false,
+      "color": "#d5d5d5",
+      "variant": "pipe",
+      "source": "IV5SRzMttnc",
+      "sourceHandle": "1",
+      "target": "f2mid9HljO7",
+      "targetHandle": "1",
+      "id": "xy-edge__IV5SRzMttnc1-f2mid9HljO71",
+      "data": {
+        "segments": [{ "direction": "x", "length": 16.00000300669103 }],
+        "color": "#d5d5d5",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__6znJfLXNTnD8-vmtSK7qagFR2",
+      "segments": [{ "direction": "x", "length": 21.992182474530637 }],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "6znJfLXNTnD",
+      "sourceHandle": "8",
+      "target": "vmtSK7qagFR",
+      "targetHandle": "2",
+      "id": "xy-edge__6znJfLXNTnD8-vmtSK7qagFR2",
+      "data": {
+        "segments": [{ "direction": "x", "length": 21.992182474530637 }],
+        "color": "#6877a8",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__vmtSK7qagFR1-hy4uZDdAK9B1",
+      "segments": [
+        { "direction": "x", "length": 31.847690010844758 },
+        { "direction": "y", "length": 1.1910841574014057 },
+        { "direction": "x", "length": 31.847690010844758 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "vmtSK7qagFR",
+      "sourceHandle": "1",
+      "target": "hy4uZDdAK9B",
+      "targetHandle": "1",
+      "id": "xy-edge__vmtSK7qagFR1-hy4uZDdAK9B1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": 31.847690010844758 },
+          { "direction": "y", "length": 1.1910841574014057 },
+          { "direction": "x", "length": 31.847690010844758 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__vmtSK7qagFR1-oqkbibjviWn1",
+      "segments": [
+        { "direction": "x", "length": 26.27192381970292 },
+        { "direction": "y", "length": -188.99575859598235 },
+        { "direction": "x", "length": 41.423456201986596 }
+      ],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "vmtSK7qagFR",
+      "sourceHandle": "1",
+      "target": "oqkbibjviWn",
+      "targetHandle": "1",
+      "id": "xy-edge__vmtSK7qagFR1-oqkbibjviWn1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": 26.27192381970292 },
+          { "direction": "y", "length": -188.99575859598235 },
+          { "direction": "x", "length": 41.423456201986596 }
+        ],
+        "color": "#6877a8",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__Di6WbVxYd9X1-KOZ7DU3JdB62",
+      "segments": [
+        { "direction": "x", "length": -51.4613294345865 },
+        { "direction": "y", "length": -617.9531830811497 },
+        { "direction": "x", "length": -109.6637672435773 }
+      ],
+      "selected": false,
+      "color": "#303034",
+      "variant": "pipe",
+      "source": "Di6WbVxYd9X",
+      "sourceHandle": "1",
+      "target": "KOZ7DU3JdB6",
+      "targetHandle": "2",
+      "id": "xy-edge__Di6WbVxYd9X1-KOZ7DU3JdB62",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -51.4613294345865 },
+          { "direction": "y", "length": -617.9531830811497 },
+          { "direction": "x", "length": -109.6637672435773 }
+        ],
+        "color": "#303034",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "r5cry9zxhyj",
+      "segments": [
+        { "direction": "x", "length": -55.4613294345865 },
+        { "direction": "y", "length": -695.9531830811497 },
+        { "direction": "x", "length": -109.6637672435773 }
+      ],
+      "selected": false,
+      "color": "#d5d5d5",
+      "variant": "pipe",
+      "sourceHandle": "1",
+      "targetHandle": "2",
+      "id": "r5cry9zxhyj",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -55.4613294345865 },
+          { "direction": "y", "length": -695.9531830811497 },
+          { "direction": "x", "length": -109.6637672435773 }
+        ],
+        "color": "#d5d5d5",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__leJ0XMdhUd62-Di6WbVxYd9X1",
+      "segments": [
+        { "direction": "x", "length": 35.352298866383435 },
+        { "direction": "y", "length": 515.0078220719049 },
+        { "direction": "x", "length": 51.56185308652208 }
+      ],
+      "selected": false,
+      "color": "#303034",
+      "variant": "pipe",
+      "source": "leJ0XMdhUd6",
+      "sourceHandle": "2",
+      "target": "Di6WbVxYd9X",
+      "targetHandle": "1",
+      "id": "xy-edge__leJ0XMdhUd62-Di6WbVxYd9X1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": 35.352298866383435 },
+          { "direction": "y", "length": 515.0078220719049 },
+          { "direction": "x", "length": 51.56185308652208 }
+        ],
+        "color": "#303034",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__Di6WbVxYd9X2-mqsKhaeVBLR1",
+      "segments": [{ "direction": "x", "length": 33.20323756986954 }],
+      "selected": false,
+      "color": "#303034",
+      "variant": "pipe",
+      "source": "Di6WbVxYd9X",
+      "sourceHandle": "2",
+      "target": "mqsKhaeVBLR",
+      "targetHandle": "1",
+      "id": "xy-edge__Di6WbVxYd9X2-mqsKhaeVBLR1",
+      "data": {
+        "segments": [{ "direction": "x", "length": 33.20323756986954 }],
+        "color": "#303034",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__Di6WbVxYd9X1-N0ej5631ZHf1",
+      "segments": [
+        { "direction": "x", "length": -203.0079019529055 },
+        { "direction": "y", "length": -41.13288310706116 }
+      ],
+      "selected": false,
+      "color": "#303034",
+      "variant": "pipe",
+      "source": "Di6WbVxYd9X",
+      "sourceHandle": "1",
+      "target": "N0ej5631ZHf",
+      "targetHandle": "1",
+      "id": "xy-edge__Di6WbVxYd9X1-N0ej5631ZHf1",
+      "data": {
+        "segments": [
+          { "direction": "x", "length": -203.0079019529055 },
+          { "direction": "y", "length": -41.13288310706116 }
+        ],
+        "color": "#303034",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__LhTUfNs12qn2-IV5SRzMttnc2",
+      "segments": [{ "direction": "x", "length": 11.71093247453075 }],
+      "selected": false,
+      "color": "#d5d5d5",
+      "variant": "pipe",
+      "source": "LhTUfNs12qn",
+      "sourceHandle": "2",
+      "target": "IV5SRzMttnc",
+      "targetHandle": "2",
+      "id": "xy-edge__LhTUfNs12qn2-IV5SRzMttnc2",
+      "data": {
+        "segments": [{ "direction": "x", "length": 11.71093247453075 }],
+        "color": "#d5d5d5",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__LhTUfNs12qn1-YnakL0Pyxmh2",
+      "segments": [{ "direction": "x", "length": -39.012214471979746 }],
+      "selected": false,
+      "color": "#d5d5d5",
+      "variant": "pipe",
+      "source": "LhTUfNs12qn",
+      "sourceHandle": "1",
+      "target": "YnakL0Pyxmh",
+      "targetHandle": "2",
+      "id": "xy-edge__LhTUfNs12qn1-YnakL0Pyxmh2",
+      "data": {
+        "segments": [{ "direction": "x", "length": -39.012214471979746 }],
+        "color": "#d5d5d5",
+        "variant": "pipe"
+      }
+    },
+    {
+      "key": "xy-edge__f2mid9HljO72-N55mpAqxtig1",
+      "segments": [],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "f2mid9HljO7",
+      "sourceHandle": "2",
+      "target": "N55mpAqxtig",
+      "targetHandle": "1",
+      "id": "xy-edge__f2mid9HljO72-N55mpAqxtig1",
+      "data": { "segments": [], "color": "#6877a8", "variant": "pipe" }
+    },
+    {
+      "key": "xy-edge__KOZ7DU3JdB61-f2mid9HljO72",
+      "segments": [],
+      "selected": false,
+      "color": "#303034",
+      "variant": "pipe",
+      "source": "KOZ7DU3JdB6",
+      "sourceHandle": "1",
+      "target": "f2mid9HljO7",
+      "targetHandle": "2",
+      "id": "xy-edge__KOZ7DU3JdB61-f2mid9HljO72",
+      "data": { "segments": [], "color": "#303034", "variant": "pipe" }
+    },
+    {
+      "key": "xy-edge__f2mid9HljO72-leJ0XMdhUd61",
+      "segments": [],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "f2mid9HljO7",
+      "sourceHandle": "2",
+      "target": "leJ0XMdhUd6",
+      "targetHandle": "1",
+      "id": "xy-edge__f2mid9HljO72-leJ0XMdhUd61",
+      "data": { "segments": [], "color": "#6877a8", "variant": "pipe" }
+    },
+    {
+      "key": "xy-edge__2rRWxC8VmtK2-6znJfLXNTnD7",
+      "segments": [],
+      "selected": false,
+      "color": "#6877a8",
+      "variant": "pipe",
+      "source": "2rRWxC8VmtK",
+      "sourceHandle": "2",
+      "target": "6znJfLXNTnD",
+      "targetHandle": "7",
+      "id": "xy-edge__2rRWxC8VmtK2-6znJfLXNTnD7",
+      "data": { "segments": [], "color": "#6877a8", "variant": "pipe" }
+    }
+  ],
+  "editable": true,
+  "fitViewOnResize": false,
+  "key": "b325eae4-713e-4d76-8edd-79d3211d68f3",
+  "legend": {
+    "position": { "units": { "x": "px", "y": "px" }, "x": 50, "y": 50 },
+    "visible": false
+  },
+  "nodes": [
+    {
+      "key": "2rRWxC8VmtK",
+      "selected": false,
+      "id": "2rRWxC8VmtK",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 62, "width": 72 },
+      "position": { "x": 906, "y": 857.1910170437584 },
+      "data": {}
+    },
+    {
+      "key": "oqkbibjviWn",
+      "selected": false,
+      "id": "oqkbibjviWn",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 62, "width": 72 },
+      "position": { "x": 1252, "y": 668 },
+      "data": {}
+    },
+    {
+      "key": "N0ej5631ZHf",
+      "selected": false,
+      "id": "N0ej5631ZHf",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 77, "width": 57 },
+      "position": { "x": 820, "y": 1010 },
+      "data": {}
+    },
+    {
+      "key": "hy4uZDdAK9B",
+      "selected": false,
+      "id": "hy4uZDdAK9B",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 62, "width": 72 },
+      "position": { "x": 1248, "y": 857.1910683968955 },
+      "data": {}
+    },
+    {
+      "key": "KHMf7QYiJCY",
+      "selected": false,
+      "id": "KHMf7QYiJCY",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 24, "width": 24 },
+      "position": { "x": 770, "y": 1072 },
+      "data": {}
+    },
+    {
+      "key": "R78yAwfd7V2",
+      "selected": false,
+      "id": "R78yAwfd7V2",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 24, "width": 23 },
+      "position": { "x": 926, "y": 952 },
+      "data": {}
+    },
+    {
+      "key": "8HkrrziwHFu",
+      "selected": false,
+      "id": "8HkrrziwHFu",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 41, "width": 72 },
+      "position": { "x": 600.916885690495, "y": 878.9879175375928 },
+      "data": {}
+    },
+    {
+      "key": "leJ0XMdhUd6",
+      "selected": false,
+      "id": "leJ0XMdhUd6",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 41, "width": 72 },
+      "position": { "x": 904, "y": 590 },
+      "data": {}
+    },
+    {
+      "key": "LhTUfNs12qn",
+      "selected": false,
+      "id": "LhTUfNs12qn",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 41, "width": 72 },
+      "position": { "x": 494, "y": 589.0582053336415 },
+      "data": {}
+    },
+    {
+      "key": "N55mpAqxtig",
+      "selected": false,
+      "id": "N55mpAqxtig",
+      "type": "custom",
+      "zIndex": 2,
+      "measured": { "height": 202, "width": 127 },
+      "position": { "x": 698, "y": 664 },
+      "data": {}
+    },
+    {
+      "key": "6znJfLXNTnD",
+      "selected": false,
+      "id": "6znJfLXNTnD",
+      "type": "custom",
+      "zIndex": 2,
+      "measured": { "height": 77, "width": 77 },
+      "position": { "x": 1034, "y": 863.081715710362 },
+      "data": {}
+    },
+    {
+      "key": "YnakL0Pyxmh",
+      "selected": false,
+      "id": "YnakL0Pyxmh",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 67, "width": 72 },
+      "position": { "x": 382.80028552802025, "y": 568.2769553336415 },
+      "data": {}
+    },
+    {
+      "key": "EFz4TR0P7TH",
+      "selected": false,
+      "id": "EFz4TR0P7TH",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 58, "width": 53 },
+      "position": { "x": 473.87566467493485, "y": 926.0783680990615 },
+      "data": {}
+    },
+    {
+      "key": "cGSivVjpye4",
+      "selected": false,
+      "id": "cGSivVjpye4",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 73, "width": 40 },
+      "position": { "x": 478, "y": 866 },
+      "data": {}
+    },
+    {
+      "key": "DPj1Hvvts7e",
+      "selected": false,
+      "id": "DPj1Hvvts7e",
+      "type": "custom",
+      "zIndex": 2,
+      "measured": { "height": 22, "width": 52 },
+      "position": { "x": 1350, "y": 890.5816730518435 },
+      "data": {}
+    },
+    {
+      "key": "rBKwmwcXyf9",
+      "selected": false,
+      "id": "rBKwmwcXyf9",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 105 },
+      "position": { "x": 1250, "y": 1002 },
+      "data": {}
+    },
+    {
+      "key": "O6UJ2hUN0n3",
+      "selected": false,
+      "id": "O6UJ2hUN0n3",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 97 },
+      "position": { "x": 1254, "y": 1056 },
+      "data": {}
+    },
+    {
+      "key": "Z75hZQ7lGoz",
+      "selected": false,
+      "id": "Z75hZQ7lGoz",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 105 },
+      "position": { "x": 708.9830511708952, "y": 555.787031564423 },
+      "data": {}
+    },
+    {
+      "key": "HajRmTwUc35",
+      "selected": false,
+      "id": "HajRmTwUc35",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 97 },
+      "position": { "x": 709.961565979504, "y": 709.4138565159676 },
+      "data": {}
+    },
+    {
+      "key": "P5fwcfCVkbA",
+      "selected": false,
+      "id": "P5fwcfCVkbA",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 105 },
+      "position": { "x": 709.0260215536781, "y": 963.4096841223592 },
+      "data": {}
+    },
+    {
+      "key": "v97f3jws1jU",
+      "selected": false,
+      "id": "v97f3jws1jU",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 102 },
+      "position": { "x": 709.961565979504, "y": 816.071970654301 },
+      "data": {}
+    },
+    {
+      "key": "bxhnq1QXfNN",
+      "selected": false,
+      "id": "bxhnq1QXfNN",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 97 },
+      "position": { "x": 1408, "y": 1058 },
+      "data": {}
+    },
+    {
+      "key": "v2pvEk3MiUl",
+      "selected": false,
+      "id": "v2pvEk3MiUl",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 105 },
+      "position": { "x": 1404, "y": 998 },
+      "data": {}
+    },
+    {
+      "key": "KO8YWRlX4Zg",
+      "selected": false,
+      "id": "KO8YWRlX4Zg",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 24, "width": 23 },
+      "position": { "x": 1270, "y": 940 },
+      "data": {}
+    },
+    {
+      "key": "JdGpYfWxKyT",
+      "selected": false,
+      "id": "JdGpYfWxKyT",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 24, "width": 23 },
+      "position": { "x": 1274, "y": 756 },
+      "data": {}
+    },
+    {
+      "key": "WvLGBWhcZw8",
+      "selected": false,
+      "id": "WvLGBWhcZw8",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 108 },
+      "position": { "x": 1404, "y": 834 },
+      "data": {}
+    },
+    {
+      "key": "8wuaHrPwvLr",
+      "selected": false,
+      "id": "8wuaHrPwvLr",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 108 },
+      "position": { "x": 1402, "y": 774 },
+      "data": {}
+    },
+    {
+      "key": "pbj4uvrSHR7",
+      "selected": false,
+      "id": "pbj4uvrSHR7",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 29, "width": 114 },
+      "position": { "x": 1386, "y": 696 },
+      "data": {}
+    },
+    {
+      "key": "DIb52zTe1wQ",
+      "selected": false,
+      "id": "DIb52zTe1wQ",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 29, "width": 55 },
+      "position": { "x": 1420, "y": 542 },
+      "data": {}
+    },
+    {
+      "key": "lO9NSbjtSCW",
+      "selected": false,
+      "id": "lO9NSbjtSCW",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 107 },
+      "position": { "x": 1024, "y": 962 },
+      "data": {}
+    },
+    {
+      "key": "MYyMoqFb0j1",
+      "selected": false,
+      "id": "MYyMoqFb0j1",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "height": 28, "width": 132 },
+      "position": { "x": 1024, "y": 1012 },
+      "data": {}
+    },
+    {
+      "key": "KOZ7DU3JdB6",
+      "selected": false,
+      "id": "KOZ7DU3JdB6",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 55, "height": 84 },
+      "position": { "x": 846, "y": 464 },
+      "data": {}
+    },
+    {
+      "key": "mqsKhaeVBLR",
+      "selected": false,
+      "id": "mqsKhaeVBLR",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 20, "height": 29 },
+      "position": { "x": 1162, "y": 1114 },
+      "data": {}
+    },
+    {
+      "key": "urgwRD2Ugyp",
+      "selected": false,
+      "id": "urgwRD2Ugyp",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 50, "height": 37 },
+      "position": { "x": 396, "y": 940 },
+      "data": {}
+    },
+    {
+      "key": "9bRr3bsfINK",
+      "selected": false,
+      "id": "9bRr3bsfINK",
+      "type": "custom",
+      "zIndex": 2,
+      "measured": { "width": 68, "height": 184 },
+      "position": { "x": 316, "y": 942 },
+      "data": {}
+    },
+    {
+      "key": "70POJ1VR8K5",
+      "selected": false,
+      "id": "70POJ1VR8K5",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 32, "height": 60 },
+      "position": { "x": 398, "y": 1068 },
+      "data": {}
+    },
+    {
+      "key": "0FdBTNPS6Ns",
+      "selected": false,
+      "id": "0FdBTNPS6Ns",
+      "type": "custom",
+      "zIndex": 2,
+      "measured": { "width": 68, "height": 184 },
+      "position": { "x": 314, "y": 592 },
+      "data": {}
+    },
+    {
+      "key": "gQoHwlir7uM",
+      "selected": false,
+      "id": "gQoHwlir7uM",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 32, "height": 60 },
+      "position": { "x": 396, "y": 718 },
+      "data": {}
+    },
+    {
+      "key": "IV5SRzMttnc",
+      "selected": false,
+      "id": "IV5SRzMttnc",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 50, "height": 37 },
+      "position": { "x": 578, "y": 593.8551108512196 },
+      "data": {}
+    },
+    {
+      "key": "f2mid9HljO7",
+      "selected": false,
+      "id": "f2mid9HljO7",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 69, "height": 37 },
+      "position": { "x": 642, "y": 593.8551108512196 },
+      "data": {}
+    },
+    {
+      "key": "vmtSK7qagFR",
+      "selected": false,
+      "id": "vmtSK7qagFR",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 50, "height": 37 },
+      "position": { "x": 1134, "y": 883.7847980518435 },
+      "data": {}
+    },
+    {
+      "key": "Di6WbVxYd9X",
+      "selected": false,
+      "id": "Di6WbVxYd9X",
+      "type": "custom",
+      "zIndex": 4,
+      "measured": { "width": 69, "height": 37 },
+      "position": { "x": 1060, "y": 1110 },
+      "data": {}
+    }
+  ],
+  "props": {
+    "0deGLAIUN9w": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 80 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "Pressurant Supply cylinder",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "2rRWxC8VmtK": {
+      "color": "#6877a8",
+      "control": {
+        "chip": {
+          "sink": {
+            "props": { "authority": 255, "channel": 1048595 },
+            "type": "acquire-channel-control",
+            "valueType": "boolean",
+            "variant": "sink"
+          },
+          "source": {
+            "props": { "channel": 1048595 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "indicator": {
+          "statusSource": {
+            "props": { "channel": 1048595 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "show": true,
+        "showChip": true,
+        "showIndicator": true
+      },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "FLPA-AVX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 1048595 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048593 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "2sskr6N4cSA": {
+      "color": [213, 213, 213, 1],
+      "key": "filter",
+      "label": {
+        "align": "center",
+        "label": "FLPA-FLN1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "3W0TpPnM2t1": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 20 },
+      "color": "#6877a8",
+      "dimensions": { "height": 200, "width": 80 },
+      "key": "tank",
+      "label": {
+        "label": "Propellant supply cylinder",
+        "level": "p",
+        "orientation": "right"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "3pSwne3gb3v": {
+      "color": [46, 46, 46, 1],
+      "key": "setpoint",
+      "label": {
+        "align": "center",
+        "label": "Setpoint",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [],
+          "inlet": "setter",
+          "segments": {
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "number",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [],
+          "outlet": "valueStream",
+          "segments": {
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "number",
+        "variant": "source"
+      },
+      "units": "mV"
+    },
+    "6znJfLXNTnD": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": "#6877a8",
+      "dimensions": { "height": 75, "width": 75 },
+      "key": "box",
+      "label": { "label": "Flow Meter", "level": "p", "orientation": "top" },
+      "orientation": "left",
+      "scale": 1
+    },
+    "8HkrrziwHFu": {
+      "color": "#6877a8",
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "FLPA-MVX3",
+        "level": "p",
+        "maxInlineSize": 200,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "8wuaHrPwvLr": {
+      "color": [213, 213, 213, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAML-LCD4",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048587 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAEX_LCD4"],
+      "units": "mN"
+    },
+    "Cv7KYtMAF5G": {
+      "color": "#6877a8",
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "XXSU-MVX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "DIb52zTe1wQ": {
+      "color": [55, 116, 208, 1],
+      "control": { "show": true },
+      "key": "button",
+      "label": {
+        "align": "center",
+        "label": "Tare",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "onClickDelay": 0,
+      "orientation": "left",
+      "scale": null,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      }
+    },
+    "DKWy7SMfKWc": {
+      "color": [213, 213, 213, 1],
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "Manual Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "DPj1Hvvts7e": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": "#6877a8",
+      "dimensions": { "height": 20, "width": 50 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "Thruster",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "EFz4TR0P7TH": {
+      "color": "#6877a8",
+      "control": { "show": false },
+      "key": "pump",
+      "label": {
+        "align": "center",
+        "label": "FLPA-PUX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "bottom"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "FW7NrtBEVkC": {
+      "color": [213, 213, 213, 1],
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "FLPA-CKN1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "HajRmTwUc35": {
+      "color": "#e7c211",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-TCX3",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_TCX3"],
+      "units": "C"
+    },
+    "IhnNQyTjMnZ": {
+      "align": "center",
+      "autoFit": true,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "textBox",
+      "label": {
+        "align": "center",
+        "label": "Text Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h2",
+      "orientation": "left",
+      "scale": 1,
+      "text": "Text Box",
+      "width": 75
+    },
+    "JdGpYfWxKyT": {
+      "align": "center",
+      "autoFit": true,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "textBox",
+      "label": {
+        "align": "center",
+        "label": "Text Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "p",
+      "orientation": "left",
+      "scale": 1,
+      "text": "FC",
+      "width": 75
+    },
+    "KHMf7QYiJCY": {
+      "align": "center",
+      "autoFit": true,
+      "color": "#6877a8",
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "textBox",
+      "label": {
+        "align": "center",
+        "label": "Text Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "p",
+      "orientation": "left",
+      "scale": 1,
+      "text": "FO",
+      "width": 75
+    },
+    "KO8YWRlX4Zg": {
+      "align": "center",
+      "autoFit": true,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "textBox",
+      "label": {
+        "align": "center",
+        "label": "Text Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "p",
+      "orientation": "left",
+      "scale": 1,
+      "text": "FC",
+      "width": 75
+    },
+    "KZKZtDtS6X0": {
+      "color": [213, 213, 213, 1],
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Regulator",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "LQbsY361pO8": {
+      "color": [46, 46, 46, 1],
+      "key": "setpoint",
+      "label": {
+        "align": "center",
+        "label": "",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [],
+          "inlet": "setter",
+          "segments": {
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "number",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [],
+          "outlet": "valueStream",
+          "segments": {
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "number",
+        "variant": "source"
+      },
+      "units": "mV"
+    },
+    "LhTUfNs12qn": {
+      "color": [213, 213, 213, 1],
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "FLPA-MVN4",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "MYyMoqFb0j1": {
+      "color": [158, 0, 255, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-DMX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048621 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_DMX1"],
+      "units": "kg/m^3"
+    },
+    "N0ej5631ZHf": {
+      "color": "#6877a8",
+      "control": {
+        "chip": {
+          "sink": {
+            "props": { "authority": 255, "channel": 1048628 },
+            "type": "acquire-channel-control",
+            "valueType": "boolean",
+            "variant": "sink"
+          },
+          "source": {
+            "props": { "channel": 1048628 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "indicator": {
+          "statusSource": {
+            "props": { "channel": 1048628 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "show": true,
+        "showChip": true,
+        "showIndicator": true
+      },
+      "key": "solenoidValve",
+      "label": { "label": "FLPA-AVX2", "level": "h4", "orientation": "left" },
+      "normallyOpen": true,
+      "orientation": "top",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 1048628 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048629 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "N55mpAqxtig": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": "#6877a8",
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "tank",
+      "label": { "label": "FLPA-TKX1", "level": "p", "orientation": "left" },
+      "orientation": "left",
+      "scale": 1
+    },
+    "O6UJ2hUN0n3": {
+      "color": "#e7c211",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAML-TCX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048585 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAML_TCX1"],
+      "units": "C"
+    },
+    "P5fwcfCVkbA": {
+      "color": "#0029ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-PTX2",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "bottom"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048615 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_PTX2"],
+      "units": "psi"
+    },
+    "R78yAwfd7V2": {
+      "align": "center",
+      "autoFit": true,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "textBox",
+      "label": {
+        "align": "center",
+        "label": "Text Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "p",
+      "orientation": "left",
+      "scale": 1,
+      "text": "FC",
+      "width": 75
+    },
+    "WvLGBWhcZw8": {
+      "color": [213, 213, 213, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAML-LCD1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048588 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAEX_LCD1"],
+      "units": "mN"
+    },
+    "XRiu9wXIiVU": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": 3,
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "box",
+      "label": {
+        "align": "center",
+        "label": "Box",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "YnakL0Pyxmh": {
+      "color": [213, 213, 213, 1],
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "NISU-RGN1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "Yws2gl5UBoM": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 20 },
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 80 },
+      "key": "tank",
+      "label": {
+        "label": "Propellant supply cylinder",
+        "level": "p",
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "Z75hZQ7lGoz": {
+      "color": "#0029ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-PTX3",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048618 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_PTX3"],
+      "units": "psi"
+    },
+    "aKr51Le8x0U": {
+      "color": [213, 213, 213, 1],
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Regulator",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "ad24J4CLota": {
+      "color": [213, 213, 213, 1],
+      "key": "electricRegulator",
+      "label": {
+        "align": "center",
+        "label": "Electric Regulator",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "bxhnq1QXfNN": {
+      "color": "#e7c211",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAAT-TCA1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048586 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAAT_TCA1"],
+      "units": "C"
+    },
+    "cGSivVjpye4": {
+      "color": "#6877a8",
+      "key": "manualValve",
+      "label": { "label": "FLPA-MVA5", "level": "p", "orientation": "top" },
+      "orientation": "top",
+      "scale": 1
+    },
+    "hWZW8AGzRFA": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 20 },
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 80 },
+      "key": "tank",
+      "label": {
+        "label": "Pressurant supply cylinder",
+        "level": "p",
+        "orientation": "right"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "hy4uZDdAK9B": {
+      "color": "#6877a8",
+      "control": {
+        "chip": {
+          "sink": {
+            "props": { "authority": 255, "channel": 1048605 },
+            "type": "acquire-channel-control",
+            "valueType": "boolean",
+            "variant": "sink"
+          },
+          "source": {
+            "props": { "channel": 1048605 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "indicator": {
+          "statusSource": {
+            "props": { "channel": 1048605 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "show": true,
+        "showChip": true,
+        "showIndicator": true
+      },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "TAML-SVX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 1048605 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048596 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "jFrpTobiDbo": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 10 },
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 125 },
+      "key": "tank",
+      "label": { "label": "Prop supply cylinder", "level": "p", "orientation": "top" },
+      "orientation": "left",
+      "scale": 1
+    },
+    "juu9HV7atP1": {
+      "color": [213, 213, 213, 1],
+      "key": "checkValve",
+      "label": {
+        "align": "center",
+        "label": "Check Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "lO9NSbjtSCW": {
+      "color": [227, 0, 0, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-FMX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048620 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_FMX1"],
+      "units": "g/s"
+    },
+    "leJ0XMdhUd6": {
+      "color": "#6877a8",
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "FLPA-MVX5",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "lxOoUbJoHbd": {
+      "color": "#6877a8",
+      "key": "filter",
+      "label": {
+        "align": "center",
+        "label": "TAML-FLX2",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "npGsEPV0Bpb": {
+      "color": [213, 213, 213, 1],
+      "key": "manualValve",
+      "label": {
+        "align": "center",
+        "label": "NISU-MVN1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "oqkbibjviWn": {
+      "color": "#6877a8",
+      "control": {
+        "chip": {
+          "sink": {
+            "props": { "authority": 255, "channel": 1048608 },
+            "type": "acquire-channel-control",
+            "valueType": "boolean",
+            "variant": "sink"
+          },
+          "source": {
+            "props": { "channel": 1048608 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "indicator": {
+          "statusSource": {
+            "props": { "channel": 1048608 },
+            "type": "controlled-status-source",
+            "valueType": "status",
+            "variant": "source"
+          }
+        },
+        "show": true,
+        "showChip": true,
+        "showIndicator": true
+      },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "TAML_SVX2",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 1048608 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048606 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "pbj4uvrSHR7": {
+      "color": [55, 116, 208, 1],
+      "control": { "show": true },
+      "key": "button",
+      "label": {
+        "align": "center",
+        "label": "LC Calibration",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "onClickDelay": 0,
+      "orientation": "left",
+      "scale": null,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      }
+    },
+    "rBKwmwcXyf9": {
+      "color": "#0029ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAML-PTX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048617 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAML_PTX1"],
+      "units": "psi"
+    },
+    "ubUBePcbB9m": {
+      "backgroundColor": [10, 10, 10, 0],
+      "borderRadius": { "x": 50, "y": 20 },
+      "color": [213, 213, 213, 1],
+      "dimensions": { "height": 200, "width": 80 },
+      "key": "tank",
+      "label": {
+        "align": "center",
+        "label": "Tank",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "uim2kXRMlEu": {
+      "color": [213, 213, 213, 1],
+      "key": "electricRegulator",
+      "label": {
+        "align": "center",
+        "label": "Electric Regulator",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "uvHcEdv2G2D": {
+      "color": [213, 213, 213, 1],
+      "key": "reliefValve",
+      "label": {
+        "align": "center",
+        "label": "Relief Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "v2pvEk3MiUl": {
+      "color": "#0029ff",
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "TAAT-PTA1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048619 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["TAAT_PTA1"],
+      "units": "psi"
+    },
+    "v97f3jws1jU": {
+      "color": [143, 143, 143, 1],
+      "inlineSize": 70,
+      "key": "value",
+      "label": {
+        "align": "center",
+        "label": "FLPA-LLX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "level": "h5",
+      "orientation": "left",
+      "scale": 1,
+      "telem": {
+        "props": {
+          "connections": [
+            { "from": "valueStream", "to": "rollingAverage" },
+            { "from": "rollingAverage", "to": "stringifier" }
+          ],
+          "outlet": "stringifier",
+          "segments": {
+            "rollingAverage": {
+              "props": { "windowSize": 1 },
+              "type": "rolling-average",
+              "valueType": "number",
+              "variant": "source"
+            },
+            "stringifier": {
+              "props": { "precision": 2 },
+              "type": "stringify-number",
+              "valueType": "string",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 1048609 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "string",
+        "variant": "source"
+      },
+      "tooltip": ["FLPA_LLX1"],
+      "units": "kg"
+    },
+    "vrvfxc9p3XM": {
+      "color": [213, 213, 213, 1],
+      "control": { "show": true },
+      "key": "solenoidValve",
+      "label": {
+        "align": "center",
+        "label": "Solenoid Valve",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "normallyOpen": false,
+      "orientation": "left",
+      "scale": 1,
+      "sink": {
+        "props": {
+          "connections": [{ "from": "setpoint", "to": "setter" }],
+          "inlet": "setpoint",
+          "segments": {
+            "setpoint": {
+              "props": { "falsy": 0, "truthy": 1 },
+              "type": "boolean-numeric-converter-sink",
+              "valueType": "boolean",
+              "variant": "sink"
+            },
+            "setter": {
+              "props": { "channel": 0 },
+              "type": "controlled-numeric-telem-sink",
+              "valueType": "number",
+              "variant": "sink"
+            }
+          }
+        },
+        "type": "sink-pipeline",
+        "valueType": "boolean",
+        "variant": "sink"
+      },
+      "source": {
+        "props": {
+          "connections": [{ "from": "valueStream", "to": "threshold" }],
+          "outlet": "threshold",
+          "segments": {
+            "threshold": {
+              "props": { "trueBound": { "lower": 0.9, "upper": 1.1 } },
+              "type": "boolean-source",
+              "valueType": "boolean",
+              "variant": "source"
+            },
+            "valueStream": {
+              "props": { "channel": 0 },
+              "type": "stream-channel-value",
+              "valueType": "number",
+              "variant": "source"
+            }
+          }
+        },
+        "type": "source-pipeline",
+        "valueType": "boolean",
+        "variant": "source"
+      }
+    },
+    "wE9vXT7Yr39": {
+      "color": "#6877a8",
+      "key": "filter",
+      "label": {
+        "align": "center",
+        "label": "XXSU-FLX1",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "yA6zevoHqgr": {
+      "color": [213, 213, 213, 1],
+      "key": "regulator",
+      "label": {
+        "align": "center",
+        "label": "Regulator",
+        "level": "p",
+        "maxInlineSize": 150,
+        "orientation": "top"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "KOZ7DU3JdB6": {
+      "key": "angledSpringLoadedReliefValve",
+      "color": "#303034",
+      "label": {
+        "label": "FLPA-RVX1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "wyH0oatpMXa": {
+      "key": "isoCheckValve",
+      "color": [213, 213, 213, 1],
+      "label": {
+        "label": "FLPA-CKN1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "mqsKhaeVBLR": {
+      "key": "vent",
+      "color": "#303034",
+      "label": {
+        "label": "",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "urgwRD2Ugyp": {
+      "key": "isoFilter",
+      "color": "#6877a8",
+      "label": {
+        "label": "XXSU-FLX1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "9bRr3bsfINK": {
+      "key": "cylinder",
+      "color": "#6877a8",
+      "backgroundColor": [10, 10, 10, 0],
+      "label": {
+        "label": "XXSU-MVX1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "dimensions": { "width": 66, "height": 181 },
+      "orientation": "left",
+      "scale": 1
+    },
+    "70POJ1VR8K5": {
+      "key": "textBox",
+      "color": "#6877a8",
+      "autoFit": false,
+      "align": "start",
+      "label": {
+        "label": "Text Box",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "dimensions": { "width": 125, "height": 200 },
+      "level": "p",
+      "text": "Propellant Supply Cylinder",
+      "width": 30
+    },
+    "0FdBTNPS6Ns": {
+      "key": "cylinder",
+      "color": [213, 213, 213, 1],
+      "backgroundColor": [10, 10, 10, 0],
+      "label": {
+        "label": "NISU-MVN1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 3620,
+        "align": "center",
+        "direction": "x"
+      },
+      "dimensions": { "width": 66, "height": 181 },
+      "orientation": "left",
+      "scale": 1
+    },
+    "gQoHwlir7uM": {
+      "key": "textBox",
+      "color": [213, 213, 213, 1],
+      "autoFit": false,
+      "align": "start",
+      "label": {
+        "label": "Text Box",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1,
+      "dimensions": { "width": 125, "height": 200 },
+      "level": "p",
+      "text": "Pressurant Supply Cylinder",
+      "width": 30
+    },
+    "IV5SRzMttnc": {
+      "key": "isoFilter",
+      "color": [213, 213, 213, 1],
+      "label": {
+        "label": "FLPA-FLN1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "f2mid9HljO7": {
+      "key": "isoCheckValve",
+      "color": "#d5d5d5",
+      "label": {
+        "label": "FLPA-CKN1",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "vmtSK7qagFR": {
+      "key": "isoFilter",
+      "color": "#6877a8",
+      "label": {
+        "label": "TAML-FLX2",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    },
+    "etOAnC3m8Pj": {
+      "key": "box",
+      "color": [213, 213, 213, 1],
+      "backgroundColor": [10, 10, 10, 0],
+      "label": {
+        "label": "Box",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "borderRadius": 3,
+      "dimensions": { "width": 125, "height": 200 },
+      "orientation": "left",
+      "scale": 1
+    },
+    "Di6WbVxYd9X": {
+      "key": "isoCheckValve",
+      "color": "#303034",
+      "label": {
+        "label": "FLPA-CKN2",
+        "level": "p",
+        "orientation": "top",
+        "maxInlineSize": 150,
+        "align": "center",
+        "direction": "x"
+      },
+      "orientation": "left",
+      "scale": 1
+    }
+  },
+  "remoteCreated": true,
+  "snapshot": false,
+  "type": "schematic",
+  "version": "3.0.0",
+  "viewport": {
+    "position": { "x": -321.1587695717815, "y": -97.65601013077924 },
+    "zoom": 0.7917047464637365
+  },
+  "name": "Schematic"
+}
