@@ -1198,6 +1198,26 @@ var _ = Describe("Statement Compiler", func() {
 					OpCall, uint32(1),
 				))
 			})
+
+			It("Should compile channel write to timestamp channel via write_i64", func(bCtx SpecContext) {
+				resolver := symbol.MapResolver{
+					"ts_ch": {
+						Name: "ts_ch",
+						Kind: symbol.KindChannel,
+						Type: types.Chan(types.TimeStamp()),
+						ID:   800,
+					},
+				}
+				// Value chosen so that any narrowing through float32 would round
+				// to a different integer (float32 ULP at this magnitude is 2^37).
+				bytecode := compileWithChannels(bCtx, "ts_ch = 1778020940471336961", resolver)
+
+				Expect(bytecode).To(MatchOpcodes(
+					OpI32Const, int32(800),
+					OpI64Const, int64(1778020940471336961),
+					OpCall, uint32(0),
+				))
+			})
 		})
 
 		Describe("Channel Reads", func() {

@@ -328,6 +328,20 @@ producer{} -> consumer{}`))
 				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("is not equal to argument type"))
 			})
 
+			It("Should detect unit mismatch between func output and next func input", func(bCtx SpecContext) {
+				ast := MustSucceed(parser.Parse(`
+func producer() f32 psi {
+    return 5psi
+}
+func consumer(v f32 bar) {}
+producer{} -> consumer{}`))
+				ctx := context.CreateRoot(bCtx, ast, resolver)
+				analyzer.AnalyzeProgram(ctx)
+				Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("return type"))
+				Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("is not equal to argument type"))
+			})
+
 			It("Should detect when func with multiple params is used without routing table", func(bCtx SpecContext) {
 				ast := MustSucceed(parser.Parse(`
 func source() u8 {

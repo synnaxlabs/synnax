@@ -261,6 +261,36 @@ EXEC_CONTEXT_CASES = [
     ),
 ]
 
+# ── Type mismatch sources (invalid, caught at configure time) ──
+
+# f32 psi piped into f32 bar via flow connection between functions.
+# Both units share the pressure dimension but differ by name; the analyzer
+# must reject the assignment so that diagnostics surface unit identity, not
+# just dimensional compatibility.
+ARC_UNIT_MISMATCH_PSI_BAR = """
+func producer() f32 psi {
+    return 5psi
+}
+func consumer(v f32 bar) {}
+producer{} -> consumer{}
+"""
+
+
+@dataclass
+class TypeMismatchCase:
+    label: str
+    source: str
+    wait_substr: str
+
+
+TYPE_MISMATCH_CASES = [
+    TypeMismatchCase(
+        "UnitMismatchPsiBar",
+        ARC_UNIT_MISMATCH_PSI_BAR,
+        "is not equal to argument type",
+    ),
+]
+
 # ── Guarded circular calls (valid, should configure successfully) ──
 # Comprehensive guarded topology coverage is in the Go unit tests.
 
@@ -491,6 +521,24 @@ class EdgeCases(ArcConsoleCase):
                 f"[{case.label}] Expected error notification, got: {notifications}"
             )
 
+    def _verify_type_mismatch_cases(self) -> None:
+        self.log("=== Type mismatch detection ===")
+        for case in TYPE_MISMATCH_CASES:
+            self.log(f"[{case.label}] Testing type mismatch")
+            self.load_arc(
+                case.source, f"TypeMismatch{case.label}", start=False, configure=False
+            )
+
+            self.console.arc.configure_no_wait()
+            status = self.console.arc.wait_for_status(case.wait_substr)
+            self.log(f"[{case.label}] Got expected error: {status}")
+
+            notifications = self.console.notifications.check(timeout=5)
+            error_notifications = [n for n in notifications if n.get("type") == "error"]
+            assert len(error_notifications) > 0, (
+                f"[{case.label}] Expected error notification, got: {notifications}"
+            )
+
     def _verify_read_only_monitor(self) -> None:
         self.log("=== Read-only monitor (no write channels) ===")
         name = self.load_arc(
@@ -515,4 +563,5 @@ class EdgeCases(ArcConsoleCase):
         self._verify_circular_cases()
         self._verify_guarded_cases()
         self._verify_exec_context_cases()
+        self._verify_type_mismatch_cases()
         self._verify_read_only_monitor()
