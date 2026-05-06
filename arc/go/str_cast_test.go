@@ -214,4 +214,123 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			},
 			"3.1 some_words 0.1234567890123456"),
 	)
+
+	DescribeTable("uses str() as an inline typecast stage in a flow chain",
+		func(ctx SpecContext, source string, expected string) {
+			resolver := channelSymbols(map[string]channelDef{
+				"log_mem": {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`time.interval{50ms} -> `+source+` -> log_mem`, resolver,
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+
+			h.Tick(ctx, 75*telem.Millisecond)
+			h.channelState.ClearReads()
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(expected))
+		},
+		Entry("str(1.234) (literal float)", "str(1.234)", "1.234"),
+		Entry("str(3.1) (ghost-precision literal)", "str(3.1)", "3.1"),
+		Entry("str(42) (integer literal)", "str(42)", "42"),
+		Entry("str(f32(3.14)) (explicit f32)", "str(f32(3.14))", "3.14"),
+		Entry("str(f64(0.1234567890123456)) (high-precision f64)", "str(f64(0.1234567890123456))", "0.1234567890123456"),
+		Entry(`str("hello") (string literal no-op)`, `str("hello")`, "hello"),
+	)
+
+	DescribeTable("uses str() as a flow stage to convert a numeric channel to a string channel",
+		func(ctx SpecContext, sensorType types.Type, telemDT telem.DataType, ingestFn func(*runtimeHarness), expected string) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor": {sensorType, 100},
+				"log":    {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`sensor -> str(sensor) -> log`, resolver,
+				channel.Digest{Key: 100, DataType: telemDT},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			ingestFn(h)
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(expected))
+		},
+		Entry("f32 channel 3.1", types.F32(), telem.Float32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.1)) }, "3.1"),
+		Entry("f64 channel -2.5", types.F64(), telem.Float64T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](-2.5)) }, "-2.5"),
+		Entry("i32 channel -42", types.I32(), telem.Int32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](-42)) }, "-42"),
+		Entry("u8 channel 255", types.U8(), telem.Uint8T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) }, "255"),
+	)
+
+	DescribeTable("concatenates a prefix and suffix around str() of a literal in a flow chain",
+		func(ctx SpecContext, expr string, expected string) {
+			resolver := channelSymbols(map[string]channelDef{
+				"log_mem": {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`time.interval{50ms} -> `+expr+` -> log_mem`, resolver,
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Tick(ctx, 75*telem.Millisecond)
+			h.channelState.ClearReads()
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(expected))
+		},
+		Entry(`"prefix " + str(1.234) + " suffix"`,
+			`"prefix " + str(1.234) + " suffix"`, "prefix 1.234 suffix"),
+		Entry(`"value=" + str(42)`,
+			`"value=" + str(42)`, "value=42"),
+		Entry(`str(3.14) + " radians"`,
+			`str(3.14) + " radians"`, "3.14 radians"),
+		Entry(`"[" + str(f32(0.1)) + "]" (ghost-precision in middle)`,
+			`"[" + str(f32(0.1)) + "]"`, "[0.1]"),
+	)
+
+	DescribeTable("concatenates a prefix and suffix around str() of a channel value in a flow chain",
+		func(ctx SpecContext, sensorType types.Type, telemDT telem.DataType, ingestFn func(*runtimeHarness), expected string) {
+			resolver := channelSymbols(map[string]channelDef{
+				"sensor": {sensorType, 100},
+				"log":    {types.String(), 101},
+			})
+			h := newRuntimeHarness(ctx,
+				`sensor -> "prefix " + str(sensor) + " suffix" -> log`, resolver,
+				channel.Digest{Key: 100, DataType: telemDT},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			ingestFn(h)
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			Expect(lastString(out, 101)).To(Equal(expected))
+		},
+		Entry("f32 channel 3.1", types.F32(), telem.Float32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.1)) },
+			"prefix 3.1 suffix"),
+		Entry("f32 channel 100.0 (trailing zeros stripped)", types.F32(), telem.Float32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](100.0)) },
+			"prefix 100 suffix"),
+		Entry("f64 channel 0.1234567890123456 (high precision)", types.F64(), telem.Float64T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) },
+			"prefix 0.1234567890123456 suffix"),
+		Entry("i32 channel -42 (negative)", types.I32(), telem.Int32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](-42)) },
+			"prefix -42 suffix"),
+		Entry("u32 channel 4000000000 (large unsigned)", types.U32(), telem.Uint32T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](4000000000)) },
+			"prefix 4000000000 suffix"),
+		Entry("u8 channel 255 (max byte)", types.U8(), telem.Uint8T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) },
+			"prefix 255 suffix"),
+	)
 })

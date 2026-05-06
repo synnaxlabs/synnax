@@ -1561,7 +1561,7 @@ func str_len(s str) i64 {
 }
 
 /// @brief Node handles string-typed named outputs without panicking on Density().
-TEST(NodeTest, DISABLED_NamedStringOutputMemoryLayout) {
+TEST(NodeTest, NamedStringOutputMemoryLayout) {
     const auto client = new_test_client();
 
     auto idx_name = random_name("time");

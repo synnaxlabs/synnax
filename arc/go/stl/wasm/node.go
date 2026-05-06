@@ -54,6 +54,7 @@ type nodeImpl struct {
 	clock         telem.MonoClock
 	nodeKeySetter NodeKeySetter
 	stringInputs  []bool
+	stringOutputs []bool
 	strings       *stlstrings.ProgramState
 }
 
@@ -122,8 +123,20 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.offsets {
 		n.offsets[j] = 0
 	}
+	// String outputs are variable-density and cannot be Resize'd . Their
+	// Data buffer is built once at the end of the loop from accumulated
+	// strings. Numeric outputs are pre-sized here so setValueAt can do
+	// fixed-stride writes per sample.
+	var stringResults [][]string
 	for i := range n.ir.Outputs {
-		n.Output(i).Resize(maxLength)
+		if n.stringOutputs[i] {
+			if stringResults == nil {
+				stringResults = make([][]string, len(n.ir.Outputs))
+			}
+			stringResults[i] = make([]string, 0, maxLength)
+		} else {
+			n.Output(i).Resize(maxLength)
+		}
 		n.OutputTime(i).Resize(maxLength)
 	}
 	// Copy alignment and time range from inputs to outputs.
@@ -186,14 +199,27 @@ func (n *nodeImpl) Next(ctx node.Context) {
 		}
 		for j, value := range res {
 			if value.Changed {
-				setValueAt(*n.Output(j), n.offsets[j], value.Value)
+				if n.stringOutputs[j] {
+					// WASM returned an i32 string handle; materialize it
+					// to its actual string value, mirroring the input-side
+					// conversion above.
+					s, _ := n.strings.Get(uint32(value.Value))
+					stringResults[j] = append(stringResults[j], s)
+				} else {
+					setValueAt(*n.Output(j), n.offsets[j], value.Value)
+				}
 				setValueAt(*n.OutputTime(j), n.offsets[j], ts)
 				n.offsets[j]++
 			}
 		}
 	}
 	for j := range n.ir.Outputs {
-		n.Output(j).Resize(int64(n.offsets[j]))
+		if n.stringOutputs[j] {
+			out := n.Output(j)
+			out.Data = telem.NewSeriesV[string](stringResults[j]...).Data
+		} else {
+			n.Output(j).Resize(int64(n.offsets[j]))
+		}
 		n.OutputTime(j).Resize(int64(n.offsets[j]))
 		if n.offsets[j] > 0 {
 			ctx.MarkChanged(j)
