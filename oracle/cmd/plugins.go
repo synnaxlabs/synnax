@@ -14,12 +14,14 @@ import (
 	cppjson "github.com/synnaxlabs/oracle/plugin/cpp/json"
 	cpppb "github.com/synnaxlabs/oracle/plugin/cpp/pb"
 	cpptypes "github.com/synnaxlabs/oracle/plugin/cpp/types"
+	goactions "github.com/synnaxlabs/oracle/plugin/go/actions"
 	gomarshal "github.com/synnaxlabs/oracle/plugin/go/marshal"
 	gopb "github.com/synnaxlabs/oracle/plugin/go/pb"
 	goquery "github.com/synnaxlabs/oracle/plugin/go/query"
 	gotypes "github.com/synnaxlabs/oracle/plugin/go/types"
 	pbtypes "github.com/synnaxlabs/oracle/plugin/pb/types"
 	pytypes "github.com/synnaxlabs/oracle/plugin/py/types"
+	tsactions "github.com/synnaxlabs/oracle/plugin/ts/actions"
 	tstypes "github.com/synnaxlabs/oracle/plugin/ts/types"
 )
 
@@ -43,5 +45,7 @@ func buildPluginRegistry() *plugin.Registry {
 	_ = registry.Register(gopb.New(gopb.DefaultOptions()))
 	_ = registry.Register(goquery.New(goquery.DefaultOptions()))
 	_ = registry.Register(gomarshal.New(gomarshal.DefaultOptions()))
+	_ = registry.Register(goactions.New(goactions.DefaultOptions()))
+	_ = registry.Register(tsactions.New(tsactions.DefaultOptions()))
 	return registry
 }

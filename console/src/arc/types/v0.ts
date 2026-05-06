@@ -9,7 +9,7 @@
 
 import { arc } from "@synnaxlabs/client";
 import { Viewport } from "@synnaxlabs/pluto";
-import { type migrate, xy } from "@synnaxlabs/x";
+import { dimensions, type migrate, xy } from "@synnaxlabs/x";
 import { z } from "zod";
 
 export const VERSION = "0.0.0";
@@ -32,9 +32,7 @@ const nodeZ = z.object({
   selected: z.boolean().optional().default(false),
   zIndex: z.number().optional(),
   type: z.string().optional(),
-  measured: z
-    .object({ width: z.number().optional(), height: z.number().optional() })
-    .optional(),
+  measured: dimensions.dimensionsZ.optional(),
 });
 export type Node = z.infer<typeof nodeZ>;
 
