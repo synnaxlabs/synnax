@@ -98,7 +98,7 @@ func parseRequestCtx(
 func setRequestCtx(c *http.Request, ctx freighter.Context) {
 	for k, v := range ctx.Params {
 		if vStr, ok := v.(string); ok {
-			c.Header.Set(freighterCtxPrefix+k, vStr)
+			c.Header.Set(k, vStr)
 		}
 	}
 }
@@ -106,7 +106,7 @@ func setRequestCtx(c *http.Request, ctx freighter.Context) {
 func setResponseCtx(c fiber.Ctx, md freighter.Context) {
 	for k, v := range md.Params {
 		if vStr, ok := v.(string); ok {
-			c.Set(freighterCtxPrefix+k, vStr)
+			c.Set(k, vStr)
 		}
 	}
 }
