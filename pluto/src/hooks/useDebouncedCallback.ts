@@ -10,8 +10,9 @@
 import { type CrudeTimeSpan, debounce } from "@synnaxlabs/x";
 import { type DependencyList, useCallback } from "react";
 
-export const useDebouncedCallback = <F extends (...args: any[]) => void>(
-  func: F,
+export const useDebouncedCallback = <Args extends unknown[]>(
+  func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
   deps: DependencyList,
-): F => useCallback(debounce(func, waitFor), [waitFor, ...deps]);
+): ((...args: Args) => void) =>
+  useCallback(debounce(func, waitFor), [waitFor, ...deps]);

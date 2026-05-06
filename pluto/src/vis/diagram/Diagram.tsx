@@ -263,7 +263,7 @@ export const create = ({
 
     const { fitView } = useReactFlow();
     const debouncedFitView = useDebouncedCallback(
-      (args) => void fitView(args),
+      (args: diagram.FitViewOptions) => void fitView(args),
       TimeSpan.milliseconds(50),
       [fitView],
     );

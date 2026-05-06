@@ -9,19 +9,26 @@
 
 import { type CrudeTimeSpan, TimeSpan } from "@/telem/telem";
 
-export const debounce = <F extends (...args: any[]) => void>(
-  func: F,
+export const debounce = <Args extends unknown[]>(
+  func: (...args: Args) => void,
   waitFor: CrudeTimeSpan,
-): F => {
-  const ms = new TimeSpan(waitFor).milliseconds;
-  if (ms === 0) return func;
-  let timeout: ReturnType<typeof setTimeout> | null = null;
-  const debounced = (...args: Parameters<F>): void => {
-    if (timeout !== null) {
-      clearTimeout(timeout);
-      timeout = null;
-    }
-    timeout = setTimeout(() => func(...args), ms);
+): ((...args: Args) => void) => {
+  const debouncePeriod = new TimeSpan(waitFor);
+  if (debouncePeriod.valueOf() <= 0) return func;
+  let timeout: NodeJS.Timeout | undefined;
+  let latestArgs: Args | null = null;
+  const invoke = (): void => {
+    if (latestArgs === null) return;
+    const args = latestArgs;
+    latestArgs = null;
+    func(...args);
   };
-  return debounced as F;
+  return (...args: Args): void => {
+    latestArgs = args;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      timeout = undefined;
+      invoke();
+    }, debouncePeriod.milliseconds);
+  };
 };
