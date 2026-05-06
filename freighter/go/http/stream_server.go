@@ -28,8 +28,6 @@ import (
 	"go.uber.org/zap"
 )
 
-const streamProtocol = "websocket"
-
 // additionalCodec pairs a content type with a constructor that returns a fresh
 // encoding.Codec instance per connection. Per-connection construction matters for
 // stateful codecs (e.g. the streaming framer codec, which tracks channel keys for the

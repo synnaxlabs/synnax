@@ -38,7 +38,11 @@ type BindableTransport interface {
 	BindTo(*fiber.App)
 }
 
-const freighterCtxPrefix = "freighterctx"
+const (
+	unaryProtocol      = "http"
+	streamProtocol     = "websocket"
+	freighterCtxPrefix = "freighterctx"
+)
 
 func isFreighterQueryStringParam(k string) bool {
 	return strings.HasPrefix(k, freighterCtxPrefix)

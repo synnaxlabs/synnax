@@ -27,7 +27,7 @@ import (
 )
 
 var _ = Describe("HTTP", func() {
-	It("Should serve http requests", Focus, func(ctx context.Context) {
+	It("Should serve http requests", func(ctx context.Context) {
 		r := MustSucceed(fhttp.NewRouter())
 		s := fhttp.NewUnaryServer[int, int](r, "/basic")
 		s.BindHandler(func(_ context.Context, req int) (int, error) {

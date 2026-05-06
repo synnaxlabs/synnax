@@ -22,14 +22,14 @@ import (
 )
 
 type route struct {
-	path       string
-	handler    fiber.Handler
-	transport  freighter.Transport
-	httpMethod string
+	path      string
+	handler   fiber.Handler
+	transport freighter.Transport
+	method    string
 }
 
-// RouterConfig configures a Router. All fields are optional; pass the zero
-// value to accept the defaults.
+// RouterConfig configures a Router. All fields are optional; pass the zero value to
+// accept the defaults.
 type RouterConfig struct {
 	alamos.Instrumentation
 	// StreamWriteDeadline sets the default duration for the write deadline of a stream
@@ -100,7 +100,7 @@ func (r *Router) BindTo(app *fiber.App) {
 		return nil
 	})
 	for _, route := range r.routes {
-		if route.httpMethod == "GET" {
+		if route.method == "GET" {
 			app.Get(route.path, route.handler)
 		} else {
 			app.Post(route.path, route.handler)
@@ -124,15 +124,15 @@ func (r *Router) Use(middleware ...freighter.Middleware) {
 
 func (r *Router) register(
 	path string,
-	httpMethod string,
-	t freighter.Transport,
-	h fiber.Handler,
+	method string,
+	transport freighter.Transport,
+	handler fiber.Handler,
 ) {
 	r.routes = append(r.routes, route{
-		httpMethod: httpMethod,
-		path:       path,
-		handler:    h,
-		transport:  t,
+		method:    method,
+		path:      path,
+		handler:   handler,
+		transport: transport,
 	})
 }
 

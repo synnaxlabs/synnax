@@ -21,8 +21,6 @@ import (
 	xhttp "github.com/synnaxlabs/x/http"
 )
 
-const unaryProtocol = "http"
-
 // unaryServerOptions configures a unary HTTP server. Unary handlers are stateless
 // across requests, so the registered decoders and encoders are shared instances rather
 // than per-request constructors.
