@@ -13,11 +13,54 @@ package schematic
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/x/color"
+	"github.com/synnaxlabs/x/control"
 	"github.com/synnaxlabs/x/encoding/msgpack"
+	"github.com/synnaxlabs/x/spatial"
 )
 
 // Key is a unique identifier for a schematic, represented as a UUID.
 type Key = uuid.UUID
+
+// Legend is the control legend overlay configuration.
+type Legend struct {
+	// Visible is whether the legend is visible.
+	Visible bool `json:"visible" msgpack:"visible"`
+	// Position is the legend position within the schematic.
+	Position spatial.StickyXY `json:"position" msgpack:"position"`
+	// Colors maps control status keys to their display colors.
+	Colors map[string]color.Color `json:"colors" msgpack:"colors"`
+}
+
+// Node is a diagram node representing a symbol in the schematic.
+type Node struct {
+	// Key is the unique node identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Position is the top-left position of the node.
+	Position spatial.XY `json:"position" msgpack:"position"`
+	// ZIndex is the stacking order of the node within the schematic. Higher values render
+	// above lower values. Set by the user via send-to-back / bring-to-front actions.
+	ZIndex int16 `json:"z_index" msgpack:"z_index"`
+}
+
+// Handle is a reference to a specific connection point on a specific node. For
+// schematics, param is the symbol handle key (e.g. inlet, outlet).
+type Handle struct {
+	// Node is the node identifier.
+	Node string `json:"node" msgpack:"node"`
+	// Param is the connection point identifier on the node.
+	Param string `json:"param" msgpack:"param"`
+}
+
+// Edge is a connection between two nodes in the schematic.
+type Edge struct {
+	// Key is the unique edge identifier within the schematic.
+	Key string `json:"key" msgpack:"key"`
+	// Source is the source endpoint of the edge.
+	Source Handle `json:"source" msgpack:"source"`
+	// Target is the target endpoint of the edge.
+	Target Handle `json:"target" msgpack:"target"`
+}
 
 // Schematic is a visual diagram editor component for drawing system schematics, control
 // flows, and process diagrams. Schematics support interactive symbols, connection
@@ -27,9 +70,18 @@ type Schematic struct {
 	Key Key `json:"key" msgpack:"key"`
 	// Name is a human-readable name for the schematic.
 	Name string `json:"name" msgpack:"name"`
-	// Data is the schematic content including symbols, connections, and layout
-	// configuration.
-	Data msgpack.EncodedJSON `json:"data" msgpack:"data"`
 	// Snapshot indicates whether this schematic represents a saved snapshot state.
 	Snapshot bool `json:"snapshot" msgpack:"snapshot"`
+	// Authority is the control authority level for this schematic.
+	Authority control.Authority `json:"authority" msgpack:"authority"`
+	// Legend is the control legend overlay configuration.
+	Legend Legend `json:"legend" msgpack:"legend"`
+	// Nodes contains all diagram nodes in the schematic.
+	Nodes []Node `json:"nodes" msgpack:"nodes"`
+	// Edges contains all connections between nodes.
+	Edges []Edge `json:"edges" msgpack:"edges"`
+	// Configs contains per-element configuration keyed by node or edge key. The shape of
+	// each value is determined by the element's variant; the wire format intentionally
+	// stores it as an opaque record.
+	Configs map[string]msgpack.EncodedJSON `json:"configs" msgpack:"configs"`
 }
