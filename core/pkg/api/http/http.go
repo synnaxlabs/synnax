@@ -42,7 +42,7 @@ import (
 )
 
 func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
-	framerCodec := httpframer.WithCodec(ch)
+	framerServerOption := httpframer.WithCodec(ch)
 	return api.Transport{
 		// AUTH
 		AuthLogin:          fhttp.NewUnaryServer[auth.LoginRequest, auth.LoginResponse](router, "/api/v1/auth/login"),
@@ -66,9 +66,9 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		ConnectivityCheck: fhttp.NewUnaryServer[types.Nil, connectivity.CheckResponse](router, "/api/v1/connectivity/check"),
 
 		// FRAME
-		FrameWriter:   fhttp.NewStreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerCodec),
+		FrameWriter:   fhttp.NewStreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
 		FrameIterator: fhttp.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate"),
-		FrameStreamer: fhttp.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerCodec),
+		FrameStreamer: fhttp.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
 		FrameDelete:   fhttp.NewUnaryServer[framer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 
 		// ONTOLOGY

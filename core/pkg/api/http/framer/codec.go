@@ -32,13 +32,6 @@ type Codec struct {
 	LowerPerfCodec xencoding.Codec
 }
 
-func NewWSFramerCodec(channelSvc *channel.Service) xencoding.Codec {
-	return &Codec{
-		LowerPerfCodec: json.Codec,
-		Codec:          codec.NewDynamic(channelSvc),
-	}
-}
-
 var _ xencoding.Codec = (*Codec)(nil)
 
 func (c *Codec) Decode(
@@ -241,6 +234,9 @@ func (c *Codec) decodeStreamRequest(
 // framer codec is stateful (it tracks the channel keys for the active stream).
 func WithCodec(channelSvc *channel.Service) fhttp.StreamServerOption {
 	return fhttp.WithAdditionalCodec("application/sy-framer", func() xencoding.Codec {
-		return NewWSFramerCodec(channelSvc)
+		return &Codec{
+			LowerPerfCodec: json.Codec,
+			Codec:          codec.NewDynamic(channelSvc),
+		}
 	})
 }
