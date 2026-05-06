@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Diagram, Schematic } from "@synnaxlabs/pluto";
+import { schematic } from "@synnaxlabs/client";
+import { Schematic } from "@synnaxlabs/pluto";
 import { color, migrate, record } from "@synnaxlabs/x";
 import { z } from "zod";
 
@@ -17,8 +18,16 @@ import * as v5 from "@/schematic/types/v5";
 
 export const VERSION = "6.0.0";
 
-export const configZ = Schematic.elementConfigZ;
+export const nodeZ = schematic.nodeZ;
+export type Node = schematic.Node;
+export const edgeZ = schematic.edgeZ;
+export type Edge = schematic.Edge;
+export const handleZ = schematic.handleZ;
+export type Handle = schematic.Handle;
+export const legendZ = schematic.legendZ;
+export type Legend = schematic.Legend;
 
+export const configZ = Schematic.elementConfigZ;
 export type EdgeConfig = Schematic.Edge.Config;
 export type NodeConfig = Schematic.Node.Config;
 export type ElementConfig = Schematic.ElementConfig;
@@ -37,8 +46,8 @@ export const stateZ = v5.stateZ
   .omit({ version: true, nodes: true, edges: true, props: true, legend: true })
   .extend({
     version: z.literal(VERSION),
-    nodes: z.array(Diagram.nodeZ),
-    edges: z.array(Diagram.edgeZ),
+    nodes: z.array(nodeZ),
+    edges: z.array(edgeZ),
     configs: z.record(z.string(), configZ),
     legend: legendStateZ,
     selected: z.array(z.string()).default([]),
@@ -57,8 +66,8 @@ export const ZERO_STATE: State = {
 
 export const copyBufferZ = z.object({
   pos: v0.copyBufferZ.shape.pos,
-  nodes: z.array(Diagram.nodeZ),
-  edges: z.array(Diagram.edgeZ),
+  nodes: z.array(nodeZ),
+  edges: z.array(edgeZ),
   configs: z.record(z.string(), configZ),
 });
 export interface CopyBuffer extends z.infer<typeof copyBufferZ> {}
@@ -84,16 +93,14 @@ export const ZERO_SLICE_STATE: SliceState = {
   copy: ZERO_COPY_BUFFER,
 };
 
-const migrateNode = (node: v0.Node): Diagram.Node => {
-  const next: Diagram.Node = { key: node.key, position: node.position };
+const migrateNode = (node: v0.Node): Node => {
+  const next: Node = { key: node.key, position: node.position };
   if (node.zIndex != null) next.zIndex = node.zIndex;
-  if (node.type != null) next.type = node.type;
-  if (node.measured != null) next.measured = node.measured;
   return next;
 };
 
-const migrateEdge = (edge: v0.Edge): [Diagram.Edge, EdgeConfig] => {
-  const next: Diagram.Edge = {
+const migrateEdge = (edge: v0.Edge): [Edge, EdgeConfig] => {
+  const next: Edge = {
     key: edge.key,
     source: { node: edge.source, param: edge.sourceHandle ?? "" },
     target: { node: edge.target, param: edge.targetHandle ?? "" },

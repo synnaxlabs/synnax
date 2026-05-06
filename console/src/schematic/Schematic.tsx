@@ -52,6 +52,7 @@ import {
   applyNodeChanges,
   clearSelection,
   copySelection,
+  fromRemote,
   internalCreate,
   pasteSelection,
   selectAll,
@@ -79,7 +80,7 @@ const navigateToLinkedSchematic = async (
   placeLayout: Layout.Placer,
 ): Promise<void> => {
   const s = await retrieve(page);
-  placeLayout(create({ ...(s.data as State), key: s.key, name: s.name }));
+  placeLayout(create(fromRemote(s)));
 };
 
 type NodeClickHandler = (nodeId: string, dblClick: boolean) => void;
@@ -140,12 +141,16 @@ const useSyncComponent = Workspace.createSyncComponent(
       await client.schematics.rename(key, layout.name);
       return;
     }
-    const setData = { ...data, key: undefined };
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.schematics.create(workspace, {
       key,
       name: layout.name,
-      data: setData,
+      snapshot: data.snapshot,
+      authority: data.authority,
+      legend: data.legend,
+      nodes: data.nodes,
+      edges: data.edges,
+      configs: data.configs,
     });
   },
 );
@@ -423,7 +428,7 @@ const useLoadRemote = createLoadRemote<schematic.Schematic>({
   useRetrieve: Base.useRetrieveObservable,
   targetVersion: ZERO_STATE.version,
   useSelectVersion,
-  actionCreator: (v) => internalCreate({ ...(v.data as State), key: v.key }),
+  actionCreator: (v) => internalCreate(fromRemote(v)),
 });
 
 export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
