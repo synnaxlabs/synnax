@@ -970,6 +970,53 @@ var _ = Describe("Go PB Plugin", func() {
 			})
 		})
 
+		Context("map with record value conversion", func() {
+			It("Should generate error-returning forward loop for map<K, record>", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Test struct {
+						bags map<uint32, record>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("pb.Bags = make(map[uint32]*structpb.Struct").
+					ToContain("converted, err := structpb.NewStruct(v)").
+					ToContain("pb.Bags[k] = converted").
+					ToContain("r.Bags = make(map[uint32]msgpack.EncodedJSON").
+					ToContain("r.Bags[k] = msgpack.EncodedJSON(v.AsMap())")
+			})
+		})
+
+		Context("map with struct value conversion", func() {
+			It("Should generate error-returning loops in both directions for map<K, Struct>", func(ctx SpecContext) {
+				source := `
+					@go output "core/test"
+					@pb
+
+					Inner struct {
+						value uint32
+					}
+
+					Outer struct {
+						items map<uint32, Inner>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "test", loader, pbPlugin)
+
+				ExpectContent(resp, "translator.gen.go").
+					ToContain("pb.Items = make(map[uint32]*Inner").
+					ToContain("converted, err := InnerToPB(v)").
+					ToContain("pb.Items[k] = converted").
+					ToContain("r.Items = make(map[uint32]test.Inner").
+					ToContain("converted, err := InnerFromPB(v)").
+					ToContain("r.Items[k] = converted")
+			})
+		})
+
 		Context("any field conversion", func() {
 			It("Should handle any fields with json.Marshal", func(ctx SpecContext) {
 				source := `
