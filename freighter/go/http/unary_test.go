@@ -44,11 +44,16 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
-		server = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
+		server = fhttp.NewUnaryServer[test.Request, test.Response](
+			router,
+			"/",
+			fhttp.WithRequestDecoders(json.Codec, msgpack.Codec),
+			fhttp.WithResponseEncoders(json.Codec, msgpack.Codec),
+		)
 		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 			fhttp.UnaryClientConfig{
-				Encoder:  fhttp.JSONCodec,
-				Decoders: []fhttp.Decoder{fhttp.JSONCodec},
+				Encoder:  json.Codec,
+				Decoders: []fhttp.Decoder{json.Codec},
 			},
 		))
 		router.BindTo(app)

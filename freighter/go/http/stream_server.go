@@ -52,11 +52,11 @@ type streamServerOptions struct {
 // StreamServerOption configures a streaming HTTP server.
 type StreamServerOption func(*streamServerOptions)
 
-// WithAdditionalCodec registers a stream-server codec on top of the default codec list.
-// The constructor is invoked once per matching connection so the codec may be stateful
-// and hold per-stream state. The factory returns an encoding.Codec because the content
-// type is supplied here at registration — stateful codecs don't need a ContentType
-// method on every instance.
+// WithAdditionalCodec registers a stream-server codec for the given content type. The
+// constructor is invoked once per matching connection so the codec may be stateful and
+// hold per-stream state. The factory returns an encoding.Codec because the content type
+// is supplied here at registration — stateful codecs don't need a ContentType method on
+// every instance.
 func WithAdditionalCodec(
 	contentType string,
 	new func() encoding.Codec,
@@ -67,6 +67,16 @@ func WithAdditionalCodec(
 			new:         new,
 		})
 	}
+}
+
+// WithCodec registers a stateless stream-server codec. The same instance is reused
+// across every connection that negotiates the codec's content type. For codecs that
+// hold per-stream state, use WithAdditionalCodec instead.
+func WithCodec(c Codec) StreamServerOption {
+	return WithAdditionalCodec(
+		c.ContentType(),
+		func() encoding.Codec { return c },
+	)
 }
 
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
@@ -89,13 +99,12 @@ type streamServer[RQ, RS freighter.Payload] struct {
 }
 
 // Report describes the stream server's protocol and the content types it can negotiate
-// at websocket upgrade time. The list is the union of the default registered codecs
-// and any additional codecs registered via WithAdditionalCodec.
+// at websocket upgrade time. Content types come from the codecs registered via
+// WithAdditionalCodec.
 func (s *streamServer[RQ, RS]) Report() alamos.Report {
-	encs := lo.Map(codecs, func(c Codec, _ int) string { return c.ContentType() })
-	for _, ac := range s.additionalCodecs {
-		encs = append(encs, ac.contentType)
-	}
+	encs := lo.Map(s.additionalCodecs, func(ac additionalCodec, _ int) string {
+		return ac.contentType
+	})
 	return alamos.Report{
 		"protocol":  streamProtocol,
 		"encodings": encs,
@@ -106,11 +115,6 @@ func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
 			return ac.new(), nil
-		}
-	}
-	for _, c := range codecs {
-		if c.ContentType() == contentType {
-			return c, nil
 		}
 	}
 	return nil, errors.Newf(

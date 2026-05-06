@@ -37,7 +37,7 @@ type StreamClientConfig struct {
 	// on the websocket connection. Websockets negotiate a single codec at upgrade time,
 	// so there is no per-direction split.
 	//
-	// [OPTIONAL] - Defaults to MessagePack.
+	// [REQUIRED]
 	Codec Codec
 }
 
@@ -61,7 +61,7 @@ func (c StreamClientConfig) Override(other StreamClientConfig) StreamClientConfi
 func NewStreamClient[RQ, RS freighter.Payload](
 	configs ...StreamClientConfig,
 ) (freighter.StreamClient[RQ, RS], error) {
-	cfg, err := config.New(StreamClientConfig{Codec: MsgPackCodec}, configs...)
+	cfg, err := config.New(StreamClientConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}

@@ -30,13 +30,13 @@ import (
 type UnaryClientConfig struct {
 	// Encoder encodes outgoing requests. Sets the Content-Type header.
 	//
-	// [OPTIONAL] - Defaults to MessagePack.
+	// [REQUIRED]
 	Encoder Encoder
 	// Decoders are the codecs the client can decode responses from. Drives the Accept
 	// header for content negotiation; the response is decoded with whichever Decoder
 	// matches the response Content-Type.
 	//
-	// [OPTIONAL] - Defaults to JSON and MessagePack.
+	// [REQUIRED] - At least one decoder must be supplied.
 	Decoders []Decoder
 }
 

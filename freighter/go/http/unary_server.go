@@ -50,10 +50,7 @@ func WithResponseEncoders(encoders ...Encoder) UnaryServerOption {
 }
 
 func newUnaryServerOptions(opts []UnaryServerOption) unaryServerOptions {
-	so := unaryServerOptions{
-		requestDecoders:  defaultDecoders,
-		responseEncoders: defaultEncoders,
-	}
+	so := unaryServerOptions{}
 	for _, opt := range opts {
 		opt(&so)
 	}
