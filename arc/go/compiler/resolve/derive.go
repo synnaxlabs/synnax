@@ -57,18 +57,27 @@ func DeriveTypeSuffix(originalType, concreteType types.Type) string {
 	for i, inp := range originalType.Inputs {
 		if inp.Type.Kind == types.KindVariable {
 			if i < len(concreteType.Inputs) {
-				return concreteType.Inputs[i].Type.String()
+				return suffixForType(concreteType.Inputs[i].Type)
 			}
 		}
 	}
 	for i, out := range originalType.Outputs {
 		if out.Type.Kind == types.KindVariable {
 			if i < len(concreteType.Outputs) {
-				return concreteType.Outputs[i].Type.String()
+				return suffixForType(concreteType.Outputs[i].Type)
 			}
 		}
 	}
 	return ""
+}
+
+// suffixForType returns the WASM coordinate suffix for a concrete type. Units
+// are stripped because WASM types (i32/i64/f32/f64) are unit-blind, so a
+// timestamp (i64 ns) channel and an int64 channel both bind to the same
+// write_i64 host function.
+func suffixForType(t types.Type) string {
+	t.Unit = nil
+	return t.String()
 }
 
 // DeriveWASMFuncType converts an Arc function type to a WASM FunctionType.
