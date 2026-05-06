@@ -156,7 +156,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 			return nil, err
 		}
 		deleteCfg := signals.GorpPublisherConfigUUID[Schematic](s.table.Observe())
-		deleteCfg.SetName = ""
+		deleteCfg.DisableSet = true
 		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
 			return nil, err
 		}

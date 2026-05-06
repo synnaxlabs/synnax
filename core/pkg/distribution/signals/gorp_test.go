@@ -86,8 +86,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 		It("Should create a config for UUID keyed entries", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
 			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.SetName).To(Equal("sy_testuuidentry_set"))
-			Expect(cfg.DeleteName).To(Equal("sy_testuuidentry_delete"))
 			Expect(cfg.DeleteDataType).To(Equal(telem.UUIDT))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
 			Expect(cfg.MarshalDelete).ToNot(BeNil())
@@ -116,8 +114,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 		It("Should create a config for numeric keyed entries with JSON set", func() {
 			cfg := signals.GorpPublisherConfigNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
 			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.SetName).To(Equal("sy_testnumericentry_set"))
-			Expect(cfg.DeleteName).To(Equal("sy_testnumericentry_delete"))
 			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
 			Expect(cfg.MarshalDelete).ToNot(BeNil())
@@ -142,8 +138,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 		It("Should create a config for numeric keyed entries with numeric set", func() {
 			cfg := signals.GorpPublisherConfigPureNumeric[uint32, testNumericEntry](numTable.Observe(), telem.Uint32T)
 			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.SetName).To(Equal("sy_testnumericentry_set"))
-			Expect(cfg.DeleteName).To(Equal("sy_testnumericentry_delete"))
 			Expect(cfg.DeleteDataType).To(Equal(telem.Uint32T))
 			Expect(cfg.SetDataType).To(Equal(telem.Uint32T))
 			Expect(cfg.MarshalDelete).ToNot(BeNil())
@@ -168,8 +162,6 @@ var _ = Describe("GorpPublisherConfig", func() {
 		It("Should create a config for string keyed entries", func() {
 			cfg := signals.GorpPublisherConfigString[testStringEntry](stringTable.Observe())
 			Expect(cfg.Observable).ToNot(BeNil())
-			Expect(cfg.SetName).To(Equal("sy_teststringentry_set"))
-			Expect(cfg.DeleteName).To(Equal("sy_teststringentry_delete"))
 			Expect(cfg.DeleteDataType).To(Equal(telem.StringT))
 			Expect(cfg.SetDataType).To(Equal(telem.JSONT))
 			Expect(cfg.MarshalDelete).ToNot(BeNil())
@@ -193,33 +185,48 @@ var _ = Describe("GorpPublisherConfig", func() {
 	})
 
 	Describe("DefaultGorpPublisherConfig", func() {
-		It("Should return a zero config; channel names are populated by the per-type helpers", func() {
+		It("Should generate default channel names based on type name", func() {
 			cfg := signals.DefaultGorpPublisherConfig[uuid.UUID, testUUIDEntry]()
-			Expect(cfg.SetName).To(BeEmpty())
-			Expect(cfg.DeleteName).To(BeEmpty())
+			Expect(cfg.SetName).To(Equal("sy_testuuidentry_set"))
+			Expect(cfg.DeleteName).To(Equal("sy_testuuidentry_delete"))
 		})
 	})
 
 	Describe("GorpPublisherConfig validation", func() {
 		It("Should reject a config with no set or delete channel name", func() {
 			cfg := signals.GorpPublisherConfig[uuid.UUID, testUUIDEntry]{}
-			Expect(cfg.Validate()).To(MatchError(ContainSubstring("at least one of set_name or delete_name")))
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("at least one of the set or delete channel must be enabled")))
 		})
 
-		It("Should pass validation with all fields populated by the helper", func() {
+		It("Should reject a config with both channels disabled by flag", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableSet = true
+			cfg.DisableDelete = true
+			Expect(cfg.Validate()).To(MatchError(ContainSubstring("at least one of the set or delete channel must be enabled")))
+		})
+
+		It("Should pass validation with all required fields", func() {
+			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
-		It("Should pass validation with only the delete channel configured", func() {
+		It("Should pass validation when only DisableSet is set, leaving the delete channel enabled", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
-			cfg.SetName = ""
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableSet = true
 			Expect(cfg.Validate()).To(Succeed())
 		})
 
-		It("Should pass validation with only the set channel configured", func() {
+		It("Should pass validation when only DisableDelete is set, leaving the set channel enabled", func() {
 			cfg := signals.GorpPublisherConfigUUID[testUUIDEntry](uuidTable.Observe())
-			cfg.DeleteName = ""
+			cfg.SetName = "test_set"
+			cfg.DeleteName = "test_delete"
+			cfg.DisableDelete = true
 			Expect(cfg.Validate()).To(Succeed())
 		})
 	})
