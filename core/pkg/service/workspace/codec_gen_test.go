@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/orc"
 
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
+	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
 var _ = Describe("Codec", func() {
@@ -39,7 +40,7 @@ var _ = Describe("Codec", func() {
 				Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 				Name:   "test_2",
 				Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-				Layout: map[string]interface{}{"key_4": "value_4"},
+				Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 			}),
 			Entry("zero values", workspace.Workspace{
 				Key:    uuid.Nil,
@@ -56,7 +57,7 @@ func BenchmarkEncodeDecodeWorkspace(b *testing.B) {
 		Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 		Name:   "test_2",
 		Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-		Layout: map[string]interface{}{"key_4": "value_4"},
+		Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 	}
 	w := orc.NewWriter(0)
 	r := orc.NewReader(nil)
@@ -79,7 +80,7 @@ func FuzzDecodeWorkspace(f *testing.F) {
 			Key:    uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567801"),
 			Name:   "test_2",
 			Author: uuid.MustParse("a1b2c3d4-e5f6-7890-abcd-ef1234567803"),
-			Layout: map[string]interface{}{"key_4": "value_4"},
+			Layout: msgpack.EncodedJSON{"key_4": "value_4"},
 		}
 		w := orc.NewWriter(0)
 		if err := seed.EncodeOrc(w); err != nil {

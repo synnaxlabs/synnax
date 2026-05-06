@@ -353,6 +353,32 @@ describe("record", () => {
       const obj = { nested: { key: "value" }, arr: [1, 2, 3] };
       expect(record.nullishToEmpty().parse(obj)).toEqual(obj);
     });
+
+    describe("with typed key and value schemas", () => {
+      const schema = record.nullishToEmpty(z.string(), z.number());
+
+      it("should coerce null to empty object", () => {
+        expect(schema.parse(null)).toEqual({});
+      });
+
+      it("should coerce undefined to empty object", () => {
+        expect(schema.parse(undefined)).toEqual({});
+      });
+
+      it("should pass through populated record matching the value schema", () => {
+        expect(schema.parse({ a: 1, b: 2 })).toEqual({ a: 1, b: 2 });
+      });
+
+      it("should reject values that don't match the value schema", () => {
+        expect(() => schema.parse({ a: "not a number" })).toThrow();
+      });
+
+      it("should preserve the inferred typed shape", () => {
+        const parsed = schema.parse({ a: 1 });
+        const value: number = parsed.a;
+        expect(value).toBe(1);
+      });
+    });
   });
 
   describe("omit", () => {

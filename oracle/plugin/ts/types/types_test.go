@@ -1648,7 +1648,7 @@ var _ = Describe("TS Types Plugin", func() {
 		})
 
 		Context("map types", func() {
-			It("Should handle map with primitive key and value types", func(ctx SpecContext) {
+			It("Should wrap required map fields with record.nullishToEmpty so a nil map serialized as null parses cleanly", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1659,11 +1659,11 @@ var _ = Describe("TS Types Plugin", func() {
 				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
 					ToContain(
-						`settings: z.record(z.string(), z.string())`,
+						`settings: record.nullishToEmpty(z.string(), z.string())`,
 					)
 			})
 
-			It("Should handle map with different primitive types", func(ctx SpecContext) {
+			It("Should preserve typed value schemas when wrapping with record.nullishToEmpty", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1673,10 +1673,10 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "metrics", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`counts: z.record(z.string(), z.int64())`)
+					ToContain(`counts: record.nullishToEmpty(z.string(), z.int64())`)
 			})
 
-			It("Should handle map with struct value type", func(ctx SpecContext) {
+			It("Should reference struct value schemas inside record.nullishToEmpty", func(ctx SpecContext) {
 				source := `
 					@ts output "out"
 
@@ -1690,7 +1690,39 @@ var _ = Describe("TS Types Plugin", func() {
 				`
 				resp := MustGenerate(ctx, source, "store", loader, typesPlugin)
 				ExpectContent(resp, "types.gen.ts").
-					ToContain(`entries: z.record(z.string(), entryZ)`)
+					ToContain(`entries: record.nullishToEmpty(z.string(), entryZ)`)
+			})
+
+			It("Should wrap optional map fields with zod.nullToUndefined around z.record", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Config struct {
+						settings map<string, string>?
+					}
+				`
+				resp := MustGenerate(ctx, source, "config", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`settings: zod.nullToUndefined(z.record(z.string(), z.string()))`,
+					)
+			})
+
+			It("Should compose record.nullishToEmpty inside caseconv.preserveCase for required map fields", func(ctx SpecContext) {
+				source := `
+					@ts output "out"
+
+					Schematic struct {
+						configs map<string, record> {
+							@ts preserve_case
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "schematic", loader, typesPlugin)
+				ExpectContent(resp, "types.gen.ts").
+					ToContain(
+						`configs: caseconv.preserveCase(record.nullishToEmpty(z.string(), record.unknownZ()))`,
+					)
 			})
 		})
 
