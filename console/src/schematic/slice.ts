@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { type schematic } from "@synnaxlabs/client";
 import {
   type Control,
   type Diagram,
@@ -54,6 +55,15 @@ export const purgeSliceState = (state: RootState): RootState => {
 };
 
 export const PERSIST_EXCLUDE = [purgeSliceState];
+
+export const fromRemote = (s: schematic.Schematic): State => ({
+  ...ZERO_STATE,
+  ...s,
+  // TODO: remove this assertion when schematic element configs are strongly typed on
+  // the core.
+  configs: s.configs as Record<string, ElementConfig>,
+  remoteCreated: true,
+});
 
 export interface SetViewportPayload {
   key: string;
@@ -354,11 +364,6 @@ export const { actions, reducer } = createSlice({
             );
             delete schematic.configs[change.key];
             schematic.selected = schematic.selected.filter((k) => k !== change.key);
-            break;
-          }
-          case "dimensions": {
-            const node = schematic.nodes.find((n) => n.key === change.key);
-            if (node != null) node.measured = change.dimensions;
             break;
           }
         }
