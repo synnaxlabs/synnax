@@ -109,7 +109,7 @@ var _ = Describe("Router", func() {
 			addr := address.Address("localhost:8095")
 			app := fiber.New(fiber.Config{})
 			router := MustSucceed(fhttp.NewRouter())
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo", fhttp.WithRequestDecoders(json.Codec), fhttp.WithResponseEncoders(json.Codec))
+			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
@@ -144,7 +144,7 @@ var _ = Describe("Router", func() {
 
 			handlerEntered := make(chan struct{})
 			handlerCtxDone := make(chan struct{})
-			server := fhttp.NewStreamServer[test.Request, test.Response](router, "/stream", fhttp.WithCodec(json.Codec))
+			server := fhttp.NewStreamServer[test.Request, test.Response](router, "/stream")
 			server.BindHandler(func(
 				ctx context.Context,
 				_ freighter.ServerStream[test.Request, test.Response],
@@ -187,7 +187,7 @@ var _ = Describe("Router", func() {
 			router := MustSucceed(fhttp.NewRouter())
 
 			calls := 0
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo", fhttp.WithRequestDecoders(json.Codec), fhttp.WithResponseEncoders(json.Codec))
+			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
@@ -235,7 +235,7 @@ var _ = Describe("Router", func() {
 				calls++
 				return next(ctx)
 			}))
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo", fhttp.WithRequestDecoders(json.Codec), fhttp.WithResponseEncoders(json.Codec))
+			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
@@ -272,7 +272,7 @@ var _ = Describe("Router", func() {
 			router := MustSucceed(fhttp.NewRouter())
 
 			var order []string
-			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo", fhttp.WithRequestDecoders(json.Codec), fhttp.WithResponseEncoders(json.Codec))
+			server := fhttp.NewUnaryServer[test.Request, test.Response](router, "/echo")
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				order = append(order, "handler")
 				return test.Response(req), nil

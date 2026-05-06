@@ -23,6 +23,9 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
+	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/encoding/msgpack"
+	xhttp "github.com/synnaxlabs/x/http"
 )
 
 // BindableTransport is a freighter.Transport that knows how to register its routes on a
@@ -125,3 +128,9 @@ func parseResponseCtx(
 	}
 	return md
 }
+
+var (
+	defaultEncoders = []xhttp.Encoder{json.Codec, msgpack.Codec}
+	defaultDecoders = []xhttp.Decoder{json.Codec, msgpack.Codec}
+	defaultCodecs   = []xhttp.Codec{json.Codec, msgpack.Codec}
+)

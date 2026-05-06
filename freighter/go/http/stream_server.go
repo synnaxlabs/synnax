@@ -81,6 +81,9 @@ func WithCodec(c Codec) StreamServerOption {
 
 func newStreamServerOptions(opts []StreamServerOption) streamServerOptions {
 	so := streamServerOptions{}
+	for _, c := range defaultCodecs {
+		WithCodec(c)(&so)
+	}
 	for _, opt := range opts {
 		opt(&so)
 	}

@@ -8,9 +8,7 @@
 // included in the file licenses/APL.txt.
 
 // Package http defines the codec interfaces shared between the x/encoding family of
-// packages and any HTTP transport that negotiates body codecs by content type. It
-// lives in x so that codec implementations can satisfy these interfaces without
-// importing a transport package.
+// packages and any HTTP transport that negotiates body codecs by content type.
 package http
 
 import "github.com/synnaxlabs/x/encoding"

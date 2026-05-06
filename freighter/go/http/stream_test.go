@@ -41,11 +41,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
-		server = fhttp.NewStreamServer[test.Request, test.Response](
-			router,
-			"/",
-			fhttp.WithCodec(json.Codec),
-		)
+		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
 		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
 			fhttp.StreamClientConfig{Codec: json.Codec},
 		))
