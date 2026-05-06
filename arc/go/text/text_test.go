@@ -2897,6 +2897,21 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 		})
 
+		It("Should allow time.now{} to write into a plain i64 channel", func(ctx SpecContext) {
+			resolver := symbol.CompoundResolver{
+				symbol.MapResolver{
+					"int_out": {Name: "int_out", Kind: symbol.KindChannel, Type: types.Chan(types.I64()), ID: 10044},
+				},
+				stl.SymbolResolver,
+			}
+			source := `
+			interval{100ms} -> time.now{} -> int_out
+			`
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+		})
+
 		It("Should reject a flow-only function called in a func body at analysis time", func(ctx SpecContext) {
 			resolver := symbol.CompoundResolver{
 				symbol.MapResolver{

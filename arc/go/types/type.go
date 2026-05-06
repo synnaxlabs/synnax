@@ -549,6 +549,29 @@ func Equal(t Type, v Type) bool {
 	return t.Unit.Equal(*v.Unit)
 }
 
+// Equivalent compares two types for assignment compatibility. It is identical to
+// Equal except that primitive types with matching kinds are considered compatible
+// regardless of unit metadata. This mirrors the WASM and Cesium layers, which both
+// treat values like i64 ns and i64 as the same underlying representation.
+func Equivalent(t Type, v Type) bool {
+	if t.Kind != v.Kind {
+		return false
+	}
+	if t.Kind == KindChan || t.Kind == KindSeries {
+		if t.Elem == nil && v.Elem == nil {
+			return true
+		}
+		if t.Elem == nil || v.Elem == nil {
+			return false
+		}
+		return Equivalent(*t.Elem, *v.Elem)
+	}
+	if t.Kind == KindVariable || t.Kind == KindFunction {
+		return Equal(t, v)
+	}
+	return true
+}
+
 func paramsEqual(a, b Params) bool {
 	if len(a) != len(b) {
 		return false

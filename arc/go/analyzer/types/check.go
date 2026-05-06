@@ -69,7 +69,7 @@ func Check(
 		return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
 	}
 
-	if !types.Equal(t1, t2) {
+	if !types.Equivalent(t1, t2) {
 		return newTypeMismatchError(t1, t2, reason)
 	}
 	return nil
