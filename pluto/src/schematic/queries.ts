@@ -16,7 +16,7 @@ import { Flux } from "@/flux";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
-import { Symbol } from "@/schematic/symbol";
+import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
 export const FLUX_STORE_KEY = "schematics";
@@ -446,7 +446,7 @@ export const useAddNode = (resourceKey: string) => {
       };
       dispatch({
         key: resourceKey,
-        actions: [schematic.addNode({ node, config })],
+        actions: [schematic.setNode({ node, config })],
       });
     },
     [dispatch, resourceKey, theme, store],
