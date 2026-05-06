@@ -149,10 +149,10 @@ func (u *unaryClient[RQ, RS]) Send(
 			httpReq.Header.Set(fiber.HeaderAccept, u.acceptHeader)
 
 			httpRes, err := (&http.Client{}).Do(httpReq)
-			outCtx := parseResponseCtx(httpRes, target, false)
 			if err != nil {
-				return outCtx, err
+				return freighter.Context{Target: target}, err
 			}
+			outCtx := parseResponseCtx(httpRes, target, false)
 
 			decoder, err := u.resolveResponseDecoder(httpRes.Header.Get(fiber.HeaderContentType))
 			if err != nil {

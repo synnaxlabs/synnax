@@ -102,10 +102,10 @@ func (s *streamClient[RQ, RS]) Stream(
 			conn, res, err := s.dialer.DialContext(
 				ctx, "ws://"+target.String(), ctxToHeaders(ctx),
 			)
-			oCtx := parseResponseCtx(res, target, true)
 			if err != nil {
-				return oCtx, err
+				return freighter.Context{Target: target}, err
 			}
+			oCtx := parseResponseCtx(res, target, true)
 			if res.StatusCode != fiber.StatusSwitchingProtocols {
 				return oCtx, errors.New("[ws] - unable to upgrade connection")
 			}
