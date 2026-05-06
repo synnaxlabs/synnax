@@ -9,9 +9,10 @@
 
 import "@/layout/Window.css";
 
+import { Haul } from "@synnaxlabs/charon";
 import { MAIN_WINDOW, setWindowProps } from "@synnaxlabs/drift";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { Flex, Haul, Menu, OS } from "@synnaxlabs/pluto";
+import { Flex, Menu, OS } from "@synnaxlabs/pluto";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { memo, type ReactElement, useEffect } from "react";
 import { useDispatch } from "react-redux";

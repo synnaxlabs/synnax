@@ -9,23 +9,9 @@
 
 import "@/range/Toolbar.css";
 
+import { Haul } from "@synnaxlabs/charon";
 import { ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Component,
-  Flex,
-  type Flux,
-  Haul,
-  Icon,
-  List as BaseList,
-  Menu,
-  Ranger,
-  Select,
-  Tag,
-  Telem,
-  Text,
-  Tooltip,
-} from "@synnaxlabs/pluto";
+import { Access, Component, Flex, type Flux, Icon, List as BaseList, Menu, Ranger, Select, Tag, Telem, Text, Tooltip } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback } from "react";
 import { useDispatch, useStore } from "react-redux";
 

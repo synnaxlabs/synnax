@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/charon";
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
+import { Mosaic, Tabs, Theming } from "@synnaxlabs/pluto";
 import { location } from "@synnaxlabs/x";
 import { z } from "zod";
 

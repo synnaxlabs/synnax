@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/charon";
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, type ReactNode } from "react";
 import { describe, expect, it, vi } from "vitest";
 
-import { Haul } from "@/haul";
 import { Grid } from "@/schematic/node/common/grid";
 import { Label } from "@/schematic/node/common/label";
 

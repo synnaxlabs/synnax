@@ -9,30 +9,10 @@
 
 import "@/layouts/Mosaic.css";
 
+import { Portal } from "@synnaxlabs/charon";
 import { ontology } from "@synnaxlabs/client";
 import { Logo } from "@synnaxlabs/media";
-import {
-  Breadcrumb,
-  Button,
-  Component,
-  Dialog,
-  Eraser,
-  Flex,
-  Flux,
-  Icon,
-  type Menu,
-  Mosaic as Base,
-  Nav as PNav,
-  OS,
-  type Pluto,
-  Portal,
-  Status,
-  Synnax,
-  type Tabs,
-  Text,
-  Triggers,
-  useDebouncedCallback,
-} from "@synnaxlabs/pluto";
+import { Breadcrumb, Button, Component, Dialog, Eraser, Flex, Flux, Icon, type Menu, Mosaic as Base, Nav as PNav, OS, type Pluto, Status, Synnax, type Tabs, Text, Triggers, useDebouncedCallback } from "@synnaxlabs/pluto";
 import { caseconv, type location, TimeSpan } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useLayoutEffect } from "react";
 import { useDispatch, useStore } from "react-redux";

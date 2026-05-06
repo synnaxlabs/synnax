@@ -7,12 +7,4 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-export { context } from "@/context";
-export { Cursor } from "@/cursor";
-export { Generic } from "@/generic";
-export { Haul } from "@/haul";
-export { Key } from "@/key";
-export * from "@/memo";
-export { Portal } from "@/portal";
-export { state } from "@/state";
-export * from "@/util";
+/// <reference types="vite/client" />

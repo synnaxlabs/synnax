@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Haul } from "@synnaxlabs/charon";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -16,7 +17,6 @@ import {
   HAUL_TYPE,
   isHaulItem,
 } from "@/access/policy/types";
-import { type Haul } from "@/haul";
 
 const KEY = "550e8400-e29b-41d4-a716-446655440000";
 const OTHER: Haul.Item = { type: "other_type", key: "other" };

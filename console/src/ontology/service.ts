@@ -7,14 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Haul } from "@synnaxlabs/charon";
 import { type ontology, type Synnax } from "@synnaxlabs/client";
-import {
-  type Haul,
-  type Icon,
-  type List,
-  type Status,
-  type Tree,
-} from "@synnaxlabs/pluto";
+import { type Icon, type List, type Status, type Tree } from "@synnaxlabs/pluto";
 import { type location } from "@synnaxlabs/x";
 import { type FC } from "react";
 

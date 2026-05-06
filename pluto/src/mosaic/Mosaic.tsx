@@ -9,6 +9,7 @@
 
 import "@/mosaic/Mosaic.css";
 
+import { Haul, Portal } from "@synnaxlabs/charon";
 import { type box, type location, type xy } from "@synnaxlabs/x";
 import {
   type DragEvent,
@@ -23,10 +24,8 @@ import {
 import { CSS } from "@/css";
 import { Errors } from "@/errors";
 import { type Flex } from "@/flex";
-import { Haul } from "@/haul";
 import { mapNodes } from "@/mosaic/tree";
 import { type Node } from "@/mosaic/types";
-import { Portal } from "@/portal";
 import { Resize } from "@/resize";
 import { Tabs } from "@/tabs";
 

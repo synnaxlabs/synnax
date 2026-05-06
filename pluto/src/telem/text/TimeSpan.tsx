@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Generic } from "@synnaxlabs/charon";
 import {
   type CrudeTimeSpan,
   TimeSpan as XTimeSpan,
@@ -14,7 +15,6 @@ import {
 } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Generic } from "@/generic";
 import { Text } from "@/text";
 
 export type TimeSpanProps<E extends Generic.ElementType = "p"> = Omit<

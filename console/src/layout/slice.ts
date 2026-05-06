@@ -13,8 +13,9 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { type Haul } from "@synnaxlabs/charon";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
+import { type Color, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 

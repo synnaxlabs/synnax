@@ -9,13 +9,13 @@
 
 import "@/input/Input.css";
 
+import { Generic } from "@synnaxlabs/charon";
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useRef, useState } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Generic } from "@/generic";
 import { useCombinedRefs } from "@/hooks";
 import { type InputProps, type Variant } from "@/input/types";
 import { Text as BaseText } from "@/text";

@@ -9,6 +9,7 @@
 
 import "@/channel/LinePlot.css";
 
+import { Haul } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
 import {
   box,
@@ -30,7 +31,6 @@ import {
 
 import { canDropHaulItem, filterHaulItems } from "@/channel/types";
 import { CSS } from "@/css";
-import { Haul } from "@/haul";
 import { usePrevious } from "@/hooks";
 import { LinePlot as Base } from "@/lineplot";
 import { Range } from "@/lineplot/range";

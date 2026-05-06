@@ -9,7 +9,7 @@
 
 import "@/text/Text.css";
 
-import { isValidElement } from "@synnaxlabs/charon";
+import { type Generic, isValidElement } from "@synnaxlabs/charon";
 import { type status } from "@synnaxlabs/x";
 import {
   Children,
@@ -20,7 +20,6 @@ import {
 
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { type Generic } from "@/generic";
 import { type text } from "@/text/base";
 
 type AnchorProps = ComponentPropsWithoutRef<"a">;

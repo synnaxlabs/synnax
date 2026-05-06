@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { canDisable, type CanDisabledProps } from "@synnaxlabs/charon";
+import { canDisable, type CanDisabledProps, Haul } from "@synnaxlabs/charon";
 import { type PropsWithChildren, type ReactElement } from "react";
 
 import { access } from "@/access/aether";
@@ -19,7 +19,6 @@ import { Color } from "@/color";
 import { Device } from "@/device";
 import { Flux } from "@/flux";
 import { Group } from "@/group";
-import { Haul } from "@/haul";
 import { Label } from "@/label";
 import { LinePlot } from "@/lineplot";
 import { Log } from "@/log";

@@ -9,23 +9,8 @@
 
 import "@/hardware/opc/device/Browser.css";
 
-import {
-  Button,
-  Component,
-  type Device as PDevice,
-  Flex,
-  Flux,
-  Haul,
-  Header,
-  Icon,
-  List,
-  Select,
-  Status,
-  Text,
-  TimeSpan,
-  Tree,
-  useCombinedStateAndRef,
-} from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/charon";
+import { Button, Component, type Device as PDevice, Flex, Flux, Header, Icon, List, Select, Status, Text, TimeSpan, Tree, useCombinedStateAndRef } from "@synnaxlabs/pluto";
 import { array, type optional, type status } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect, useState } from "react";
 

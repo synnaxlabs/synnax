@@ -7,30 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context } from "@synnaxlabs/charon";
+import { context, Haul } from "@synnaxlabs/charon";
 import {
   DisconnectedError,
   NotFoundError,
   ontology,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import {
-  Component,
-  Flux,
-  Haul,
-  Icon,
-  List,
-  Menu,
-  Ontology,
-  Status,
-  Synnax,
-  Text,
-  Tree as Base,
-  useAsyncEffect,
-  useCombinedStateAndRef,
-  useInitializerRef,
-  useSyncedRef,
-} from "@synnaxlabs/pluto";
+import { Component, Flux, Icon, List, Menu, Ontology, Status, Synnax, Text, Tree as Base, useAsyncEffect, useCombinedStateAndRef, useInitializerRef, useSyncedRef } from "@synnaxlabs/pluto";
 import { array, type observe } from "@synnaxlabs/x";
 import {
   type DragEvent,

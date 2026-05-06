@@ -7,8 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/charon";
 import { Drift } from "@synnaxlabs/drift";
-import { Haul, Mosaic, Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
+import { Mosaic, Status, useAsyncEffect, useSyncedRef } from "@synnaxlabs/pluto";
 import { box, runtime, xy } from "@synnaxlabs/x";
 import { listen } from "@tauri-apps/api/event";
 import { Window } from "@tauri-apps/api/window";

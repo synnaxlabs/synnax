@@ -9,17 +9,9 @@
 
 import "@/hardware/opc/task/Task.css";
 
+import { Haul } from "@synnaxlabs/charon";
 import { type channel } from "@synnaxlabs/client";
-import {
-  type Component,
-  Flex,
-  Form as PForm,
-  Haul,
-  Header as PHeader,
-  Icon,
-  Select,
-  Text,
-} from "@synnaxlabs/pluto";
+import { type Component, Flex, Form as PForm, Header as PHeader, Icon, Select, Text } from "@synnaxlabs/pluto";
 import { useCallback, useState } from "react";
 
 import { CSS } from "@/css";

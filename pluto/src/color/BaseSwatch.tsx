@@ -9,12 +9,12 @@
 
 import "@/color/Swatch.css";
 
+import { Haul } from "@synnaxlabs/charon";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 
 import { Button } from "@/button";
 import { CSS } from "@/css";
-import { Haul } from "@/haul";
 import { Theming } from "@/theming";
 
 export const HAUL_TYPE = "color";

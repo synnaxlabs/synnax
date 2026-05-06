@@ -9,19 +9,8 @@
 
 import "@/arc/editor/graph/toolbar/Stages.css";
 
-import {
-  Arc,
-  Button,
-  Component,
-  Flex,
-  Haul,
-  type Input,
-  List,
-  Menu,
-  Select,
-  Text,
-  Theming,
-} from "@synnaxlabs/pluto";
+import { Haul } from "@synnaxlabs/charon";
+import { Arc, Button, Component, Flex, type Input, List, Menu, Select, Text, Theming } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useMemo, useState } from "react";
 import { useDispatch } from "react-redux";
 

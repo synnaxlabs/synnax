@@ -9,10 +9,10 @@
 
 import "@/breadcrumb/Breadcrumb.css";
 
+import { type Generic } from "@synnaxlabs/charon";
 import { Children, Fragment, type ReactElement, type ReactNode } from "react";
 
 import { CSS } from "@/css";
-import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 

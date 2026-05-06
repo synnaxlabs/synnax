@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Haul, type Schematic } from "@synnaxlabs/pluto";
+import { type Haul } from "@synnaxlabs/charon";
+import { type Schematic } from "@synnaxlabs/pluto";
 
 import { type AddNodeProps } from "@/schematic/symbols/useAddNode";
 

@@ -11,15 +11,9 @@ import "@/index.css";
 import "@synnaxlabs/media/dist/media.css";
 import "@synnaxlabs/pluto/dist/pluto.css";
 
-import { preventDefault, type state } from "@synnaxlabs/charon";
+import { type Haul, preventDefault, type state } from "@synnaxlabs/charon";
 import { Provider } from "@synnaxlabs/drift/react";
-import {
-  type Alamos,
-  type Color,
-  type Haul,
-  Pluto,
-  type Triggers,
-} from "@synnaxlabs/pluto";
+import { type Alamos, type Color, Pluto, type Triggers } from "@synnaxlabs/pluto";
 import { type ReactElement, useCallback, useEffect } from "react";
 import { useDispatch } from "react-redux";
 

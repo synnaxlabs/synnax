@@ -9,11 +9,11 @@
 
 import "@/button/Button.css";
 
+import { type Generic } from "@synnaxlabs/charon";
 import { color, record, TimeSpan } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
-import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text } from "@/text";
 import { Theming } from "@/theming";

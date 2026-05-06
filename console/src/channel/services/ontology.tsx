@@ -7,21 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Haul } from "@synnaxlabs/charon";
 import { channel, isCalculated, ontology, ranger } from "@synnaxlabs/client";
-import {
-  Access,
-  Channel as PChannel,
-  type Flux,
-  type Haul,
-  Icon,
-  Menu,
-  type Schematic as PSchematic,
-  Status,
-  telem,
-  Text,
-  Tooltip,
-  Tree,
-} from "@synnaxlabs/pluto";
+import { Access, Channel as PChannel, type Flux, Icon, Menu, type Schematic as PSchematic, Status, telem, Text, Tooltip, Tree } from "@synnaxlabs/pluto";
 import { primitive, status } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 

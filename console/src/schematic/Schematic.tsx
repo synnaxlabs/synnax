@@ -7,24 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/charon";
 import { schematic } from "@synnaxlabs/client";
 import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import {
-  Access,
-  Control,
-  Diagram,
-  Flux,
-  Haul,
-  Icon,
-  type Pluto,
-  Schematic as Base,
-  Status,
-  Synnax,
-  Theming,
-  usePrevious,
-  useSyncedRef,
-  Viewport,
-} from "@synnaxlabs/pluto";
+import { Access, Control, Diagram, Flux, Icon, type Pluto, Schematic as Base, Status, Synnax, Theming, usePrevious, useSyncedRef, Viewport } from "@synnaxlabs/pluto";
 import { box, type color, deep, type sticky, uuid, xy } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";

@@ -7,10 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Generic } from "@synnaxlabs/charon";
 import { runtime } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { type Generic } from "@/generic";
 import { Icon } from "@/icon";
 import { Text as Base } from "@/text";
 import { type Key, type Trigger } from "@/triggers/triggers";

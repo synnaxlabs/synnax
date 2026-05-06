@@ -9,7 +9,7 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
-import { triggerReflow } from "@synnaxlabs/charon";
+import { Haul, triggerReflow } from "@synnaxlabs/charon";
 import { location } from "@synnaxlabs/x";
 import {
   Children,
@@ -31,7 +31,6 @@ import {
 import { Button } from "@/button";
 import { CSS } from "@/css";
 import { Flex } from "@/flex";
-import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
 import { selectNode } from "@/vis/diagram/util";

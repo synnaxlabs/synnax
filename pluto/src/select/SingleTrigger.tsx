@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Haul } from "@synnaxlabs/charon";
 import { type record } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { CSS } from "@/css";
 import { Dialog } from "@/dialog";
-import { Haul } from "@/haul";
 import { type Icon } from "@/icon";
 import { List } from "@/list";
 import { useContext, useSelection } from "@/select/Frame";

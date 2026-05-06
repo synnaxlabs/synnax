@@ -9,13 +9,13 @@
 
 import "@/schematic/Schematic.css";
 
+import { Key } from "@synnaxlabs/charon";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { z } from "zod";
 
 import { Component } from "@/component";
 import { CSS } from "@/css";
-import { Key } from "@/key";
 import { Edge } from "@/schematic/edge";
 import { Node } from "@/schematic/node";
 import { Diagram } from "@/vis/diagram";
