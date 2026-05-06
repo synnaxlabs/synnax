@@ -29,7 +29,8 @@ export const convertSeriesToSupportedGL = (
 ): Series => {
   if (series.dataType.isVariable || series.dataType.equals(DataType.UINT8))
     return series;
-  if (offset == null && series.dataType.usesBigInt) offset = BigInt(series.data[0]);
+  if (offset == null && series.dataType.usesBigInt && series.length > 0)
+    offset = BigInt(series.data[0]);
   return series.convert(DataType.FLOAT32, offset);
 };
 

@@ -92,6 +92,16 @@ describe("convertSeriesToSupportedGL", () => {
     const result = convertSeriesToSupportedGL(series, offset);
     expect(result.sampleOffset).toBe(offset);
   });
+
+  it("does not throw on a zero-length bigint series with no explicit offset", () => {
+    const series = new Series({
+      data: new BigInt64Array(0),
+      dataType: DataType.INT64,
+    });
+    const result = convertSeriesToSupportedGL(series);
+    expect(result.dataType.equals(DataType.FLOAT32)).toBe(true);
+    expect(result).toHaveLength(0);
+  });
 });
 
 describe("resolveGLDataType", () => {
