@@ -15,13 +15,13 @@ import { reduce, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   actionZ,
-  setNode,
   removeEdge,
   removeNode,
   setAuthority,
   setConfig,
   setEdge,
   setLegend,
+  setNode,
   setNodePosition,
 } from "@/schematic/actions.gen";
 import { ZERO_LEGEND } from "@/schematic/client";
