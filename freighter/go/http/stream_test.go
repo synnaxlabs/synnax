@@ -35,7 +35,7 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
-		addr = "localhost:8080"
+		addr = address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
 		app = fiber.New(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
