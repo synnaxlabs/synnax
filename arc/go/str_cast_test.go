@@ -10,6 +10,8 @@
 package arc_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/channel"
@@ -123,6 +125,12 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.1)) }, "3.1"),
 		Entry("f64 channel 0.1234567890123456 (high precision)", "f64", types.F64(), telem.Float64T,
 			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.1234567890123456)) }, "0.1234567890123456"),
+		Entry("f64 channel NaN", "f64", types.F64(), telem.Float64T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.NaN())) }, "NaN"),
+		Entry("f64 channel +Inf", "f64", types.F64(), telem.Float64T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.Inf(1))) }, "+Inf"),
+		Entry("f64 channel -Inf", "f64", types.F64(), telem.Float64T,
+			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](math.Inf(-1))) }, "-Inf"),
 		Entry("i32 channel -42 (negative)", "i32", types.I32(), telem.Int32T,
 			func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](-42)) }, "-42"),
 		Entry("u32 channel 4000000000", "u32", types.U32(), telem.Uint32T,

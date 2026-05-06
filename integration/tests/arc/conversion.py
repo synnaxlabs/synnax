@@ -114,6 +114,12 @@ flow_trigger -> "v=" + str(in_u64) + "!" -> flow_concat_u64
 flow_trigger -> "v=" + str(in_f32) + "!" -> flow_concat_f32
 flow_trigger -> "v=" + str(in_f64) + "!" -> flow_concat_f64
 
+// Special f64 values: division by zero yields +Inf / -Inf / NaN. Exercises
+// strconv.FormatFloat's non-finite branch via from_f64.
+flow_trigger -> str(f64(1)/f64(0)) -> flow_str_pos_inf
+flow_trigger -> str(f64(-1)/f64(0)) -> flow_str_neg_inf
+flow_trigger -> str(f64(0)/f64(0)) -> flow_str_nan
+
 // Numeric form: one representative cast per opcode family (extend, wrap,
 // convert, trunc, promote/demote) plus one cast composed inside a binary op.
 flow_trigger -> i64(in_i32) -> flow_num_i32_to_i64
@@ -197,6 +203,10 @@ OUTPUT_CHANNELS: list[tuple[str, sy.DataType]] = [
     ("flow_concat_u64", sy.DataType.STRING),
     ("flow_concat_f32", sy.DataType.STRING),
     ("flow_concat_f64", sy.DataType.STRING),
+    # Flow-context str(): special float values
+    ("flow_str_pos_inf", sy.DataType.STRING),
+    ("flow_str_neg_inf", sy.DataType.STRING),
+    ("flow_str_nan", sy.DataType.STRING),
     # Flow-context numeric casts
     ("flow_num_i32_to_i64", sy.DataType.INT64),
     ("flow_num_i64_to_i32", sy.DataType.INT32),
@@ -340,6 +350,12 @@ class Conversion(ArcConsoleCase):
         self.wait_for_eq("flow_concat_u64", "v=42!", is_virtual=True)
         self.wait_for_eq("flow_concat_f32", "v=3.5!", is_virtual=True)
         self.wait_for_eq("flow_concat_f64", "v=3.5!", is_virtual=True)
+
+        # str(): special float values via division by zero. Go's
+        # strconv.FormatFloat emits "+Inf" / "-Inf" / "NaN".
+        self.wait_for_eq("flow_str_pos_inf", "+Inf", is_virtual=True)
+        self.wait_for_eq("flow_str_neg_inf", "-Inf", is_virtual=True)
+        self.wait_for_eq("flow_str_nan", "NaN", is_virtual=True)
 
         # Numeric: one representative per opcode family + one composed in a
         # binary op. i32(in_i64) at 2^31 sign-flips to -2^31.
