@@ -26,25 +26,47 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Unary", Ordered, Serial, func() {
 	var (
-		server freighter.UnaryServer[test.Request, test.Response]
-		client freighter.UnaryClient[test.Request, test.Response]
-		addr   address.Address
-		app    *fiber.App
+		server            freighter.UnaryServer[test.Request, test.Response]
+		serverJSONOnly    freighter.UnaryServer[test.Request, test.Response]
+		serverMsgpackOnly freighter.UnaryServer[test.Request, test.Response]
+		client            freighter.UnaryClient[test.Request, test.Response]
+		addr              address.Address
+		app               *fiber.App
 	)
 
 	BeforeAll(func() {
 		addr = "localhost:8081"
 		app = fiber.New(fiber.Config{})
 		router := MustSucceed(fhttp.NewRouter())
-		app.Get("/health", func(c fiber.Ctx) error {
-			return c.SendStatus(fiber.StatusOK)
+		app.Get("/health", func(ctx fiber.Ctx) error {
+			return ctx.SendStatus(fiber.StatusOK)
+		})
+		// Endpoint that always responds with a content type the default unary client
+		// has no decoder for. Used to exercise the client's decoder-resolution failure
+		// path against a real server response.
+		app.Post("/text-plain", func(ctx fiber.Ctx) error {
+			ctx.Set(fiber.HeaderContentType, "text/plain")
+			return ctx.SendString("just text")
 		})
 		server = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
+		serverJSONOnly = fhttp.NewUnaryServer[test.Request, test.Response](
+			router,
+			"/json-only",
+			fhttp.WithRequestDecoders(json.Codec),
+			fhttp.WithResponseEncoders(json.Codec),
+		)
+		serverMsgpackOnly = fhttp.NewUnaryServer[test.Request, test.Response](
+			router,
+			"/msgpack-only",
+			fhttp.WithRequestDecoders(msgpack.Codec),
+			fhttp.WithResponseEncoders(msgpack.Codec),
+		)
 		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 		router.BindTo(app)
 		go func() {
@@ -70,8 +92,6 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 	})
 
 	Describe("Content Negotiation", func() {
-		// bgCtx := context.Background()
-
 		bindEcho := func() {
 			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
@@ -82,7 +102,6 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 				return test.Response{}, test.ErrCustom
 			})
 		}
-
 		roundTrip := func(
 			ctx context.Context,
 			contentType string,
@@ -184,6 +203,138 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			var pld errors.Payload
 			Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
 			Expect(errors.Decode(ctx, pld)).To(MatchError(test.ErrCustom))
+		})
+
+		It("should return 415 Unsupported Media Type when the request Content-Type has no registered decoder", func(ctx context.Context) {
+			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			httpRes, _ := roundTrip(
+				ctx,
+				"application/x-not-a-real-codec",
+				"application/json",
+				[]byte("anything"),
+			)
+			Expect(httpRes.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+		})
+
+		It("should return 400 Bad Request with an encoded error payload when the request body fails to decode", func(ctx context.Context) {
+			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			httpRes, respBody := roundTrip(
+				ctx,
+				"application/json",
+				"application/json",
+				[]byte("not valid json"),
+			)
+			Expect(httpRes.StatusCode).To(Equal(http.StatusBadRequest))
+			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/json"))
+			var pld errors.Payload
+			Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
+			Expect(pld.Type).ToNot(Equal(errors.TypeNil))
+		})
+	})
+
+	Describe("Codec Configuration", func() {
+		It("should restrict the request decoders to the codecs passed via WithRequestDecoders", func(ctx context.Context) {
+			serverJSONOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			req := test.Request{ID: 1, Message: "json-only"}
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, "POST", "http://"+addr.String()+"/json-only",
+				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
+			httpReq.Header.Set(fiber.HeaderAccept, "application/json")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			Expect(httpRes.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+		})
+
+		It("should restrict the response encoders to the codecs passed via WithResponseEncoders", func(ctx context.Context) {
+			serverMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			req := test.Request{ID: 2, Message: "msgpack-only"}
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, "POST", "http://"+addr.String()+"/msgpack-only",
+				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
+			httpReq.Header.Set(fiber.HeaderAccept, "application/json")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			Expect(httpRes.StatusCode).To(Equal(http.StatusNotAcceptable))
+		})
+
+		It("should round-trip end-to-end when the client and server agree on the restricted codec", func(ctx context.Context) {
+			serverMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			req := test.Request{ID: 3, Message: "round-trip"}
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, "POST", "http://"+addr.String()+"/msgpack-only",
+				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
+			httpReq.Header.Set(fiber.HeaderAccept, "application/msgpack")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			Expect(httpRes.StatusCode).To(Equal(http.StatusOK))
+			Expect(httpRes.Header.Get(fiber.HeaderContentType)).To(Equal("application/msgpack"))
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			var got test.Response
+			Expect(msgpack.Codec.Decode(ctx, respBody, &got)).To(Succeed())
+			Expect(got).To(Equal(test.Response(req)))
+		})
+	})
+
+	Describe("Report", func() {
+		It("should report the unary server's protocol and accepted/emitted content types", func() {
+			report := server.Report()
+			Expect(report["protocol"]).To(Equal("http"))
+			Expect(report["acceptedContentTypes"]).To(Equal([]string{
+				"application/json", "application/msgpack",
+			}))
+			Expect(report["emittedContentTypes"]).To(Equal([]string{
+				"application/json", "application/msgpack",
+			}))
+		})
+
+		It("should reflect WithRequestDecoders and WithResponseEncoders in the server report", func() {
+			report := serverJSONOnly.Report()
+			Expect(report["acceptedContentTypes"]).To(Equal([]string{"application/json"}))
+			Expect(report["emittedContentTypes"]).To(Equal([]string{"application/json"}))
+		})
+
+		It("should report the unary client's protocol, sent Content-Type, and accepted Content-Types", func() {
+			report := client.Report()
+			Expect(report["protocol"]).To(Equal("http"))
+			Expect(report["sentContentType"]).To(Equal("application/json"))
+			Expect(report["acceptedContentTypes"]).To(Equal([]string{
+				"application/json", "application/msgpack",
+			}))
+		})
+
+		It("should reflect a custom Encoder in the client report", func() {
+			c := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
+				fhttp.UnaryClientConfig{
+					Encoder:  msgpack.Codec,
+					Decoders: []xhttp.Decoder{msgpack.Codec},
+				},
+			))
+			report := c.Report()
+			Expect(report["sentContentType"]).To(Equal("application/msgpack"))
+			Expect(report["acceptedContentTypes"]).To(Equal([]string{"application/msgpack"}))
+		})
+	})
+
+	Describe("Client Decoder Resolution", func() {
+		It("should fail with an unresolved-decoder error when the server response Content-Type has no registered client decoder", func(ctx context.Context) {
+			_, err := client.Send(ctx, addr+"/text-plain", test.Request{ID: 1, Message: "x"})
+			Expect(err).To(MatchError(ContainSubstring("text/plain")))
 		})
 	})
 })
