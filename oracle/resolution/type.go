@@ -30,6 +30,7 @@ type TypeForm interface {
 
 type StructForm struct {
 	Fields        []Field
+	Actions       []Action
 	TypeParams    []TypeParam
 	Extends       []TypeRef
 	OmittedFields []string
@@ -92,6 +93,16 @@ type BuiltinGenericForm struct {
 }
 
 func (BuiltinGenericForm) typeForm() {}
+
+// Action is a named typed mutation declared inside a struct body. The struct's
+// generated codec includes a discriminated-union envelope that dispatches by
+// Name; per-action handlers live in hand-written sibling files.
+type Action struct {
+	AST     any
+	Domains map[string]Domain
+	Name    string
+	Fields  []Field
+}
 
 type Field struct {
 	AST            any

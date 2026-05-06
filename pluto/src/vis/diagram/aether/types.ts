@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id, type location, xy } from "@synnaxlabs/x";
+import { dimensions, id, type location, xy } from "@synnaxlabs/x";
 import type * as rf from "@xyflow/react";
 import { MarkerType } from "@xyflow/react";
 import type React from "react";
@@ -37,9 +37,7 @@ export const nodeZ = z.object({
   position: xy.xyZ,
   zIndex: z.number().optional(),
   type: z.string().optional(),
-  measured: z
-    .object({ width: z.number().optional(), height: z.number().optional() })
-    .optional(),
+  measured: dimensions.dimensionsZ.optional(),
 });
 export type Node = z.infer<typeof nodeZ>;
 
@@ -88,7 +86,14 @@ export const translateEdgesForward = (
   }));
 
 export const translateNodesBackward = (nodes: rf.Node[]): Node[] =>
-  nodes.map((node) => ({ key: node.id, ...node }));
+  nodes.map(({ id: key, measured, ...rest }) => ({
+    ...rest,
+    key,
+    measured:
+      measured?.width != null && measured?.height != null
+        ? { width: measured.width, height: measured.height }
+        : undefined,
+  }));
 
 export const translateViewportForward = (viewport: Viewport): rf.Viewport => ({
   ...viewport.position,
