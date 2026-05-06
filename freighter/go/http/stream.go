@@ -33,9 +33,9 @@ const (
 	// instead of the regular websocket Close message because the 'reason' can't have
 	// more than 123 bytes.
 	WSMessageTypeClose WSMessageType = "close"
-	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream.
-	// We need to do this to correctly handle the case where middleware returns an
-	// error early. We can't just use the regular HTTP request/response cycle because
+	// WSMessageTypeOpen is used to acknowledge the successful opening of the stream. We
+	// need to do this to correctly handle the case where middleware returns an error
+	// early. We can't just use the regular HTTP request/response cycle because
 	// JavaScript implementations of WebSocket don't allow for accessing the response
 	// body.
 	WSMessageTypeOpen WSMessageType = "open"
@@ -64,14 +64,14 @@ func newStreamCore[RQ, RS freighter.Payload](
 	cfg streamCoreConfig,
 	serverShutdownSig <-chan struct{},
 ) streamCore[RQ, RS] {
-	b := streamCore[RQ, RS]{
+	c := streamCore[RQ, RS]{
 		serverShutdownSig:  serverShutdownSig,
 		normalShutdownSig:  make(chan struct{}),
 		successfulShutdown: make(chan struct{}),
 		streamCoreConfig:   cfg,
 	}
-	go b.listenForContextCancellation()
-	return b
+	go c.listenForContextCancellation()
+	return c
 }
 
 type streamCoreConfig struct {

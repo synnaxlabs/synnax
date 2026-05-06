@@ -113,16 +113,13 @@ func (s *streamServer[RQ, RS]) Report() alamos.Report {
 	}
 }
 
-func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.Codec, error) {
+func (s *streamServer[RQ, RS]) resolveStreamCodec(contentType string) (encoding.Codec, bool) {
 	for _, ac := range s.additionalCodecs {
 		if ac.contentType == contentType {
-			return ac.new(), nil
+			return ac.new(), true
 		}
 	}
-	return nil, errors.Newf(
-		"[encoding] - unable to determine encoding type for %s",
-		contentType,
-	)
+	return nil, false
 }
 
 func (s *streamServer[RQ, RS]) BindHandler(
@@ -146,11 +143,9 @@ func (s *streamServer[RQ, RS]) fiberHandler(upgradeCtx fiber.Ctx) error {
 	// valid context instead of the fiber context itself.
 	iCtx := parseRequestCtx(s.serverCtx, upgradeCtx, address.Address(s.path), true)
 	headerContentType := iCtx.GetDefault(fiber.HeaderContentType, "").(string)
-	codec, err := s.resolveStreamCodec(headerContentType)
-	if err != nil {
-		// If we can't determine the encoder/decoder, we can't continue, so we send a
-		// best effort string.
-		return upgradeCtx.Status(fiber.StatusBadRequest).SendString(err.Error())
+	codec, ok := s.resolveStreamCodec(headerContentType)
+	if !ok {
+		return upgradeCtx.SendStatus(fiber.StatusUnsupportedMediaType)
 	}
 	// Upgrade the connection to a websocket connection.
 	return fiberws.New(func(c *fiberws.Conn) { s.handleSocket(iCtx, codec, c) })(
