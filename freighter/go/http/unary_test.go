@@ -30,75 +30,75 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var _ = Describe("Unary", Ordered, Serial, func() {
-	var (
-		server            freighter.UnaryServer[test.Request, test.Response]
-		serverJSONOnly    freighter.UnaryServer[test.Request, test.Response]
-		serverMsgpackOnly freighter.UnaryServer[test.Request, test.Response]
-		client            freighter.UnaryClient[test.Request, test.Response]
-		addr              address.Address
-		app               *fiber.App
-	)
+var (
+	unaryServer            freighter.UnaryServer[test.Request, test.Response]
+	unaryServerJSONOnly    freighter.UnaryServer[test.Request, test.Response]
+	unaryServerMsgpackOnly freighter.UnaryServer[test.Request, test.Response]
+	unaryClient            freighter.UnaryClient[test.Request, test.Response]
+	unaryAddr              address.Address
+	unaryApp               *fiber.App
+)
 
-	BeforeAll(func() {
-		addr = "localhost:8081"
-		app = fiber.New(fiber.Config{})
-		router := MustSucceed(fhttp.NewRouter())
-		app.Get("/health", func(ctx fiber.Ctx) error {
-			return ctx.SendStatus(fiber.StatusOK)
-		})
-		// Endpoint that always responds with a content type the default unary client
-		// has no decoder for. Used to exercise the client's decoder-resolution failure
-		// path against a real server response.
-		app.Post("/text-plain", func(ctx fiber.Ctx) error {
-			ctx.Set(fiber.HeaderContentType, "text/plain")
-			return ctx.SendString("just text")
-		})
-		server = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
-		serverJSONOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-			router,
-			"/json-only",
-			fhttp.WithRequestDecoders(json.Codec),
-			fhttp.WithResponseEncoders(json.Codec),
-		)
-		serverMsgpackOnly = fhttp.NewUnaryServer[test.Request, test.Response](
-			router,
-			"/msgpack-only",
-			fhttp.WithRequestDecoders(msgpack.Codec),
-			fhttp.WithResponseEncoders(msgpack.Codec),
-		)
-		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
-		router.BindTo(app)
-		go func() {
-			defer GinkgoRecover()
-			Expect(app.Listen(addr.PortString(), fiber.ListenConfig{
-				DisableStartupMessage: true,
-			})).To(Succeed())
-		}()
-		Eventually(func(g Gomega) {
-			_, err := http.Get("http://" + addr.String() + "/health")
-			g.Expect(err).To(Succeed())
-		}).WithPolling(1 * time.Millisecond).Should(Succeed())
+var _ = BeforeSuite(func() {
+	unaryAddr = "localhost:8081"
+	unaryApp = fiber.New(fiber.Config{})
+	router := MustSucceed(fhttp.NewRouter())
+	unaryApp.Get("/health", func(ctx fiber.Ctx) error {
+		return ctx.SendStatus(fiber.StatusOK)
 	})
+	// Endpoint that always responds with a content type the default unary client has
+	// no decoder for. Used to exercise the client's decoder-resolution failure path
+	// against a real server response.
+	unaryApp.Post("/text-plain", func(ctx fiber.Ctx) error {
+		ctx.Set(fiber.HeaderContentType, "text/plain")
+		return ctx.SendString("just text")
+	})
+	unaryServer = fhttp.NewUnaryServer[test.Request, test.Response](router, "/")
+	unaryServerJSONOnly = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/json-only",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(json.Codec),
+	)
+	unaryServerMsgpackOnly = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/msgpack-only",
+		fhttp.WithRequestDecoders(msgpack.Codec),
+		fhttp.WithResponseEncoders(msgpack.Codec),
+	)
+	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
+	router.BindTo(unaryApp)
+	go func() {
+		defer GinkgoRecover()
+		Expect(unaryApp.Listen(unaryAddr.PortString(), fiber.ListenConfig{
+			DisableStartupMessage: true,
+		})).To(Succeed())
+	}()
+	Eventually(func(g Gomega) {
+		_, err := http.Get("http://" + unaryAddr.String() + "/health")
+		g.Expect(err).To(Succeed())
+	}).WithPolling(1 * time.Millisecond).Should(Succeed())
+})
 
-	AfterAll(func() { Expect(app.Shutdown()).To(Succeed()) })
+var _ = AfterSuite(func() { Expect(unaryApp.Shutdown()).To(Succeed()) })
 
+var _ = Describe("Unary", func() {
 	test.UnarySuite(func() (
 		freighter.UnaryServer[test.Request, test.Response],
 		freighter.UnaryClient[test.Request, test.Response],
 		address.Address,
 	) {
-		return server, client, addr
+		return unaryServer, unaryClient, unaryAddr
 	})
 
 	Describe("Content Negotiation", func() {
 		bindEcho := func() {
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServer.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 		}
 		bindError := func() {
-			server.BindHandler(func(_ context.Context, _ test.Request) (test.Response, error) {
+			unaryServer.BindHandler(func(_ context.Context, _ test.Request) (test.Response, error) {
 				return test.Response{}, test.ErrCustom
 			})
 		}
@@ -109,7 +109,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 			body []byte,
 		) (*http.Response, []byte) {
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, http.MethodPost, "http://"+addr.String()+"/", bytes.NewReader(body),
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/", bytes.NewReader(body),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, contentType)
 			if accept != "" {
@@ -206,7 +206,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 
 		It("should return 415 Unsupported Media Type when the request Content-Type has no registered decoder", func(ctx context.Context) {
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServer.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 			httpRes, _ := roundTrip(
@@ -219,7 +219,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 
 		It("should return 400 Bad Request with an encoded error payload when the request body fails to decode", func(ctx context.Context) {
-			server.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServer.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 			httpRes, respBody := roundTrip(
@@ -238,12 +238,12 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 
 	Describe("Codec Configuration", func() {
 		It("should restrict the request decoders to the codecs passed via WithRequestDecoders", func(ctx context.Context) {
-			serverJSONOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServerJSONOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 			req := test.Request{ID: 1, Message: "json-only"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, http.MethodPost, "http://"+addr.String()+"/json-only",
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/json-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
@@ -254,12 +254,12 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 
 		It("should restrict the response encoders to the codecs passed via WithResponseEncoders", func(ctx context.Context) {
-			serverMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServerMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 			req := test.Request{ID: 2, Message: "msgpack-only"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, http.MethodPost, "http://"+addr.String()+"/msgpack-only",
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/msgpack-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
@@ -270,12 +270,12 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 
 		It("should round-trip end-to-end when the client and server agree on the restricted codec", func(ctx context.Context) {
-			serverMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+			unaryServerMsgpackOnly.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
 				return test.Response(req), nil
 			})
 			req := test.Request{ID: 3, Message: "round-trip"}
 			httpReq := MustSucceed(http.NewRequestWithContext(
-				ctx, http.MethodPost, "http://"+addr.String()+"/msgpack-only",
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/msgpack-only",
 				bytes.NewReader(MustSucceed(msgpack.Codec.Encode(ctx, req))),
 			))
 			httpReq.Header.Set(fiber.HeaderContentType, "application/msgpack")
@@ -293,7 +293,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 
 	Describe("Report", func() {
 		It("should report the unary server's protocol and accepted/emitted content types", func() {
-			report := server.Report()
+			report := unaryServer.Report()
 			Expect(report["protocol"]).To(Equal("http"))
 			Expect(report["acceptedContentTypes"]).To(Equal([]string{
 				"application/json", "application/msgpack",
@@ -304,13 +304,13 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		})
 
 		It("should reflect WithRequestDecoders and WithResponseEncoders in the server report", func() {
-			report := serverJSONOnly.Report()
+			report := unaryServerJSONOnly.Report()
 			Expect(report["acceptedContentTypes"]).To(Equal([]string{"application/json"}))
 			Expect(report["emittedContentTypes"]).To(Equal([]string{"application/json"}))
 		})
 
 		It("should report the unary client's protocol, sent Content-Type, and accepted Content-Types", func() {
-			report := client.Report()
+			report := unaryClient.Report()
 			Expect(report["protocol"]).To(Equal("http"))
 			Expect(report["sentContentType"]).To(Equal("application/json"))
 			Expect(report["acceptedContentTypes"]).To(Equal([]string{
@@ -333,7 +333,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 
 	Describe("Client Decoder Resolution", func() {
 		It("should fail with an unresolved-decoder error when the server response Content-Type has no registered client decoder", func(ctx context.Context) {
-			_, err := client.Send(ctx, addr+"/text-plain", test.Request{ID: 1, Message: "x"})
+			_, err := unaryClient.Send(ctx, unaryAddr+"/text-plain", test.Request{ID: 1, Message: "x"})
 			Expect(err).To(MatchError(ContainSubstring("text/plain")))
 		})
 	})
