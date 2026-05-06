@@ -32,13 +32,30 @@ import (
 )
 
 var (
-	unaryServer            freighter.UnaryServer[test.Request, test.Response]
-	unaryServerJSONOnly    freighter.UnaryServer[test.Request, test.Response]
-	unaryServerMsgpackOnly freighter.UnaryServer[test.Request, test.Response]
-	unaryClient            freighter.UnaryClient[test.Request, test.Response]
-	unaryAddr              address.Address
-	unaryApp               *fiber.App
+	unaryServer                 freighter.UnaryServer[test.Request, test.Response]
+	unaryServerJSONOnly         freighter.UnaryServer[test.Request, test.Response]
+	unaryServerMsgpackOnly      freighter.UnaryServer[test.Request, test.Response]
+	unaryServerFailingEncoder   freighter.UnaryServer[test.Request, test.Response]
+	unaryClient                 freighter.UnaryClient[test.Request, test.Response]
+	unaryAddr                   address.Address
+	unaryApp                    *fiber.App
+	errFailingEncoderEncodeFail = errors.New("failing encoder: encode rejected by test")
 )
+
+// failingEncoder is a unary-server response encoder whose Encode/EncodeStream methods
+// always return an error. It is used to drive the encodeAndWrite error path in
+// unary_server.go without modifying production codecs.
+type failingEncoder struct{}
+
+func (failingEncoder) ContentType() string { return "application/x-fail" }
+
+func (failingEncoder) Encode(context.Context, any) ([]byte, error) {
+	return nil, errFailingEncoderEncodeFail
+}
+
+func (failingEncoder) EncodeStream(context.Context, io.Writer, any) error {
+	return errFailingEncoderEncodeFail
+}
 
 var _ = BeforeSuite(func() {
 	unaryAddr = address.Newf("localhost:%d", MustSucceed(xnet.FindOpenPort()))
@@ -66,6 +83,12 @@ var _ = BeforeSuite(func() {
 		"/msgpack-only",
 		fhttp.WithRequestDecoders(msgpack.Codec),
 		fhttp.WithResponseEncoders(msgpack.Codec),
+	)
+	unaryServerFailingEncoder = fhttp.NewUnaryServer[test.Request, test.Response](
+		router,
+		"/encode-failure",
+		fhttp.WithRequestDecoders(json.Codec),
+		fhttp.WithResponseEncoders(failingEncoder{}),
 	)
 	unaryClient = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response]())
 	router.BindTo(unaryApp)
@@ -234,6 +257,24 @@ var _ = Describe("Unary", func() {
 			var pld errors.Payload
 			Expect(json.Codec.Decode(ctx, respBody, &pld)).To(Succeed())
 			Expect(pld.Type).ToNot(Equal(errors.TypeNil))
+		})
+
+		It("should return 500 Internal Server Error when the response encoder fails to encode the handler's result", func(ctx context.Context) {
+			unaryServerFailingEncoder.BindHandler(func(_ context.Context, req test.Request) (test.Response, error) {
+				return test.Response(req), nil
+			})
+			body := MustSucceed(json.Codec.Encode(ctx, test.Request{ID: 9, Message: "encode-fail"}))
+			httpReq := MustSucceed(http.NewRequestWithContext(
+				ctx, http.MethodPost, "http://"+unaryAddr.String()+"/encode-failure",
+				bytes.NewReader(body),
+			))
+			httpReq.Header.Set(fiber.HeaderContentType, "application/json")
+			httpReq.Header.Set(fiber.HeaderAccept, "application/x-fail")
+			httpRes := MustSucceed((&http.Client{}).Do(httpReq))
+			DeferCleanup(func() { Expect(httpRes.Body.Close()).To(Succeed()) })
+			Expect(httpRes.StatusCode).To(Equal(http.StatusInternalServerError))
+			respBody := MustSucceed(io.ReadAll(httpRes.Body))
+			Expect(string(respBody)).To(ContainSubstring(errFailingEncoderEncodeFail.Error()))
 		})
 	})
 
