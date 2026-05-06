@@ -26,6 +26,7 @@ import (
 	"github.com/synnaxlabs/x/encoding/json"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -48,7 +49,7 @@ var _ = Describe("Unary", Ordered, Serial, func() {
 		client = MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 			fhttp.UnaryClientConfig{
 				Encoder:  json.Codec,
-				Decoders: []fhttp.Decoder{json.Codec},
+				Decoders: []xhttp.Decoder{json.Codec},
 			},
 		))
 		router.BindTo(app)

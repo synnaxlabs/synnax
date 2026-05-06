@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
+	xhttp "github.com/synnaxlabs/x/http"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -130,7 +131,7 @@ var _ = Describe("Router", func() {
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
 					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Decoders: []xhttp.Decoder{json.Codec},
 				},
 			))
 			res := MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
@@ -215,7 +216,7 @@ var _ = Describe("Router", func() {
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
 					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Decoders: []xhttp.Decoder{json.Codec},
 				},
 			))
 			MustSucceed(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"}))
@@ -256,7 +257,7 @@ var _ = Describe("Router", func() {
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
 					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Decoders: []xhttp.Decoder{json.Codec},
 				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{
@@ -310,7 +311,7 @@ var _ = Describe("Router", func() {
 			client := MustSucceed(fhttp.NewUnaryClient[test.Request, test.Response](
 				fhttp.UnaryClientConfig{
 					Encoder:  json.Codec,
-					Decoders: []fhttp.Decoder{json.Codec},
+					Decoders: []xhttp.Decoder{json.Codec},
 				},
 			))
 			Expect(client.Send(specCtx, addr+"/echo", test.Request{ID: 1, Message: "hi"})).To(Equal(test.Response{

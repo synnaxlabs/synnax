@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -38,7 +39,7 @@ type StreamClientConfig struct {
 	// so there is no per-direction split.
 	//
 	// [REQUIRED]
-	Codec Codec
+	Codec xhttp.Codec
 }
 
 // Validate implements config.Config.
@@ -70,7 +71,7 @@ func NewStreamClient[RQ, RS freighter.Payload](
 
 type streamClient[RQ, RS freighter.Payload] struct {
 	alamos.Instrumentation
-	codec  Codec
+	codec  xhttp.Codec
 	dialer ws.Dialer
 	freighter.MiddlewareCollector
 }

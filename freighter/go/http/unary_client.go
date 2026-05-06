@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
@@ -31,13 +32,13 @@ type UnaryClientConfig struct {
 	// Encoder encodes outgoing requests. Sets the Content-Type header.
 	//
 	// [REQUIRED]
-	Encoder Encoder
+	Encoder xhttp.Encoder
 	// Decoders are the codecs the client can decode responses from. Drives the Accept
 	// header for content negotiation; the response is decoded with whichever Decoder
 	// matches the response Content-Type.
 	//
 	// [REQUIRED] - At least one decoder must be supplied.
-	Decoders []Decoder
+	Decoders []xhttp.Decoder
 }
 
 // Validate implements config.Config.
@@ -74,8 +75,8 @@ func NewUnaryClient[RQ, RS freighter.Payload](
 }
 
 type unaryClient[RQ, RS freighter.Payload] struct {
-	encoder      Encoder
-	decoders     []Decoder
+	encoder      xhttp.Encoder
+	decoders     []xhttp.Decoder
 	acceptHeader string
 	freighter.MiddlewareCollector
 }
@@ -86,11 +87,11 @@ func (u *unaryClient[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol":             unaryProtocol,
 		"sentContentType":      u.encoder.ContentType(),
-		"acceptedContentTypes": lo.Map(u.decoders, func(d Decoder, _ int) string { return d.ContentType() }),
+		"acceptedContentTypes": lo.Map(u.decoders, func(d xhttp.Decoder, _ int) string { return d.ContentType() }),
 	}
 }
 
-func (u *unaryClient[RQ, RS]) resolveResponseDecoder(contentType string) (Decoder, error) {
+func (u *unaryClient[RQ, RS]) resolveResponseDecoder(contentType string) (xhttp.Decoder, error) {
 	for _, d := range u.decoders {
 		if d.ContentType() == contentType {
 			return d, nil
@@ -102,7 +103,7 @@ func (u *unaryClient[RQ, RS]) resolveResponseDecoder(contentType string) (Decode
 	)
 }
 
-func buildAcceptHeader(decoders []Decoder) string {
+func buildAcceptHeader(decoders []xhttp.Decoder) string {
 	cts := make([]string, len(decoders))
 	for i, d := range decoders {
 		cts[i] = d.ContentType()

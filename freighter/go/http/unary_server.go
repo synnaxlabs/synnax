@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
+	xhttp "github.com/synnaxlabs/x/http"
 )
 
 const unaryProtocol = "http"
@@ -28,10 +29,10 @@ const unaryProtocol = "http"
 type unaryServerOptions struct {
 	// requestDecoders is the set of decoders the unary server will consider when
 	// resolving the request body codec from the Content-Type header.
-	requestDecoders []Decoder
+	requestDecoders []xhttp.Decoder
 	// responseEncoders is the set of encoders the unary server will consider when
 	// resolving the response body codec from the Accept header.
-	responseEncoders []Encoder
+	responseEncoders []xhttp.Encoder
 }
 
 // UnaryServerOption configures a unary HTTP server.
@@ -39,13 +40,13 @@ type UnaryServerOption func(*unaryServerOptions)
 
 // WithRequestDecoders overrides the set of decoders the unary server matches against
 // the request's Content-Type header.
-func WithRequestDecoders(decoders ...Decoder) UnaryServerOption {
+func WithRequestDecoders(decoders ...xhttp.Decoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.requestDecoders = decoders }
 }
 
 // WithResponseEncoders overrides the set of encoders the unary server matches against
 // the request's Accept header.
-func WithResponseEncoders(encoders ...Encoder) UnaryServerOption {
+func WithResponseEncoders(encoders ...xhttp.Encoder) UnaryServerOption {
 	return func(o *unaryServerOptions) { o.responseEncoders = encoders }
 }
 
@@ -74,8 +75,8 @@ type unaryServer[RQ, RS freighter.Payload] struct {
 func (s *unaryServer[RQ, RS]) Report() alamos.Report {
 	return alamos.Report{
 		"protocol":             unaryProtocol,
-		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d Decoder, _ int) string { return d.ContentType() }),
-		"emittedContentTypes":  lo.Map(s.responseEncoders, func(e Encoder, _ int) string { return e.ContentType() }),
+		"acceptedContentTypes": lo.Map(s.requestDecoders, func(d xhttp.Decoder, _ int) string { return d.ContentType() }),
+		"emittedContentTypes":  lo.Map(s.responseEncoders, func(e xhttp.Encoder, _ int) string { return e.ContentType() }),
 	}
 }
 
@@ -123,7 +124,7 @@ func (s *unaryServer[RQ, RS]) fiberHandler(fCtx fiber.Ctx) error {
 
 func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
 	contentType string,
-) (Decoder, error) {
+) (xhttp.Decoder, error) {
 	for _, d := range s.requestDecoders {
 		if d.ContentType() == contentType {
 			return d, nil
@@ -137,7 +138,7 @@ func (s *unaryServer[RQ, RS]) resolveRequestDecoder(
 
 func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	fCtx fiber.Ctx,
-) (Encoder, bool) {
+) (xhttp.Encoder, bool) {
 	offers := make([]string, len(s.responseEncoders))
 	for i, e := range s.responseEncoders {
 		offers[i] = e.ContentType()
@@ -154,7 +155,7 @@ func (s *unaryServer[RQ, RS]) resolveResponseEncoder(
 	return nil, false
 }
 
-func encodeAndWrite(c fiber.Ctx, encoder Encoder, v any) error {
+func encodeAndWrite(c fiber.Ctx, encoder xhttp.Encoder, v any) error {
 	b, err := encoder.Encode(c.RequestCtx(), v)
 	if err != nil {
 		return err
