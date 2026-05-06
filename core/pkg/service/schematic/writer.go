@@ -21,7 +21,7 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// Writer is used to create, update, and delete logs within Synnax. The writer
+// Writer is used to create, update, and delete schematics within Synnax. The writer
 // executes all operations within the transaction provided to the Service.NewWriter
 // method. If no transaction is provided, the writer will execute operations directly
 // on the database.
