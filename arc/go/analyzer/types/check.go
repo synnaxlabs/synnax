@@ -69,7 +69,7 @@ func Check(
 		return Check(cs, t1.Unwrap(), t2.Unwrap(), source, reason+" (element types)")
 	}
 
-	if !types.Equal(t1, t2) {
+	if t1.Kind != t2.Kind || !types.UnitsAssignable(t1.Unit, t2.Unit) {
 		return newTypeMismatchError(t1, t2, reason)
 	}
 	return nil
