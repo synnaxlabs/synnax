@@ -22,7 +22,7 @@ import {
   Tooltip,
   Tree,
 } from "@synnaxlabs/pluto";
-import { primitive, type record, status, uuid } from "@synnaxlabs/x";
+import { id, primitive, status } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 
 import { Channel } from "@/channel";
@@ -76,7 +76,7 @@ const handleSelect: Ontology.HandleSelect = ({
   }
 };
 
-const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
+const haulItems = ({ name, id: otgID, data }: ontology.Resource): Haul.Item[] => {
   const t = telem.sourcePipeline("string", {
     connections: [
       {
@@ -85,7 +85,7 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
       },
     ],
     segments: {
-      valueStream: telem.streamChannelValue({ channel: Number(id.key) }),
+      valueStream: telem.streamChannelValue({ channel: Number(otgID.key) }),
       stringifier: telem.stringifyNumber({ precision: 2 }),
     },
     outlet: "stringifier",
@@ -96,13 +96,14 @@ const haulItems = ({ name, id, data }: ontology.Resource): Haul.Item[] => {
     telem: t,
   };
   const items = [
-    PSchematic.createHaulItem(uuid.create(), {
+    PSchematic.createHaulItem({
+      key: id.create(),
       variant: "value",
-      config: nodeConfig as record.Unknown,
+      config: nodeConfig,
     }),
   ];
   if (data?.internal === true) return items;
-  return [PChannel.createHaulItem(Number(id.key))];
+  return [PChannel.createHaulItem(Number(otgID.key))];
 };
 
 const allowRename: Ontology.AllowRename = ({ data }) => data?.internal !== true;

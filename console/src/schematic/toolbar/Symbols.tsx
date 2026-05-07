@@ -66,7 +66,7 @@ const StaticListItem = (props: List.ItemProps<string>): ReactElement | null => {
     [variant],
   );
   const handleDragStart = useCallback(
-    () => startDrag([Schematic.createHaulItem(id.create(), { variant })]),
+    () => startDrag([Schematic.createHaulItem(createParams())]),
     [startDrag, variant],
   );
   const handleAddNode = useCallback(
@@ -143,8 +143,7 @@ const RemoteListItem = (props: RemoteListItemProps): ReactElement | null => {
     [variant, itemKey],
   );
   const handleDragStart = useCallback(
-    () =>
-      startDrag([Schematic.createHaulItem(id.create(), { variant, specKey: itemKey })]),
+    () => startDrag([Schematic.createHaulItem(createParams())]),
     [startDrag, variant, itemKey],
   );
   const handleAddNode = useCallback(

@@ -7,24 +7,18 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type record } from "@synnaxlabs/x";
-
 import { Haul } from "@/haul";
-import { type Node } from "@/schematic/node";
+import { type AddNodeProps } from "@/schematic/queries";
 
 export const HAUL_TYPE = "schematic-element";
 
-export interface HaulItemData {
-  variant: Node.Variant;
-  specKey?: string;
-  config?: record.Unknown;
-}
+export interface HaulItemData extends AddNodeProps {}
 
 export type HaulItem = Haul.Item<typeof HAUL_TYPE, string, HaulItemData>;
 
-export const createHaulItem = (key: string, data: HaulItemData): HaulItem => ({
+export const createHaulItem = (data: HaulItemData): HaulItem => ({
   type: HAUL_TYPE,
-  key,
+  key: data.key,
   data,
 });
 
