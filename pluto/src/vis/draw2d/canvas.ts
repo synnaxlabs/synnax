@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensionsFromMetrics } from "@synnaxlabs/charon/text/base";
+import { text as textBase } from "@synnaxlabs/charon/text/base";
 import { box, type destructor, dimensions, scale, xy } from "@synnaxlabs/x";
 
 import { applyOverScan } from "@/vis/render/util";
@@ -620,7 +620,7 @@ export class SugaredOffscreenCanvasRenderingContext2D implements OffscreenCanvas
       const atlas = this.atlasRegistry.get({ font: this.font, textColor: fillStyle });
       return atlas.measureText(text);
     }
-    return dimensionsFromMetrics(this.measureText(text));
+    return textBase.dimensionsFromMetrics(this.measureText(text));
   }
 
   strokeText(text: string, x: number, y: number, maxWidth?: number | undefined): void {

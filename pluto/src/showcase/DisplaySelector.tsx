@@ -9,10 +9,9 @@
 
 import { Button } from "@synnaxlabs/charon/button";
 import { Flex } from "@synnaxlabs/charon/flex";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { caseconv } from "@synnaxlabs/x";
-
-import { Select } from "@/select";
 
 import { DISPLAY } from "./constants";
 

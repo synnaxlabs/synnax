@@ -9,6 +9,8 @@
 
 import { Component } from "@synnaxlabs/charon/component";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
 import { Tag } from "@synnaxlabs/charon/tag";
 import { Text } from "@synnaxlabs/charon/text";
 import { type label } from "@synnaxlabs/client";
@@ -17,8 +19,6 @@ import { type ReactElement } from "react";
 import { type Flux } from "@/flux";
 import { type ListQuery, useList } from "@/label/queries";
 import { HAUL_TYPE } from "@/label/types";
-import { List } from "@/list";
-import { Select } from "@/select";
 const ListItem = ({
   itemKey,
   ...rest

@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type List } from "@synnaxlabs/charon/list";
 import { ontology } from "@synnaxlabs/client";
 import { useEffect } from "react";
 
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { type FluxSubStore } from "@/ontology/aether/queries";
 
 const RESOURCE_RESOURCE_NAME = "resource";

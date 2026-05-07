@@ -12,17 +12,17 @@ import { CSS } from "@synnaxlabs/charon/css";
 import type { Dialog } from "@synnaxlabs/charon/dialog";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select as Base } from "@synnaxlabs/charon/select";
 import { Tag } from "@synnaxlabs/charon/tag";
 import { Telem } from "@synnaxlabs/charon/telem";
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
-import { List } from "@/list";
 import { Breadcrumb } from "@/ranger/Breadcrumb";
 import { type ListQuery, useList } from "@/ranger/queries";
 import { HAUL_TYPE } from "@/ranger/types";
-import { Select as Base } from "@/select";
 
 export interface SelectProps
   extends

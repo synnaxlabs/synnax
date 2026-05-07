@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Video as Base } from "@synnaxlabs/pluto/video";
+import { Video as Base } from "@synnaxlabs/charon/video";
 import {
   type DetailedHTMLProps,
   type ImgHTMLAttributes,

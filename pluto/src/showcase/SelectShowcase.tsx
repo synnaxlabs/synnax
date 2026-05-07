@@ -9,12 +9,12 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { type channel } from "@synnaxlabs/client";
 import { useState } from "react";
 
 import { Channel } from "@/channel";
-import { Select } from "@/select";
 
 import { SubcategorySection } from "./SubcategorySection";
 

@@ -9,6 +9,7 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 import type { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import { Tabs } from "@synnaxlabs/charon/tabs";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type ReactElement, useCallback } from "react";
@@ -16,7 +17,6 @@ import { type ReactElement, useCallback } from "react";
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Select } from "@/select";
 import { Value } from "@/vis/value";
 
 const GAUGE_BAR_WIDTH_INPUT_PROPS: Partial<Input.NumericProps> = {

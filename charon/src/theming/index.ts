@@ -10,5 +10,4 @@
 import "@fontsource-variable/inter";
 import "@fontsource/geist-mono";
 
-export * from "@/theming/external";
 export * as Theming from "@/theming/external";

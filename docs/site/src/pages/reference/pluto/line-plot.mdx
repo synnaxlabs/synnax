@@ -8,7 +8,7 @@ next: "Example App"
 nextURL: "/reference/pluto/example-app"
 ---
 
-import { Divider } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/charon/divider";
 import { RealTimePlot, HistoricalPlot } from "@/components/pluto/Plot";
 import ComponentFrame from "@/components/pluto/ComponentFrame.astro";
 import { mdxOverrides } from "@/components/mdxOverrides";
@@ -36,7 +36,8 @@ displays it in a line plot.
 Here's the code for that example.
 
 ```tsx
-import { Channel, TimeSpan } from "@synnaxlabs/pluto";
+import { Channel } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 
 const MyDynamicLinePLot = () => (
   <Channel.LinePlot

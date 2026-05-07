@@ -10,6 +10,7 @@
 import type { Component } from "@synnaxlabs/charon/component";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import { Tabs } from "@synnaxlabs/charon/tabs";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
@@ -19,7 +20,6 @@ import { Form as Base } from "@/form";
 import { type Control } from "@/schematic/node/common/control";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
-import { Select } from "@/select";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
 import { type Input as BaseInput } from "@/vis/input";

@@ -11,13 +11,13 @@ import { Button } from "@synnaxlabs/charon/button";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Select } from "@/select";
 const TEXT_BOX_AUTO_FIT_STYLE: CSSProperties = {
   borderLeft: "var(--pluto-border-l5)",
 };

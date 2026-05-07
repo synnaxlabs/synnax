@@ -15,13 +15,10 @@ import { CSS } from "@synnaxlabs/charon/css";
 import { Dialog } from "@synnaxlabs/charon/dialog";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
-import {
-  type Control,
-  Numeric,
-  Text as InputText,
-  type TextProps,
-} from "@synnaxlabs/charon/input";
-import { Text as TelemText } from "@synnaxlabs/charon/telem";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Telem } from "@synnaxlabs/charon/telem";
 import { Text } from "@synnaxlabs/charon/text";
 import { Triggers } from "@synnaxlabs/charon/triggers";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
@@ -29,11 +26,9 @@ import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";
 import { type CSSProperties, type FC, type ReactElement, useState } from "react";
 
-import { List } from "@/list";
 import { Nav } from "@/nav";
-import { Select } from "@/select";
 export interface DateTimeProps
-  extends Omit<TextProps, "type" | "value" | "onChange">, Control<number> {}
+  extends Omit<Input.TextProps, "type" | "value" | "onChange">, Input.Control<number> {}
 
 export const DateTime = ({
   value,
@@ -82,7 +77,7 @@ export const DateTime = ({
       zIndex={500}
       onVisibleChange={setVisible}
     >
-      <InputText
+      <Input.Text
         className={CSS.BE("input", "datetime")}
         variant={variant}
         type="datetime-local"
@@ -96,7 +91,7 @@ export const DateTime = ({
         <Button.Button onClick={() => setVisible(!visible)} variant={variant}>
           <Icon.Calendar />
         </Button.Button>
-      </InputText>
+      </Input.Text>
       <DateTimeModal
         value={tsValue}
         onChange={(next) => onChange(Number(next.valueOf()))}
@@ -121,9 +116,9 @@ const DateTimeModal = ({ value, onChange }: DateTimeModalProps): ReactElement =>
       <Flex.Box className={CSS.B("datetime-modal")} empty>
         <Flex.Box className={CSS.B("datetime-modal-container")}>
           <Flex.Box x className={CSS.B("header")}>
-            <TelemText.TimeStamp level="h3" format="preciseDate">
+            <Telem.Text.TimeStamp level="h3" format="preciseDate">
               {value}
-            </TelemText.TimeStamp>
+            </Telem.Text.TimeStamp>
           </Flex.Box>
           <Button.Button variant="text" className={CSS.B("close-btn")} onClick={close}>
             <Icon.Close />
@@ -229,7 +224,7 @@ const AISelector = ({
   };
   return (
     <Flex.Box pack y className={CSS.B("ai-selector")} background={1} full="y">
-      <InputText
+      <Input.Text
         value={value}
         onChange={handleChange}
         autoFocus
@@ -428,7 +423,7 @@ const TimeSelector = ({ value, onChange }: TimeSelectorProps): ReactElement => (
         onChange={(next) => onChange(value.setLocalSecond(next))}
       />
     </Flex.Box>
-    <Numeric
+    <Input.Numeric
       size="small"
       value={value.localMillisecond}
       onChange={(next) => onChange(value.setLocalMillisecond(next))}

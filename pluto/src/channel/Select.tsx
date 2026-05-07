@@ -9,6 +9,8 @@
 
 import { Component } from "@synnaxlabs/charon/component";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
@@ -16,8 +18,6 @@ import { type ListQuery, useList } from "@/channel/queries";
 import { resolveIcon } from "@/channel/resolveIcon";
 import { HAUL_TYPE } from "@/channel/types";
 import { type Flux } from "@/flux";
-import { List } from "@/list";
-import { Select } from "@/select";
 
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<channel.Key>): ReactElement | null => {

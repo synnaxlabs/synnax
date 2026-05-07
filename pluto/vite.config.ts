@@ -9,11 +9,10 @@
 
 /// <reference types="vitest/config" />
 
-import react from "@vitejs/plugin-react";
 import { lib } from "@synnaxlabs/vite-plugin";
+import react from "@vitejs/plugin-react";
 import path from "path";
 import { defineConfig, esmExternalRequirePlugin } from "vite";
-import { copyFileSync, mkdirSync } from "fs";
 
 export default defineConfig({
   base: "/pluto/",
@@ -21,40 +20,12 @@ export default defineConfig({
     esmExternalRequirePlugin({ external: [/^react(-dom)?(\/.*)?$/] }),
     react(),
     lib({ name: "pluto" }),
-    {
-      name: "copy-theme-css",
-      closeBundle() {
-        // Ensure dist directory exists
-        mkdirSync("dist", { recursive: true });
-        // Copy theme CSS files to dist
-        for (const file of ["theme.css", "theme-dark.css", "theme-light.css"]) {
-          copyFileSync(
-            path.resolve(`src/theming/static/${file}`),
-            path.resolve(`dist/${file}`),
-          );
-        }
-      },
-    },
   ],
   build: {
     lib: {
       entry: {
         index: path.resolve(".", "src/index.ts"),
         ether: path.resolve(".", "src/ether.ts"),
-        tabs: path.resolve(".", "src/tabs/index.ts"),
-        theming: path.resolve(".", "src/theming/index.ts"),
-        menu: path.resolve(".", "src/menu/index.ts"),
-        header: path.resolve(".", "src/header/index.ts"),
-        flex: path.resolve(".", "src/flex/index.ts"),
-        tree: path.resolve(".", "src/tree/index.ts"),
-        dialog: path.resolve(".", "src/dialog/index.ts"),
-        button: path.resolve(".", "src/button/index.ts"),
-        video: path.resolve(".", "src/video/index.ts"),
-        text: path.resolve(".", "src/text/index.ts"),
-        input: path.resolve(".", "src/input/index.ts"),
-        triggers: path.resolve(".", "src/triggers/index.ts"),
-        list: path.resolve(".", "src/list/index.ts"),
-        css: path.resolve(".", "src/css/index.ts"),
         color: path.resolve(".", "src/color/index.ts"),
       },
     },

@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Flex } from "@synnaxlabs/charon/flex";
+import { Select } from "@synnaxlabs/charon/select";
 import { type color, type record } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Form as Base } from "@/form";
-import { Select } from "@/select";
 
 const SELECT_DATA: record.KeyedNamed<string>[] = [
   { key: "pipe", name: "Pipe" },

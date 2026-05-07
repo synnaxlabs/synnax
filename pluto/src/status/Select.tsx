@@ -9,14 +9,14 @@
 
 import { Component } from "@synnaxlabs/charon/component";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select as Base } from "@synnaxlabs/charon/select";
 import { Status } from "@synnaxlabs/charon/status";
 import { Text } from "@synnaxlabs/charon/text";
 import { type status } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type Flux } from "@/flux";
-import { List } from "@/list";
-import { Select as Base } from "@/select";
 import { type ListParams, useList } from "@/status/queries";
 export interface SelectProps
   extends

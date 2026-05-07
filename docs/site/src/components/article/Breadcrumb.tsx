@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Breadcrumb as Base } from "@synnaxlabs/pluto";
+import { Breadcrumb as Base } from "@synnaxlabs/charon/breadcrumb";
 import { caseconv } from "@synnaxlabs/x";
 
 export interface BreadcrumbProps {

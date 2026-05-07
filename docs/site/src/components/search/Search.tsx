@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  Breadcrumb,
-  Component,
-  Dialog,
-  Flex,
-  Icon,
-  Select,
-  Triggers,
-} from "@synnaxlabs/pluto";
-import { Input } from "@synnaxlabs/pluto/input";
-import { List } from "@synnaxlabs/pluto/list";
-import { Text } from "@synnaxlabs/pluto/text";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Component } from "@synnaxlabs/charon/component";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
+import { Text } from "@synnaxlabs/charon/text";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { caseconv, deep } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useRef, useState } from "react";
 import z from "zod";

@@ -9,13 +9,13 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 import type { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 
 import { Direction } from "@/direction";
 import { Form as Base } from "@/form";
-import { Select } from "@/select";
 const MAX_INLINE_SIZE_STYLE: CSSProperties = { maxWidth: 125 };
 
 const LABEL_INPUT_FIELD_PROPS: Partial<Input.TextProps> = { selectOnFocus: true };

@@ -1,7 +1,10 @@
 ---
 import Feedback from "@/components/feedback/Feedback.astro";
 import { OnThisPage as OTP } from "@/components/nav/OnThisPage";
-import { Icon, Divider, Text, Flex } from "@synnaxlabs/pluto";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
 const props = Astro.props;
 const { hideFeedback = false } = props;
 const hasHeadings =

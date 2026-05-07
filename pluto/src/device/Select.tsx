@@ -12,6 +12,8 @@ import "@/device/Select.css";
 import { Component } from "@synnaxlabs/charon/component";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
@@ -19,8 +21,6 @@ import { type ReactElement } from "react";
 import { type ListParams, useList } from "@/device/queries";
 import { StatusIndicator } from "@/device/StatusIndicator";
 import { type Flux } from "@/flux";
-import { List } from "@/list";
-import { Select } from "@/select";
 const listItemRenderProp = Component.renderProp(
   ({ itemKey, ...rest }: List.ItemRenderProps<device.Key>) => {
     const item = List.useItem<device.Key, device.Device>(itemKey);

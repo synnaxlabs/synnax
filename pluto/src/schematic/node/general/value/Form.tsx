@@ -9,6 +9,7 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import { Tabs } from "@synnaxlabs/charon/tabs";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type ReactElement, useCallback } from "react";
@@ -17,7 +18,6 @@ import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Label } from "@/schematic/node/common/label";
 import { Orientation } from "@/schematic/node/common/orientation";
-import { Select } from "@/select";
 import { Value } from "@/vis/value";
 
 const VALUE_FORM_TABS: Tabs.Tab[] = [

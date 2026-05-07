@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select as BaseSelect } from "@synnaxlabs/charon/select";
 import { direction } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Select as BaseSelect } from "@/select";
 
 export interface SelectProps extends Omit<
   BaseSelect.ButtonsProps<direction.Direction>,

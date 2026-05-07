@@ -10,6 +10,7 @@
 import { Button } from "@synnaxlabs/charon/button";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
@@ -19,7 +20,6 @@ import { Color } from "@/color";
 import { type Flux } from "@/flux";
 import { Form as Base } from "@/form";
 import { useRetrieveEffect } from "@/schematic/symbol/queries";
-import { Select } from "@/select";
 const REGION_NAME_STYLE: CSSProperties = { maxWidth: 50, width: 50 };
 
 interface RegionControlsProps {

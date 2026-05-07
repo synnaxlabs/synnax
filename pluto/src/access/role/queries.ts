@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type List } from "@synnaxlabs/charon/list";
 import { access, ontology, user } from "@synnaxlabs/client";
 import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { type role } from "@/access/role/aether";
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { Ontology } from "@/ontology";
 
 export const RESOURCE_NAME = "Role";

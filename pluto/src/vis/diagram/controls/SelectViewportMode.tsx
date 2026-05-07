@@ -8,11 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
 import type { Triggers } from "@synnaxlabs/charon/triggers";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 
-import { Select } from "@/select";
 import { Viewport as BaseViewport } from "@/viewport";
 import { useContext } from "@/vis/diagram/Context";
 

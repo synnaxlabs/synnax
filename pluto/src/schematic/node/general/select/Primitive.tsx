@@ -12,12 +12,12 @@ import "@/schematic/node/general/select/select.css";
 import { Button as BaseButton } from "@synnaxlabs/charon/button";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Flex } from "@synnaxlabs/charon/flex";
+import { Select as BaseSelect } from "@synnaxlabs/charon/select";
 import { type CSSProperties, type ReactElement, useMemo } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";
 import { Primitive as Base } from "@/schematic/node/common/primitive";
 import { type Config } from "@/schematic/node/general/select/config";
-import { Select as BaseSelect } from "@/select";
 
 interface RenderProps extends Omit<Config, "sink" | "variant"> {
   className?: string;

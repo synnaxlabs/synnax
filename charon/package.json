@@ -20,11 +20,14 @@
     "@synnaxlabs/alamos": "workspace:^",
     "@synnaxlabs/media": "workspace:*",
     "@synnaxlabs/x": "workspace:^",
+    "@tanstack/react-virtual": "^3.13.24",
     "async-mutex": "catalog:",
     "clsx": "catalog:",
     "compromise": "catalog:",
     "compromise-dates": "catalog:",
+    "fuse.js": "^7.3.0",
     "mathjs": "^15.2.0",
+    "pluralize": "catalog:",
     "react": "catalog:",
     "react-icons": "catalog:",
     "use-sync-external-store": "^1.6.0",
@@ -33,6 +36,7 @@
   "devDependencies": {
     "@juggle/resize-observer": "^3.4.0",
     "@testing-library/user-event": "^14.6.1",
+    "@types/pluralize": "catalog:",
     "@types/use-sync-external-store": "^0.0.6",
     "@synnaxlabs/eslint-config": "workspace:^",
     "@synnaxlabs/stylelint-config": "workspace:^",
@@ -160,6 +164,11 @@
       "import": "./dist/key.js",
       "require": "./dist/key.cjs"
     },
+    "./list": {
+      "types": "./dist/src/list/index.d.ts",
+      "import": "./dist/list.js",
+      "require": "./dist/list.cjs"
+    },
     "./memo": {
       "types": "./dist/src/memo/index.d.ts",
       "import": "./dist/memo.js",
@@ -184,6 +193,11 @@
       "types": "./dist/src/progress/index.d.ts",
       "import": "./dist/progress.js",
       "require": "./dist/progress.cjs"
+    },
+    "./select": {
+      "types": "./dist/src/select/index.d.ts",
+      "import": "./dist/select.js",
+      "require": "./dist/select.cjs"
     },
     "./state": {
       "types": "./dist/src/state/index.d.ts",
@@ -259,6 +273,11 @@
       "types": "./dist/src/tooltip/index.d.ts",
       "import": "./dist/tooltip.js",
       "require": "./dist/tooltip.cjs"
+    },
+    "./tree": {
+      "types": "./dist/src/tree/index.d.ts",
+      "import": "./dist/tree.js",
+      "require": "./dist/tree.cjs"
     },
     "./triggers": {
       "types": "./dist/src/triggers/index.d.ts",

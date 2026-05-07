@@ -11,13 +11,13 @@ import { Button } from "@synnaxlabs/charon/button";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
 import { Text } from "@synnaxlabs/charon/text";
 import { color, id } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { Color } from "@/color";
 import { Form as Base } from "@/form";
-import { List } from "@/list";
 import { type StateMapping } from "@/schematic/node/general/stateIndicator/config";
 interface StateMappingFormProps {
   path: string;

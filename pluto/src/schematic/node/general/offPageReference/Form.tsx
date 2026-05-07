@@ -10,6 +10,7 @@
 import { Component } from "@synnaxlabs/charon/component";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Flex } from "@synnaxlabs/charon/flex";
+import { Select } from "@synnaxlabs/charon/select";
 import type { Text } from "@synnaxlabs/charon/text";
 import { Theming } from "@synnaxlabs/charon/theming";
 import { schematic } from "@synnaxlabs/client";
@@ -20,7 +21,6 @@ import { Form as Base } from "@/form";
 import { Form } from "@/schematic/node/common/form";
 import { Orientation } from "@/schematic/node/common/orientation";
 import { type FormProps } from "@/schematic/node/spec";
-import { Select } from "@/select";
 import { Workspace } from "@/workspace";
 const CLICK_MODE_KEYS = ["single", "double"] as const;
 

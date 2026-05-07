@@ -8,12 +8,12 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/charon/component";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
 import { Status } from "@synnaxlabs/charon/status";
 import { type status } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
-import { List } from "@/list";
-import { Select } from "@/select";
 import { VARIANT_DATA } from "@/status/variantData";
 
 type Entry = Select.StaticEntry<status.Variant>;

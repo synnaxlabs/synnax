@@ -8,10 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import type { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import type { Text } from "@synnaxlabs/charon/text";
 import { type ReactElement } from "react";
-
-import { Select } from "@/select";
 export const SelectTextLevel = ({
   value,
   onChange,

@@ -19,6 +19,7 @@ import { Text } from "@/text";
 import { Theming } from "@/theming";
 import { Tooltip } from "@/tooltip";
 import { Triggers } from "@/triggers";
+
 export type ElementType = "button" | "a" | "div" | "label" | "textarea";
 
 /** The variant of button */

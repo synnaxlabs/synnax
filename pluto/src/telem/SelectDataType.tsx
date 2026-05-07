@@ -7,11 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/charon/select";
 import { caseconv, DataType } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { type Select } from "@/select";
-import { Static as SelectStatic } from "@/select/Static";
 import { resolveDataTypeIcon } from "@/telem/resolveDataTypeIcon";
 
 const ALL_CAPS = new Set([DataType.UUID, DataType.JSON]);
@@ -53,7 +52,7 @@ export const SelectDataType = ({
     () => data.filter((d) => !hideDataTypes.some((h) => h.equals(d.key))),
     [hideDataTypes, data],
   );
-  return <SelectStatic {...rest} data={filteredData} resourceName="data type" />;
+  return <Select.Static {...rest} data={filteredData} resourceName="data type" />;
 };
 
 const DEFAULT_HIDDEN_DATA_TYPES: DataType[] = [];

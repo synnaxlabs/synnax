@@ -10,13 +10,13 @@
 import { Component } from "@synnaxlabs/charon/component";
 import { CSS } from "@synnaxlabs/charon/css";
 import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import { caseconv, deep, type optional, type record } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 
 import { type ContextValue, useContext } from "@/form/Context";
 import { type FieldState, type GetOptions } from "@/form/state";
 import { useField, type UseFieldOptions, type UseFieldReturn } from "@/form/useField";
-import { Select } from "@/select";
 
 interface FieldChild<I, O>
   extends Input.Control<I, O>, Pick<UseFieldReturn<I, O>, "variant"> {}

@@ -10,6 +10,7 @@
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
 import { Input } from "@synnaxlabs/charon/input";
+import { Select } from "@synnaxlabs/charon/select";
 import { Tabs } from "@synnaxlabs/charon/tabs";
 import type { Text } from "@synnaxlabs/charon/text";
 import { color } from "@synnaxlabs/x";
@@ -17,7 +18,6 @@ import { type PropsWithChildren, useCallback } from "react";
 
 import { Color } from "@/color";
 import { Form } from "@/form";
-import { Select } from "@/select";
 import { type Variant } from "@/table/cells/registry";
 import { Value } from "@/vis/value";
 

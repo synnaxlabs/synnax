@@ -8,13 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import type { Tooltip } from "@synnaxlabs/charon/tooltip";
 import { Triggers } from "@synnaxlabs/charon/triggers";
 import { caseconv } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 
-import { Select } from "@/select";
 import { type Mode, MODES, type UseTriggers } from "@/viewport/use";
 
 export type FilteredMode = Exclude<Mode, "cancel">;

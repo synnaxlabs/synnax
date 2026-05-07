@@ -11,10 +11,9 @@ import "@/notation/Select.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Select as BaseSelect } from "@synnaxlabs/charon/select";
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
-
-import { Select as BaseSelect } from "@/select";
 
 export interface SelectNotationProps extends Omit<
   BaseSelect.ButtonsProps<notation.Notation>,

@@ -9,6 +9,8 @@
 
 import { Component } from "@synnaxlabs/charon/component";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { List } from "@synnaxlabs/charon/list";
+import { Select } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
@@ -16,8 +18,6 @@ import { type ReactElement } from "react";
 import { type ListParams, useList } from "@/access/policy/queries";
 import { HAUL_TYPE } from "@/access/policy/types";
 import { type Flux } from "@/flux";
-import { List } from "@/list";
-import { Select } from "@/select";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,

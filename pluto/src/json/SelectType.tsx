@@ -7,11 +7,11 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { Select } from "@synnaxlabs/charon/select";
 import { type optional } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 
 import { type PrimitiveTypeName } from "@/json/primitive";
-import { Select } from "@/select";
 
 const KEYS: PrimitiveTypeName[] = ["string", "number", "boolean", "null"];
 

@@ -7,13 +7,13 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type List } from "@synnaxlabs/charon/list";
 import { state } from "@synnaxlabs/charon/state";
 import { arc, NotFoundError, ontology, type rack, task } from "@synnaxlabs/client";
 import { primitive, status } from "@synnaxlabs/x";
 import z from "zod";
 
 import { Flux } from "@/flux";
-import { type List } from "@/list";
 import { type Status } from "@/status";
 import { Task } from "@/task";
 

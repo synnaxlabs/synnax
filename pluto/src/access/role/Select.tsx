@@ -8,14 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Component } from "@synnaxlabs/charon/component";
+import { List } from "@synnaxlabs/charon/list";
+import { Select as Base } from "@synnaxlabs/charon/select";
 import { Text } from "@synnaxlabs/charon/text";
 import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 
 import { type ListQuery, useList } from "@/access/role/queries";
 import { type Flux } from "@/flux";
-import { List } from "@/list";
-import { Select as Base } from "@/select";
 const listItemRenderProp = Component.renderProp(
   ({
     itemKey,

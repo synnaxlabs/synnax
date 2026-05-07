@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { dimensions as textDimensions, type text } from "@synnaxlabs/charon/text/base";
+import { text as textBase } from "@synnaxlabs/charon/text/base";
 import { Theming } from "@synnaxlabs/charon/theming";
 import type { theming } from "@synnaxlabs/charon/theming/aether";
 import {
@@ -64,11 +64,11 @@ export interface Draw2DContainerProps {
 export interface DrawTextProps extends FillTextOptions {
   text: string;
   position: xy.XY;
-  level: text.Level;
+  level: textBase.Level;
   justify?: CanvasTextAlign;
   align?: CanvasTextBaseline;
-  weight?: text.Weight;
-  shade?: text.Shade;
+  weight?: textBase.Weight;
+  shade?: textBase.Shade;
   maxWidth?: number;
   code?: boolean;
   color?: ColorSpec;
@@ -84,7 +84,7 @@ export interface DrawTextInCenterProps extends Omit<
 export interface Draw2DMeasureTextContainerProps {
   text: string[];
   direction: direction.Direction;
-  level: text.Level;
+  level: textBase.Level;
   spacing?: number;
 }
 
@@ -120,7 +120,7 @@ type ColorSpec = color.Crude | ((t: theming.Theme) => color.Color);
 export class Draw2D {
   readonly canvas: SugaredOffscreenCanvasRenderingContext2D;
   readonly theme: theming.Theme;
-  private charWidthCache: Partial<Record<text.Level, number>> = {};
+  private charWidthCache: Partial<Record<textBase.Level, number>> = {};
 
   constructor(canvas: SugaredOffscreenCanvasRenderingContext2D, theme: theming.Theme) {
     this.canvas = canvas;
@@ -325,7 +325,7 @@ export class Draw2D {
     level = "p",
   }: Draw2DMeasureTextContainerProps): [dimensions.Dimensions, (base: xy.XY) => void] {
     const font = Theming.fontString(this.theme, { level });
-    const textDims = text.map((t) => textDimensions(t, font, this.canvas));
+    const textDims = text.map((t) => textBase.dimensions(t, font, this.canvas));
     const spacingPx = this.theme.sizes.base * spacing;
     const offset =
       Math.max(...textDims.map((td) => td[direction.dimension(d)])) + spacingPx;
@@ -385,7 +385,7 @@ export class Draw2D {
     }
   }
 
-  measureCharWidth(level: text.Level): number {
+  measureCharWidth(level: textBase.Level): number {
     const cached = this.charWidthCache[level];
     if (cached != null) return cached;
     this.canvas.font = Theming.fontString(this.theme, { level, code: true });
@@ -395,7 +395,7 @@ export class Draw2D {
   }
 
   drawTextInCenter({ box: b, text, level }: DrawTextInCenterProps): void {
-    const dims = textDimensions(text, this.canvas.font, this.canvas);
+    const dims = textBase.dimensions(text, this.canvas.font, this.canvas);
     const pos = box.positionInCenter(box.construct(xy.ZERO, dims), b);
     return this.text({ text, position: box.topLeft(pos), level });
   }
