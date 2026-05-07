@@ -11,7 +11,12 @@ import "@/vis/canvas/Canvas.css";
 
 import { Aether } from "@synnaxlabs/charon/aether";
 import { CSS } from "@synnaxlabs/charon/css";
-import { useCombinedRefs, useResize, type UseResizeHandler, type UseResizeOpts } from "@synnaxlabs/charon/hooks";
+import {
+  useCombinedRefs,
+  useResize,
+  type UseResizeHandler,
+  type UseResizeOpts,
+} from "@synnaxlabs/charon/hooks";
 import { box, runtime, scale, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,

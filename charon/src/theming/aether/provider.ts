@@ -55,7 +55,8 @@ export class Provider extends aether.Composite<typeof providerStateZ> {
   }
 }
 
-export const use = (ctx: aether.Context): theming.Theme => ctx.get<theming.Theme>(CONTEXT_KEY);
+export const use = (ctx: aether.Context): theming.Theme =>
+  ctx.get<theming.Theme>(CONTEXT_KEY);
 
 export const REGISTRY: aether.ComponentRegistry = {
   [Provider.TYPE]: Provider,

@@ -9,11 +9,12 @@
 
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
+import { Input } from "@synnaxlabs/charon/input";
 import { Text } from "@synnaxlabs/charon/text";
 import { type optional, TimeStamp } from "@synnaxlabs/x";
 import { useState } from "react";
 
-import { Input } from "@/input";
+import { DateTime, type DateTimeProps } from "@/input/DateTime";
 
 import { SubcategorySection } from "./SubcategorySection";
 
@@ -58,13 +59,13 @@ export const InputShowcaseCheckbox = (props: InputShowcaseCheckboxProps) => {
 };
 
 export interface InputShowcaseDateTimeProps extends optional.Optional<
-  Input.DateTimeProps,
+  DateTimeProps,
   "value" | "onChange"
 > {}
 
 export const InputShowcaseDateTime = (props: InputShowcaseDateTimeProps) => {
   const [value, setValue] = useState(Number(TimeStamp.now().valueOf()));
-  return <Input.DateTime {...props} value={value} onChange={setValue} />;
+  return <DateTime {...props} value={value} onChange={setValue} />;
 };
 
 const INPUT_PLACEHOLDER = (

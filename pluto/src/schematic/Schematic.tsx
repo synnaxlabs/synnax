@@ -62,7 +62,6 @@ export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps>
     return (
       <Spec.Node
         onConfigChange={setConfig}
-         
         config={config as Node.Config}
         position={Spec.needsPosition === true ? position : undefined}
         {...rest}
@@ -76,7 +75,7 @@ export const create = ({ useConfig }: CreateSchematicParams): FC<SchematicProps>
     const [config, setConfig] = useConfig(itemKey, edgeKey);
     if (config == null) return null;
     const E = Edge.resolve(config.variant);
-     
+
     return <E onChange={setConfig} config={config as Edge.Config} {...props} />;
   };
 

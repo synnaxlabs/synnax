@@ -24,7 +24,13 @@ import { CSS } from "@/css";
 import { BACKGROUND_CLASS } from "@/dialog/Background";
 import { type LocationPreference, position, type Preference } from "@/dialog/position";
 import { Flex } from "@/flex";
-import { useClickOutside, useCombinedRefs, useResize, useSyncedRef, useWindowResize } from "@/hooks";
+import {
+  useClickOutside,
+  useCombinedRefs,
+  useResize,
+  useSyncedRef,
+  useWindowResize,
+} from "@/hooks";
 import { CONTEXT_MENU_CLASS } from "@/menu/types";
 import { state } from "@/state";
 import { Triggers } from "@/triggers";

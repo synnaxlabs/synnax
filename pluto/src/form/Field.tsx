@@ -31,7 +31,9 @@ export type FieldProps<I = string | number, O = I> = GetOptions<I> &
     hideIfNull?: boolean;
   };
 
-const defaultInput = Component.renderProp((p: Input.TextProps) => <Input.Text {...p} />);
+const defaultInput = Component.renderProp((p: Input.TextProps) => (
+  <Input.Text {...p} />
+));
 
 export type FieldT<I, O = I> = (props: FieldProps<I, O>) => ReactElement | null;
 

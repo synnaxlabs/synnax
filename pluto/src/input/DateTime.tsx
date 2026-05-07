@@ -15,8 +15,6 @@ import { CSS } from "@synnaxlabs/charon/css";
 import { Dialog } from "@synnaxlabs/charon/dialog";
 import { Flex } from "@synnaxlabs/charon/flex";
 import { Icon } from "@synnaxlabs/charon/icon";
-import { Text } from "@synnaxlabs/charon/text";
-import { Triggers } from "@synnaxlabs/charon/triggers";
 import {
   type Control,
   Numeric,
@@ -24,6 +22,8 @@ import {
   type TextProps,
 } from "@synnaxlabs/charon/input";
 import { Text as TelemText } from "@synnaxlabs/charon/telem";
+import { Text } from "@synnaxlabs/charon/text";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { type record, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import compromise from "compromise";
 import compromiseDates, { type DatesMethods } from "compromise-dates";

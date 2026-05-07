@@ -101,10 +101,12 @@ describe("List", () => {
             return undefined;
           }) as List.GetItem<string, record.KeyedNamed<string>>;
           const obs = new observe.Observer<void>();
-          const itemProp = Component.renderProp(({ itemKey }: List.ItemProps<string>) => {
-            const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
-            return <div key={itemKey}>{item?.name}</div>;
-          });
+          const itemProp = Component.renderProp(
+            ({ itemKey }: List.ItemProps<string>) => {
+              const item = List.useItem<string, record.KeyedNamed<string>>(itemKey);
+              return <div key={itemKey}>{item?.name}</div>;
+            },
+          );
           const result = render(
             <List.Frame<string, record.KeyedNamed<string>>
               data={["1", "2", "3"]}

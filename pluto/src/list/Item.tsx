@@ -36,7 +36,9 @@ export type ItemProps<
     hovered?: boolean;
   };
 
-export type ItemRenderProp<K extends record.Key> = Component.RenderProp<ItemRenderProps<K>>;
+export type ItemRenderProp<K extends record.Key> = Component.RenderProp<
+  ItemRenderProps<K>
+>;
 
 export const Item = <K extends record.Key, E extends Button.ElementType = "div">({
   itemKey,

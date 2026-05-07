@@ -13,7 +13,11 @@ import "@xyflow/react/dist/base.css";
 import { Aether } from "@synnaxlabs/charon/aether";
 import type { Component } from "@synnaxlabs/charon/component";
 import { CSS } from "@synnaxlabs/charon/css";
-import { useCombinedRefs, useDebouncedCallback, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import {
+  useCombinedRefs,
+  useDebouncedCallback,
+  useSyncedRef,
+} from "@synnaxlabs/charon/hooks";
 import { useMemoCompare } from "@synnaxlabs/charon/memo";
 import { Triggers } from "@synnaxlabs/charon/triggers";
 import { box, type xy } from "@synnaxlabs/x";

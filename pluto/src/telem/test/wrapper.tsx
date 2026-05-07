@@ -9,13 +9,13 @@
 
 import type { aether } from "@synnaxlabs/charon/aether/runtime";
 import { aetherTest } from "@synnaxlabs/charon/aether/test";
+import { Status } from "@synnaxlabs/charon/status";
 import { status } from "@synnaxlabs/charon/status/aether";
 import { type Synnax as SynnaxClient } from "@synnaxlabs/client";
 import { type FC, type PropsWithChildren } from "react";
 
 import { Alamos } from "@/alamos";
 import { alamos } from "@/alamos/aether";
-import { Status } from "@/status";
 import { Synnax } from "@/synnax";
 import { synnax } from "@/synnax/aether";
 import { Telem } from "@/telem";

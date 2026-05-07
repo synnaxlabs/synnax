@@ -11,7 +11,11 @@ import "@/color/GradientPicker.css";
 
 import { CSS } from "@synnaxlabs/charon/css";
 import { Flex } from "@synnaxlabs/charon/flex";
-import { useCombinedStateAndRef, useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import {
+  useCombinedStateAndRef,
+  useCursorDrag,
+  useSyncedRef,
+} from "@synnaxlabs/charon/hooks";
 import type { Input } from "@synnaxlabs/charon/input";
 import { Text } from "@synnaxlabs/charon/text";
 import { Triggers } from "@synnaxlabs/charon/triggers";
