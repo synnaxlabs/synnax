@@ -376,10 +376,7 @@ var _ = Describe("gRPC Framer Translators", func() {
 			t := frameWriterRequestTranslator{codec: cdec}
 			pb := &WriterRequest{
 				Command: int32(writer.CommandOpen),
-				Config: &WriterConfig{
-					Keys:           keys.Uint32(),
-					ControlSubject: nil,
-				},
+				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
 			}
 			MustSucceed(t.Backward(ctx, pb))
 			Expect(cdec.Initialized()).To(BeTrue())
