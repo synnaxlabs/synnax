@@ -24,42 +24,50 @@ import {
 } from "@/schematic/Diagram";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
-import { useAddNode, useDispatch, useRetrieve } from "@/schematic/queries";
+import { useAddNode } from "@/schematic/queries";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
-export interface SchematicProps extends Omit<
-  BaseDiagram.DiagramProps,
-  "dragHandleSelector" | "nodes" | "edges" | "onNodesChange" | "onEdgesChange"
-> {
+export interface SchematicProps
+  extends
+    Omit<
+      BaseDiagram.DiagramProps,
+      | "dragHandleSelector"
+      | "nodes"
+      | "edges"
+      | "onNodesChange"
+      | "onEdgesChange"
+      | "onChange"
+    >,
+    Omit<schematic.Schematic, "key"> {
   resourceKey: string;
+  onChange: (params: { key: string; actions: schematic.Action[] }) => void;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
 
-const Internal = ({
+export const Schematic = ({
   className,
   resourceKey: key,
   viewport,
   onDoubleClick,
   onSelectionChange,
+  onChange,
   ...props
-}: SchematicProps & schematic.Schematic): ReactElement => {
-  const { update: dispatch } = useDispatch();
-
+}: SchematicProps): ReactElement => {
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
       const actions = nodeChangesToActions(changes);
-      if (actions.length > 0) dispatch({ key, actions });
+      if (actions.length > 0) onChange({ key, actions });
     },
-    [key, dispatch],
+    [key, onChange],
   );
 
   const handleEdgesChange = useCallback(
     (changes: BaseDiagram.EdgeChange[]) => {
       const actions = edgeChangesToActions(changes);
-      if (actions.length > 0) dispatch({ key, actions });
+      if (actions.length > 0) onChange({ key, actions });
     },
-    [key, dispatch],
+    [key, onChange],
   );
 
   const handleAddNode = useAddNode(key);
@@ -123,11 +131,4 @@ const Internal = ({
       />
     </Key.Provider>
   );
-};
-
-export const Schematic = (props: SchematicProps): ReactElement | null => {
-  const { resourceKey: key } = props;
-  const { data } = useRetrieve({ key });
-  if (data == null) return null;
-  return <Internal {...props} {...data} />;
 };

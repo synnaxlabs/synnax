@@ -73,7 +73,7 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
+export const useRetrieve = Flux.Suspense.createRetrieve<
   RetrieveQuery,
   schematic.Schematic,
   FluxSubStore
