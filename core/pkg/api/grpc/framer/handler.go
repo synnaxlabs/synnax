@@ -154,7 +154,7 @@ func (t frameWriterRequestTranslator) Backward(
 	return r, nil
 }
 
-func (t frameWriterResponseTranslator) Forward(
+func (frameWriterResponseTranslator) Forward(
 	_ context.Context,
 	msg apifra.WriterResponse,
 ) (*WriterResponse, error) {
@@ -165,7 +165,7 @@ func (t frameWriterResponseTranslator) Forward(
 	}, nil
 }
 
-func (t frameWriterResponseTranslator) Backward(
+func (frameWriterResponseTranslator) Backward(
 	_ context.Context,
 	msg *WriterResponse,
 ) (apifra.WriterResponse, error) {
@@ -176,7 +176,7 @@ func (t frameWriterResponseTranslator) Backward(
 	}, nil
 }
 
-func (t frameIteratorRequestTranslator) Forward(
+func (frameIteratorRequestTranslator) Forward(
 	_ context.Context,
 	msg apifra.IteratorRequest,
 ) (*IteratorRequest, error) {
@@ -279,7 +279,7 @@ func (t frameIteratorResponseTranslator) Backward(
 	return res, nil
 }
 
-func (t frameStreamerRequestTranslator) Forward(
+func (frameStreamerRequestTranslator) Forward(
 	_ context.Context,
 	msg apifra.StreamerRequest,
 ) (*StreamerRequest, error) {
@@ -345,7 +345,7 @@ func (t frameStreamerResponseTranslator) Backward(
 	return apifra.StreamerResponse{Frame: framer.Frame{Frame: tr}}, nil
 }
 
-func (t frameDeleteRequestTranslator) Forward(
+func (frameDeleteRequestTranslator) Forward(
 	_ context.Context,
 	msg apifra.DeleteRequest,
 ) (*DeleteRequest, error) {
@@ -356,7 +356,7 @@ func (t frameDeleteRequestTranslator) Forward(
 	return &DeleteRequest{Keys: msg.Keys.Uint32(), Names: msg.Names, Bounds: tr}, nil
 }
 
-func (t frameDeleteRequestTranslator) Backward(
+func (frameDeleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (apifra.DeleteRequest, error) {
