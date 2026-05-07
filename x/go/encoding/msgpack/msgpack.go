@@ -19,15 +19,15 @@ import (
 
 	"github.com/synnaxlabs/x/encoding"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/http"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// Codec is a msgpack implementation of encoding.Codec.
-var Codec = &codec{}
+// Codec is a MessagePack implementation of encoding.Codec and http.Codec.
+var Codec http.Codec = &codec{}
 
 type codec struct{}
 
-// ContentType implements http.Codec to return the http content type for the codec.
 func (c *codec) ContentType() string { return "application/msgpack" }
 
 // Encode implements the encoding.Encoder interface.

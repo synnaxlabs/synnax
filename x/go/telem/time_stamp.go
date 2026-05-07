@@ -38,7 +38,7 @@ func (ts *TimeStamp) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON implements json.Marshaler.
 func (ts TimeStamp) MarshalJSON() ([]byte, error) {
-	return xjson.MarshalStringInt64(int64(ts))
+	return xjson.MarshalStringInt64(int64(ts)), nil
 }
 
 // Now returns the current time as a TimeStamp.

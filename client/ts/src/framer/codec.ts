@@ -63,7 +63,7 @@ interface CodecState {
 }
 
 export class Codec {
-  contentType: string = "application/sy-framer";
+  contentType: string = CONTENT_TYPE;
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;
@@ -329,7 +329,7 @@ export const LOW_PER_SPECIAL_CHAR = 254;
 const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
 export const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
-const CONTENT_TYPE = "application/sy-framer";
+const CONTENT_TYPE = "application/vnd.synnax.frame";
 
 export class WSWriterCodec implements binary.Codec {
   contentType = CONTENT_TYPE;
