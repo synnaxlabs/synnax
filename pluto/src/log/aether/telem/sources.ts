@@ -57,6 +57,7 @@ export class StreamMultiChannelLog
   private readonly client: client.Client;
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
+  private readonly maxEntries: number;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
@@ -74,11 +75,13 @@ export class StreamMultiChannelLog
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
+    maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
+    this.maxEntries = maxEntries;
     this._channels = this.props.channels.filter(
       (ch): ch is number => typeof ch === "number",
     );
@@ -222,8 +225,8 @@ export class StreamMultiChannelLog
       this.entries.splice(0, cutoff);
       evicted += cutoff;
     }
-    if (this.entries.length > MAX_ENTRIES) {
-      let excess = this.entries.length - MAX_ENTRIES;
+    if (this.entries.length > this.maxEntries) {
+      let excess = this.entries.length - this.maxEntries;
       // Skip leading continuations so the new head isn't an orphan.
       while (excess < this.entries.length && this.entries[excess].continuation)
         excess++;

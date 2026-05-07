@@ -480,7 +480,7 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
     });
 
-    it("should not leave orphan continuation entries at the head when MAX_ENTRIES eviction cuts mid-group", async () => {
+    it("should not leave orphan continuation entries at the head when maxEntries eviction cuts mid-group", async () => {
       c.channelA = new channel.Channel({
         ...c.channelA,
         dataType: DataType.STRING,
@@ -489,10 +489,10 @@ describe("StreamMultiChannelLog", () => {
         channels: [c.channelA.key],
         timeSpan: TimeSpan.seconds(30),
       };
-      const log = new StreamMultiChannelLog(c, props);
+      const log = new StreamMultiChannelLog(c, props, undefined, undefined, 100);
       await waitForResolve(log);
-      // 33,335 three-line samples = 100,005 entries; excess of 5 cuts mid-group.
-      const data = new Array(33_335).fill("a\nb\nc");
+      // 35 three-line samples = 105 entries; excess of 5 cuts mid-group.
+      const data = new Array(35).fill("a\nb\nc");
       const series = new Series({ data });
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       const entries = log.value();
