@@ -258,7 +258,10 @@ string-typed version fields and performs the conversion on the fly.
 Each frozen type defines a floor version. The dispatcher first guards against versions
 newer than the latest known schema (returning an unsupported-version error), then
 matches the highest floor that the incoming version satisfies, parses with that schema,
-and runs the migration chain up to the current version.
+and runs the migration chain up to the current version. Each service open-codes its own
+dispatch — the rejection-and-walk logic is small enough that hand-writing it per
+service is acceptable for now, and centralizing it into a generic helper is a possible
+future refactor.
 
 ```go
 func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
@@ -393,15 +396,18 @@ subset that handlers receive on import:
 type ImportPayload struct {
     Version int
     Name    string
-    Data    json.RawMessage
+    Data    map[string]any
 }
 ```
 
 `Type` is stripped because the central registry has already routed by it — by the time
 a handler is called, the type is implicit. `Key` is stripped because the original key
 is ignored on import (see §6.6) and including it on the handler-facing struct invites
-accidental use. The central `imex.Service` translates wire `Envelope` → `ImportPayload`
-before invoking the handler.
+accidental use. `Data` is the already-decoded resource map, not raw bytes: the HTTP
+layer's portable codec (JSON today; YAML/TOML later) decodes once at the boundary, and
+the registry passes the map through. This makes Importer implementations independent of
+which codec produced the bytes. The central `imex.Service` translates wire `Envelope`
+→ `ImportPayload` before invoking the handler.
 
 `Import` takes a `gorp.Tx` because the central registry runs the entire import batch in
 a single transaction — all resources are persisted atomically or not at all. It does
@@ -521,17 +527,28 @@ A new `@zyn` attribute on Oracle struct definitions generates a `zyn.ObjectZ` sc
 from the field definitions. Oracle generates `schema.gen.go` in the service package (for
 the current version) and in each `migrations/vN/` package (for frozen versions).
 
-### 4.8.1 - Import/Export Helpers
+### 4.8.1 - Per-Version Generated Artifacts
 
-A new `@go import_export` attribute generates:
+For each Oracle-managed version of a schema, Oracle emits the artifacts the per-service
+migration dispatch (§4.3.2) needs:
 
-1. `ExportJSON(entity Type) ([]byte, error)` - wraps the entity in the flat JSON format
-   and marshals.
-2. `ImportJSON(data []byte) (Type, error)` - unmarshals to `map[string]any`, reads the
-   version, dispatches to the correct frozen type and Zyn schema using range-based
-   version matching, validates, parses, and runs the migration chain. For pre-Oracle
-   historical versions where frozen types and schemas are hand-written, Oracle detects
-   their presence in `migrations/vN/` and includes them in the version switch.
+1. The frozen typed struct (`types.gen.go`) — the latest version's struct lives in the
+   service package, prior frozen versions live in `migrations/vN/`.
+2. The Zyn `ObjectZ` schema (`schema.gen.go`) — same placement as the typed struct.
+3. The auto-migrate helper (`migrate_auto.gen.go`) — handles purely additive field
+   changes between adjacent versions; the developer-written `migrate.go` calls it for
+   the boilerplate parts and supplies hand-written code for non-trivial transforms.
+
+Each service still hand-writes its `migrateData` switch (§4.3.2) — the future-version
+guard, the floor matching, and the chain of `vN.Schema.Parse` + `vN+1.Migrate` calls.
+Centralizing that switch into a generic `imex` helper is a possible future refactor;
+for now the boilerplate is small enough that per-service open-coding wins on
+readability.
+
+Format-specific marshaling and unmarshaling (JSON today; YAML and TOML later) live in
+the HTTP layer (§4.6.1). Oracle does not generate format-specific import/export
+wrappers, since the dispatch operates on `map[string]any` and codec selection is a
+boundary concern.
 
 # 5 - Console Code Replaced
 
