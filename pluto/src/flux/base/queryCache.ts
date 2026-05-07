@@ -50,8 +50,19 @@ export class QueryCache {
   /// Stores a result for the given query hash. If the result is a loading
   /// variant with an attached promise, the cache wires up `.then` handlers
   /// that auto-transition the entry to success or error when the promise
-  /// settles. Subscribers fire on every transition.
-  set<T extends state.State>(hash: string, result: Result<T>): void {
+  /// settles.
+  ///
+  /// `equal` is an optional value-equality check applied on success-to-success
+  /// transitions. When the new and previous data are equal under it, the entry
+  /// is left in place and no notification fires - subscribers don't re-render.
+  /// Selectors use this to skip re-renders when a derived slice didn't change
+  /// despite the parent record changing.
+  set<T extends state.State>(
+    hash: string,
+    result: Result<T>,
+    equal?: (a: T, b: T) => boolean,
+  ): void {
+    if (this.skipBecauseEqual(hash, result, equal)) return;
     this.entries.set(hash, result);
     this.notify(hash);
     if (result.variant !== "loading" || result.promise == null) return;
@@ -59,10 +70,25 @@ export class QueryCache {
     const promise = result.promise;
     promise.then(
       (value) =>
-        this.replaceIfStill<T>(hash, result, successResult(`retrieved ${name}`, value)),
+        this.replaceIfStill<T>(
+          hash,
+          result,
+          successResult(`retrieved ${name}`, value),
+          equal,
+        ),
       (reason: unknown) =>
         this.replaceIfStill<T>(hash, result, errorResult(`retrieve ${name}`, reason)),
     );
+  }
+
+  private skipBecauseEqual<T extends state.State>(
+    hash: string,
+    next: Result<T>,
+    equal?: (a: T, b: T) => boolean,
+  ): boolean {
+    if (equal == null || next.variant !== "success") return false;
+    const prev = this.entries.get(hash) as Result<T> | undefined;
+    return prev?.variant === "success" && equal(prev.data, next.data);
   }
 
   /// Removes the entry for the given hash. The next read kicks off a fresh
@@ -102,8 +128,10 @@ export class QueryCache {
     hash: string,
     expected: Result<T>,
     next: Result<T>,
+    equal?: (a: T, b: T) => boolean,
   ): void {
     if (this.entries.get(hash) !== expected) return;
+    if (this.skipBecauseEqual(hash, next, equal)) return;
     this.entries.set(hash, next);
     this.notify(hash);
   }

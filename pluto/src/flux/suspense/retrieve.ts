@@ -12,7 +12,7 @@ import { type destructor } from "@synnaxlabs/x";
 import { use, useCallback, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
-import { hashQuery } from "@/flux/base/queryCache";
+import { hashQuery, type QueryCache } from "@/flux/base/queryCache";
 import { useQueryCache, useStore } from "@/flux/Provider";
 import { pendingResult, successResult } from "@/flux/result";
 import { useMemoDeepEqual } from "@/memo";
@@ -27,6 +27,10 @@ export interface RetrieveParams<
   client: AllowDisconnected extends true ? Client | null : Client;
   query: Query;
   store: Store;
+  /// Per-client query cache. Selectors derived from this retrieve use this to
+  /// resolve the parent's current cached value when the parent's listener
+  /// fires a setter-style update.
+  cache: QueryCache;
 }
 
 export interface MountListenersParams<
@@ -54,11 +58,28 @@ export interface CreateRetrieveParams<
     params: MountListenersParams<Query, Data, Store, AllowDisconnected>,
   ) => destructor.Destructor | destructor.Destructor[];
   allowDisconnected?: AllowDisconnected;
+  /// Optional value-equality check applied on success-to-success cache
+  /// transitions. When the new and previous values are equal under this fn,
+  /// the cache leaves the entry in place and skips the notification, so
+  /// subscribers don't re-render. Selectors built on top of this retrieve set
+  /// `equal` so derived slices don't re-render the consumer when the parent
+  /// changes in unrelated ways.
+  equal?: (a: Data, b: Data) => boolean;
 }
 
-export type UseRetrieve<Query extends base.Shape, Data extends base.Shape> = (
-  query: Query,
-) => Data;
+/// A retrieve hook plus the spec it was built from. Selectors compose on top
+/// by reading `spec.name`, `spec.retrieve`, and `spec.mountListeners`. Hooks
+/// returned from `createRetrieve` are callable as normal hooks; the `spec`
+/// property is metadata.
+export interface UseRetrieve<
+  Query extends base.Shape,
+  Data extends base.Shape,
+  Store extends base.Store = {},
+  AllowDisconnected extends boolean = false,
+> {
+  (query: Query): Data;
+  spec: CreateRetrieveParams<Query, Data, Store, AllowDisconnected>;
+}
 
 /// Builds a Suspense-shaped retrieve hook. The returned hook reads the
 /// per-client query cache and either returns the resolved value or suspends on
@@ -71,10 +92,10 @@ export const createRetrieve = <
   ScopedStore extends base.Store = {},
   AllowDisconnected extends boolean = false,
 >(
-  createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
-): UseRetrieve<Query, Data> => {
-  const { name, retrieve, mountListeners, allowDisconnected } = createParams;
-  return (query: Query): Data => {
+  spec: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
+): UseRetrieve<Query, Data, ScopedStore, AllowDisconnected> => {
+  const { name, retrieve, mountListeners, allowDisconnected, equal } = spec;
+  const useRetrieve = (query: Query): Data => {
     const memoQuery = useMemoDeepEqual(query);
     const client = Synnax.use();
     const store = useStore<ScopedStore>();
@@ -96,11 +117,12 @@ export const createRetrieve = <
             const prev = current?.variant === "success" ? current.data : undefined;
             const next = state.executeSetter(value, prev);
             if (next == null) return;
-            cache.set(hash, successResult(name, next));
+            cache.set(hash, successResult(name, next), equal);
           };
           const result = mountListeners({
             client: client as AllowDisconnected extends true ? Client | null : Client,
             store,
+            cache,
             query: memoQuery,
             onChange,
           });
@@ -129,8 +151,12 @@ export const createRetrieve = <
       client: client as AllowDisconnected extends true ? Client | null : Client,
       query: memoQuery,
       store,
+      cache,
     });
-    cache.set(hash, pendingResult(name, promise));
+    cache.set(hash, pendingResult(name, promise), equal);
     return use(promise);
   };
+  // Attach spec for selectors to compose against.
+  (useRetrieve as UseRetrieve<Query, Data, ScopedStore, AllowDisconnected>).spec = spec;
+  return useRetrieve as UseRetrieve<Query, Data, ScopedStore, AllowDisconnected>;
 };

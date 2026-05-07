@@ -7,75 +7,117 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
-import { useCallback, useRef } from "react";
-import { useSyncExternalStoreWithSelector } from "use-sync-external-store/with-selector";
-
 import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
-import { useMemoDeepEqual } from "@/memo";
+import { hashQuery } from "@/flux/base/queryCache";
+import { successResult } from "@/flux/result";
+import { createRetrieve, type UseRetrieve } from "@/flux/suspense/retrieve";
+import { state } from "@/state";
 
 export interface CreateSelectorParams<
-  ScopedStore extends base.Store,
-  Args extends {},
-  Selected,
+  Query extends base.Shape,
+  ParentData extends base.Shape,
+  ParentStore extends base.Store,
+  ParentAllowDisconnected extends boolean,
+  Selected extends base.Shape,
 > {
-  /// Subscribe to store mutations that may change the selected value. The
-  /// callback fires on every relevant change. The selector retains its current
-  /// value if `equal` reports no change.
-  subscribe: (
-    store: ScopedStore,
-    args: Args,
-    notify: () => void,
-  ) => destructor.Destructor;
-  /// Compute the selected slice from the current store state. Called only
-  /// after the parent record (typically loaded by a sibling `useRetrieve`) is
-  /// hydrated. Selectors are no longer required to throw `NotFoundError` on
-  /// missing parents - they return whatever the slice resolves to (which may
-  /// itself be undefined for missing sub-keys).
-  select: (store: ScopedStore, args: Args) => Selected;
+  /// The parent retrieve hook this selector derives from. The selector
+  /// suspends if the parent isn't loaded, and re-derives the slice when the
+  /// parent's listeners push updates.
+  upstream: UseRetrieve<Query, ParentData, ParentStore, ParentAllowDisconnected>;
+  /// The slice derivation. Receives the loaded parent value and the selector's
+  /// query, returns the slice.
+  select: (parent: ParentData, query: Query) => Selected;
+  /// Value-equality check on the derived slice. When the new slice equals the
+  /// previous one, the cache skips the notification and subscribers don't
+  /// re-render. This is the optimization that makes selectors avoid re-renders
+  /// on unrelated parent changes.
   equal?: (a: Selected, b: Selected) => boolean;
+  /// Optional name suffix appended to the parent's name, used to scope the
+  /// selector's cache hash apart from the parent's. Defaults to "slice".
+  name?: string;
 }
 
-export type UseSelect<Args extends {}, Selected> = (args: Args) => Selected;
+/// Builds a suspending selector hook. A selector is a derived retrieve: it
+/// ensures the parent record is loaded (suspending if not), then returns a
+/// slice of the parent.
+///
+/// Both the selector and its parent have cache entries. The parent's entry
+/// holds the full record; the selector's entry holds the derived slice. The
+/// selector's listener mounts the parent's listeners (so the parent stays
+/// fresh under realtime updates) and subscribes to the parent's cache hash
+/// (so slice re-derivation runs whenever the parent value changes). The
+/// selector's cache entry is set with the slice's `equal` check, so the
+/// consumer only re-renders when the slice itself differs.
+export const createSelector = <
+  Query extends base.Shape,
+  ParentData extends base.Shape,
+  ParentStore extends base.Store,
+  ParentAllowDisconnected extends boolean,
+  Selected extends base.Shape,
+>(
+  params: CreateSelectorParams<
+    Query,
+    ParentData,
+    ParentStore,
+    ParentAllowDisconnected,
+    Selected
+  >,
+): UseRetrieve<Query, Selected, ParentStore, ParentAllowDisconnected> => {
+  const { upstream, select, equal, name = "slice" } = params;
+  const { spec: parentSpec } = upstream;
 
-/// Suspending selector. The returned hook reads a slice of the per-record
-/// store and stays in sync with mutations via `useSyncExternalStoreWithSelector`.
-/// It does not retrieve - the caller is responsible for ensuring the parent
-/// record is hydrated, typically by calling `useRetrieve` in a sibling or
-/// ancestor component. If the parent record is absent when the selector runs,
-/// the selector returns whatever its `select` function resolves to (often
-/// `undefined`); it does not throw. Suspension on a missing parent record is
-/// the responsibility of the corresponding `useRetrieve`, not the selector.
-export const createSelector =
-  <ScopedStore extends base.Store, Args extends {}, Selected>(
-    params: CreateSelectorParams<ScopedStore, Args, Selected>,
-  ): UseSelect<Args, Selected> =>
-  (args: Args): Selected => {
-    const store = useStore<ScopedStore>();
-    const memoArgs = useMemoDeepEqual(args);
-    const versionRef = useRef(0);
+  return createRetrieve<Query, Selected, ParentStore, ParentAllowDisconnected>({
+    name: `${parentSpec.name}:${name}`,
+    allowDisconnected: parentSpec.allowDisconnected,
+    equal,
+    retrieve: async (retrieveParams) => {
+      const parentValue = await parentSpec.retrieve(retrieveParams);
+      // Populate the parent's cache entry so listener-driven setter updates
+      // can resolve against it later.
+      const parentHash = hashQuery({
+        name: parentSpec.name,
+        query: retrieveParams.query,
+      });
+      retrieveParams.cache.set(parentHash, successResult(parentSpec.name, parentValue));
+      return select(parentValue, retrieveParams.query);
+    },
+    mountListeners: ({ cache, query, onChange, ...rest }) => {
+      const parentHash = hashQuery({ name: parentSpec.name, query });
 
-    const subscribe = useCallback(
-      (onStoreChange: () => void) =>
-        params.subscribe(store, memoArgs, () => {
-          versionRef.current++;
-          onStoreChange();
-        }),
-      [store, memoArgs],
-    );
+      // Bridge from parent listener to parent cache: resolve setter-style
+      // updates against the parent's current cached value, then store the
+      // result. This keeps the parent cache the canonical source of the
+      // parent record across listener updates.
+      const parentOnChange = (value: state.SetArg<ParentData | undefined>): void => {
+        const parentEntry = cache.get<ParentData>(parentHash);
+        const prev = parentEntry?.variant === "success" ? parentEntry.data : undefined;
+        const nextParent = state.executeSetter(value, prev);
+        if (nextParent == null) return;
+        cache.set(parentHash, successResult(parentSpec.name, nextParent));
+      };
 
-    const getSnapshot = useCallback(() => versionRef.current, []);
-    const selector = useCallback(
-      () => params.select(store, memoArgs),
-      [store, memoArgs],
-    );
+      // Subscribe to the parent's cache so slice derivation runs whenever the
+      // parent changes. The selector's `onChange` writes the slice into the
+      // selector cache, where the consumer's subscription lives.
+      const cacheSub = cache.subscribe(parentHash, () => {
+        const entry = cache.get<ParentData>(parentHash);
+        if (entry?.variant !== "success") return;
+        onChange(select(entry.data, query));
+      });
 
-    return useSyncExternalStoreWithSelector(
-      subscribe,
-      getSnapshot,
-      undefined,
-      selector,
-      params.equal,
-    );
-  };
+      const parentDestructors = parentSpec.mountListeners?.({
+        ...rest,
+        cache,
+        query,
+        onChange: parentOnChange,
+      });
+      const arr =
+        parentDestructors == null
+          ? []
+          : Array.isArray(parentDestructors)
+            ? parentDestructors
+            : [parentDestructors];
+      return [...arr, cacheSub];
+    },
+  });
+};
