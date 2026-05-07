@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
+  convertDataType,
   type CrudeDataType,
   DataType,
   Density,
@@ -2161,5 +2162,31 @@ describe("Size", () => {
       expect(result).toBeInstanceOf(Size);
       expect(result.valueOf()).toBe(10000);
     });
+  });
+});
+
+describe("convertDataType", () => {
+  it("preserves precision when subtracting a bigint offset above 2^53 (INT64 -> FLOAT32)", () => {
+    const offset = 1778020940471336960n;
+    const value = 1778020940471336960n + 137438953472n;
+    const result = convertDataType(DataType.INT64, DataType.FLOAT32, value, offset);
+    expect(result).toBe(137438953472);
+  });
+
+  it("preserves precision when subtracting a bigint offset above 2^53 (TIMESTAMP -> FLOAT32)", () => {
+    const offset = 1778020940471336960n;
+    const value = 1778020940471336960n + 1n;
+    const result = convertDataType(DataType.TIMESTAMP, DataType.FLOAT32, value, offset);
+    expect(result).toBe(1);
+  });
+
+  it("returns a bigint when target uses bigint and source does not", () => {
+    const result = convertDataType(DataType.FLOAT32, DataType.INT64, 100, 10);
+    expect(result).toBe(90n);
+  });
+
+  it("falls back to math.sub when neither source nor target use bigint", () => {
+    const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
+    expect(result).toBe(4);
   });
 });
