@@ -115,9 +115,7 @@ func (t frameWriterRequestTranslator) Backward(
 	if msg == nil {
 		return apifra.WriterRequest{}, nil
 	}
-	r := apifra.WriterRequest{
-		Command: writer.Command(msg.Command),
-	}
+	r := apifra.WriterRequest{Command: writer.Command(msg.Command)}
 	if msg.Config != nil {
 		subj, err := controlpb.SubjectFromPB(msg.Config.ControlSubject)
 		if err != nil {
