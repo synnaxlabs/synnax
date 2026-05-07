@@ -406,7 +406,7 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   mountListeners: mountRangeListeners,
 });
 
-export const useRetrieveSuspense = Flux.Suspense.createRetrieve<
+export const { useRetrieve: useRetrieveSuspense } = Flux.createSuspendedRetrieve<
   RetrieveQuery,
   ranger.Range,
   FluxSubStore

@@ -77,6 +77,7 @@ export interface ToolbarProps {
 }
 
 export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+  PSchematic.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
   const toolbar = useSelectToolbar(layoutKey);

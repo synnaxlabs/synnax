@@ -36,7 +36,7 @@ export const useCreate = ({
     (schem) =>
       update({
         ...schematic.ZERO_NEW,
-        name: "New Schematic",
+        name: "Schematic",
         ...schem,
         workspace: workspace ?? activeWorkspace ?? undefined,
       }),

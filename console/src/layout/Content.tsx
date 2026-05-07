@@ -38,7 +38,7 @@ export const Content = memo(
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;
     return (
-      <Flux.Suspense.Boundary>
+      <Flux.Suspense>
         <Renderer
           key={layoutKey}
           layoutKey={layoutKey}
@@ -46,7 +46,7 @@ export const Content = memo(
           visible={visible}
           focused={isFocused}
         />
-      </Flux.Suspense.Boundary>
+      </Flux.Suspense>
     );
   },
 );

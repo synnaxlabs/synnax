@@ -13,7 +13,7 @@ import {
   type ErrorInfo,
   type ReactElement,
   type ReactNode,
-  Suspense,
+  Suspense as ReactSuspense,
 } from "react";
 
 import { Summary } from "@/status/base/Summary";
@@ -67,7 +67,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   }
 }
 
-export interface BoundaryProps {
+export interface SuspenseProps {
   /// Rendered while children are suspended. Defaults to nothing (blank space).
   /// Pass a skeleton, spinner, or layout placeholder for better UX.
   loading?: ReactNode;
@@ -90,12 +90,12 @@ const defaultErrorFallback: ErrorFallback = (status) => <Summary status={status}
 /// A bare `Status` thrown directly is used as-is. The error boundary's
 /// `error` prop receives an `xstatus.Status` either way, so the fallback
 /// renders against one consistent shape.
-export const Boundary = ({
+export const Suspense = ({
   loading,
   error = defaultErrorFallback,
   children,
-}: BoundaryProps): ReactElement => (
+}: SuspenseProps): ReactElement => (
   <ErrorBoundary fallback={error}>
-    <Suspense fallback={loading}>{children}</Suspense>
+    <ReactSuspense fallback={loading}>{children}</ReactSuspense>
   </ErrorBoundary>
 );

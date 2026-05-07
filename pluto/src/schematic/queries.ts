@@ -73,7 +73,7 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const useRetrieve = Flux.Suspense.createRetrieve<
+export const { useRetrieve, useEnsureRetrieved } = Flux.createSuspendedRetrieve<
   RetrieveQuery,
   schematic.Schematic,
   FluxSubStore
@@ -83,6 +83,37 @@ export const useRetrieve = Flux.Suspense.createRetrieve<
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.schematics.onSet(onChange, key),
   ],
+});
+
+export interface SelectKeyArgs {
+  key: schematic.Key;
+}
+
+const requireSchematic = (
+  store: FluxSubStore,
+  key: schematic.Key,
+): schematic.Schematic => {
+  const schem = store.schematics.get(key);
+  if (schem == null) throw new NotFoundError(`Schematic with key ${key} not found`);
+  return schem;
+};
+
+export const useSelectAllNodes = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  schematic.Node[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) => requireSchematic(store, key).nodes,
+});
+
+export const useSelectAllEdges = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  schematic.Edge[]
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) => requireSchematic(store, key).edges,
 });
 
 export interface SelectConfigArgs {
@@ -96,11 +127,8 @@ export const useSelectElementConfig = Flux.createSelector<
   ElementConfig
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key, elKey }) => {
-    const schem = store.schematics.get(key);
-    if (schem == null) throw new NotFoundError(`Schematic with key ${key} not found`);
-    return schem.configs[elKey] as ElementConfig;
-  },
+  select: (store, { key, elKey }) =>
+    requireSchematic(store, key).configs[elKey] as ElementConfig,
 });
 
 export interface SelectEdgeArgs {
@@ -169,10 +197,10 @@ export interface SelectFieldArgs {
 export const useSelectSnapshot = Flux.createSelector<
   FluxSubStore,
   SelectFieldArgs,
-  boolean | undefined
+  boolean
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
-  select: (store, { key }) => store.schematics.get(key)?.snapshot,
+  select: (store, { key }) => requireSchematic(store, key).snapshot,
 });
 
 export type DeleteParams = schematic.Key | schematic.Key[];

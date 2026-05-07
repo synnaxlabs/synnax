@@ -25,9 +25,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     className={CSS.BE("range", "overview")}
     gap="large"
   >
-    <Flux.Suspense.Boundary>
+    <Flux.Suspense>
       <Details rangeKey={layoutKey} />
-    </Flux.Suspense.Boundary>
+    </Flux.Suspense>
     <ChildRanges rangeKey={layoutKey} />
     <MetaData rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />

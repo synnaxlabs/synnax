@@ -9,14 +9,16 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
-import { useCallback, useRef, useState } from "react";
+import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
-import { useStore } from "@/flux/Provider";
+import { useQueryCache, useStore } from "@/flux/Provider";
+import { hashQuery, type QueryCache } from "@/flux/queryCache";
 import {
   errorResult,
   loadingResult,
   nullClientResult,
+  pendingResult,
   type Result,
   successResult,
 } from "@/flux/result";
@@ -35,6 +37,11 @@ export interface RetrieveParams<
   client: AllowDisconnected extends true ? Client | null : Client;
   query: Query;
   store: Store;
+  /// Per-client query cache. Suspended retrieves (`createSuspendedRetrieve`)
+  /// share entries through this cache so concurrent reads of the same query
+  /// dedupe to a single fetch. Optional because legacy `createRetrieve`
+  /// callers don't read it; suspended retrieves always populate it.
+  cache?: QueryCache;
 }
 
 export interface RetrieveMountListenersParams<
@@ -199,6 +206,7 @@ const useObservableBase = <
   const client = Synnax.use();
   const queryRef = useRef<Query | null>(null);
   const store = useStore<ScopedStore>(scope);
+  const cache = useQueryCache();
   const listeners = useDestructors();
   const addStatus = useAdder();
   const handleListenerChange = useCallback(
@@ -240,6 +248,7 @@ const useObservableBase = <
           client: client as AllowDisconnected extends true ? Client | null : Client,
           query,
           store,
+          cache,
         };
         listeners.cleanup();
         listeners.set(mountListeners?.({ ...params, onChange: handleListenerChange }));
@@ -373,3 +382,157 @@ export const createRetrieve = <
   useRetrieveObservable: (params: UseRetrieveObservableParams<Query, Data>) =>
     useObservableRetrieve({ ...params, ...createParams }),
 });
+
+/// A Suspense-shaped retrieve hook that returns the data directly. The hook
+/// either returns the resolved value or suspends on the in-flight promise.
+/// Concurrent reads of the same query share one fetch via the per-client
+/// query cache. Channel-listener-driven updates push new values into the
+/// cache, which notifies subscribed consumers without re-suspending.
+export interface UseSuspendedRetrieve<
+  Query extends base.Shape,
+  Data extends base.Shape,
+> {
+  (query: Query): Data;
+}
+
+/// A Suspense-shaped hook that ensures a query has been retrieved into the
+/// cache (and any listener-driven side effects have been mounted) but does
+/// NOT subscribe the calling component to subsequent cache updates. Use this
+/// in components that only need to gate rendering on data being present, e.g.,
+/// a parent that wants children to read fresh values via their own selectors
+/// without itself re-rendering when the data changes.
+export interface UseEnsureSuspendedRetrieve<Query extends base.Shape> {
+  (query: Query): void;
+}
+
+export interface CreateSuspendedRetrieveReturn<
+  Query extends base.Shape,
+  Data extends base.Shape,
+  Store extends base.Store = {},
+  AllowDisconnected extends boolean = false,
+> {
+  useRetrieve: UseSuspendedRetrieve<Query, Data>;
+  useEnsureRetrieved: UseEnsureSuspendedRetrieve<Query>;
+  /// Spec the hooks were built from. Exposed so callers can compose against
+  /// the underlying `name`, `retrieve`, and `mountListeners`.
+  spec: CreateRetrieveParams<Query, Data, Store, AllowDisconnected>;
+}
+
+/// Builds Suspense-shaped retrieve hooks. Pair with `<Flux.Suspense>` above
+/// the consumer to render a fallback while loading and a status panel on
+/// error.
+///
+/// Returns two hooks:
+/// - `useRetrieve(query)` — suspends until resolved, returns the data, and
+///   re-renders the consumer on every cache update (listener-driven or
+///   dispatch-driven).
+/// - `useEnsureRetrieved(query)` — suspends until resolved like `useRetrieve` but does
+///   not subscribe. Re-renders are not triggered when the cache entry
+///   subsequently changes; downstream selectors still see fresh values
+///   because the underlying store is updated independently.
+export const createSuspendedRetrieve = <
+  Query extends base.Shape,
+  Data extends base.Shape,
+  ScopedStore extends base.Store = {},
+  AllowDisconnected extends boolean = false,
+>(
+  spec: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
+): CreateSuspendedRetrieveReturn<Query, Data, ScopedStore, AllowDisconnected> => {
+  const { name, retrieve, mountListeners, allowDisconnected } = spec;
+
+  const useRetrieve = (query: Query): Data => {
+    const memoQuery = useMemoDeepEqual(query);
+    const client = Synnax.use();
+    const store = useStore<ScopedStore>();
+    const cache = useQueryCache();
+    const hash = hashQuery({ name, query: memoQuery });
+
+    if (client == null && !allowDisconnected)
+      throw new Error(
+        `Cannot retrieve ${name}: no Synnax client connected. Pass allowDisconnected to opt out.`,
+      );
+
+    useSyncExternalStore(
+      useCallback(
+        (notify) => {
+          const cacheSub = cache.subscribe(hash, notify);
+          if (mountListeners == null || client == null) return cacheSub;
+          const onChange = (value: state.SetArg<Data | undefined>) => {
+            const current = cache.get<Data>(hash);
+            const prev = current?.variant === "success" ? current.data : undefined;
+            const next = state.executeSetter(value, prev);
+            if (next == null) return;
+            cache.set(hash, successResult(name, next));
+          };
+          const result = mountListeners({
+            client: client as AllowDisconnected extends true ? Client | null : Client,
+            store,
+            cache,
+            query: memoQuery,
+            onChange,
+          });
+          const listeners = Array.isArray(result) ? result : [result];
+          return () => {
+            cacheSub();
+            listeners.forEach((d) => d?.());
+          };
+        },
+        [cache, hash, client, store, memoQuery],
+      ),
+      useCallback(() => cache.get(hash), [cache, hash]),
+    );
+
+    const entry = cache.get<Data>(hash);
+    if (entry?.variant === "success") return entry.data;
+    if (entry?.variant === "error")
+      // Throwing the Status: Flux.Suspense normalizes thrown Statuses without
+      // re-running fromException, preserving the resource-specific message.
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw entry.status;
+    if (entry?.variant === "loading" && entry.promise != null)
+      return use(entry.promise);
+
+    const promise = retrieve({
+      client: client as AllowDisconnected extends true ? Client | null : Client,
+      query: memoQuery,
+      store,
+      cache,
+    });
+    cache.set(hash, pendingResult(name, promise));
+    return use(promise);
+  };
+
+  const useEnsureRetrieved = (query: Query): void => {
+    const memoQuery = useMemoDeepEqual(query);
+    const client = Synnax.use();
+    const store = useStore<ScopedStore>();
+    const cache = useQueryCache();
+    const hash = hashQuery({ name, query: memoQuery });
+
+    if (client == null && !allowDisconnected)
+      throw new Error(
+        `Cannot retrieve ${name}: no Synnax client connected. Pass allowDisconnected to opt out.`,
+      );
+
+    const entry = cache.get<Data>(hash);
+    if (entry?.variant === "success") return;
+    if (entry?.variant === "error")
+      // eslint-disable-next-line @typescript-eslint/only-throw-error
+      throw entry.status;
+    if (entry?.variant === "loading" && entry.promise != null) {
+      use(entry.promise);
+      return;
+    }
+
+    const promise = retrieve({
+      client: client as AllowDisconnected extends true ? Client | null : Client,
+      query: memoQuery,
+      store,
+      cache,
+    });
+    cache.set(hash, pendingResult(name, promise));
+    use(promise);
+  };
+
+  return { useRetrieve, useEnsureRetrieved, spec };
+};

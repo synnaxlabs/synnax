@@ -10,7 +10,6 @@
 import { type framer, type Synnax } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 
-import { QueryCache } from "@/flux/base/queryCache";
 import {
   createStore,
   type InternalStore,
@@ -19,6 +18,7 @@ import {
   type StoreConfig,
 } from "@/flux/base/store";
 import { openStreamer as fluxOpenStreamer } from "@/flux/base/streamer";
+import { QueryCache } from "@/flux/queryCache";
 import { type status } from "@/status/aether";
 
 interface ClientArgs<ScopedStore extends Store> {

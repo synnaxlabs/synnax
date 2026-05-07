@@ -24,23 +24,24 @@ import {
 } from "@/schematic/Diagram";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
-import { useAddNode } from "@/schematic/queries";
+import {
+  useAddNode,
+  useDispatch,
+  useSelectAllEdges,
+  useSelectAllNodes,
+} from "@/schematic/queries";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
-export interface SchematicProps
-  extends
-    Omit<
-      BaseDiagram.DiagramProps,
-      | "dragHandleSelector"
-      | "nodes"
-      | "edges"
-      | "onNodesChange"
-      | "onEdgesChange"
-      | "onChange"
-    >,
-    Omit<schematic.Schematic, "key"> {
-  resourceKey: string;
-  onChange: (params: { key: string; actions: schematic.Action[] }) => void;
+export interface SchematicProps extends Omit<
+  BaseDiagram.DiagramProps,
+  | "dragHandleSelector"
+  | "nodes"
+  | "edges"
+  | "onNodesChange"
+  | "onEdgesChange"
+  | "onChange"
+> {
+  resourceKey: schematic.Key;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
@@ -51,23 +52,25 @@ export const Schematic = ({
   viewport,
   onDoubleClick,
   onSelectionChange,
-  onChange,
   ...props
 }: SchematicProps): ReactElement => {
+  const nodes = useSelectAllNodes({ key });
+  const edges = useSelectAllEdges({ key });
+  const { update: dispatch } = useDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
       const actions = nodeChangesToActions(changes);
-      if (actions.length > 0) onChange({ key, actions });
+      if (actions.length > 0) dispatch({ key, actions });
     },
-    [key, onChange],
+    [key, dispatch],
   );
 
   const handleEdgesChange = useCallback(
     (changes: BaseDiagram.EdgeChange[]) => {
       const actions = edgeChangesToActions(changes);
-      if (actions.length > 0) onChange({ key, actions });
+      if (actions.length > 0) dispatch({ key, actions });
     },
-    [key, onChange],
+    [key, dispatch],
   );
 
   const handleAddNode = useAddNode(key);
@@ -126,6 +129,8 @@ export const Schematic = ({
         viewport={viewport}
         onSelectionChange={onSelectionChange}
         onDoubleClick={onDoubleClick}
+        nodes={nodes}
+        edges={edges}
         {...dropProps}
         {...props}
       />

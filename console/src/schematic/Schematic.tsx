@@ -36,10 +36,10 @@ import {
 import { useAutoUpload } from "@/schematic/useUpload";
 
 export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
-  const doc = Base.useRetrieve({ key });
+  Base.useEnsureRetrieved({ key });
+  const isSnapshot = Base.useSelectSnapshot({ key });
   const windowKey = useSelectWindowKey() as string;
-  const updateSession = useDispatch();
-  const { update: updateDoc } = Base.useDispatch();
+  const dispatch = useDispatch();
   const {
     editable,
     viewport,
@@ -52,33 +52,33 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
   useAutoUpload(key);
 
   const hasUpdatePermission =
-    Access.useUpdateGranted(schematic.ontologyID(key)) && !doc.snapshot;
+    Access.useUpdateGranted(schematic.ontologyID(key)) && !isSnapshot;
   const canEdit = hasUpdatePermission && editable;
 
   const handleSelectionChange = useCallback(
-    (selected: string[]) => updateSession(setSelected({ key, selected })),
-    [updateSession, key],
+    (selected: string[]) => dispatch(setSelected({ key, selected })),
+    [dispatch, key],
   );
 
   const handleViewportChange = useCallback(
-    (viewport: Diagram.Viewport) => updateSession(setViewport({ key, viewport })),
-    [updateSession, key],
+    (viewport: Diagram.Viewport) => dispatch(setViewport({ key, viewport })),
+    [dispatch, key],
   );
 
   const handleEditableChange = useCallback(
-    (editable: boolean) => updateSession(setEditable({ key, editable })),
-    [updateSession, key],
+    (editable: boolean) => dispatch(setEditable({ key, editable })),
+    [dispatch, key],
   );
 
   const handleFitViewOnResizeChange = useCallback(
     (fitViewOnResize: boolean) =>
-      updateSession(setFitViewOnResize({ key, fitViewOnResize })),
-    [updateSession, key],
+      dispatch(setFitViewOnResize({ key, fitViewOnResize })),
+    [dispatch, key],
   );
 
   const handleViewportModeChange = useCallback(
-    (mode: Viewport.Mode) => updateSession(setViewportMode({ key, mode })),
-    [updateSession, key],
+    (mode: Viewport.Mode) => dispatch(setViewportMode({ key, mode })),
+    [dispatch, key],
   );
   const triggers = useMemo(
     () => Viewport.DEFAULT_TRIGGERS[viewport.mode],
@@ -86,26 +86,26 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
   );
 
   const handleLegendPositionChange = useCallback(
-    (position: sticky.XY) => updateSession(setLegend({ key, legend: { position } })),
-    [updateSession, key],
+    (position: sticky.XY) => dispatch(setLegend({ key, legend: { position } })),
+    [dispatch, key],
   );
 
   const handleLegendColorsChange = useCallback(
     (colors: Record<string, color.Color>) =>
-      updateSession(setLegend({ key, legend: { colors } })),
-    [key, updateSession],
+      dispatch(setLegend({ key, legend: { colors } })),
+    [key, dispatch],
   );
 
   const handleDoubleClick = useCallback(() => {
     if (editable)
-      updateSession(
+      dispatch(
         Layout.setNavDrawerVisible({
           windowKey,
           key: "visualization",
           value: true,
         }),
       );
-  }, [windowKey, editable, updateSession]);
+  }, [windowKey, editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);
 
@@ -123,7 +123,6 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
     <Controller resourceKey={key} authority={authority}>
       <Base.Schematic
         resourceKey={key}
-        onChange={updateDoc}
         selected={selected}
         onSelectionChange={handleSelectionChange}
         viewportMode={viewport.mode}
@@ -139,12 +138,11 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         visible={visible}
-        {...doc}
       >
         <Diagram.Background />
         <Controls
           controlStatus={controlStatus}
-          snapshot={doc.snapshot}
+          snapshot={isSnapshot}
           hasUpdatePermission={hasUpdatePermission}
         />
       </Base.Schematic>
