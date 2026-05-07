@@ -134,8 +134,10 @@ func (t frameWriterRequestTranslator) Backward(
 			ControlSubject:           subj,
 			ErrOnUnauthorized:        msg.Config.ErrOnUnauthorized,
 		}
-		if err = t.codec.Update(ctx, keys); err != nil {
-			return apifra.WriterRequest{}, err
+		if t.codec != nil {
+			if err = t.codec.Update(ctx, keys); err != nil {
+				return apifra.WriterRequest{}, err
+			}
 		}
 	}
 	if t.codec != nil && len(msg.Buffer) > 0 {

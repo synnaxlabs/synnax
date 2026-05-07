@@ -397,5 +397,16 @@ var _ = Describe("gRPC Framer Translators", func() {
 			out := MustSucceed(t.Backward(ctx, nil))
 			Expect(out.Command).To(Equal(writer.Command(0)))
 		})
+
+		It("Should not panic and not call Update when the codec is nil", func(ctx SpecContext) {
+			keys := createVirtualChannels(ctx, telem.Int32T, 1)
+			t := frameWriterRequestTranslator{}
+			pb := &WriterRequest{
+				Command: int32(writer.CommandOpen),
+				Config:  &WriterConfig{Keys: keys.Uint32(), ControlSubject: nil},
+			}
+			out := MustSucceed(t.Backward(ctx, pb))
+			Expect(out.Config.Keys).To(Equal(keys))
+		})
 	})
 })
