@@ -34,6 +34,7 @@ std::string format_float(T v) {
         v,
         std::chars_format::general
     );
+    if (ec != std::errc{}) return "";
     return {buf, end};
 }
 

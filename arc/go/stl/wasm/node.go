@@ -203,7 +203,18 @@ func (n *nodeImpl) Next(ctx node.Context) {
 					// WASM returned an i32 string handle; materialize it
 					// to its actual string value, mirroring the input-side
 					// conversion above.
-					s, _ := n.strings.Get(uint32(value.Value))
+					s, ok := n.strings.Get(uint32(value.Value))
+					if !ok {
+						ctx.ReportError(errors.Newf(
+							"node %s output %d returned unregistered string handle %d at sample %d/%d",
+							n.ir.Key,
+							j,
+							value.Value,
+							i,
+							maxLength,
+						))
+						continue
+					}
 					stringResults[j] = append(stringResults[j], s)
 				} else {
 					setValueAt(*n.Output(j), n.offsets[j], value.Value)

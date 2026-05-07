@@ -1611,7 +1611,8 @@ func labeler(x i64) (label str, value i64) {
     value = x * 2
 }
 )arc" + input_name +
-        " -> labeler{} -> " + value_out_name;
+        " -> labeler{} -> {label: " + label_out_name + ", value: " + value_out_name +
+        "}";
 
     auto str_st = std::make_shared<stl::str::State>();
     auto series_st = std::make_shared<stl::series::State>();
