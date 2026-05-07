@@ -9,7 +9,9 @@
 
 import "@/resize/Base.css";
 
-import { CSS, Flex, preventDefault } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { preventDefault } from "@synnaxlabs/charon/util";
 import { direction, location } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

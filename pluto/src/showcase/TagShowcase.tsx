@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Tag, Text } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Text } from "@synnaxlabs/charon/text";
 
 import { SubcategorySection } from "./SubcategorySection";
 

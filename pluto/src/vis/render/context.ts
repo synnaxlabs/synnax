@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { type Instrumentation } from "@synnaxlabs/alamos";
-import { type aether, CSS, status } from "@synnaxlabs/charon";
+import type { aether } from "@synnaxlabs/charon/aether/runtime";
+import { CSS } from "@synnaxlabs/charon/css";
+import { status } from "@synnaxlabs/charon/status/aether";
 import {
   box,
   color,

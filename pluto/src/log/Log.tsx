@@ -9,7 +9,14 @@
 
 import "@/log/Log.css";
 
-import { Button, CSS, type Flex, Icon, Menu, Status, Triggers, useCombinedRefs } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import type { Flex } from "@synnaxlabs/charon/flex";
+import { useCombinedRefs } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Status } from "@synnaxlabs/charon/status";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { box, location, strings } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 

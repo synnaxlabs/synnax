@@ -9,7 +9,9 @@
 
 import "@/schematic/Schematic.css";
 
-import { Component, CSS, Key } from "@synnaxlabs/charon";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Key } from "@synnaxlabs/charon/key";
 import { TimeSpan } from "@synnaxlabs/x";
 import { type FC, type ReactElement } from "react";
 import { z } from "zod";

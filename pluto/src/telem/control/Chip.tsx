@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether, Button, CSS, Icon, Text, useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether } from "@synnaxlabs/charon/aether";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { Text } from "@synnaxlabs/charon/text";
 import { control as clientControl } from "@synnaxlabs/client";
 import { type status, TimeStamp } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useEffect } from "react";

@@ -9,7 +9,8 @@
 
 import "@/list/Items.css";
 
-import { CSS, Flex } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
 import { type record } from "@synnaxlabs/x";
 import { memo, type ReactElement, type ReactNode } from "react";
 

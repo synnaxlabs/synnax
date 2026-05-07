@@ -9,7 +9,9 @@
 
 import "@/schematic/edge/common/segmented/Segmented.css";
 
-import { CSS, type Triggers, useCursorDrag } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { useCursorDrag } from "@synnaxlabs/charon/hooks";
+import type { Triggers } from "@synnaxlabs/charon/triggers";
 import { box, direction, xy } from "@synnaxlabs/x";
 import { useReactFlow } from "@xyflow/react";
 import {

@@ -9,7 +9,8 @@
 
 import "@/notation/Select.css";
 
-import { CSS, Icon } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Icon } from "@synnaxlabs/charon/icon";
 import { notation } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

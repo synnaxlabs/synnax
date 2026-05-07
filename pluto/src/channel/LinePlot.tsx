@@ -9,7 +9,10 @@
 
 import "@/channel/LinePlot.css";
 
-import { CSS, Haul, type Text, usePrevious } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { usePrevious } from "@synnaxlabs/charon/hooks";
+import type { Text } from "@synnaxlabs/charon/text";
 import { type channel } from "@synnaxlabs/client";
 import {
   box,

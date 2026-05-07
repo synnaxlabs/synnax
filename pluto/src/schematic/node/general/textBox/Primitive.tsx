@@ -9,7 +9,8 @@
 
 import "@/schematic/node/general/textBox/textBox.css";
 
-import { CSS, Text } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Text } from "@synnaxlabs/charon/text";
 import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 

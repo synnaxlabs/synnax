@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component, Flex, Input, Tabs } from "@synnaxlabs/charon";
+import type { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Input } from "@synnaxlabs/charon/input";
+import { Tabs } from "@synnaxlabs/charon/tabs";
 import { type channel } from "@synnaxlabs/client";
 import { type ReactElement, useCallback } from "react";
 

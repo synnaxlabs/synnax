@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, text } from "@synnaxlabs/charon";
+import { Component } from "@synnaxlabs/charon/component";
+import { text } from "@synnaxlabs/charon/text/base";
 import { color } from "@synnaxlabs/x";
 import { z } from "zod";
 

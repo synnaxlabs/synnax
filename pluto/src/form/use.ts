@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status, useInitializerRef, useSyncedRef } from "@synnaxlabs/charon";
+import { useInitializerRef, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Status } from "@synnaxlabs/charon/status";
 import { deep, type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useEffect, useMemo } from "react";
 import { type z } from "zod";

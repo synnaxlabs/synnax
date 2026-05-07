@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS, type Text } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import type { Text } from "@synnaxlabs/charon/text";
 import { box, dimensions, xy } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 

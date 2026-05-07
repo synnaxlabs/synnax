@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { state } from "@synnaxlabs/charon";
+import { state } from "@synnaxlabs/charon/state";
 import { ontology, workspace } from "@synnaxlabs/client";
 import { array, type record } from "@synnaxlabs/x";
 import type z from "zod";

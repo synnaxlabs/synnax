@@ -9,7 +9,10 @@
 
 import "@/color/Swatch.css";
 
-import { Button, CSS, Haul, Theming } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { color } from "@synnaxlabs/x";
 import { type ReactElement, useCallback } from "react";
 

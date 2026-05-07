@@ -9,7 +9,9 @@
 
 import "@/schematic/node/general/offPageReference/offPageReference.css";
 
-import { CSS, Text, Theming } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { color, direction } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 

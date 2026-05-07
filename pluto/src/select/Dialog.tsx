@@ -9,7 +9,10 @@
 
 import "@/select/Dialog.css";
 
-import { CSS, Dialog as BaseDialog, Status, Text } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Dialog as BaseDialog } from "@synnaxlabs/charon/dialog";
+import { Status } from "@synnaxlabs/charon/status";
+import { Text } from "@synnaxlabs/charon/text";
 import { type record, type status } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { memo, type ReactElement, useMemo } from "react";

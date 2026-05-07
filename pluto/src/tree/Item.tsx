@@ -9,7 +9,10 @@
 
 import "@/tree/Item.css";
 
-import { type Button, Caret, CSS, Icon } from "@synnaxlabs/charon";
+import type { Button } from "@synnaxlabs/charon/button";
+import { Caret } from "@synnaxlabs/charon/caret";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Icon } from "@synnaxlabs/charon/icon";
 import { type record } from "@synnaxlabs/x";
 
 import { Select } from "@/select";

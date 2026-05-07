@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Input } from "@synnaxlabs/charon";
+import { Input } from "@synnaxlabs/charon/input";
 import { type bounds, type xy } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

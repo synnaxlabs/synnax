@@ -9,7 +9,8 @@
 
 import "@/nav/Bar.css";
 
-import { CSS, Flex } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
 import { direction, location, type spatial } from "@synnaxlabs/x";
 import { type FunctionComponent, type ReactElement } from "react";
 

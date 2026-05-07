@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, CSS, type Dialog, Flex, Icon, Tag } from "@synnaxlabs/charon";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import type { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tag } from "@synnaxlabs/charon/tag";
 import { type ranger } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 

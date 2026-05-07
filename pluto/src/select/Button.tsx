@@ -9,7 +9,10 @@
 
 import "@/select/Button.css";
 
-import { Button as BaseButton, CSS, Flex, Menu } from "@synnaxlabs/charon";
+import { Button as BaseButton } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Menu } from "@synnaxlabs/charon/menu";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

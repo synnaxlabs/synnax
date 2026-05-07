@@ -9,16 +9,14 @@
 
 import "@/input/DateTime.css";
 
-import {
-  Button,
-  Component,
-  CSS,
-  Dialog,
-  Flex,
-  Icon,
-  Text,
-  Triggers,
-} from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import {
   type Control,
   Numeric,

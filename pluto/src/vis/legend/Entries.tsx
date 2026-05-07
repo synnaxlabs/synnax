@@ -7,7 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, CSS, Flex, Icon, type state, stopPropagation, Text, type Theming } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { state } from "@synnaxlabs/charon/state";
+import { Text } from "@synnaxlabs/charon/text";
+import type { Theming } from "@synnaxlabs/charon/theming";
+import { stopPropagation } from "@synnaxlabs/charon/util";
 import { type color, type optional } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 

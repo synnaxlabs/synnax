@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Component, Text } from "@synnaxlabs/charon";
+import { Component } from "@synnaxlabs/charon/component";
+import { Text } from "@synnaxlabs/charon/text";
 import { type access } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 

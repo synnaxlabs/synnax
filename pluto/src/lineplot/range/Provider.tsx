@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether, type Component, Flex, Key, Menu, useSyncedRef } from "@synnaxlabs/charon";
+import { Aether } from "@synnaxlabs/charon/aether";
+import type { Component } from "@synnaxlabs/charon/component";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Key } from "@synnaxlabs/charon/key";
+import { Menu } from "@synnaxlabs/charon/menu";
 import { box, xy } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useEffect } from "react";
 

@@ -9,7 +9,7 @@
 
 import "@/viewport/Mask.css";
 
-import { CSS } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
 import { box } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement } from "react";
 

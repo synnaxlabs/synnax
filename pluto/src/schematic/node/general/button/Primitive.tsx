@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button as BaseButton } from "@synnaxlabs/charon";
+import { Button as BaseButton } from "@synnaxlabs/charon/button";
 import { type MouseEventHandler, type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";

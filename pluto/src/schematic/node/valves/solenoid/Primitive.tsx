@@ -9,7 +9,7 @@
 
 import "@/schematic/node/valves/solenoid/solenoid.css";
 
-import { CSS } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
 import { type ReactElement } from "react";
 
 import { Handle } from "@/schematic/node/common/handle";

@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Key, Text, Theming } from "@synnaxlabs/charon";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Key } from "@synnaxlabs/charon/key";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { type ReactElement } from "react";
 
 import { useGridEntry } from "@/lineplot/LinePlot";

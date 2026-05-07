@@ -9,7 +9,7 @@
 
 import "@/nav/Drawer.css";
 
-import { CSS } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
 import { type box, location } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useState } from "react";
 

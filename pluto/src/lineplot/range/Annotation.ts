@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether } from "@synnaxlabs/charon";
+import { Aether } from "@synnaxlabs/charon/aether";
 import { type z } from "zod";
 
 import { range } from "@/lineplot/range/aether";

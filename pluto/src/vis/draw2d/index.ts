@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type text, Theming,type theming } from "@synnaxlabs/charon";
+import type { text } from "@synnaxlabs/charon/text/base";
+import { Theming } from "@synnaxlabs/charon/theming";
+import type { theming } from "@synnaxlabs/charon/theming/aether";
 import { dimensions as textDimensions } from "@synnaxlabs/charon/text/base";
 import {
   array,

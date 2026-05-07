@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Flex, Icon, Text } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
 import { type schematic } from "@synnaxlabs/client";
 import { caseconv, color, deep } from "@synnaxlabs/x";
 import { type CSSProperties, type ReactElement, useCallback, useState } from "react";

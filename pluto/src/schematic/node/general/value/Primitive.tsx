@@ -9,7 +9,9 @@
 
 import "@/schematic/node/general/value/value.css";
 
-import { CSS, Text, Theming } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { color, type dimensions } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement } from "react";
 

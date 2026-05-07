@@ -9,7 +9,10 @@
 
 import "@/color/Swatch.css";
 
-import { CSS, Dialog, state, Text } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { state } from "@synnaxlabs/charon/state";
+import { Text } from "@synnaxlabs/charon/text";
 import { type ReactElement, useCallback, useMemo } from "react";
 
 import { BaseSwatch, type BaseSwatchProps } from "@/color/BaseSwatch";

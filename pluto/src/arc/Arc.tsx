@@ -9,7 +9,7 @@
 
 import "@/arc/Arc.css";
 
-import { CSS } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
 import { type FC, type ReactElement } from "react";
 
 import { Diagram } from "@/vis/diagram";

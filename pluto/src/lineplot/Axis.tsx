@@ -9,7 +9,13 @@
 
 import "@/lineplot/Axis.css";
 
-import { Aether, CSS, Flex, Key, Text, Theming, useMemoDeepEqual } from "@synnaxlabs/charon";
+import { Aether } from "@synnaxlabs/charon/aether";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Key } from "@synnaxlabs/charon/key";
+import { useMemoDeepEqual } from "@synnaxlabs/charon/memo";
+import { Text } from "@synnaxlabs/charon/text";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { type bounds, direction } from "@synnaxlabs/x";
 import {
   type FC,

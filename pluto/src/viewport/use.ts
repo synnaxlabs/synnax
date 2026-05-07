@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { findParent, Triggers, useCombinedStateAndRef, useMemoCompare, useStateRef } from "@synnaxlabs/charon";
+import { useCombinedStateAndRef, useStateRef } from "@synnaxlabs/charon/hooks";
+import { useMemoCompare } from "@synnaxlabs/charon/memo";
+import { Triggers } from "@synnaxlabs/charon/triggers";
+import { findParent } from "@synnaxlabs/charon/util";
 import { box, dimensions, location, scale, xy } from "@synnaxlabs/x";
 import {
   type ForwardedRef,

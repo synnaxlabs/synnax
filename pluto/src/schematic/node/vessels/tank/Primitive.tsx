@@ -9,7 +9,8 @@
 
 import "@/schematic/node/vessels/tank/tank.css";
 
-import { CSS, Theming } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { color, type dimensions } from "@synnaxlabs/x";
 import { type ReactElement, useMemo } from "react";
 

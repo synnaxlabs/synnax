@@ -9,7 +9,9 @@
 
 import "@/device/StatusIndicator.css";
 
-import { CSS, Status, Tooltip } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Status } from "@synnaxlabs/charon/status";
+import { Tooltip } from "@synnaxlabs/charon/tooltip";
 import { type device } from "@synnaxlabs/client";
 export interface StatusIndicatorProps {
   status?: device.Status;

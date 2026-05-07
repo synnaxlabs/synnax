@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Haul } from "@synnaxlabs/charon";
+import { Haul } from "@synnaxlabs/charon/haul";
 import { type location } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { type ReactElement, type ReactNode } from "react";

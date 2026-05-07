@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Aether, context, Status, useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon";
+import { Aether } from "@synnaxlabs/charon/aether";
+import { context } from "@synnaxlabs/charon/context";
+import { useAsyncEffect, useCombinedStateAndRef } from "@synnaxlabs/charon/hooks";
+import { Status } from "@synnaxlabs/charon/status";
 import {
   type connection,
   Synnax,

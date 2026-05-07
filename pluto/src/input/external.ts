@@ -8,4 +8,3 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/input/DateTime";
-export * from "@synnaxlabs/charon/input";

@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { CSS, type Theming } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import type { Theming } from "@synnaxlabs/charon/theming";
 import { type ReactElement } from "react";
 
 import { Label } from "@/schematic/node/common/label";

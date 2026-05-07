@@ -9,7 +9,7 @@
 
 import "@/lineplot/Viewport.css";
 
-import { CSS } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
 import { box, xy } from "@synnaxlabs/x";
 import {
   type PropsWithChildren,

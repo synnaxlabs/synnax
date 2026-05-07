@@ -59,39 +59,226 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/charon.cjs",
-  "module": "./dist/charon.js",
-  "types": "./dist/src/index.d.ts",
   "exports": {
-    ".": {
-      "types": "./dist/src/index.d.ts",
-      "import": "./dist/charon.js",
-      "require": "./dist/charon.cjs"
+    "./aether": {
+      "types": "./dist/src/aether/index.d.ts",
+      "import": "./dist/aether.js",
+      "require": "./dist/aether.cjs"
+    },
+    "./aether/runtime": {
+      "types": "./dist/src/aether/aether/index.d.ts",
+      "import": "./dist/aether-runtime.js",
+      "require": "./dist/aether-runtime.cjs"
+    },
+    "./aether/test": {
+      "types": "./dist/src/aether/test/index.d.ts",
+      "import": "./dist/aether-test.js",
+      "require": "./dist/aether-test.cjs"
+    },
+    "./breadcrumb": {
+      "types": "./dist/src/breadcrumb/index.d.ts",
+      "import": "./dist/breadcrumb.js",
+      "require": "./dist/breadcrumb.cjs"
+    },
+    "./button": {
+      "types": "./dist/src/button/index.d.ts",
+      "import": "./dist/button.js",
+      "require": "./dist/button.cjs"
+    },
+    "./caret": {
+      "types": "./dist/src/caret/index.d.ts",
+      "import": "./dist/caret.js",
+      "require": "./dist/caret.cjs"
+    },
+    "./component": {
+      "types": "./dist/src/component/index.d.ts",
+      "import": "./dist/component.js",
+      "require": "./dist/component.cjs"
+    },
+    "./context": {
+      "types": "./dist/src/context/index.d.ts",
+      "import": "./dist/context.js",
+      "require": "./dist/context.cjs"
+    },
+    "./css": {
+      "types": "./dist/src/css/index.d.ts",
+      "import": "./dist/css.js",
+      "require": "./dist/css.cjs"
+    },
+    "./cursor": {
+      "types": "./dist/src/cursor/index.d.ts",
+      "import": "./dist/cursor.js",
+      "require": "./dist/cursor.cjs"
+    },
+    "./dialog": {
+      "types": "./dist/src/dialog/index.d.ts",
+      "import": "./dist/dialog.js",
+      "require": "./dist/dialog.cjs"
+    },
+    "./divider": {
+      "types": "./dist/src/divider/index.d.ts",
+      "import": "./dist/divider.js",
+      "require": "./dist/divider.cjs"
+    },
+    "./flex": {
+      "types": "./dist/src/flex/index.d.ts",
+      "import": "./dist/flex.js",
+      "require": "./dist/flex.cjs"
+    },
+    "./generic": {
+      "types": "./dist/src/generic/index.d.ts",
+      "import": "./dist/generic.js",
+      "require": "./dist/generic.cjs"
+    },
+    "./haul": {
+      "types": "./dist/src/haul/index.d.ts",
+      "import": "./dist/haul.js",
+      "require": "./dist/haul.cjs"
+    },
+    "./header": {
+      "types": "./dist/src/header/index.d.ts",
+      "import": "./dist/header.js",
+      "require": "./dist/header.cjs"
+    },
+    "./hooks": {
+      "types": "./dist/src/hooks/index.d.ts",
+      "import": "./dist/hooks.js",
+      "require": "./dist/hooks.cjs"
+    },
+    "./icon": {
+      "types": "./dist/src/icon/index.d.ts",
+      "import": "./dist/icon.js",
+      "require": "./dist/icon.cjs"
     },
     "./input": {
-      "types": "./dist/src/input/external.d.ts",
+      "types": "./dist/src/input/index.d.ts",
       "import": "./dist/input.js",
       "require": "./dist/input.cjs"
     },
+    "./key": {
+      "types": "./dist/src/key/index.d.ts",
+      "import": "./dist/key.js",
+      "require": "./dist/key.cjs"
+    },
+    "./memo": {
+      "types": "./dist/src/memo/index.d.ts",
+      "import": "./dist/memo.js",
+      "require": "./dist/memo.cjs"
+    },
+    "./menu": {
+      "types": "./dist/src/menu/index.d.ts",
+      "import": "./dist/menu.js",
+      "require": "./dist/menu.cjs"
+    },
+    "./note": {
+      "types": "./dist/src/note/index.d.ts",
+      "import": "./dist/note.js",
+      "require": "./dist/note.cjs"
+    },
+    "./portal": {
+      "types": "./dist/src/portal/index.d.ts",
+      "import": "./dist/portal.js",
+      "require": "./dist/portal.cjs"
+    },
+    "./progress": {
+      "types": "./dist/src/progress/index.d.ts",
+      "import": "./dist/progress.js",
+      "require": "./dist/progress.cjs"
+    },
+    "./state": {
+      "types": "./dist/src/state/index.d.ts",
+      "import": "./dist/state.js",
+      "require": "./dist/state.cjs"
+    },
     "./status": {
-      "types": "./dist/src/status/external.d.ts",
+      "types": "./dist/src/status/index.d.ts",
       "import": "./dist/status.js",
       "require": "./dist/status.cjs"
     },
+    "./status/aether": {
+      "types": "./dist/src/status/aether/index.d.ts",
+      "import": "./dist/status-aether.js",
+      "require": "./dist/status-aether.cjs"
+    },
+    "./status/base": {
+      "types": "./dist/src/status/base/index.d.ts",
+      "import": "./dist/status-base.js",
+      "require": "./dist/status-base.cjs"
+    },
+    "./store": {
+      "types": "./dist/src/store/index.d.ts",
+      "import": "./dist/store.js",
+      "require": "./dist/store.cjs"
+    },
+    "./tabs": {
+      "types": "./dist/src/tabs/index.d.ts",
+      "import": "./dist/tabs.js",
+      "require": "./dist/tabs.cjs"
+    },
+    "./tag": {
+      "types": "./dist/src/tag/index.d.ts",
+      "import": "./dist/tag.js",
+      "require": "./dist/tag.cjs"
+    },
     "./telem": {
-      "types": "./dist/src/telem/external.d.ts",
+      "types": "./dist/src/telem/index.d.ts",
       "import": "./dist/telem.js",
       "require": "./dist/telem.cjs"
     },
+    "./testutil": {
+      "types": "./dist/src/testutil/index.d.ts",
+      "import": "./dist/testutil.js",
+      "require": "./dist/testutil.cjs"
+    },
+    "./text": {
+      "types": "./dist/src/text/index.d.ts",
+      "import": "./dist/text.js",
+      "require": "./dist/text.cjs"
+    },
     "./text/base": {
-      "types": "./dist/src/text/base/external.d.ts",
+      "types": "./dist/src/text/base/index.d.ts",
       "import": "./dist/text-base.js",
       "require": "./dist/text-base.cjs"
     },
+    "./theming": {
+      "types": "./dist/src/theming/index.d.ts",
+      "import": "./dist/theming.js",
+      "require": "./dist/theming.cjs"
+    },
+    "./theming/aether": {
+      "types": "./dist/src/theming/aether/index.d.ts",
+      "import": "./dist/theming-aether.js",
+      "require": "./dist/theming-aether.cjs"
+    },
     "./theming/base": {
-      "types": "./dist/src/theming/base/external.d.ts",
+      "types": "./dist/src/theming/base/index.d.ts",
       "import": "./dist/theming-base.js",
       "require": "./dist/theming-base.cjs"
+    },
+    "./tooltip": {
+      "types": "./dist/src/tooltip/index.d.ts",
+      "import": "./dist/tooltip.js",
+      "require": "./dist/tooltip.cjs"
+    },
+    "./triggers": {
+      "types": "./dist/src/triggers/index.d.ts",
+      "import": "./dist/triggers.js",
+      "require": "./dist/triggers.cjs"
+    },
+    "./util": {
+      "types": "./dist/src/util/index.d.ts",
+      "import": "./dist/util.js",
+      "require": "./dist/util.cjs"
+    },
+    "./video": {
+      "types": "./dist/src/video/index.d.ts",
+      "import": "./dist/video.js",
+      "require": "./dist/video.cjs"
+    },
+    "./worker": {
+      "types": "./dist/src/worker/index.d.ts",
+      "import": "./dist/worker.js",
+      "require": "./dist/worker.cjs"
     },
     "./dist/*": "./dist/*"
   },

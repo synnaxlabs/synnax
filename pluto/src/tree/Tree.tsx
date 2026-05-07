@@ -7,7 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Component, CSS, Haul, state, Triggers, useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
+import type { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { state } from "@synnaxlabs/charon/state";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { type compare, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, useCallback, useMemo } from "react";
 

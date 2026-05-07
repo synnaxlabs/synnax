@@ -9,7 +9,9 @@
 
 import "@/table/cells/Cells.css";
 
-import { CSS, Menu, Text as BaseText } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Menu } from "@synnaxlabs/charon/menu";
+import { Text as BaseText } from "@synnaxlabs/charon/text";
 import { type box, color, location, type record, scale } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 import { z } from "zod";

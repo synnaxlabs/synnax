@@ -9,7 +9,12 @@
 
 import "@/vis/legend/Container.css";
 
-import { CSS, Flex, type Input, preventDefault, state, useCursorDrag, useSyncedRef } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { useCursorDrag, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import type { Input } from "@synnaxlabs/charon/input";
+import { state } from "@synnaxlabs/charon/state";
+import { preventDefault } from "@synnaxlabs/charon/util";
 import { box, location, scale, sticky, xy } from "@synnaxlabs/x";
 import { memo, type ReactElement, useCallback, useRef } from "react";
 export interface ContainerProps

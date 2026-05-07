@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog, Triggers } from "@synnaxlabs/charon";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { fireEvent, render } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 

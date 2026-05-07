@@ -9,7 +9,13 @@
 
 import "@/color/Picker.css";
 
-import { Button, CSS, Flex, Icon, type Input, Text, useDebouncedCallback } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { useDebouncedCallback } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Input } from "@synnaxlabs/charon/input";
+import { Text } from "@synnaxlabs/charon/text";
 import { color } from "@synnaxlabs/x";
 import { type ComponentPropsWithoutRef, type ReactElement, useCallback } from "react";
 import { type ColorResult, SketchPicker } from "react-color";

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { mockBoundingClientRect } from "@synnaxlabs/charon";
+import { mockBoundingClientRect } from "@synnaxlabs/charon/testutil";
 import { type status } from "@synnaxlabs/x";
 import { fireEvent, render } from "@testing-library/react";
 import { useState } from "react";

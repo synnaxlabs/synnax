@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { context, Dialog, useCombinedRefs, usePrevious, useSyncedRef } from "@synnaxlabs/charon";
+import { context } from "@synnaxlabs/charon/context";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { useCombinedRefs, usePrevious, useSyncedRef } from "@synnaxlabs/charon/hooks";
 import { bounds, type location, type record } from "@synnaxlabs/x";
 import { useVirtualizer, type Virtualizer } from "@tanstack/react-virtual";
 import {

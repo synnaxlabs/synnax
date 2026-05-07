@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog as BaseDialog } from "@synnaxlabs/charon";
+import { Dialog as BaseDialog } from "@synnaxlabs/charon/dialog";
 import { type record } from "@synnaxlabs/x";
 import { plural } from "pluralize";
 import { type ReactElement } from "react";

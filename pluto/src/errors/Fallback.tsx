@@ -9,7 +9,13 @@
 
 import "@/errors/Fallback.css";
 
-import { Breadcrumb, Button, CSS, Divider, Flex, Icon, Text } from "@synnaxlabs/charon";
+import { Breadcrumb } from "@synnaxlabs/charon/breadcrumb";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Divider } from "@synnaxlabs/charon/divider";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
 import { Logo } from "@synnaxlabs/media";
 import { primitive, type record } from "@synnaxlabs/x";
 import { type PropsWithChildren, type ReactElement, useCallback } from "react";

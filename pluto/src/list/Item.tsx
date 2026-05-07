@@ -9,7 +9,10 @@
 
 import "@/list/Item.css";
 
-import { Button, type Component, CSS, Menu } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import type { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Menu } from "@synnaxlabs/charon/menu";
 import { type record } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 export interface ItemRenderProps<K extends record.Key = record.Key> {

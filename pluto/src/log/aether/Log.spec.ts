@@ -8,7 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { alamos } from "@synnaxlabs/alamos";
-import { mockRenderContext, Theming } from "@synnaxlabs/charon";
+import { mockRenderContext } from "@synnaxlabs/charon/testutil";
+import { Theming } from "@synnaxlabs/charon/theming";
 import { box, color, TimeStamp } from "@synnaxlabs/x";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 

@@ -9,7 +9,11 @@
 
 import "@/mosaic/Mosaic.css";
 
-import { CSS, type Flex, Haul, Portal, Tabs } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import type { Flex } from "@synnaxlabs/charon/flex";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { Portal } from "@synnaxlabs/charon/portal";
+import { Tabs } from "@synnaxlabs/charon/tabs";
 import { type box, type location, type xy } from "@synnaxlabs/x";
 import {
   type DragEvent,

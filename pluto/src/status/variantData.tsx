@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Status } from "@synnaxlabs/charon";
+import { Status } from "@synnaxlabs/charon/status";
 import { type status } from "@synnaxlabs/x";
 
 import { type Select } from "@/select";

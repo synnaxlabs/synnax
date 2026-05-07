@@ -7,7 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Dialog, state, Triggers, useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { useCombinedStateAndRef, useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { state } from "@synnaxlabs/charon/state";
+import { Triggers } from "@synnaxlabs/charon/triggers";
 import { type record, TimeSpan } from "@synnaxlabs/x";
 import { useCallback, useEffect, useRef } from "react";
 

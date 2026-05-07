@@ -10,4 +10,3 @@
 export * from "@/telem/Provider";
 export * from "@/telem/resolveDataTypeIcon";
 export * from "@/telem/SelectDataType";
-export * from "@synnaxlabs/charon/telem";

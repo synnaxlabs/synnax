@@ -7,7 +7,9 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Dialog, Flex, Input } from "@synnaxlabs/charon";
+import type { Dialog } from "@synnaxlabs/charon/dialog";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Input } from "@synnaxlabs/charon/input";
 import { useState } from "react";
 
 export interface SearchInputProps {

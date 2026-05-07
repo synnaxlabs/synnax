@@ -9,7 +9,10 @@
 
 import "@/device/Select.css";
 
-import { Component, CSS, Icon, Text } from "@synnaxlabs/charon";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Text } from "@synnaxlabs/charon/text";
 import { type device } from "@synnaxlabs/client";
 import { type ReactElement } from "react";
 

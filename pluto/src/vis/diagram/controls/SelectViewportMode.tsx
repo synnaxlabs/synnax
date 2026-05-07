@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Icon, type Triggers } from "@synnaxlabs/charon";
+import { Icon } from "@synnaxlabs/charon/icon";
+import type { Triggers } from "@synnaxlabs/charon/triggers";
 import { location } from "@synnaxlabs/x";
 import { memo, type ReactElement } from "react";
 

@@ -9,7 +9,8 @@
 
 import "@/schematic/node/common/form/form.css";
 
-import { CSS, Flex } from "@synnaxlabs/charon";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
 import { type FC, type ReactElement } from "react";
 
 interface WrapperProps extends Flex.BoxProps {}

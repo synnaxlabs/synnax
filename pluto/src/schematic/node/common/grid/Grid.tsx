@@ -9,7 +9,13 @@
 
 import "@/schematic/node/common/grid/grid.css";
 
-import { Button, CSS, Flex, Haul, Icon, triggerReflow, useSyncedRef } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { triggerReflow } from "@synnaxlabs/charon/util";
 import { location } from "@synnaxlabs/x";
 import {
   Children,

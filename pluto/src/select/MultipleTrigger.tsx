@@ -7,7 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Button, Caret, Component, CSS, Dialog, Haul, Icon, Tag, Text, useSyncedRef } from "@synnaxlabs/charon";
+import { Button } from "@synnaxlabs/charon/button";
+import { Caret } from "@synnaxlabs/charon/caret";
+import { Component } from "@synnaxlabs/charon/component";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Dialog } from "@synnaxlabs/charon/dialog";
+import { Haul } from "@synnaxlabs/charon/haul";
+import { useSyncedRef } from "@synnaxlabs/charon/hooks";
+import { Icon } from "@synnaxlabs/charon/icon";
+import { Tag } from "@synnaxlabs/charon/tag";
+import { Text } from "@synnaxlabs/charon/text";
 import { array, type color, primitive, type record, unique } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback } from "react";
 

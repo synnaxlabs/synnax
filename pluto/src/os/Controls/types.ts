@@ -7,7 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Flex, type Theming } from "@synnaxlabs/charon";
+import type { Flex } from "@synnaxlabs/charon/flex";
+import type { Theming } from "@synnaxlabs/charon/theming";
 import { type runtime } from "@synnaxlabs/x";
 
 export type ControlsAction = "close" | "minimize" | "maximize";

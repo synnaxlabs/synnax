@@ -8,7 +8,9 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
-import { aether, status, theming } from "@synnaxlabs/charon";
+import { aether } from "@synnaxlabs/charon/aether/runtime";
+import { status } from "@synnaxlabs/charon/status/aether";
+import { theming } from "@synnaxlabs/charon/theming/aether";
 import { RoutedWorker } from "@synnaxlabs/x";
 
 import { access } from "@/access/aether";

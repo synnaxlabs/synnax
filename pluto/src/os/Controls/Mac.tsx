@@ -9,7 +9,9 @@
 
 import "@/os/Controls/Mac.css";
 
-import { type Button, CSS, Flex } from "@synnaxlabs/charon";
+import type { Button } from "@synnaxlabs/charon/button";
+import { CSS } from "@synnaxlabs/charon/css";
+import { Flex } from "@synnaxlabs/charon/flex";
 import { type ReactElement } from "react";
 
 import { type InternalControlsProps } from "@/os/Controls/types";

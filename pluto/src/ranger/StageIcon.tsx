@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type Icon } from "@synnaxlabs/charon";
+import type { Icon } from "@synnaxlabs/charon/icon";
 import { type CrudeTimeRange } from "@synnaxlabs/x";
 import { type ReactElement } from "react";
 

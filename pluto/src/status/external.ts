@@ -11,4 +11,3 @@ export * from "@/status/queries";
 export * from "@/status/Select";
 export * from "@/status/SelectMultipleVariants";
 export * from "@/status/SelectVariant";
-export * from "@synnaxlabs/charon/status";
