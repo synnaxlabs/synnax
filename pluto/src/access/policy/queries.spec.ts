@@ -206,7 +206,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Policy.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync(policy.key);
+        result.current.update(policy.key);
       });
       await waitFor(async () => {
         await expect(
@@ -229,7 +229,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Policy.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync([policy1.key, policy2.key]);
+        result.current.update([policy1.key, policy2.key]);
       });
       await waitFor(async () => {
         await expect(

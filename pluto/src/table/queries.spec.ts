@@ -81,7 +81,7 @@ describe("table queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({
+        result.current.update({
           key,
           workspace: workspace.key,
           name: "created_table",
@@ -109,7 +109,7 @@ describe("table queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        await createResult.current.updateAsync({
+        createResult.current.update({
           key,
           workspace: workspace.key,
           name: "stored_table",
@@ -149,7 +149,7 @@ describe("table queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: table.key,
           name: "renamed_table",
         });
@@ -179,7 +179,7 @@ describe("table queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: table.key,
           name: "cache_renamed",
         });
@@ -205,7 +205,7 @@ describe("table queries", () => {
       const { result } = renderHook(() => Table.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(table.key);
+        result.current.update(table.key);
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.tables.retrieve({ key: table.key })).rejects.toThrow(
@@ -230,7 +230,7 @@ describe("table queries", () => {
       const { result } = renderHook(() => Table.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync([table1.key, table2.key]);
+        result.current.update([table1.key, table2.key]);
       });
 
       expect(result.current.variant).toEqual("success");

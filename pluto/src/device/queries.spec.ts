@@ -478,7 +478,7 @@ describe("queries", () => {
         details: { rack: rack.key, device: dev.key },
       });
       await act(async () => {
-        await result.current.status.updateAsync({ statuses: devStatus });
+        result.current.status.update({ statuses: devStatus });
       });
 
       await waitFor(() => {
@@ -814,7 +814,7 @@ describe("queries", () => {
         configured: true,
       };
       await act(async () => {
-        await result.current.updateAsync(dev);
+        result.current.update(dev);
       });
       expect(result.current.variant).toEqual("success");
       const retrieved = await client.devices.retrieve({ key });
@@ -844,7 +844,7 @@ describe("queries", () => {
         wrapper,
       });
       await act(async () => {
-        await result.current.updateAsync({ key: dev.key, name: "new-name" });
+        result.current.update({ key: dev.key, name: "new-name" });
       });
       expect(result.current.variant).toEqual("success");
       const retrieved = await client.devices.retrieve({ key: dev.key });
@@ -870,7 +870,7 @@ describe("queries", () => {
         wrapper,
       });
       await act(async () => {
-        await result.current.updateAsync(dev.key);
+        result.current.update(dev.key);
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.devices.retrieve({ key: dev.key })).rejects.toThrow(
@@ -1392,7 +1392,7 @@ describe("queries", () => {
 
         const key = id.create();
         await act(async () => {
-          await result.current.updateAsync({
+          result.current.update({
             key,
             rack: rack.key,
             location: "test",

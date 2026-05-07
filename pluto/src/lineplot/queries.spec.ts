@@ -81,7 +81,7 @@ describe("lineplot queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        await result.current.updateAsync({
+        result.current.update({
           key,
           workspace: workspace.key,
           name: "created_plot",
@@ -109,7 +109,7 @@ describe("lineplot queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        await createResult.current.updateAsync({
+        createResult.current.update({
           key,
           workspace: workspace.key,
           name: "stored_plot",
@@ -150,7 +150,7 @@ describe("lineplot queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: plot.key,
           name: "renamed_plot",
         });
@@ -180,7 +180,7 @@ describe("lineplot queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: plot.key,
           name: "cache_renamed",
         });
@@ -206,7 +206,7 @@ describe("lineplot queries", () => {
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(plot.key);
+        result.current.update(plot.key);
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.lineplots.retrieve({ key: plot.key })).rejects.toThrow(
@@ -231,7 +231,7 @@ describe("lineplot queries", () => {
       const { result } = renderHook(() => LinePlot.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync([plot1.key, plot2.key]);
+        result.current.update([plot1.key, plot2.key]);
       });
 
       expect(result.current.variant).toEqual("success");

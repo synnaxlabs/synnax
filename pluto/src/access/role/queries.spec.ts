@@ -229,7 +229,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Role.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync(role.key);
+        result.current.update(role.key);
       });
       await waitFor(async () => {
         await expect(client.access.roles.retrieve({ key: role.key })).rejects.toThrow(
@@ -250,7 +250,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Role.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync([role1.key, role2.key]);
+        result.current.update([role1.key, role2.key]);
       });
       await waitFor(async () => {
         await expect(client.access.roles.retrieve({ key: role1.key })).rejects.toThrow(

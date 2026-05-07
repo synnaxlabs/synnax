@@ -378,7 +378,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(testRack.key);
 
       await act(async () => {
-        await result.current.del.updateAsync(testRack.key);
+        result.current.del.update(testRack.key);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(testRack.key);
@@ -408,7 +408,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(rack2.key);
 
       await act(async () => {
-        await result.current.del.updateAsync([rack1.key, rack2.key]);
+        result.current.del.update([rack1.key, rack2.key]);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(rack1.key);
@@ -434,7 +434,7 @@ describe("queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: testRack.key,
           name: "renamed_rack",
         });
@@ -463,7 +463,7 @@ describe("queries", () => {
       expect(result.current.list.getItem(testRack.key)?.name).toEqual("list_original");
 
       await act(async () => {
-        await result.current.rename.updateAsync({
+        result.current.rename.update({
           key: testRack.key,
           name: "list_renamed",
         });

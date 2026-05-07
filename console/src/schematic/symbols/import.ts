@@ -14,7 +14,7 @@ import {
   schematic,
   type Synnax as Client,
 } from "@synnaxlabs/client";
-import { Group, Status, Synnax } from "@synnaxlabs/pluto";
+import { Status, Synnax } from "@synnaxlabs/pluto";
 import { status, uuid } from "@synnaxlabs/x";
 import { join, sep } from "@tauri-apps/api/path";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -84,7 +84,6 @@ export const useImportGroup = (): (() => void) => {
   const client = Synnax.use();
   const handleError = Status.useErrorHandler();
   const addStatus = Status.useAdder();
-  const { updateAsync: createGroup } = Group.useCreate();
 
   return useCallback(() => {
     handleError(async () => {
@@ -105,7 +104,7 @@ export const useImportGroup = (): (() => void) => {
       const manifest = groupManifestZ.parse(JSON.parse(manifestData));
       const symbolGroup = await client.schematics.symbols.retrieveGroup();
       const newGroupKey = uuid.create();
-      await createGroup({
+      await client.groups.create({
         key: newGroupKey,
         name: manifest.name,
         parent: group.ontologyID(symbolGroup.key),
@@ -139,5 +138,5 @@ export const useImportGroup = (): (() => void) => {
           description: errors.map((e) => status.fromException(e).message).join("\n"),
         });
     }, "Failed to import symbol group");
-  }, [client, handleError, addStatus, createGroup]);
+  }, [client, handleError, addStatus]);
 };

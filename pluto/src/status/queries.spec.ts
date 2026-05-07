@@ -405,7 +405,7 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useDelete(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync(statusToDelete.key);
+        result.current.update(statusToDelete.key);
       });
 
       await expect(
@@ -419,7 +419,7 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useSet(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({
+        result.current.update({
           statuses: {
             name: "Set Hook Test",
             key: "set-hook-test",
@@ -439,7 +439,7 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useSet(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({
+        result.current.update({
           statuses: [
             {
               name: "Batch 1",
@@ -475,7 +475,7 @@ describe("Status queries", () => {
       const { result } = renderHook(() => Status.useSet(), { wrapper });
 
       await act(async () => {
-        await result.current.updateAsync({
+        result.current.update({
           statuses: {
             name: "Child Status",
             key: "child-hook-test",

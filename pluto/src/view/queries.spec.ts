@@ -132,7 +132,7 @@ describe("View queries", () => {
       });
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync(view.key);
+        result.current.update(view.key);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       await expect(client.views.retrieve({ key: view.key })).rejects.toThrow(
@@ -152,7 +152,7 @@ describe("View queries", () => {
       });
       const { result } = renderHook(() => View.useDelete(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync([view1.key, view2.key]);
+        result.current.update([view1.key, view2.key]);
       });
       await waitFor(() => expect(result.current.variant).toEqual("success"));
       await expect(client.views.retrieve({ key: view1.key })).rejects.toThrow(
@@ -239,7 +239,7 @@ describe("View queries", () => {
       });
       const { result } = renderHook(() => View.useRename(), { wrapper });
       await act(async () => {
-        await result.current.updateAsync({ key: view.key, name: "renamed-view" });
+        result.current.update({ key: view.key, name: "renamed-view" });
       });
       const retrieved = await client.views.retrieve({ key: view.key });
       expect(retrieved.name).toEqual("renamed-view");

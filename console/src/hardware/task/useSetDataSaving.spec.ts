@@ -37,7 +37,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      await result.current.updateAsync({ key: t.key, dataSaving: true });
+      result.current.update({ key: t.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -56,7 +56,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      await result.current.updateAsync({ key: t.key, dataSaving: false });
+      result.current.update({ key: t.key, dataSaving: false });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -75,7 +75,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      await result.current.updateAsync({ key: writeTask.key, dataSaving: true });
+      result.current.update({ key: writeTask.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -94,7 +94,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      await result.current.updateAsync({ key: t.key, dataSaving: true });
+      result.current.update({ key: t.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
