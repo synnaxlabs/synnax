@@ -382,6 +382,40 @@ describe("Series", () => {
     });
   });
 
+  describe("bigint sampleOffset precision", () => {
+    it("preserves precision in at when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.at(0)).toBe(offset);
+      expect(series.at(1)).toBe(offset + 1n);
+      expect(series.at(2)).toBe(offset + 2n);
+    });
+
+    it("preserves precision in max when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.max).toBe(offset + 2n);
+    });
+
+    it("preserves precision in min when sampleOffset is a bigint above 2^53", () => {
+      const offset = 1778020940471336960n;
+      const series = new Series({
+        data: new Float32Array([0, 1, 2]),
+        dataType: DataType.FLOAT32,
+        sampleOffset: offset,
+      });
+      expect(series.min).toBe(offset);
+    });
+  });
+
   describe("slice", () => {
     it("should slice a lazy array", () => {
       const a = new Series({
