@@ -134,6 +134,20 @@ describe("StreamMultiChannelLog", () => {
     expect(entries[0].value).toBe("42");
   });
 
+  it("should clean f64-widened FLOAT32 values to shortest decimal", async () => {
+    const props: StreamMultiChannelLogProps = {
+      channels: [c.channelA.key],
+      timeSpan: TimeSpan.seconds(30),
+    };
+    const log = new StreamMultiChannelLog(c, props);
+    await waitForResolve(log);
+    const series = new Series({ data: new Float32Array([1.234]) });
+    c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+    const entries = log.value();
+    expect(entries).toHaveLength(1);
+    expect(entries[0].value).toBe("1.234");
+  });
+
   it("should maintain arrival order and not sort across multiple channels", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelA.key, c.channelB.key],

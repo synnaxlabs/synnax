@@ -10,13 +10,13 @@
 import { channel, NotFoundError } from "@synnaxlabs/client";
 import {
   bounds,
+  cleanFloat32,
   DataType,
   type destructor,
   MultiSeries,
   primitive,
   type Series,
   status as xstatus,
-  stringifyFloat32,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -93,9 +93,7 @@ export class StreamChannelValue
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
     const v = this.leadingBuffer.at(-1, true) as number;
-    return this.dataType?.equals(DataType.FLOAT32)
-      ? parseFloat(stringifyFloat32(v))
-      : v;
+    return this.dataType != null ? cleanFloat32(v, this.dataType) : v;
   }
 
   private async read(): Promise<void> {

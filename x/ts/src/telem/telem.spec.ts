@@ -11,6 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, test } from "vitest";
 
 import { binary } from "@/binary";
 import {
+  cleanFloat32,
   convertDataType,
   type CrudeDataType,
   DataType,
@@ -2260,5 +2261,54 @@ describe("stringifyFloat32", () => {
       const s = stringifyFloat32(v);
       expect(stringifyFloat32(parseFloat(s))).toBe(s);
     }
+  });
+});
+
+describe("cleanFloat32", () => {
+  describe("FLOAT32 dataType", () => {
+    test.each([
+      ["positive f64-widened", 1.2339999675750732, 1.234],
+      ["negative f64-widened", -1.2339999675750732, -1.234],
+      ["small magnitude f64-widened", 0.10000000149011612, 0.1],
+      ["whole number", 42, 42],
+      ["zero", 0, 0],
+      ["negative zero", -0, 0],
+      ["already at f32 precision", 0.5, 0.5],
+    ])("rounds %s through f32", (_, input, expected) => {
+      expect(cleanFloat32(input, DataType.FLOAT32)).toBe(expected);
+    });
+
+    test("returns NaN for NaN input", () => {
+      expect(cleanFloat32(NaN, DataType.FLOAT32)).toBeNaN();
+    });
+
+    test("preserves Infinity", () => {
+      expect(cleanFloat32(Infinity, DataType.FLOAT32)).toBe(Infinity);
+    });
+
+    test("preserves -Infinity", () => {
+      expect(cleanFloat32(-Infinity, DataType.FLOAT32)).toBe(-Infinity);
+    });
+  });
+
+  describe("non-FLOAT32 dataType passes value through unchanged", () => {
+    test.each([
+      ["FLOAT64 with extra precision", DataType.FLOAT64, 0.1],
+      ["INT64 whole number", DataType.INT64, 42],
+      ["INT32 negative", DataType.INT32, -7],
+      ["UINT8 boundary", DataType.UINT8, 255],
+      ["TIMESTAMP nanoseconds", DataType.TIMESTAMP, 1_700_000_000_000],
+      ["FLOAT64 with f32-imprecise value", DataType.FLOAT64, 1.2339999675750732],
+    ])("%s", (_, dataType, input) => {
+      expect(cleanFloat32(input, dataType)).toBe(input);
+    });
+
+    test("preserves NaN for FLOAT64", () => {
+      expect(cleanFloat32(NaN, DataType.FLOAT64)).toBeNaN();
+    });
+
+    test("preserves Infinity for FLOAT64", () => {
+      expect(cleanFloat32(Infinity, DataType.FLOAT64)).toBe(Infinity);
+    });
   });
 });

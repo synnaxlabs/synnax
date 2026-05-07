@@ -2140,6 +2140,11 @@ export const stringifyFloat32 = (value: number): string => {
   return f32.toString();
 };
 
+/** If dataType is FLOAT32, returns value rounded through the shortest
+ *  f32-roundtrippable decimal. Otherwise returns value unchanged. */
+export const cleanFloat32 = (value: number, dataType: DataType): number =>
+  dataType.equals(DataType.FLOAT32) ? parseFloat(stringifyFloat32(value)) : value;
+
 /**
  * The Size of an element in bytes.
  */
