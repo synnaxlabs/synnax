@@ -114,7 +114,7 @@ export const { actions, reducer } = createSlice({
       const s = state.schematics[payload.key];
       if (s == null) return;
       s.selected = payload.selected;
-      s.activeToolbarTab = payload.selected.length > 0 ? "properties" : "symbols";
+      s.toolbar.activeTab = payload.selected.length > 0 ? "properties" : "symbols";
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
       const s = state.schematics[payload.key];
@@ -142,7 +142,7 @@ export const { actions, reducer } = createSlice({
     ) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      s.activeToolbarTab = payload.tab;
+      s.toolbar.activeTab = payload.tab;
     },
     setSelectedSymbolGroup: (
       state,
@@ -150,7 +150,7 @@ export const { actions, reducer } = createSlice({
     ) => {
       const s = state.schematics[payload.key];
       if (s == null) return;
-      s.selectedSymbolGroup = payload.group;
+      s.toolbar.selectedSymbolGroup = payload.group;
     },
     setEditable: (state, { payload }: PayloadAction<SetEditablePayload>) => {
       const s = state.schematics[payload.key];

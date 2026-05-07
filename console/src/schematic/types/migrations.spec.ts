@@ -39,7 +39,7 @@ describe("migrations", () => {
       it(`should migrate state from ${state.version} to latest`, () => {
         const migrated = migrateState(state);
         expect(migrated.version).toBe(ZERO_STATE.version);
-        expect(migrated.activeToolbarTab).toBe(ZERO_STATE.activeToolbarTab);
+        expect(migrated.toolbar.activeTab).toBe(ZERO_STATE.toolbar.activeTab);
         expect(migrated.selected).toEqual([]);
         expect(migrated.legend).toBeDefined();
         expect(migrated.viewport).toBeDefined();

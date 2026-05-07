@@ -69,7 +69,7 @@ export interface DetailsProps {
 }
 
 export const Details: FC<DetailsProps> = ({ rangeKey }) => {
-  const range = Ranger.useRetrieveSuspense({ key: rangeKey });
+  const { data: range } = Ranger.useRetrieve({ key: rangeKey });
   const now = TimeStamp.now().nanoseconds;
   const { form, status } = Ranger.useForm({
     query: { key: rangeKey },
@@ -198,7 +198,7 @@ export const Details: FC<DetailsProps> = ({ rangeKey }) => {
             >
               <Icon.Link />
             </Button.Button>
-            <FavoriteButton range={range} size="medium" />
+            {range != null && <FavoriteButton range={range} size="medium" />}
           </Flex.Box>
         </Flex.Box>
         <Flex.Box className={CSS.B("time-range")} x gap="medium" align="center">

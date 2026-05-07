@@ -14,7 +14,7 @@ import { useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { create } from "@/schematic/layout";
-import { selectOptional } from "@/schematic/selectors";
+import { select } from "@/schematic/selectors";
 import { type RootState } from "@/store";
 
 type SchematicRetriever = (key: string) => Promise<schematic.Schematic>;
@@ -48,7 +48,7 @@ export const useHandleNodeClickAction = (layoutKey: string): NodeClickHandler =>
   return useCallback(
     (nodeId: string, dblClick: boolean) => {
       const storeState = store.getState();
-      const ui = selectOptional(storeState, layoutKey);
+      const ui = select(storeState, layoutKey);
       if (ui == null || ui.editable || retrieve == null) return;
       const config = fluxStore.schematics.get(layoutKey)?.configs?.[nodeId] as
         | Record<string, unknown>

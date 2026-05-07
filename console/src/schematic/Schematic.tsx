@@ -36,6 +36,7 @@ import {
 import { useAutoUpload } from "@/schematic/useUpload";
 
 export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
+  useAutoUpload(key);
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const windowKey = useSelectWindowKey() as string;
@@ -49,7 +50,6 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
     authority,
     fitViewOnResize,
   } = useSelect(key);
-  useAutoUpload(key);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(key)) && !isSnapshot;

@@ -77,13 +77,13 @@ const IndividualConfig = ({
   const onChange = (key: string, next: Schematic.ElementConfig): void => {
     dispatch({
       key: layoutKey,
-      actions: schematic.setConfig({ key, config: next as record.Unknown }),
+      actions: schematic.setConfig({ key, config: next }),
     });
   };
 
   const formMethods = Form.use<typeof Schematic.elementConfigZ>({
     schema: Schematic.elementConfigZ,
-    values: deep.copy(config ?? ({ variant: "tank" } as Schematic.ElementConfig)),
+    values: deep.copy(config),
     sync: true,
     onChange: ({ values }) => onChange(elKey, deep.copy(values)),
   });

@@ -34,7 +34,7 @@ describe("Schematic Slice", () => {
     const s = store.getState()[SLICE_NAME].schematics[layoutKey];
     expect(s).toBeDefined();
     expect(s.selected).toEqual([]);
-    expect(s.activeToolbarTab).toBe("symbols");
+    expect(s.toolbar.activeTab).toBe("symbols");
     expect(s.editable).toBe(true);
   });
 
@@ -42,10 +42,10 @@ describe("Schematic Slice", () => {
     store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
     let s = store.getState()[SLICE_NAME].schematics[layoutKey];
     expect(s.selected).toEqual(["n1"]);
-    expect(s.activeToolbarTab).toBe("properties");
+    expect(s.toolbar.activeTab).toBe("properties");
     store.dispatch(actions.setSelected({ key: layoutKey, selected: [] }));
     s = store.getState()[SLICE_NAME].schematics[layoutKey];
-    expect(s.activeToolbarTab).toBe("symbols");
+    expect(s.toolbar.activeTab).toBe("symbols");
   });
 
   it("should toggle editable and clear selection on disable", () => {

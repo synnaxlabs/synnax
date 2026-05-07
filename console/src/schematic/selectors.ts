@@ -20,18 +20,12 @@ import {
   type StoreState,
   type ToolbarTab,
 } from "@/schematic/slice";
-import { ZERO_STATE } from "@/schematic/types";
+import { type ToolbarState, ZERO_STATE } from "@/schematic/types";
 
 export const selectSliceState = (state: StoreState): SliceState => state[SLICE_NAME];
 
-export const selectOptional = (state: StoreState, key: string): State | undefined =>
-  selectSliceState(state).schematics[key];
-
-export const useSelectOptional = (key: string): State | undefined =>
-  useMemoSelect((state: StoreState) => selectOptional(state, key), [key]);
-
 export const selectSelected = (state: StoreState, key: string): string[] =>
-  selectOptional(state, key)?.selected ?? [];
+  select(state, key)?.selected ?? [];
 
 export const select = (state: StoreState, key: string): State =>
   selectSliceState(state).schematics[key];
@@ -43,79 +37,69 @@ export const useSelectSelected = (key: string): string[] =>
   useMemoSelect((state: StoreState) => selectSelected(state, key), [key]);
 
 export const selectControlStatus = (state: StoreState, key: string): Control.Status =>
-  selectOptional(state, key)?.controlStatus ?? "released";
+  select(state, key)?.controlStatus ?? "released";
 
 export const useSelectControlStatus = (key: string): Control.Status =>
   useMemoSelect((state: StoreState) => selectControlStatus(state, key), [key]);
 
 export const selectAuthority = (state: StoreState, key: string): control.Authority =>
-  selectOptional(state, key)?.authority ?? 1;
+  select(state, key)?.authority ?? 1;
 
 export const useSelectAuthority = (key: string): control.Authority =>
   useMemoSelect((state: StoreState) => selectAuthority(state, key), [key]);
 
 export const selectActiveToolbarTab = (state: StoreState, key: string): ToolbarTab =>
-  selectOptional(state, key)?.activeToolbarTab ?? "symbols";
+  selectToolbar(state, key).activeTab;
 
 export const useSelectActiveToolbarTab = (key: string): ToolbarTab =>
   useMemoSelect((state: StoreState) => selectActiveToolbarTab(state, key), [key]);
 
-// Returned object shape kept compatible with the v0-style toolbar API. New
-// code should call useSelectActiveToolbarTab / useSelectSelectedSymbolGroup
-// directly.
-export interface ToolbarShim {
-  activeTab: ToolbarTab;
-  selectedSymbolGroup: string;
-}
+export const selectToolbar = (state: StoreState, key: string): ToolbarState =>
+  select(state, key).toolbar;
 
-export const useSelectToolbar = (key: string): ToolbarShim => {
-  const activeTab = useSelectActiveToolbarTab(key);
-  const selectedSymbolGroup = useSelectSelectedSymbolGroup(key);
-  return { activeTab, selectedSymbolGroup };
-};
+export const useSelectToolbar = (key: string): ToolbarState =>
+  useMemoSelect((state: StoreState) => selectToolbar(state, key), [key]);
 
 export const selectSelectedSymbolGroup = (state: StoreState, key: string): string =>
-  selectOptional(state, key)?.selectedSymbolGroup ?? "general";
+  selectToolbar(state, key)?.selectedSymbolGroup;
 
 export const useSelectSelectedSymbolGroup = (key: string): string =>
   useMemoSelect((state: StoreState) => selectSelectedSymbolGroup(state, key), [key]);
 
 export const selectLegend = (state: StoreState, key: string): LegendState =>
-  selectOptional(state, key)?.legend ?? ZERO_STATE.legend;
+  select(state, key)?.legend ?? ZERO_STATE.legend;
 
 export const useSelectLegend = (key: string): LegendState =>
   useMemoSelect((state: StoreState) => selectLegend(state, key), [key]);
 
 export const selectLegendVisible = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.legend.visible ?? false;
+  select(state, key).legend.visible;
 
 export const useSelectLegendVisible = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectLegendVisible(state, key), [key]);
 
 export const selectEditable = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.editable ?? true;
+  select(state, key).editable;
 
 export const useSelectEditable = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectEditable(state, key), [key]);
 
 export const selectFitViewOnResize = (state: StoreState, key: string): boolean =>
-  selectOptional(state, key)?.fitViewOnResize ?? false;
+  select(state, key).fitViewOnResize;
 
 export const useSelectFitViewOnResize = (key: string): boolean =>
   useMemoSelect((state: StoreState) => selectFitViewOnResize(state, key), [key]);
 
-export const selectViewport = (
-  state: StoreState,
-  key: string,
-): Diagram.Viewport | undefined => selectOptional(state, key)?.viewport;
+export const selectViewport = (state: StoreState, key: string): Diagram.Viewport =>
+  select(state, key).viewport;
 
-export const useSelectViewport = (key: string): Diagram.Viewport | undefined =>
+export const useSelectViewport = (key: string): Diagram.Viewport =>
   useMemoSelect((state: StoreState) => selectViewport(state, key), [key]);
 
 export const selectPendingUpload = (
   state: StoreState,
   key: string,
-): PendingUpload | undefined => selectOptional(state, key)?.pendingUpload;
+): PendingUpload | undefined => select(state, key).pendingUpload;
 
 export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
   useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);
