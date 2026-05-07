@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package framer_test
+package framer
 
 import (
 	"testing"
@@ -25,7 +25,7 @@ var (
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Framer Suite")
+	RunSpecs(t, "gRPC Framer Suite")
 }
 
 var _ = BeforeSuite(func(ctx SpecContext) {
