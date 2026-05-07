@@ -22,5 +22,4 @@ export * from "@/schematic/node/common/region";
 export * from "@/schematic/node/common/toggle";
 export * from "@/schematic/node/group";
 export * from "@/schematic/node/registry";
-export * from "@/schematic/node/Renderer";
 export * from "@/schematic/node/spec";
