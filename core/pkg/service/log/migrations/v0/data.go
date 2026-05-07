@@ -9,11 +9,11 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/errors"
+import "github.com/synnaxlabs/x/zyn"
 
 const Version = 0
 
-// Data is the frozen type for log data at version 0.0.0. Channels are stored as
+// Data is the frozen type for log data at version 0. Channels are stored as
 // bare integer keys.
 type Data struct {
 	Key           string `json:"key"`
@@ -22,12 +22,10 @@ type Data struct {
 	RemoteCreated bool   `json:"remote_created"`
 }
 
-// Validate enforces the structural invariants that the v0 Schema enforced
-// implicitly: channels must be present (nil is treated as missing; empty slice
-// is acceptable).
-func (d Data) Validate() error {
-	if d.Channels == nil {
-		return errors.New("v0 log data: channels field is required")
-	}
-	return nil
-}
+// Schema validates the wire shape of a v0 log payload.
+var Schema = zyn.Object(map[string]zyn.Schema{
+	"key":            zyn.String().Optional(),
+	"name":           zyn.String().Optional(),
+	"channels":       zyn.Array(zyn.Number().Int().Coerce()),
+	"remote_created": zyn.Bool().Optional(),
+})

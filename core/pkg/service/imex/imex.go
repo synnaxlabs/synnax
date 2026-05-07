@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -23,13 +22,12 @@ import (
 // Envelope is the portable format for a single importable/exportable resource.
 // All fields are flat at the JSON level. The wire format looks like:
 //
-//	{"version":54,"type":"log","key":"...","name":"...","channels":[...]}
+//	{"version":1,"type":"log","key":"...","name":"...","channels":[...]}
 //
 // Version, Type, Key, and Name are promoted to typed fields for convenient
 // access (routing, identity, file naming). Data holds the raw JSON bytes of
-// the full top-level object, including the promoted fields. Handlers decode
-// Data directly into their version-specific Go struct via json.Unmarshal (or
-// the Decode helper for user-friendly error messages).
+// the full top-level object, including the promoted fields. On import the Key
+// is ignored; each handler always assigns a fresh key.
 type Envelope struct {
 	Version int
 	Type    string
@@ -127,7 +125,10 @@ func parseVersionRaw(raw json.RawMessage) (int, error) {
 }
 
 // legacyToNumeric converts a semver string like "1.0.0" to a numeric version
-// using the formula major*5 + minor*2 + patch.
+// by taking the major component. Per-schema versioning starts at 0 and
+// increments by 1, so the minor and patch components carry no meaning at the
+// import boundary; they are accepted for backward compatibility with older
+// payloads but discarded.
 func legacyToNumeric(s string) (int, error) {
 	parts := strings.Split(s, ".")
 	if len(parts) != 3 {
@@ -137,25 +138,29 @@ func legacyToNumeric(s string) (int, error) {
 	if err != nil {
 		return 0, errors.Wrapf(err, "invalid semver major %q", parts[0])
 	}
-	minor, err := strconv.Atoi(parts[1])
-	if err != nil {
-		return 0, errors.Wrapf(err, "invalid semver minor %q", parts[1])
-	}
-	patch, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return 0, errors.Wrapf(err, "invalid semver patch %q", parts[2])
-	}
-	return major*5 + minor*2 + patch, nil
+	return major, nil
 }
 
-// Importer can import a resource from an Envelope.
+// ImportPayload is the validated, decoded input handed to an Importer. Type is
+// not included: the registry has already routed to the right handler. Key is
+// not included: the envelope's key is ignored and each handler assigns a fresh
+// key, returned from Import.
+type ImportPayload struct {
+	Version int
+	Name    string
+	Data    map[string]any
+}
+
+// Importer can import a resource from an ImportPayload. It returns the new key
+// assigned to the imported resource.
 type Importer interface {
-	Import(ctx context.Context, tx gorp.Tx, parent ontology.ID, env Envelope) error
+	Import(ctx context.Context, tx gorp.Tx, payload ImportPayload) (string, error)
 }
 
-// Exporter can export a resource to an Envelope.
+// Exporter can export a resource to an Envelope. The exporter is responsible
+// for stamping its own per-schema Version on the returned envelope.
 type Exporter interface {
-	Export(ctx context.Context, tx gorp.Tx, key string) (Envelope, error)
+	Export(ctx context.Context, key string) (Envelope, error)
 }
 
 // ImporterExporter combines both interfaces.

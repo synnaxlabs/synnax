@@ -39,10 +39,11 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	ImportRequest struct {
-		Parent    ontology.ID        `json:"parent" msgpack:"parent"`
 		Resources []svcimex.Envelope `json:"resources" msgpack:"resources"`
 	}
-	ImportResponse struct{}
+	ImportResponse struct {
+		Keys []string `json:"keys" msgpack:"keys"`
+	}
 )
 
 func (s *Service) Import(
@@ -63,7 +64,11 @@ func (s *Service) Import(
 	}); err != nil {
 		return ImportResponse{}, err
 	}
-	return ImportResponse{}, s.internal.Import(ctx, req.Parent, req.Resources)
+	keys, err := s.internal.Import(ctx, req.Resources)
+	if err != nil {
+		return ImportResponse{}, err
+	}
+	return ImportResponse{Keys: keys}, nil
 }
 
 type (

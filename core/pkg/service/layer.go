@@ -43,7 +43,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/synnax/pkg/storage"
-	"github.com/synnaxlabs/synnax/pkg/version"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/override"
@@ -411,7 +410,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	l.ImEx = imex.NewService(cfg.Distribution.DB, version.Numeric())
+	l.ImEx = imex.NewService(cfg.Distribution.DB)
 	l.ImEx.Register("log", l.Log)
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
 		Instrumentation: cfg.Child("arc.runtime"),

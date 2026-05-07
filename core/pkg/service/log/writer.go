@@ -29,8 +29,10 @@ type Writer struct {
 	table     *gorp.Table[uuid.UUID, Log]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
+// Create creates the given log within the workspace provided. If the log does
+// not have a key, a new key will be generated. If ws is uuid.Nil, the log is
+// created without a workspace ParentOf relationship; this is used by the
+// import path, which does not yet wire workspace relationships.
 func (w Writer) Create(
 	ctx context.Context,
 	ws uuid.UUID,
@@ -53,6 +55,9 @@ func (w Writer) Create(
 	}
 	otgID := OntologyID(s.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
+		return
+	}
+	if ws == uuid.Nil {
 		return
 	}
 	return w.otgWriter.DefineRelationship(

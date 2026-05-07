@@ -9,9 +9,9 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/errors"
+import "github.com/synnaxlabs/x/zyn"
 
-const Version = 5
+const Version = 1
 
 // ChannelEntry is a channel reference with display configuration.
 type ChannelEntry struct {
@@ -22,7 +22,7 @@ type ChannelEntry struct {
 	Alias     string `json:"alias"`
 }
 
-// Data is the frozen type for log data at version 1.0.0. Channels are stored as
+// Data is the frozen type for log data at version 1. Channels are stored as
 // config entries with display options.
 type Data struct {
 	Key                  string         `json:"key"`
@@ -34,12 +34,19 @@ type Data struct {
 	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
 }
 
-// Validate enforces the structural invariants that the v1 Schema enforced
-// implicitly: channels must be present (nil is treated as missing; empty slice
-// is acceptable).
-func (d Data) Validate() error {
-	if d.Channels == nil {
-		return errors.New("v1 log data: channels field is required")
-	}
-	return nil
-}
+// Schema validates the wire shape of a v1 log payload.
+var Schema = zyn.Object(map[string]zyn.Schema{
+	"key":  zyn.String().Optional(),
+	"name": zyn.String().Optional(),
+	"channels": zyn.Array(zyn.Object(map[string]zyn.Schema{
+		"channel":   zyn.Number().Int().Coerce(),
+		"color":     zyn.String().Optional(),
+		"notation":  zyn.String().Optional(),
+		"precision": zyn.Number().Int().Coerce().Optional(),
+		"alias":     zyn.String().Optional(),
+	})),
+	"remote_created":         zyn.Bool().Optional(),
+	"timestamp_precision":    zyn.Number().Int().Coerce().Optional(),
+	"show_channel_names":     zyn.Bool().Optional(),
+	"show_receipt_timestamp": zyn.Bool().Optional(),
+})

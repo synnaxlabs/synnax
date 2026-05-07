@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
-	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -38,24 +37,24 @@ var _ = Describe("Service", func() {
 			envs := []imex.Envelope{{
 				Version: v1.Version,
 				Type:    "log",
-				Key:     "110e8400-e29b-41d4-a716-446655440000",
 				Name:    "Registry Test",
 				Data:    rawLogV1("Registry Test"),
 			}}
-			Expect(svc.Import(ctx, workspace.OntologyID(ws.Key), envs)).To(Succeed())
+			keys := MustSucceed(svc.Import(ctx, envs))
+			Expect(keys).To(HaveLen(1))
+			Expect(keys[0]).NotTo(BeEmpty())
 		})
 
 		It("Should reject an unregistered type", func(ctx SpecContext) {
 			envs := []imex.Envelope{{
 				Version: v1.Version,
 				Type:    "nonexistent",
-				Key:     "220e8400-e29b-41d4-a716-446655440000",
 				Name:    "Bad Type",
 				Data:    json.RawMessage(`{}`),
 			}}
-			Expect(svc.Import(
-				ctx, workspace.OntologyID(ws.Key), envs,
-			)).To(MatchError(ContainSubstring("no importer registered")))
+			Expect(svc.Import(ctx, envs)).Error().To(
+				MatchError(ContainSubstring("no importer registered")),
+			)
 		})
 
 		It("Should roll back the transaction if any import fails", func(ctx SpecContext) {
@@ -63,25 +62,19 @@ var _ = Describe("Service", func() {
 				{
 					Version: v1.Version,
 					Type:    "log",
-					Key:     "330e8400-e29b-41d4-a716-446655440000",
 					Name:    "Good Log",
 					Data:    rawLogV1("Good Log"),
 				},
 				{
 					Version: 99999,
 					Type:    "nonexistent",
-					Key:     "440e8400-e29b-41d4-a716-446655440000",
 					Name:    "Bad Type",
 					Data:    json.RawMessage(`{}`),
 				},
 			}
-			Expect(svc.Import(
-				ctx, workspace.OntologyID(ws.Key), envs,
-			)).To(MatchError(ContainSubstring("no importer registered")))
-			Expect(svc.Export(ctx, []ontology.ID{{
-				Type: ontology.ResourceTypeLog,
-				Key:  "330e8400-e29b-41d4-a716-446655440000",
-			}})).Error().To(MatchError(ContainSubstring("not found")))
+			Expect(svc.Import(ctx, envs)).Error().To(
+				MatchError(ContainSubstring("no importer registered")),
+			)
 		})
 	})
 
@@ -90,17 +83,17 @@ var _ = Describe("Service", func() {
 			envs := []imex.Envelope{{
 				Version: v1.Version,
 				Type:    "log",
-				Key:     "550e8400-e29b-41d4-a716-446655440001",
 				Name:    "Export Registry Test",
 				Data:    rawLogV1("Export Registry Test"),
 			}}
-			Expect(svc.Import(ctx, workspace.OntologyID(ws.Key), envs)).To(Succeed())
+			keys := MustSucceed(svc.Import(ctx, envs))
+			Expect(keys).To(HaveLen(1))
 			result := MustSucceed(svc.Export(ctx, []ontology.ID{{
 				Type: ontology.ResourceTypeLog,
-				Key:  "550e8400-e29b-41d4-a716-446655440001",
+				Key:  keys[0],
 			}}))
 			Expect(result).To(HaveLen(1))
-			Expect(result[0].Version).To(Equal(54))
+			Expect(result[0].Version).To(Equal(v1.Version))
 			Expect(result[0].Name).To(Equal("Export Registry Test"))
 		})
 

@@ -26,61 +26,53 @@ import (
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
-	parent ontology.ID,
-	env imex.Envelope,
-) error {
-	migrated, err := s.migrateData(env.Version, env.Data)
+	payload imex.ImportPayload,
+) (string, error) {
+	migrated, err := migrateData(payload.Version, payload.Data)
 	if err != nil {
-		return err
+		return "", err
 	}
-	key, err := uuid.Parse(env.Key)
-	if err != nil {
-		key = uuid.New()
-	}
-	wsKey, err := uuid.Parse(parent.Key)
-	if err != nil {
-		return err
-	}
-	name := env.Name
+	name := payload.Name
 	if name == "" {
 		name = "Imported Log"
 	}
 	data, err := encodedJSONFromStruct(migrated)
 	if err != nil {
-		return err
+		return "", err
 	}
-	l := Log{Key: key, Name: name, Data: data}
-	return s.NewWriter(tx).Create(ctx, wsKey, &l)
+	l := Log{Key: uuid.New(), Name: name, Data: data}
+	if err := s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
+		return "", err
+	}
+	return l.Key.String(), nil
 }
 
-func (s *Service) migrateData(version int, raw json.RawMessage) (v1.Data, error) {
+func migrateData(version int, data map[string]any) (v1.Data, error) {
 	switch {
+	case version > v1.Version:
+		return v1.Data{}, errors.Newf(
+			"log version %d is newer than this Core supports (latest: %d)",
+			version, v1.Version,
+		)
 	case version >= v1.Version:
 		var d v1.Data
-		if err := imex.Decode(raw, &d); err != nil {
-			return v1.Data{}, err
-		}
-		if err := d.Validate(); err != nil {
+		if err := v1.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return d, nil
 	case version >= v0.Version:
 		var d v0.Data
-		if err := imex.Decode(raw, &d); err != nil {
-			return v1.Data{}, err
-		}
-		if err := d.Validate(); err != nil {
+		if err := v0.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d)
 	default:
-		return v1.Data{}, errors.Newf("unknown log data version %d", version)
+		return v1.Data{}, errors.Newf("unknown log version %d", version)
 	}
 }
 
 func (s *Service) Export(
 	ctx context.Context,
-	tx gorp.Tx,
 	key string,
 ) (imex.Envelope, error) {
 	k, err := uuid.Parse(key)
@@ -88,7 +80,7 @@ func (s *Service) Export(
 		return imex.Envelope{}, err
 	}
 	var l Log
-	if err := s.NewRetrieve().WhereKeys(k).Entry(&l).Exec(ctx, tx); err != nil {
+	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
 	var d v1.Data
@@ -104,10 +96,11 @@ func (s *Service) Export(
 		return imex.Envelope{}, err
 	}
 	return imex.Envelope{
-		Type: string(ontology.ResourceTypeLog),
-		Key:  l.Key.String(),
-		Name: l.Name,
-		Data: raw,
+		Version: v1.Version,
+		Type:    string(ontology.ResourceTypeLog),
+		Key:     l.Key.String(),
+		Name:    l.Name,
+		Data:    raw,
 	}, nil
 }
 

@@ -73,7 +73,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	svc = imex.NewService(db, 54)
+	svc = imex.NewService(db)
 	svc.Register(string(ontology.ResourceTypeLog), logSvc)
 })
 

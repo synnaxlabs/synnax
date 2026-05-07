@@ -40,6 +40,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/view"
 	"github.com/synnaxlabs/synnax/pkg/api/workspace"
 	distchannel "github.com/synnaxlabs/synnax/pkg/distribution/channel"
+	"github.com/synnaxlabs/x/encoding/json"
 )
 
 func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
@@ -195,7 +196,7 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 		ViewDelete:   fhttp.NewUnaryServer[view.DeleteRequest, types.Nil](router, "/api/v1/view/delete"),
 
 		// IMPORT/EXPORT
-		ImExImport: fhttp.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import"),
-		ImExExport: fhttp.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export"),
+		ImExImport: fhttp.NewUnaryServer[imex.ImportRequest, imex.ImportResponse](router, "/api/v1/import", fhttp.WithRequestDecoders(json.Codec)),
+		ImExExport: fhttp.NewUnaryServer[imex.ExportRequest, imex.ExportResponse](router, "/api/v1/export", fhttp.WithResponseEncoders(json.Codec)),
 	}
 }

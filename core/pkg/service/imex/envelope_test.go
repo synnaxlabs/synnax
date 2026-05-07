@@ -48,10 +48,9 @@ var _ = Describe("Envelope", func() {
 		It("Should translate a semver version via legacyToNumeric", func() {
 			var env imex.Envelope
 			Expect(json.Unmarshal(
-				[]byte(`{"version":"1.0.0","type":"log","channels":[]}`), &env,
+				[]byte(`{"version":"1.2.3","type":"log","channels":[]}`), &env,
 			)).To(Succeed())
-			// 1*5 + 0*2 + 0 = 5
-			Expect(env.Version).To(Equal(5))
+			Expect(env.Version).To(Equal(1))
 		})
 
 		It("Should not share storage with the caller's buffer", func() {
