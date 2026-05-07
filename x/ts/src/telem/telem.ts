@@ -2134,8 +2134,8 @@ export const stringifyFloat32 = (value: number): string => {
   const f32 = Math.fround(value);
   if (!Number.isFinite(f32)) return f32.toString();
   for (let p = 1; p <= 9; p++) {
-    const s = f32.toPrecision(p);
-    if (Math.fround(parseFloat(s)) === f32) return parseFloat(s).toString();
+    const parsed = parseFloat(f32.toPrecision(p));
+    if (Math.fround(parsed) === f32) return parsed.toString();
   }
   return f32.toString();
 };
