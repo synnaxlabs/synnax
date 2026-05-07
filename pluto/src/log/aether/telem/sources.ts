@@ -157,7 +157,7 @@ export class StreamMultiChannelLog
                 pushed++;
                 continue;
               }
-              const lines = value.split("\n");
+              const lines = value.split(/\r?\n/);
               for (let j = 0; j < lines.length; j++)
                 this.entries.push({
                   channelKey: chMeta.key,
@@ -223,7 +223,10 @@ export class StreamMultiChannelLog
       evicted += cutoff;
     }
     if (this.entries.length > MAX_ENTRIES) {
-      const excess = this.entries.length - MAX_ENTRIES;
+      let excess = this.entries.length - MAX_ENTRIES;
+      // Skip leading continuations so the new head isn't an orphan.
+      while (excess < this.entries.length && this.entries[excess].continuation)
+        excess++;
       this.entries.splice(0, excess);
       evicted += excess;
     }

@@ -393,6 +393,22 @@ describe("StreamMultiChannelLog", () => {
       expect(entries.every((e) => e.timestamp === ts)).toBe(true);
     });
 
+    it("should split on Windows-style \\r\\n without leaving a stray \\r", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.STRING,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: ["line1\r\nline2"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["line1", "line2"]);
+    });
+
     it("should preserve consecutive newlines as blank entries", async () => {
       c.channelA = new channel.Channel({
         ...c.channelA,
@@ -462,6 +478,26 @@ describe("StreamMultiChannelLog", () => {
       const entries = log.value();
       expect(entries).toHaveLength(1);
       expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
+    });
+
+    it("should not leave orphan continuation entries at the head when MAX_ENTRIES eviction cuts mid-group", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.STRING,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      // 33,335 three-line samples = 100,005 entries; excess of 5 cuts mid-group.
+      const data = new Array(33_335).fill("a\nb\nc");
+      const series = new Series({ data });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries.length).toBeGreaterThan(0);
+      expect(entries[0].continuation === true).toBe(false);
     });
   });
 
