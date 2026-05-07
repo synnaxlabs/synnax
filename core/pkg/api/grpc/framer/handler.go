@@ -401,7 +401,6 @@ func New(a *api.Transport, channelSvc *channel.Service) fgrpc.BindableTransport 
 	var (
 		ws = &writerServer{
 			framerWriterServerCore: &framerWriterServerCore{
-				ResponseTranslator: frameWriterResponseTranslator{},
 				CreateTranslators: func() (
 					fgrpc.Translator[apifra.WriterRequest, *WriterRequest],
 					fgrpc.Translator[apifra.WriterResponse, *WriterResponse],
