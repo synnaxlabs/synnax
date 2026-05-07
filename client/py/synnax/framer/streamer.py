@@ -83,13 +83,10 @@ class Streamer:
         adapter: ReadFrameAdapter,
         downsample_factor: int = 1,
         throttle_rate: float = 0,
-        use_experimental_codec: bool = True,
         exclude_groups: list[int] | None = None,
     ) -> None:
         self._adapter = adapter
-        if use_experimental_codec:
-            client = client.with_codec(WSStreamerCodec(self._adapter.codec))
-
+        client = client.with_codec(WSStreamerCodec(self._adapter.codec))
         self._stream = client.stream(_ENDPOINT, _Request, _Response)
         self._downsample_factor = downsample_factor
         self._throttle_rate = throttle_rate

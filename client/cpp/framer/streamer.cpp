@@ -15,7 +15,6 @@ namespace synnax::framer {
 void StreamerConfig::to_proto(grpc::framer::StreamerRequest &f) const {
     f.mutable_keys()->Add(channels.begin(), channels.end());
     f.set_downsample_factor(downsample_factor);
-    f.set_enable_experimental_codec(enable_experimental_codec);
     f.mutable_exclude_groups()->Add(
         this->exclude_groups.begin(),
         this->exclude_groups.end()
@@ -31,11 +30,9 @@ Client::open_streamer(const StreamerConfig &config) const {
     if (!net_stream->send(req).ok()) net_stream->close_send();
     auto [_, res_err] = net_stream->receive();
     auto streamer = Streamer(std::move(net_stream), config);
-    if (config.enable_experimental_codec) {
-        streamer.codec = Codec(this->channel_client);
-        if (const auto codec_err = streamer.codec.update(config.channels))
-            return {Streamer(), codec_err};
-    }
+    streamer.codec = Codec(this->channel_client);
+    if (const auto codec_err = streamer.codec.update(config.channels))
+        return {Streamer(), codec_err};
     return {std::move(streamer), res_err};
 }
 

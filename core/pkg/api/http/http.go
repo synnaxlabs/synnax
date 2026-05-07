@@ -67,7 +67,7 @@ func NewTransport(router *fhttp.Router, ch *distchannel.Service) api.Transport {
 
 		// FRAME
 		FrameWriter:   fhttp.NewStreamServer[framer.WriterRequest, framer.WriterResponse](router, "/api/v1/frame/write", framerServerOption),
-		FrameIterator: fhttp.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate"),
+		FrameIterator: fhttp.NewStreamServer[framer.IteratorRequest, framer.IteratorResponse](router, "/api/v1/frame/iterate", framerServerOption),
 		FrameStreamer: fhttp.NewStreamServer[framer.StreamerRequest, framer.StreamerResponse](router, "/api/v1/frame/stream", framerServerOption),
 		FrameDelete:   fhttp.NewUnaryServer[framer.DeleteRequest, types.Nil](router, "/api/v1/frame/delete"),
 
