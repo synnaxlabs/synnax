@@ -1804,6 +1804,143 @@ func qstr_len(s str) i64 {
     EXPECT_EQ(output->at<int64_t>(2), 0); // ""
 }
 
+/// @brief Flow expressions returning a string single default output materialize the
+/// handle returned on the WASM stack (base == 0 path) instead of dropping it.
+TEST(NodeTest, FlowExpressionStringDefaultOutput) {
+    const auto client = new_test_client();
+
+    auto output_name = random_name("str_output");
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func produce_str() str {
+    return str(42)
+}
+produce_str{} -> )" + output_name;
+
+    auto str_st = std::make_shared<stl::str::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto channel_st = std::make_shared<stl::channel::State>();
+    auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({
+            .program = mod,
+            .modules = stl_modules,
+            .strings = str_st,
+        })
+    );
+
+    const auto *func_node = find_node_by_type(mod, "produce_str");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {{output_ch.key, x::telem::STRING_T, 0}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("produce_str"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(changed_outputs.size(), 1);
+
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), "42");
+}
+
+/// @brief Flow expressions returning a concatenated string default output preserve the
+/// resulting handle through the WASM stack (base == 0 path), mirroring the integration
+/// test pattern: trigger -> "value=" + str(42) + " items" -> str_chan.
+TEST(NodeTest, FlowExpressionStringConcatDefaultOutput) {
+    const auto client = new_test_client();
+
+    auto output_name = random_name("str_output");
+    auto output_ch = synnax::channel::Channel{
+        .name = output_name,
+        .data_type = x::telem::STRING_T,
+        .is_virtual = true,
+    };
+    ASSERT_NIL(client.channels.create(output_ch));
+
+    const std::string source = R"(
+func produce_str() str {
+    return "value=" + str(42) + " items"
+}
+produce_str{} -> )" + output_name;
+
+    auto str_st = std::make_shared<stl::str::State>();
+    auto series_st = std::make_shared<stl::series::State>();
+    auto var_st = std::make_shared<stl::stateful::Variables>();
+    auto channel_st = std::make_shared<stl::channel::State>();
+    auto stl_modules = build_stl_modules(channel_st, str_st, series_st, var_st);
+
+    auto mod = compile_arc(client, source);
+    auto wasm_mod = ASSERT_NIL_P(
+        wasm::Module::open({
+            .program = mod,
+            .modules = stl_modules,
+            .strings = str_st,
+        })
+    );
+
+    const auto *func_node = find_node_by_type(mod, "produce_str");
+    ASSERT_NE(func_node, nullptr);
+
+    state::State state(
+        state::Config{
+            .ir = (static_cast<arc::ir::IR>(mod)),
+            .channels = {{output_ch.key, x::telem::STRING_T, 0}}
+        },
+        arc::runtime::errors::noop_handler
+    );
+
+    auto node_state = ASSERT_NIL_P(state.node(func_node->key));
+    auto func = ASSERT_NIL_P(wasm_mod->func("produce_str"));
+
+    arc::ir::Node expr_node = *func_node;
+    expr_node.key = "expression_0";
+
+    wasm::Node node(mod, expr_node, std::move(node_state), func, wasm_mod->strings());
+
+    auto ctx = make_context();
+    std::vector<std::string> changed_outputs;
+    ctx.mark_changed = [&](size_t i) {
+        changed_outputs.push_back(func_node->outputs[i].name);
+    };
+
+    ASSERT_NIL(node.next(ctx));
+    ASSERT_EQ(changed_outputs.size(), 1);
+
+    auto result_state = ASSERT_NIL_P(state.node(func_node->key));
+    const auto &output = result_state.output(0);
+    ASSERT_EQ(output->size(), 1);
+    EXPECT_EQ(output->at<std::string>(0), "value=42 items");
+}
+
 /// @brief Node converts string channel inputs to handles for + operator.
 TEST(NodeTest, DISABLED_StringConcatWithChannelData) {
     const auto client = new_test_client();
