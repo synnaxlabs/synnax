@@ -8,6 +8,7 @@
 // included in the file licenses/APL.txt.
 
 export * from "@/flux/base/client";
+export * from "@/flux/base/queryCache";
 export * from "@/flux/base/store";
 export * from "@/flux/base/types";
 export * from "@/flux/form";
@@ -16,4 +17,5 @@ export * from "@/flux/Provider";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";
 export * from "@/flux/select";
+export * as Suspense from "@/flux/suspense";
 export * from "@/flux/update";

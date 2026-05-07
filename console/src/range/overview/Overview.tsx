@@ -9,7 +9,7 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex } from "@synnaxlabs/pluto";
+import { Flex, Flux } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
 import { type Layout } from "@/layout";
@@ -25,7 +25,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     className={CSS.BE("range", "overview")}
     gap="large"
   >
-    <Details rangeKey={layoutKey} />
+    <Flux.Suspense.Boundary>
+      <Details rangeKey={layoutKey} />
+    </Flux.Suspense.Boundary>
     <ChildRanges rangeKey={layoutKey} />
     <MetaData rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />

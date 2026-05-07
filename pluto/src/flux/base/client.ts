@@ -10,6 +10,7 @@
 import { type framer, type Synnax } from "@synnaxlabs/client";
 import { type destructor } from "@synnaxlabs/x";
 
+import { QueryCache } from "@/flux/base/queryCache";
 import {
   createStore,
   type InternalStore,
@@ -32,6 +33,7 @@ export class Client<ScopedStore extends Store = Store> {
   private readonly store: InternalStore;
   private readonly streamCloser: Promise<destructor.Async> | null = null;
   readonly client: Synnax | null;
+  readonly queryCache: QueryCache;
 
   constructor({
     client,
@@ -41,6 +43,7 @@ export class Client<ScopedStore extends Store = Store> {
     handleAsyncError,
   }: ClientArgs<ScopedStore>) {
     this.store = createStore(storeConfig, handleError);
+    this.queryCache = new QueryCache();
     this.client = client;
     if (client == null) return;
     openStreamer ??= client?.openStreamer.bind(client);
