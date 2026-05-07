@@ -2129,6 +2129,17 @@ export class DataType
   ]);
 }
 
+/** Shortest decimal string that round-trips through f32 — JS analogue of Go's strconv.FormatFloat(_, 'g', -1, 32). */
+export const stringifyFloat32 = (value: number): string => {
+  const f32 = Math.fround(value);
+  if (!Number.isFinite(f32)) return f32.toString();
+  for (let p = 1; p <= 9; p++) {
+    const s = f32.toPrecision(p);
+    if (Math.fround(parseFloat(s)) === f32) return parseFloat(s).toString();
+  }
+  return f32.toString();
+};
+
 /**
  * The Size of an element in bytes.
  */

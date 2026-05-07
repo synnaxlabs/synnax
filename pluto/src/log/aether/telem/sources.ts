@@ -14,6 +14,7 @@ import {
   type destructor,
   type Series,
   status as xstatus,
+  stringifyFloat32,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -146,13 +147,18 @@ export class StreamMultiChannelLog
         for (const [key, chMeta] of this.channelMeta) {
           const allocated = res.get(key);
           const isJSON = chMeta.dataType.equals(DataType.JSON);
+          const isF32 = chMeta.dataType.equals(DataType.FLOAT32);
           const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
               const raw = buf.at(i, true);
               this.entries.push({
                 channelKey: chMeta.key,
                 timestamp: now,
-                value: isJSON ? JSON.stringify(raw) : String(raw),
+                value: isJSON
+                  ? JSON.stringify(raw)
+                  : isF32
+                    ? stringifyFloat32(raw as number)
+                    : String(raw),
               });
               pushed++;
             }

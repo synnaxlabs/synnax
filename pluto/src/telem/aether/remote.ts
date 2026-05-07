@@ -16,6 +16,7 @@ import {
   primitive,
   type Series,
   status as xstatus,
+  stringifyFloat32,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -53,6 +54,7 @@ export class StreamChannelValue
   private readonly client: client.Client;
   private removeStreamHandler: destructor.Destructor | null = null;
   private leadingBuffer: Series | null = null;
+  private dataType: DataType | null = null;
   private valid = false;
   private readonly onStatusChange?: status.Adder;
   constructor(client: client.Client, props: unknown, options?: CreateOptions) {
@@ -81,6 +83,7 @@ export class StreamChannelValue
     // Clear out references.
     this.leadingBuffer = null;
     this.removeStreamHandler = null;
+    this.dataType = null;
   }
 
   value(): number {
@@ -89,7 +92,10 @@ export class StreamChannelValue
     if (!this.valid) void this.read();
     // No data has been received and no recent samples were fetched on initialization.
     if (this.leadingBuffer == null || this.leadingBuffer.length === 0) return NaN;
-    return this.leadingBuffer.at(-1, true) as number;
+    const v = this.leadingBuffer.at(-1, true) as number;
+    return this.dataType?.equals(DataType.FLOAT32)
+      ? parseFloat(stringifyFloat32(v))
+      : v;
   }
 
   private async read(): Promise<void> {
@@ -97,6 +103,7 @@ export class StreamChannelValue
       this.valid = true;
       this.removeStreamHandler?.();
       const ch = await this.client.retrieveChannel(this.props.channel);
+      this.dataType = ch.dataType;
       const handler: client.StreamHandler = (res) => {
         const data = res.get(ch.key);
         if (data == null) return;

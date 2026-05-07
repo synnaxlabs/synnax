@@ -17,6 +17,7 @@ import {
   Density,
   Rate,
   Size,
+  stringifyFloat32,
   TimeRange,
   TimeSpan,
   TimeStamp,
@@ -2188,5 +2189,76 @@ describe("convertDataType", () => {
   it("falls back to math.sub when neither source nor target use bigint", () => {
     const result = convertDataType(DataType.FLOAT32, DataType.FLOAT64, 5.5, 1.5);
     expect(result).toBe(4);
+  });
+});
+
+describe("stringifyFloat32", () => {
+  describe("typical decimals", () => {
+    it.each([
+      [1.234, "1.234"],
+      [0.1, "0.1"],
+      [100.5, "100.5"],
+      [-1.234, "-1.234"],
+      [3.14, "3.14"],
+    ])("%p -> %p", (input, expected) => {
+      expect(stringifyFloat32(input)).toBe(expected);
+    });
+  });
+
+  describe("integer-valued floats", () => {
+    it.each([
+      [0, "0"],
+      [1, "1"],
+      [-1, "-1"],
+      [1000000, "1000000"],
+      [-1000000, "-1000000"],
+    ])("%p -> %p", (input, expected) => {
+      expect(stringifyFloat32(input)).toBe(expected);
+    });
+  });
+
+  test("strips f64 widening noise", () => {
+    expect(stringifyFloat32(1.2339999675750732)).toBe("1.234");
+  });
+
+  test("signed zero renders as 0", () => {
+    expect(stringifyFloat32(-0)).toBe("0");
+  });
+
+  describe("very small values", () => {
+    test("Number.MIN_VALUE flushes to 0", () => {
+      expect(stringifyFloat32(Number.MIN_VALUE)).toBe("0");
+    });
+
+    test("subnormal f32 preserves f32 representation", () => {
+      const v = Math.fround(1e-40);
+      expect(Math.fround(parseFloat(stringifyFloat32(v)))).toBe(v);
+    });
+  });
+
+  describe("very large values", () => {
+    test("max representable f32 preserves f32 representation", () => {
+      const v = Math.fround(3.4e38);
+      expect(Math.fround(parseFloat(stringifyFloat32(v)))).toBe(v);
+    });
+
+    test("1e30 preserves f32 representation", () => {
+      const v = Math.fround(1e30);
+      expect(Math.fround(parseFloat(stringifyFloat32(v)))).toBe(v);
+    });
+  });
+
+  describe("non-finite", () => {
+    test("NaN", () => expect(stringifyFloat32(NaN)).toBe("NaN"));
+    test("Infinity", () => expect(stringifyFloat32(Infinity)).toBe("Infinity"));
+    test("-Infinity", () => expect(stringifyFloat32(-Infinity)).toBe("-Infinity"));
+  });
+
+  test("idempotent under round-trip", () => {
+    const cases = [1.234, 0.1, 100.5, -1.234, 1.2339999675750732, Math.PI, 1e-20];
+    for (const v of cases) {
+      const s = stringifyFloat32(v);
+      expect(stringifyFloat32(parseFloat(s))).toBe(s);
+    }
   });
 });

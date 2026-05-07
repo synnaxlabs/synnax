@@ -22,6 +22,7 @@ import {
   type scale,
   type Series,
   type SeriesDigest,
+  stringifyFloat32,
   TimeSpan,
   xy,
 } from "@synnaxlabs/x";
@@ -363,7 +364,10 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (ySeries == null) return result;
 
     const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    result.value.y = Number(ySeries.at(index - alignmentDiff));
+    const rawY = Number(ySeries.at(index - alignmentDiff));
+    result.value.y = ySeries.dataType.equals(DataType.FLOAT32)
+      ? parseFloat(stringifyFloat32(rawY))
+      : rawY;
 
     result.bounds = { ...ySeries.bounds };
 
