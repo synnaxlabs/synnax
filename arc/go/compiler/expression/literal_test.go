@@ -130,6 +130,43 @@ var _ = Describe("Literal Compilation", func() {
 		),
 	)
 
+	DescribeTable("should compile raw string literals",
+		expectExpression,
+
+		Entry(
+			"simple raw",
+			"`hi`",
+			types.String(),
+			OpI32Const, int32(0),
+			OpI32Const, int32(2),
+			OpCall, uint32(0),
+		),
+		Entry(
+			"empty raw",
+			"``",
+			types.String(),
+			OpI32Const, int32(0),
+			OpI32Const, int32(0),
+			OpCall, uint32(0),
+		),
+		Entry(
+			"multi-line raw preserves newline",
+			"`a\nb`",
+			types.String(),
+			OpI32Const, int32(0),
+			OpI32Const, int32(3),
+			OpCall, uint32(0),
+		),
+		Entry(
+			"escape chars verbatim",
+			"`\\n`",
+			types.String(),
+			OpI32Const, int32(0),
+			OpI32Const, int32(2),
+			OpCall, uint32(0),
+		),
+	)
+
 	Describe("Series Literal Compilation", func() {
 		Describe("Empty Series", func() {
 			DescribeTable("should compile empty series with type hint",

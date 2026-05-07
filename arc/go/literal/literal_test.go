@@ -325,6 +325,69 @@ var _ = Describe("Literal Parser", func() {
 		})
 	})
 
+	Describe("Raw string literals", func() {
+		DescribeTable("ParseRawString happy path",
+			func(input string, target types.Type, expected string) {
+				parsed := MustSucceed(literal.ParseRawString(input, target))
+				Expect(parsed.Value).To(Equal(expected))
+				Expect(parsed.Type).To(Equal(types.String()))
+			},
+			Entry("empty", "``", types.String(), ""),
+			Entry("simple", "`hello`", types.String(), "hello"),
+			Entry("with spaces", "`hello world`", types.String(), "hello world"),
+			Entry("double quotes inside", "`say \"hi\"`", types.String(), `say "hi"`),
+			Entry("backslash-n verbatim", "`a\\nb`", types.String(), `a\nb`),
+			Entry("backslash-t verbatim", "`col1\\tcol2`", types.String(), `col1\tcol2`),
+			Entry("backslash-quote verbatim", "`\\\"`", types.String(), `\"`),
+			Entry("real newline preserved", "`line1\nline2`", types.String(), "line1\nline2"),
+			Entry("three-line literal", "`a\nb\nc`", types.String(), "a\nb\nc"),
+			Entry("indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
+			Entry("tab char preserved", "`a\tb`", types.String(), "a\tb"),
+			Entry("unicode", "`°C`", types.String(), "°C"),
+			Entry("no target type infers string", "`hi`", types.Type{}, "hi"),
+		)
+
+		DescribeTable("ParseRawString errors",
+			func(input string, target types.Type, errSubstring string) {
+				Expect(literal.ParseRawString(input, target)).
+					Error().To(MatchError(ContainSubstring(errSubstring)))
+			},
+			Entry("non-string target type", "`hi`", types.I32(), "cannot assign string to"),
+			Entry("missing leading backtick", "hi`", types.String(), "invalid raw string literal"),
+			Entry("missing trailing backtick", "`hi", types.String(), "invalid raw string literal"),
+			Entry("single backtick too short", "`", types.String(), "invalid raw string literal"),
+			Entry("empty text too short", "", types.String(), "invalid raw string literal"),
+		)
+
+		Describe("Parse AST routing", func() {
+			It("Should route backtick literal to ParseRawString", func() {
+				lit := getLiteral("`hello`")
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("hello"))
+				Expect(parsed.Type).To(Equal(types.String()))
+			})
+
+			It("Should preserve real newlines in multi-line backtick literal", func() {
+				lit := getLiteral("`a\nb`")
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("a\nb"))
+			})
+
+			It("Should infer string type when no target type specified", func() {
+				lit := getLiteral("`hi`")
+				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
+				Expect(parsed.Value).To(Equal("hi"))
+				Expect(parsed.Type).To(Equal(types.String()))
+			})
+
+			It("Should still route regular string literals to ParseString", func() {
+				lit := getLiteral(`"hello\n"`)
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("hello\n"))
+			})
+		})
+	})
+
 	Describe("Series literals", func() {
 		It("Should return error for series literals (not supported for default values)", func() {
 			lit := getLiteral("[1, 2, 3]")

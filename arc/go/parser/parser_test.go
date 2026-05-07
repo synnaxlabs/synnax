@@ -952,6 +952,18 @@ func broken() {
 					Error().To(MatchError(ContainSubstring("mismatched input")))
 			})
 		})
+
+		Context("Raw String Literals", func() {
+			It("Should lex a multi-line raw string as a single STR_LITERAL_RAW token", func() {
+				expr := MustSucceed(parser.ParseExpression("`a\nb`"))
+				lit := parser.GetLiteral(expr)
+				Expect(lit).NotTo(BeNil())
+				rawTok := lit.STR_LITERAL_RAW()
+				Expect(rawTok).NotTo(BeNil())
+				Expect(rawTok.GetText()).To(Equal("`a\nb`"))
+				Expect(lit.STR_LITERAL()).To(BeNil())
+			})
+		})
 	})
 
 	Describe("Wrapper Functions", func() {
