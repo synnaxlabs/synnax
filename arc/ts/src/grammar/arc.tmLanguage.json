@@ -123,6 +123,11 @@
     "strings": {
       "patterns": [
         {
+          "name": "string.quoted.raw.arc",
+          "begin": "`",
+          "end": "`"
+        },
+        {
           "name": "string.quoted.double.arc",
           "begin": "\"",
           "end": "\"",

@@ -44,6 +44,9 @@ func Parse(
 	if str := literal.STR_LITERAL(); str != nil {
 		return ParseString(str.GetText(), targetType)
 	}
+	if str := literal.STR_LITERAL_RAW(); str != nil {
+		return ParseRawString(str.GetText(), targetType)
+	}
 	if series := literal.SeriesLiteral(); series != nil {
 		return ParsedValue{}, errors.New("series literals not supported for default values")
 	}
@@ -64,6 +67,19 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 		return ParsedValue{}, errors.Wrapf(err, "invalid string literal: %s", text)
 	}
 	return ParsedValue{Value: unquoted, Type: types.String()}, nil
+}
+
+// ParseRawString parses a raw string literal delimited by backticks and returns
+// its value and type. The body is returned verbatim with no escape
+// interpretation; embedded newlines and tabs are preserved as-is.
+func ParseRawString(text string, targetType types.Type) (ParsedValue, error) {
+	if targetType.IsValid() && targetType.Kind != types.KindString {
+		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
+	}
+	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+		return ParsedValue{}, errors.Newf("invalid raw string literal: %s", text)
+	}
+	return ParsedValue{Value: text[1 : len(text)-1], Type: types.String()}, nil
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
