@@ -57,7 +57,7 @@ export const useNavDrawer = (
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
-    (size) => {
+    (size: number) => {
       dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
     TimeSpan.milliseconds(100),
