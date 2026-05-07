@@ -719,6 +719,54 @@ describe("log/aether/Log", () => {
       // Should contain scientific notation (uses unicode ᴇ)
       expect(log.state.selectedText).toMatch(/[eEᴇ]/);
     });
+
+    it("should render continuation entries without name/timestamp but aligned to the value column", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "hello" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "world",
+          continuation: true,
+        },
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 2,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toContain("[log]");
+      expect(lines[0]).toContain("hello");
+      // Continuation: no [log], but leading whitespace preserves value alignment.
+      expect(lines[1]).not.toContain("[log]");
+      expect(lines[1]).toMatch(/^\s+world$/);
+      expect(lines[1].indexOf("world")).toBe(lines[0].indexOf("hello"));
+      expect(lines[2]).toContain("[log]");
+      expect(lines[2]).toContain("again");
+    });
+
+    it("should render an entry with empty value but no continuation flag with its prefix intact", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      const [line] = log.state.selectedLines.map((l) => l.text);
+      expect(line).toContain("[log]");
+    });
   });
 
   describe("selectedText and selectedLines", () => {

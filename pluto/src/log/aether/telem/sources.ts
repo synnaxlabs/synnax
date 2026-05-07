@@ -146,15 +146,26 @@ export class StreamMultiChannelLog
         for (const [key, chMeta] of this.channelMeta) {
           const allocated = res.get(key);
           const isJSON = chMeta.dataType.equals(DataType.JSON);
+          const isString = chMeta.dataType.equals(DataType.STRING);
           const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
-              const raw = buf.at(i, true);
-              this.entries.push({
-                channelKey: chMeta.key,
-                timestamp: now,
-                value: isJSON ? JSON.stringify(raw) : String(raw),
-              });
-              pushed++;
+              const value = isJSON
+                ? JSON.stringify(buf.at(i, true))
+                : String(buf.at(i, true));
+              if (!isString || !value.includes("\n")) {
+                this.entries.push({ channelKey: chMeta.key, timestamp: now, value });
+                pushed++;
+                continue;
+              }
+              const lines = value.split("\n");
+              for (let j = 0; j < lines.length; j++)
+                this.entries.push({
+                  channelKey: chMeta.key,
+                  timestamp: now,
+                  value: lines[j],
+                  continuation: j > 0,
+                });
+              pushed += lines.length;
             }
           };
           if (allocated != null && allocated.series.length > 0) {

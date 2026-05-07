@@ -370,6 +370,101 @@ describe("StreamMultiChannelLog", () => {
     expect(log.evictedCount).toBe(0);
   });
 
+  describe("newline handling", () => {
+    it("should split a string sample on \\n into multiple entries", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.STRING,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: ["line1\nline2\n"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries).toHaveLength(3);
+      expect(entries.map((e) => e.value)).toEqual(["line1", "line2", ""]);
+      expect(entries.map((e) => e.continuation === true)).toEqual([false, true, true]);
+      expect(entries.every((e) => e.channelKey === c.channelA.key)).toBe(true);
+      const ts = entries[0].timestamp;
+      expect(entries.every((e) => e.timestamp === ts)).toBe(true);
+    });
+
+    it("should preserve consecutive newlines as blank entries", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.STRING,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: ["a\n\nb"] });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      expect(log.value().map((e) => e.value)).toEqual(["a", "", "b"]);
+    });
+
+    it("should produce a single non-continuation entry for a string with no \\n", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.STRING,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: ["hello world", ""] });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries).toHaveLength(2);
+      expect(entries[0].value).toBe("hello world");
+      expect(entries[0].continuation === true).toBe(false);
+      // An explicit empty write is NOT a continuation — the prefix should still
+      // render. Only entries produced by a \n split are continuations.
+      expect(entries[1].value).toBe("");
+      expect(entries[1].continuation === true).toBe(false);
+    });
+
+    it("should not split numeric channel values", async () => {
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: new Float32Array([1, 2, 3]) });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries).toHaveLength(3);
+      expect(entries.map((e) => e.value)).toEqual(["1", "2", "3"]);
+    });
+
+    it("should not split JSON channel values that contain \\n", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.JSON,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({ data: [{ msg: "hi\nthere" }] });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
+    });
+  });
+
   describe("setChannels", () => {
     it("should be a no-op when channels have not changed", async () => {
       const props: StreamMultiChannelLogProps = {
