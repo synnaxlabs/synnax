@@ -10,9 +10,11 @@
 package http_test
 
 import (
+	"context"
 	"net/http"
 	"time"
 
+	ws "github.com/fasthttp/websocket"
 	"github.com/gofiber/fiber/v3"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -21,6 +23,8 @@ import (
 	"github.com/synnaxlabs/freighter/test"
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/encoding/json"
+	"github.com/synnaxlabs/x/net"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Stream", Ordered, Serial, func() {
@@ -32,19 +36,18 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 	)
 
 	BeforeAll(func() {
-		addr = "localhost:8080"
+		addr = address.Newf("localhost:%d", MustSucceed(net.FindOpenPort()))
 		app = fiber.New(fiber.Config{})
-		router := fhttp.NewRouter(fhttp.RouterConfig{
+		router := MustSucceed(fhttp.NewRouter(fhttp.RouterConfig{
 			StreamWriteDeadline: test.WriteDeadline,
-		})
-		factory := fhttp.NewClientFactory(fhttp.ClientFactoryConfig{
-			Codec: json.Codec,
-		})
+		}))
 		app.Get("/health", func(c fiber.Ctx) error {
 			return c.SendStatus(fiber.StatusOK)
 		})
-		server = fhttp.StreamServer[test.Request, test.Response](router, "/")
-		client = fhttp.StreamClient[test.Request, test.Response](factory)
+		server = fhttp.NewStreamServer[test.Request, test.Response](router, "/")
+		client = MustSucceed(fhttp.NewStreamClient[test.Request, test.Response](
+			fhttp.StreamClientConfig{Codec: json.Codec},
+		))
 		router.BindTo(app)
 		go func() {
 			defer GinkgoRecover()
@@ -66,5 +69,33 @@ var _ = Describe("Stream", Ordered, Serial, func() {
 		address.Address,
 	) {
 		return server, client, addr
+	})
+
+	Describe("Report", func() {
+		It("should report the stream server's protocol and the content types it can negotiate at upgrade time", func() {
+			report := server.Report()
+			Expect(report["protocol"]).To(Equal("websocket"))
+			Expect(report["encodings"]).To(Equal([]string{
+				"application/json", "application/msgpack",
+			}))
+		})
+	})
+
+	Describe("Upgrade Negotiation", func() {
+		It("should return 415 Unsupported Media Type when the upgrade request advertises a Content-Type with no registered codec", func(ctx context.Context) {
+			headers := http.Header{}
+			headers.Set(fiber.HeaderContentType, "application/x-no-such-codec")
+			_, res, err := (&ws.Dialer{}).DialContext(ctx, "ws://"+addr.String()+"/", headers)
+			Expect(err).To(MatchError(ws.ErrBadHandshake))
+			Expect(res).ToNot(BeNil())
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			Expect(res.StatusCode).To(Equal(http.StatusUnsupportedMediaType))
+		})
+
+		It("should return 426 Upgrade Required when the request is not a websocket upgrade", func() {
+			res := MustSucceed(http.Get("http://" + addr.String() + "/"))
+			DeferCleanup(func() { Expect(res.Body.Close()).To(Succeed()) })
+			Expect(res.StatusCode).To(Equal(http.StatusUpgradeRequired))
+		})
 	})
 })

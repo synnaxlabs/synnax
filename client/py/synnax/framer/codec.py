@@ -334,7 +334,7 @@ class Codec:
 
 LOW_PERF_SPECIAL_CHAR = 254
 HIGH_PERF_SPECIAL_CHAR = 255
-CONTENT_TYPE = "application/sy-framer"
+CONTENT_TYPE = "application/vnd.synnax.frame"
 
 
 class WSFramerCodec(FreighterCodec):
