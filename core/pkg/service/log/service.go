@@ -71,7 +71,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
-	ServiceConfig
+	cfg   ServiceConfig
 	table *gorp.Table[Key, Log]
 }
 
@@ -91,7 +91,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	s := &Service{ServiceConfig: cfg, table: table}
+	s := &Service{cfg: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
 	cfg.ImEx.RegisterImportExporter(s)
@@ -105,16 +105,16 @@ func (s *Service) Close() error { return s.table.Close() }
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer will
 // execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
-	tx = gorp.OverrideTx(s.DB, tx)
+	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	return Writer{
 		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
+		otgWriter: s.cfg.Ontology.NewWriter(tx),
+		otg:       s.cfg.Ontology,
 		table:     s.table,
 	}
 }
 
 // NewRetrieve opens a new query build for retrieving logs from Synnax.
 func (s *Service) NewRetrieve() Retrieve {
-	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.DB}
+	return Retrieve{gorp: s.table.NewRetrieve(), baseTX: s.cfg.DB}
 }

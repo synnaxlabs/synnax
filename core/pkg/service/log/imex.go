@@ -69,10 +69,7 @@ func migrateData(version imex.Version, data map[string]any) (v1.Data, error) {
 	}
 }
 
-func (s *Service) Export(
-	ctx context.Context,
-	key string,
-) (imex.Envelope, error) {
+func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error) {
 	k, err := uuid.Parse(key)
 	if err != nil {
 		return imex.Envelope{}, err
@@ -84,7 +81,7 @@ func (s *Service) Export(
 	var d v1.Data
 	if l.Data != nil {
 		if err := l.Data.Unmarshal(&d); err != nil {
-			return imex.Envelope{}, errors.Wrap(err, "decode stored log data")
+			return imex.Envelope{}, err
 		}
 	}
 	data, err := structToMap(d)
