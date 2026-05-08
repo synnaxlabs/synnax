@@ -13,6 +13,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -70,9 +71,9 @@ const primeCache = async (Wrapper: FC<PropsWithChildren>, key: schematic.Key) =>
   await act(async () => {
     utils = render(
       <Wrapper>
-        <Flux.Suspense loading={<div>loading</div>}>
+        <Errors.SuspenseBoundary loading={<div>loading</div>}>
           <Display />
-        </Flux.Suspense>
+        </Errors.SuspenseBoundary>
       </Wrapper>,
     );
   });

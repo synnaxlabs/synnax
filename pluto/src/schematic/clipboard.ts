@@ -94,7 +94,7 @@ export const useClipboard = ({
   selected,
   onPaste,
 }: UseClipboardArgs): UseClipboardReturn => {
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const store = Flux.useStore<FluxSubStore>();
   const selectedRef = useSyncedRef(selected ?? []);
 
