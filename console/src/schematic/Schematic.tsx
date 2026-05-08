@@ -365,6 +365,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const modals = Layout.useSelectWindowModals();
   Diagram.useTriggers({
     onCopy: handleCopySelection,
     onPaste: handlePasteSelection,
@@ -373,6 +374,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     onUndo: undo,
     onRedo: redo,
     region: ref,
+    disabled: modals.length > 0,
   });
 
   return (
