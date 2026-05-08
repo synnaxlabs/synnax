@@ -269,11 +269,17 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
+	if l.ImEx, err = imex.OpenService(ctx, imex.ServiceConfig{
+		DB: cfg.Distribution.DB,
+	}); !ok(err, nil) {
+		return nil, err
+	}
 	if l.Log, err = log.OpenService(ctx, log.ServiceConfig{
 		Instrumentation: cfg.Child("log"),
 		DB:              cfg.Distribution.DB,
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
+		ImEx:            l.ImEx,
 	}); !ok(err, l.Log) {
 		return nil, err
 	}
@@ -410,8 +416,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		}); !ok(err, l.Metrics) {
 		return nil, err
 	}
-	l.ImEx = imex.NewService(cfg.Distribution.DB)
-	l.ImEx.Register("log", l.Log)
 	arcFactory, err := arcruntime.NewFactory(arcruntime.FactoryConfig{
 		Instrumentation: cfg.Child("arc.runtime"),
 		Channel:         l.Channel,

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -63,10 +64,12 @@ var (
 				Search:   searchIdx,
 			}))
 		)
+		imexSvc := MustSucceed(imex.OpenService(ctx, imex.ServiceConfig{DB: db}))
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,
 			Search:   searchIdx,
+			ImEx:     imexSvc,
 		}))
 		author := user.User{Username: "test"}
 		Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())

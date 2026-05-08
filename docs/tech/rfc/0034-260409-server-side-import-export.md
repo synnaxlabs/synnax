@@ -157,10 +157,10 @@ multi-resource bundling, and that is the right time to design bundle import/expo
 
 Establishing ontology relationships between imported resources and their containers
 (associating an imported schematic with a workspace, attaching an imported task to a
-rack, etc.) is also out of scope for this iteration. Imported resources are persisted
-as standalone entities; container association is being reconsidered alongside the
-workspace→project rework above and will be designed at that point. As a consequence,
-the `Importer` interface (§4.5) does not take a parent ontology ID.
+rack, etc.) is also out of scope for this iteration. Imported resources are persisted as
+standalone entities; container association is being reconsidered alongside the
+workspace→project rework above and will be designed at that point. As a consequence, the
+`Importer` interface (§4.5) does not take a parent ontology ID.
 
 Strongly typing the visualization `data` field (replacing `EncodedJSON` with
 Oracle-defined fields) is also out of scope. The import/export system works regardless
@@ -259,9 +259,9 @@ Each frozen type defines a floor version. The dispatcher first guards against ve
 newer than the latest known schema (returning an unsupported-version error), then
 matches the highest floor that the incoming version satisfies, parses with that schema,
 and runs the migration chain up to the current version. Each service open-codes its own
-dispatch — the rejection-and-walk logic is small enough that hand-writing it per
-service is acceptable for now, and centralizing it into a generic helper is a possible
-future refactor.
+dispatch — the rejection-and-walk logic is small enough that hand-writing it per service
+is acceptable for now, and centralizing it into a generic helper is a possible future
+refactor.
 
 ```go
 func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
@@ -400,19 +400,19 @@ type ImportPayload struct {
 }
 ```
 
-`Type` is stripped because the central registry has already routed by it — by the time
-a handler is called, the type is implicit. `Key` is stripped because the original key
-is ignored on import (see §6.6) and including it on the handler-facing struct invites
+`Type` is stripped because the central registry has already routed by it — by the time a
+handler is called, the type is implicit. `Key` is stripped because the original key is
+ignored on import (see §6.6) and including it on the handler-facing struct invites
 accidental use. `Data` is the already-decoded resource map, not raw bytes: the HTTP
 layer's portable codec (JSON today; YAML/TOML later) decodes once at the boundary, and
 the registry passes the map through. This makes Importer implementations independent of
-which codec produced the bytes. The central `imex.Service` translates wire `Envelope`
-→ `ImportPayload` before invoking the handler.
+which codec produced the bytes. The central `imex.Service` translates wire `Envelope` →
+`ImportPayload` before invoking the handler.
 
 `Import` takes a `gorp.Tx` because the central registry runs the entire import batch in
-a single transaction — all resources are persisted atomically or not at all. It does
-not take a parent ontology ID: container association is out of scope for this iteration
-(see §4.0).
+a single transaction — all resources are persisted atomically or not at all. It does not
+take a parent ontology ID: container association is out of scope for this iteration (see
+§4.0).
 
 `Import` returns `(string, error)`: the freshly-generated UUID of the newly created
 resource. The central service collects these keys across the batch and returns them in
@@ -420,19 +420,18 @@ the import response so the client can immediately link to or operate on the impo
 resources without a follow-up lookup.
 
 `Export` does not take a `gorp.Tx`. Exports are read-only, and batched exports tolerate
-independent snapshot times across resources. Handlers use the service's normal read
-path (e.g., its existing `Retrieve` builder against the service's own DB) rather than
+independent snapshot times across resources. Handlers use the service's normal read path
+(e.g., its existing `Retrieve` builder against the service's own DB) rather than
 threading a transaction through.
 
 The handler validates `payload.Data` with the version-specific Zyn schema, parses into
-the matched frozen type, runs the migration chain, and calls `Writer.Create`. `Name`
-is available on the payload's promoted field for identity, and is also present in the
+the matched frozen type, runs the migration chain, and calls `Writer.Create`. `Name` is
+available on the payload's promoted field for identity, and is also present in the
 Zyn-parsed struct since `name` remains in the data map.
 
 `Export` returns an `Envelope` with `Type`, `Version`, `Key`, `Name`, and `Data`
-populated. Each handler stamps its own latest schema version. The central
-`imex.Service` does not stamp version because each resource type owns its own version
-sequence.
+populated. Each handler stamps its own latest schema version. The central `imex.Service`
+does not stamp version because each resource type owns its own version sequence.
 
 ## 4.6 - Central Registry and API Layer
 
@@ -493,8 +492,8 @@ registration of importers and exporters via `Register`, `RegisterImporter`, and
 `RegisterExporter`. This supports task subtypes that only need importer registration
 (see section 4.7).
 
-Import runs all envelopes within a single database transaction. If any import fails,
-the entire batch rolls back. The registry strips `Type` and `Key` from each incoming
+Import runs all envelopes within a single database transaction. If any import fails, the
+entire batch rolls back. The registry strips `Type` and `Key` from each incoming
 `Envelope` to build the `ImportPayload` the handler sees, collects the new key each
 handler returns, and surfaces those keys to the API layer in batch order so the client
 can correlate request envelopes to created resources.
@@ -541,9 +540,8 @@ migration dispatch (§4.3.2) needs:
 
 Each service still hand-writes its `migrateData` switch (§4.3.2) — the future-version
 guard, the floor matching, and the chain of `vN.Schema.Parse` + `vN+1.Migrate` calls.
-Centralizing that switch into a generic `imex` helper is a possible future refactor;
-for now the boilerplate is small enough that per-service open-coding wins on
-readability.
+Centralizing that switch into a generic `imex` helper is a possible future refactor; for
+now the boilerplate is small enough that per-service open-coding wins on readability.
 
 Format-specific marshaling and unmarshaling (JSON today; YAML and TOML later) live in
 the HTTP layer (§4.6.1). Oracle does not generate format-specific import/export

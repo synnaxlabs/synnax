@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -163,8 +164,12 @@ type Exporter interface {
 	Export(ctx context.Context, key string) (Envelope, error)
 }
 
-// ImporterExporter combines both interfaces.
+// ImporterExporter handles both halves of import/export for a single resource
+// type. Type identifies the resource type the handler is responsible for and
+// is used to route incoming envelopes and outgoing export requests.
 type ImporterExporter interface {
 	Importer
 	Exporter
+	// Type returns the ontology resource type this handler is responsible for.
+	Type() ontology.ResourceType
 }
