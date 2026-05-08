@@ -497,9 +497,7 @@ describe("StreamMultiChannelLog", () => {
       c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
       const entries = log.value();
       expect(entries).toHaveLength(1);
-      expect(entries[0].value).toBe(
-        '{"user_id":1,"first_name":"alice"}',
-      );
+      expect(entries[0].value).toBe('{"user_id":1,"first_name":"alice"}');
     });
 
     it("should not leave orphan continuation entries at the head when maxEntries eviction cuts mid-group", async () => {
