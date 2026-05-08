@@ -27,8 +27,10 @@ import { Node } from "@/schematic/node";
 import {
   useAddNode,
   useDispatch,
+  useRedo,
   useSelectAllEdges,
   useSelectAllNodes,
+  useUndo,
 } from "@/schematic/queries";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
@@ -56,7 +58,7 @@ export const Schematic = ({
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
   const edges = useSelectAllEdges({ key });
-  const { update: dispatch } = useDispatch();
+  const { dispatch } = useDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
       const actions = nodeChangesToActions(changes);
@@ -104,14 +106,16 @@ export const Schematic = ({
   });
 
   const handleClearSelection = useCallback(() => onSelectionChange?.([]), []);
+  const { undo } = useUndo({ key });
+  const { redo } = useRedo({ key });
 
   BaseDiagram.useTriggers({
     onCopy: () => {},
     onPaste: () => {},
     onSelectAll: () => {},
     onClear: handleClearSelection,
-    onUndo: () => {},
-    onRedo: () => {},
+    onUndo: undo,
+    onRedo: redo,
     region: ref,
   });
 

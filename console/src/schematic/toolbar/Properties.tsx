@@ -72,7 +72,7 @@ const IndividualConfig = ({
   elKey,
 }: IndividualConfigProps): ReactElement | null => {
   const config = Schematic.useSelectElementConfig({ key: layoutKey, elKey });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
 
   const onChange = (key: string, next: Schematic.ElementConfig): void => {
     dispatch({
@@ -132,7 +132,7 @@ const MultiElementProperties = ({
     keys: selected,
   });
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
-  const { update: dispatch } = Schematic.useDispatch();
+  const { dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
 
   const configByKey = useMemo(() => {

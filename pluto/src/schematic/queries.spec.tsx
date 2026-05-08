@@ -295,7 +295,7 @@ describe("schematic queries", () => {
       });
 
       await act(async () => {
-        await dispatchHook.current.updateAsync({
+        await dispatchHook.current.dispatchAsync({
           key: schem.key,
           actions: [
             schematic.setNodePosition({
