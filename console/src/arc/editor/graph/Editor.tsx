@@ -127,8 +127,6 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
   const [undoableDispatch, undo, redo] = useUndoableDispatch<RootState, State>(
     selector,
     internalCreate,
-    // roughly the right time needed to prevent actions that get dispatch automatically
-    // by Diagram.tsx, like setNodes immediately following addElement
     TimeSpan.milliseconds(30),
   );
 
