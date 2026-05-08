@@ -140,6 +140,18 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
 			Expect(tokens[1].Length).To(Equal(uint32(1)))
 		})
+
+		It("skips empty lines in a raw literal with consecutive newlines", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `a\n\nb`")
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			Expect(tokens).To(HaveLen(2))
+			Expect(tokens[0].Line).To(Equal(uint32(0)))
+			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
+			Expect(tokens[0].Length).To(Equal(uint32(2)))
+			Expect(tokens[1].Line).To(Equal(uint32(2)))
+			Expect(tokens[1].StartChar).To(Equal(uint32(0)))
+			Expect(tokens[1].Length).To(Equal(uint32(2)))
+		})
 	})
 
 	Describe("Token Type Routing", func() {

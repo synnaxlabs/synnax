@@ -118,12 +118,14 @@ func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []l
 		if text[i] != '\n' {
 			continue
 		}
-		tokens = append(tokens, lsp.Token{
-			Line:      line,
-			StartChar: startChar,
-			Length:    uint32(i - lineStart),
-			TokenType: tokenType,
-		})
+		if i > lineStart {
+			tokens = append(tokens, lsp.Token{
+				Line:      line,
+				StartChar: startChar,
+				Length:    uint32(i - lineStart),
+				TokenType: tokenType,
+			})
+		}
 		line++
 		startChar = 0
 		lineStart = i + 1
