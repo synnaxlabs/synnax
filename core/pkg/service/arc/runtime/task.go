@@ -164,6 +164,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		arcstatus.NewModule(t.factoryCfg.Status),
 		stlauthority.NewModule(drt.state.authority),
 		mathMod,
+		stringsMod,
 	}
 
 	if len(t.prog.Program.WASM) > 0 {
