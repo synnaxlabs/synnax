@@ -480,6 +480,28 @@ describe("StreamMultiChannelLog", () => {
       expect(entries[0].value).toBe(JSON.stringify({ msg: "hi\nthere" }));
     });
 
+    it("should preserve raw snake_case keys in JSON channel values", async () => {
+      c.channelA = new channel.Channel({
+        ...c.channelA,
+        dataType: DataType.JSON,
+      });
+      const props: StreamMultiChannelLogProps = {
+        channels: [c.channelA.key],
+        timeSpan: TimeSpan.seconds(30),
+      };
+      const log = new StreamMultiChannelLog(c, props);
+      await waitForResolve(log);
+      const series = new Series({
+        data: [{ user_id: 1, first_name: "alice" }],
+      });
+      c.streamHandler?.(new Map([[c.channelA.key, new MultiSeries([series])]]));
+      const entries = log.value();
+      expect(entries).toHaveLength(1);
+      expect(entries[0].value).toBe(
+        '{"user_id":1,"first_name":"alice"}',
+      );
+    });
+
     it("should not leave orphan continuation entries at the head when maxEntries eviction cuts mid-group", async () => {
       c.channelA = new channel.Channel({
         ...c.channelA,
