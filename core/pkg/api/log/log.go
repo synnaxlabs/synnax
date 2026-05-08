@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,8 +44,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	CreateRequest struct {
-		Logs      []log.Log `json:"logs" msgpack:"logs"`
-		Workspace log.Key   `json:"workspace" msgpack:"workspace"`
+		Logs      []log.Log     `json:"logs" msgpack:"logs"`
+		Workspace workspace.Key `json:"workspace" msgpack:"workspace"`
 	}
 	CreateResponse struct {
 		Logs []log.Log `json:"logs" msgpack:"logs"`

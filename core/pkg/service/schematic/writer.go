@@ -40,7 +40,7 @@ type Writer struct {
 // schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws Key,
+	ws workspace.Key,
 	s *Schematic,
 ) (err error) {
 	var exists bool

@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
+	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 )
@@ -43,7 +44,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type CreateRequest struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
-	Workspace lineplot.Key        `json:"workspace" msgpack:"workspace"`
+	Workspace workspace.Key       `json:"workspace" msgpack:"workspace"`
 }
 
 type CreateResponse struct {

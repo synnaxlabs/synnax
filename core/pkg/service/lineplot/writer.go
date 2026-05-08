@@ -26,7 +26,7 @@ type Writer struct {
 
 func (w Writer) Create(
 	ctx context.Context,
-	ws Key,
+	ws workspace.Key,
 	p *LinePlot,
 ) (err error) {
 	var exists bool

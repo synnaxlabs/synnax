@@ -33,7 +33,7 @@ type Writer struct {
 // have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws Key,
+	ws workspace.Key,
 	s *Log,
 ) (err error) {
 	var exists bool
