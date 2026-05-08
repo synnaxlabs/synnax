@@ -19,6 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -488,6 +489,21 @@ func analyzeFunctionNode(
 	return newNodeResult(n, firstInputParam(n.Inputs), firstOutputParam(n.Outputs)), true
 }
 
+// hasFmtPlaceholder reports whether body contains any `{...}` placeholder.
+// Malformed bodies return false so the analyzer surfaces the parse error.
+func hasFmtPlaceholder(body string) bool {
+	segments, err := fmtstring.Parse(body)
+	if err != nil {
+		return false
+	}
+	for _, seg := range segments {
+		if seg.IsPlaceholder {
+			return true
+		}
+	}
+	return false
+}
+
 func analyzeExpression(
 	ctx acontext.Context[parser.IExpressionContext],
 	kg *keyGenerator,
@@ -505,6 +521,20 @@ func analyzeExpression(
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
+		}
+		if rawStr := literalCtx.STR_LITERAL_RAW(); rawStr != nil {
+			body, _ := parsedValue.Value.(string)
+			if hasFmtPlaceholder(body) {
+				key := kg.generate("fmt", "")
+				n := ir.Node{
+					Key:      key,
+					Type:     "string.fmt",
+					Channels: types.NewChannels(),
+					Config:   types.Params{{Name: "format", Type: types.String(), Value: body}},
+					Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+				}
+				return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
+			}
 		}
 		key := kg.generate("const", "")
 		n := ir.Node{

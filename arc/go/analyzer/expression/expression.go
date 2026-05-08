@@ -400,9 +400,6 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			if funcName != "len" && funcName != "series.len" {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
-			if funcName == "string.fmt" {
-				analyzeStringFmtPlaceholders(ctx, funcCalls[0])
-			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
 				propagateChannelsWithArgMap(callerFn, scope, argChannels)
@@ -527,7 +524,16 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 		}
 		return
 	}
-	if ctx.AST.Literal() != nil {
+	if lit := ctx.AST.Literal(); lit != nil {
+		if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
+			parsed, err := literal.ParseRawString(rawStr.GetText(), basetypes.String())
+			if err != nil {
+				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+				return
+			}
+			body, _ := parsed.Value.(string)
+			AnalyzeStringFmtSegments(ctx, body, ctx.AST)
+		}
 		return
 	}
 	if expr := ctx.AST.Expression(); expr != nil {

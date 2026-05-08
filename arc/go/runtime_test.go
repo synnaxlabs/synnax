@@ -88,7 +88,6 @@ func newRuntimeHarness(
 		stable.NewModule(),
 		authority.NewModule(authorityState),
 		mathMod,
-		stringsMod,
 	}
 
 	h := &runtimeHarness{

@@ -11,17 +11,11 @@ package strings
 
 import (
 	"context"
-	"reflect"
 	"strconv"
 
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/query"
-	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/validate"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 )
@@ -135,9 +129,10 @@ var SymbolResolver = &symbol.ModuleResolver{
 			}),
 		},
 		fmtSymbolName: {
-			Name: fmtSymbolName,
-			Kind: symbol.KindFunction,
-			Exec: symbol.ExecBoth,
+			Name:     fmtSymbolName,
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecBoth,
+			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: formatConfigParam, Type: types.String()}},
 				Config:  types.Params{{Name: formatConfigParam, Type: types.String()}},
@@ -225,57 +220,8 @@ func NewModule(
 		WithFunc(func(_ context.Context, v float64) uint32 {
 			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
 		}).Export("from_f64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, handle uint32) uint32 {
-			return handle
-		}).Export("fmt")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
 	return m, nil
 }
-
-func (m *Module) ModuleName() string { return "string" }
-
-func (m *Module) Create(_ context.Context, cfg node.Config) (node.Node, error) {
-	if cfg.Node.Type != fmtSymbolName {
-		return nil, query.ErrNotFound
-	}
-	formatParam, ok := cfg.Node.Config.Get(formatConfigParam)
-	if !ok {
-		return nil, query.ErrNotFound
-	}
-	format, ok := formatParam.Value.(string)
-	if !ok {
-		return nil, errors.Wrapf(
-			validate.ErrValidation,
-			"configuration parameter %s has invalid type, expected string, received %s",
-			formatParam.Name,
-			reflect.TypeOf(formatParam.Value).Name(),
-		)
-	}
-	return &fmtNode{State: cfg.State, format: format}, nil
-}
-
-// fmtNode emits its configured format string verbatim each time the upstream
-// trigger fires.
-type fmtNode struct {
-	*node.State
-	format string
-}
-
-func (f *fmtNode) Init(_ node.Context) {}
-
-func (f *fmtNode) Next(ctx node.Context) {
-	if !f.RefreshInputs() {
-		return
-	}
-	output := f.Output(0)
-	outputTime := f.OutputTime(0)
-	output.Data = telem.NewSeriesV[string](f.format).Data
-	outputTime.Resize(1)
-	telem.SetValueAt[telem.TimeStamp](*outputTime, 0, telem.TimeStamp(ctx.Elapsed))
-	ctx.MarkChanged(0)
-}
-
-func (f *fmtNode) Reset() { f.State.Reset() }

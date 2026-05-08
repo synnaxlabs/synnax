@@ -11,6 +11,7 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
+	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -27,12 +28,28 @@ func compileLiteral(
 		return compileStringLiteral(ctx, literal.ParseString, str.GetText())
 	}
 	if str := ctx.AST.STR_LITERAL_RAW(); str != nil {
-		return compileStringLiteral(ctx, literal.ParseRawString, str.GetText())
+		return compileRawStringLiteral(ctx, str.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
 	}
 	return types.Type{}, errors.New("unknown literal type")
+}
+
+func compileRawStringLiteral(
+	ctx context.Context[parser.ILiteralContext],
+	text string,
+) (types.Type, error) {
+	parsed, err := literal.ParseRawString(text, types.String())
+	if err != nil {
+		return types.Type{}, err
+	}
+	body, _ := parsed.Value.(string)
+	segments, err := fmtstring.Parse(body)
+	if err != nil {
+		return types.Type{}, err
+	}
+	return EmitFmtSegments(ctx, segments)
 }
 
 func compileStringLiteral(

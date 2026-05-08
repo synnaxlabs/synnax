@@ -13,52 +13,10 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/fmtstring"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
-
-// compileStringFmt lowers a `string.fmt(format)` call when format is a string
-// literal: literal segments become string.from_literal pushes, placeholder
-// segments compile their expression and (for numerics) convert to string via
-// EmitNumericToString. Segments are joined left-to-right with string.concat.
-//
-// When format is not a literal the call falls through to the regular call
-// path so the runtime helper is invoked.
-func compileStringFmt(
-	ctx context.Context[parser.IPostfixExpressionContext],
-	scope *symbol.Scope,
-	funcCall parser.IFunctionCallSuffixContext,
-) (types.Type, error) {
-	argList := funcCall.ArgumentList()
-	if argList == nil {
-		return types.Type{}, errors.New("string.fmt requires a format argument")
-	}
-	args := argList.AllExpression()
-	if len(args) == 0 {
-		return types.Type{}, errors.New("string.fmt requires a format argument")
-	}
-	formatArg := args[0]
-	litNode := parser.GetLiteral(formatArg)
-	if litNode == nil {
-		return compileFunctionCallExpr(ctx, "string.fmt", scope, funcCall)
-	}
-	parsed, err := literal.Parse(litNode, types.String())
-	if err != nil {
-		return types.Type{}, err
-	}
-	body, ok := parsed.Value.(string)
-	if !ok {
-		return types.Type{}, errors.New("string.fmt format argument must be a string literal")
-	}
-	segments, err := fmtstring.Parse(body)
-	if err != nil {
-		return types.Type{}, err
-	}
-	return EmitFmtSegments(ctx, segments)
-}
 
 // EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
 // literals emit string.from_literal, placeholders compile their expression.

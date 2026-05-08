@@ -26,10 +26,8 @@ const stringFmtNodeType = "string.fmt"
 // compiler.
 const StringFmtSyntheticPrefix = "fmt$"
 
-// RewriteStringFmtNodes appends a synthetic Function for each flow-form
-// string.fmt node whose format literal contains placeholders, rewrites the
-// node's Type to the synthetic key, and clears Inputs/Config. Placeholder-free
-// nodes are left untouched for the fmtNode runtime path.
+// RewriteStringFmtNodes synthesizes a Function per placeholder-bearing string.fmt
+// node and rewrites the node to reference it. Placeholder-free backticks fold upstream.
 func RewriteStringFmtNodes(nodes Nodes, functions *Functions) {
 	for idx := range nodes {
 		n := &nodes[idx]
@@ -58,14 +56,7 @@ func RewriteStringFmtNodes(nodes Nodes, functions *Functions) {
 		if !hasPlaceholder {
 			continue
 		}
-		// Sanitize "." in n.Key: CompoundFactory.Create splits on the last
-		// "." as a module prefix, which would mis-route the synthetic type.
-		//
-		// TODO: once backtick literals implicitly desugar to a non-public,
-		// single-segment fmt call (no module qualification), n.Key will not
-		// contain "." and the sanitization can be removed. Revert to:
-		//     synthKey := StringFmtSyntheticPrefix + n.Key
-		synthKey := StringFmtSyntheticPrefix + strings.ReplaceAll(n.Key, ".", "_")
+		synthKey := StringFmtSyntheticPrefix + n.Key
 		*functions = append(*functions, Function{
 			Key:      synthKey,
 			Body:     Body{Raw: format},
