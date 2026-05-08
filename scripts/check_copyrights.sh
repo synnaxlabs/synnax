@@ -1,5 +1,6 @@
 #!/bin/bash
-# Copyright 2025 Synnax Labs, Inc.
+
+# Copyright 2026 Synnax Labs, Inc.
 #
 # Use of this software is governed by the Business Source License included in the file
 # licenses/BSL.txt.
@@ -117,39 +118,47 @@ should_ignore_file() {
     return 1
 }
 
-# Resolve per-extension header properties into globals.
+# Resolve per-extension header properties into globals. TRAILING_BLANK is 1
+# when the canonical layout requires a blank line between the header and the
+# file body.
 resolve_header_for_ext() {
     local ext="$1"
     case "$ext" in
         py)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
             HEADER_LINES=8
-            COPYRIGHT_OFFSET=1
             SUPPORTS_SHEBANG=0
+            TRAILING_BLANK=1
             ;;
         sh | zsh)
             EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
             HEADER_LINES=8
-            COPYRIGHT_OFFSET=1
             SUPPORTS_SHEBANG=1
+            TRAILING_BLANK=1
             ;;
         css)
             EXPECTED_HEADER="$EXPECTED_HEADER_C_STYLE"
             HEADER_LINES=10
-            COPYRIGHT_OFFSET=2
             SUPPORTS_SHEBANG=0
+            TRAILING_BLANK=1
             ;;
-        html | svg)
+        html)
             EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
             HEADER_LINES=10
-            COPYRIGHT_OFFSET=2
             SUPPORTS_SHEBANG=0
+            TRAILING_BLANK=1
+            ;;
+        svg)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
+            HEADER_LINES=10
+            SUPPORTS_SHEBANG=0
+            TRAILING_BLANK=0
             ;;
         *)
             EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
             HEADER_LINES=8
-            COPYRIGHT_OFFSET=1
             SUPPORTS_SHEBANG=0
+            TRAILING_BLANK=1
             ;;
     esac
 }
@@ -164,10 +173,10 @@ check_file() {
     resolve_header_for_ext "$ext"
     local expected_header="$EXPECTED_HEADER"
     local header_lines=$HEADER_LINES
-    local copyright_offset_in_header=$COPYRIGHT_OFFSET
+    local trailing_blank=$TRAILING_BLANK
 
-    # The canonical layout for shell scripts is shebang, blank, header.
-    local prefix_lines=0
+    # Canonical layout: [shebang / blank /] header / [blank /] body.
+    local header_start=1
     if [ "$SUPPORTS_SHEBANG" = "1" ]; then
         local first_line_raw
         first_line_raw=$(head -n 1 "$file" 2> /dev/null || true)
@@ -175,9 +184,8 @@ check_file() {
             local line2
             line2=$(sed -n '2p' "$file" 2> /dev/null || true)
             if [ -z "$line2" ]; then
-                prefix_lines=2
+                header_start=3
             else
-                # Shebang without canonical blank line — treat as malformed.
                 FILES_MALFORMED_HEADER+=("$file")
                 MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
                 return
@@ -185,9 +193,9 @@ check_file() {
         fi
     fi
 
-    # Read the canonical header window from the file.
+    local header_end=$((header_start + header_lines - 1))
     local file_header
-    file_header=$(sed -n "$((prefix_lines + 1)),$((prefix_lines + header_lines))p" "$file" 2> /dev/null || true)
+    file_header=$(sed -n "${header_start},${header_end}p" "$file" 2> /dev/null || true)
 
     if [ -z "$file_header" ]; then
         FILES_MISSING_HEADER+=("$file")
@@ -195,23 +203,32 @@ check_file() {
         return
     fi
 
-    # Check the line that should contain the copyright text.
-    local copyright_line
-    copyright_line=$(sed -n "$((prefix_lines + copyright_offset_in_header))p" "$file" 2> /dev/null || true)
-
-    if [[ ! "$copyright_line" =~ Copyright.*Synnax\ Labs ]]; then
+    if ! echo "$file_header" | grep -q "Copyright.*Synnax Labs"; then
         FILES_MISSING_HEADER+=("$file")
         MISSING_HEADER=$((MISSING_HEADER + 1))
         return
     fi
 
-    if [[ ! "$copyright_line" =~ Copyright\ $CURRENT_YEAR\ Synnax\ Labs ]]; then
+    if ! echo "$file_header" | grep -q "Copyright $CURRENT_YEAR Synnax Labs"; then
         FILES_WRONG_YEAR+=("$file")
         WRONG_YEAR=$((WRONG_YEAR + 1))
         return
     fi
 
     if [ "$file_header" != "$expected_header" ]; then
+        FILES_MALFORMED_HEADER+=("$file")
+        MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
+        return
+    fi
+
+    local line_after_header
+    line_after_header=$(sed -n "$((header_end + 1))p" "$file" 2> /dev/null || true)
+    if [ "$trailing_blank" = "1" ] && [ -n "$line_after_header" ]; then
+        FILES_MALFORMED_HEADER+=("$file")
+        MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
+        return
+    fi
+    if [ "$trailing_blank" = "0" ] && [ -z "$line_after_header" ]; then
         FILES_MALFORMED_HEADER+=("$file")
         MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
         return
