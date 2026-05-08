@@ -19,50 +19,6 @@ import (
 )
 
 var _ = Describe("ImEx", func() {
-	Describe("Version", func() {
-		Describe("UnmarshalJSON", func() {
-			It("Should accept a numeric value", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`7`), &v)).To(Succeed())
-				Expect(v).To(Equal(imex.Version(7)))
-			})
-
-			It("Should accept a legacy N.0.0 string", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`"4.0.0"`), &v)).To(Succeed())
-				Expect(v).To(Equal(imex.Version(4)))
-			})
-
-			It("Should reject a string with non-zero minor or patch", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`"1.2.3"`), &v)).To(
-					MatchError(ContainSubstring("only N.0.0")),
-				)
-			})
-
-			It("Should reject a string that is not three dot-separated parts", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`"1.0"`), &v)).To(
-					MatchError(ContainSubstring("expected N.0.0")),
-				)
-			})
-
-			It("Should reject a string with a non-numeric major component", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`"sdfsd.0.0"`), &v)).To(
-					MatchError(ContainSubstring("invalid version major")),
-				)
-			})
-
-			It("Should reject a value that is neither a number nor a string", func() {
-				var v imex.Version
-				Expect(json.Unmarshal([]byte(`true`), &v)).To(
-					MatchError(ContainSubstring("must be a number or semver string")),
-				)
-			})
-		})
-	})
-
 	Describe("Envelope", func() {
 		Describe("UnmarshalJSON", func() {
 			It("Should extract promoted fields and put the rest into Data", func() {
@@ -76,6 +32,35 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Data).NotTo(HaveKey("version"))
 				Expect(env.Data).NotTo(HaveKey("type"))
 				Expect(env.Data).NotTo(HaveKey("name"))
+			})
+
+			It("Should accept a legacy N.0.0 version string", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal(
+					[]byte(`{"version":"4.0.0","type":"log"}`), &env,
+				)).To(Succeed())
+				Expect(env.Version).To(Equal(imex.Version(4)))
+			})
+
+			It("Should reject a version string with non-zero minor or patch", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":"1.2.3"}`), &env)).To(
+					MatchError(ContainSubstring("only N.0.0")),
+				)
+			})
+
+			It("Should reject a version string with a non-numeric major component", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":"sdfsd.0.0"}`), &env)).To(
+					MatchError(ContainSubstring("invalid version major")),
+				)
+			})
+
+			It("Should reject a version string with more than three dot-separated parts", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":"1.0.0.0"}`), &env)).To(
+					MatchError(ContainSubstring("expected N.0.0")),
+				)
 			})
 
 			It("Should error when version is neither number nor string", func() {

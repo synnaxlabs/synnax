@@ -31,30 +31,11 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Version is the per-schema integer version stamped on every envelope. It accepts both
-// numeric values (the canonical form) and semver strings (the legacy form emitted by
-// older Console exports) on the wire — see UnmarshalJSON.
+// Version is the per-schema integer version stamped on every envelope. On the wire it
+// is decoded by Envelope.UnmarshalJSON (which accepts both numeric values and legacy
+// "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
+// only accepts the numeric form.
 type Version uint64
-
-// UnmarshalJSON accepts either a JSON number or a semver-style string ("1.0.0"). The
-// semver form is converted by taking the major component; minor and patch are discarded.
-func (v *Version) UnmarshalJSON(b []byte) error {
-	var n uint64
-	if err := json.Unmarshal(b, &n); err == nil {
-		*v = Version(n)
-		return nil
-	}
-	var s string
-	if err := json.Unmarshal(b, &s); err == nil {
-		major, err := legacyToNumeric(s)
-		if err != nil {
-			return err
-		}
-		*v = Version(major)
-		return nil
-	}
-	return errors.Newf("version must be a number or semver string, got %s", string(b))
-}
 
 // Envelope is the portable format for a single importable/exportable resource. All
 // fields are flat at the JSON level. The wire format looks like:
@@ -89,43 +70,61 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON reads a flat JSON object, extracts the promoted fields, and puts the
-// remaining keys into Data. The version field is dispatched to Version.UnmarshalJSON,
-// which accepts both numeric values and legacy semver strings.
+// remaining keys into Data. It does this with a single pass: values come through as
+// generic Go types (float64, string, bool, []any, map[string]any), the promoted fields
+// are plucked out and type-asserted, and the leftover map becomes Data directly — no
+// per-key re-parse.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
-	var raw map[string]json.RawMessage
-	if err := json.Unmarshal(b, &raw); err != nil {
+	var m map[string]any
+	if err := json.Unmarshal(b, &m); err != nil {
 		return err
 	}
-	if v, ok := raw["version"]; ok {
-		if err := json.Unmarshal(v, &e.Version); err != nil {
+	if v, ok := m["version"]; ok {
+		ver, err := versionFromAny(v)
+		if err != nil {
 			return err
 		}
-		delete(raw, "version")
+		e.Version = ver
+		delete(m, "version")
 	}
-	if v, ok := raw["type"]; ok {
-		if err := json.Unmarshal(v, &e.Type); err != nil {
-			return err
+	if v, ok := m["type"]; ok {
+		s, isString := v.(string)
+		if !isString {
+			return errors.Newf("type must be a string, got %T", v)
 		}
-		delete(raw, "type")
+		e.Type = s
+		delete(m, "type")
 	}
-	if v, ok := raw["name"]; ok {
-		if err := json.Unmarshal(v, &e.Name); err != nil {
-			return err
+	if v, ok := m["name"]; ok {
+		s, isString := v.(string)
+		if !isString {
+			return errors.Newf("name must be a string, got %T", v)
 		}
-		delete(raw, "name")
+		e.Name = s
+		delete(m, "name")
 	}
-	if len(raw) == 0 {
-		return nil
-	}
-	e.Data = make(map[string]any, len(raw))
-	for k, v := range raw {
-		var d any
-		if err := json.Unmarshal(v, &d); err != nil {
-			return err
-		}
-		e.Data[k] = d
+	if len(m) > 0 {
+		e.Data = m
 	}
 	return nil
+}
+
+// versionFromAny converts a generic Go value (as produced by json.Unmarshal into
+// map[string]any) to a Version. Accepts float64 (the JSON number form) and legacy
+// semver strings.
+func versionFromAny(v any) (Version, error) {
+	switch x := v.(type) {
+	case float64:
+		return Version(uint64(x)), nil
+	case string:
+		n, err := legacyToNumeric(x)
+		if err != nil {
+			return 0, err
+		}
+		return Version(n), nil
+	default:
+		return 0, errors.Newf("version must be a number or semver string, got %T", v)
+	}
 }
 
 // legacyToNumeric converts a legacy semver string of the form "N.0.0" into the integer
