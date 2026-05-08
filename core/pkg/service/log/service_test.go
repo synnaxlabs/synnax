@@ -16,6 +16,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	"github.com/synnaxlabs/synnax/pkg/service/log"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("ServiceConfig", func() {
@@ -82,8 +83,7 @@ var _ = Describe("ServiceConfig", func() {
 		})
 
 		It("Should prefer the other config's DB, Ontology, and Search when set", func() {
-			otherImex, err := imex.NewService(imex.ServiceConfig{DB: db})
-			Expect(err).ToNot(HaveOccurred())
+			otherImex := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
 			initial := log.ServiceConfig{}
 			other := log.ServiceConfig{
 				DB:       db,
