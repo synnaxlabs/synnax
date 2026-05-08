@@ -99,7 +99,7 @@ export const useSelectViewport = (key: string): Diagram.Viewport =>
 export const selectPendingUpload = (
   state: StoreState,
   key: string,
-): PendingUpload | undefined => select(state, key).pendingUpload;
+): PendingUpload | undefined => select(state, key)?.pendingUpload;
 
 export const useSelectPendingUpload = (key: string): PendingUpload | undefined =>
   useMemoSelect((state: StoreState) => selectPendingUpload(state, key), [key]);
