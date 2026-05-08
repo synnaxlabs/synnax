@@ -27,18 +27,18 @@ import (
 
 // OntologyID returns a unique ID for the view with the given key within the Synnax
 // ontology.
-func OntologyID(keys uuid.UUID) ontology.ID {
+func OntologyID(keys Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeView, Key: keys.String()}
 }
 
 // OntologyIDs returns the ontology IDs for the given keys.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // KeysFromOntologyIDs returns the keys of the views for the given ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		if keys[i], err = uuid.Parse(id.Key); err != nil {
@@ -68,7 +68,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[uuid.UUID, View]
+type change = xchange.Change[Key, View]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeView }
 
@@ -101,7 +101,7 @@ func translateChange(c change) ontology.Change {
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, View]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, View]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

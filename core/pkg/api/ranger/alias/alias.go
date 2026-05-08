@@ -13,13 +13,13 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/synnax/pkg/service/ranger/alias"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/errors"
@@ -47,7 +47,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type SetRequest struct {
 	Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
-	Range   uuid.UUID              `json:"range" msgpack:"range"`
+	Range   ranger.Key             `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Set(
@@ -75,8 +75,8 @@ func (s *Service) Set(
 
 type (
 	ResolveRequest struct {
-		Aliases []string  `json:"aliases" msgpack:"aliases"`
-		Range   uuid.UUID `json:"range" msgpack:"range"`
+		Aliases []string   `json:"aliases" msgpack:"aliases"`
+		Range   ranger.Key `json:"range" msgpack:"range"`
 	}
 	ResolveResponse struct {
 		Aliases map[string]channel.Key `json:"aliases" msgpack:"aliases"`
@@ -111,7 +111,7 @@ func (s *Service) Resolve(
 
 type DeleteRequest struct {
 	Channels []channel.Key `json:"channels" msgpack:"channels"`
-	Range    uuid.UUID     `json:"range" msgpack:"range"`
+	Range    ranger.Key    `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Delete(
@@ -138,7 +138,7 @@ func (s *Service) Delete(
 
 type (
 	ListRequest struct {
-		Range uuid.UUID `json:"range" msgpack:"range"`
+		Range ranger.Key `json:"range" msgpack:"range"`
 	}
 	ListResponse struct {
 		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`
@@ -168,7 +168,7 @@ func (s *Service) List(
 type (
 	RetrieveRequest struct {
 		Channels []channel.Key `json:"channels" msgpack:"channels"`
-		Range    uuid.UUID     `json:"range" msgpack:"range"`
+		Range    ranger.Key    `json:"range" msgpack:"range"`
 	}
 	RetrieveResponse struct {
 		Aliases map[channel.Key]string `json:"aliases" msgpack:"aliases"`

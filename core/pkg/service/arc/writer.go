@@ -28,7 +28,7 @@ type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
 	task  task.Writer
-	table *gorp.Table[uuid.UUID, Arc]
+	table *gorp.Table[Key, Arc]
 }
 
 // Create creates the given Arc. If the Arc does not have a key,
@@ -44,7 +44,7 @@ func (w Writer) Create(
 	if a.Key == uuid.Nil {
 		a.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Arc](a.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Arc](a.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return err
 		}
@@ -65,14 +65,14 @@ func (w Writer) Create(
 // tasks will also be deleted.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
 	for _, key := range keys {
 		if err := w.deleteChildTasks(ctx, key); err != nil {
 			return err
 		}
 	}
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Arc](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Arc](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {
@@ -83,7 +83,7 @@ func (w Writer) Delete(
 	return nil
 }
 
-func (w Writer) deleteChildTasks(ctx context.Context, key uuid.UUID) error {
+func (w Writer) deleteChildTasks(ctx context.Context, key Key) error {
 	var children []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).

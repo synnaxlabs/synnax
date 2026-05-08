@@ -21,19 +21,19 @@ import (
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
-	table *gorp.Table[uuid.UUID, LinePlot]
+	table *gorp.Table[Key, LinePlot]
 }
 
 func (w Writer) Create(
 	ctx context.Context,
-	ws uuid.UUID,
+	ws workspace.Key,
 	p *LinePlot,
 ) (err error) {
 	var exists bool
 	if p.Key == uuid.Nil {
 		p.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, LinePlot](p.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, LinePlot](p.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -61,11 +61,11 @@ func (w Writer) Create(
 
 func (w Writer) Rename(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, LinePlot](key)).
+		Where(gorp.MatchKeys[Key, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
 			p.Name = name
 			return p
@@ -74,11 +74,11 @@ func (w Writer) Rename(
 
 func (w Writer) SetData(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	data map[string]any,
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, LinePlot](key)).
+		Where(gorp.MatchKeys[Key, LinePlot](key)).
 		Change(func(_ gorp.Context, p LinePlot) LinePlot {
 			p.Data = data
 			return p
@@ -87,9 +87,9 @@ func (w Writer) SetData(
 
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, LinePlot](keys...)).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, LinePlot](keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}
