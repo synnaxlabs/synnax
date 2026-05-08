@@ -47,7 +47,7 @@ func (s *Service) Import(
 	return l.Key.String(), nil
 }
 
-func migrateData(version uint64, data map[string]any) (v1.Data, error) {
+func migrateData(version imex.Version, data map[string]any) (v1.Data, error) {
 	switch {
 	case version > v1.Version:
 		return v1.Data{}, errors.Newf(
@@ -99,9 +99,8 @@ func (s *Service) Export(
 	}, nil
 }
 
-// structToMap converts a typed struct into a generic map[string]any by
-// round-tripping through JSON, matching the JSON struct tags that govern the
-// public wire shape.
+// structToMap converts a typed struct into a generic map[string]any by round-tripping
+// through JSON, matching the JSON struct tags that govern the public wire shape.
 func structToMap(v any) (map[string]any, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
@@ -114,10 +113,9 @@ func structToMap(v any) (map[string]any, error) {
 	return m, nil
 }
 
-// structToEncodedJSON bridges a typed migration struct into the
-// msgpack.EncodedJSON form used by the storage layer. EncodedJSON is itself a
-// map[string]any; byte-level fidelity end to end is future work that would
-// replace EncodedJSON with json.RawMessage.
+// structToEncodedJSON bridges a typed migration struct into the msgpack.EncodedJSON form
+// used by the storage layer. EncodedJSON is itself a map[string]any; byte-level fidelity
+// end to end is future work that would replace EncodedJSON with json.RawMessage.
 func structToEncodedJSON(v any) (msgpack.EncodedJSON, error) {
 	m, err := structToMap(v)
 	if err != nil {

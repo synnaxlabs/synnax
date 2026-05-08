@@ -24,7 +24,7 @@ var _ = Describe("Envelope", func() {
 			src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 			var env imex.Envelope
 			Expect(json.Unmarshal(src, &env)).To(Succeed())
-			Expect(env.Version).To(Equal(uint64(54)))
+			Expect(env.Version).To(Equal(imex.Version(54)))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("n"))
 			Expect(env.Data).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
@@ -33,19 +33,12 @@ var _ = Describe("Envelope", func() {
 			Expect(env.Data).NotTo(HaveKey("name"))
 		})
 
-		It("Should silently drop a top-level key field from older payloads", func() {
-			src := []byte(`{"version":1,"type":"log","key":"ignored","channels":[]}`)
-			var env imex.Envelope
-			Expect(json.Unmarshal(src, &env)).To(Succeed())
-			Expect(env.Data).NotTo(HaveKey("key"))
-		})
-
 		It("Should accept a numeric version", func() {
 			var env imex.Envelope
 			Expect(json.Unmarshal(
 				[]byte(`{"version":7,"type":"log","channels":[]}`), &env,
 			)).To(Succeed())
-			Expect(env.Version).To(Equal(uint64(7)))
+			Expect(env.Version).To(Equal(imex.Version(7)))
 		})
 
 		It("Should translate a semver version via legacyToNumeric", func() {
@@ -53,7 +46,7 @@ var _ = Describe("Envelope", func() {
 			Expect(json.Unmarshal(
 				[]byte(`{"version":"1.2.3","type":"log","channels":[]}`), &env,
 			)).To(Succeed())
-			Expect(env.Version).To(Equal(uint64(1)))
+			Expect(env.Version).To(Equal(imex.Version(1)))
 		})
 	})
 
@@ -78,16 +71,6 @@ var _ = Describe("Envelope", func() {
 			Expect(round["channels"]).To(HaveLen(2))
 			Expect(round).NotTo(HaveKey("key"))
 		})
-
-		It("Should emit promoted fields even when Data is empty", func() {
-			env := imex.Envelope{Version: 3, Type: "log"}
-			b := MustSucceed(json.Marshal(env))
-			var round map[string]any
-			Expect(json.Unmarshal(b, &round)).To(Succeed())
-			Expect(round["version"]).To(BeNumerically("==", 3))
-			Expect(round["type"]).To(Equal("log"))
-			Expect(round).NotTo(HaveKey("name"))
-		})
 	})
 
 	Describe("Round-trip", func() {
@@ -104,7 +87,7 @@ var _ = Describe("Envelope", func() {
 			b := MustSucceed(json.Marshal(src))
 			var dst imex.Envelope
 			Expect(json.Unmarshal(b, &dst)).To(Succeed())
-			Expect(dst.Version).To(Equal(uint64(7)))
+			Expect(dst.Version).To(Equal(imex.Version(7)))
 			Expect(dst.Type).To(Equal("log"))
 			Expect(dst.Name).To(Equal("n"))
 			Expect(dst.Data).To(HaveKey("channels"))

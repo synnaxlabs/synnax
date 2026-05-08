@@ -9,9 +9,12 @@
 
 package v1
 
-import "github.com/synnaxlabs/x/zyn"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/zyn"
+)
 
-const Version uint64 = 1
+const Version imex.Version = 1
 
 // ChannelEntry is a channel reference with display configuration.
 type ChannelEntry struct {
@@ -22,9 +25,9 @@ type ChannelEntry struct {
 	Alias     string `json:"alias"`
 }
 
-// Data is the frozen type for log data at version 1. Channels are stored as
-// config entries with display options. Key, Name, Type, and Version are
-// envelope-level fields and are not part of Data.
+// Data is the frozen type for log data at version 1. Channels are stored as config
+// entries with display options. Key, Name, Type, and Version are envelope-level fields
+// and are not part of Data.
 type Data struct {
 	Channels             []ChannelEntry `json:"channels"`
 	RemoteCreated        bool           `json:"remote_created"`

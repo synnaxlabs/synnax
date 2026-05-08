@@ -21,6 +21,31 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// Version is the per-schema integer version stamped on every envelope. It accepts both
+// numeric values (the canonical form) and semver strings (the legacy form emitted by
+// older Console exports) on the wire — see UnmarshalJSON.
+type Version uint64
+
+// UnmarshalJSON accepts either a JSON number or a semver-style string ("1.0.0"). The
+// semver form is converted by taking the major component; minor and patch are discarded.
+func (v *Version) UnmarshalJSON(b []byte) error {
+	var n uint64
+	if err := json.Unmarshal(b, &n); err == nil {
+		*v = Version(n)
+		return nil
+	}
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		major, err := legacyToNumeric(s)
+		if err != nil {
+			return err
+		}
+		*v = Version(major)
+		return nil
+	}
+	return errors.Newf("version must be a number or semver string, got %s", string(b))
+}
+
 // Envelope is the portable format for a single importable/exportable resource. All
 // fields are flat at the JSON level. The wire format looks like:
 //
@@ -32,7 +57,7 @@ import (
 // is not part of the envelope: import always assigns a fresh key, and export takes the
 // key as a separate argument.
 type Envelope struct {
-	Version uint64
+	Version Version
 	Type    string
 	Name    string
 	Data    map[string]any
@@ -46,31 +71,23 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 	fields := make(map[string]any, len(e.Data)+3)
 	maps.Copy(fields, e.Data)
 	fields["version"] = e.Version
-	if e.Type != "" {
-		fields["type"] = e.Type
-	}
-	if e.Name != "" {
-		fields["name"] = e.Name
-	}
+	fields["type"] = e.Type
+	fields["name"] = e.Name
 	return json.Marshal(fields)
 }
 
 // UnmarshalJSON reads a flat JSON object, extracts the promoted fields, and puts the
-// remaining keys into Data. The version field accepts both numeric values (new format)
-// and semver strings (old Console format), converting the latter via legacyToNumeric. A
-// "key" field at the top level (carried by older Console-exported payloads) is silently
-// dropped.
+// remaining keys into Data. The version field is dispatched to Version.UnmarshalJSON,
+// which accepts both numeric values and legacy semver strings.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
 	var raw map[string]json.RawMessage
 	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
 	if v, ok := raw["version"]; ok {
-		parsed, err := parseVersionRaw(v)
-		if err != nil {
+		if err := json.Unmarshal(v, &e.Version); err != nil {
 			return err
 		}
-		e.Version = parsed
 		delete(raw, "version")
 	}
 	if v, ok := raw["type"]; ok {
@@ -85,9 +102,7 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 		}
 		delete(raw, "name")
 	}
-	delete(raw, "key")
 	if len(raw) == 0 {
-		e.Data = nil
 		return nil
 	}
 	e.Data = make(map[string]any, len(raw))
@@ -99,20 +114,6 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 		e.Data[k] = d
 	}
 	return nil
-}
-
-// parseVersionRaw parses a JSON-encoded version value that can be either a number or a
-// semver string.
-func parseVersionRaw(raw json.RawMessage) (uint64, error) {
-	var n uint64
-	if err := json.Unmarshal(raw, &n); err == nil {
-		return n, nil
-	}
-	var s string
-	if err := json.Unmarshal(raw, &s); err == nil {
-		return legacyToNumeric(s)
-	}
-	return 0, errors.Newf("version must be a number or semver string, got %s", string(raw))
 }
 
 // legacyToNumeric converts a semver string like "1.0.0" to a numeric version by taking

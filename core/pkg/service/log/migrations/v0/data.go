@@ -9,13 +9,15 @@
 
 package v0
 
-import "github.com/synnaxlabs/x/zyn"
+import (
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/x/zyn"
+)
 
-const Version uint64 = 0
+const Version imex.Version = 0
 
-// Data is the frozen type for log data at version 0. Channels are stored as
-// bare integer keys. Key, Name, Type, and Version are envelope-level fields
-// and are not part of Data.
+// Data is the frozen type for log data at version 0. Channels are stored as bare integer
+// keys. Key, Name, Type, and Version are envelope-level fields and are not part of Data.
 type Data struct {
 	Channels      []int `json:"channels"`
 	RemoteCreated bool  `json:"remote_created"`

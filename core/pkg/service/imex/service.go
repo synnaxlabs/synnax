@@ -96,25 +96,18 @@ func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
 func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 	imp, ok := s.importers[t]
 	if !ok {
-		return "", unknownImporterError(t, "type")
+		return "", notFoundError(t, "type", false)
 	}
 	return imp.Type(), nil
 }
 
-// unknownImporterError returns a validation error scoped to the given path reporting
-// that no importer is registered for t.
-func unknownImporterError(t, path string) error {
+func notFoundError(t any, path string, exporter bool) error {
+	kind := "importer"
+	if exporter {
+		kind = "exporter"
+	}
 	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "no importer registered for type %q", t),
-		path,
-	)
-}
-
-// unknownExporterError returns a validation error scoped to the given path reporting
-// that no exporter is registered for t.
-func unknownExporterError(t ontology.ResourceType, path string) error {
-	return validate.PathedError(
-		errors.Wrapf(validate.ErrValidation, "no exporter registered for type %q", t),
+		errors.Wrapf(validate.ErrValidation, "no %s registered for type %q", kind, t),
 		path,
 	)
 }
@@ -131,7 +124,7 @@ func (s *Service) Import(
 		for i, env := range envelopes {
 			importer, ok := s.importers[env.Type]
 			if !ok {
-				return unknownImporterError(env.Type, fmt.Sprintf("[%d].type", i))
+				return notFoundError(env.Type, fmt.Sprintf("[%d].type", i), false)
 			}
 			if keys[i], err = importer.Import(ctx, tx, env); err != nil {
 				return err
@@ -155,7 +148,7 @@ func (s *Service) Export(
 	for i, r := range resources {
 		exporter, ok := s.exporters[r.Type]
 		if !ok {
-			return nil, unknownExporterError(r.Type, fmt.Sprintf("[%d].type", i))
+			return nil, notFoundError(r.Type, fmt.Sprintf("[%d].type", i), true)
 		}
 		if envelopes[i], err = exporter.Export(ctx, r.Key); err != nil {
 			return nil, err
