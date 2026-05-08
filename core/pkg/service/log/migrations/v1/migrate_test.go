@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 func TestV1(t *testing.T) {
@@ -30,7 +29,7 @@ var _ = Describe("Migrate", func() {
 			Channels:      []int{1, 2, 3},
 			RemoteCreated: false,
 		}
-		result := MustSucceed(v1.Migrate(old))
+		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(3))
 		Expect(result.Channels[0].Channel).To(Equal(1))
 		Expect(result.Channels[0].Color).To(Equal(""))
@@ -42,13 +41,13 @@ var _ = Describe("Migrate", func() {
 
 	It("Should preserve RemoteCreated", func() {
 		old := v0.Data{Channels: []int{}, RemoteCreated: true}
-		result := MustSucceed(v1.Migrate(old))
+		result := v1.Migrate(old)
 		Expect(result.RemoteCreated).To(BeTrue())
 	})
 
 	It("Should set correct v1 defaults", func() {
 		old := v0.Data{Channels: []int{}, RemoteCreated: false}
-		result := MustSucceed(v1.Migrate(old))
+		result := v1.Migrate(old)
 		Expect(result.TimestampPrecision).To(Equal(0))
 		Expect(result.ShowChannelNames).To(BeTrue())
 		Expect(result.ShowReceiptTimestamp).To(BeTrue())
@@ -56,7 +55,7 @@ var _ = Describe("Migrate", func() {
 
 	It("Should handle empty channels", func() {
 		old := v0.Data{Channels: []int{}, RemoteCreated: false}
-		result := MustSucceed(v1.Migrate(old))
+		result := v1.Migrate(old)
 		Expect(result.Channels).To(HaveLen(0))
 	})
 })

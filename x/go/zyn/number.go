@@ -10,8 +10,10 @@
 package zyn
 
 import (
+	"encoding/json"
 	"math"
 	"reflect"
+	"strconv"
 
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/types"
@@ -181,6 +183,10 @@ func (n NumberZ) Dump(data any) (any, error) {
 			return nil, nil
 		}
 		return nil, errors.WithStack(validate.ErrRequired)
+	}
+	var err error
+	if data, err = unboxJSONNumber(data); err != nil {
+		return nil, err
 	}
 	if result, ok := n.dumpFast(data); ok {
 		return result, nil
@@ -377,6 +383,10 @@ func (n NumberZ) dumpReflect(val reflect.Value) (any, error) {
 // ensures the value is within the valid range. For floating-point types, it handles
 // precision conversion.
 func (n NumberZ) Parse(data any, dest any) error {
+	var err error
+	if data, err = unboxJSONNumber(data); err != nil {
+		return err
+	}
 	if ok := n.parseFast(data, dest); ok {
 		return nil
 	}
@@ -644,5 +654,33 @@ func unsignedIntegerTooLargeError() error {
 	return errors.Wrap(
 		validate.ErrConversion,
 		"unsigned integer value too large for conversion to signed integer",
+	)
+}
+
+// unboxJSONNumber converts an encoding/json json.Number — emitted by decoders running
+// in UseNumber mode to preserve full int64/uint64 precision — into a typed numeric
+// value the rest of NumberZ already understands. Tries int64 first to keep integral
+// precision past 2^53, falls back to uint64 for values above int64.MaxInt64, and
+// finally to float64 for fractional or otherwise non-integer numbers. A non-numeric
+// json.Number string surfaces as a conversion error. Non-json.Number inputs are
+// returned unchanged.
+func unboxJSONNumber(data any) (any, error) {
+	num, ok := data.(json.Number)
+	if !ok {
+		return data, nil
+	}
+	if i, err := num.Int64(); err == nil {
+		return i, nil
+	}
+	if u, err := strconv.ParseUint(string(num), 10, 64); err == nil {
+		return u, nil
+	}
+	if f, err := num.Float64(); err == nil {
+		return f, nil
+	}
+	return nil, errors.Wrapf(
+		validate.ErrConversion,
+		"cannot parse json.Number %q as numeric",
+		string(num),
 	)
 }

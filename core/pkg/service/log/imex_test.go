@@ -29,15 +29,12 @@ func loadEnvelope(path string) imex.Envelope {
 
 var _ = Describe("ImportExport", func() {
 	Describe("Import", func() {
-		// XIt: pending until Zyn handles json.Number — Envelope.UnmarshalJSON now decodes
-		// payload numbers as json.Number (UseNumber mode) for int64 precision, but the
-		// v0/v1 schemas' Number().Int().Coerce() doesn't recognize json.Number yet.
-		XIt("Should import a v1 envelope", func(ctx SpecContext) {
+		It("Should import a v1 envelope", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v1.json")
 			Expect(svc.Import(ctx, tx, env)).Error().NotTo(HaveOccurred())
 		})
 
-		XIt("Should import and migrate a v0 envelope", func(ctx SpecContext) {
+		It("Should import and migrate a v0 envelope", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v0.json")
 			Expect(svc.Import(ctx, tx, env)).Error().NotTo(HaveOccurred())
 		})
@@ -59,8 +56,7 @@ var _ = Describe("ImportExport", func() {
 	})
 
 	Describe("Export", func() {
-		// Pending until Zyn handles json.Number (see Import block above).
-		XIt("Should export an existing log", func(ctx SpecContext) {
+		It("Should export an existing log", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v1.json")
 			key := MustSucceed(svc.Import(ctx, tx, env))
 			Expect(tx.Commit(ctx)).To(Succeed())
@@ -72,8 +68,7 @@ var _ = Describe("ImportExport", func() {
 	})
 
 	Describe("Round-trip", func() {
-		// Pending until Zyn handles json.Number (see Import block above).
-		XIt("Should import v0 and export as v1", func(ctx SpecContext) {
+		It("Should import v0 and export as v1", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v0.json")
 			key := MustSucceed(svc.Import(ctx, tx, env))
 			Expect(tx.Commit(ctx)).To(Succeed())

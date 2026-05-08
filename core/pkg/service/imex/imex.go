@@ -30,6 +30,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/validate"
 )
 
 // Version is the per-schema integer version stamped on every envelope. On the wire it
@@ -37,6 +38,27 @@ import (
 // "N.0.0" semver strings via versionFromAny); standalone JSON unmarshal of a Version
 // only accepts the numeric form.
 type Version uint64
+
+// ErrUnsupportedVersion is returned when an envelope (or other versioned input)
+// declares a version greater than what this Core supports for the resource type.
+// Wraps validate.ErrValidation so callers can match on the broader validation shape.
+var ErrUnsupportedVersion = errors.Wrap(validate.ErrValidation, "unsupported version")
+
+// NewErrUnsupportedVersion constructs an ErrUnsupportedVersion for the named resource
+// type, indicating that the given version exceeds the highest version this Core
+// supports. The returned error is path-scoped to the "version" field so API responses
+// can present it as a structured field error, and matches both ErrUnsupportedVersion
+// and validate.ErrValidation via errors.Is.
+func NewErrUnsupportedVersion(typ string, given, supported Version) error {
+	return validate.PathedError(
+		errors.Wrapf(
+			ErrUnsupportedVersion,
+			"%s version %d is newer than this Core supports (latest: %d)",
+			typ, given, supported,
+		),
+		"version",
+	)
+}
 
 // Envelope is the portable format for a single importable/exportable resource. All
 // fields are flat at the JSON level. The wire format looks like:

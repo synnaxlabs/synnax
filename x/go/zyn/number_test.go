@@ -10,6 +10,8 @@
 package zyn_test
 
 import (
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	. "github.com/synnaxlabs/x/testutil"
@@ -691,6 +693,55 @@ var _ = Describe("Number", func() {
 			type MyInt int
 			result := MustSucceed(zyn.Number().Int().Coerce().Dump(MyInt(12)))
 			Expect(result).To(Equal(12))
+		})
+	})
+
+	Describe("json.Number", func() {
+		Specify("Should parse a json.Number into an int destination with Coerce", func() {
+			var dest int
+			Expect(zyn.Number().Int().Coerce().Parse(json.Number("42"), &dest)).
+				To(Succeed())
+			Expect(dest).To(Equal(42))
+		})
+
+		Specify("Should parse a json.Number into a float64 destination with Coerce", func() {
+			var dest float64
+			Expect(zyn.Number().Float64().Coerce().Parse(json.Number("12.5"), &dest)).
+				To(Succeed())
+			Expect(dest).To(Equal(12.5))
+		})
+
+		Specify("Should reject a json.Number for an int destination without Coerce", func() {
+			var dest int
+			Expect(zyn.Number().Int().Parse(json.Number("42"), &dest)).
+				To(MatchError(ContainSubstring("expected int")))
+		})
+
+		Specify("Should preserve int64 precision past 2^53", func() {
+			const big int64 = 1700000000000000000
+			var dest int64
+			Expect(zyn.Number().Int64().Parse(json.Number("1700000000000000000"), &dest)).
+				To(Succeed())
+			Expect(dest).To(Equal(big))
+		})
+
+		Specify("Should parse a uint64 above int64 max via json.Number", func() {
+			var dest uint64
+			Expect(zyn.Number().Uint64().Coerce().Parse(json.Number("18446744073709551615"), &dest)).
+				To(Succeed())
+			Expect(dest).To(Equal(uint64(18446744073709551615)))
+		})
+
+		Specify("Should reject a fractional json.Number for an int destination", func() {
+			var dest int
+			Expect(zyn.Number().Int().Coerce().Parse(json.Number("12.5"), &dest)).
+				To(MatchError(ContainSubstring("fractional")))
+		})
+
+		Specify("Should reject a non-numeric json.Number string", func() {
+			var dest int
+			Expect(zyn.Number().Int().Coerce().Parse(json.Number("not-a-number"), &dest)).
+				To(MatchError(ContainSubstring("json.Number")))
 		})
 	})
 })

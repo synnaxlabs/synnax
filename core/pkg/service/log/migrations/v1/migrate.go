@@ -13,8 +13,10 @@ import (
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 )
 
-// Migrate transforms a v0 log data payload into a v1 payload.
-func Migrate(old v0.Data) (Data, error) {
+// Migrate lifts a typed v0.Data into a v1.Data, applying the v0→v1 schema
+// transformation: bare channel keys become ChannelEntry records with default display
+// options, and new v1 fields take their schema defaults.
+func Migrate(old v0.Data) Data {
 	channels := make([]ChannelEntry, len(old.Channels))
 	for i, ch := range old.Channels {
 		channels[i] = ChannelEntry{
@@ -31,5 +33,5 @@ func Migrate(old v0.Data) (Data, error) {
 		TimestampPrecision:   0,
 		ShowChannelNames:     true,
 		ShowReceiptTimestamp: true,
-	}, nil
+	}
 }
