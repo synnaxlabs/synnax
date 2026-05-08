@@ -12,14 +12,13 @@ package policy
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
 type Retrieve struct {
 	baseTX   gorp.Tx
-	gorp     gorp.Retrieve[uuid.UUID, Policy]
+	gorp     gorp.Retrieve[Key, Policy]
 	ontology *ontology.Ontology
 }
 
@@ -32,7 +31,7 @@ func (s *Service) ResolveSubjects(
 	ctx context.Context,
 	tx gorp.Tx,
 	subjects ...ontology.ID,
-) ([]uuid.UUID, error) {
+) ([]Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var policyResources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().WhereIDs(subjects...).

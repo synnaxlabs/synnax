@@ -17,6 +17,7 @@ import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Key } from "@/key";
+import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
   edgeChangesToActions,
@@ -54,6 +55,7 @@ export const Schematic = ({
   viewport,
   onDoubleClick,
   onSelectionChange,
+  selected,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -109,9 +111,21 @@ export const Schematic = ({
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
+  const { copy, paste } = useClipboard({
+    key,
+    selected,
+    onPaste: onSelectionChange,
+  });
+  const handlePaste = useCallback(
+    (cursor: xy.XY) => {
+      void paste(calculateCursorPosition(cursor));
+    },
+    [paste, calculateCursorPosition],
+  );
+
   BaseDiagram.useTriggers({
-    onCopy: () => {},
-    onPaste: () => {},
+    onCopy: copy,
+    onPaste: handlePaste,
     onSelectAll: () => {},
     onClear: handleClearSelection,
     onUndo: undo,
@@ -133,6 +147,7 @@ export const Schematic = ({
         onDoubleClick={onDoubleClick}
         nodes={nodes}
         edges={edges}
+        selected={selected}
         {...dropProps}
         {...props}
       />

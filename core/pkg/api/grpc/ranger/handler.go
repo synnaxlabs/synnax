@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiranger "github.com/synnaxlabs/synnax/pkg/api/ranger"
 	"github.com/synnaxlabs/synnax/pkg/api/ranger/pb"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -125,7 +126,7 @@ func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	r *RetrieveRequest,
 ) (apiranger.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
+	keys := make([]ranger.Key, len(r.Keys))
 	for i := range r.Keys {
 		key, err := uuid.Parse(r.Keys[i])
 		if err != nil {
@@ -173,7 +174,7 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	r *DeleteRequest,
 ) (apiranger.DeleteRequest, error) {
-	keys := make([]uuid.UUID, len(r.Keys))
+	keys := make([]ranger.Key, len(r.Keys))
 	for i := range r.Keys {
 		key, err := uuid.Parse(r.Keys[i])
 		if err != nil {

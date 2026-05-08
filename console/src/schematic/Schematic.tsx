@@ -35,8 +35,7 @@ import {
 } from "@/schematic/slice";
 import { useAutoUpload } from "@/schematic/useUpload";
 
-export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
-  useAutoUpload(key);
+const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
   const windowKey = useSelectWindowKey() as string;
@@ -146,7 +145,7 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
           hasUpdatePermission={hasUpdatePermission}
         />
       </Base.Schematic>
-      {legend.colors && (
+      {legend.visible && (
         <Control.Legend
           position={legend.position}
           onPositionChange={handleLegendPositionChange}
@@ -157,4 +156,11 @@ export const Schematic: Layout.Renderer = ({ layoutKey: key, visible }) => {
       )}
     </Controller>
   );
+};
+
+export const Schematic: Layout.Renderer = (props) => {
+  const { layoutKey } = props;
+  const uploaded = useAutoUpload(layoutKey);
+  if (!uploaded) return null;
+  return <Internal {...props} />;
 };

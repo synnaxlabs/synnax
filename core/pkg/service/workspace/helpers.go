@@ -10,15 +10,14 @@
 package workspace
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Workspace{}
+var _ gorp.Entry[Key] = Workspace{}
 
 // GorpKey implements gorp.Entry.
-func (w Workspace) GorpKey() uuid.UUID { return w.Key }
+func (w Workspace) GorpKey() Key { return w.Key }
 
 // SetOptions implements gorp.Entry.
 func (w Workspace) SetOptions() []any { return nil }

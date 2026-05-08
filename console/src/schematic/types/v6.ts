@@ -74,7 +74,7 @@ export const ZERO_STATE: State = {
   controlStatus: "released",
   authority: 1,
   legend: {
-    visible: false,
+    visible: true,
     position: { x: 50, y: 50, units: { x: "px", y: "px" } },
     colors: {},
   },
@@ -174,7 +174,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     authority: state.authority,
     controlStatus: state.control,
     legend: {
-      visible: state.legend?.visible ?? false,
+      visible: state.legend?.visible ?? true,
       position: state.legend?.position ?? {
         x: 50,
         y: 50,

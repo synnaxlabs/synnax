@@ -14,9 +14,25 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution"
+	"github.com/synnaxlabs/synnax/pkg/distribution/mock"
+)
+
+var (
+	mockCluster *mock.Cluster
+	dist        *distribution.Layer
 )
 
 func TestFramer(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Framer Suite")
 }
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	mockCluster = mock.ProvisionCluster(ctx, 1)
+	dist = mockCluster.Nodes[1].Layer
+	DeferCleanup(func() {
+		Expect(dist.Close()).To(Succeed())
+		Expect(mockCluster.Close()).To(Succeed())
+	})
+})

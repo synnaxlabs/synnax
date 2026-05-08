@@ -117,9 +117,14 @@ export const { actions, reducer } = createSlice({
       s.toolbar.activeTab = payload.selected.length > 0 ? "properties" : "symbols";
     },
     setControlStatus: (state, { payload }: PayloadAction<SetControlStatusPayload>) => {
-      const s = state.schematics[payload.key];
-      if (s == null) return;
-      s.controlStatus = payload.control;
+      const { key: layoutKey, control } = payload;
+      const schematic = state.schematics[layoutKey];
+      if (schematic == null) return;
+      schematic.controlStatus = control;
+      if (control === "acquired") {
+        schematic.selected = [];
+        schematic.editable = false;
+      }
     },
     setAuthority: (state, { payload }: PayloadAction<SetAuthorityPayload>) => {
       const s = state.schematics[payload.key];

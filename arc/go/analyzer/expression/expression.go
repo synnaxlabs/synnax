@@ -652,6 +652,9 @@ func isValidCast(source, target basetypes.Type) bool {
 	if source.Kind == target.Kind {
 		return true
 	}
+	if target.Kind == basetypes.KindString && source.IsNumeric() {
+		return true
+	}
 	if source.Kind == basetypes.KindString || target.Kind == basetypes.KindString {
 		return false
 	}

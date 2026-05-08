@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, status } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
@@ -418,9 +418,9 @@ export interface CreateSuspendedRetrieveReturn<
   spec: CreateRetrieveParams<Query, Data, Store, AllowDisconnected>;
 }
 
-/// Builds Suspense-shaped retrieve hooks. Pair with `<Flux.Suspense>` above
-/// the consumer to render a fallback while loading and a status panel on
-/// error.
+/// Builds Suspense-shaped retrieve hooks. Pair with `<Errors.SuspenseBoundary>`
+/// above the consumer to render a fallback while loading and a diagnostic
+/// panel on error.
 ///
 /// Returns two hooks:
 /// - `useRetrieve(query)` — suspends until resolved, returns the data, and
@@ -484,11 +484,7 @@ export const createSuspendedRetrieve = <
 
     const entry = cache.get<Data>(hash);
     if (entry?.variant === "success") return entry.data;
-    if (entry?.variant === "error")
-      // Throwing the Status: Flux.Suspense normalizes thrown Statuses without
-      // re-running fromException, preserving the resource-specific message.
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw entry.status;
+    if (entry?.variant === "error") throw status.toError(entry.status);
     if (entry?.variant === "loading" && entry.promise != null)
       return use(entry.promise);
 
@@ -516,9 +512,7 @@ export const createSuspendedRetrieve = <
 
     const entry = cache.get<Data>(hash);
     if (entry?.variant === "success") return;
-    if (entry?.variant === "error")
-      // eslint-disable-next-line @typescript-eslint/only-throw-error
-      throw entry.status;
+    if (entry?.variant === "error") throw status.toError(entry.status);
     if (entry?.variant === "loading" && entry.promise != null) {
       use(entry.promise);
       return;

@@ -24,7 +24,7 @@ import (
 )
 
 // OntologyID constructs a unique ontology.ID for the Role with the given key.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRole, Key: k.String()}
 }
 
@@ -38,7 +38,7 @@ func newResource(r Role) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(r.Key), r.Name, r)
 }
 
-type change = xchange.Change[uuid.UUID, Role]
+type change = xchange.Change[Key, Role]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRole }
 
@@ -72,7 +72,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Role]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Role]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

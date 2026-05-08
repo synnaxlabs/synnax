@@ -16,7 +16,7 @@ import { useSelectPendingUpload } from "@/schematic/selectors";
 import { clearPendingUpload } from "@/schematic/slice";
 import { Workspace } from "@/workspace";
 
-export const useAutoUpload = (key: string): void => {
+export const useAutoUpload = (key: string): boolean => {
   const pendingUpload = useSelectPendingUpload(key);
   const name = Layout.useSelectRequiredName(key);
   const workspaceKey = Workspace.useSelectActiveKey();
@@ -33,4 +33,5 @@ export const useAutoUpload = (key: string): void => {
     if (pendingUpload == null) return;
     create({ ...pendingUpload, workspace: workspaceKey ?? undefined, name });
   }, [pendingUpload, workspaceKey, key, create, name]);
+  return pendingUpload == null;
 };

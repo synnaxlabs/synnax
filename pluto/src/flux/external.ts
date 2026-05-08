@@ -19,5 +19,4 @@ export * from "@/flux/queryCache";
 export * from "@/flux/result";
 export * from "@/flux/retrieve";
 export * from "@/flux/select";
-export * from "@/flux/Suspense";
 export * from "@/flux/update";
