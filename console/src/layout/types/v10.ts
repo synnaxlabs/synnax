@@ -42,16 +42,10 @@ export const sliceMigration: migrate.Migration<v9.SliceState, SliceState> =
       ),
       mosaics: Object.fromEntries(
         Object.entries(mosaics).map(([key, mosaic]) => {
-          const [root, activeTab] = Mosaic.removeTab(mosaic.root, GET_STARTED_TYPE);
-          return [
-            key,
-            {
-              ...mosaic,
-              root,
-              activeTab:
-                mosaic.activeTab === GET_STARTED_TYPE ? activeTab : mosaic.activeTab,
-            },
-          ];
+          const [root, next] = Mosaic.removeTab(mosaic.root, GET_STARTED_TYPE);
+          const activeTab =
+            mosaic.activeTab === GET_STARTED_TYPE ? next : mosaic.activeTab;
+          return [key, { ...mosaic, root, activeTab }];
         }),
       ),
     }),
