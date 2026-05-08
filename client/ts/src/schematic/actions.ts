@@ -28,7 +28,15 @@ import {
 } from "@/schematic/actions.gen";
 import { type Schematic } from "@/schematic/types.gen";
 
-type Handler<P> = (state: Draft<Schematic>, payload: P) => Action[];
+interface HandlerResult {
+  inverse: Action[];
+  /** Document keys this handler touched (or considered touching). */
+  targets: readonly string[];
+}
+
+type Handler<P> = (state: Draft<Schematic>, payload: P) => HandlerResult;
+
+const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
 // Captured pre-state values must be detached from the Immer draft before being
 // stored in an inverse action. The draft proxies are revoked after produce()
@@ -39,16 +47,24 @@ const snapshot = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
 
 const setNodePositionH: Handler<SetNodePositionPayload> = (state, payload) => {
   const node = state.nodes.find((n) => n.key === payload.key);
-  if (node == null) return [];
+  if (node == null) return NO_OP;
   const oldPosition = { x: node.position.x, y: node.position.y };
   node.position = payload.position;
-  return [setNodePosition({ key: payload.key, position: oldPosition })];
+  return {
+    inverse: [setNodePosition({ key: payload.key, position: oldPosition })],
+    targets: [payload.key],
+  };
 };
 
+// set_node_measured carries layout-derived dimensions, not user intent.
+// Both the inverse and the target list are empty so it neither contributes to
+// the undo stack nor invalidates undoables targeting the same node when a
+// remote session emits it.
 const setNodeMeasuredH: Handler<SetNodeMeasuredPayload> = (state, payload) => {
   const node = state.nodes.find((n) => n.key === payload.key);
-  if (node != null) node.measured = payload.measured;
-  return [];
+  if (node == null) return NO_OP;
+  node.measured = payload.measured;
+  return { inverse: [], targets: [] };
 };
 
 const setNodeH: Handler<SetNodePayload> = (state, payload) => {
@@ -56,7 +72,10 @@ const setNodeH: Handler<SetNodePayload> = (state, payload) => {
   if (idx === -1) {
     state.nodes.push(payload.node);
     if (payload.config != null) state.configs[payload.node.key] = payload.config;
-    return [removeNode({ key: payload.node.key })];
+    return {
+      inverse: [removeNode({ key: payload.node.key })],
+      targets: [payload.node.key],
+    };
   }
   const oldNode = snapshot(state.nodes[idx]);
   const oldConfigRaw = state.configs[payload.node.key];
@@ -64,45 +83,57 @@ const setNodeH: Handler<SetNodePayload> = (state, payload) => {
     oldConfigRaw != null ? snapshot(oldConfigRaw as record.Unknown) : undefined;
   state.nodes[idx] = payload.node;
   if (payload.config != null) state.configs[payload.node.key] = payload.config;
-  return [
-    setNode(
-      oldConfig != null
-        ? { node: oldNode, config: oldConfig }
-        : { node: oldNode, config: undefined },
-    ),
-  ];
+  return {
+    inverse: [
+      setNode(
+        oldConfig != null
+          ? { node: oldNode, config: oldConfig }
+          : { node: oldNode, config: undefined },
+      ),
+    ],
+    targets: [payload.node.key],
+  };
 };
 
 const removeNodeH: Handler<RemoveNodePayload> = (state, payload) => {
   const idx = state.nodes.findIndex((n) => n.key === payload.key);
-  if (idx === -1) return [];
+  if (idx === -1) return NO_OP;
   const oldNode = snapshot(state.nodes[idx]);
   const oldConfigRaw = state.configs[payload.key];
   const oldConfig =
     oldConfigRaw != null ? snapshot(oldConfigRaw as record.Unknown) : undefined;
   state.nodes.splice(idx, 1);
   delete state.configs[payload.key];
-  return [
-    setNode(
-      oldConfig != null
-        ? { node: oldNode, config: oldConfig }
-        : { node: oldNode, config: undefined },
-    ),
-  ];
+  return {
+    inverse: [
+      setNode(
+        oldConfig != null
+          ? { node: oldNode, config: oldConfig }
+          : { node: oldNode, config: undefined },
+      ),
+    ],
+    targets: [payload.key],
+  };
 };
 
 const addEdgeH: Handler<AddEdgePayload> = (state, payload) => {
-  if (state.edges.some((e) => e.key === payload.edge.key)) return [];
+  if (state.edges.some((e) => e.key === payload.edge.key)) return NO_OP;
   state.edges.push(payload.edge);
-  return [removeEdge({ key: payload.edge.key })];
+  return {
+    inverse: [removeEdge({ key: payload.edge.key })],
+    targets: [payload.edge.key],
+  };
 };
 
 const removeEdgeH: Handler<RemoveEdgePayload> = (state, payload) => {
   const idx = state.edges.findIndex((e) => e.key === payload.key);
-  if (idx === -1) return [];
+  if (idx === -1) return NO_OP;
   const oldEdge = snapshot(state.edges[idx]);
   state.edges.splice(idx, 1);
-  return [addEdge({ edge: oldEdge })];
+  return {
+    inverse: [addEdge({ edge: oldEdge })],
+    targets: [payload.key],
+  };
 };
 
 // The inverse of SetConfig is imperfect for keys the action newly introduces:
@@ -118,8 +149,12 @@ const setConfigH: Handler<SetConfigPayload> = (state, payload) => {
     for (const k of Object.keys(payload.config))
       if (existing[k] !== undefined) restoreFields[k] = existing[k];
     state.configs[payload.key] = { ...existing, ...payload.config };
-    if (Object.keys(restoreFields).length === 0) return [];
-    return [setConfig({ key: payload.key, config: restoreFields })];
+    if (Object.keys(restoreFields).length === 0)
+      return { inverse: [], targets: [payload.key] };
+    return {
+      inverse: [setConfig({ key: payload.key, config: restoreFields })],
+      targets: [payload.key],
+    };
   }
   let cfg = payload.config;
   const edge = state.edges.find((e) => e.key === payload.key);
@@ -131,10 +166,10 @@ const setConfigH: Handler<SetConfigPayload> = (state, payload) => {
       cfg = { ...cfg, color: srcCfg.color };
   }
   state.configs[payload.key] = cfg;
-  return [];
+  return { inverse: [], targets: [payload.key] };
 };
 
-export const reduce = (state: Draft<Schematic>, action: Action): Action[] => {
+export const reduce = (state: Draft<Schematic>, action: Action): HandlerResult => {
   switch (action.type) {
     case "set_node_position":
       return setNodePositionH(state, action.setNodePosition);
@@ -156,17 +191,20 @@ export const reduce = (state: Draft<Schematic>, action: Action): Action[] => {
 export interface ReduceAllResult {
   next: Schematic;
   inverse: Action[];
+  targets: readonly string[];
 }
 
 export const reduceAll = (state: Schematic, actions: Action[]): ReduceAllResult => {
   const inverse: Action[] = [];
+  const targetsSet = new Set<string>();
   const next = produce(state, (draft) => {
     for (const action of actions) {
-      const inv = reduce(draft, action);
-      if (inv.length > 0) inverse.unshift(...inv);
+      const result = reduce(draft, action);
+      if (result.inverse.length > 0) inverse.unshift(...result.inverse);
+      for (const t of result.targets) targetsSet.add(t);
     }
   });
-  return { next, inverse };
+  return { next, inverse, targets: Array.from(targetsSet) };
 };
 
 export const isUndoable = (action: Action): boolean =>

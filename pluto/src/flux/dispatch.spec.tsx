@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, schematic } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { TimeSpan, TimeStamp, uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it, vi } from "vitest";
@@ -38,28 +38,28 @@ const createSchem = async () => {
 
 type SendFn = Flux.CreateDispatchParams<
   schematic.Key,
-  schematic.Schematic,
   schematic.Action,
-  Schematic.FluxSubStore,
   typeof Schematic.FLUX_STORE_KEY
 >["send"];
 
-const makeDispatch = (sendMock: SendFn, coalesceMs = 100) =>
+type Handle = ReturnType<
+  typeof Flux.createDispatch<
+    schematic.Key,
+    schematic.Schematic,
+    schematic.Action,
+    typeof Schematic.FLUX_STORE_KEY,
+    Schematic.FluxSubStore
+  >
+>;
+
+const makeDispatch = (sendMock: SendFn): Handle =>
   Flux.createDispatch<
     schematic.Key,
     schematic.Schematic,
     schematic.Action,
-    Schematic.FluxSubStore,
-    typeof Schematic.FLUX_STORE_KEY
-  >({
-    name: "schematic-test",
-    storeKey: Schematic.FLUX_STORE_KEY,
-    reduce: schematic.reduceAll,
-    send: sendMock,
-    isUndoable: schematic.isUndoable,
-    kindOf: (actions) => (actions.length === 1 ? actions[0].type : "transaction"),
-    coalesceMs,
-  });
+    typeof Schematic.FLUX_STORE_KEY,
+    Schematic.FluxSubStore
+  >({ storeKey: Schematic.FLUX_STORE_KEY, send: sendMock });
 
 const primeCache = async (Wrapper: FC<PropsWithChildren>, key: schematic.Key) => {
   const Display = (): ReactElement => {
@@ -81,280 +81,396 @@ const primeCache = async (Wrapper: FC<PropsWithChildren>, key: schematic.Key) =>
   });
 };
 
+const setupHook = async <H extends object>(
+  hookFn: (td: Handle, key: schematic.Key) => H,
+  sendMock: SendFn = vi.fn<SendFn>(async () => {}),
+): Promise<{
+  result: { current: H & { store: Schematic.FluxSubStore } };
+  send: SendFn;
+  td: Handle;
+  key: schematic.Key;
+}> => {
+  const Wrapper = await createAsyncSynnaxWrapper({ client });
+  const schem = await createSchem();
+  await primeCache(Wrapper, schem.key);
+  const td = makeDispatch(sendMock);
+  const { result } = renderHook(
+    () => ({
+      ...hookFn(td, schem.key),
+      store: Flux.useStore<Schematic.FluxSubStore>(),
+    }),
+    { wrapper: Wrapper },
+  );
+  return { result, send: sendMock, td, key: schem.key };
+};
+
+const getDoc = (
+  store: Schematic.FluxSubStore,
+  key: schematic.Key,
+): schematic.Schematic | undefined => store[Schematic.FLUX_STORE_KEY].get(key);
+
 describe("Flux.createDispatch", () => {
-  it("dispatches actions, applies them locally, and pushes to the undo stack", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    expect(result.current.undo.canUndo).toBe(false);
-
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n1",
-          position: { x: 99, y: 99 },
+  describe("dispatch", () => {
+    it("applies locally, sends, and pushes onto the undo stack", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
         }),
-      });
-    });
-
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(result.current.undo.canUndo).toBe(true);
-  });
-
-  it("undoes a user action by dispatching the inverse", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-        redo: td.useRedo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n1",
-          position: { x: 50, y: 60 },
-        }),
-      });
-    });
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(result.current.undo.canUndo).toBe(true);
-
-    await act(async () => {
-      result.current.undo.undo();
-      await new Promise((r) => setTimeout(r, 30));
-    });
-
-    await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
-    expect(send).toHaveBeenCalledTimes(2);
-  });
-
-  it("redoes after undo and clears redo on new user action", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-        redo: td.useRedo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n1",
-          position: { x: 1, y: 1 },
-        }),
-      });
-    });
-
-    await act(async () => {
-      result.current.undo.undo();
-      await new Promise((r) => setTimeout(r, 30));
-    });
-    await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
-
-    await act(async () => {
-      result.current.redo.redo();
-      await new Promise((r) => setTimeout(r, 30));
-    });
-    await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
-
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n1",
-          position: { x: 7, y: 7 },
-        }),
-      });
-    });
-
-    expect(result.current.redo.canRedo).toBe(false);
-  });
-
-  it("coalesces same-kind dispatches within the window into one undo entry", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send, /* coalesceMs */ 1000);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    for (const x of [10, 20, 30])
+        send,
+      );
+      expect(result.current.undo.canUndo).toBe(false);
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
-          key: schem.key,
-          actions: schematic.setNodePosition({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 99, y: 99 } }),
+        });
+      });
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual({
+        x: 99,
+        y: 99,
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+    });
+
+    it("does not push non-undoable actions onto the stack", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodeMeasured({
             key: "n1",
-            position: { x, y: 0 },
+            measured: { width: 1, height: 1 },
           }),
         });
       });
-
-    expect(result.current.undo.canUndo).toBe(true);
-
-    await act(async () => {
-      result.current.undo.undo();
-      await new Promise((r) => setTimeout(r, 30));
+      expect(result.current.undo.canUndo).toBe(false);
     });
 
-    await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
-  });
-
-  it("commits a transaction as a single undoable unit", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      const tx = result.current.dispatch.beginTransaction({
-        key: schem.key,
-        kind: "move",
+    it("rolls back local state when send fails", async () => {
+      const send = vi.fn<SendFn>(async () => {
+        throw new Error("send failed");
       });
-      tx.add([schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } })]);
-      tx.add([schematic.setNodePosition({ key: "n1", position: { x: 2, y: 2 } })]);
-      tx.add([schematic.setNodePosition({ key: "n1", position: { x: 3, y: 3 } })]);
-      await tx.commit();
-    });
-
-    expect(send).toHaveBeenCalledTimes(1);
-    expect(result.current.undo.canUndo).toBe(true);
-
-    await act(async () => {
-      result.current.undo.undo();
-      await new Promise((r) => setTimeout(r, 30));
-    });
-    await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
-  });
-
-  it("aborts a transaction without sending or pushing", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    act(() => {
-      const tx = result.current.dispatch.beginTransaction({
-        key: schem.key,
-        kind: "move",
-      });
-      tx.add([schematic.setNodePosition({ key: "n1", position: { x: 9, y: 9 } })]);
-      tx.abort();
-    });
-
-    expect(send).not.toHaveBeenCalled();
-    expect(result.current.undo.canUndo).toBe(false);
-  });
-
-  it("auto-advances past stale entries on undo", async () => {
-    const Wrapper = await createAsyncSynnaxWrapper({ client });
-    const schem = await createSchem();
-    await primeCache(Wrapper, schem.key);
-
-    const send = vi.fn<SendFn>(async () => {});
-    const td = makeDispatch(send);
-
-    const { result } = renderHook(
-      () => ({
-        dispatch: td.useDispatch(),
-        undo: td.useUndo({ key: schem.key }),
-      }),
-      { wrapper: Wrapper },
-    );
-
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n1",
-          position: { x: 1, y: 1 },
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
         }),
+        send,
+      );
+      const before = getDoc(result.current.store, key);
+      let ok = true;
+      await act(async () => {
+        ok = await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 99, y: 99 } }),
+        });
       });
+      expect(ok).toBe(false);
+      expect(getDoc(result.current.store, key)).toEqual(before);
+      expect(result.current.undo.canUndo).toBe(false);
     });
-    await act(async () => {
-      await result.current.dispatch.dispatchAsync({
-        key: schem.key,
-        actions: schematic.setNodePosition({
-          key: "n2",
-          position: { x: 2, y: 2 },
+  });
+
+  describe("undo", () => {
+    it("reverts the last user dispatch and pushes a redo entry", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+          redo: td.useRedo({ key: k }),
         }),
+        send,
+      );
+      const before = getDoc(result.current.store, key);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 50, y: 60 } }),
+        });
       });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual(
+        before?.nodes[0].position,
+      );
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
     });
 
-    await new Promise((r) => setTimeout(r, 5));
-    td.notifyRemoteActions(schem.key, [
-      schematic.setNodePosition({ key: "n2", position: { x: 99, y: 99 } }),
-    ]);
-
-    const sendCallsBefore = send.mock.calls.length;
-
-    await act(async () => {
-      result.current.undo.undo();
-      await new Promise((r) => setTimeout(r, 30));
+    it("returns the entry to the undo stack when the inverse send fails", async () => {
+      let calls = 0;
+      const send = vi.fn<SendFn>(async () => {
+        if (++calls === 2) throw new Error("inverse send failed");
+      });
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+          redo: td.useRedo({ key: k }),
+        }),
+        send,
+      );
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 5, y: 6 } }),
+        });
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      const after = getDoc(result.current.store, key);
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      expect(getDoc(result.current.store, key)).toEqual(after);
+      expect(result.current.undo.canUndo).toBe(true);
+      expect(result.current.redo.canRedo).toBe(false);
     });
 
-    await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
-    expect(send.mock.calls.length - sendCallsBefore).toBe(1);
+    it("auto-advances past entries invalidated by remote touches", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 7, y: 8 } }),
+        });
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      // Stamp n1 strictly after the entry's ts so the only entry is stale;
+      // undo should drop it without sending.
+      act(() => {
+        result.current.store[Schematic.FLUX_STORE_KEY].markRemoteTouched(
+          key,
+          ["n1"],
+          TimeStamp.now().add(TimeSpan.SECOND),
+        );
+      });
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
+    });
+  });
+
+  describe("redo", () => {
+    it("re-applies an undone action and clears redo on a new user action", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+        redo: td.useRedo({ key: k }),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
+        });
+      });
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
+      await act(async () => {
+        result.current.redo.redo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 7, y: 7 } }),
+        });
+      });
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(false));
+    });
+
+    it("returns the entry to the redo stack when the redo send fails", async () => {
+      let calls = 0;
+      const send = vi.fn<SendFn>(async () => {
+        if (calls++ === 2) throw new Error("redo send failed");
+      });
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+          redo: td.useRedo({ key: k }),
+        }),
+        send,
+      );
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 4, y: 4 } }),
+        });
+      });
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
+      const undoneState = getDoc(result.current.store, key);
+      await act(async () => {
+        result.current.redo.redo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      expect(getDoc(result.current.store, key)).toEqual(undoneState);
+      expect(result.current.redo.canRedo).toBe(true);
+    });
+  });
+
+  describe("coalescing", () => {
+    it("merges same-kind dispatches inside the coalesce window", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      for (const x of [10, 20, 30])
+        await act(async () => {
+          await result.current.dispatch.dispatchAsync({
+            key,
+            actions: schematic.setNodePosition({ key: "n1", position: { x, y: 0 } }),
+          });
+        });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
+    });
+
+    it("does not merge across kind boundaries", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
+        });
+      });
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setConfig({ key: "n1", config: { label: "x" } }),
+        });
+      });
+      // Two distinct entries: one undo leaves canUndo true, a second clears it.
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      expect(result.current.undo.canUndo).toBe(true);
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
+    });
+  });
+
+  describe("transactions", () => {
+    it("commits accumulated actions as one undoable", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      await act(async () => {
+        const tx = result.current.dispatch.beginTransaction({ key, kind: "move" });
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } })]);
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 2, y: 2 } })]);
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 3, y: 3 } })]);
+        await tx.commit();
+      });
+      expect(send).toHaveBeenCalledTimes(1);
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      await act(async () => {
+        result.current.undo.undo();
+        await new Promise((r) => setTimeout(r, 30));
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
+    });
+
+    it("aborts without sending or pushing", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      const initial = getDoc(result.current.store, key);
+      act(() => {
+        const tx = result.current.dispatch.beginTransaction({ key, kind: "move" });
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 9, y: 9 } })]);
+        tx.abort();
+      });
+      expect(send).not.toHaveBeenCalled();
+      expect(result.current.undo.canUndo).toBe(false);
+      expect(getDoc(result.current.store, key)).toEqual(initial);
+    });
+
+    it("restores the pre-transaction snapshot when commit's send fails", async () => {
+      const send = vi.fn<SendFn>(async () => {
+        throw new Error("commit failed");
+      });
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      const initial = getDoc(result.current.store, key);
+      await act(async () => {
+        const tx = result.current.dispatch.beginTransaction({ key, kind: "move" });
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } })]);
+        tx.add([schematic.setNodePosition({ key: "n1", position: { x: 2, y: 2 } })]);
+        await tx.commit();
+      });
+      expect(getDoc(result.current.store, key)).toEqual(initial);
+      expect(result.current.undo.canUndo).toBe(false);
+    });
+  });
+
+  describe("cascade", () => {
+    it("drops undo state when the document is deleted", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+      }));
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
+        });
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
+      act(() => {
+        result.current.store[Schematic.FLUX_STORE_KEY].delete(key);
+      });
+      await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
+      expect(getDoc(result.current.store, key)).toBeUndefined();
+    });
   });
 });

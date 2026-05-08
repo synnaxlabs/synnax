@@ -11,3 +11,4 @@ export * from "@/flux/base/client";
 export * from "@/flux/base/store";
 export * from "@/flux/base/streamer";
 export * from "@/flux/base/types";
+export * from "@/flux/base/undoable";

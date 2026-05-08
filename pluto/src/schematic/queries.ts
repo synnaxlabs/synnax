@@ -27,33 +27,10 @@ import { Theming } from "@/theming";
 export const FLUX_STORE_KEY = "schematics";
 const RESOURCE_NAME = "schematic";
 
-const ACTION_LISTENER: Flux.ChannelListener<
-  FluxSubStore,
-  typeof schematic.scopedActionZ
-> = {
-  channel: "sy_schematic_set",
-  schema: schematic.scopedActionZ,
-  onChange: ({ changed, store, client }) => {
-    if (client != null && changed.sessionKey === client.key) return;
-    const current = store.schematics.get(changed.key);
-    if (current == null) return;
-    const { next } = schematic.reduceAll(current, changed.actions);
-    store.schematics.set(changed.key, next);
-    // Mark the keys this remote action touched so an undo of an entry
-    // targeting any of them auto-advances past it (RFC 0037 §4.8).
-    notifyRemoteActions(changed.key, changed.actions);
-  },
-};
-
-export const FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<
-  FluxSubStore,
+export interface FluxStore extends Flux.UndoableUnaryStore<
   schematic.Key,
-  schematic.Schematic
-> = { listeners: [ACTION_LISTENER] };
-
-export interface FluxStore extends Flux.UnaryStore<
-  schematic.Key,
-  schematic.Schematic
+  schematic.Schematic,
+  schematic.Action
 > {}
 
 export interface FluxSubStore extends Flux.Store {
@@ -217,6 +194,7 @@ export const { useUpdate: useDelete } = Flux.createUpdate<DeleteParams, FluxSubS
     const relFilter = Ontology.filterRelationshipsThatHaveIDs(ids);
     rollbacks.push(store.relationships.delete(relFilter));
     await client.schematics.delete(data);
+    rollbacks.push(store.schematics.delete(keys));
     return data;
   },
 });
@@ -339,23 +317,33 @@ const kindOfTransaction = (actions: schematic.Action[]): string => {
   return "transaction";
 };
 
-export const { useDispatch, useUndo, useRedo, notifyRemoteActions } =
-  Flux.createDispatch<
-    schematic.Key,
-    schematic.Schematic,
-    schematic.Action,
-    FluxSubStore,
-    typeof FLUX_STORE_KEY
-  >({
-    name: RESOURCE_NAME,
-    storeKey: FLUX_STORE_KEY,
-    reduce: schematic.reduceAll,
-    preprocess: augmentWithEdgeSegments,
-    send: ({ client, key, actions, sessionKey }) =>
-      client.schematics.dispatch(key, sessionKey, actions),
-    isUndoable: schematic.isUndoable,
-    kindOf: kindOfTransaction,
-  });
+export const FLUX_STORE_CONFIG = Flux.createUndoableStore<
+  schematic.Key,
+  schematic.Schematic,
+  schematic.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  reduce: schematic.reduceAll,
+  preprocess: augmentWithEdgeSegments,
+  channel: schematic.SET_CHANNEL_NAME,
+  schema: schematic.scopedActionZ,
+  isUndoable: schematic.isUndoable,
+  kindOf: kindOfTransaction,
+});
+
+export const { useDispatch, useUndo, useRedo } = Flux.createDispatch<
+  schematic.Key,
+  schematic.Schematic,
+  schematic.Action,
+  typeof FLUX_STORE_KEY,
+  FluxSubStore
+>({
+  storeKey: FLUX_STORE_KEY,
+  send: ({ client, key, actions, sessionKey }) =>
+    client.schematics.dispatch(key, sessionKey, actions),
+});
 
 export interface RenameParams extends Pick<schematic.Schematic, "key" | "name"> {}
 
@@ -376,7 +364,7 @@ export interface AddNodeProps {
   variant: Node.Variant;
   position?: xy.XY;
   specKey?: string;
-  config?: record.Unknown;
+  config?: Node.Config;
 }
 
 export const useAddNode = (resourceKey: string) => {

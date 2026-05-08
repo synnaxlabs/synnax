@@ -26,6 +26,8 @@ import { workspace } from "@/workspace";
 
 const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
+export const SET_CHANNEL_NAME = "sy_schematic_set";
+
 const setDataBodyZ = schematicZ.omit({ key: true, name: true, snapshot: true });
 export type SetDataBody = z.input<typeof setDataBodyZ>;
 const setDataReqZ = z.object({ key: keyZ, data: setDataBodyZ });

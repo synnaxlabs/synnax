@@ -562,6 +562,13 @@ describe("schematic reducer inverses", () => {
       ]);
       expect(inverse).toEqual([]);
     });
+    it("should report no targets so it does not invalidate concurrent undoables", () => {
+      const state = empty({ nodes: [node("n1", 0, 0)] });
+      const { targets } = reduceAll(state, [
+        setNodeMeasured({ key: "n1", measured: { width: 10, height: 20 } }),
+      ]);
+      expect(targets).toEqual([]);
+    });
   });
 
   describe("multi-action transactions", () => {
