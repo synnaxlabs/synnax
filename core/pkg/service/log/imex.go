@@ -27,7 +27,7 @@ func (s *Service) Import(
 ) (string, error) {
 	// In the future, when the log is strongly-typed in ORC, this call will return a
 	// Log directly and we can stamp the name + a fresh key onto it before handing it
-	// to the writer.
+	// to the writer without doing msgpack.EncodedJSON(migrated.ToMap()).
 	migrated, err := migrations.Migrate(env.Version, env.Data)
 	if err != nil {
 		return "", err
@@ -55,11 +55,9 @@ func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error)
 	// In the future, when the log is strongly-typed in ORC, we can just return an
 	// imex.Envelope at this point with the Data field determined by an Oracle-generated
 	// method log.Data() that returns a map[string]any.
-	var d migrations.Latest
-	if l.Data != nil {
-		if err := l.Data.Unmarshal(&d); err != nil {
-			return imex.Envelope{}, err
-		}
+	var d migrations.LatestData
+	if err := l.Data.Unmarshal(&d); err != nil {
+		return imex.Envelope{}, err
 	}
 	return imex.Envelope{
 		Version: migrations.LatestVersion,

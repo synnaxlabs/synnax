@@ -9,14 +9,15 @@
 
 // Package imex provides the core import/export types and interfaces for the Synnax
 // Core. It defines the Envelope type, which is the portable format for a single
-// importable/exportable resource. All fields are flat at the JSON level. The wire
-// format looks like:
+// importable/exportable resource to be used within Go code. Envelopes. The wire format
+// will have fields flatten at the highest level like this:
 //
 //	{"version":1,"type":"log","name":"...","channels":[...]}
 //
 // Version, Type, and Name are promoted to typed fields for convenient access (routing,
-// file naming). Individual services register themselves as Importers and Exporters for
-// their own Type, and the Service routes to the correct handler based on the Type.
+// file naming, etc.). Individual services register themselves as Importers and
+// Exporters for their own Type, and the Service routes to the correct handler based on
+// the Type.
 package imex
 
 import (
@@ -40,9 +41,9 @@ import (
 type Version uint64
 
 // NewErrUnsupportedVersion constructs a validation error for the named resource type,
-// indicating that the given version exceeds the highest version this Core supports.
-// The returned error is path-scoped to the "version" field so API responses can
-// present it as a structured field error.
+// indicating that the given version exceeds the highest version this Core supports. The
+// returned error is path-scoped to the "version" field so API responses can present it
+// as a structured field error.
 func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	return validate.PathedError(
 		errors.Wrapf(
@@ -55,7 +56,7 @@ func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 }
 
 // Envelope is the portable format for a single importable/exportable resource. All
-// fields are flat at the JSON level. The wire format looks like:
+// fields are flat when transported over the wire. The wire format looks like:
 //
 //	{"version":1,"type":"log","name":"...","channels":[...]}
 //
@@ -108,16 +109,16 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 		delete(m, "version")
 	}
 	if v, ok := m["type"]; ok {
-		s, isString := v.(string)
-		if !isString {
+		s, ok := v.(string)
+		if !ok {
 			return errors.Newf("type must be a string, got %T", v)
 		}
 		e.Type = s
 		delete(m, "type")
 	}
 	if v, ok := m["name"]; ok {
-		s, isString := v.(string)
-		if !isString {
+		s, ok := v.(string)
+		if !ok {
 			return errors.Newf("name must be a string, got %T", v)
 		}
 		e.Name = s

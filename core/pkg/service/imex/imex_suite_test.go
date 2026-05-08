@@ -50,19 +50,16 @@ func (testEntry) SetOptions() []any { return nil }
 // without depending on any concrete service. Imports allocate a fresh key and persist
 // through the provided transaction; exports look up by key.
 type testService struct {
-	version imex.Version
-	db      *gorp.DB
-	table   *gorp.Table[string, testEntry]
+	db    *gorp.DB
+	table *gorp.Table[string, testEntry]
 }
 
 func openTestService(ctx context.Context, db *gorp.DB) *testService {
-	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testEntry]{
-		DB: db,
-	}))
-	return &testService{version: testVersion, db: db, table: table}
+	table := MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[testEntry]{DB: db}))
+	return &testService{db: db, table: table}
 }
 
-func (s *testService) Type() ontology.ResourceType { return testResourceType }
+func (*testService) Type() ontology.ResourceType { return testResourceType }
 
 func (s *testService) Import(
 	ctx context.Context,
@@ -86,7 +83,7 @@ func (s *testService) Export(ctx context.Context, key string) (imex.Envelope, er
 		return imex.Envelope{}, err
 	}
 	return imex.Envelope{
-		Version: s.version,
+		Version: testVersion,
 		Type:    string(testResourceType),
 		Name:    e.Name,
 		Data:    e.Data,
@@ -104,7 +101,10 @@ func (s *testService) Retrieve(ctx context.Context, key string) (testEntry, erro
 	return e, nil
 }
 
-func (s *testService) RetrieveByName(ctx context.Context, name string) (testEntry, error) {
+func (s *testService) RetrieveByName(
+	ctx context.Context,
+	name string,
+) (testEntry, error) {
 	var e testEntry
 	if err := s.table.NewRetrieve().
 		Where(gorp.Match(func(_ gorp.Context, e *testEntry) (bool, error) {

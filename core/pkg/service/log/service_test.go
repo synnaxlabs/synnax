@@ -116,8 +116,9 @@ var _ = Describe("ServiceConfig", func() {
 
 var _ = Describe("OpenService", func() {
 	It("Should fail when ServiceConfig is missing required fields", func(ctx SpecContext) {
-		_, err := log.OpenService(ctx, log.ServiceConfig{DB: db})
-		Expect(err).To(MatchError(ContainSubstring("ontology")))
+		Expect(log.OpenService(ctx, log.ServiceConfig{DB: db})).Error().To(
+			MatchError(ContainSubstring("ontology")),
+		)
 	})
 
 	It("Should register itself as an importer/exporter on the ImEx service", func(ctx SpecContext) {

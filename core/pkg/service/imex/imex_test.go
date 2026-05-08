@@ -174,26 +174,29 @@ var _ = Describe("ImEx", func() {
 
 	Describe("NewErrUnsupportedVersion", func() {
 		It("Should produce a message naming the resource type, given, and supported versions", func() {
-			err := imex.NewErrUnsupportedVersion("log", 5, 1)
-			Expect(err).To(MatchError(ContainSubstring("log version 5")))
-			Expect(err).To(MatchError(ContainSubstring("newer than this Core supports")))
-			Expect(err).To(MatchError(ContainSubstring("latest: 1")))
+			Expect(imex.NewErrUnsupportedVersion("log", 5, 1)).To(And(
+				MatchError(ContainSubstring("log version 5")),
+				MatchError(ContainSubstring("newer than this Core supports")),
+				MatchError(ContainSubstring("latest: 1")),
+			))
 		})
 
 		It("Should mention validation in the error message", func() {
-			err := imex.NewErrUnsupportedVersion("log", 5, 1)
-			Expect(err).To(MatchError(ContainSubstring("validation error")))
+			Expect(imex.NewErrUnsupportedVersion("log", 5, 1)).
+				To(MatchError(ContainSubstring("validation")))
 		})
 
 		It("Should be path-scoped to the version field", func() {
-			err := imex.NewErrUnsupportedVersion("log", 5, 1)
-			Expect(err).To(MatchError(ContainSubstring("version")))
+			Expect(imex.NewErrUnsupportedVersion("log", 5, 1)).
+				To(MatchError(ContainSubstring("version")))
 		})
 
 		It("Should reflect the resource type passed in", func() {
-			err := imex.NewErrUnsupportedVersion("schematic", 99, 4)
-			Expect(err).To(MatchError(ContainSubstring("schematic version 99")))
-			Expect(err).To(MatchError(ContainSubstring("latest: 4")))
+			Expect(imex.NewErrUnsupportedVersion("schematic", 99, 4)).
+				To(And(
+					MatchError(ContainSubstring("schematic version 99")),
+					MatchError(ContainSubstring("latest: 4")),
+				))
 		})
 	})
 })

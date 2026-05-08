@@ -9,9 +9,7 @@
 
 package v1
 
-import (
-	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
-)
+import v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 
 // Migrate lifts a typed v0.Data into a v1.Data, applying the v0→v1 schema
 // transformation: bare channel keys become ChannelEntry records with default display

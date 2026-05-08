@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/query"
-	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Writer", func() {
@@ -34,25 +33,23 @@ var _ = Describe("Writer", func() {
 		It("Should establish a ParentOf relationship to the workspace", func(ctx SpecContext) {
 			l := log.Log{Name: "with-ws"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
-			has := MustSucceed(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
 				workspace.OntologyID(ws.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),
-			))
-			Expect(has).To(BeTrue())
+			)).To(BeTrue())
 		})
 
 		It("Should skip the workspace ParentOf relationship when ws is uuid.Nil", func(ctx SpecContext) {
 			l := log.Log{Name: "no-ws"}
 			Expect(svc.NewWriter(tx).Create(ctx, uuid.Nil, &l)).To(Succeed())
-			has := MustSucceed(otg.NewWriter(tx).HasRelationship(
+			Expect(otg.NewWriter(tx).HasRelationship(
 				ctx,
 				workspace.OntologyID(ws.Key),
 				ontology.RelationshipTypeParentOf,
 				log.OntologyID(l.Key),
-			))
-			Expect(has).To(BeFalse())
+			)).To(BeFalse())
 		})
 
 		It("Should still register the resource in the ontology when ws is uuid.Nil", func(ctx SpecContext) {
@@ -105,10 +102,9 @@ var _ = Describe("Writer", func() {
 			l := log.Log{Name: "to-delete"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
-			var res log.Log
 			Expect(svc.NewRetrieve().
 				Where(log.MatchKeys(l.Key)).
-				Entry(&res).
+				Entry(&log.Log{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
@@ -116,10 +112,9 @@ var _ = Describe("Writer", func() {
 			l := log.Log{Name: "to-delete-otg"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, l.Key)).To(Succeed())
-			var resource ontology.Resource
 			Expect(otg.NewRetrieve().
 				WhereIDs(log.OntologyID(l.Key)).
-				Entry(&resource).
+				Entry(&ontology.Resource{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 
@@ -129,10 +124,9 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &a)).To(Succeed())
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &b)).To(Succeed())
 			Expect(svc.NewWriter(tx).Delete(ctx, a.Key, b.Key)).To(Succeed())
-			var res []log.Log
 			Expect(svc.NewRetrieve().
 				Where(log.MatchKeys(a.Key, b.Key)).
-				Entries(&res).
+				Entries(&[]log.Log{}).
 				Exec(ctx, tx)).To(MatchError(query.ErrNotFound))
 		})
 	})

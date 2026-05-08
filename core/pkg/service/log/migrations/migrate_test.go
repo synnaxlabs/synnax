@@ -15,12 +15,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/log/migrations"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Migrate", func() {
 	It("Should reject a version greater than the latest supported", func() {
-		_, err := migrations.Migrate(migrations.LatestVersion+1, map[string]any{})
-		Expect(err).To(MatchError(ContainSubstring("newer than this Core supports")))
+		Expect(migrations.Migrate(migrations.LatestVersion+1, map[string]any{})).Error().
+			To(MatchError(ContainSubstring("newer than this Core supports")))
 	})
 
 	It("Should parse a well-formed v1 payload at v1.Version", func() {
@@ -38,8 +39,7 @@ var _ = Describe("Migrate", func() {
 			"show_channel_names":     true,
 			"show_receipt_timestamp": false,
 		}
-		result, err := migrations.Migrate(v1.Version, data)
-		Expect(err).ToNot(HaveOccurred())
+		result := MustSucceed(migrations.Migrate(v1.Version, data))
 		Expect(result.Channels).To(HaveLen(1))
 		Expect(result.Channels[0].Channel).To(Equal(1))
 		Expect(result.Channels[0].Color).To(Equal("blue"))
@@ -51,8 +51,8 @@ var _ = Describe("Migrate", func() {
 		data := map[string]any{
 			"channels": []any{map[string]any{"color": "red"}}, // missing required channel
 		}
-		_, err := migrations.Migrate(v1.Version, data)
-		Expect(err).To(MatchError(ContainSubstring("channel")))
+		Expect(migrations.Migrate(v1.Version, data)).Error().
+			To(MatchError(ContainSubstring("channel")))
 	})
 
 	It("Should parse a v0 payload and lift it forward to the latest", func() {
@@ -60,8 +60,7 @@ var _ = Describe("Migrate", func() {
 			"channels":       []any{1, 2, 3},
 			"remote_created": true,
 		}
-		result, err := migrations.Migrate(v0.Version, data)
-		Expect(err).ToNot(HaveOccurred())
+		result := MustSucceed(migrations.Migrate(v0.Version, data))
 		Expect(result.Channels).To(HaveLen(3))
 		Expect(result.Channels[0].Channel).To(Equal(1))
 		Expect(result.Channels[0].Notation).To(Equal("standard"))
@@ -75,7 +74,7 @@ var _ = Describe("Migrate", func() {
 		data := map[string]any{
 			"channels": "not-an-array",
 		}
-		_, err := migrations.Migrate(v0.Version, data)
-		Expect(err).To(MatchError(ContainSubstring("channels")))
+		Expect(migrations.Migrate(v0.Version, data)).Error().
+			To(MatchError(ContainSubstring("channels")))
 	})
 })

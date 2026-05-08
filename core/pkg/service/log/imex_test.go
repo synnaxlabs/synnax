@@ -34,12 +34,14 @@ var _ = Describe("ImportExport", func() {
 	Describe("Import", func() {
 		It("Should import a v1 envelope", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v1.json")
-			Expect(svc.Import(ctx, tx, env)).Error().NotTo(HaveOccurred())
+			key := MustSucceed(svc.Import(ctx, tx, env))
+			Expect(uuid.Validate(key)).To(Succeed())
 		})
 
 		It("Should import and migrate a v0 envelope", func(ctx SpecContext) {
 			env := loadEnvelope("testdata/import_v0.json")
-			Expect(svc.Import(ctx, tx, env)).Error().NotTo(HaveOccurred())
+			key := MustSucceed(svc.Import(ctx, tx, env))
+			Expect(uuid.Validate(key)).To(Succeed())
 		})
 
 		It("Should reject a future version", func(ctx SpecContext) {
@@ -70,13 +72,15 @@ var _ = Describe("ImportExport", func() {
 		})
 
 		It("Should reject a non-UUID key", func(ctx SpecContext) {
-			_, err := svc.Export(ctx, "not-a-uuid")
-			Expect(err).To(MatchError(ContainSubstring("invalid UUID")))
+			Expect(svc.Export(ctx, "not-a-uuid")).Error().To(
+				MatchError(ContainSubstring("invalid UUID")),
+			)
 		})
 
 		It("Should error when the log does not exist", func(ctx SpecContext) {
-			_, err := svc.Export(ctx, uuid.New().String())
-			Expect(err).To(MatchError(query.ErrNotFound))
+			Expect(svc.Export(ctx, uuid.New().String())).Error().To(
+				MatchError(query.ErrNotFound),
+			)
 		})
 
 		It("Should error when the on-disk Data is malformed", func(ctx SpecContext) {
@@ -86,8 +90,9 @@ var _ = Describe("ImportExport", func() {
 				"channels": "not-an-array",
 			})).To(Succeed())
 			Expect(tx.Commit(ctx)).To(Succeed())
-			_, err := svc.Export(ctx, l.Key.String())
-			Expect(err).To(HaveOccurred())
+			Expect(svc.Export(ctx, l.Key.String())).Error().To(
+				MatchError(ContainSubstring("cannot unmarshal string")),
+			)
 		})
 	})
 
