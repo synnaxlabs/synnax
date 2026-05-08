@@ -46,21 +46,26 @@ export interface PropertiesProps {
   layoutKey: string;
 }
 
-export const PropertiesControls = memo(
-  ({ layoutKey }: PropertiesProps): ReactElement => {
-    const selected = useSelectSelected(layoutKey);
-    if (selected.length === 0)
-      return (
-        <Text.Text status="disabled" center>
-          Select a Schematic element to configure its properties.
-        </Text.Text>
-      );
-    if (selected.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
-    const elKey = selected[0];
-    return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
-  },
-);
-PropertiesControls.displayName = "PropertiesControls";
+export const Properties = memo(({ layoutKey }: PropertiesProps): ReactElement => {
+  const selected = useSelectSelected(layoutKey);
+  const selectedConfigs = Schematic.useSelectConfigs({
+    key: layoutKey,
+    keys: selected,
+  });
+  if (selected.length === 0 || selectedConfigs.length == 0)
+    return (
+      <Text.Text status="disabled" center>
+        Select a Schematic element to configure its properties.
+      </Text.Text>
+    );
+  if (selected.length > 1)
+    return (
+      <MultiElementProperties layoutKey={layoutKey} selectedConfigs={selectedConfigs} />
+    );
+  const elKey = selected[0];
+  return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
+});
+Properties.displayName = "PropertiesControls";
 
 interface IndividualConfigProps {
   layoutKey: string;
@@ -120,17 +125,16 @@ const IndividualConfig = ({
 
 interface MultiElementPropertiesProps {
   layoutKey: string;
+  selectedConfigs: Schematic.ElementConfig[];
 }
 
 const MultiElementProperties = ({
   layoutKey,
+  selectedConfigs,
 }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
-  const selectedConfigs = Schematic.useSelectConfigs({
-    key: layoutKey,
-    keys: selected,
-  });
+
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
   const { dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
