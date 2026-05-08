@@ -39,11 +39,6 @@ import (
 // only accepts the numeric form.
 type Version uint64
 
-// ErrUnsupportedVersion is returned when an envelope (or other versioned input)
-// declares a version greater than what this Core supports for the resource type.
-// Wraps validate.ErrValidation so callers can match on the broader validation shape.
-var ErrUnsupportedVersion = errors.Wrap(validate.ErrValidation, "unsupported version")
-
 // NewErrUnsupportedVersion constructs an ErrUnsupportedVersion for the named resource
 // type, indicating that the given version exceeds the highest version this Core
 // supports. The returned error is path-scoped to the "version" field so API responses
@@ -52,7 +47,7 @@ var ErrUnsupportedVersion = errors.Wrap(validate.ErrValidation, "unsupported ver
 func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	return validate.PathedError(
 		errors.Wrapf(
-			ErrUnsupportedVersion,
+			validate.ErrValidation,
 			"%s version %d is newer than this Core supports (latest: %d)",
 			typ, given, supported,
 		),

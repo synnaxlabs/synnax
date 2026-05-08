@@ -16,6 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ImEx", func() {
@@ -169,6 +170,31 @@ var _ = Describe("ImEx", func() {
 				Expect(json.Unmarshal(b, &dst)).To(Succeed())
 				Expect(src).To(Equal(dst))
 			})
+		})
+	})
+
+	Describe("NewErrUnsupportedVersion", func() {
+		It("Should produce a message naming the resource type, given, and supported versions", func() {
+			err := imex.NewErrUnsupportedVersion("log", 5, 1)
+			Expect(err).To(MatchError(ContainSubstring("log version 5")))
+			Expect(err).To(MatchError(ContainSubstring("newer than this Core supports")))
+			Expect(err).To(MatchError(ContainSubstring("latest: 1")))
+		})
+
+		It("Should match validate.ErrValidation via errors.Is", func() {
+			err := imex.NewErrUnsupportedVersion("log", 5, 1)
+			Expect(err).To(MatchError(validate.ErrValidation))
+		})
+
+		It("Should be path-scoped to the version field", func() {
+			err := imex.NewErrUnsupportedVersion("log", 5, 1)
+			Expect(err).To(MatchError(ContainSubstring("version")))
+		})
+
+		It("Should reflect the resource type passed in", func() {
+			err := imex.NewErrUnsupportedVersion("schematic", 99, 4)
+			Expect(err).To(MatchError(ContainSubstring("schematic version 99")))
+			Expect(err).To(MatchError(ContainSubstring("latest: 4")))
 		})
 	})
 })
