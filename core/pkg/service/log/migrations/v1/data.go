@@ -11,7 +11,7 @@ package v1
 
 import "github.com/synnaxlabs/x/zyn"
 
-const Version = 1
+const Version uint64 = 1
 
 // ChannelEntry is a channel reference with display configuration.
 type ChannelEntry struct {

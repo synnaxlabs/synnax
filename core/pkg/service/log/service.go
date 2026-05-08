@@ -94,7 +94,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	s := &Service{ServiceConfig: cfg, table: table}
 	cfg.Ontology.RegisterService(s)
 	cfg.Search.RegisterService(s)
-	cfg.ImEx.RegisterImporterExporter(s)
+	cfg.ImEx.RegisterImportExporter(s)
 	return s, nil
 }
 

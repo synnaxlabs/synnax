@@ -11,6 +11,7 @@ package imex
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -55,7 +56,7 @@ type Service struct {
 // NewService creates a new, empty import/export registry. Handlers register themselves
 // via RegisterImporterExporter / RegisterImporter / RegisterExporter at their own
 // registration time, typically by accepting the Service in their own service config.
-func NewService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
+func NewService(cfgs ...ServiceConfig) (*Service, error) {
 	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
@@ -67,10 +68,10 @@ func NewService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}, nil
 }
 
-// RegisterImporterExporter registers a single handler for both halves under
-// its own Type. Use this for symmetric services (one resource type for both
-// import and export) — e.g., logs, schematics.
-func (s *Service) RegisterImporterExporter(ie ImportExporter) {
+// RegisterImportExporter registers a single handler for both halves under its own Type.
+// Use this for symmetric services (one resource type for both import and export) —
+// e.g., logs, schematics.
+func (s *Service) RegisterImportExporter(ie ImportExporter) {
 	t := ie.Type()
 	s.importers[string(t)] = ie
 	s.exporters[t] = ie
@@ -86,18 +87,36 @@ func (s *Service) RegisterImporter(t string, i Importer) { s.importers[t] = i }
 // for the asymmetric-registration use case.
 func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
 
-// ImporterType returns the ontology resource type that the importer registered
-// under the given (possibly narrow) type string creates. For symmetric
-// importers (e.g., "log") this is identical to the registration string; for
-// asymmetric importers (e.g., a task service registered under "http_read")
-// this is the broader ontology type ("task"). Returns an error if no importer
-// is registered for t.
+// ImporterType returns the ontology resource type that the importer registered under
+// the given (possibly narrow) type string creates. For symmetric importers (e.g.,
+// "log") this is identical to the registration string; for asymmetric importers (e.g.,
+// a task service registered under "http_read") this is the broader ontology type
+// ("task"). Returns a validation error scoped to the "type" field if no importer is
+// registered for t.
 func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
 	imp, ok := s.importers[t]
 	if !ok {
-		return "", errors.Newf("no importer registered for type %q", t)
+		return "", unknownImporterError(t, "type")
 	}
 	return imp.Type(), nil
+}
+
+// unknownImporterError returns a validation error scoped to the given path reporting
+// that no importer is registered for t.
+func unknownImporterError(t, path string) error {
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, "no importer registered for type %q", t),
+		path,
+	)
+}
+
+// unknownExporterError returns a validation error scoped to the given path reporting
+// that no exporter is registered for t.
+func unknownExporterError(t ontology.ResourceType, path string) error {
+	return validate.PathedError(
+		errors.Wrapf(validate.ErrValidation, "no exporter registered for type %q", t),
+		path,
+	)
 }
 
 // Import validates and persists the given envelopes within a single transaction,
@@ -108,16 +127,15 @@ func (s *Service) Import(
 ) ([]string, error) {
 	keys := make([]string, len(envelopes))
 	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		var err error
 		for i, env := range envelopes {
 			importer, ok := s.importers[env.Type]
 			if !ok {
-				return errors.Newf("no importer registered for type %q", env.Type)
+				return unknownImporterError(env.Type, fmt.Sprintf("[%d].type", i))
 			}
-			key, err := importer.Import(ctx, tx, env)
-			if err != nil {
+			if keys[i], err = importer.Import(ctx, tx, env); err != nil {
 				return err
 			}
-			keys[i] = key
 		}
 		return nil
 	}); err != nil {
@@ -137,10 +155,7 @@ func (s *Service) Export(
 	for i, r := range resources {
 		exporter, ok := s.exporters[r.Type]
 		if !ok {
-			return nil, errors.Newf(
-				"no exporter registered for type %q",
-				r.Type,
-			)
+			return nil, unknownExporterError(r.Type, fmt.Sprintf("[%d].type", i))
 		}
 		if envelopes[i], err = exporter.Export(ctx, r.Key); err != nil {
 			return nil, err

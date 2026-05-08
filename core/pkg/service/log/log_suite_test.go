@@ -64,7 +64,7 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		imexSvc := MustSucceed(imex.NewService(ctx, imex.ServiceConfig{DB: db}))
+		imexSvc := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

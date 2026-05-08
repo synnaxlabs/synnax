@@ -47,27 +47,25 @@ func (s *Service) Import(
 	return l.Key.String(), nil
 }
 
-func migrateData(version int, data map[string]any) (v1.Data, error) {
+func migrateData(version uint64, data map[string]any) (v1.Data, error) {
 	switch {
 	case version > v1.Version:
 		return v1.Data{}, errors.Newf(
 			"log version %d is newer than this Core supports (latest: %d)",
 			version, v1.Version,
 		)
-	case version >= v1.Version:
+	case version == v1.Version:
 		var d v1.Data
 		if err := v1.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return d, nil
-	case version >= v0.Version:
+	default:
 		var d v0.Data
 		if err := v0.Schema.Parse(data, &d); err != nil {
 			return v1.Data{}, err
 		}
 		return v1.Migrate(d)
-	default:
-		return v1.Data{}, errors.Newf("unknown log version %d", version)
 	}
 }
 

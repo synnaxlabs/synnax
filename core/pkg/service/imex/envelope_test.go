@@ -24,7 +24,7 @@ var _ = Describe("Envelope", func() {
 			src := []byte(`{"version":54,"type":"log","name":"n","foo":1}`)
 			var env imex.Envelope
 			Expect(json.Unmarshal(src, &env)).To(Succeed())
-			Expect(env.Version).To(Equal(54))
+			Expect(env.Version).To(Equal(uint64(54)))
 			Expect(env.Type).To(Equal("log"))
 			Expect(env.Name).To(Equal("n"))
 			Expect(env.Data).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
@@ -45,7 +45,7 @@ var _ = Describe("Envelope", func() {
 			Expect(json.Unmarshal(
 				[]byte(`{"version":7,"type":"log","channels":[]}`), &env,
 			)).To(Succeed())
-			Expect(env.Version).To(Equal(7))
+			Expect(env.Version).To(Equal(uint64(7)))
 		})
 
 		It("Should translate a semver version via legacyToNumeric", func() {
@@ -53,7 +53,7 @@ var _ = Describe("Envelope", func() {
 			Expect(json.Unmarshal(
 				[]byte(`{"version":"1.2.3","type":"log","channels":[]}`), &env,
 			)).To(Succeed())
-			Expect(env.Version).To(Equal(1))
+			Expect(env.Version).To(Equal(uint64(1)))
 		})
 	})
 
@@ -104,7 +104,7 @@ var _ = Describe("Envelope", func() {
 			b := MustSucceed(json.Marshal(src))
 			var dst imex.Envelope
 			Expect(json.Unmarshal(b, &dst)).To(Succeed())
-			Expect(dst.Version).To(Equal(7))
+			Expect(dst.Version).To(Equal(uint64(7)))
 			Expect(dst.Type).To(Equal("log"))
 			Expect(dst.Name).To(Equal("n"))
 			Expect(dst.Data).To(HaveKey("channels"))

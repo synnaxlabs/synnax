@@ -269,7 +269,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 	}); !ok(err, l.LinePlot) {
 		return nil, err
 	}
-	if l.ImEx, err = imex.NewService(ctx, imex.ServiceConfig{
+	if l.ImEx, err = imex.NewService(imex.ServiceConfig{
 		DB: cfg.Distribution.DB,
 	}); !ok(err, nil) {
 		return nil, err
