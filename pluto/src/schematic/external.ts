@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+export * from "@/schematic/clipboard";
 export * from "@/schematic/edge";
 export * from "@/schematic/element";
 export * from "@/schematic/haul";
