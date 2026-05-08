@@ -71,7 +71,7 @@ var _ = Describe("TS Actions Plugin", func() {
 		})
 
 		Context("structs with actions", func() {
-			It("Should emit a discriminated-union codec with a Handlers interface and createReducer/createReduceAll factories", func(ctx SpecContext) {
+			It("Should emit a discriminated-union codec with HandlerResult/ReduceAllResult types and a createReduceAll factory", func(ctx SpecContext) {
 				source := `
 					@ts output "client/ts/src/counter"
 
@@ -103,21 +103,42 @@ var _ = Describe("TS Actions Plugin", func() {
 						"export type Action",
 						"export const setValue = (payload: SetValuePayload): Action",
 						"export const increment = (payload: IncrementPayload): Action",
+						"export interface HandlerResult {",
+						"inverse: Action[];",
+						"targets: readonly string[];",
 						"export interface Handlers {",
-						"setValue: (state: Counter, payload: SetValuePayload) => void;",
-						"increment: (state: Counter, payload: IncrementPayload) => void;",
-						"export const createReducer =",
-						"(handlers: Handlers) =>",
-						"(state: Counter, action: Action): Counter =>",
-						"case \"set_value\":",
-						"handlers.setValue(state, action.setValue);",
-						"case \"increment\":",
-						"handlers.increment(state, action.increment);",
+						"setValue: (state: Draft<Counter>, payload: SetValuePayload) => HandlerResult;",
+						"increment: (state: Draft<Counter>, payload: IncrementPayload) => HandlerResult;",
+						"export interface ReduceAllResult {",
+						"next: Counter;",
 						"export const createReduceAll = (handlers: Handlers) =>",
-						"const reduce = createReducer(handlers);",
-						"(state: Counter, actions: Action[]): Counter =>",
-						"produce(state, (draft) => actions.forEach((action) => reduce(draft, action)))",
+						"const reduce = (state: Draft<Counter>, action: Action): HandlerResult =>",
+						"case \"set_value\":",
+						"return handlers.setValue(state, action.setValue);",
+						"case \"increment\":",
+						"return handlers.increment(state, action.increment);",
+						"(state: Counter, actions: Action[]): ReduceAllResult =>",
+						"produce(state, (draft) =>",
+						"if (result.inverse.length > 0) inverse.unshift(...result.inverse);",
+						"for (const t of result.targets) targetsSet.add(t);",
+						"return { next, inverse, targets: Array.from(targetsSet) };",
 					)
+			})
+
+			It("Should not emit a single-action createReducer factory", func(ctx SpecContext) {
+				source := `
+					@ts output "client/ts/src/counter"
+
+					Counter struct {
+						key   uuid
+
+						action Tick {
+						}
+					}
+				`
+				resp := MustGenerate(ctx, source, "counter", loader, p)
+				ExpectContent(resp, "actions.gen.ts").
+					ToNotContain("export const createReducer")
 			})
 
 			It("Should snake_case action types and camelCase handler/constructor names", func(ctx SpecContext) {
@@ -137,8 +158,8 @@ var _ = Describe("TS Actions Plugin", func() {
 					ToContain(
 						"set_node_position: \"set_node_position\"",
 						"export const setNodePosition",
-						"setNodePosition: (state: Board, payload: SetNodePositionPayload) => void;",
-						"handlers.setNodePosition(state, action.setNodePosition);",
+						"setNodePosition: (state: Draft<Board>, payload: SetNodePositionPayload) => HandlerResult;",
+						"return handlers.setNodePosition(state, action.setNodePosition);",
 						"z.literal(\"set_node_position\")",
 					)
 			})

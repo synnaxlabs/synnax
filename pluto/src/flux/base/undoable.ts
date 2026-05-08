@@ -283,20 +283,13 @@ class UndoableStore<Key extends record.Key, State extends Shape, Action> {
       return null;
     }
     const entry = state.undo[idx];
-    const redoEntry: StackEntry<Action> = {
-      forward: entry.inverse,
-      inverse: entry.forward,
-      kind: entry.kind,
-      ts: TimeStamp.now(),
-      targets: entry.targets,
-    };
     return {
       actions: entry.inverse,
       commit: () =>
         this.updateUndo(scope, key, (s) => ({
           ...s,
           undo: s.undo.slice(0, idx),
-          redo: [...s.redo, redoEntry],
+          redo: [...s.redo, entry],
         })),
     };
   }
@@ -305,19 +298,12 @@ class UndoableStore<Key extends record.Key, State extends Shape, Action> {
     const state = this.undos.get(key) as UndoState<Action> | undefined;
     if (state == null || state.redo.length === 0) return null;
     const entry = state.redo[state.redo.length - 1];
-    const undoEntry: StackEntry<Action> = {
-      forward: entry.forward,
-      inverse: entry.inverse,
-      kind: entry.kind,
-      ts: TimeStamp.now(),
-      targets: entry.targets,
-    };
     return {
       actions: entry.forward,
       commit: () =>
         this.updateUndo(scope, key, (s) => ({
           ...s,
-          undo: [...s.undo, undoEntry],
+          undo: [...s.undo, entry],
           redo: s.redo.slice(0, -1),
         })),
     };

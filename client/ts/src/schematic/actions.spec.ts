@@ -10,7 +10,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
 
-import { isUndoable, reduce, reduceAll } from "@/schematic/actions";
+import { isUndoable, reduceAll } from "@/schematic/actions";
 import {
   type Action,
   actionZ,
@@ -624,10 +624,6 @@ describe("schematic reducer inverses", () => {
       expect(inverse).toEqual([
         setNodePosition({ key: "n1", position: { x: 0, y: 0 } }),
       ]);
-    });
-    it("should expose reduce for single-action mutation against an existing draft", () => {
-      // Sanity check that the named export exists and has the right signature.
-      expect(typeof reduce).toBe("function");
     });
   });
 });

@@ -10,10 +10,13 @@
 // Package actions emits a TypeScript discriminated-union action codec for any
 // oracle struct that declares one or more actions. Each action becomes a zod
 // payload schema, an Action union dispatches by literal type, and the plugin
-// emits a Handlers interface together with createReducer / createReduceAll
-// factories that bind a caller-provided Handlers object via immer's produce.
-// The per-action handler functions are hand-written and supplied by the
-// caller; this plugin does not generate them.
+// emits Handlers / HandlerResult / ReduceAllResult types together with
+// createReducer / createReduceAll factories that bind a caller-provided
+// Handlers object via immer's produce. Each handler returns a HandlerResult
+// (inverse actions + touched targets) so the generated reduceAll can
+// accumulate undo data alongside the next state. The per-action handler
+// functions are hand-written and supplied by the caller; this plugin does not
+// generate them.
 package actions
 
 import (
@@ -111,6 +114,7 @@ func (p *Plugin) generateFile(
 	}
 
 	mgr.AddImport("zod", "z")
+	mgr.AddImport("immer", "Draft")
 	mgr.AddImport("immer", "produce")
 	sameDir := paths.CalculateImport(outputPath, outputPath)
 	mgr.AddImport(sameDir+"/types.gen", typ.Name)
@@ -183,29 +187,44 @@ export const {{ camelCase .Name }} = (payload: {{ .Name }}Payload): Action => ({
   {{ camelCase .Name }}: payload,
 });
 {{end}}
+export interface HandlerResult {
+  inverse: Action[];
+  /** Document keys this handler touched (or considered touching). */
+  targets: readonly string[];
+}
+
 export interface Handlers {
 {{- range .Actions}}
-  {{ camelCase .Name }}: (state: {{ $.TargetTypeName }}, payload: {{ .Name }}Payload) => void;
+  {{ camelCase .Name }}: (state: Draft<{{ $.TargetTypeName }}>, payload: {{ .Name }}Payload) => HandlerResult;
 {{- end}}
 }
 
-export const createReducer =
-  (handlers: Handlers) =>
-  (state: {{ .TargetTypeName }}, action: Action): {{ .TargetTypeName }} => {
+export interface ReduceAllResult {
+  next: {{ .TargetTypeName }};
+  inverse: Action[];
+  targets: readonly string[];
+}
+
+export const createReduceAll = (handlers: Handlers) => {
+  const reduce = (state: Draft<{{ .TargetTypeName }}>, action: Action): HandlerResult => {
     switch (action.type) {
 {{- range .Actions}}
       case "{{ .TypeName }}":
-        if (action.{{ camelCase .Name }} == null) break;
-        handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
-        break;
+        return handlers.{{ camelCase .Name }}(state, action.{{ camelCase .Name }});
 {{- end}}
     }
-    return state;
   };
-
-export const createReduceAll = (handlers: Handlers) => {
-  const reduce = createReducer(handlers);
-  return (state: {{ .TargetTypeName }}, actions: Action[]): {{ .TargetTypeName }} =>
-    produce(state, (draft) => actions.forEach((action) => reduce(draft, action)));
+  return (state: {{ .TargetTypeName }}, actions: Action[]): ReduceAllResult => {
+    const inverse: Action[] = [];
+    const targetsSet = new Set<string>();
+    const next = produce(state, (draft) => {
+      for (const action of actions) {
+        const result = reduce(draft, action);
+        if (result.inverse.length > 0) inverse.unshift(...result.inverse);
+        for (const t of result.targets) targetsSet.add(t);
+      }
+    });
+    return { next, inverse, targets: Array.from(targetsSet) };
+  };
 };
 `))

@@ -175,6 +175,72 @@ describe("Flux.createDispatch", () => {
       expect(getDoc(result.current.store, key)).toEqual(before);
       expect(result.current.undo.canUndo).toBe(false);
     });
+
+    it("sends an array of actions in a single send call", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: [
+            schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
+            schematic.setNodePosition({ key: "n2", position: { x: 2, y: 2 } }),
+          ],
+        });
+      });
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(send.mock.calls[0][0].actions).toHaveLength(2);
+      const doc = getDoc(result.current.store, key);
+      expect(doc?.nodes[0].position).toEqual({ x: 1, y: 1 });
+      expect(doc?.nodes[1].position).toEqual({ x: 2, y: 2 });
+    });
+
+    it("returns false from dispatchAsync when the doc is not cached", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const td = makeDispatch(send);
+      // Don't prime the cache — dispatch on an unknown key.
+      const { result } = renderHook(() => td.useDispatch(), { wrapper: Wrapper });
+      let ok = true;
+      await act(async () => {
+        ok = await result.current.dispatchAsync({
+          key: "unknown" as schematic.Key,
+          actions: schematic.setNodePosition({ key: "n", position: { x: 0, y: 0 } }),
+        });
+      });
+      expect(ok).toBe(false);
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it("dispatch (sync) fires the action without awaiting", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result, key } = await setupHook(
+        (td, k) => ({
+          dispatch: td.useDispatch(),
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      act(() => {
+        result.current.dispatch.dispatch({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 4, y: 4 } }),
+        });
+      });
+      await waitFor(() => {
+        expect(send).toHaveBeenCalledTimes(1);
+        expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual({
+          x: 4,
+          y: 4,
+        });
+      });
+    });
   });
 
   describe("undo", () => {
@@ -196,15 +262,14 @@ describe("Flux.createDispatch", () => {
         });
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
+      act(() => result.current.undo.undo());
+      await waitFor(() => {
+        expect(send).toHaveBeenCalledTimes(2);
+        expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual(
+          before?.nodes[0].position,
+        );
+        expect(result.current.redo.canRedo).toBe(true);
       });
-      expect(send).toHaveBeenCalledTimes(2);
-      expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual(
-        before?.nodes[0].position,
-      );
-      await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
     });
 
     it("returns the entry to the undo stack when the inverse send fails", async () => {
@@ -228,10 +293,8 @@ describe("Flux.createDispatch", () => {
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
       const after = getDoc(result.current.store, key);
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
+      await waitFor(() => expect(send).toHaveBeenCalledTimes(2));
       expect(getDoc(result.current.store, key)).toEqual(after);
       expect(result.current.undo.canUndo).toBe(true);
       expect(result.current.redo.canRedo).toBe(false);
@@ -258,16 +321,45 @@ describe("Flux.createDispatch", () => {
           TimeStamp.now().add(TimeSpan.SECOND),
         );
       });
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
   });
 
   describe("redo", () => {
-    it("re-applies an undone action and clears redo on a new user action", async () => {
+    it("re-applies the original forward and restores the post-dispatch state", async () => {
+      const { result, key } = await setupHook((td, k) => ({
+        dispatch: td.useDispatch(),
+        undo: td.useUndo({ key: k }),
+        redo: td.useRedo({ key: k }),
+      }));
+      const before = getDoc(result.current.store, key);
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
+        });
+      });
+      const afterDispatch = getDoc(result.current.store, key);
+      act(() => result.current.undo.undo());
+      await waitFor(() => {
+        expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual(
+          before?.nodes[0].position,
+        );
+        expect(result.current.redo.canRedo).toBe(true);
+      });
+      act(() => result.current.redo.redo());
+      // Redo must restore the post-dispatch state, not leave it at the
+      // undone state. (This caught the swap bug in prepareUndo/prepareRedo.)
+      await waitFor(() => {
+        expect(getDoc(result.current.store, key)?.nodes[0].position).toEqual(
+          afterDispatch?.nodes[0].position,
+        );
+        expect(result.current.undo.canUndo).toBe(true);
+      });
+    });
+
+    it("clears the redo stack on a new user dispatch", async () => {
       const { result, key } = await setupHook((td, k) => ({
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
@@ -279,16 +371,8 @@ describe("Flux.createDispatch", () => {
           actions: schematic.setNodePosition({ key: "n1", position: { x: 1, y: 1 } }),
         });
       });
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
-      await act(async () => {
-        result.current.redo.redo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
-      await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
       await act(async () => {
         await result.current.dispatch.dispatchAsync({
           key,
@@ -317,16 +401,11 @@ describe("Flux.createDispatch", () => {
           actions: schematic.setNodePosition({ key: "n1", position: { x: 4, y: 4 } }),
         });
       });
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.redo.canRedo).toBe(true));
       const undoneState = getDoc(result.current.store, key);
-      await act(async () => {
-        result.current.redo.redo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.redo.redo());
+      await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
       expect(getDoc(result.current.store, key)).toEqual(undoneState);
       expect(result.current.redo.canRedo).toBe(true);
     });
@@ -346,15 +425,12 @@ describe("Flux.createDispatch", () => {
           });
         });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
 
     it("does not merge across kind boundaries", async () => {
-      const { result, key } = await setupHook((td, k) => ({
+      const { result, key, send } = await setupHook((td, k) => ({
         dispatch: td.useDispatch(),
         undo: td.useUndo({ key: k }),
       }));
@@ -371,15 +447,10 @@ describe("Flux.createDispatch", () => {
         });
       });
       // Two distinct entries: one undo leaves canUndo true, a second clears it.
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
+      await waitFor(() => expect(send).toHaveBeenCalledTimes(3));
       expect(result.current.undo.canUndo).toBe(true);
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
   });
@@ -403,10 +474,7 @@ describe("Flux.createDispatch", () => {
       });
       expect(send).toHaveBeenCalledTimes(1);
       await waitFor(() => expect(result.current.undo.canUndo).toBe(true));
-      await act(async () => {
-        result.current.undo.undo();
-        await new Promise((r) => setTimeout(r, 30));
-      });
+      act(() => result.current.undo.undo());
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
     });
 
@@ -471,6 +539,63 @@ describe("Flux.createDispatch", () => {
       });
       await waitFor(() => expect(result.current.undo.canUndo).toBe(false));
       expect(getDoc(result.current.store, key)).toBeUndefined();
+    });
+  });
+
+  describe("empty stacks", () => {
+    it("undo is a no-op when nothing has been dispatched", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result } = await setupHook(
+        (td, k) => ({
+          undo: td.useUndo({ key: k }),
+        }),
+        send,
+      );
+      expect(result.current.undo.canUndo).toBe(false);
+      act(() => result.current.undo.undo());
+      expect(send).not.toHaveBeenCalled();
+    });
+
+    it("redo is a no-op when nothing has been undone", async () => {
+      const send = vi.fn<SendFn>(async () => {});
+      const { result } = await setupHook(
+        (td, k) => ({
+          redo: td.useRedo({ key: k }),
+        }),
+        send,
+      );
+      expect(result.current.redo.canRedo).toBe(false);
+      act(() => result.current.redo.redo());
+      expect(send).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("multi-key isolation", () => {
+    it("undo state for one document does not affect another", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const a = await createSchem();
+      const b = await createSchem();
+      await primeCache(Wrapper, a.key);
+      await primeCache(Wrapper, b.key);
+      const send = vi.fn<SendFn>(async () => {});
+      const td = makeDispatch(send);
+      const { result } = renderHook(
+        () => ({
+          dispatch: td.useDispatch(),
+          undoA: td.useUndo({ key: a.key }),
+          undoB: td.useUndo({ key: b.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+      await act(async () => {
+        await result.current.dispatch.dispatchAsync({
+          key: a.key,
+          actions: schematic.setNodePosition({ key: "n1", position: { x: 5, y: 5 } }),
+        });
+      });
+      await waitFor(() => expect(result.current.undoA.canUndo).toBe(true));
+      // Dispatching on `a` must not enable undo on `b`.
+      expect(result.current.undoB.canUndo).toBe(false);
     });
   });
 });
