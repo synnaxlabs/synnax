@@ -96,6 +96,25 @@ const forwardGlobalTriggers = (
   };
 };
 
+// monaco-vscode-api ignores `tokenTypes` in language config, so the parent
+// `string.quoted.raw.arc` scope suppresses the popup inside `{...}`. The only
+// alternative is `quickSuggestions.strings: "on"`, which fires in every string.
+const PLACEHOLDER_RE = /`[^`]*\{[^}]*$/;
+
+const triggerSuggestInPlaceholders = (
+  editor: Monaco.editor.IStandaloneCodeEditor,
+): Monaco.IDisposable =>
+  editor.onDidChangeModelContent((e) => {
+    const ch = e.changes[0];
+    if (e.changes.length !== 1 || ch.rangeLength !== 0 || !/^\w$/.test(ch.text))
+      return;
+    const model = editor.getModel();
+    const pos = editor.getPosition();
+    if (model == null || pos == null) return;
+    if (PLACEHOLDER_RE.test(model.getValue().slice(0, model.getOffsetAt(pos))))
+      editor.trigger("synnax", "editor.action.triggerSuggest", {});
+  });
+
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
@@ -177,11 +196,16 @@ const use = ({
         target: container,
       }),
     );
+    const placeholderSuggestDispose =
+      language === "arc"
+        ? triggerSuggestInPlaceholders(editorRef.current)
+        : { dispose: () => {} };
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
+      placeholderSuggestDispose.dispose();
       editorRef.current?.dispose();
       model?.dispose();
     };

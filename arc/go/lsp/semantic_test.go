@@ -14,6 +14,8 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/lsp"
 	. "github.com/synnaxlabs/arc/lsp/testutil"
+	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/lsp/protocol"
 	. "github.com/synnaxlabs/x/lsp/testutil"
 	. "github.com/synnaxlabs/x/testutil"
@@ -23,7 +25,10 @@ import (
 // Tests in this file pin both the legend ordering and the token-type routing
 // for STR_LITERAL vs STR_LITERAL_RAW to those ids.
 const (
+	tokenTypeOperator  = uint32(2)
 	tokenTypeString    = uint32(4)
+	tokenTypeNumber    = uint32(5)
+	tokenTypeChannel   = uint32(9)
 	tokenTypeStringRaw = uint32(21)
 )
 
@@ -185,6 +190,63 @@ var _ = Describe("Semantic Tokens", func() {
 			OpenArcDocument(server, ctx, uri, "x := 42")
 			tokens := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			Expect(filterByType(tokens, tokenTypeStringRaw)).To(BeEmpty())
+		})
+	})
+
+	Describe("Raw-string placeholders", func() {
+		It("splits `{42}` into stringRaw, operator, number, operator, stringRaw", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `val: {42}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			var inLit []decodedToken
+			for _, t := range all {
+				if t.Line == 0 && t.StartChar >= 5 {
+					inLit = append(inLit, t)
+				}
+			}
+			Expect(inLit).To(HaveLen(5))
+			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 6, TokenType: tokenTypeStringRaw}))
+			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 1, TokenType: tokenTypeOperator}))
+			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 2, TokenType: tokenTypeNumber}))
+			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 14, Length: 1, TokenType: tokenTypeOperator}))
+			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringRaw}))
+		})
+
+		It("classifies a placeholder identifier through the global resolver", func(ctx SpecContext) {
+			globalResolver := symbol.MapResolver{
+				"sensorData": symbol.Symbol{
+					Name: "sensorData",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{GlobalResolver: globalResolver})
+			OpenArcDocument(server, ctx, uri, "x := `v: {sensorData}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ch := filterByType(all, tokenTypeChannel)
+			Expect(ch).To(HaveLen(1))
+			Expect(ch[0]).To(Equal(decodedToken{Line: 0, StartChar: 10, Length: 10, TokenType: tokenTypeChannel}))
+		})
+
+		It("falls back to a single stringRaw on a malformed placeholder", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `unterminated {x`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			raw := filterByType(all, tokenTypeStringRaw)
+			Expect(raw).To(HaveLen(1))
+			Expect(raw[0].Length).To(Equal(uint32(17)))
+			for _, op := range filterByType(all, tokenTypeOperator) {
+				Expect(op.StartChar < 5).To(BeTrue())
+			}
+		})
+
+		It("treats `{{` and `}}` as escapes, no expansion", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `{{not}}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			raw := filterByType(all, tokenTypeStringRaw)
+			Expect(raw).To(HaveLen(1))
+			Expect(raw[0].Length).To(Equal(uint32(9)))
+			for _, op := range filterByType(all, tokenTypeOperator) {
+				Expect(op.StartChar < 5).To(BeTrue())
+			}
 		})
 	})
 

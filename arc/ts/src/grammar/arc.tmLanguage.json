@@ -130,6 +130,18 @@
             {
               "name": "constant.character.escape.arc",
               "match": "\\\\`"
+            },
+            {
+              "name": "meta.template.expression.arc",
+              "begin": "\\{",
+              "end": "\\}",
+              "beginCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.begin.arc" }
+              },
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.template-expression.end.arc" }
+              },
+              "patterns": [{ "include": "$self" }]
             }
           ]
         },
