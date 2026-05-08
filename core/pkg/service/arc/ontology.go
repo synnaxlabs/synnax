@@ -26,20 +26,20 @@ import (
 )
 
 // OntologyID returns unique identifier for the Arc within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeArc, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the arcs within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(key Key, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
 
 // KeysFromOntologyIDs extracts the keys of the arcs from the ontology IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		if keys[i], err = uuid.Parse(id.Key); err != nil {
@@ -65,7 +65,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[uuid.UUID, Arc]
+type change = xchange.Change[Key, Arc]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeArc }
 
@@ -95,7 +95,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Arc]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Arc]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

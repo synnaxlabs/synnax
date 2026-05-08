@@ -23,7 +23,7 @@ type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
 	group group.Group
-	table *gorp.Table[uuid.UUID, Workspace]
+	table *gorp.Table[Key, Workspace]
 }
 
 func (w Writer) Create(
@@ -61,10 +61,10 @@ func (w Writer) Create(
 
 func (w Writer) Rename(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 ) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Workspace](key)).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Workspace](key)).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Name = name
 			return ws
@@ -73,10 +73,10 @@ func (w Writer) Rename(
 
 func (w Writer) SetLayout(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	layout map[string]any,
 ) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Workspace](key)).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Workspace](key)).
 		Change(func(_ gorp.Context, ws Workspace) Workspace {
 			ws.Layout = layout
 			return ws
@@ -85,9 +85,9 @@ func (w Writer) SetLayout(
 
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Workspace](keys...)).Exec(ctx, w.tx); err != nil {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Workspace](keys...)).Exec(ctx, w.tx); err != nil {
 		return err
 	}
 	for _, key := range keys {
