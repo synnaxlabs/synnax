@@ -7,8 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import { type Middleware, type PayloadAction } from "@reduxjs/toolkit";
+import { type Drift } from "@synnaxlabs/drift";
+
 import { selectSliceState } from "@/arc/selectors";
-import { remove, type RemovePayload, type StoreState } from "@/arc/slice";
+import {
+  remove,
+  type RemovePayload,
+  setSelected,
+  type SetSelectedPayload,
+  type StoreState,
+} from "@/arc/slice";
 import { Layout } from "@/layout";
 import { effectMiddleware, type MiddlewareEffect } from "@/middleware";
 
@@ -29,6 +38,24 @@ export const deleteEffect: MiddlewareEffect<
   if (toRemove.length > 0) store.dispatch(remove({ keys: toRemove }));
 };
 
+const filterSelectionMiddleware: Middleware<
+  object,
+  Layout.StoreState & Drift.StoreState & StoreState
+> = (store) => (next) => (action) => {
+  const a = action as PayloadAction<SetSelectedPayload>;
+  if (a.type !== setSelected.type) return next(action);
+  const state = store.getState();
+  const layout = Layout.select(state, a.payload.key);
+  if (layout == null) return next(action);
+  const activeKey = Layout.selectActiveMosaicTabKeyAndNotBlurred(
+    state,
+    layout.windowKey,
+  );
+  if (activeKey !== a.payload.key) return;
+  return next(action);
+};
+
 export const MIDDLEWARE = [
   effectMiddleware([Layout.remove.type, Layout.setWorkspace.type], [deleteEffect]),
+  filterSelectionMiddleware,
 ];

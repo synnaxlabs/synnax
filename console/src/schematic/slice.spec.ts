@@ -7,9 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import { Layout } from "@/layout";
+import { MIDDLEWARE } from "@/schematic/middleware";
 import {
   actions,
   reducer,
@@ -72,5 +75,87 @@ describe("Schematic Slice", () => {
   it("should remove a schematic", () => {
     store.dispatch(actions.remove({ keys: [layoutKey] }));
     expect(store.getState()[SLICE_NAME].schematics[layoutKey]).toBeUndefined();
+  });
+});
+
+describe("Schematic Middleware", () => {
+  const layoutKey = "schematic-1";
+  const otherKey = "schematic-2";
+  const modalKey = "modal-1";
+
+  const buildStore = (
+    layouts: Record<string, Layout.State>,
+    activeTab: string | null,
+  ) => {
+    const store = configureStore({
+      reducer: combineReducers({
+        [SLICE_NAME]: reducer,
+        [Layout.SLICE_NAME]: Layout.reducer,
+        drift: Drift.reducer,
+      }),
+      preloadedState: {
+        [SLICE_NAME]: ZERO_SLICE_STATE,
+        [Layout.SLICE_NAME]: {
+          ...Layout.ZERO_SLICE_STATE,
+          layouts: { ...Layout.ZERO_SLICE_STATE.layouts, ...layouts },
+          mosaics: {
+            ...Layout.ZERO_SLICE_STATE.mosaics,
+            [MAIN_WINDOW]: {
+              ...Layout.ZERO_SLICE_STATE.mosaics[MAIN_WINDOW],
+              activeTab,
+            },
+          },
+        },
+      },
+      middleware: (getDefault) => getDefault().concat(MIDDLEWARE),
+    });
+    store.dispatch(actions.create({ key: layoutKey }));
+    return store;
+  };
+
+  const mosaicLayout = (key: string): Layout.State => ({
+    key,
+    windowKey: MAIN_WINDOW,
+    type: "schematic",
+    name: key,
+    location: "mosaic",
+  });
+
+  const modalLayout = (key: string): Layout.State => ({
+    key,
+    windowKey: MAIN_WINDOW,
+    type: "schematic",
+    name: key,
+    location: "modal",
+  });
+
+  it("should apply setSelected when the schematic is the active mosaic tab", () => {
+    const store = buildStore({ [layoutKey]: mosaicLayout(layoutKey) }, layoutKey);
+    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
+    expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual(["n1"]);
+  });
+
+  it("should drop setSelected when a modal is open in the schematic's window", () => {
+    const store = buildStore(
+      {
+        [layoutKey]: mosaicLayout(layoutKey),
+        [modalKey]: modalLayout(modalKey),
+      },
+      layoutKey,
+    );
+    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
+    expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual([]);
+  });
+
+  it("should drop setSelected when a different mosaic tab is active", () => {
+    const store = buildStore(
+      {
+        [layoutKey]: mosaicLayout(layoutKey),
+        [otherKey]: mosaicLayout(otherKey),
+      },
+      otherKey,
+    );
+    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
+    expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual([]);
   });
 });

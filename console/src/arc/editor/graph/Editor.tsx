@@ -273,7 +273,6 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
     onClear: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
-    region: ref,
   });
 
   const ctxValue = useMemo(
