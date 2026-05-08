@@ -57,7 +57,9 @@ export const Schematic = ({
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
+  const nodesRef = useSyncedRef(nodes);
   const edges = useSelectAllEdges({ key });
+  const edgesRef = useSyncedRef(edges);
   const { update: dispatch } = useDispatch();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
@@ -105,7 +107,17 @@ export const Schematic = ({
     onDrop: handleDrop,
   });
 
-  const handleClearSelection = useCallback(() => onSelectionChange?.([]), []);
+  const handleClearSelection = useCallback(
+    () => onSelectionChange?.([]),
+    [onSelectionChange],
+  );
+  const handleSelectAll = useCallback(() => {
+    console.log("CAT");
+    onSelectionChange?.([
+      ...nodesRef.current.map((n) => n.key),
+      ...edgesRef.current.map((e) => e.key),
+    ]);
+  }, [onSelectionChange]);
 
   const { copy, paste } = useClipboard({
     key,
@@ -122,11 +134,10 @@ export const Schematic = ({
   BaseDiagram.useTriggers({
     onCopy: copy,
     onPaste: handlePaste,
-    onSelectAll: () => {},
+    onSelectAll: handleSelectAll,
     onClear: handleClearSelection,
     onUndo: () => {},
     onRedo: () => {},
-    region: ref,
   });
 
   return (
