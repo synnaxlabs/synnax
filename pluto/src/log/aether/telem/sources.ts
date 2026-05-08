@@ -148,6 +148,7 @@ export class StreamMultiChannelLog
           const allocated = res.get(key);
           const isJSON = chMeta.dataType.equals(DataType.JSON);
           const isF32 = chMeta.dataType.equals(DataType.FLOAT32);
+          // TODO: Replace with buf.asString(i, true) once #2300 merges.
           const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
               const raw = buf.at(i, true);
