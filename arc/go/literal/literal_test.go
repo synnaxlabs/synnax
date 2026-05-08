@@ -344,6 +344,11 @@ var _ = Describe("Literal Parser", func() {
 			Entry("indentation preserved", "`a\n    b`", types.String(), "a\n    b"),
 			Entry("tab char preserved", "`a\tb`", types.String(), "a\tb"),
 			Entry("unicode", "`°C`", types.String(), "°C"),
+			Entry("escaped backtick", "`say \\`hi\\``", types.String(), "say `hi`"),
+			Entry("escaped backtick at start", "`\\`hello`", types.String(), "`hello"),
+			Entry("escaped backtick at end", "`hello\\``", types.String(), "hello`"),
+			Entry("only escaped backtick", "`\\``", types.String(), "`"),
+			Entry("adjacent escaped backticks", "`\\`\\``", types.String(), "``"),
 			Entry("no target type infers string", "`hi`", types.Type{}, "hi"),
 		)
 
@@ -378,6 +383,12 @@ var _ = Describe("Literal Parser", func() {
 				parsed := MustSucceed(literal.Parse(lit, types.Type{}))
 				Expect(parsed.Value).To(Equal("hi"))
 				Expect(parsed.Type).To(Equal(types.String()))
+			})
+
+			It("Should unescape backticks in raw string through Parse", func() {
+				lit := getLiteral("`say \\`hi\\``")
+				parsed := MustSucceed(literal.Parse(lit, types.String()))
+				Expect(parsed.Value).To(Equal("say `hi`"))
 			})
 
 			It("Should still route regular string literals to ParseString", func() {

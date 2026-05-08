@@ -125,7 +125,13 @@
         {
           "name": "string.quoted.raw.arc",
           "begin": "`",
-          "end": "`"
+          "end": "`",
+          "patterns": [
+            {
+              "name": "constant.character.escape.arc",
+              "match": "\\\\`"
+            }
+          ]
         },
         {
           "name": "string.quoted.double.arc",

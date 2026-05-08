@@ -261,6 +261,7 @@ var _ = Describe("Formatter", func() {
 		Entry("multi-line preserves indentation", "x := `\n    indent`", "x := `\n    indent`\n"),
 		Entry("embedded double quotes preserved", "x := `say \"hi\"`", "x := `say \"hi\"`\n"),
 		Entry("spacing raw next to identifier", "x:=`y`", "x := `y`\n"),
+		Entry("escaped backtick preserved", "x := `say \\`hi\\``", "x := `say \\`hi\\``\n"),
 	)
 
 	DescribeTable("Global Constants",

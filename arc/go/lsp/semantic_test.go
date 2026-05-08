@@ -141,6 +141,15 @@ var _ = Describe("Semantic Tokens", func() {
 			Expect(tokens[1].Length).To(Equal(uint32(1)))
 		})
 
+		It("emits one token for a raw literal with escaped backticks", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `say \\`hi\\``")
+			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)
+			Expect(tokens).To(HaveLen(1))
+			Expect(tokens[0].Line).To(Equal(uint32(0)))
+			Expect(tokens[0].StartChar).To(Equal(uint32(5)))
+			Expect(tokens[0].Length).To(Equal(uint32(12)))
+		})
+
 		It("skips empty lines in a raw literal with consecutive newlines", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `a\n\nb`")
 			tokens := filterByType(decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data), tokenTypeStringRaw)

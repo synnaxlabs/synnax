@@ -165,6 +165,14 @@ var _ = Describe("Literal Compilation", func() {
 			OpI32Const, int32(2),
 			OpCall, uint32(0),
 		),
+		Entry(
+			"escaped backtick",
+			"`say \\`hi\\``",
+			types.String(),
+			OpI32Const, int32(0),
+			OpI32Const, int32(8),
+			OpCall, uint32(0),
+		),
 	)
 
 	Describe("Series Literal Compilation", func() {

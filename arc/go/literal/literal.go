@@ -70,8 +70,8 @@ func ParseString(text string, targetType types.Type) (ParsedValue, error) {
 }
 
 // ParseRawString parses a raw string literal delimited by backticks and returns
-// its value and type. The body is returned verbatim with no escape
-// interpretation; embedded newlines and tabs are preserved as-is.
+// its value and type. The escape sequence \` produces a literal backtick. All
+// other content (including embedded newlines and tabs) is preserved as-is.
 func ParseRawString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
@@ -79,7 +79,23 @@ func ParseRawString(text string, targetType types.Type) (ParsedValue, error) {
 	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
 		return ParsedValue{}, errors.Newf("invalid raw string literal: %s", text)
 	}
-	return ParsedValue{Value: text[1 : len(text)-1], Type: types.String()}, nil
+	body := unescapeRawBackticks(text[1 : len(text)-1])
+	return ParsedValue{Value: body, Type: types.String()}, nil
+}
+
+// unescapeRawBackticks replaces every \` sequence with a literal backtick.
+func unescapeRawBackticks(s string) string {
+	n := len(s)
+	var out []byte
+	for i := 0; i < n; i++ {
+		if s[i] == '\\' && i+1 < n && s[i+1] == '`' {
+			out = append(out, '`')
+			i++
+		} else {
+			out = append(out, s[i])
+		}
+	}
+	return string(out)
 }
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
