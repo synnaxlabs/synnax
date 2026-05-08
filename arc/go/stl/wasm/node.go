@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/telem"
 	"github.com/tetratelabs/wazero/api"
+	"go.uber.org/zap"
 )
 
 var _ node.Node = (*nodeImpl)(nil)
@@ -123,7 +124,7 @@ func (n *nodeImpl) Next(ctx node.Context) {
 	for j := range n.offsets {
 		n.offsets[j] = 0
 	}
-	// String outputs are variable-density and cannot be Resize'd . Their
+	// String outputs are variable-density and cannot be resized . Their
 	// Data buffer is built once at the end of the loop from accumulated
 	// strings. Numeric outputs are pre-sized here so setValueAt can do
 	// fixed-stride writes per sample.
@@ -205,14 +206,16 @@ func (n *nodeImpl) Next(ctx node.Context) {
 					// conversion above.
 					s, ok := n.strings.Get(uint32(value.Value))
 					if !ok {
-						ctx.ReportError(errors.Newf(
+						// An unregistered handle is an Arc compiler/runtime
+						// bug, not anything a .arc program can provoke.
+						zap.S().DPanicf(
 							"node %s output %d returned unregistered string handle %d at sample %d/%d",
 							n.ir.Key,
 							j,
 							value.Value,
 							i,
 							maxLength,
-						))
+						)
 						continue
 					}
 					stringResults[j] = append(stringResults[j], s)

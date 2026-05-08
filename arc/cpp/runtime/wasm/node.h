@@ -162,13 +162,11 @@ public:
 
         for (size_t j = 0; j < this->ir.outputs.size(); j++) {
             const auto off = this->offsets[j];
-            if (this->string_outputs[j]) {
-                *this->state.output(
-                    j
-                ) = x::telem::Series(string_results[j], x::telem::STRING_T);
-            } else {
-                this->state.output(j)->resize(off);
-            }
+            auto &out = this->state.output(j);
+            if (this->string_outputs[j])
+                *out = x::telem::Series(string_results[j], x::telem::STRING_T);
+            else
+                out->resize(off);
             this->state.output_time(j)->resize(off);
             if (off > 0) ctx.mark_changed(j);
         }

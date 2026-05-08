@@ -24,62 +24,6 @@ import (
 // real compiler uses.
 var stringSymbolResolver symbol.Resolver = stlstrings.SymbolResolver
 
-var _ = Describe("EmitStringFrom* helpers", func() {
-	DescribeTable("Should emit a call placeholder and register the matching import",
-		func(
-			emit func(r *resolve.Resolver, w *wasm.Writer, wID int),
-			wantWASMName string,
-		) {
-			r := resolve.NewResolver(stringSymbolResolver)
-			w := wasm.NewWriter()
-			wID := r.TrackWriter(w)
-
-			startLen := w.Len()
-			emit(r, w, wID)
-
-			Expect(w.Len() - startLen).To(Equal(6))
-			Expect(w.Bytes()[startLen]).To(Equal(byte(wasm.OpCall)))
-
-			m := wasm.NewModule()
-			r.Finalize(m)
-			Expect(m.ImportCount()).To(Equal(uint32(1)))
-			Expect(m.ImportNames()).To(ConsistOf(wantWASMName))
-		},
-		Entry("from_i32",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromI32(w, wID) },
-			"from_i32"),
-		Entry("from_u32",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromU32(w, wID) },
-			"from_u32"),
-		Entry("from_i64",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromI64(w, wID) },
-			"from_i64"),
-		Entry("from_u64",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromU64(w, wID) },
-			"from_u64"),
-		Entry("from_f32",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromF32(w, wID) },
-			"from_f32"),
-		Entry("from_f64",
-			func(r *resolve.Resolver, w *wasm.Writer, wID int) { r.EmitStringFromF64(w, wID) },
-			"from_f64"),
-	)
-
-	It("Should patch the recorded placeholder with the resolved import index", func() {
-		r := resolve.NewResolver(stringSymbolResolver)
-		w := wasm.NewWriter()
-		wID := r.TrackWriter(w)
-		r.EmitStringFromI32(w, wID)
-
-		m := wasm.NewModule()
-		r.FinalizeAndPatch(m)
-
-		bytes := w.Bytes()
-		Expect(bytes[0]).To(Equal(byte(wasm.OpCall)))
-		Expect(bytes[1] & 0x7f).To(Equal(byte(0)))
-	})
-})
-
 var _ = Describe("EmitNumericToString", func() {
 	DescribeTable("Should dispatch to the host fn matching the source type",
 		func(from types.Type, wantWASMName string) {
@@ -112,5 +56,37 @@ var _ = Describe("EmitNumericToString", func() {
 
 		Expect(r.EmitNumericToString(w, wID, types.String())).
 			To(MatchError(ContainSubstring("cannot convert")))
+	})
+})
+
+var _ = Describe("EmitFixedCall", func() {
+	It("Should resolve the signature from the SymbolResolver and emit an import", func() {
+		r := resolve.NewResolver(stringSymbolResolver)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitFixedCall(w, wID, "string.from_i32")).To(Succeed())
+
+		m := wasm.NewModule()
+		r.Finalize(m)
+		Expect(m.ImportNames()).To(ConsistOf("from_i32"))
+	})
+
+	It("Should return an error when the symbol does not exist", func() {
+		r := resolve.NewResolver(stringSymbolResolver)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitFixedCall(w, wID, "string.does_not_exist")).
+			To(MatchError(ContainSubstring("resolve string.does_not_exist")))
+	})
+
+	It("Should return an error when no SymbolResolver is configured", func() {
+		r := resolve.NewResolver(nil)
+		w := wasm.NewWriter()
+		wID := r.TrackWriter(w)
+
+		Expect(r.EmitFixedCall(w, wID, "string.from_i32")).
+			To(MatchError(ContainSubstring("no symbol resolver")))
 	})
 })
