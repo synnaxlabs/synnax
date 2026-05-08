@@ -62,44 +62,44 @@ BASE_HEADER=$(cat "$HEADER_TEMPLATE_FILE")
 # Replace {{YEAR}} with current year
 BASE_HEADER="${BASE_HEADER//\{\{YEAR\}\}/$CURRENT_YEAR}"
 
-# Function to generate header with specific comment style
-generate_header_with_comment_style() {
+# Generate a line-comment header. Empty body lines emit just the prefix; non-empty
+# lines emit prefix + space_count spaces + line.
+generate_line_header() {
     local comment_prefix="$1"
-    local use_block_comment="$2"
+    local space_count="$2"
+    while IFS= read -r line; do
+        if [ -z "$line" ]; then
+            echo "$comment_prefix"
+        else
+            printf "%s%*s%s\n" "$comment_prefix" "$space_count" "" "$line"
+        fi
+    done <<< "$BASE_HEADER"
+}
 
-    if [ "$use_block_comment" = "true" ]; then
-        # C-style block comment
-        echo "/*"
-        while IFS= read -r line; do
-            if [ -z "$line" ]; then
-                echo " *"
-            else
-                echo " * $line"
-            fi
-        done <<< "$BASE_HEADER"
-        echo " */"
-        echo ""
-    else
-        # Line-based comments (// or #)
-        # Note: # uses 2 spaces, // uses 1 space
-        local space_count=1
-        [[ "$comment_prefix" == "#" ]] && space_count=2
-
-        while IFS= read -r line; do
-            if [ -z "$line" ]; then
-                echo "$comment_prefix"
-            else
-                printf "%s%*s%s\n" "$comment_prefix" "$space_count" "" "$line"
-            fi
-        done <<< "$BASE_HEADER"
-        echo ""
-    fi
+# Generate a block-comment header bracketed by open/close markers. Empty body
+# lines emit middle_empty; non-empty lines emit middle_full + line.
+generate_block_header() {
+    local open="$1"
+    local middle_empty="$2"
+    local middle_full="$3"
+    local close="$4"
+    echo "$open"
+    while IFS= read -r line; do
+        if [ -z "$line" ]; then
+            printf "%s\n" "$middle_empty"
+        else
+            printf "%s%s\n" "$middle_full" "$line"
+        fi
+    done <<< "$BASE_HEADER"
+    echo "$close"
 }
 
 # Generate headers for different comment styles
-HEADER_SLASHES=$(generate_header_with_comment_style "//" "false")
-HEADER_HASH=$(generate_header_with_comment_style "#" "false")
-HEADER_C_STYLE=$(generate_header_with_comment_style "*" "true")
+HEADER_SLASHES=$(generate_line_header "//" 1)
+HEADER_HASH_TWO=$(generate_line_header "#" 2)
+HEADER_HASH_ONE=$(generate_line_header "#" 1)
+HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
+HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
 
 # Counters
 TOTAL_FILES=0
@@ -135,6 +135,45 @@ should_ignore_file() {
     return 1
 }
 
+# Resolve per-extension header properties into globals: HEADER, HEADER_LINES,
+# COPYRIGHT_OFFSET (1-based line within the header containing "Copyright YYYY"),
+# and SUPPORTS_SHEBANG (1 if the extension preserves a leading #! line).
+resolve_header_for_ext() {
+    local ext="$1"
+    case "$ext" in
+        py)
+            HEADER="$HEADER_HASH_TWO"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=0
+            ;;
+        sh | zsh)
+            HEADER="$HEADER_HASH_ONE"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=1
+            ;;
+        css)
+            HEADER="$HEADER_C_STYLE"
+            HEADER_LINES=10
+            COPYRIGHT_OFFSET=2
+            SUPPORTS_SHEBANG=0
+            ;;
+        html | svg)
+            HEADER="$HEADER_HTML"
+            HEADER_LINES=10
+            COPYRIGHT_OFFSET=2
+            SUPPORTS_SHEBANG=0
+            ;;
+        *)
+            HEADER="$HEADER_SLASHES"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=0
+            ;;
+    esac
+}
+
 # Function to update copyright in a file
 update_file() {
     local file="$1"
@@ -142,97 +181,102 @@ update_file() {
 
     TOTAL_FILES=$((TOTAL_FILES + 1))
 
-    # Determine comment style and header based on extension
-    local new_header
-    local header_lines_without_blank
-    local header_lines_with_blank
-    if [ "$ext" = "py" ]; then
-        new_header="$HEADER_HASH"
-        header_lines_without_blank=8
-        header_lines_with_blank=9
-    elif [ "$ext" = "css" ]; then
-        new_header="$HEADER_C_STYLE"
-        header_lines_without_blank=10
-        header_lines_with_blank=11
-    else
-        new_header="$HEADER_SLASHES"
-        header_lines_without_blank=8
-        header_lines_with_blank=9
-    fi
+    resolve_header_for_ext "$ext"
+    local new_header="$HEADER"
+    local header_lines_without_blank=$HEADER_LINES
+    local header_lines_with_blank=$((HEADER_LINES + 1))
+    local copyright_offset_in_header=$COPYRIGHT_OFFSET
 
-    # Read the first lines to check for existing copyright
-    local first_line
-    first_line=$(head -n 1 "$file" 2> /dev/null || true)
-
-    # Check if file already has correct copyright
-    if [ "$ext" = "css" ]; then
-        local second_line
-        second_line=$(head -n 2 "$file" 2> /dev/null | tail -n 1 || true)
-
-        if [[ "$second_line" =~ Copyright.*$CURRENT_YEAR.*Synnax\ Labs ]]; then
-            # Check if full header is correct
-            local current_header
-            current_header=$(head -n "$header_lines_with_blank" "$file")
-            if [ "$current_header" = "$new_header" ]; then
-                SKIPPED_FILES=$((SKIPPED_FILES + 1))
-                return
-            fi
-        fi
-    else
-        if [[ "$first_line" =~ Copyright.*$CURRENT_YEAR.*Synnax\ Labs ]]; then
-            # Check if full header is correct
-            local current_header
-            current_header=$(head -n "$header_lines_with_blank" "$file")
-            if [ "$current_header" = "$new_header" ]; then
-                SKIPPED_FILES=$((SKIPPED_FILES + 1))
-                return
+    # Detect a leading shebang on shell scripts. The canonical layout is:
+    # shebang, blank line, header, blank line, body. If the second line is not
+    # blank we still preserve the shebang and rewrite the surrounding format.
+    local has_shebang=0
+    local prefix_lines=0
+    if [ "$SUPPORTS_SHEBANG" = "1" ]; then
+        local first_line
+        first_line=$(head -n 1 "$file" 2> /dev/null || true)
+        if [[ "$first_line" =~ ^#! ]]; then
+            has_shebang=1
+            local line2
+            line2=$(sed -n '2p' "$file" 2> /dev/null || true)
+            if [ -z "$line2" ]; then
+                prefix_lines=2
+            else
+                prefix_lines=1
             fi
         fi
     fi
 
-    # Create a temporary file
+    # Detect any existing copyright header in the window after the prefix. The
+    # old header may be in a different comment style than the new one (e.g. a
+    # `.rs` file that was formatted as a `/* */` block), so we scan all the
+    # lines a header could occupy rather than checking a single offset.
+    local scan_window
+    scan_window=$(sed -n "$((prefix_lines + 1)),$((prefix_lines + 12))p" "$file" 2> /dev/null || true)
+    local has_copyright=0
+    local old_header_lines=0
+    local old_copyright_year=""
+    if echo "$scan_window" | grep -q "Copyright.*Synnax Labs"; then
+        has_copyright=1
+        local first_after_prefix
+        first_after_prefix=$(sed -n "$((prefix_lines + 1))p" "$file" 2> /dev/null || true)
+        case "$first_after_prefix" in
+            "/*" | "<!--")
+                old_header_lines=10
+                ;;
+            *)
+                old_header_lines=8
+                ;;
+        esac
+        old_copyright_year=$(echo "$scan_window" | grep -oE "Copyright [0-9]+ Synnax Labs" | head -n 1 | grep -oE "[0-9]+" || true)
+    fi
+
+    # Skip if the file already conforms to the canonical layout.
+    if [ "$has_copyright" = "1" ] && [ "$old_copyright_year" = "$CURRENT_YEAR" ]; then
+        local current_header
+        current_header=$(sed -n "$((prefix_lines + 1)),$((prefix_lines + header_lines_without_blank))p" "$file")
+        local line_after_header
+        line_after_header=$(sed -n "$((prefix_lines + header_lines_without_blank + 1))p" "$file" 2> /dev/null || true)
+        local shebang_ok=1
+        if [ $has_shebang -eq 1 ] && [ $prefix_lines -ne 2 ]; then
+            shebang_ok=0
+        fi
+        if [ "$current_header" = "$new_header" ] && [ -z "$line_after_header" ] && [ "$shebang_ok" = "1" ]; then
+            SKIPPED_FILES=$((SKIPPED_FILES + 1))
+            return
+        fi
+    fi
+
+    # Determine where the body starts in the original file.
+    local body_start_line
+    if [ $has_copyright -eq 1 ]; then
+        local line_after_old_header
+        line_after_old_header=$(sed -n "$((prefix_lines + old_header_lines + 1))p" "$file" 2> /dev/null || true)
+        if [ -z "$line_after_old_header" ]; then
+            body_start_line=$((prefix_lines + old_header_lines + 2))
+        else
+            body_start_line=$((prefix_lines + old_header_lines + 1))
+        fi
+    else
+        body_start_line=$((prefix_lines + 1))
+    fi
+
     local temp_file
     temp_file=$(mktemp)
 
-    # Check if file has any copyright header (even old year)
-    local has_copyright=0
-    if [ "$ext" = "css" ]; then
-        if [[ "$second_line" =~ Copyright.*Synnax\ Labs ]]; then
-            has_copyright=1
-        fi
-    else
-        if [[ "$first_line" =~ Copyright.*Synnax\ Labs ]]; then
-            has_copyright=1
-        fi
+    if [ $has_shebang -eq 1 ]; then
+        head -n 1 "$file" >> "$temp_file"
+        printf "\n" >> "$temp_file"
     fi
+    printf "%s\n\n" "$new_header" >> "$temp_file"
+    # Strip leading blank lines from the body so we don't accumulate blanks on
+    # files where the existing header was followed by extra spacing.
+    tail -n +"$body_start_line" "$file" | sed -e '/./,$!d' >> "$temp_file"
 
-    if [ $has_copyright -eq 1 ]; then
-        # Replace existing header
-        # Check if the old header has a blank line after it (line 9 for most, line 11 for CSS)
-        local line_after_header_no_blank
-        line_after_header_no_blank=$(sed -n "$((header_lines_without_blank + 1))p" "$file" 2> /dev/null || true)
-
-        # Write new header to temp file
-        printf "%s\n\n" "$new_header" > "$temp_file"
-
-        # Append rest of file after old header
-        # If line 9 is blank, old header had blank line (skip 9 lines)
-        # If line 9 is not blank, old header didn't have blank line (skip 8 lines)
-        if [ -z "$line_after_header_no_blank" ]; then
-            # Line 9 is blank, so old header had the blank line - skip it
-            tail -n +$((header_lines_with_blank + 1)) "$file" >> "$temp_file"
-        else
-            # Line 9 is not blank, old header didn't have blank line - skip 8 lines
-            tail -n +$((header_lines_without_blank + 1)) "$file" >> "$temp_file"
-        fi
-    else
-        # Prepend new header
-        printf "%s\n\n" "$new_header" > "$temp_file"
-        cat "$file" >> "$temp_file"
-    fi
-
-    # Replace original file with updated content
-    mv "$temp_file" "$file"
+    # Overwrite via cat so the destination file's mode (e.g. executable bit on
+    # shell scripts) is preserved.
+    cat "$temp_file" > "$file"
+    rm -f "$temp_file"
 
     FILES_UPDATED+=("$file")
     UPDATED_FILES=$((UPDATED_FILES + 1))
@@ -252,7 +296,7 @@ has_supported_extension() {
     local file="$1"
     local ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle) return 0 ;;
+        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg) return 0 ;;
         *) return 1 ;;
     esac
 }

@@ -39,44 +39,44 @@ BASE_HEADER=$(cat "$HEADER_TEMPLATE_FILE")
 # Replace {{YEAR}} with current year
 BASE_HEADER="${BASE_HEADER//\{\{YEAR\}\}/$CURRENT_YEAR}"
 
-# Function to generate header with specific comment style
-generate_header_with_comment_style() {
+# Generate a line-comment header. Empty body lines emit just the prefix; non-empty
+# lines emit prefix + space_count spaces + line.
+generate_line_header() {
     local comment_prefix="$1"
-    local use_block_comment="$2"
+    local space_count="$2"
+    while IFS= read -r line; do
+        if [ -z "$line" ]; then
+            echo "$comment_prefix"
+        else
+            printf "%s%*s%s\n" "$comment_prefix" "$space_count" "" "$line"
+        fi
+    done <<< "$BASE_HEADER"
+}
 
-    if [ "$use_block_comment" = "true" ]; then
-        # C-style block comment
-        echo "/*"
-        while IFS= read -r line; do
-            if [ -z "$line" ]; then
-                echo " *"
-            else
-                echo " * $line"
-            fi
-        done <<< "$BASE_HEADER"
-        echo " */"
-        echo ""
-    else
-        # Line-based comments (// or #)
-        # Note: # uses 2 spaces, // uses 1 space
-        local space_count=1
-        [[ "$comment_prefix" == "#" ]] && space_count=2
-
-        while IFS= read -r line; do
-            if [ -z "$line" ]; then
-                echo "$comment_prefix"
-            else
-                printf "%s%*s%s\n" "$comment_prefix" "$space_count" "" "$line"
-            fi
-        done <<< "$BASE_HEADER"
-        echo ""
-    fi
+# Generate a block-comment header bracketed by open/close markers. Empty body
+# lines emit middle_empty; non-empty lines emit middle_full + line.
+generate_block_header() {
+    local open="$1"
+    local middle_empty="$2"
+    local middle_full="$3"
+    local close="$4"
+    echo "$open"
+    while IFS= read -r line; do
+        if [ -z "$line" ]; then
+            printf "%s\n" "$middle_empty"
+        else
+            printf "%s%s\n" "$middle_full" "$line"
+        fi
+    done <<< "$BASE_HEADER"
+    echo "$close"
 }
 
 # Generate expected headers for different comment styles
-EXPECTED_HEADER_SLASHES=$(generate_header_with_comment_style "//" "false")
-EXPECTED_HEADER_HASH=$(generate_header_with_comment_style "#" "false")
-EXPECTED_HEADER_C_STYLE=$(generate_header_with_comment_style "*" "true")
+EXPECTED_HEADER_SLASHES=$(generate_line_header "//" 1)
+EXPECTED_HEADER_HASH_TWO=$(generate_line_header "#" 2)
+EXPECTED_HEADER_HASH_ONE=$(generate_line_header "#" 1)
+EXPECTED_HEADER_C_STYLE=$(generate_block_header "/*" " *" " * " " */")
+EXPECTED_HEADER_HTML=$(generate_block_header "<!--" "" "  " "  -->")
 
 # Counters
 TOTAL_FILES=0
@@ -117,6 +117,43 @@ should_ignore_file() {
     return 1
 }
 
+# Resolve per-extension header properties into globals.
+resolve_header_for_ext() {
+    local ext="$1"
+    case "$ext" in
+        py)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HASH_TWO"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=0
+            ;;
+        sh | zsh)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HASH_ONE"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=1
+            ;;
+        css)
+            EXPECTED_HEADER="$EXPECTED_HEADER_C_STYLE"
+            HEADER_LINES=10
+            COPYRIGHT_OFFSET=2
+            SUPPORTS_SHEBANG=0
+            ;;
+        html | svg)
+            EXPECTED_HEADER="$EXPECTED_HEADER_HTML"
+            HEADER_LINES=10
+            COPYRIGHT_OFFSET=2
+            SUPPORTS_SHEBANG=0
+            ;;
+        *)
+            EXPECTED_HEADER="$EXPECTED_HEADER_SLASHES"
+            HEADER_LINES=8
+            COPYRIGHT_OFFSET=1
+            SUPPORTS_SHEBANG=0
+            ;;
+    esac
+}
+
 # Function to check a single file
 check_file() {
     local file="$1"
@@ -124,67 +161,56 @@ check_file() {
 
     TOTAL_FILES=$((TOTAL_FILES + 1))
 
-    # Determine comment style and header length based on extension
-    local expected_header
-    local header_lines
-    if [ "$ext" = "py" ]; then
-        expected_header="$EXPECTED_HEADER_HASH"
-        header_lines=9
-    elif [ "$ext" = "css" ]; then
-        expected_header="$EXPECTED_HEADER_C_STYLE"
-        header_lines=11
-    else
-        expected_header="$EXPECTED_HEADER_SLASHES"
-        header_lines=9
+    resolve_header_for_ext "$ext"
+    local expected_header="$EXPECTED_HEADER"
+    local header_lines=$HEADER_LINES
+    local copyright_offset_in_header=$COPYRIGHT_OFFSET
+
+    # The canonical layout for shell scripts is shebang, blank, header.
+    local prefix_lines=0
+    if [ "$SUPPORTS_SHEBANG" = "1" ]; then
+        local first_line_raw
+        first_line_raw=$(head -n 1 "$file" 2> /dev/null || true)
+        if [[ "$first_line_raw" =~ ^#! ]]; then
+            local line2
+            line2=$(sed -n '2p' "$file" 2> /dev/null || true)
+            if [ -z "$line2" ]; then
+                prefix_lines=2
+            else
+                # Shebang without canonical blank line — treat as malformed.
+                FILES_MALFORMED_HEADER+=("$file")
+                MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
+                return
+            fi
+        fi
     fi
 
-    # Read the appropriate number of lines from the file
+    # Read the canonical header window from the file.
     local file_header
-    file_header=$(head -n "$header_lines" "$file" 2> /dev/null || true)
+    file_header=$(sed -n "$((prefix_lines + 1)),$((prefix_lines + header_lines))p" "$file" 2> /dev/null || true)
 
-    # Check if file is empty or too short
     if [ -z "$file_header" ]; then
         FILES_MISSING_HEADER+=("$file")
         MISSING_HEADER=$((MISSING_HEADER + 1))
         return
     fi
 
-    # Get first line to check for copyright
-    local first_line
-    first_line=$(head -n 1 "$file")
+    # Check the line that should contain the copyright text.
+    local copyright_line
+    copyright_line=$(sed -n "$((prefix_lines + copyright_offset_in_header))p" "$file" 2> /dev/null || true)
 
-    # Check if copyright line exists (different format for CSS)
-    if [ "$ext" = "css" ]; then
-        local second_line
-        second_line=$(head -n 2 "$file" | tail -n 1)
-        if [[ ! "$second_line" =~ Copyright.*Synnax\ Labs ]]; then
-            FILES_MISSING_HEADER+=("$file")
-            MISSING_HEADER=$((MISSING_HEADER + 1))
-            return
-        fi
-
-        # Check if year is correct
-        if [[ ! "$second_line" =~ Copyright\ $CURRENT_YEAR\ Synnax\ Labs ]]; then
-            FILES_WRONG_YEAR+=("$file")
-            WRONG_YEAR=$((WRONG_YEAR + 1))
-            return
-        fi
-    else
-        if [[ ! "$first_line" =~ Copyright.*Synnax\ Labs ]]; then
-            FILES_MISSING_HEADER+=("$file")
-            MISSING_HEADER=$((MISSING_HEADER + 1))
-            return
-        fi
-
-        # Check if year is correct
-        if [[ ! "$first_line" =~ Copyright\ $CURRENT_YEAR\ Synnax\ Labs ]]; then
-            FILES_WRONG_YEAR+=("$file")
-            WRONG_YEAR=$((WRONG_YEAR + 1))
-            return
-        fi
+    if [[ ! "$copyright_line" =~ Copyright.*Synnax\ Labs ]]; then
+        FILES_MISSING_HEADER+=("$file")
+        MISSING_HEADER=$((MISSING_HEADER + 1))
+        return
     fi
 
-    # Check if the full header matches exactly
+    if [[ ! "$copyright_line" =~ Copyright\ $CURRENT_YEAR\ Synnax\ Labs ]]; then
+        FILES_WRONG_YEAR+=("$file")
+        WRONG_YEAR=$((WRONG_YEAR + 1))
+        return
+    fi
+
     if [ "$file_header" != "$expected_header" ]; then
         FILES_MALFORMED_HEADER+=("$file")
         MALFORMED_HEADER=$((MALFORMED_HEADER + 1))
@@ -226,7 +252,7 @@ while IFS= read -r file; do
     # Check file extension
     ext="${file##*.}"
     case "$ext" in
-        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle)
+        go | py | ts | tsx | js | jsx | cpp | hpp | h | cc | cxx | css | oracle | rs | sh | zsh | html | svg)
             # Check if file should be ignored per .copyrightignore
             if ! should_ignore_file "$abs_file"; then
                 [ -f "$abs_file" ] && FILES_TO_CHECK+=("$abs_file")
