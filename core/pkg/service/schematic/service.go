@@ -11,6 +11,8 @@ package schematic
 
 import (
 	"context"
+	"encoding/json"
+	stdio "io"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
@@ -18,13 +20,18 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
+	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	v55 "github.com/synnaxlabs/synnax/pkg/service/schematic/migrations/v55"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
+	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/io"
 	"github.com/synnaxlabs/x/migrate"
+	"github.com/synnaxlabs/x/observe"
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/service"
+	"github.com/synnaxlabs/x/telem"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -82,6 +89,10 @@ type Service struct {
 	Symbol *symbol.Service
 	closer io.MultiCloser
 	table  *gorp.Table[uuid.UUID, Schematic]
+	// actionObserver fans out ScopedActions emitted by Writer.Dispatch to any
+	// subscribers (notably the cluster signals translator). Nil when the
+	// service is opened without a Signals provider.
+	actionObserver observe.Observer[ScopedAction]
 }
 
 // OpenService instantiates a new schematic service using the provided configurations.
@@ -92,12 +103,21 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	if err != nil {
 		return nil, err
 	}
-	s = &Service{ServiceConfig: cfg}
+	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[uuid.UUID, Schematic]{
-		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Schematic]("msgpack_to_orc")},
+	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Key, Schematic]{
+		DB: cfg.DB,
+		Migrations: []migrate.Migration{
+			gorp.CodecMigration[uuid.UUID, v55.Schematic]("msgpack_to_orc"),
+			migrate.WithAddedDeps(
+				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, Schematic](
+					"v55_lift_typed_schematic",
+					MigrateSchematic,
+				),
+				"msgpack_to_orc",
+			),
+		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
 		return nil, err
@@ -114,6 +134,33 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	}); !ok(err, s.Symbol) {
 		return nil, err
 	}
+	if cfg.Signals != nil {
+		actions := observe.Translator[ScopedAction, []xchange.Change[[]byte, struct{}]]{
+			Observable: s.actionObserver,
+			Translate: func(_ context.Context, sa ScopedAction) ([]xchange.Change[[]byte, struct{}], bool) {
+				b, err := json.Marshal(sa)
+				if err != nil {
+					return nil, false
+				}
+				return []xchange.Change[[]byte, struct{}]{
+					{Variant: xchange.VariantSet, Key: telem.MarshalVariableSample(b)},
+				}, true
+			},
+		}
+		var sig stdio.Closer
+		if sig, err = cfg.Signals.PublishFromObservable(ctx, signals.ObservablePublisherConfig{
+			Name:       "schematic_actions",
+			Observable: actions,
+			SetChannel: channel.Channel{Name: "sy_schematic_set", DataType: telem.JSONT, Internal: true},
+		}); !ok(err, sig) {
+			return nil, err
+		}
+		deleteCfg := signals.GorpPublisherConfigUUID[Schematic](s.table.Observe())
+		deleteCfg.DisableSet = true
+		if sig, err = signals.PublishFromGorp(ctx, cfg.Signals, deleteCfg); !ok(err, sig) {
+			return nil, err
+		}
+	}
 	return s, nil
 }
 
@@ -121,16 +168,24 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 // acquired.
 func (s *Service) Close() error { return s.closer.Close() }
 
+// OnAction subscribes the given handler to the action stream emitted by
+// Writer.Dispatch. The handler runs synchronously inside Dispatch after the
+// underlying transaction commits. The returned Disconnect removes the handler.
+func (s *Service) OnAction(handler func(context.Context, ScopedAction)) observe.Disconnect {
+	return s.actionObserver.OnChange(handler)
+}
+
 // NewWriter opens a new writer for creating, updating, and deleting logs in Synnax. If
 // tx is provided, the writer will use that transaction. If tx is nil, the Writer
 // will execute the operations directly on the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer {
 	tx = gorp.OverrideTx(s.DB, tx)
 	return Writer{
-		tx:        tx,
-		otgWriter: s.Ontology.NewWriter(tx),
-		otg:       s.Ontology,
-		table:     s.table,
+		tx:             tx,
+		otgWriter:      s.Ontology.NewWriter(tx),
+		otg:            s.Ontology,
+		table:          s.table,
+		actionObserver: s.actionObserver,
 	}
 }
 

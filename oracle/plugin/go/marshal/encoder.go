@@ -895,6 +895,26 @@ func (b *encoderBuilder) resolveLeaf(typ resolution.Type) (primName, goTypeCast 
 
 func (b *encoderBuilder) goTypeName(typ resolution.Type) (string, error) {
 	if prim, ok := typ.Form.(resolution.PrimitiveForm); ok {
+		// `record` resolves to msgpack.EncodedJSON (a typed map[string]any) at
+		// the field level so it round-trips cleanly through msgpack and JSON.
+		// Use the same Go type when the value appears as a map element or
+		// other generic container, otherwise the codec emits map[string]any
+		// which cannot be assigned to the declared field type. Reuse the
+		// existing alias if the file already imports the package (flex method
+		// generation registers it as "xmsgpack") so the codec does not double-
+		// import under conflicting names.
+		if prim.Name == "record" {
+			const importPath = "github.com/synnaxlabs/x/encoding/msgpack"
+			alias, registered := b.imports[importPath]
+			if !registered {
+				b.imports[importPath] = ""
+			}
+			qualifier := alias
+			if qualifier == "" {
+				qualifier = "msgpack"
+			}
+			return qualifier + ".EncodedJSON", nil
+		}
 		goType, ok := typemap.PrimitiveGoType(prim.Name)
 		if !ok {
 			return "", errors.Newf("unsupported primitive type: %s", prim.Name)

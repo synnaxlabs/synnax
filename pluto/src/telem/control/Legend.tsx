@@ -100,7 +100,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
       {data.map((d) => (
         <LegendEntry
           key={d.key}
-          entryKey={d.key}
+          itemKey={d.key}
           name={d.name}
           color={d.color}
           isSelf={d.isSelf}
@@ -113,7 +113,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 };
 
 interface LegendEntryProps {
-  entryKey: string;
+  itemKey: string;
   name: string;
   color: color.Color;
   isSelf: boolean;
@@ -122,7 +122,7 @@ interface LegendEntryProps {
 }
 
 const LegendEntry = ({
-  entryKey,
+  itemKey,
   name,
   color: entryColor,
   isSelf,
@@ -131,8 +131,8 @@ const LegendEntry = ({
 }: LegendEntryProps): ReactElement => {
   const parsed = parseSubjectName(name);
   const handleColorChange = useCallback(
-    (c: color.Color) => onColorChange(entryKey, c),
-    [entryKey, onColorChange],
+    (c: color.Color) => onColorChange(itemKey, c),
+    [itemKey, onColorChange],
   );
   return (
     <Flex.Box align="center" className={CSS(CSS.B("legend-entry"))} gap="small" x grow>

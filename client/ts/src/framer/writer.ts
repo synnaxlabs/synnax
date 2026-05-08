@@ -84,11 +84,6 @@ const baseWriterConfigZ = z.object({
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
-  /*
-   * useHighPerformanceCodec sets whether the writer will use the synnax frame
-   * encoder as opposed to the standard JSON encoding mechanisms for frames.
-   */
-  useHighPerformanceCodec: z.boolean().default(true),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
@@ -212,8 +207,7 @@ export class Writer {
   ): Promise<Writer> {
     const cfg = zod.parse(writerConfigZ, config);
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
-    if (cfg.useHighPerformanceCodec)
-      client = client.withCodec(new WSWriterCodec(adapter.codec));
+    client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({

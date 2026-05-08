@@ -13,6 +13,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/rand"
 	"testing"
 
@@ -248,6 +249,28 @@ var _ = Describe("Codec", func() {
 			encoded, err := c.Encode(ctx, fr)
 			Expect(encoded).To(HaveLen(0))
 			Expect(err).To(MatchError(validate.ErrValidation))
+		})
+	})
+
+	Describe("Int64 / TimeStamp Equivalence", func() {
+		It("Should accept an int64 series for a timestamp channel", func(ctx SpecContext) {
+			c := codec.NewStatic(
+				[]channel.Key{1},
+				[]telem.DataType{telem.TimeStampT},
+			)
+			fr := frame.NewUnary(1, telem.NewSeriesV[int64](1778020940471336961))
+			encoded := MustSucceed(c.Encode(ctx, fr))
+			Expect(encoded).ToNot(BeEmpty())
+		})
+
+		It("Should accept a timestamp series for an int64 channel", func(ctx SpecContext) {
+			c := codec.NewStatic(
+				[]channel.Key{1},
+				[]telem.DataType{telem.Int64T},
+			)
+			fr := frame.NewUnary(1, telem.NewSeriesSecondsTSV(1, 2, 3))
+			encoded := MustSucceed(c.Encode(ctx, fr))
+			Expect(encoded).ToNot(BeEmpty())
 		})
 	})
 
@@ -851,6 +874,71 @@ var _ = Describe("Codec", func() {
 			Expect(mergedStrings).To(Equal([]string{"hello", "world", "foo"}))
 		})
 	})
+
+	Describe("All Channels Present Flag", func() {
+		It("Should not set the flag when the merged series count matches the state but the keys do not correspond 1-to-1", func(ctx SpecContext) {
+			// Regression for SY-3556: multi-domain iterator frames produce multiple
+			// series for a single channel. When that count happens to equal the number
+			// of channels in the codec state, the encoder used to set
+			// allChannelsPresent=true and skip per-series keys, causing the decoder to
+			// read each series under the wrong state key.
+			keys := channel.Keys{1, 2}
+			dataTypes := []telem.DataType{telem.Int32T, telem.Float64T}
+			cd := codec.NewStatic(keys, dataTypes)
+
+			// Two series but BOTH for channel 2 (channel 1 has no data in this frame).
+			// len(merged) == len(state.keys) == 2, but the keys don't match the state
+			// ordering.
+			s1 := telem.NewSeriesV[float64](10)
+			s1.Alignment = 0
+			s2 := telem.NewSeriesV[float64](20, 21)
+			s2.Alignment = 100 // gap forces non-merged
+			fr := frame.NewMulti(channel.Keys{2, 2}, []telem.Series{s1, s2})
+
+			encoded := MustSucceed(cd.Encode(ctx, fr))
+			decoded := MustSucceed(cd.Decode(encoded))
+
+			Expect(decoded.KeysSlice()).To(Equal([]channel.Key{2, 2}))
+			Expect(decoded.SeriesAt(0)).To(telem.MatchSeriesData(telem.NewSeriesV[float64](10)))
+			Expect(decoded.SeriesAt(1)).To(telem.MatchSeriesData(telem.NewSeriesV[float64](20, 21)))
+		})
+
+		It("Should round-trip a multi-domain frame that spans every state channel", func(ctx SpecContext) {
+			// The iterator's typical "across-domains" shape: each channel appears twice
+			// (one series per domain). len(merged) = 4 != 2 so allChannelsPresent must
+			// be false even before this fix, but the decoder still has to walk
+			// per-series keys correctly.
+			keys := channel.Keys{1, 2}
+			dataTypes := []telem.DataType{telem.TimeStampT, telem.Float64T}
+			cd := codec.NewStatic(keys, dataTypes)
+
+			idxA := telem.NewSeriesSecondsTSV(3)
+			idxA.Alignment = 1
+			datA := telem.NewSeriesV[float64](3)
+			datA.Alignment = 1
+			idxB := telem.NewSeriesSecondsTSV(101, 102)
+			idxB.Alignment = 100
+			datB := telem.NewSeriesV[float64](10, 11)
+			datB.Alignment = 100
+
+			fr := frame.NewMulti(
+				channel.Keys{1, 2, 1, 2},
+				[]telem.Series{idxA, datA, idxB, datB},
+			)
+			encoded := MustSucceed(cd.Encode(ctx, fr))
+			decoded := MustSucceed(cd.Decode(encoded))
+
+			Expect(decoded.Count()).To(Equal(4))
+			idx := decoded.Get(1)
+			Expect(len(idx.Series)).To(Equal(2))
+			Expect(idx.Series[0]).To(telem.MatchSeriesData(idxA))
+			Expect(idx.Series[1]).To(telem.MatchSeriesData(idxB))
+			dat := decoded.Get(2)
+			Expect(len(dat.Series)).To(Equal(2))
+			Expect(dat.Series[0]).To(telem.MatchSeriesData(datA))
+			Expect(dat.Series[1]).To(telem.MatchSeriesData(datB))
+		})
+	})
 })
 
 func BenchmarkEncode(b *testing.B) {
@@ -1156,4 +1244,209 @@ func BenchmarkAlignmentCompression_BandwidthSavings(b *testing.B) {
 			}
 		}
 	})
+}
+
+// makeStreamerFrame builds a "streamer-shaped" frame for a codec state of
+// numChannels channels (Float32). With present=numChannels every state channel
+// is in the frame and the new allChannelsPresent ordering check (SY-3556) walks
+// every key — worst case for the added work. With present<numChannels the
+// length check fails and the ordering loop is skipped.
+func makeStreamerFrame(numChannels, present, samplesPerSeries int) (
+	channel.Keys, []telem.DataType, framer.Frame,
+) {
+	stateKeys := make(channel.Keys, numChannels)
+	dataTypes := make([]telem.DataType, numChannels)
+	for i := range numChannels {
+		stateKeys[i] = channel.Key(i + 1)
+		dataTypes[i] = telem.Float32T
+	}
+
+	frameKeys := make(channel.Keys, present)
+	seriesList := make([]telem.Series, present)
+	data := make([]float32, samplesPerSeries)
+	for i := range samplesPerSeries {
+		data[i] = float32(i)
+	}
+	for i := range present {
+		frameKeys[i] = stateKeys[i]
+		seriesList[i] = telem.NewSeries(data)
+	}
+	return stateKeys, dataTypes, frame.NewMulti(frameKeys, seriesList)
+}
+
+// makeIteratorFrame builds an "iterator-shaped" frame spanning multiple time
+// domains: each of numChannels channels appears numDomains times (one series
+// per domain). This is the exact shape the iterator codec path now produces
+// and the shape that exposed the allChannelsPresent regression SY-3556 fixes.
+func makeIteratorFrame(numChannels, numDomains, samplesPerDomain int) (
+	channel.Keys, []telem.DataType, framer.Frame,
+) {
+	stateKeys := make(channel.Keys, numChannels)
+	dataTypes := make([]telem.DataType, numChannels)
+	for i := range numChannels {
+		stateKeys[i] = channel.Key(i + 1)
+		dataTypes[i] = telem.Float32T
+	}
+
+	totalSeries := numChannels * numDomains
+	frameKeys := make(channel.Keys, totalSeries)
+	seriesList := make([]telem.Series, totalSeries)
+	data := make([]float32, samplesPerDomain)
+	for i := range samplesPerDomain {
+		data[i] = float32(i)
+	}
+	idx := 0
+	for d := range numDomains {
+		alignment := telem.Alignment(d * 1_000_000)
+		tr := telem.TimeStamp(d).SpanRange(telem.Second)
+		for c := range numChannels {
+			frameKeys[idx] = stateKeys[c]
+			s := telem.NewSeries(data)
+			s.Alignment = alignment
+			s.TimeRange = tr
+			seriesList[idx] = s
+			idx++
+		}
+	}
+	return stateKeys, dataTypes, frame.NewMulti(frameKeys, seriesList)
+}
+
+func BenchmarkStreamerFrame_Encode(b *testing.B) {
+	for _, nc := range []int{1, 8, 64, 256} {
+		b.Run(fmt.Sprintf("channels=%d/allFull", nc), func(b *testing.B) {
+			keys, dataTypes, fr := makeStreamerFrame(nc, nc, 100)
+			cd := codec.NewStatic(keys, dataTypes)
+			w := bytes.NewBuffer(nil)
+			b.ReportAllocs()
+			for b.Loop() {
+				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+					b.Fatalf("encode: %v", err)
+				}
+				w.Reset()
+			}
+		})
+		if nc > 1 {
+			b.Run(fmt.Sprintf("channels=%d/partial", nc), func(b *testing.B) {
+				keys, dataTypes, fr := makeStreamerFrame(nc, nc-1, 100)
+				cd := codec.NewStatic(keys, dataTypes)
+				w := bytes.NewBuffer(nil)
+				b.ReportAllocs()
+				for b.Loop() {
+					if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+						b.Fatalf("encode: %v", err)
+					}
+					w.Reset()
+				}
+			})
+		}
+	}
+}
+
+func BenchmarkStreamerFrame_Decode(b *testing.B) {
+	for _, nc := range []int{1, 8, 64, 256} {
+		b.Run(fmt.Sprintf("channels=%d/allFull", nc), func(b *testing.B) {
+			keys, dataTypes, fr := makeStreamerFrame(nc, nc, 100)
+			cd := codec.NewStatic(keys, dataTypes)
+			encoded, err := cd.Encode(b.Context(), fr)
+			if err != nil {
+				b.Fatalf("encode: %v", err)
+			}
+			r := bytes.NewReader(encoded)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := r.Seek(0, 0); err != nil {
+					b.Fatalf("seek: %v", err)
+				}
+				if _, err := cd.DecodeStream(r); err != nil {
+					b.Fatalf("decode: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkIteratorFrame_Encode(b *testing.B) {
+	cases := []struct {
+		channels, domains, samples int
+	}{
+		{1, 1, 100},
+		{1, 10, 100},
+		{8, 1, 100},
+		{8, 10, 100},
+		{64, 10, 100},
+		{8, 1, 10000},
+	}
+	for _, c := range cases {
+		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		b.Run(name, func(b *testing.B) {
+			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
+			cd := codec.NewStatic(keys, dataTypes)
+			w := bytes.NewBuffer(nil)
+			if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+				b.Fatalf("encode: %v", err)
+			}
+			b.ReportMetric(float64(w.Len()), "bytes")
+			b.ReportAllocs()
+			for b.Loop() {
+				w.Reset()
+				if err := cd.EncodeStream(b.Context(), w, fr); err != nil {
+					b.Fatalf("encode: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func BenchmarkIteratorFrame_Decode(b *testing.B) {
+	cases := []struct {
+		channels, domains, samples int
+	}{
+		{1, 1, 100},
+		{1, 10, 100},
+		{8, 10, 100},
+		{64, 10, 100},
+	}
+	for _, c := range cases {
+		name := fmt.Sprintf("channels=%d/domains=%d/samples=%d", c.channels, c.domains, c.samples)
+		b.Run(name, func(b *testing.B) {
+			keys, dataTypes, fr := makeIteratorFrame(c.channels, c.domains, c.samples)
+			cd := codec.NewStatic(keys, dataTypes)
+			encoded, err := cd.Encode(b.Context(), fr)
+			if err != nil {
+				b.Fatalf("encode: %v", err)
+			}
+			r := bytes.NewReader(encoded)
+			b.ReportAllocs()
+			for b.Loop() {
+				if _, err := r.Seek(0, 0); err != nil {
+					b.Fatalf("seek: %v", err)
+				}
+				if _, err := cd.DecodeStream(r); err != nil {
+					b.Fatalf("decode: %v", err)
+				}
+			}
+		})
+	}
+}
+
+// BenchmarkIteratorFrame_RoundTrip mirrors the wire path for an iterator data
+// response: encode on the server, decode on the client. SY-3556 promotes this
+// from JSON/protobuf to the high-performance codec — round-trip cost here is
+// what the PR is trading for.
+func BenchmarkIteratorFrame_RoundTrip(b *testing.B) {
+	keys, dataTypes, fr := makeIteratorFrame(8, 10, 100)
+	enc := codec.NewStatic(keys, dataTypes)
+	dec := codec.NewStatic(keys, dataTypes)
+	w := bytes.NewBuffer(nil)
+	b.ReportAllocs()
+	for b.Loop() {
+		w.Reset()
+		if err := enc.EncodeStream(b.Context(), w, fr); err != nil {
+			b.Fatalf("encode: %v", err)
+		}
+		r := bytes.NewReader(w.Bytes())
+		if _, err := dec.DecodeStream(r); err != nil {
+			b.Fatalf("decode: %v", err)
+		}
+	}
 }

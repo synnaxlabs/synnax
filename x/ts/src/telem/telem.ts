@@ -2418,7 +2418,8 @@ export const convertDataType = (
   value: math.Numeric,
   offset: math.Numeric = 0,
 ): math.Numeric => {
-  if (source.usesBigInt && !target.usesBigInt) return Number(value) - Number(offset);
+  if (source.usesBigInt && !target.usesBigInt)
+    return Number(BigInt(value.valueOf()) - BigInt(offset.valueOf()));
   if (!source.usesBigInt && target.usesBigInt)
     return BigInt(value.valueOf()) - BigInt(offset.valueOf());
   return math.sub(value, offset);
