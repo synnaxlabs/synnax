@@ -44,6 +44,7 @@ const (
 	SemanticTokenTypeOutput
 	SemanticTokenTypeUnit
 	SemanticTokenTypeStringRaw
+	SemanticTokenTypeStringPlaceholder
 )
 
 var semanticTokenTypes = []string{
@@ -69,6 +70,7 @@ var semanticTokenTypes = []string{
 	"output",
 	"unit",
 	"stringRaw",
+	"stringPlaceholder",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -343,9 +345,9 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 		}
 		rb := lb + 1 + relR
 		emit(cursor, lb, SemanticTokenTypeStringRaw)
-		emit(lb, lb+1, SemanticTokenTypeOperator)
+		emit(lb, lb+1, SemanticTokenTypeStringPlaceholder)
 		emitInner(lb+1, rb)
-		emit(rb, rb+1, SemanticTokenTypeOperator)
+		emit(rb, rb+1, SemanticTokenTypeStringPlaceholder)
 		cursor, found = rb+1, true
 	}
 	if !found {
