@@ -28,7 +28,6 @@ import { ContextMenu, Controls } from "@/components";
 import { CSS } from "@/css";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { createFluxUseName } from "@/layout/useFluxName";
 import { Selector } from "@/selector";
 import {
   select,
@@ -483,7 +482,7 @@ export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | n
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-Table.useName = createFluxUseName(
+Table.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,

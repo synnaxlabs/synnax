@@ -16,7 +16,6 @@ import { useCallback } from "react";
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { createFluxUseName } from "@/layout/useFluxName";
 import {
   select,
   useSelect,
@@ -126,7 +125,7 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-Log.useName = createFluxUseName(
+Log.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,

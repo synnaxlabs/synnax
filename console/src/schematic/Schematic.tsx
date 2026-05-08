@@ -32,7 +32,6 @@ import { ContextMenu as CContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { useUndoableDispatch } from "@/hooks/useUndoableDispatch";
 import { Layout } from "@/layout";
-import { createFluxUseName } from "@/layout/useFluxName";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
 import { canDropHaulItem, isHaulItem } from "@/schematic/haul";
@@ -136,8 +135,7 @@ const useSyncComponent = Workspace.createSyncComponent(
     )
       return;
     const data = selectOptional(storeState, key);
-    if (data == null) return;
-    if (data.snapshot) return;
+    if (data == null || data.snapshot) return;
     const layout = Layout.selectRequired(storeState, key);
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.schematics.create(workspace, {
@@ -429,7 +427,7 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-Schematic.useName = createFluxUseName(
+Schematic.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,

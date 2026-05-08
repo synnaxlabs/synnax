@@ -43,7 +43,6 @@ import { useDispatch } from "react-redux";
 import { ContextMenu } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { createFluxUseName } from "@/layout/useFluxName";
 import {
   type AxisKey,
   axisLocation,
@@ -527,7 +526,7 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
-LinePlot.useName = createFluxUseName(
+LinePlot.useName = Layout.createUseFluxName(
   Base.useRename,
   Base.useRetrieveObservableName,
   useSelectIsRemoteCreated,

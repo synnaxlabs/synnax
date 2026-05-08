@@ -17,6 +17,7 @@ export * from "@/layout/nav";
 export * from "@/layout/selectors";
 export * from "@/layout/slice";
 export * from "@/layout/useDropOutside";
+export * from "@/layout/useFluxName";
 export * from "@/layout/useNavDrawer";
 export * from "@/layout/useOpenInNewWindow";
 export * from "@/layout/usePlacer";

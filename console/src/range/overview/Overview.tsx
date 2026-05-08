@@ -12,8 +12,7 @@ import "@/range/overview/Overview.css";
 import { Flex, Ranger } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
-import { createFluxUseName } from "@/layout/useFluxName";
+import { Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
@@ -33,7 +32,7 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
   </Flex.Box>
 );
 
-Overview.useName = createFluxUseName(
+Overview.useName = Layout.createUseFluxName(
   Ranger.useRename,
   Ranger.useRetrieveObservableName,
 );

@@ -14,7 +14,7 @@ import { type Layout } from "@/layout";
 type UpdateFn = (params: { key: string; name: string }) => void;
 type RetrieveFn = (params: { key: string }) => void;
 
-export const createFluxUseName =
+export const createUseFluxName =
   (
     useRename: () => { update: UpdateFn },
     useRetrieve: (params: {
