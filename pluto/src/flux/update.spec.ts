@@ -344,7 +344,9 @@ describe("update", () => {
         result.current.update(42, { signal: controller.signal });
       });
       await waitFor(() => {
-        expect(beforeUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: 42 }));
+        expect(beforeUpdate).toHaveBeenCalledWith(
+          expect.objectContaining({ data: 42 }),
+        );
         expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: 99 }));
       });
     });
