@@ -16,7 +16,6 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	. "github.com/synnaxlabs/x/testutil"
-	"github.com/synnaxlabs/x/validate"
 )
 
 var _ = Describe("ImEx", func() {
@@ -181,9 +180,9 @@ var _ = Describe("ImEx", func() {
 			Expect(err).To(MatchError(ContainSubstring("latest: 1")))
 		})
 
-		It("Should match validate.ErrValidation via errors.Is", func() {
+		It("Should mention validation in the error message", func() {
 			err := imex.NewErrUnsupportedVersion("log", 5, 1)
-			Expect(err).To(MatchError(validate.ErrValidation))
+			Expect(err).To(MatchError(ContainSubstring("validation error")))
 		})
 
 		It("Should be path-scoped to the version field", func() {

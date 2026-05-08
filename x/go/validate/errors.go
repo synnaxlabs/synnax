@@ -68,10 +68,6 @@ func PathedError(err error, path ...string) error {
 
 func (p PathError) Error() string { return p.joinPath() + ": " + p.Err.Error() }
 
-// Unwrap returns the inner error so errors.Is and errors.As can traverse through the
-// path wrapper to the underlying validation error.
-func (p PathError) Unwrap() error { return p.Err }
-
 func NewInvalidTypeError(expected, received string) error {
 	return errors.Wrapf(ErrInvalidType, "expected %s but received %s", expected, received)
 }

@@ -39,11 +39,10 @@ import (
 // only accepts the numeric form.
 type Version uint64
 
-// NewErrUnsupportedVersion constructs an ErrUnsupportedVersion for the named resource
-// type, indicating that the given version exceeds the highest version this Core
-// supports. The returned error is path-scoped to the "version" field so API responses
-// can present it as a structured field error, and matches both ErrUnsupportedVersion
-// and validate.ErrValidation via errors.Is.
+// NewErrUnsupportedVersion constructs a validation error for the named resource type,
+// indicating that the given version exceeds the highest version this Core supports.
+// The returned error is path-scoped to the "version" field so API responses can
+// present it as a structured field error.
 func NewErrUnsupportedVersion(typ string, given, supported Version) error {
 	return validate.PathedError(
 		errors.Wrapf(

@@ -34,17 +34,19 @@ func TestLog(t *testing.T) {
 var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var (
-	db  *gorp.DB
-	ws  workspace.Workspace
-	svc *log.Service
-	tx  gorp.Tx
+	db      *gorp.DB
+	otg     *ontology.Ontology
+	imexSvc *imex.Service
+	ws      workspace.Workspace
+	svc     *log.Service
+	tx      gorp.Tx
 )
 
 var (
 	_ = BeforeSuite(func(ctx SpecContext) {
 		db = DeferClose(gorp.Wrap(memkv.New()))
+		otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 		var (
-			otg       = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 			searchIdx = MustOpen(search.Open())
 			g         = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 				DB:       db,
@@ -64,7 +66,7 @@ var (
 				Search:   searchIdx,
 			}))
 		)
-		imexSvc := MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
+		imexSvc = MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
 		svc = MustOpen(log.OpenService(ctx, log.ServiceConfig{
 			DB:       db,
 			Ontology: otg,

@@ -10,18 +10,11 @@
 package v1_test
 
 import (
-	"testing"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	v0 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v0"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
 )
-
-func TestV1(t *testing.T) {
-	RegisterFailHandler(Fail)
-	RunSpecs(t, "Log Migrations V1 Suite")
-}
 
 var _ = Describe("Migrate", func() {
 	It("Should convert bare channel keys to config entries with defaults", func() {

@@ -30,29 +30,6 @@ var _ = Describe("Errors", func() {
 			Expect(parent).To(MatchError(ContainSubstring("parent.first: cat")))
 		})
 
-		Describe("Unwrap", func() {
-			It("Should let errors.Is traverse through to a sentinel inner error", func() {
-				sentinel := errors.New("sentinel")
-				pathed := validate.PathedError(sentinel, "field")
-				Expect(pathed).To(MatchError(sentinel))
-			})
-
-			It("Should let errors.Is traverse through to validate.ErrValidation", func() {
-				pathed := validate.PathedError(
-					errors.Wrap(validate.ErrValidation, "bad"),
-					"field",
-				)
-				Expect(pathed).To(MatchError(validate.ErrValidation))
-			})
-
-			It("Should preserve traversal through nested PathedError wrappers", func() {
-				sentinel := errors.New("sentinel")
-				inner := validate.PathedError(sentinel, "a")
-				outer := validate.PathedError(inner, "b")
-				Expect(outer).To(MatchError(sentinel))
-			})
-		})
-
 		Describe("Encoding + Decoding", func() {
 			It("Should correctly encode and decode", func(ctx SpecContext) {
 				base := errors.New("cat")
