@@ -85,7 +85,7 @@ func Analyze(
 		g.Functions[i] = fn
 	}
 
-	// Step 3 & 4: Create Fresh Types and IR Nodes
+	// Step 3 & 4A: Create Fresh Types and IR Nodes
 	freshFuncTypes := make(map[string]types.Type)
 	irNodes := make(ir.Nodes, len(g.Nodes))
 	for i, n := range g.Nodes {
@@ -157,6 +157,10 @@ func Analyze(
 			}
 		}
 	}
+
+	// Step 4B: Rewrite flow-form string.fmt nodes with placeholders into
+	// synthetic per-node Functions
+	ir.RewriteStringFmtNodes(irNodes, &g.Functions)
 
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
 	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {

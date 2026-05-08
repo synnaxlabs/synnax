@@ -94,6 +94,14 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	var compiled []compiledFunction
 	for _, i := range program.Functions {
+		if ir.IsStringFmtSyntheticKey(i.Key) {
+			cf, err := compileStringFmtSynthetic(compCtx, i)
+			if err != nil {
+				return Output{}, err
+			}
+			compiled = append(compiled, cf)
+			continue
+		}
 		params := slices.Concat(i.Config, i.Inputs)
 		var returnType types.Type
 		defaultOutput, hasDefaultOutput := i.Outputs.Get(ir.DefaultOutputParam)

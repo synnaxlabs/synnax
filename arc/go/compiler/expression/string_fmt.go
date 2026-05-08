@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/literal"
@@ -56,6 +57,15 @@ func compileStringFmt(
 	if err != nil {
 		return types.Type{}, err
 	}
+	return EmitFmtSegments(ctx, segments)
+}
+
+// EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
+// literals emit string.from_literal, placeholders compile their expression.
+func EmitFmtSegments[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	segments []fmtstring.Segment,
+) (types.Type, error) {
 	if len(segments) == 0 {
 		emitLiteralSegment(ctx, "")
 		return types.String(), nil
@@ -72,8 +82,8 @@ func compileStringFmt(
 	return types.String(), nil
 }
 
-func emitFmtSegment(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func emitFmtSegment[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	seg fmtstring.Segment,
 ) error {
 	if !seg.IsPlaceholder {
@@ -100,8 +110,8 @@ func emitFmtSegment(
 	)
 }
 
-func emitLiteralSegment(
-	ctx context.Context[parser.IPostfixExpressionContext],
+func emitLiteralSegment[T antlr.ParserRuleContext](
+	ctx context.Context[T],
 	text string,
 ) {
 	bytes := []byte(text)

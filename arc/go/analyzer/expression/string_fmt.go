@@ -10,6 +10,7 @@
 package expression
 
 import (
+	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/fmtstring"
@@ -19,15 +20,59 @@ import (
 	"github.com/synnaxlabs/x/diagnostics"
 )
 
-// analyzeStringFmtPlaceholders runs the extra analysis needed for a
-// `string.fmt(format)` call when format is a string literal: it parses the
-// format body, then for each placeholder parses and analyzes the placeholder
-// source as an Arc expression in the call-site scope. This causes channel and
-// identifier references inside placeholders to be registered exactly as if
-// they had appeared inline.
-//
-// If format is not a literal, placeholder analysis is skipped; the regular
-// call validation still applies.
+// AnalyzeStringFmtSegments parses formatExpr as a string literal and analyzes
+// each placeholder expression in ctx's scope, registering channel and
+// identifier references as if inlined at the caller. Returns nil (without
+// diagnostics) if formatExpr is not a literal.
+func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	formatExpr parser.IExpressionContext,
+) []fmtstring.Segment {
+	litNode := parser.GetLiteral(formatExpr)
+	if litNode == nil {
+		return nil
+	}
+	parsed, err := literal.Parse(litNode, basetypes.String())
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, formatExpr))
+		return nil
+	}
+	body, ok := parsed.Value.(string)
+	if !ok {
+		return nil
+	}
+	segments, err := fmtstring.Parse(body)
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, formatExpr))
+		return nil
+	}
+	for _, seg := range segments {
+		if !seg.IsPlaceholder {
+			continue
+		}
+		expr, diags := parser.ParseExpression(seg.Text)
+		if diags != nil && !diags.Ok() {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				formatExpr,
+				"invalid placeholder expression %q: %s", seg.Text, diags.String(),
+			))
+			continue
+		}
+		Analyze(context.Child(ctx, expr))
+		t := types.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
+		if !t.IsNumeric() && t.Kind != basetypes.KindString {
+			ctx.Diagnostics.Add(diagnostics.Errorf(
+				formatExpr,
+				"placeholder %q has type %s; only numeric and string types are supported",
+				seg.Text, t,
+			))
+		}
+	}
+	return segments
+}
+
+// analyzeStringFmtPlaceholders is the call-form entry point: it pulls args[0]
+// off the call suffix and delegates to AnalyzeStringFmtSegments.
 func analyzeStringFmtPlaceholders(
 	ctx context.Context[parser.IPostfixExpressionContext],
 	funcCall parser.IFunctionCallSuffixContext,
@@ -40,45 +85,5 @@ func analyzeStringFmtPlaceholders(
 	if len(args) == 0 {
 		return
 	}
-	formatArg := args[0]
-	litNode := parser.GetLiteral(formatArg)
-	if litNode == nil {
-		return
-	}
-	parsed, err := literal.Parse(litNode, basetypes.String())
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, formatArg))
-		return
-	}
-	body, ok := parsed.Value.(string)
-	if !ok {
-		return
-	}
-	segments, err := fmtstring.Parse(body)
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, formatArg))
-		return
-	}
-	for _, seg := range segments {
-		if !seg.IsPlaceholder {
-			continue
-		}
-		expr, diags := parser.ParseExpression(seg.Text)
-		if diags != nil && !diags.Ok() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				formatArg,
-				"invalid placeholder expression %q: %s", seg.Text, diags.String(),
-			))
-			continue
-		}
-		Analyze(context.Child(ctx, expr))
-		t := types.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
-		if !t.IsNumeric() && t.Kind != basetypes.KindString {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				formatArg,
-				"placeholder %q has type %s; only numeric and string types are supported",
-				seg.Text, t,
-			))
-		}
-	}
+	AnalyzeStringFmtSegments(ctx, args[0])
 }

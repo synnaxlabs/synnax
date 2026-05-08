@@ -88,6 +88,9 @@ func parseFunction(ctx context.Context[parser.IFunctionContext], prevNode parser
 		ctx.AST.ConfigValues(),
 		ctx.AST,
 	)
+	if name == "string.fmt" {
+		analyzeStringFmtFlowFormat(ctx, ctx.AST.ConfigValues())
+	}
 	if prevNode == nil {
 		return
 	}

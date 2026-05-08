@@ -670,6 +670,7 @@ func Analyze(
 	}
 
 	if len(i.Nodes) > 0 {
+		ir.RewriteStringFmtNodes(i.Nodes, &i.Functions)
 		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
 			return i, aCtx.Diagnostics
 		}
