@@ -13,7 +13,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
-import { Flux } from "@/flux";
+import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -57,9 +57,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
@@ -85,9 +85,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
@@ -113,9 +113,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
@@ -139,9 +139,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
@@ -168,9 +168,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
@@ -279,9 +279,9 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });

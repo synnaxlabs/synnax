@@ -13,7 +13,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { Flux } from "@/flux";
+import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import * as clipboard from "@/schematic/clipboard";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
@@ -175,9 +175,9 @@ describe("schematic clipboard", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Flux.Suspense loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={<div>loading</div>}>
               <Display />
-            </Flux.Suspense>
+            </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });

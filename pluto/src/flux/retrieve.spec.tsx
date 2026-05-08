@@ -13,6 +13,7 @@ import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type ReactElement, useCallback, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
+import { Errors } from "@/errors";
 import { Flux } from "@/flux";
 import { createSynnaxWrapper } from "@/testutil/Synnax";
 
@@ -216,9 +217,9 @@ describe("Flux.createSuspendedRetrieve", () => {
     await act(async () => {
       utils = render(
         <Wrapper>
-          <Flux.Suspense loading={<div>loading-1</div>}>
+          <Errors.SuspenseBoundary loading={<div>loading-1</div>}>
             <Display />
-          </Flux.Suspense>
+          </Errors.SuspenseBoundary>
         </Wrapper>,
       );
     });
@@ -254,11 +255,11 @@ describe("Flux.createSuspendedRetrieve", () => {
     await act(async () => {
       render(
         <Wrapper>
-          <Flux.Suspense loading={<div>loading-2</div>}>
+          <Errors.SuspenseBoundary loading={<div>loading-2</div>}>
             <Display />
             <Display />
             <Display />
-          </Flux.Suspense>
+          </Errors.SuspenseBoundary>
         </Wrapper>,
       );
     });
@@ -287,12 +288,14 @@ describe("Flux.createSuspendedRetrieve", () => {
     await act(async () => {
       utils = render(
         <Wrapper>
-          <Flux.Suspense
+          <Errors.SuspenseBoundary
             loading={<div>loading-3</div>}
-            error={(status) => <div data-testid="error">{status.message}</div>}
+            FallbackComponent={({ error }) => (
+              <div data-testid="error">{error.message}</div>
+            )}
           >
             <Display />
-          </Flux.Suspense>
+          </Errors.SuspenseBoundary>
         </Wrapper>,
       );
     });
