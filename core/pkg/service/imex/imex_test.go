@@ -28,7 +28,7 @@ var _ = Describe("ImEx", func() {
 				Expect(env.Version).To(Equal(imex.Version(54)))
 				Expect(env.Type).To(Equal("log"))
 				Expect(env.Name).To(Equal("n"))
-				Expect(env.Data).To(HaveKeyWithValue("foo", BeNumerically("==", 1)))
+				Expect(env.Data).To(HaveKeyWithValue("foo", json.Number("1")))
 				Expect(env.Data).NotTo(HaveKey("version"))
 				Expect(env.Data).NotTo(HaveKey("type"))
 				Expect(env.Data).NotTo(HaveKey("name"))
@@ -107,6 +107,20 @@ var _ = Describe("ImEx", func() {
 					MatchError(ContainSubstring("cannot unmarshal number")),
 				)
 			})
+
+			It("Should preserve int64 precision on payload values past 2^53", func() {
+				// 1700000000000000000 is roughly a current Unix nanosecond timestamp,
+				// well past float64's 53-bit mantissa (9007199254740992). The previous
+				// float64-based decode lost the low-order bits; UseNumber preserves
+				// them by deferring the parse to the typed conversion call.
+				const big int64 = 1700000000000000000
+				src := []byte(`{"version":1,"type":"log","ts":1700000000000000000}`)
+				var env imex.Envelope
+				Expect(json.Unmarshal(src, &env)).To(Succeed())
+				n, ok := env.Data["ts"].(json.Number)
+				Expect(ok).To(BeTrue())
+				Expect(n.Int64()).To(Equal(big))
+			})
 		})
 
 		Describe("MarshalJSON", func() {
@@ -139,7 +153,7 @@ var _ = Describe("ImEx", func() {
 					Type:    "log",
 					Name:    "n",
 					Data: map[string]any{
-						"channels":       []any{float64(1), float64(2), float64(3)},
+						"channels":       []any{json.Number("1"), json.Number("2"), json.Number("3")},
 						"remote_created": true,
 					},
 				}

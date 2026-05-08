@@ -20,6 +20,7 @@
 package imex
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"maps"
@@ -70,13 +71,16 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON reads a flat JSON object, extracts the promoted fields, and puts the
-// remaining keys into Data. It does this with a single pass: values come through as
-// generic Go types (float64, string, bool, []any, map[string]any), the promoted fields
-// are plucked out and type-asserted, and the leftover map becomes Data directly — no
-// per-key re-parse.
+// remaining keys into Data. It does this with a single pass: the decoder runs in
+// UseNumber mode so JSON numbers come through as json.Number (preserving full int64
+// precision regardless of magnitude), strings as string, bools as bool, and so on. The
+// promoted fields are plucked out and type-asserted; the leftover map becomes Data
+// directly — no per-key re-parse.
 func (e *Envelope) UnmarshalJSON(b []byte) error {
+	dec := json.NewDecoder(bytes.NewReader(b))
+	dec.UseNumber()
 	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
+	if err := dec.Decode(&m); err != nil {
 		return err
 	}
 	if v, ok := m["version"]; ok {
@@ -109,13 +113,17 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// versionFromAny converts a generic Go value (as produced by json.Unmarshal into
-// map[string]any) to a Version. Accepts float64 (the JSON number form) and legacy
-// semver strings.
+// versionFromAny converts a generic Go value (as produced by a UseNumber-mode decode
+// into map[string]any) to a Version. Accepts json.Number (the JSON number form,
+// preserving full integer precision) and legacy "N.0.0" semver strings.
 func versionFromAny(v any) (Version, error) {
 	switch x := v.(type) {
-	case float64:
-		return Version(uint64(x)), nil
+	case json.Number:
+		n, err := strconv.ParseUint(x.String(), 10, 64)
+		if err != nil {
+			return 0, errors.Wrapf(err, "invalid version number %q", x.String())
+		}
+		return Version(n), nil
 	case string:
 		n, err := legacyToNumeric(x)
 		if err != nil {
