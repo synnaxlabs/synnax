@@ -112,7 +112,6 @@ export const Schematic = ({
     [onSelectionChange],
   );
   const handleSelectAll = useCallback(() => {
-    console.log("CAT");
     onSelectionChange?.([
       ...nodesRef.current.map((n) => n.key),
       ...edgesRef.current.map((e) => e.key),
