@@ -33,9 +33,10 @@ import (
 var ErrIndexInvalid = errors.New("gorp: index failed to populate")
 
 // Index is a registered secondary index on a Table. Implementations are
-// provided by gorp (Lookup, Sorted) and constructed via NewLookup / NewSorted.
-// The interface methods are unexported so external code cannot substitute
-// custom implementations; callers should use the provided generic types.
+// provided by gorp (Lookup, Sorted) and constructed via NewLookup,
+// NewBytesLookup, and NewSorted. The interface methods are unexported so
+// external code cannot substitute custom implementations; callers should
+// use the provided generic types.
 type Index[K Key, E Entry[K]] interface {
 	// Name returns the human-readable name of the index, used in diagnostics.
 	Name() string
@@ -65,16 +66,25 @@ type Index[K Key, E Entry[K]] interface {
 	stageDelete(tx Tx, key K)
 }
 
-// Lookup is an in-memory exact-match index on a field of type V extracted
-// from entries of type E. Construct with NewLookup and register on a Table
-// via TableConfig.Indexes.
-type Lookup[K IndexKey, E Entry[K], V comparable] struct {
+// Lookup is an in-memory exact-match secondary index on a field of type V
+// extracted from entries of type E. Construct comparable-keyed indexes via
+// NewLookup and byte-keyed indexes via NewBytesLookup; both produce a
+// *Lookup, parameterized by the appropriate K. Register on a Table through
+// TableConfig.Indexes.
+//
+// Lookup itself is data-type-agnostic: it owns the populate state machine,
+// the E → V extraction, and Filter construction. Per-key bookkeeping
+// (forward / reverse maps, per-tx staging deltas, commit-time flush) lives
+// on the storage backend selected by the constructor.
+type Lookup[K Key, E Entry[K], V comparable] struct {
 	name    string
 	extract func(e *E) V
 	mu      sync.RWMutex
 	storage lookupStorage[K, V]
-	reverse map[K]V
-	overlay deltaOverlay[K, V]
+	// buildMembership constructs an O(1) membership predicate over a
+	// resolved key set. Supplied by the constructor with the right shape
+	// for K (typed map for comparable K, string-keyed map for []byte).
+	buildMembership func([]K) keyMembership[K]
 	// populateDone is closed by populate's finish closure once the index
 	// has been populated from the table (or once the populate scan has
 	// failed). Filter waits on this so reads issued before the index is
@@ -82,26 +92,50 @@ type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	populateDone chan struct{}
 	// populateErr captures the populate scan error, if any. Filter checks
 	// it after populateDone closes to decide whether to use the index or
-	// fall back to a sequential scan via Eval.
+	// fall back to a sequential scan via eval.
 	populateErr atomic.Pointer[error]
 }
 
-// NewLookup constructs a Lookup index with the given display name and extract
-// function. The returned index is empty; register it on a Table through
-// TableConfig.Indexes to populate it from the existing table contents and
-// keep it in sync with future writes.
+// NewLookup constructs a Lookup over a comparable primary key K. The bool
+// specialization is selected automatically when V is bool. The returned
+// index is empty; register it on a Table through TableConfig.Indexes to
+// populate it from the existing table contents and keep it in sync with
+// future writes.
 func NewLookup[K IndexKey, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
 ) *Lookup[K, E, V] {
 	l := &Lookup[K, E, V]{
-		name:         name,
-		extract:      extract,
-		storage:      newLookupStorage[K, V](),
-		reverse:      make(map[K]V),
-		populateDone: make(chan struct{}),
+		name:            name,
+		extract:         extract,
+		buildMembership: indexedKeyMembership[K],
+		populateDone:    make(chan struct{}),
 	}
-	l.overlay.flush = l.flushTx
+	var zeroV V
+	if _, ok := any(zeroV).(bool); ok {
+		l.storage = any(newBoolLookupStorage[K](&l.mu)).(lookupStorage[K, V])
+	} else {
+		l.storage = newMapLookupStorage[K, V](&l.mu)
+	}
+	return l
+}
+
+// NewBytesLookup constructs a Lookup over a []byte primary key. The shape
+// and semantics mirror NewLookup; the only difference is the keying
+// strategy required because []byte does not satisfy comparable. Use
+// NewLookup whenever K is comparable; reach for NewBytesLookup only when
+// the table key is genuinely []byte (e.g. composite keys encoded inline).
+func NewBytesLookup[E Entry[[]byte], V comparable](
+	name string,
+	extract func(e *E) V,
+) *Lookup[[]byte, E, V] {
+	l := &Lookup[[]byte, E, V]{
+		name:            name,
+		extract:         extract,
+		buildMembership: bytesIndexedKeyMembership,
+		populateDone:    make(chan struct{}),
+	}
+	l.storage = newBytesLookupStorage[V](&l.mu)
 	return l
 }
 
@@ -112,10 +146,7 @@ func (l *Lookup[K, E, V]) Name() string { return l.name }
 func (l *Lookup[K, E, V]) populate() (func(E), func(error), error) {
 	l.mu.Lock()
 	insert := func(entry E) {
-		key := entry.GorpKey()
-		value := l.extract(&entry)
-		l.storage.put(key, value)
-		l.reverse[key] = value
+		l.storage.put(entry.GorpKey(), l.extract(&entry))
 	}
 	finish := func(err error) {
 		if err != nil {
@@ -131,106 +162,73 @@ func (l *Lookup[K, E, V]) populate() (func(E), func(error), error) {
 func (l *Lookup[K, E, V]) set(entry E) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	key := entry.GorpKey()
-	newValue := l.extract(&entry)
-	if oldValue, existed := l.reverse[key]; existed {
-		if oldValue == newValue {
-			return
-		}
-		l.storage.remove(key, oldValue)
-	}
-	l.storage.put(key, newValue)
-	l.reverse[key] = newValue
+	l.storage.put(entry.GorpKey(), l.extract(&entry))
 }
 
 //nolint:unused
 func (l *Lookup[K, E, V]) delete(key K) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	oldValue, existed := l.reverse[key]
-	if !existed {
-		return
-	}
-	l.storage.remove(key, oldValue)
-	delete(l.reverse, key)
+	l.storage.delete(key)
 }
 
 //nolint:unused
 func (l *Lookup[K, E, V]) stageSet(tx Tx, entry E) {
-	if tx.txIdentity() == nil {
-		l.set(entry)
-		return
-	}
-	l.overlay.stage(tx, entry.GorpKey(), l.extract(&entry))
+	l.storage.stageSet(tx, entry.GorpKey(), l.extract(&entry))
 }
 
 //nolint:unused
 func (l *Lookup[K, E, V]) stageDelete(tx Tx, key K) {
-	if tx.txIdentity() == nil {
-		l.delete(key)
-		return
-	}
-	l.overlay.unstage(tx, key)
+	l.storage.stageDelete(tx, key)
 }
 
-// flushTx promotes the staged tx delta into committed index state.
-func (l *Lookup[K, E, V]) flushTx(d *delta[K, V]) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	for k, entry := range d.state {
-		oldValue, existed := l.reverse[k]
-		if entry.deleted {
-			if existed {
-				l.storage.remove(k, oldValue)
-				delete(l.reverse, k)
-			}
-			continue
-		}
-		if existed {
-			if oldValue == entry.value {
-				continue
-			}
-			l.storage.remove(k, oldValue)
-		}
-		l.storage.put(k, entry.value)
-		l.reverse[k] = entry.value
-	}
-}
-
-// resolveTx is called from Filter's resolve callback after it has already
-// gated on populateDone and populateErr, so it intentionally drops Get's
-// error: at this point a populate failure has already been routed to the
-// ErrIndexInvalid path and resolveTx will not be invoked.
-func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	keys, _ := l.Get(values...)
-	return l.overlay.resolve(tx, keys, values)
-}
-
-// Get returns the primary keys of entries whose indexed field matches any of
-// the provided values. Get blocks until the index has finished populating
-// (via the read lock that populate holds across its scan). After populate
-// settles, Get returns ErrIndexInvalid if population failed; callers should
-// fall back to a sequential scan or surface the error to their caller.
+// Get returns the primary keys of entries whose indexed field matches any
+// of the provided values. Get blocks until the index has finished
+// populating. After populate settles, Get returns ErrIndexInvalid if
+// population failed; callers should fall back to a sequential scan or
+// surface the error to their caller.
+//
+// Returned slices are owned by the caller and may be freely retained.
+// For byte-keyed indexes (Lookup[[]byte, ...]) each returned key is a
+// fresh clone.
 func (l *Lookup[K, E, V]) Get(values ...V) ([]K, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
+	<-l.populateDone
 	l.mu.RLock()
 	defer l.mu.RUnlock()
 	if l.populateErr.Load() != nil {
 		return nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
 	}
 	if len(values) == 1 {
-		src := l.storage.get(values[0])
-		out := make([]K, len(src))
-		copy(out, src)
-		return out, nil
+		return l.storage.get(values[0]), nil
 	}
 	var out []K
 	for _, v := range values {
 		out = append(out, l.storage.get(v)...)
 	}
 	return out, nil
+}
+
+// GetTx is the tx-aware counterpart to Get. It returns the primary keys
+// of entries whose indexed field matches any of the provided values,
+// merging committed index state with any per-tx delta staged against
+// the open transaction. When tx has no per-tx scoping or no staged
+// mutations for this index, it returns the same result as Get. Use
+// GetTx when consuming keys directly outside of Retrieve — e.g. graph
+// traversal helpers that probe the index for candidate IDs. Returns
+// ErrIndexInvalid when population failed; see Get for the failure-mode
+// contract.
+func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	committed, err := l.Get(values...)
+	if err != nil {
+		return nil, err
+	}
+	return l.storage.resolve(tx, committed, values), nil
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is
@@ -257,32 +255,16 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 			if l.populateErr.Load() != nil {
 				return nil, nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
 			}
-			return l.resolveTx(tx, captured), indexedKeyMembership[K], nil
+			committed, err := l.Get(captured...)
+			if err != nil {
+				return nil, nil, err
+			}
+			return l.storage.resolve(tx, committed, captured), l.buildMembership, nil
 		},
 		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
 			return slices.Contains(captured, l.extract(e)), nil
 		},
 	}
-}
-
-// GetTx is the tx-aware counterpart to Get. It returns the primary
-// keys of entries whose indexed field matches any of the provided
-// values, merging committed index state with any per-tx delta staged
-// against the open transaction. When tx is a DB (no per-tx scoping)
-// or has no staged mutations for this index, it returns the same
-// result as Get. Use GetTx when consuming keys directly outside of
-// Retrieve — e.g. graph traversal helpers that probe the index for
-// candidate IDs. Returns ErrIndexInvalid when population failed; see
-// Get for the failure-mode contract.
-func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
-	if len(values) == 0 {
-		return nil, nil
-	}
-	committed, err := l.Get(values...)
-	if err != nil {
-		return nil, err
-	}
-	return l.overlay.resolve(tx, committed, values), nil
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from

@@ -233,7 +233,7 @@ var (
 // type, so the type filter still has to run here; it's a string compare per
 // matched key, which is negligible compared to the scan it replaces.
 //
-// The probe goes through BytesLookup.GetTx so the per-tx delta overlay
+// The probe goes through Lookup.GetTx so the per-tx delta overlay
 // fires: a traverse inside the same write tx that just created a new
 // parent relationship will see that pending write and include it in the
 // next-hop set, preserving read-your-own-writes for graph traversal.

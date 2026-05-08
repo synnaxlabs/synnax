@@ -286,8 +286,7 @@ func (t *Table[K, E]) NewDelete() Delete[K, E] {
 // OpenNexter opens a new Nexter over entries in the table using the DB's codec for
 // decoding.
 func (t *Table[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
-	reader := wrapReader[K, E](t.DB, t.keyPrefix)
-	return reader.OpenNexter(ctx)
+	return wrapReader[K, E](t.DB, t.keyPrefix).OpenNexter(ctx)
 }
 
 var normalizeKeysMigrationKey = "normalize_keys"

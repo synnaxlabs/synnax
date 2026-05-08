@@ -25,9 +25,9 @@ type deltaEntry[V comparable] struct {
 
 // delta is the per-transaction overlay for a single secondary index.
 // SK is the storable key type (must be comparable for use as a map
-// key). For Lookup and Sorted, SK is the entry's primary key type
-// directly. For BytesLookup, SK is string (because []byte is not
-// comparable), and the BytesLookup wrapper converts at the boundary.
+// key). For comparable-keyed indexes SK is the entry's primary key
+// type directly; for byte-keyed indexes SK is string (because []byte
+// is not comparable), and the storage backend converts at the boundary.
 //
 // state is authoritative: if a key is in state, the committed index's
 // view of that key is not trusted during resolve. forward is the
