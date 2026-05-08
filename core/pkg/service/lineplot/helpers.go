@@ -10,14 +10,13 @@
 package lineplot
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = LinePlot{}
+var _ gorp.Entry[Key] = LinePlot{}
 
 // GorpKey implements gorp.Entry.
-func (p LinePlot) GorpKey() uuid.UUID { return p.Key }
+func (p LinePlot) GorpKey() Key { return p.Key }
 
 // SetOptions implements gorp.Entry.
 func (p LinePlot) SetOptions() []any { return nil }

@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -47,8 +46,8 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	GetRequest struct {
-		Keys  []string  `json:"keys" msgpack:"keys"`
-		Range uuid.UUID `json:"range" msgpack:"range"`
+		Keys  []string   `json:"keys" msgpack:"keys"`
+		Range ranger.Key `json:"range" msgpack:"range"`
 	}
 	GetResponse struct {
 		Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
@@ -86,8 +85,8 @@ func (s *Service) Get(
 }
 
 type SetRequest struct {
-	Pairs []kv.Pair `json:"pairs" msgpack:"pairs"`
-	Range uuid.UUID `json:"range" msgpack:"range"`
+	Pairs []kv.Pair  `json:"pairs" msgpack:"pairs"`
+	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Set(
@@ -108,8 +107,8 @@ func (s *Service) Set(
 }
 
 type DeleteRequest struct {
-	Keys  []string  `json:"keys" msgpack:"keys"`
-	Range uuid.UUID `json:"range" msgpack:"range"`
+	Keys  []string   `json:"keys" msgpack:"keys"`
+	Range ranger.Key `json:"range" msgpack:"range"`
 }
 
 func (s *Service) Delete(

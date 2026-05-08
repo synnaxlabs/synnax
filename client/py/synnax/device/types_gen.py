@@ -32,7 +32,7 @@ class StatusDetails(BaseModel):
     """
 
     rack: rack_.Key = Field(ge=0, le=4294967295)
-    device: str
+    device: Key
 
 
 Status: TypeAlias = status_.Status[StatusDetails]

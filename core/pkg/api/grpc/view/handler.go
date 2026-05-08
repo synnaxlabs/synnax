@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/view"
+	svcview "github.com/synnaxlabs/synnax/pkg/service/view"
 	"github.com/synnaxlabs/synnax/pkg/service/view/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -105,7 +106,7 @@ func (retrieveRequestTranslator) Forward(_ context.Context, req view.RetrieveReq
 }
 
 func (retrieveRequestTranslator) Backward(_ context.Context, req *RetrieveRequest) (view.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, len(req.Keys))
+	keys := make([]svcview.Key, len(req.Keys))
 	for i, k := range req.Keys {
 		parsed, err := uuid.Parse(k)
 		if err != nil {
@@ -147,7 +148,7 @@ func (deleteRequestTranslator) Forward(_ context.Context, req view.DeleteRequest
 }
 
 func (deleteRequestTranslator) Backward(_ context.Context, req *DeleteRequest) (view.DeleteRequest, error) {
-	keys := make([]uuid.UUID, len(req.Keys))
+	keys := make([]svcview.Key, len(req.Keys))
 	for i, k := range req.Keys {
 		parsed, err := uuid.Parse(k)
 		if err != nil {

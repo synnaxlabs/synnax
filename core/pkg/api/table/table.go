@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -45,7 +44,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 type (
 	CreateRequest struct {
 		Tables    []table.Table `json:"tables" msgpack:"tables"`
-		Workspace uuid.UUID     `json:"workspace" msgpack:"workspace"`
+		Workspace table.Key     `json:"workspace" msgpack:"workspace"`
 	}
 	CreateResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -74,7 +73,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 
 type RenameRequest struct {
 	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Key  table.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
@@ -92,7 +91,7 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 
 type SetDataRequest struct {
 	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
+	Key  table.Key      `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
@@ -110,7 +109,7 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 
 type (
 	RetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys []table.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		Tables []table.Table `json:"tables" msgpack:"tables"`
@@ -134,7 +133,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []table.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {

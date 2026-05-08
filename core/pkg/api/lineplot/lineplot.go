@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -44,7 +43,7 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type CreateRequest struct {
 	LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
-	Workspace uuid.UUID           `json:"workspace" msgpack:"workspace"`
+	Workspace lineplot.Key        `json:"workspace" msgpack:"workspace"`
 }
 
 type CreateResponse struct {
@@ -72,8 +71,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (res CreateResp
 }
 
 type RenameRequest struct {
-	Name string    `json:"name" msgpack:"name"`
-	Key  uuid.UUID `json:"key" msgpack:"key"`
+	Name string       `json:"name" msgpack:"name"`
+	Key  lineplot.Key `json:"key" msgpack:"key"`
 }
 
 func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil, err error) {
@@ -91,7 +90,7 @@ func (s *Service) Rename(ctx context.Context, req RenameRequest) (res types.Nil,
 
 type SetDataRequest struct {
 	Data map[string]any `json:"data" msgpack:"data"`
-	Key  uuid.UUID      `json:"key" msgpack:"key"`
+	Key  lineplot.Key   `json:"key" msgpack:"key"`
 }
 
 func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Nil, err error) {
@@ -109,7 +108,7 @@ func (s *Service) SetData(ctx context.Context, req SetDataRequest) (res types.Ni
 
 type (
 	RetrieveRequest struct {
-		Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+		Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 	}
 	RetrieveResponse struct {
 		LinePlots []lineplot.LinePlot `json:"line_plots" msgpack:"line_plots"`
@@ -132,7 +131,7 @@ func (s *Service) Retrieve(ctx context.Context, req RetrieveRequest) (res Retrie
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []lineplot.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) Delete(ctx context.Context, req DeleteRequest) (res types.Nil, err error) {
