@@ -21,7 +21,7 @@ import (
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
-	table *gorp.Table[uuid.UUID, Label]
+	table *gorp.Table[Key, Label]
 }
 
 // Create creates a new label, assigning it a unique key if one is not provided. If

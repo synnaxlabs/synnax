@@ -9,8 +9,7 @@
 
 import { Drift } from "@synnaxlabs/drift";
 import { Access, Flex } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { type ReactElement } from "react";
 
 import { ArcServices } from "@/arc/services";
 import { Auth } from "@/auth";
@@ -48,10 +47,6 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
 };
 
 const SideEffect = (): null => {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(Layout.maybeCreateGetStartedTab());
-  }, []);
   Access.useLoadPermissions({});
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();

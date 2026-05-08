@@ -12,9 +12,9 @@ package alias
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -32,7 +32,7 @@ type Writer struct {
 // Set sets an alias for the given channel on the specified range.
 func (w Writer) Set(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	ch channel.Key,
 	al string,
 ) error {
@@ -61,7 +61,7 @@ func (w Writer) Set(
 // exist.
 func (w Writer) Delete(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	ch channel.Key,
 ) error {
 	return w.table.

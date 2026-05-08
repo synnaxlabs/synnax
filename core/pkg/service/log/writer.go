@@ -26,21 +26,21 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Log]
+	table     *gorp.Table[Key, Log]
 }
 
 // Create creates the given log within the workspace provided. If the log does not
 // have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws uuid.UUID,
+	ws workspace.Key,
 	s *Log,
 ) (err error) {
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Log](s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Log](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -66,11 +66,11 @@ func (w Writer) Create(
 // Rename renames the log with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
+		Where(gorp.MatchKeys[Key, Log](key)).
 		Change(func(_ gorp.Context, l Log) Log {
 			l.Name = name
 			return l
@@ -80,11 +80,11 @@ func (w Writer) Rename(
 // SetData sets the data of the log with the given key to the provided data.
 func (w Writer) SetData(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	data map[string]any,
 ) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
+		Where(gorp.MatchKeys[Key, Log](key)).
 		Change(func(ctx gorp.Context, l Log) Log {
 			l.Data = data
 			return l
@@ -94,9 +94,9 @@ func (w Writer) SetData(
 // Delete deletes the logs with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) (err error) {
-	if err = w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Log](keys...)).Exec(ctx, w.tx); err != nil {
+	if err = w.table.NewDelete().Where(gorp.MatchKeys[Key, Log](keys...)).Exec(ctx, w.tx); err != nil {
 		return
 	}
 	for _, key := range keys {

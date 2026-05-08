@@ -1416,6 +1416,97 @@ var _ = Describe("WASM", func() {
 
 			Expect(func() { h.Execute(ctx, "tagger") }).ToNot(Panic())
 		})
+
+		It("Should accumulate string output values across multiple input samples", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "stringify",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.String()},
+						},
+						Body: ir.Body{Raw: `{ return str(x) }`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "stringify", Type: "stringify"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "stringify", Param: "x"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[int64](1, 22, 333),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "stringify")
+			Expect(changed.Contains(ir.DefaultOutputParam)).To(BeTrue())
+
+			result := h.Output("stringify", 0)
+			Expect(telem.UnmarshalSeries[string](result)).To(Equal([]string{"1", "22", "333"}))
+		})
+
+		It("Should accumulate string and numeric outputs in lockstep", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key:    "labeler",
+						Inputs: types.Params{{Name: "x", Type: types.I64()}},
+						Outputs: types.Params{
+							{Name: "label", Type: types.String()},
+							{Name: "doubled", Type: types.I64()},
+						},
+						Body: ir.Body{Raw: `{
+							label = str(x)
+							doubled = x * 2
+						}`},
+					},
+					{
+						Key:     "source",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+						Body:    ir.Body{Raw: `{ return 0 }`},
+					},
+				},
+				Nodes: []graph.Node{
+					{Key: "source", Type: "source"},
+					{Key: "labeler", Type: "labeler"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "source", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "labeler", Param: "x"},
+					},
+				},
+			}
+			h := newHarness(ctx, g, stl.SymbolResolver)
+			defer h.Close(ctx)
+
+			h.SetInput("source", 0,
+				telem.NewSeriesV[int64](5, 10, 15),
+				telem.NewSeriesSecondsTSV(1, 2, 3),
+			)
+
+			changed := h.Execute(ctx, "labeler")
+			Expect(changed.Contains("label")).To(BeTrue())
+			Expect(changed.Contains("doubled")).To(BeTrue())
+
+			Expect(telem.UnmarshalSeries[string](h.Output("labeler", 0))).To(Equal([]string{"5", "10", "15"}))
+			Expect(telem.UnmarshalSeries[int64](h.Output("labeler", 1))).To(Equal([]int64{10, 20, 30}))
+		})
 	})
 
 	Describe("No-Input Node Initialization", func() {

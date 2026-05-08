@@ -13,6 +13,7 @@ package pb
 
 import (
 	"github.com/google/uuid"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"google.golang.org/protobuf/types/known/structpb"
 )
@@ -44,10 +45,11 @@ func WorkspaceFromPB(pb *Workspace) (workspace.Workspace, error) {
 		return workspace.Workspace{}, err
 	}
 	r.Key = workspace.Key(parsedKey)
-	r.Author, err = uuid.Parse(pb.Author)
+	parsedAuthor, err := uuid.Parse(pb.Author)
 	if err != nil {
 		return workspace.Workspace{}, err
 	}
+	r.Author = user.Key(parsedAuthor)
 	r.Layout = pb.Layout.AsMap()
 	r.Name = pb.Name
 	return r, nil

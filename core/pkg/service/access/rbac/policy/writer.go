@@ -24,7 +24,7 @@ type Writer struct {
 	tx            gorp.Tx
 	otg           ontology.Writer
 	allowInternal bool
-	table         *gorp.Table[uuid.UUID, Policy]
+	table         *gorp.Table[Key, Policy]
 }
 
 // Create creates a new policy in the database.
@@ -47,15 +47,15 @@ func (w Writer) Create(
 // Delete removes policies with the given keys from the database.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	return w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Policy](keys...)).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Policy](keys...)).Exec(ctx, w.tx)
 }
 
 func (w Writer) SetOnRole(
 	ctx context.Context,
-	roleKey uuid.UUID,
-	policyKeys ...uuid.UUID,
+	roleKey role.Key,
+	policyKeys ...Key,
 ) error {
 	policyIDs := OntologyIDs(policyKeys)
 	for _, p := range policyIDs {
