@@ -9,7 +9,7 @@
 
 import { type Synnax as Client } from "@synnaxlabs/client";
 import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import type z from "zod";
 
 import { type base } from "@/flux/base";
@@ -60,6 +60,7 @@ export type CreateUpdateParams<
 
 export interface UseObservableUpdateReturn<Input extends base.Shape> {
   update: (data: Input, opts?: base.FetchOptions) => void;
+  updateAsync: (data: Input, opts?: base.FetchOptions) => Promise<boolean>;
 }
 
 export interface UseObservableUpdateParams<
@@ -211,8 +212,8 @@ const useObservable = <
   const maybeClient = Synnax.use();
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
-  const handleUpdate = useDebouncedCallback(
-    (data: Input, opts: base.FetchOptions = {}): void => {
+  const runUpdate = useCallback(
+    async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
       const rollbacks: destructor.Destructor[] = [];
@@ -231,76 +232,96 @@ const useObservable = <
             resultStatusDetails<Input | undefined, StatusDetails>(p),
           ),
         );
-        return;
+        return false;
       }
 
       const client = maybeClient as AllowDisconnected extends true
         ? Client | null
         : Client;
 
-      void (async () => {
-        try {
-          onChange((p) =>
-            loadingResult(
-              `${participle} ${name}`,
-              p.data,
-              resultStatusDetails<Input | undefined, StatusDetails>(p),
-            ),
-          );
+      try {
+        onChange((p) =>
+          loadingResult(
+            `${participle} ${name}`,
+            p.data,
+            resultStatusDetails<Input | undefined, StatusDetails>(p),
+          ),
+        );
 
-          if (beforeUpdate != null) {
-            const updatedValue = await beforeUpdate({
-              client,
-              data,
-              rollbacks,
-              store,
-            });
-            if (signal?.aborted === true) return;
-            if (updatedValue === false) {
-              onChange(successResult(`${past} ${name}`, data));
-              runRollbacks();
-              return;
-            }
-            if (updatedValue !== true) data = updatedValue;
+        if (beforeUpdate != null) {
+          const updatedValue = await beforeUpdate({
+            client,
+            data,
+            rollbacks,
+            store,
+          });
+          if (signal?.aborted === true) return false;
+          if (updatedValue === false) {
+            onChange(successResult(`${past} ${name}`, data));
+            runRollbacks();
+            return false;
           }
-
-          const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
-            onChange((p) => {
-              const nextStatus = state.executeSetter(setter, p.status);
-              return {
-                ...p,
-                status: nextStatus,
-                variant: nextStatus.variant,
-              } as Result<Input | undefined, StatusDetails>;
-            });
-
-          const output = await update({ client, data, store, rollbacks, setStatus });
-          if (signal?.aborted === true) return;
-          onChange((p) =>
-            successResult(
-              `${past} ${name}`,
-              data,
-              resultStatusDetails<Input | undefined, StatusDetails>(p),
-            ),
-          );
-          if (output === false) return;
-          await afterSuccess?.({ client, data: output });
-        } catch (error) {
-          runRollbacks();
-          if (signal?.aborted === true) return;
-
-          const result = errorResult(`${present} ${name}`, error);
-          const { status } = result;
-          onChange(result);
-          addStatus(status);
-          await afterFailure?.({ client, status, data });
+          if (updatedValue !== true) data = updatedValue;
         }
-      })();
+
+        const setStatus = (setter: state.SetArg<ResultStatus<StatusDetails>>) =>
+          onChange((p) => {
+            const nextStatus = state.executeSetter(setter, p.status);
+            return {
+              ...p,
+              status: nextStatus,
+              variant: nextStatus.variant,
+            } as Result<Input | undefined, StatusDetails>;
+          });
+
+        const output = await update({ client, data, store, rollbacks, setStatus });
+        if (signal?.aborted === true) return false;
+        onChange((p) =>
+          successResult(
+            `${past} ${name}`,
+            data,
+            resultStatusDetails<Input | undefined, StatusDetails>(p),
+          ),
+        );
+        if (output === false) return false;
+        await afterSuccess?.({ client, data: output });
+        return true;
+      } catch (error) {
+        runRollbacks();
+        if (signal?.aborted === true) return false;
+
+        const result = errorResult(`${present} ${name}`, error);
+        const { status } = result;
+        onChange(result);
+        addStatus(status);
+        await afterFailure?.({ client, status, data });
+        return false;
+      }
+    },
+    [
+      maybeClient,
+      allowDisconnected,
+      name,
+      present,
+      participle,
+      past,
+      store,
+      onChange,
+      addStatus,
+      update,
+      beforeUpdate,
+      afterSuccess,
+      afterFailure,
+    ],
+  );
+  const handleUpdate = useDebouncedCallback(
+    (data: Input, opts?: base.FetchOptions) => {
+      void runUpdate(data, opts);
     },
     debounce,
-    [name, onChange, beforeUpdate, afterSuccess, afterFailure],
+    [runUpdate],
   );
-  return { update: handleUpdate };
+  return { update: handleUpdate, updateAsync: runUpdate };
 };
 
 const useDirect = <
