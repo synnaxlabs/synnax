@@ -26,8 +26,14 @@ func compileTypeCast(
 	if !targetType.IsValid() {
 		return types.Type{}, errors.New("unknown cast target type")
 	}
-	// Pass the target type as a hint so literals can be emitted with the correct type directly
-	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(targetType))
+	// Pass the target type as a hint so literals can be emitted with the correct type
+	// directly. For str targets, suppress the hint so a numeric literal gets its natural
+	// type rather than falling through parseIntegerLiteral's default branch.
+	hint := targetType
+	if targetType.Kind == types.KindString {
+		hint = types.Type{}
+	}
+	sourceType, err := Compile(context.Child(ctx, ctx.AST.Expression()).WithHint(hint))
 	if err != nil {
 		return types.Type{}, err
 	}
@@ -39,6 +45,9 @@ func compileTypeCast(
 
 func extractType(typeCtx parser.ITypeContext) types.Type {
 	if prim := typeCtx.PrimitiveType(); prim != nil {
+		if prim.STR() != nil {
+			return types.String()
+		}
 		if num := prim.NumericType(); num != nil {
 			if intType := num.IntegerType(); intType != nil {
 				if intType.I8() != nil {
@@ -74,6 +83,12 @@ func EmitCast[ASTNode antlr.ParserRuleContext](
 	ctx context.Context[ASTNode],
 	from, to types.Type,
 ) error {
+	if to.Kind == types.KindString {
+		if from.Kind == types.KindString {
+			return nil
+		}
+		return ctx.Resolver.EmitNumericToString(ctx.Writer, ctx.WriterID, from)
+	}
 	var (
 		fromWasm = wasm.ConvertType(from)
 		toWasm   = wasm.ConvertType(to)

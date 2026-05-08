@@ -231,25 +231,231 @@ var _ = Describe("Type Casts", func() {
 		`),
 	)
 
+	DescribeTable("Numeric to String Casts",
+		func(ctx SpecContext, code string) { expectSuccess(ctx, code, nil) },
+		Entry("i8 to str", `
+			func testFunc() {
+				x i8 := -128
+				y := str(x)
+			}
+		`),
+		Entry("i16 to str", `
+			func testFunc() {
+				x i16 := -32768
+				y := str(x)
+			}
+		`),
+		Entry("i32 to str", `
+			func testFunc() {
+				x i32 := 42
+				y := str(x)
+			}
+		`),
+		Entry("i32 to str (negative)", `
+			func testFunc() {
+				x i32 := -2147483648
+				y := str(x)
+			}
+		`),
+		Entry("i64 to str", `
+			func testFunc() {
+				x i64 := 9223372036854775807
+				y := str(x)
+			}
+		`),
+		Entry("i64 to str (negative)", `
+			func testFunc() {
+				x i64 := -9223372036854775808
+				y := str(x)
+			}
+		`),
+		Entry("u8 to str", `
+			func testFunc() {
+				x u8 := 255
+				y := str(x)
+			}
+		`),
+		Entry("u16 to str", `
+			func testFunc() {
+				x u16 := 65535
+				y := str(x)
+			}
+		`),
+		Entry("u32 to str", `
+			func testFunc() {
+				x u32 := 4000000000
+				y := str(x)
+			}
+		`),
+		Entry("u64 to str", `
+			func testFunc() {
+				x u64 := 18000000000000000000
+				y := str(x)
+			}
+		`),
+		Entry("f32 to str", `
+			func testFunc() {
+				x f32 := 3.14
+				y := str(x)
+			}
+		`),
+		Entry("f32 to str (negative)", `
+			func testFunc() {
+				x f32 := -3.14
+				y := str(x)
+			}
+		`),
+		Entry("f32 to str (integer-valued, trailing zero)", `
+			func testFunc() {
+				x f32 := 1.0
+				y := str(x)
+			}
+		`),
+		Entry("f32 to str (single trailing zero)", `
+			func testFunc() {
+				x f32 := 3.10
+				y := str(x)
+			}
+		`),
+		Entry("f32 to str (multiple trailing zeros)", `
+			func testFunc() {
+				x f32 := 100.000
+				y := str(x)
+			}
+		`),
+		Entry("f64 to str", `
+			func testFunc() {
+				x f64 := 3.14159
+				y := str(x)
+			}
+		`),
+		Entry("f64 to str (negative)", `
+			func testFunc() {
+				x f64 := -3.14159
+				y := str(x)
+			}
+		`),
+		Entry("f64 to str (integer-valued, trailing zero)", `
+			func testFunc() {
+				x f64 := 1.0
+				y := str(x)
+			}
+		`),
+		Entry("f64 to str (single trailing zero)", `
+			func testFunc() {
+				x f64 := 3.10
+				y := str(x)
+			}
+		`),
+		Entry("f64 to str (multiple trailing zeros)", `
+			func testFunc() {
+				x f64 := 100.000
+				y := str(x)
+			}
+		`),
+		Entry("integer literal to str", `
+			func testFunc() {
+				y := str(42)
+			}
+		`),
+		Entry("integer literal to str (negative)", `
+			func testFunc() {
+				y := str(-42)
+			}
+		`),
+		Entry("float literal to str", `
+			func testFunc() {
+				y := str(3.14)
+			}
+		`),
+		Entry("float literal to str (negative)", `
+			func testFunc() {
+				y := str(-3.14)
+			}
+		`),
+		Entry("float literal to str (trailing zero)", `
+			func testFunc() {
+				y := str(1.0)
+			}
+		`),
+		Entry("float literal to str (multiple trailing zeros)", `
+			func testFunc() {
+				y := str(100.000)
+			}
+		`),
+		Entry("str cast in concat expression", `
+			func testFunc() {
+				x i32 := 42
+				y := str(x) + " items"
+			}
+		`),
+	)
+
+	DescribeTable("String to Numeric Casts (rejected)",
+		func(ctx SpecContext, code string) { expectFailure(ctx, code, nil, "cannot cast") },
+		Entry("str to i8", `
+			func testFunc() {
+				x str := "hello"
+				y := i8(x)
+			}
+		`),
+		Entry("str to i16", `
+			func testFunc() {
+				x str := "hello"
+				y := i16(x)
+			}
+		`),
+		Entry("str to i32", `
+			func testFunc() {
+				x str := "hello"
+				y := i32(x)
+			}
+		`),
+		Entry("str to i64", `
+			func testFunc() {
+				x str := "hello"
+				y := i64(x)
+			}
+		`),
+		Entry("str to u8", `
+			func testFunc() {
+				x str := "hello"
+				y := u8(x)
+			}
+		`),
+		Entry("str to u16", `
+			func testFunc() {
+				x str := "hello"
+				y := u16(x)
+			}
+		`),
+		Entry("str to u32", `
+			func testFunc() {
+				x str := "hello"
+				y := u32(x)
+			}
+		`),
+		Entry("str to u64", `
+			func testFunc() {
+				x str := "hello"
+				y := u64(x)
+			}
+		`),
+		Entry("str to f32", `
+			func testFunc() {
+				x str := "hello"
+				y := f32(x)
+			}
+		`),
+		Entry("str to f64", `
+			func testFunc() {
+				x str := "hello"
+				y := f64(x)
+			}
+		`),
+	)
+
 	Describe("Type Cast Failures", func() {
-		It("Should reject casting string to numeric type", func(ctx SpecContext) {
-			expectFailure(ctx, `
-				func testFunc() {
-					x str := "hello"
-					y := i32(x)
-				}
-			`, nil, "cannot cast")
-		})
-
-		It("Should reject casting numeric to string", func(ctx SpecContext) {
-			expectFailure(ctx, `
-				func testFunc() {
-					x i32 := 42
-					y := str(x)
-				}
-			`, nil, "cannot cast")
-		})
-
 		It("Should reject unknown type in cast", func(ctx SpecContext) {
 			expectFailure(ctx, `
 				func testFunc() {
