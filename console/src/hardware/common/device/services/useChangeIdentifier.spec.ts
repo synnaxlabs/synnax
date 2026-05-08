@@ -41,7 +41,7 @@ describe("useChangeIdentifier", () => {
     const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: dev.key, identifier: "new-id" });
+      await result.current.updateAsync({ key: dev.key, identifier: "new-id" });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -64,7 +64,7 @@ describe("useChangeIdentifier", () => {
     const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: dev.key, identifier: "new-id" });
+      await result.current.updateAsync({ key: dev.key, identifier: "new-id" });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -89,7 +89,7 @@ describe("useChangeIdentifier", () => {
     const { result } = renderHook(() => useChangeIdentifier(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: dev.key, identifier: "brand-new" });
+      await result.current.updateAsync({ key: dev.key, identifier: "brand-new" });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));

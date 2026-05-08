@@ -29,7 +29,7 @@ export const ChangeIdentifierMenuItem = ({
   handleError,
 }: ChangeIdentifierMenuItemProps) => {
   const rename = Modals.useRename();
-  const { update } = useChangeIdentifier();
+  const { updateAsync } = useChangeIdentifier();
   const first = getResource(ids[0]);
   const { data: deviceData } = Device.useRetrieve({ key: first.id.key });
   const hasUpdatePermission = Access.useUpdateGranted(device.ontologyID(ids[0].key));
@@ -47,7 +47,7 @@ export const ChangeIdentifierMenuItem = ({
           { icon, name: "Device.Identifier" },
         );
         if (newIdentifier == null) return;
-        update({ key: first.id.key, identifier: newIdentifier });
+        await updateAsync({ key: first.id.key, identifier: newIdentifier });
       } catch (e) {
         if (e instanceof Error && errors.Canceled.matches(e)) return;
         throw e;

@@ -79,7 +79,7 @@ describe("log queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           key,
           workspace: workspace.key,
           name: "created_log",
@@ -107,7 +107,7 @@ describe("log queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        createResult.current.update({
+        await createResult.current.updateAsync({
           key,
           workspace: workspace.key,
           name: "stored_log",
@@ -147,7 +147,7 @@ describe("log queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: log.key,
           name: "renamed_log",
         });
@@ -177,7 +177,7 @@ describe("log queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: log.key,
           name: "cache_renamed",
         });
@@ -203,7 +203,7 @@ describe("log queries", () => {
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update(log.key);
+        await result.current.updateAsync(log.key);
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.logs.retrieve({ key: log.key })).rejects.toThrow(
@@ -228,7 +228,7 @@ describe("log queries", () => {
       const { result } = renderHook(() => Log.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update([log1.key, log2.key]);
+        await result.current.updateAsync([log1.key, log2.key]);
       });
 
       expect(result.current.variant).toEqual("success");

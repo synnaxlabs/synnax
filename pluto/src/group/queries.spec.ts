@@ -241,7 +241,7 @@ describe("Group queries", () => {
       });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           key: uuid.create(),
           name: "created-group",
           parent: group.ontologyID(parent.key),
@@ -273,7 +273,7 @@ describe("Group queries", () => {
       const { result } = renderHook(() => Group.useCreate(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           key: g.key,
           name: "updated-name",
           parent: group.ontologyID(parent.key),
@@ -299,7 +299,7 @@ describe("Group queries", () => {
       const { result } = renderHook(() => Group.useRename(), { wrapper });
 
       await act(async () => {
-        result.current.update({ key: testGroup.key, name: "new-name" });
+        await result.current.updateAsync({ key: testGroup.key, name: "new-name" });
       });
 
       await waitFor(() => {
@@ -325,7 +325,7 @@ describe("Group queries", () => {
       const { result } = renderHook(() => Group.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update({ key: testGroup.key });
+        await result.current.updateAsync({ key: testGroup.key });
       });
 
       await waitFor(() => {

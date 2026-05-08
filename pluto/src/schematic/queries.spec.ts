@@ -82,7 +82,7 @@ describe("schematic queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           ...schematic.ZERO_NEW,
           name: "created_schematic",
           key,
@@ -110,7 +110,7 @@ describe("schematic queries", () => {
 
       const key = uuid.create();
       await act(async () => {
-        createResult.current.update({
+        await createResult.current.updateAsync({
           ...schematic.ZERO_NEW,
           name: "stored_schematic",
           key,
@@ -151,7 +151,7 @@ describe("schematic queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_name");
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: schem.key,
           name: "renamed_schematic",
         });
@@ -183,7 +183,7 @@ describe("schematic queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: schem.key,
           name: "cache_renamed",
         });
@@ -209,7 +209,7 @@ describe("schematic queries", () => {
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update(schem.key);
+        await result.current.updateAsync(schem.key);
       });
       expect(result.current.variant).toEqual("success");
       await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
@@ -234,7 +234,7 @@ describe("schematic queries", () => {
       const { result } = renderHook(() => Schematic.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update([schem1.key, schem2.key]);
+        await result.current.updateAsync([schem1.key, schem2.key]);
       });
 
       expect(result.current.variant).toEqual("success");

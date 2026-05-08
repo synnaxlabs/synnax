@@ -327,7 +327,7 @@ describe("queries", () => {
         { wrapper },
       );
       await act(async () => {
-        result.current.rename.update({ key: ws.key, name: newName });
+        await result.current.rename.updateAsync({ key: ws.key, name: newName });
       });
       await waitFor(() => expect(result.current.retrieve.data?.name).toEqual(newName));
     });
@@ -355,7 +355,7 @@ describe("queries", () => {
 
       const { result } = renderHook(() => Workspace.useDelete(), { wrapper });
       await act(async () => {
-        result.current.update(ws.key);
+        await result.current.updateAsync(ws.key);
       });
       await waitFor(async () => {
         await expect(client.workspaces.retrieve(ws.key)).rejects.toThrow(NotFoundError);
@@ -385,7 +385,7 @@ describe("queries", () => {
         });
       });
       await act(async () => {
-        result.current.saveLayout.update({
+        await result.current.saveLayout.updateAsync({
           key: ws.key,
           layout: {
             config: { setting1: "value2" },

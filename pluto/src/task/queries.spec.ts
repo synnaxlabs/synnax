@@ -373,7 +373,7 @@ describe("queries", () => {
       expect(result.current.retrieve.data?.name).toEqual("original_retrieve");
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: testTask.key,
           name: "renamed_retrieve",
         });
@@ -473,7 +473,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
           parentID: group.ontologyID(parentGroup.key),
         });
@@ -513,7 +513,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           tasks: [
             { key: task1.key, name: task1.name },
             { key: task2.key, name: task2.name },
@@ -559,7 +559,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
           parentID: group.ontologyID(parentGroup.key),
         });
@@ -604,7 +604,7 @@ describe("queries", () => {
       const { result } = renderHook(() => Task.useCreateSnapshot(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           tasks: { key: originalTask.key, name: originalTask.name },
           parentID: group.ontologyID(parentGroup.key),
         });
@@ -649,7 +649,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(testTask.key);
 
       await act(async () => {
-        result.current.del.update(testTask.key);
+        await result.current.del.updateAsync(testTask.key);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(testTask.key);
@@ -687,7 +687,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(task2.key);
 
       await act(async () => {
-        result.current.del.update([task1.key, task2.key]);
+        await result.current.del.updateAsync([task1.key, task2.key]);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(task1.key);

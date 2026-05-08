@@ -339,7 +339,7 @@ const Actions = ({
   symbolGroupID,
   selectedGroup,
 }: ActionsProps): ReactElement | null => {
-  const { update } = Group.useCreate();
+  const { updateAsync } = Group.useCreate();
   const rename = Modals.useRename();
   const handleError = Status.useErrorHandler();
   const placeLayout = Layout.usePlacer();
@@ -366,13 +366,13 @@ const Actions = ({
         },
       );
       if (result == null || result.length === 0) return;
-      update({
+      await updateAsync({
         key: uuid.create(),
         name: result,
         parent: symbolGroupID,
       });
     }, "Failed to create group");
-  }, [update, rename, handleError, symbolGroupID]);
+  }, [updateAsync, rename, handleError, symbolGroupID]);
 
   const isRemoteGroup = group.keyZ.safeParse(selectedGroup).success;
 

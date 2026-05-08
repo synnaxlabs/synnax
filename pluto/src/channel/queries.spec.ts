@@ -184,7 +184,7 @@ describe("queries", () => {
 
       const updatedName = id.create();
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: testChannel.key,
           name: updatedName,
         });
@@ -693,7 +693,7 @@ describe("queries", () => {
 
       const updatedName = id.create();
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: testChannel.key,
           name: updatedName,
         });
@@ -852,7 +852,7 @@ describe("queries", () => {
       const updatedName = id.create();
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: ch.key,
           name: updatedName,
         });
@@ -1031,7 +1031,7 @@ describe("queries", () => {
       const renamed1 = id.create();
 
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: ch1.key,
           name: renamed1,
         });
@@ -1067,7 +1067,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(ch.key);
 
       await act(async () => {
-        result.current.del.update(ch.key);
+        await result.current.del.updateAsync(ch.key);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(ch.key);
@@ -1101,7 +1101,7 @@ describe("queries", () => {
       expect(result.current.list.data).toContain(ch2.key);
 
       await act(async () => {
-        result.current.del.update([ch1.key, ch2.key]);
+        await result.current.del.updateAsync([ch1.key, ch2.key]);
       });
       await waitFor(() => {
         expect(result.current.list.data).not.toContain(ch1.key);
@@ -1115,7 +1115,7 @@ describe("queries", () => {
 
       await act(async () => {
         try {
-          result.current.update(nonExistentKey);
+          await result.current.updateAsync(nonExistentKey);
         } catch (error) {
           expect(error).toBeDefined();
         }
@@ -1152,7 +1152,7 @@ describe("queries", () => {
       await waitFor(() => expect(result.current.retrieve.variant).toEqual("success"));
 
       await act(async () => {
-        result.current.updateAlias.update({
+        await result.current.updateAlias.updateAsync({
           range: range.key,
           channel: ch.key,
           alias: "new_alias",
@@ -1163,7 +1163,7 @@ describe("queries", () => {
       });
 
       await act(async () => {
-        result.current.updateAlias.update({
+        await result.current.updateAlias.updateAsync({
           range: range.key,
           channel: ch.key,
           alias: "updated_alias",
@@ -1205,7 +1205,7 @@ describe("queries", () => {
       expect(result.current.retrieve.data?.alias).toEqual("to_delete");
 
       await act(async () => {
-        result.current.deleteAlias.update({
+        await result.current.deleteAlias.updateAsync({
           range: range.key,
           channels: ch.key,
         });
@@ -1258,7 +1258,7 @@ describe("queries", () => {
       expect(ch2Before?.alias).toEqual("multi_alias_2");
 
       await act(async () => {
-        result.current.deleteAlias.update({
+        await result.current.deleteAlias.updateAsync({
           range: range.key,
           channels: [ch1.key, ch2.key],
         });
@@ -1440,7 +1440,7 @@ describe("queries", () => {
 
       const updatedName = id.create();
       await act(async () => {
-        result.current.rename.update({
+        await result.current.rename.updateAsync({
           key: testCalculated.key,
           name: updatedName,
         });

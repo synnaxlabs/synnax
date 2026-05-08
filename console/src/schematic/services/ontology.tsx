@@ -56,7 +56,7 @@ const useCopy = (props: Ontology.TreeContextMenuProps): (() => void) => {
         const id = schematic.ontologyID(data.key);
         const [name, renamed] = await Text.asyncEdit(ontology.idToString(id));
         if (!renamed) return;
-        rename.update({ key: data.key, name });
+        await rename.updateAsync({ key: data.key, name });
       },
       [rename],
     ),

@@ -261,7 +261,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update(testArc.key);
+        await result.current.updateAsync(testArc.key);
       });
 
       await waitFor(() => {
@@ -298,7 +298,7 @@ describe("Arc queries", () => {
       const { result } = renderHook(() => Arc.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update([arc1.key, arc2.key]);
+        await result.current.updateAsync([arc1.key, arc2.key]);
       });
 
       await waitFor(() => {
@@ -317,7 +317,7 @@ describe("Arc queries", () => {
       const uniqueName = `created-arc-${Math.random().toString(36).substring(7)}`;
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           name: uniqueName,
           mode: "text",
           graph: {
@@ -340,7 +340,7 @@ describe("Arc queries", () => {
         const { result } = renderHook(() => Arc.useCreate(), { wrapper });
         const name = `arc_no_rack_${id.create()}`;
         await act(async () => {
-          result.current.update({
+          await result.current.updateAsync({
             name,
             mode: "text",
             graph: {
@@ -372,7 +372,7 @@ describe("Arc queries", () => {
         const key = uuid.create();
 
         await act(async () => {
-          result.current.update({
+          await result.current.updateAsync({
             key,
             name: `arc_with_rack_${id.create()}`,
             mode: "text",
@@ -407,7 +407,7 @@ describe("Arc queries", () => {
         const key = uuid.create();
 
         await act(async () => {
-          result.current.update({
+          await result.current.updateAsync({
             key,
             name: `arc_config_${id.create()}`,
             mode: "text",
@@ -458,7 +458,7 @@ describe("Arc queries", () => {
           const { result } = renderHook(() => Arc.useCreate(), { wrapper });
 
           await act(async () => {
-            result.current.update({
+            await result.current.updateAsync({
               key: existingArc.key,
               mode: existingArc.mode,
               name: existingArc.name,
@@ -491,7 +491,7 @@ describe("Arc queries", () => {
           const uniqueName = `arc_reuse_${id.create()}`;
 
           await act(async () => {
-            createResult.current.update({
+            await createResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: uniqueName,
@@ -523,7 +523,7 @@ describe("Arc queries", () => {
           });
 
           await act(async () => {
-            updateResult.current.update({
+            await updateResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: `${uniqueName}_updated`,
@@ -561,7 +561,7 @@ describe("Arc queries", () => {
           const arcKey = uuid.create();
 
           await act(async () => {
-            createResult.current.update({
+            await createResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: `arc_migrate_${id.create()}`,
@@ -593,7 +593,7 @@ describe("Arc queries", () => {
           });
 
           await act(async () => {
-            updateResult.current.update({
+            await updateResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: `arc_migrate_updated`,
@@ -635,7 +635,7 @@ describe("Arc queries", () => {
           const arcKey = uuid.create();
 
           await act(async () => {
-            createResult.current.update({
+            await createResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: `arc_del_${id.create()}`,
@@ -666,7 +666,7 @@ describe("Arc queries", () => {
           });
 
           await act(async () => {
-            updateResult.current.update({
+            await updateResult.current.updateAsync({
               key: arcKey,
               mode: "text",
               name: `arc_del_updated`,
@@ -820,7 +820,7 @@ describe("Arc queries", () => {
       const newName = `renamed-${Math.random().toString(36).substring(7)}`;
 
       await act(async () => {
-        result.current.update({ key: testArc.key, name: newName });
+        await result.current.updateAsync({ key: testArc.key, name: newName });
       });
 
       await waitFor(() => {

@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, type rack } from "@synnaxlabs/client";
+import { createTestClient } from "@synnaxlabs/client";
 import { id } from "@synnaxlabs/x";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { type PropsWithChildren } from "react";
@@ -20,7 +20,7 @@ const client = createTestClient();
 
 describe("useSetDataSaving", () => {
   let wrapper: React.FC<PropsWithChildren>;
-  let rack: rack.Rack;
+  let rack: { key: number; createTask: (...args: any[]) => Promise<any> };
 
   beforeEach(async () => {
     wrapper = await createAsyncSynnaxWrapper({ client });
@@ -37,7 +37,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: t.key, dataSaving: true });
+      await result.current.updateAsync({ key: t.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -56,7 +56,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: t.key, dataSaving: false });
+      await result.current.updateAsync({ key: t.key, dataSaving: false });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -75,7 +75,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: writeTask.key, dataSaving: true });
+      await result.current.updateAsync({ key: writeTask.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));
@@ -94,7 +94,7 @@ describe("useSetDataSaving", () => {
     const { result } = renderHook(() => useSetDataSaving(), { wrapper });
 
     await act(async () => {
-      result.current.update({ key: t.key, dataSaving: true });
+      await result.current.updateAsync({ key: t.key, dataSaving: true });
     });
 
     await waitFor(() => expect(result.current.variant).toEqual("success"));

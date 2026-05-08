@@ -44,7 +44,7 @@ describe("User queries", () => {
       const { result } = renderHook(() => User.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update(testUser.key);
+        await result.current.updateAsync(testUser.key);
       });
 
       await waitFor(() => {
@@ -71,7 +71,7 @@ describe("User queries", () => {
       const { result } = renderHook(() => User.useDelete(), { wrapper });
 
       await act(async () => {
-        result.current.update([user1.key, user2.key]);
+        await result.current.updateAsync([user1.key, user2.key]);
       });
 
       await waitFor(() => {
@@ -96,7 +96,7 @@ describe("User queries", () => {
       const { result } = renderHook(() => User.useRename(), { wrapper });
 
       await act(async () => {
-        result.current.update({
+        await result.current.updateAsync({
           key: testUser.key,
           username: newUsername,
         });

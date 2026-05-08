@@ -327,7 +327,7 @@ describe("EtherCAT Device queries", () => {
       );
 
       await act(async () => {
-        result.current.toggle.update({ keys: dev.key });
+        await result.current.toggle.updateAsync({ keys: dev.key });
       });
 
       const updated = await client.devices.retrieve({
@@ -353,7 +353,7 @@ describe("EtherCAT Device queries", () => {
       );
 
       await act(async () => {
-        result.current.toggle.update({ keys: dev.key });
+        await result.current.toggle.updateAsync({ keys: dev.key });
       });
 
       const updated = await client.devices.retrieve({
@@ -379,7 +379,7 @@ describe("EtherCAT Device queries", () => {
       );
 
       await act(async () => {
-        result.current.toggle.update({ keys: dev.key, enabled: false });
+        await result.current.toggle.updateAsync({ keys: dev.key, enabled: false });
       });
 
       const updated = await client.devices.retrieve({
@@ -410,7 +410,7 @@ describe("EtherCAT Device queries", () => {
       );
 
       await act(async () => {
-        result.current.toggle.update({ keys: [dev1.key, dev2.key] });
+        await result.current.toggle.updateAsync({ keys: [dev1.key, dev2.key] });
       });
 
       const updated1 = await client.devices.retrieve({
@@ -446,7 +446,7 @@ describe("EtherCAT Device queries", () => {
       );
 
       await act(async () => {
-        result.current.toggle.update({
+        await result.current.toggle.updateAsync({
           keys: [dev1.key, dev2.key],
           enabled: true,
         });

@@ -108,8 +108,8 @@ describe("update", () => {
       const { result } = renderHook(useUpdate, {
         wrapper: createSynnaxWrapper({ client: null }),
       });
-      act(() => {
-        result.current.update(12, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(12, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(result.current.variant).toEqual("success");
@@ -139,6 +139,74 @@ describe("update", () => {
     });
   });
 
+  describe("updateAsync", () => {
+    it("should return true if the update function is successful", async () => {
+      const update = vi.fn();
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(useUpdate, { wrapper });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
+      expect(updated).toEqual(true);
+    });
+
+    it("should return false if an error is thrown", async () => {
+      const update = vi.fn().mockRejectedValue(new Error("test"));
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(useUpdate, { wrapper });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
+      expect(updated).toEqual(false);
+    });
+
+    it("should return false if the client is null", async () => {
+      const update = vi.fn();
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(useUpdate, {
+        wrapper: createSynnaxWrapper({ client: null }),
+      });
+      const updated = await act(
+        async () =>
+          await result.current.updateAsync(12, {
+            signal: controller.signal,
+          }),
+      );
+      expect(updated).toEqual(false);
+    });
+
+    it("should return false if the update function is aborted", async () => {
+      const update = vi.fn();
+      const controller = new AbortController();
+      const { useUpdate } = Flux.createUpdate<number, {}>({
+        ...BASE_UPDATE_PARAMS,
+        update,
+      });
+      const { result } = renderHook(useUpdate, { wrapper });
+      const updated = await act(async () => {
+        controller.abort();
+        return await result.current.updateAsync(12, {
+          signal: controller.signal,
+        });
+      });
+      expect(updated).toEqual(false);
+    });
+  });
   describe("rollback", () => {
     it("should execute rollbacks when update throws error", async () => {
       const rollback1 = vi.fn();
@@ -153,8 +221,8 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
       await waitFor(() => {
         expect(rollback1).toHaveBeenCalled();
@@ -178,10 +246,10 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => expect(order).toEqual([3, 2, 1]));
+      expect(order).toEqual([3, 2, 1]);
     });
 
     it("should execute rollbacks when beforeUpdate returns false", async () => {
@@ -196,15 +264,13 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => {
-        expect(rollback).toHaveBeenCalled();
-        expect(update).not.toHaveBeenCalled();
-      });
+      expect(rollback).toHaveBeenCalled();
+      expect(update).not.toHaveBeenCalled();
     });
-    it("should not execute rollbacks when update returns false", async () => {
+    it("should execute rollbacks when update returns false", async () => {
       const rollback = vi.fn();
       const update = vi.fn().mockImplementation(async ({ rollbacks }) => {
         rollbacks.push(rollback);
@@ -215,8 +281,10 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => result.current.update(42, { signal: controller.signal }));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const updated = await act(
+        async () => await result.current.updateAsync(42, { signal: controller.signal }),
+      );
+      expect(updated).toBe(false);
       expect(rollback).not.toHaveBeenCalled();
     });
     it("should not execute rollbacks on successful update", async () => {
@@ -230,8 +298,10 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => result.current.update(42, { signal: controller.signal }));
-      await waitFor(() => expect(result.current.variant).toEqual("success"));
+      const updated = await act(
+        async () => await result.current.updateAsync(42, { signal: controller.signal }),
+      );
+      expect(updated).toBe(true);
       expect(rollback).not.toHaveBeenCalled();
     });
     it("should continue executing rollbacks even if one throws", async () => {
@@ -252,18 +322,16 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => {
-        expect(rollback1).toHaveBeenCalled();
-        expect(rollback2).toHaveBeenCalled();
-        expect(rollback3).toHaveBeenCalled();
-        expect(consoleError).toHaveBeenCalledWith(
-          "failed to rollback changes to Resource",
-          expect.any(Error),
-        );
-      });
+      expect(rollback1).toHaveBeenCalled();
+      expect(rollback2).toHaveBeenCalled();
+      expect(rollback3).toHaveBeenCalled();
+      expect(consoleError).toHaveBeenCalledWith(
+        "failed to rollback changes to Resource",
+        expect.any(Error),
+      );
       consoleError.mockRestore();
     });
     it("should not execute rollbacks when aborted via signal", async () => {
@@ -279,10 +347,9 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(42, { signal: abortController.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: abortController.signal });
       });
-      await waitFor(() => expect(update).toHaveBeenCalled());
       expect(rollback).not.toHaveBeenCalled();
     });
 
@@ -301,10 +368,10 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(useUpdate, { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => expect(store.value).toBeUndefined());
+      expect(store.value).toBeUndefined();
     });
 
     it("should execute rollbacks from beforeUpdate when update throws", async () => {
@@ -323,13 +390,11 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => {
-        expect(beforeRollback).toHaveBeenCalled();
-        expect(updateRollback).toHaveBeenCalled();
-      });
+      expect(beforeRollback).toHaveBeenCalled();
+      expect(updateRollback).toHaveBeenCalled();
     });
 
     it("should pass modified data from beforeUpdate to update", async () => {
@@ -340,15 +405,11 @@ describe("update", () => {
         update,
       });
       const { result } = renderHook(() => useUpdate({ beforeUpdate }), { wrapper });
-      act(() => {
-        result.current.update(42, { signal: controller.signal });
+      await act(async () => {
+        await result.current.updateAsync(42, { signal: controller.signal });
       });
-      await waitFor(() => {
-        expect(beforeUpdate).toHaveBeenCalledWith(
-          expect.objectContaining({ data: 42 }),
-        );
-        expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: 99 }));
-      });
+      expect(beforeUpdate).toHaveBeenCalledWith(expect.objectContaining({ data: 42 }));
+      expect(update).toHaveBeenCalledWith(expect.objectContaining({ data: 99 }));
     });
   });
 });
