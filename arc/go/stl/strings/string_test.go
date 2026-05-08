@@ -10,6 +10,8 @@
 package strings_test
 
 import (
+	"math"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/stl/strings"
@@ -118,6 +120,134 @@ var _ = Describe("Strings", func() {
 
 		It("Should return 0 for invalid handle", func(ctx SpecContext) {
 			Expect(callU64(ctx, "len", testutil.U32(9999))).To(Equal(uint64(0)))
+		})
+	})
+
+	Describe("from_i32", func() {
+		DescribeTable("Should format signed 32-bit integers in base-10",
+			func(ctx SpecContext, value int32, expected string) {
+				h := callU32(ctx, "from_i32", testutil.I32(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("zero", int32(0), "0"),
+			Entry("positive", int32(42), "42"),
+			Entry("negative", int32(-42), "-42"),
+			Entry("i8 min as i32", int32(-128), "-128"),
+			Entry("i8 max as i32", int32(127), "127"),
+			Entry("i16 min as i32", int32(-32768), "-32768"),
+			Entry("i16 max as i32", int32(32767), "32767"),
+			Entry("i32 min", int32(-2147483648), "-2147483648"),
+			Entry("i32 max", int32(2147483647), "2147483647"),
+		)
+	})
+
+	Describe("from_u32", func() {
+		DescribeTable("Should format unsigned 32-bit integers in base-10",
+			func(ctx SpecContext, value uint32, expected string) {
+				h := callU32(ctx, "from_u32", testutil.U32(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("zero", uint32(0), "0"),
+			Entry("u8 max", uint32(255), "255"),
+			Entry("u16 max", uint32(65535), "65535"),
+			Entry("u32 max", uint32(4294967295), "4294967295"),
+		)
+	})
+
+	Describe("from_i64", func() {
+		DescribeTable("Should format signed 64-bit integers in base-10",
+			func(ctx SpecContext, value int64, expected string) {
+				h := callU32(ctx, "from_i64", testutil.I64(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("zero", int64(0), "0"),
+			Entry("positive", int64(9223372036854775807), "9223372036854775807"),
+			Entry("negative", int64(-9223372036854775808), "-9223372036854775808"),
+		)
+	})
+
+	Describe("from_u64", func() {
+		DescribeTable("Should format unsigned 64-bit integers in base-10",
+			func(ctx SpecContext, value uint64, expected string) {
+				h := callU32(ctx, "from_u64", testutil.U64(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("zero", uint64(0), "0"),
+			Entry("max", uint64(18446744073709551615), "18446744073709551615"),
+		)
+	})
+
+	Describe("from_f32", func() {
+		DescribeTable("Should format f32 values with shortest round-trippable representation",
+			func(ctx SpecContext, value float32, expected string) {
+				h := callU32(ctx, "from_f32", testutil.F32(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("simple decimal", float32(3.14), "3.14"),
+			Entry("zero", float32(0.0), "0"),
+			Entry("negative", float32(-2.5), "-2.5"),
+			Entry("1.0 (integer-valued)", float32(1.0), "1"),
+			Entry("10.0 (integer-valued)", float32(10.0), "10"),
+			Entry("100.00 (multiple trailing zeros)", float32(100.00), "100"),
+			Entry("3.10 (single trailing zero)", float32(3.10), "3.1"),
+			Entry("1.50 (single trailing zero)", float32(1.50), "1.5"),
+			Entry("0.10 (leading + trailing zero)", float32(0.10), "0.1"),
+			Entry("-3.10 (negative trailing zero)", float32(-3.10), "-3.1"),
+			Entry("-1.0 (negative integer-valued)", float32(-1.0), "-1"),
+			Entry("5.000 (three trailing zeros)", float32(5.000), "5"),
+		)
+
+		It("Should format NaN", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f32", testutil.F32(float32(math.NaN())))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("NaN"))
+		})
+
+		It("Should format positive infinity", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(1))))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+		})
+
+		It("Should format negative infinity", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f32", testutil.F32(float32(math.Inf(-1))))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
+		})
+	})
+
+	Describe("from_f64", func() {
+		DescribeTable("Should format f64 values with shortest round-trippable representation",
+			func(ctx SpecContext, value float64, expected string) {
+				h := callU32(ctx, "from_f64", testutil.F64(value))
+				Expect(MustBeOk(ss.Get(h))).To(Equal(expected))
+			},
+			Entry("simple decimal", float64(3.14159), "3.14159"),
+			Entry("zero", float64(0.0), "0"),
+			Entry("negative", float64(-2.5), "-2.5"),
+			Entry("high precision", float64(0.1234567890123456), "0.1234567890123456"),
+			Entry("1.0 (integer-valued)", float64(1.0), "1"),
+			Entry("10.0 (integer-valued)", float64(10.0), "10"),
+			Entry("100.00 (multiple trailing zeros)", float64(100.00), "100"),
+			Entry("3.10 (single trailing zero)", float64(3.10), "3.1"),
+			Entry("1.50 (single trailing zero)", float64(1.50), "1.5"),
+			Entry("0.10 (leading + trailing zero)", float64(0.10), "0.1"),
+			Entry("-3.10 (negative trailing zero)", float64(-3.10), "-3.1"),
+			Entry("-1.0 (negative integer-valued)", float64(-1.0), "-1"),
+			Entry("5.000 (three trailing zeros)", float64(5.000), "5"),
+			Entry("1e10 integer-valued", float64(10000000000.0), "1e+10"),
+		)
+
+		It("Should format NaN", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f64", testutil.F64(math.NaN()))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("NaN"))
+		})
+
+		It("Should format positive infinity", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(1)))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("+Inf"))
+		})
+
+		It("Should format negative infinity", func(ctx SpecContext) {
+			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(-1)))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
 		})
 	})
 

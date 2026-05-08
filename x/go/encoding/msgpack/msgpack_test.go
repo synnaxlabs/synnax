@@ -66,6 +66,9 @@ var _ = Describe("Codec", func() {
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
+	It("Should have the correct content type", func() {
+		Expect(msgpack.Codec.ContentType()).To(Equal("application/msgpack"))
+	})
 	Describe("UnmarshalUint64", func() {
 		DescribeTable("Should decode various types to uint64",
 			func(value any, expected uint64) {

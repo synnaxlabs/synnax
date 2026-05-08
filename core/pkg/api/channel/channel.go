@@ -139,7 +139,7 @@ type RetrieveRequest struct {
 	// Name.
 	NodeKey node.Key `json:"node_key" msgpack:"node_key"`
 	// RangeKey is used for fetching aliases.
-	RangeKey uuid.UUID `json:"range_key" msgpack:"range_key"`
+	RangeKey ranger.Key `json:"range_key" msgpack:"range_key"`
 }
 
 // RetrieveResponse is the response for a RetrieveRequest.

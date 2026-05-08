@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -76,7 +75,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg    ServiceConfig
 	group  group.Group
-	table  *gorp.Table[uuid.UUID, View]
+	table  *gorp.Table[Key, View]
 	closer xio.MultiCloser
 }
 

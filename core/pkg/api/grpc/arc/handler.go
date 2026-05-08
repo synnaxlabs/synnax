@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/freighter/grpc"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	svcarc "github.com/synnaxlabs/synnax/pkg/service/arc"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/pb"
 	"google.golang.org/protobuf/types/known/emptypb"
 )
@@ -104,7 +105,7 @@ func (t retrieveRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.RetrieveRequest,
 ) (*RetrieveRequest, error) {
-	keys := lo.Map(msg.Keys, func(k uuid.UUID, _ int) string { return k.String() })
+	keys := lo.Map(msg.Keys, func(k svcarc.Key, _ int) string { return k.String() })
 	return &RetrieveRequest{
 		Keys:          keys,
 		Names:         msg.Names,
@@ -120,7 +121,7 @@ func (t retrieveRequestTranslator) Backward(
 	_ context.Context,
 	msg *RetrieveRequest,
 ) (apiarc.RetrieveRequest, error) {
-	keys := make([]uuid.UUID, 0, len(msg.Keys))
+	keys := make([]svcarc.Key, 0, len(msg.Keys))
 	for _, keyStr := range msg.Keys {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {
@@ -165,7 +166,7 @@ func (t deleteRequestTranslator) Forward(
 	_ context.Context,
 	msg apiarc.DeleteRequest,
 ) (*DeleteRequest, error) {
-	keys := lo.Map(msg.Keys, func(k uuid.UUID, _ int) string { return k.String() })
+	keys := lo.Map(msg.Keys, func(k svcarc.Key, _ int) string { return k.String() })
 	return &DeleteRequest{Keys: keys}, nil
 }
 
@@ -173,7 +174,7 @@ func (t deleteRequestTranslator) Backward(
 	_ context.Context,
 	msg *DeleteRequest,
 ) (apiarc.DeleteRequest, error) {
-	keys := make([]uuid.UUID, 0, len(msg.Keys))
+	keys := make([]svcarc.Key, 0, len(msg.Keys))
 	for _, keyStr := range msg.Keys {
 		key, err := uuid.Parse(keyStr)
 		if err != nil {

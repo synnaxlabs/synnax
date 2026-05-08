@@ -14,7 +14,6 @@ import (
 	"encoding/json"
 	stdio "io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -88,7 +87,7 @@ type Service struct {
 	ServiceConfig
 	Symbol *symbol.Service
 	closer io.MultiCloser
-	table  *gorp.Table[uuid.UUID, Schematic]
+	table  *gorp.Table[Key, Schematic]
 	// actionObserver fans out ScopedActions emitted by Writer.Dispatch to any
 	// subscribers (notably the cluster signals translator). Nil when the
 	// service is opened without a Signals provider.
@@ -106,12 +105,12 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 	s = &Service{ServiceConfig: cfg, actionObserver: observe.New[ScopedAction]()}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Schematic](ctx, gorp.TableConfig[Schematic]{
+	if s.table, err = gorp.OpenTable[Key, Schematic](ctx, gorp.TableConfig[Schematic]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[uuid.UUID, v55.Schematic]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, v55.Schematic]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, v55.Schematic, Schematic](
+				gorp.NewEntryMigration[Key, Key, v55.Schematic, Schematic](
 					"v55_lift_typed_schematic",
 					MigrateSchematic,
 				),

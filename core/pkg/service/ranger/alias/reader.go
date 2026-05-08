@@ -13,10 +13,10 @@ import (
 	"context"
 	"regexp"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/channel"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
@@ -35,7 +35,7 @@ type Reader struct {
 // ranges.
 func (r Reader) Retrieve(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	ch channel.Key,
 ) (string, error) {
 	var res Alias
@@ -64,7 +64,7 @@ func (r Reader) Retrieve(
 // recursively check parent ranges.
 func (r Reader) Resolve(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	alias string,
 ) (channel.Key, error) {
 	var res Alias
@@ -105,7 +105,7 @@ func (r Reader) Resolve(
 // ones.
 func (r Reader) List(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 ) (map[channel.Key]string, error) {
 	res := make(map[channel.Key]string)
 	if err := r.listAliases(ctx, rng, res); err != nil {
@@ -116,7 +116,7 @@ func (r Reader) List(
 
 func (r Reader) listAliases(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	accumulated map[channel.Key]string,
 ) error {
 	var aliases []Alias
@@ -147,7 +147,7 @@ func (r Reader) listAliases(
 // specified range.
 func (r Reader) Search(
 	ctx context.Context,
-	rng uuid.UUID,
+	rng ranger.Key,
 	term string,
 ) ([]channel.Key, error) {
 	ids, err := r.search.Search(
