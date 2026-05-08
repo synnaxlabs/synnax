@@ -743,5 +743,11 @@ var _ = Describe("Number", func() {
 			Expect(zyn.Number().Int().Coerce().Parse(json.Number("not-a-number"), &dest)).
 				To(MatchError(ContainSubstring("json.Number")))
 		})
+
+		Specify("Should surface a Dump error for a non-numeric json.Number string", func() {
+			_, err := zyn.Number().Int().Coerce().Dump(json.Number("not-a-number"))
+			Expect(err).To(MatchError(ContainSubstring("json.Number")))
+			Expect(err).To(MatchError(ContainSubstring("not-a-number")))
+		})
 	})
 })

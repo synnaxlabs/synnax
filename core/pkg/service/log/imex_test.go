@@ -13,10 +13,13 @@ import (
 	"encoding/json"
 	"os"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/log"
 	v1 "github.com/synnaxlabs/synnax/pkg/service/log/migrations/v1"
+	"github.com/synnaxlabs/x/query"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -64,6 +67,27 @@ var _ = Describe("ImportExport", func() {
 			Expect(exported.Type).To(Equal("log"))
 			Expect(exported.Name).To(Equal(env.Name))
 			Expect(exported.Version).To(Equal(v1.Version))
+		})
+
+		It("Should reject a non-UUID key", func(ctx SpecContext) {
+			_, err := svc.Export(ctx, "not-a-uuid")
+			Expect(err).To(MatchError(ContainSubstring("invalid UUID")))
+		})
+
+		It("Should error when the log does not exist", func(ctx SpecContext) {
+			_, err := svc.Export(ctx, uuid.New().String())
+			Expect(err).To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should error when the on-disk Data is malformed", func(ctx SpecContext) {
+			l := log.Log{Name: "malformed"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &l)).To(Succeed())
+			Expect(svc.NewWriter(tx).SetData(ctx, l.Key, map[string]any{
+				"channels": "not-an-array",
+			})).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			_, err := svc.Export(ctx, l.Key.String())
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
