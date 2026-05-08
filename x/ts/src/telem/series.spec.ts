@@ -369,6 +369,56 @@ describe("Series", () => {
     });
   });
 
+  describe("asString", () => {
+    it("should return the string value for a string series", () => {
+      const series = new Series({
+        data: ["apple", "banana"],
+        dataType: DataType.STRING,
+      });
+      expect(series.asString(0, true)).toEqual("apple");
+      expect(series.asString(1, true)).toEqual("banana");
+    });
+
+    it("should return the raw JSON string without parsing for a JSON series", () => {
+      const series = new Series({
+        data: [{ a_b: 1, c_d: "apple" }],
+        dataType: DataType.JSON,
+      });
+      const result = series.asString(0, true);
+      expect(result).toEqual('{"a_b":1,"c_d":"apple"}');
+    });
+
+    it("should return a string representation for a numeric series", () => {
+      const series = new Series({
+        data: new Float32Array([3.5, 7]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("3.5");
+      expect(series.asString(1, true)).toEqual("7");
+    });
+
+    it("should return undefined when index is out of bounds", () => {
+      const series = new Series({
+        data: ["apple"],
+        dataType: DataType.STRING,
+      });
+      expect(series.asString(5)).toBeUndefined();
+    });
+
+    it("should throw when index is out of bounds and required is true", () => {
+      const series = new Series({
+        data: ["apple"],
+        dataType: DataType.STRING,
+      });
+      expect(() => series.asString(5, true)).toThrow();
+    });
+
+    it("should return the UUID string for a UUID series", () => {
+      const series = new Series({ data: SAMPLE_UUID_BYTES, dataType: DataType.UUID });
+      expect(series.asString(0, true)).toEqual("123e4567-e89b-40d3-8056-426614174000");
+    });
+  });
+
   describe("atAlignment", () => {
     it("should return the value at a particular alignment", () => {
       const series = new Series({

@@ -809,7 +809,24 @@ export class Series<T extends TelemValue = TelemValue>
     return uuidString;
   }
 
-  private atVariable(index: number, required: boolean): T | undefined {
+  asString(index: number, required: true): string;
+
+  asString(index: number, required?: false): string | undefined;
+
+  asString(index: number, required: boolean = false): string | undefined {
+    if (this.dataType.isVariable)
+      return this.atVariable(index, required, true) as string | undefined;
+    if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
+    const v = this.at(index, required as true);
+    if (v == null) return undefined;
+    return String(v);
+  }
+
+  private atVariable(
+    index: number,
+    required: boolean,
+    asString: boolean = false,
+  ): T | undefined {
     let start = 0;
     let len = 0;
     const buf = this.buffer;
@@ -845,9 +862,9 @@ export class Series<T extends TelemValue = TelemValue>
       }
     }
     const slice = new Uint8Array(buf, start, len);
-    if (this.dataType.equals(DataType.STRING))
-      return new TextDecoder().decode(slice) as T;
-    return caseconv.snakeToCamel(JSON.parse(new TextDecoder().decode(slice))) as T;
+    const str = new TextDecoder().decode(slice);
+    if (asString || this.dataType.equals(DataType.STRING)) return str as T;
+    return caseconv.snakeToCamel(JSON.parse(str)) as T;
   }
 
   /**
