@@ -26,17 +26,17 @@ import (
 func (s *Service) Import(
 	ctx context.Context,
 	tx gorp.Tx,
-	payload imex.ImportPayload,
+	env imex.Envelope,
 ) (string, error) {
-	migrated, err := migrateData(payload.Version, payload.Data)
+	migrated, err := migrateData(env.Version, env.Data)
 	if err != nil {
 		return "", err
 	}
-	name := payload.Name
+	name := env.Name
 	if name == "" {
 		name = "Imported Log"
 	}
-	data, err := encodedJSONFromStruct(migrated)
+	data, err := structToEncodedJSON(migrated)
 	if err != nil {
 		return "", err
 	}
@@ -89,33 +89,41 @@ func (s *Service) Export(
 			return imex.Envelope{}, errors.Wrap(err, "decode stored log data")
 		}
 	}
-	d.Key = l.Key.String()
-	d.Name = l.Name
-	raw, err := json.Marshal(d)
+	data, err := structToMap(d)
 	if err != nil {
 		return imex.Envelope{}, err
 	}
 	return imex.Envelope{
 		Version: v1.Version,
 		Type:    string(ontology.ResourceTypeLog),
-		Key:     l.Key.String(),
 		Name:    l.Name,
-		Data:    raw,
+		Data:    data,
 	}, nil
 }
 
-// encodedJSONFromStruct bridges from a typed migration struct into the
-// msgpack.EncodedJSON form used by the storage layer. It round-trips through
-// JSON because EncodedJSON is a map[string]any; byte-level fidelity end to end
-// is future work that would replace EncodedJSON with json.RawMessage.
-func encodedJSONFromStruct(v any) (msgpack.EncodedJSON, error) {
+// structToMap converts a typed struct into a generic map[string]any by
+// round-tripping through JSON, matching the JSON struct tags that govern the
+// public wire shape.
+func structToMap(v any) (map[string]any, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
 		return nil, err
 	}
-	var m msgpack.EncodedJSON
+	var m map[string]any
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
 	return m, nil
+}
+
+// structToEncodedJSON bridges a typed migration struct into the
+// msgpack.EncodedJSON form used by the storage layer. EncodedJSON is itself a
+// map[string]any; byte-level fidelity end to end is future work that would
+// replace EncodedJSON with json.RawMessage.
+func structToEncodedJSON(v any) (msgpack.EncodedJSON, error) {
+	m, err := structToMap(v)
+	if err != nil {
+		return nil, err
+	}
+	return msgpack.EncodedJSON(m), nil
 }

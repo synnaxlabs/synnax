@@ -14,18 +14,15 @@ import "github.com/synnaxlabs/x/zyn"
 const Version = 0
 
 // Data is the frozen type for log data at version 0. Channels are stored as
-// bare integer keys.
+// bare integer keys. Key, Name, Type, and Version are envelope-level fields
+// and are not part of Data.
 type Data struct {
-	Key           string `json:"key"`
-	Name          string `json:"name"`
-	Channels      []int  `json:"channels"`
-	RemoteCreated bool   `json:"remote_created"`
+	Channels      []int `json:"channels"`
+	RemoteCreated bool  `json:"remote_created"`
 }
 
 // Schema validates the wire shape of a v0 log payload.
 var Schema = zyn.Object(map[string]zyn.Schema{
-	"key":            zyn.String().Optional(),
-	"name":           zyn.String().Optional(),
 	"channels":       zyn.Array(zyn.Number().Int().Coerce()),
 	"remote_created": zyn.Bool().Optional(),
 })

@@ -17,13 +17,13 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
-	svcimex "github.com/synnaxlabs/synnax/pkg/service/imex"
+	"github.com/synnaxlabs/synnax/pkg/service/imex"
 	xconfig "github.com/synnaxlabs/x/config"
 )
 
 type Service struct {
 	access   *rbac.Service
-	internal *svcimex.Service
+	internal *imex.Service
 }
 
 func NewService(cfgs ...config.LayerConfig) (*Service, error) {
@@ -31,53 +31,39 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Service{
-		internal: cfg.Service.ImEx,
-		access:   cfg.Service.RBAC,
-	}, nil
+	return &Service{internal: cfg.Service.ImEx, access: cfg.Service.RBAC}, nil
 }
 
 type (
-	ImportRequest struct {
-		Resources []svcimex.Envelope `json:"resources" msgpack:"resources"`
-	}
-	ImportResponse struct {
-		Keys []string `json:"keys" msgpack:"keys"`
-	}
+	ImportRequest  = imex.Envelope
+	ImportResponse = string
 )
 
 func (s *Service) Import(
 	ctx context.Context,
 	req ImportRequest,
 ) (ImportResponse, error) {
-	objects := make([]ontology.ID, len(req.Resources))
-	for i, env := range req.Resources {
-		objects[i] = ontology.ID{
-			Type: ontology.ResourceType(env.Type),
-			Key:  env.Key,
-		}
+	resourceType, err := s.internal.ImporterType(req.Type)
+	if err != nil {
+		return "", err
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
-		Objects: objects,
+		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
-		return ImportResponse{}, err
+		return "", err
 	}
-	keys, err := s.internal.Import(ctx, req.Resources)
+	keys, err := s.internal.Import(ctx, []imex.Envelope{req})
 	if err != nil {
-		return ImportResponse{}, err
+		return "", err
 	}
-	return ImportResponse{Keys: keys}, nil
+	return keys[0], nil
 }
 
 type (
-	ExportRequest struct {
-		Resources []ontology.ID `json:"resources" msgpack:"resources"`
-	}
-	ExportResponse struct {
-		Resources []svcimex.Envelope `json:"resources" msgpack:"resources"`
-	}
+	ExportRequest  = ontology.ID
+	ExportResponse = imex.Envelope
 )
 
 func (s *Service) Export(
@@ -87,13 +73,13 @@ func (s *Service) Export(
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionRetrieve,
-		Objects: req.Resources,
+		Objects: []ontology.ID{req},
 	}); err != nil {
 		return ExportResponse{}, err
 	}
-	envs, err := s.internal.Export(ctx, req.Resources)
+	envs, err := s.internal.Export(ctx, []ontology.ID{req})
 	if err != nil {
 		return ExportResponse{}, err
 	}
-	return ExportResponse{Resources: envs}, nil
+	return envs[0], nil
 }

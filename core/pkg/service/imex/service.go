@@ -11,7 +11,6 @@ package imex
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/config"
@@ -24,16 +23,12 @@ import (
 // ServiceConfig is the configuration for opening an import/export service.
 type ServiceConfig struct {
 	// DB is the database used to wrap import operations in a single transaction.
+	//
 	// [REQUIRED]
 	DB *gorp.DB
 }
 
-var (
-	_ config.Config[ServiceConfig] = ServiceConfig{}
-	// DefaultServiceConfig is the default configuration for opening an
-	// import/export service.
-	DefaultServiceConfig = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements config.Config.
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -49,27 +44,25 @@ func (c ServiceConfig) Validate() error {
 }
 
 // Service is the central import/export registry. Handlers are registered via
-// ServiceConfig.ImporterExporters at open time and routed by their Type.
+// RegisterImporterExporter / RegisterImporter / RegisterExporter  and routed by their
+// Type.
 type Service struct {
 	cfg       ServiceConfig
-	importers map[ontology.ResourceType]Importer
+	importers map[string]Importer
 	exporters map[ontology.ResourceType]Exporter
 }
 
-// OpenService creates a new, empty import/export registry. Handlers register
-// themselves via RegisterImporterExporter / RegisterImporter / RegisterExporter
-// at their own open time, typically by accepting the imex Service in their own
-// service config. Each handler is responsible for stamping its own per-schema
-// version on the envelopes it produces; the registry does not impose a
-// centralized version.
-func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
-	cfg, err := config.New(DefaultServiceConfig, cfgs...)
+// NewService creates a new, empty import/export registry. Handlers register themselves
+// via RegisterImporterExporter / RegisterImporter / RegisterExporter at their own
+// registration time, typically by accepting the Service in their own service config.
+func NewService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
+	cfg, err := config.New(ServiceConfig{}, cfgs...)
 	if err != nil {
 		return nil, err
 	}
 	return &Service{
 		cfg:       cfg,
-		importers: make(map[ontology.ResourceType]Importer),
+		importers: make(map[string]Importer),
 		exporters: make(map[ontology.ResourceType]Exporter),
 	}, nil
 }
@@ -77,95 +70,81 @@ func OpenService(_ context.Context, cfgs ...ServiceConfig) (*Service, error) {
 // RegisterImporterExporter registers a single handler for both halves under
 // its own Type. Use this for symmetric services (one resource type for both
 // import and export) — e.g., logs, schematics.
-func (s *Service) RegisterImporterExporter(ie ImporterExporter) {
+func (s *Service) RegisterImporterExporter(ie ImportExporter) {
 	t := ie.Type()
-	s.importers[t] = ie
+	s.importers[string(t)] = ie
 	s.exporters[t] = ie
 }
 
-// RegisterImporter adds an Importer for the given resource type. Use this for
-// services with asymmetric registration — for example, a task service that
-// imports under fine-grained type strings (e.g., "http_read", "opc_scan") but
-// exports under a single coarse type ("task").
-func (s *Service) RegisterImporter(t ontology.ResourceType, i Importer) {
-	s.importers[t] = i
+// RegisterImporter adds an Importer for the given resource type. Use this for services
+// with asymmetric registration — for example, a task service that imports under
+// fine-grained type strings (e.g., "http_read", "opc_scan") but exports under a single
+// coarse type ("task").
+func (s *Service) RegisterImporter(t string, i Importer) { s.importers[t] = i }
+
+// RegisterExporter adds an Exporter for the given resource type. See RegisterImporter
+// for the asymmetric-registration use case.
+func (s *Service) RegisterExporter(e Exporter) { s.exporters[e.Type()] = e }
+
+// ImporterType returns the ontology resource type that the importer registered
+// under the given (possibly narrow) type string creates. For symmetric
+// importers (e.g., "log") this is identical to the registration string; for
+// asymmetric importers (e.g., a task service registered under "http_read")
+// this is the broader ontology type ("task"). Returns an error if no importer
+// is registered for t.
+func (s *Service) ImporterType(t string) (ontology.ResourceType, error) {
+	imp, ok := s.importers[t]
+	if !ok {
+		return "", errors.Newf("no importer registered for type %q", t)
+	}
+	return imp.Type(), nil
 }
 
-// RegisterExporter adds an Exporter for the given resource type. See
-// RegisterImporter for the asymmetric-registration use case.
-func (s *Service) RegisterExporter(t ontology.ResourceType, e Exporter) {
-	s.exporters[t] = e
-}
-
-// Import validates and persists the given envelopes within a single
-// transaction, returning the newly-assigned key for each resource in the same
-// order as envs. The envelope's key is ignored; each handler always assigns a
-// fresh key.
+// Import validates and persists the given envelopes within a single transaction,
+// returning the newly-assigned key for each resource in the same order as envs.
 func (s *Service) Import(
 	ctx context.Context,
-	envs []Envelope,
+	envelopes []Envelope,
 ) ([]string, error) {
-	keys := make([]string, len(envs))
-	err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
-		for i, env := range envs {
-			imp, ok := s.importers[ontology.ResourceType(env.Type)]
+	keys := make([]string, len(envelopes))
+	if err := s.cfg.DB.WithTx(ctx, func(tx gorp.Tx) error {
+		for i, env := range envelopes {
+			importer, ok := s.importers[env.Type]
 			if !ok {
-				return errors.Newf(
-					"no importer registered for type %q",
-					env.Type,
-				)
+				return errors.Newf("no importer registered for type %q", env.Type)
 			}
-			payload, err := decodeImportPayload(env)
-			if err != nil {
-				return err
-			}
-			key, err := imp.Import(ctx, tx, payload)
+			key, err := importer.Import(ctx, tx, env)
 			if err != nil {
 				return err
 			}
 			keys[i] = key
 		}
 		return nil
-	})
-	if err != nil {
+	}); err != nil {
 		return nil, err
 	}
 	return keys, nil
 }
 
-// Export serializes the requested resources as envelopes. Each registered
-// handler stamps its own per-schema version on the envelopes it returns.
+// Export serializes the requested resources as envelopes. Each registered handler
+// stamps its own per-schema version on the envelopes it returns.
 func (s *Service) Export(
 	ctx context.Context,
 	resources []ontology.ID,
 ) ([]Envelope, error) {
-	result := make([]Envelope, 0, len(resources))
-	for _, r := range resources {
-		exp, ok := s.exporters[r.Type]
+	envelopes := make([]Envelope, len(resources))
+	var err error
+	for i, r := range resources {
+		exporter, ok := s.exporters[r.Type]
 		if !ok {
 			return nil, errors.Newf(
 				"no exporter registered for type %q",
 				r.Type,
 			)
 		}
-		env, err := exp.Export(ctx, r.Key)
-		if err != nil {
+		if envelopes[i], err = exporter.Export(ctx, r.Key); err != nil {
 			return nil, err
 		}
-		result = append(result, env)
 	}
-	return result, nil
-}
-
-// decodeImportPayload decodes the envelope's Data into a generic
-// map[string]any so the handler can route on Version and dispatch to the right
-// schema parser. The envelope's promoted Key is intentionally dropped.
-func decodeImportPayload(env Envelope) (ImportPayload, error) {
-	payload := ImportPayload{Version: env.Version, Name: env.Name}
-	if len(env.Data) > 0 {
-		if err := json.Unmarshal(env.Data, &payload.Data); err != nil {
-			return ImportPayload{}, errors.Wrap(err, "envelope data must be a JSON object")
-		}
-	}
-	return payload, nil
+	return envelopes, nil
 }

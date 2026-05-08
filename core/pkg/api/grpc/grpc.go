@@ -16,7 +16,7 @@ import (
 	"github.com/synnaxlabs/freighter/noop"
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/access"
-	apiarc "github.com/synnaxlabs/synnax/pkg/api/arc"
+	"github.com/synnaxlabs/synnax/pkg/api/arc"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/channel"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
@@ -160,7 +160,7 @@ func NewTransport(channelSvc *distchannel.Service) (api.Transport, []grpc.Bindab
 	a.ImExExport = noop.UnaryServer[imex.ExportRequest, imex.ExportResponse]{}
 
 	// ARC LSP
-	a.ArcLSP = noop.StreamServer[apiarc.LSPMessage, apiarc.LSPMessage]{}
+	a.ArcLSP = noop.StreamServer[arc.LSPMessage, arc.LSPMessage]{}
 
 	return a, transports
 }

@@ -10,8 +10,6 @@
 package imex_test
 
 import (
-	"encoding/json"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -20,15 +18,14 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-func rawLogV1(name string) json.RawMessage {
-	return json.RawMessage(`{
-		"name": "` + name + `",
-		"channels": [],
-		"remote_created": false,
-		"timestamp_precision": 0,
-		"show_channel_names": true,
-		"show_receipt_timestamp": true
-	}`)
+func logV1Data() map[string]any {
+	return map[string]any{
+		"channels":               []any{},
+		"remote_created":         false,
+		"timestamp_precision":    0,
+		"show_channel_names":     true,
+		"show_receipt_timestamp": true,
+	}
 }
 
 var _ = Describe("Service", func() {
@@ -38,7 +35,7 @@ var _ = Describe("Service", func() {
 				Version: v1.Version,
 				Type:    "log",
 				Name:    "Registry Test",
-				Data:    rawLogV1("Registry Test"),
+				Data:    logV1Data(),
 			}}
 			keys := MustSucceed(svc.Import(ctx, envs))
 			Expect(keys).To(HaveLen(1))
@@ -50,7 +47,7 @@ var _ = Describe("Service", func() {
 				Version: v1.Version,
 				Type:    "nonexistent",
 				Name:    "Bad Type",
-				Data:    json.RawMessage(`{}`),
+				Data:    map[string]any{},
 			}}
 			Expect(svc.Import(ctx, envs)).Error().To(
 				MatchError(ContainSubstring("no importer registered")),
@@ -63,13 +60,13 @@ var _ = Describe("Service", func() {
 					Version: v1.Version,
 					Type:    "log",
 					Name:    "Good Log",
-					Data:    rawLogV1("Good Log"),
+					Data:    logV1Data(),
 				},
 				{
 					Version: 99999,
 					Type:    "nonexistent",
 					Name:    "Bad Type",
-					Data:    json.RawMessage(`{}`),
+					Data:    map[string]any{},
 				},
 			}
 			Expect(svc.Import(ctx, envs)).Error().To(
@@ -84,7 +81,7 @@ var _ = Describe("Service", func() {
 				Version: v1.Version,
 				Type:    "log",
 				Name:    "Export Registry Test",
-				Data:    rawLogV1("Export Registry Test"),
+				Data:    logV1Data(),
 			}}
 			keys := MustSucceed(svc.Import(ctx, envs))
 			Expect(keys).To(HaveLen(1))

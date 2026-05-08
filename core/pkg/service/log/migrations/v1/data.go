@@ -23,10 +23,9 @@ type ChannelEntry struct {
 }
 
 // Data is the frozen type for log data at version 1. Channels are stored as
-// config entries with display options.
+// config entries with display options. Key, Name, Type, and Version are
+// envelope-level fields and are not part of Data.
 type Data struct {
-	Key                  string         `json:"key"`
-	Name                 string         `json:"name"`
 	Channels             []ChannelEntry `json:"channels"`
 	RemoteCreated        bool           `json:"remote_created"`
 	TimestampPrecision   int            `json:"timestamp_precision"`
@@ -36,8 +35,6 @@ type Data struct {
 
 // Schema validates the wire shape of a v1 log payload.
 var Schema = zyn.Object(map[string]zyn.Schema{
-	"key":  zyn.String().Optional(),
-	"name": zyn.String().Optional(),
 	"channels": zyn.Array(zyn.Object(map[string]zyn.Schema{
 		"channel":   zyn.Number().Int().Coerce(),
 		"color":     zyn.String().Optional(),
