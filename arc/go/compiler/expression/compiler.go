@@ -152,6 +152,9 @@ func compilePostfix(ctx context.Context[parser.IPostfixExpressionContext]) (type
 						funcName, funcName,
 					)
 				}
+				if funcName == "string.fmt" {
+					return compileStringFmt(ctx, scope, funcCalls[0])
+				}
 				return compileFunctionCallExpr(ctx, funcName, scope, funcCalls[0])
 			}
 		}

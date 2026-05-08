@@ -123,6 +123,15 @@ var SymbolResolver = &symbol.ModuleResolver{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
+		"fmt": {
+			Name: "fmt",
+			Kind: symbol.KindFunction,
+			Exec: symbol.ExecBoth,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "format", Type: types.String()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
 	},
 }
 
@@ -204,6 +213,10 @@ func NewModule(
 		WithFunc(func(_ context.Context, v float64) uint32 {
 			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
 		}).Export("from_f64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle uint32) uint32 {
+			return handle
+		}).Export("fmt")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}

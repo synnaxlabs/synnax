@@ -400,6 +400,9 @@ func analyzePostfix(ctx context.Context[parser.IPostfixExpressionContext]) {
 			if funcName != "len" && funcName != "series.len" {
 				validateFunctionCall(ctx, scope.Type, funcName, funcCalls[0])
 			}
+			if funcName == "string.fmt" {
+				analyzeStringFmtPlaceholders(ctx, funcCalls[0])
+			}
 			if callerFn != nil {
 				argChannels := buildArgChannels(ctx, scope, funcCalls[0])
 				propagateChannelsWithArgMap(callerFn, scope, argChannels)
