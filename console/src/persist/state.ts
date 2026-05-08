@@ -188,10 +188,9 @@ export const middleware = <S extends RequiredState>(
   engine: Engine<S>,
   debounceInterval: CrudeTimeSpan = PERSIST_DEBOUNCE,
 ): Middleware<record.Unknown> => {
-  const debouncedPersist = debounce(
-    (state: S) => void engine.persist(state),
-    debounceInterval,
-  );
+  const debouncedPersist = debounce((state: S) => {
+    engine.persist(state).catch((e) => console.error("Failed to persist state", e));
+  }, debounceInterval);
   return (store) => (next) => (action) => {
     const result = next(action);
     const type = (action as Action | undefined)?.type;
