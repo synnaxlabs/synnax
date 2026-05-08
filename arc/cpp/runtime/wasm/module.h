@@ -112,6 +112,8 @@ sample_from_wasm(const wasmtime::Val &val, const types::Type &type) {
             return x::telem::SampleValue(val.f32());
         case types::Kind::F64:
             return x::telem::SampleValue(val.f64());
+        case types::Kind::String:
+            return x::telem::SampleValue(val.i32());
         default:
             return x::telem::SampleValue(0);
     }

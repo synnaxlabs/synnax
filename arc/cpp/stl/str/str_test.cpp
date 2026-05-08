@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -24,6 +25,12 @@ const std::string_view STR_WAT = R"wat(
   (import "string" "concat" (func $concat (param i32 i32) (result i32)))
   (import "string" "equal" (func $equal (param i32 i32) (result i32)))
   (import "string" "len" (func $len (param i32) (result i64)))
+  (import "string" "from_i32" (func $from_i32 (param i32) (result i32)))
+  (import "string" "from_u32" (func $from_u32 (param i32) (result i32)))
+  (import "string" "from_i64" (func $from_i64 (param i64) (result i32)))
+  (import "string" "from_u64" (func $from_u64 (param i64) (result i32)))
+  (import "string" "from_f32" (func $from_f32 (param f32) (result i32)))
+  (import "string" "from_f64" (func $from_f64 (param f64) (result i32)))
   (memory (export "memory") 1)
   (data (i32.const 0) "hello")
   (data (i32.const 5) " world")
@@ -39,6 +46,18 @@ const std::string_view STR_WAT = R"wat(
     (call $len (local.get 0)))
   (func (export "from_oob") (result i32)
     (call $from_lit (i32.const 65530) (i32.const 100)))
+  (func (export "call_from_i32") (param i32) (result i32)
+    (call $from_i32 (local.get 0)))
+  (func (export "call_from_u32") (param i32) (result i32)
+    (call $from_u32 (local.get 0)))
+  (func (export "call_from_i64") (param i64) (result i32)
+    (call $from_i64 (local.get 0)))
+  (func (export "call_from_u64") (param i64) (result i32)
+    (call $from_u64 (local.get 0)))
+  (func (export "call_from_f32") (param f32) (result i32)
+    (call $from_f32 (local.get 0)))
+  (func (export "call_from_f64") (param f64) (result i32)
+    (call $from_f64 (local.get 0)))
 )
 )wat";
 
@@ -149,5 +168,128 @@ TEST(StrModule, LenReturnsCorrectLength) {
     auto len_fn = f.get_func("len_handle");
     auto result = len_fn.call(f.store, {wasmtime::Val(h)}).unwrap();
     EXPECT_EQ(result[0].i64(), 5);
+}
+
+template<typename ValT>
+static std::string call_from(StrModuleFixture &f, const std::string &fn_name, ValT v) {
+    auto fn = f.get_func(fn_name);
+    auto result = fn.call(f.store, {wasmtime::Val(v)}).unwrap();
+    return f.state->get(result[0].i32());
+}
+
+TEST(StrModule, FromI32FormatsSignedIntegers) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_i32", 0), "0");
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_i32", 42), "42");
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_i32", -42), "-42");
+    EXPECT_EQ(
+        call_from<int32_t>(f, "call_from_i32", std::numeric_limits<int32_t>::max()),
+        "2147483647"
+    );
+    EXPECT_EQ(
+        call_from<int32_t>(f, "call_from_i32", std::numeric_limits<int32_t>::min()),
+        "-2147483648"
+    );
+}
+
+TEST(StrModule, FromU32FormatsUnsignedIntegers) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_u32", 0), "0");
+    EXPECT_EQ(call_from<int32_t>(f, "call_from_u32", 255), "255");
+    EXPECT_EQ(
+        call_from<int32_t>(
+            f,
+            "call_from_u32",
+            static_cast<int32_t>(static_cast<uint32_t>(4000000000U))
+        ),
+        "4000000000"
+    );
+    EXPECT_EQ(
+        call_from<int32_t>(f, "call_from_u32", static_cast<int32_t>(0xFFFFFFFFU)),
+        "4294967295"
+    );
+}
+
+TEST(StrModule, FromI64FormatsSignedIntegers) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<int64_t>(f, "call_from_i64", 0), "0");
+    EXPECT_EQ(call_from<int64_t>(f, "call_from_i64", 42), "42");
+    EXPECT_EQ(call_from<int64_t>(f, "call_from_i64", -42), "-42");
+    EXPECT_EQ(
+        call_from<int64_t>(f, "call_from_i64", std::numeric_limits<int64_t>::max()),
+        "9223372036854775807"
+    );
+    EXPECT_EQ(
+        call_from<int64_t>(f, "call_from_i64", std::numeric_limits<int64_t>::min()),
+        "-9223372036854775808"
+    );
+}
+
+TEST(StrModule, FromU64FormatsUnsignedIntegers) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<int64_t>(f, "call_from_u64", 0), "0");
+    EXPECT_EQ(call_from<int64_t>(f, "call_from_u64", 42), "42");
+    EXPECT_EQ(
+        call_from<int64_t>(
+            f,
+            "call_from_u64",
+            static_cast<int64_t>(static_cast<uint64_t>(0xFFFFFFFFFFFFFFFFULL))
+        ),
+        "18446744073709551615"
+    );
+}
+
+TEST(StrModule, FromF32FormatsShortestRoundTrip) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 3.1f), "3.1");
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 0.1f), "0.1");
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 1.0f), "1");
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 100.0f), "100");
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", -2.5f), "-2.5");
+    EXPECT_EQ(call_from<float>(f, "call_from_f32", 42.5f), "42.5");
+}
+
+TEST(StrModule, FromF64FormatsShortestRoundTrip) {
+    StrModuleFixture f;
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 3.1), "3.1");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 3.14), "3.14");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", 1.0), "1");
+    EXPECT_EQ(call_from<double>(f, "call_from_f64", -2.5), "-2.5");
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", 0.1234567890123456),
+        "0.1234567890123456"
+    );
+}
+
+TEST(StrModule, FromF64HandlesNaNAndInfinityWithGoCapitalization) {
+    StrModuleFixture f;
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", std::numeric_limits<double>::quiet_NaN()),
+        "NaN"
+    );
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", std::numeric_limits<double>::infinity()),
+        "+Inf"
+    );
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", -std::numeric_limits<double>::infinity()),
+        "-Inf"
+    );
+}
+
+TEST(StrModule, FromF32HandlesNaNAndInfinityWithGoCapitalization) {
+    StrModuleFixture f;
+    EXPECT_EQ(
+        call_from<float>(f, "call_from_f32", std::numeric_limits<float>::quiet_NaN()),
+        "NaN"
+    );
+    EXPECT_EQ(
+        call_from<float>(f, "call_from_f32", std::numeric_limits<float>::infinity()),
+        "+Inf"
+    );
+    EXPECT_EQ(
+        call_from<float>(f, "call_from_f32", -std::numeric_limits<float>::infinity()),
+        "-Inf"
+    );
 }
 }
