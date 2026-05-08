@@ -93,7 +93,7 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 // mechanisms for creating, deleting, and listening to changes in ranges.
 type Service struct {
 	closer xio.MultiCloser
-	table  *gorp.Table[uuid.UUID, Range]
+	table  *gorp.Table[Key, Range]
 	cfg    ServiceConfig
 }
 
@@ -113,11 +113,11 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (s *Service, err er
 		Group:           cfg.Group,
 		Instrumentation: cfg.Instrumentation,
 	})
-	if s.table, err = gorp.OpenTable[uuid.UUID, Range](ctx, gorp.TableConfig[Range]{
+	if s.table, err = gorp.OpenTable[Key, Range](ctx, gorp.TableConfig[Range]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
 			v0Mig,
-			gorp.CodecMigration[uuid.UUID, Range]("msgpack_to_orc", v0Mig.Key()),
+			gorp.CodecMigration[Key, Range]("msgpack_to_orc", v0Mig.Key()),
 		},
 		Instrumentation: cfg.Instrumentation,
 	}); !ok(err, s.table) {
@@ -170,9 +170,9 @@ func (s *Service) NewRetrieve() Retrieve {
 // Returns query.ErrNotFound if the range has no parent.
 func (s *Service) RetrieveParentKey(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	tx gorp.Tx,
-) (uuid.UUID, error) {
+) (Key, error) {
 	tx = gorp.OverrideTx(s.cfg.DB, tx)
 	var resources []ontology.Resource
 	if err := s.cfg.Ontology.NewRetrieve().

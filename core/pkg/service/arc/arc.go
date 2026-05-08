@@ -10,15 +10,14 @@
 package arc
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-var _ gorp.Entry[uuid.UUID] = Arc{}
+var _ gorp.Entry[Key] = Arc{}
 
 // GorpKey implements gorp.Entry.
-func (s Arc) GorpKey() uuid.UUID { return s.Key }
+func (s Arc) GorpKey() Key { return s.Key }
 
 // SetOptions implements gorp.Entry.
 func (s Arc) SetOptions() []any { return nil }

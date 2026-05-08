@@ -10,14 +10,13 @@
 package view
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = View{}
+var _ gorp.Entry[Key] = View{}
 
 // GorpKey implements gorp.Entry.
-func (v View) GorpKey() uuid.UUID { return v.Key }
+func (v View) GorpKey() Key { return v.Key }
 
 // SetOptions implements gorp.Entry.
 func (v View) SetOptions() []any { return nil }

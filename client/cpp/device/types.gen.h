@@ -36,7 +36,7 @@ struct StatusDetails {
     /// @brief rack is the key of the rack this device belongs to.
     ::synnax::rack::Key rack = 0;
     /// @brief device is the device identifier.
-    std::string device;
+    Key device;
 
     static StatusDetails parse(x::json::Parser parser);
     [[nodiscard]] x::json::json to_json() const;

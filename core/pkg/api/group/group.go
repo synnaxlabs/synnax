@@ -13,7 +13,6 @@ import (
 	"context"
 	"go/types"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/api/config"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -46,7 +45,7 @@ type (
 	CreateRequest struct {
 		Parent ontology.ID `json:"parent" msgpack:"parent"`
 		Name   string      `json:"name" msgpack:"name" validate:"required"`
-		Key    uuid.UUID   `json:"key" msgpack:"key"`
+		Key    group.Key   `json:"key" msgpack:"key"`
 	}
 	CreateResponse struct {
 		Group group.Group `json:"group" msgpack:"group"`
@@ -80,7 +79,7 @@ func (s *Service) Create(
 }
 
 type DeleteRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys" validate:"required"`
+	Keys []group.Key `json:"keys" msgpack:"keys" validate:"required"`
 }
 
 func (s *Service) Delete(
@@ -101,7 +100,7 @@ func (s *Service) Delete(
 
 type RenameRequest struct {
 	Name string    `json:"name" msgpack:"name" validate:"required"`
-	Key  uuid.UUID `json:"key" msgpack:"key" validate:"required"`
+	Key  group.Key `json:"key" msgpack:"key" validate:"required"`
 }
 
 func (s *Service) Rename(

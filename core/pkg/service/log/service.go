@@ -12,7 +12,6 @@ package log
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
@@ -73,7 +72,7 @@ func (c ServiceConfig) Validate() error {
 // Service is the primary service for retrieving and modifying logs from Synnax.
 type Service struct {
 	ServiceConfig
-	table *gorp.Table[uuid.UUID, Log]
+	table *gorp.Table[Key, Log]
 }
 
 // OpenService instantiates a new log service using the provided configurations. Each
@@ -86,7 +85,7 @@ func OpenService(ctx context.Context, cfgs ...ServiceConfig) (*Service, error) {
 	}
 	table, err := gorp.OpenTable(ctx, gorp.TableConfig[Log]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Log]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Log]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
