@@ -7,6 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package imex provides the core import/export types and interfaces for the Synnax
+// Core. It defines the Envelope type, which is the portable format for a single
+// importable/exportable resource. All fields are flat at the JSON level. The wire
+// format looks like:
+//
+//	{"version":1,"type":"log","name":"...","channels":[...]}
+//
+// Version, Type, and Name are promoted to typed fields for convenient access (routing,
+// file naming). Individual services register themselves as Importers and Exporters for
+// their own Type, and the Service routes to the correct handler based on the Type.
 package imex
 
 import (
@@ -53,14 +63,16 @@ func (v *Version) UnmarshalJSON(b []byte) error {
 //
 // Version, Type, and Name are promoted to typed fields for convenient access (routing,
 // file naming). Data holds the schema-specific payload as a generic map; the promoted
-// fields are stripped from Data on unmarshal and re-merged on marshal. The resource key
-// is not part of the envelope: import always assigns a fresh key, and export takes the
-// key as a separate argument.
+// fields are stripped from Data on unmarshal and re-merged on marshal.
 type Envelope struct {
+	// Version is the per-schema integer version stamped on every envelope.
 	Version Version
-	Type    string
-	Name    string
-	Data    map[string]any
+	// Type describes the resource type being imported/exported.
+	Type string
+	// Name is the human-readable name of the resource.
+	Name string
+	// Data holds the schema-specific payload as a generic map.
+	Data map[string]any
 }
 
 // MarshalJSON emits the flat wire format by merging the promoted fields onto a copy of
@@ -116,18 +128,21 @@ func (e *Envelope) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-// legacyToNumeric converts a semver string like "1.0.0" to a numeric version by taking
-// the major component. Per-schema versioning starts at 0 and increments by 1, so the
-// minor and patch components carry no meaning at the import boundary; they are accepted
-// for backward compatibility with older payloads but discarded.
+// legacyToNumeric converts a legacy semver string of the form "N.0.0" into the integer
+// schema version N. The minor and patch components must both be zero — older Console
+// exports only ever stamped the major component, so any non-zero minor/patch indicates
+// either a malformed payload or a wire format we don't recognize.
 func legacyToNumeric(s string) (uint64, error) {
 	parts := strings.Split(s, ".")
 	if len(parts) != 3 {
-		return 0, errors.Newf("invalid semver %q: expected major.minor.patch", s)
+		return 0, errors.Newf("invalid version %q: expected N.0.0", s)
 	}
 	major, err := strconv.ParseUint(parts[0], 10, 64)
 	if err != nil {
-		return 0, errors.Wrapf(err, "invalid semver major %q", parts[0])
+		return 0, errors.Wrapf(err, "invalid version major %q", parts[0])
+	}
+	if parts[1] != "0" || parts[2] != "0" {
+		return 0, errors.Newf("invalid version %q: only N.0.0 is supported", s)
 	}
 	return major, nil
 }
@@ -139,7 +154,10 @@ func legacyToNumeric(s string) (uint64, error) {
 // still returns "task" from Type). This is the resource type used for access control
 // and ontology accounting.
 type Importer interface {
+	// Import validates and persists the given envelope within a single transaction,
+	// returning the newly-assigned key for the imported resource.
 	Import(context.Context, gorp.Tx, Envelope) (string, error)
+	// Type returns the broader ontology resource type the importer creates.
 	Type() ontology.ResourceType
 }
 
@@ -147,13 +165,18 @@ type Importer interface {
 // stamping its own per-schema Version on the returned envelope. Type returns the
 // ontology resource type this exporter handles.
 type Exporter interface {
+	// Export serializes the given resource as an envelope, stamping the exporter's own
+	// per-schema Version on the returned envelope.
 	Export(context.Context, string) (Envelope, error)
+	// Type returns the ontology resource type this exporter handles.
 	Type() ontology.ResourceType
 }
 
 // ImportExporter is a service that implements both the Importer and Exporter interfaces
 // and can be registered with RegisterImportExporter.
 type ImportExporter interface {
+	// Importer allows the service to be registered as an Importer.
 	Importer
+	// Exporter allows the service to be registered as an Exporter.
 	Exporter
 }
