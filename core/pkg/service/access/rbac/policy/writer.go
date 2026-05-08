@@ -54,7 +54,7 @@ func (w Writer) Delete(
 
 func (w Writer) SetOnRole(
 	ctx context.Context,
-	roleKey Key,
+	roleKey role.Key,
 	policyKeys ...Key,
 ) error {
 	policyIDs := OntologyIDs(policyKeys)

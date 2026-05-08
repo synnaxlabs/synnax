@@ -119,7 +119,7 @@ type (
 		Keys       []workspace.Key `json:"keys" msgpack:"keys"`
 		Limit      int             `json:"limit" msgpack:"limit"`
 		Offset     int             `json:"offset" msgpack:"offset"`
-		Author     workspace.Key   `json:"author" msgpack:"author"`
+		Author     user.Key        `json:"author" msgpack:"author"`
 	}
 	RetrieveResponse struct {
 		Workspaces []workspace.Workspace `json:"workspaces" msgpack:"workspaces"`
