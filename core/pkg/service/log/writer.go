@@ -29,14 +29,18 @@ type Writer struct {
 }
 
 // Create creates the given log within the workspace provided. If the log does not have
-// a key, a new key will be generated. If ws is uuid.Nil, the log is created without a
-// workspace ParentOf relationship; this is used by the import path, which does not yet
-// wire workspace relationships.
+// a key, a new key will be generated. If the log does not have a name, it defaults to
+// "Untitled Log". If ws is uuid.Nil, the log is created without a workspace ParentOf
+// relationship; this is used by the import path, which does not yet wire workspace
+// relationships.
 func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
 	var (
 		exists bool
 		err    error
 	)
+	if l.Name == "" {
+		l.Name = "Untitled Log"
+	}
 	if l.Key == uuid.Nil {
 		l.Key = uuid.New()
 	} else {

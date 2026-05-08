@@ -36,6 +36,19 @@ type Data struct {
 	ShowReceiptTimestamp bool           `json:"show_receipt_timestamp"`
 }
 
+// ToMap projects Data into the encoding-neutral map[string]any form used by the imex
+// envelope and the Log storage layer. Keys must mirror the json tags on Data; the
+// data_test.go drift test enforces that every tagged field appears here.
+func (d Data) ToMap() map[string]any {
+	return map[string]any{
+		"channels":               d.Channels,
+		"remote_created":         d.RemoteCreated,
+		"timestamp_precision":    d.TimestampPrecision,
+		"show_channel_names":     d.ShowChannelNames,
+		"show_receipt_timestamp": d.ShowReceiptTimestamp,
+	}
+}
+
 // Schema validates the wire shape of a v1 log payload.
 var Schema = zyn.Object(map[string]zyn.Schema{
 	"channels": zyn.Array(zyn.Object(map[string]zyn.Schema{

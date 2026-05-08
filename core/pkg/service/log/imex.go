@@ -11,7 +11,6 @@ package log
 
 import (
 	"context"
-	"encoding/json"
 
 	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
@@ -28,19 +27,18 @@ func (s *Service) Import(
 	tx gorp.Tx,
 	env imex.Envelope,
 ) (string, error) {
+	// In the future, the migrateData function will just return a Log. We can then set
+	// the name field on the log and a uuid.New() key and create the log in the
+	// database.
 	migrated, err := migrateData(env.Version, env.Data)
 	if err != nil {
 		return "", err
 	}
-	name := env.Name
-	if name == "" {
-		name = "Imported Log"
+	l := Log{
+		Key:  uuid.New(),
+		Name: env.Name,
+		Data: msgpack.EncodedJSON(migrated.ToMap()),
 	}
-	data, err := structToEncodedJSON(migrated)
-	if err != nil {
-		return "", err
-	}
-	l := Log{Key: uuid.New(), Name: name, Data: data}
 	if err := s.NewWriter(tx).Create(ctx, uuid.Nil, &l); err != nil {
 		return "", err
 	}
@@ -78,45 +76,19 @@ func (s *Service) Export(ctx context.Context, key string) (imex.Envelope, error)
 	if err := s.NewRetrieve().Where(MatchKeys(k)).Entry(&l).Exec(ctx, nil); err != nil {
 		return imex.Envelope{}, err
 	}
+	// In the future, when the log is strongly-typed in ORC, we can just return an
+	// imex.Envelope at this point with the Data field determined by an Oracle-generated
+	// method log.Data() that returns a map[string]any.
 	var d v1.Data
 	if l.Data != nil {
 		if err := l.Data.Unmarshal(&d); err != nil {
 			return imex.Envelope{}, err
 		}
 	}
-	data, err := structToMap(d)
-	if err != nil {
-		return imex.Envelope{}, err
-	}
 	return imex.Envelope{
 		Version: v1.Version,
 		Type:    string(ontology.ResourceTypeLog),
 		Name:    l.Name,
-		Data:    data,
+		Data:    d.ToMap(),
 	}, nil
-}
-
-// structToMap converts a typed struct into a generic map[string]any by round-tripping
-// through JSON, matching the JSON struct tags that govern the public wire shape.
-func structToMap(v any) (map[string]any, error) {
-	b, err := json.Marshal(v)
-	if err != nil {
-		return nil, err
-	}
-	var m map[string]any
-	if err := json.Unmarshal(b, &m); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// structToEncodedJSON bridges a typed migration struct into the msgpack.EncodedJSON form
-// used by the storage layer. EncodedJSON is itself a map[string]any; byte-level fidelity
-// end to end is future work that would replace EncodedJSON with json.RawMessage.
-func structToEncodedJSON(v any) (msgpack.EncodedJSON, error) {
-	m, err := structToMap(v)
-	if err != nil {
-		return nil, err
-	}
-	return msgpack.EncodedJSON(m), nil
 }
