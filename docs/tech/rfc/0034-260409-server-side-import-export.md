@@ -195,8 +195,11 @@ added later. There is no envelope wrapper or nested `data` field. `version`, `ty
 
 The `type` field is the resource type string (e.g., `"log"`, `"lineplot"`,
 `"modbus_read"`). The `version` field is a per-schema integer (see section 4.3).
-Handlers receive the complete flat map for Zyn schema parsing. `name` is not stripped
-from the data before passing to the handler.
+`Envelope.UnmarshalJSON` plucks `version`, `type`, and `name` into typed fields on the
+`Envelope` struct and removes them from the rest of the payload. Handlers see those
+three values via `env.Version`, `env.Type`, and `env.Name`, and the schema-specific
+fields via `env.Data` — the typed promoted fields are the single source for the
+envelope-level metadata.
 
 Old Console exports used semver strings for the version field (e.g., `"1.0.0"`). The
 Core accepts both integer and semver string versions on import, converting the latter on
@@ -256,43 +259,54 @@ string-typed version fields and performs the conversion on the fly.
 ### 4.3.2 - Range-Based Version Dispatch
 
 Each frozen type defines a floor version. The dispatcher first guards against versions
-newer than the latest known schema (returning an unsupported-version error), then
-matches the highest floor that the incoming version satisfies, parses with that schema,
-and runs the migration chain up to the current version. Each service open-codes its own
-dispatch — the rejection-and-walk logic is small enough that hand-writing it per service
-is acceptable for now, and centralizing it into a generic helper is a possible future
-refactor.
+newer than the latest known schema (rejecting via `imex.NewErrUnsupportedVersion`),
+matches the version exactly when it equals the latest, and falls through to the floor
+parse + typed-lift chain otherwise. The dispatch lives in a per-resource `migrations`
+subpackage (`core/pkg/service/<resource>/migrations/migrate.go`), exposes a
+`Migrate(version, data) (LatestData, error)` function, plus `LatestData` (a type alias
+for the current version's `Data`) and `LatestVersion` (the corresponding integer
+constant). The service-level `Import` is a one-liner that calls into this dispatcher.
+
+Centralizing this dispatcher into a generic `imex` helper is a possible future refactor
+— see §7.6. For now the per-resource open-coded form is small enough to be clearer than
+the alternative.
 
 ```go
-func (s *Service) migrateData(version int, data map[string]any) (v1.Data, error) {
-    switch {
-    case version > v1.Version:
-        return v1.Data{}, errors.Newf(
-            "log version %d is newer than this Core supports (latest: %d)",
-            version, v1.Version,
+package migrations
+
+type Latest = v1.Data
+
+const LatestVersion = v1.Version
+
+func Migrate(version imex.Version, data map[string]any) (Latest, error) {
+    if version > LatestVersion {
+        return Latest{}, imex.NewErrUnsupportedVersion(
+            string(ontology.ResourceTypeLog), version, LatestVersion,
         )
-    case version >= v1.Version:
+    }
+    switch version {
+    case v1.Version:
         var d v1.Data
-        if err := v1.Schema.Parse(data, &d); err != nil {
-            return v1.Data{}, err
-        }
-        return d, nil
-    case version >= v0.Version:
+        return d, v1.Schema.Parse(data, &d)
+    default:
         var d v0.Data
         if err := v0.Schema.Parse(data, &d); err != nil {
-            return v1.Data{}, err
+            return Latest{}, err
         }
-        return v1.Migrate(d)
-    default:
-        return v1.Data{}, errors.Newf("unknown log version %d", version)
+        return v1.Migrate(d), nil
     }
 }
 ```
 
+Per-version packages (`migrations/v0/`, `migrations/v1/`, ...) own only the frozen typed
+`Data`, the Zyn `Schema`, and (for non-floor versions) a typed lift
+`Migrate(prev v(N-1).Data) Data`. They contain no version-dispatch logic.
+
 `ObjectZ.Parse` validates the data payload and deserializes into the frozen struct in
 one pass. It handles field name case conversion (camelCase, snake_case, PascalCase)
-automatically and silently ignores extra fields, so `version`, `type`, and other
-envelope fields can remain in the data map without interfering with schema parsing.
+automatically and silently ignores extra fields. The promoted `version`, `type`, and
+`name` fields are removed from the data map by `Envelope.UnmarshalJSON` before the
+handler ever sees it, so schemas don't need to declare or accommodate them.
 
 ## 4.4 - Versioned Types and Zyn Schemas
 
@@ -346,19 +360,23 @@ field.
 ```
 core/pkg/service/schematic/
     migrations/
+        migrate.go                  # Per-resource dispatch (§4.3.2):
+                                    # exports Latest, LatestVersion, Migrate(v,data)
         v0/                         # Pre-Oracle: hand-written
-            schematic.go            # Frozen struct
-            schema.go               # Zyn ObjectZ schema
-            migrate.go              # Migration v0 -> v1
+            data.go                 # Frozen struct + Version const + Zyn Schema +
+                                    # Data.ToMap() projection
+            v0_suite_test.go        # Ginkgo suite setup
+            data_test.go            # Schema parse tests
         v1/
-            schematic.go
-            schema.go
-            migrate.go              # v1 -> v2
+            data.go
+            migrate.go              # Typed lift: Migrate(prev v0.Data) Data
+            v1_suite_test.go
+            data_test.go            # Schema + ToMap drift tests
+            migrate_test.go         # Typed lift tests
         ...
         v5/                         # Last hand-written version
-            schematic.go
-            schema.go
-            migrate.go              # v5 -> v6 (first Oracle version)
+            data.go
+            migrate.go              # v5: Migrate(prev v4.Data) Data
         v6/                         # Oracle-managed from here on
             types.gen.go            # Generated frozen struct
             codec.gen.go            # Generated ORC codec
@@ -367,47 +385,60 @@ core/pkg/service/schematic/
             migrate.go              # Developer transform template
 ```
 
+`Data.ToMap() map[string]any` on each version's frozen `Data` projects the typed fields
+into the encoding-neutral map form the export pipeline consumes. The projection is
+hand-written, with a per-version drift test that uses reflection over the JSON tags on
+`Data` to assert every tagged field appears as a map key. This avoids a JSON
+marshal/unmarshal round-trip on the export hot path and keeps numeric fidelity (ints
+stay ints) without coupling the design to JSON.
+
 ## 4.5 - Service-Level Import/Export
 
-Each service that supports import/export implements the `imex.ImporterExporter`
-interface directly on its `Service` struct:
+Each service that supports import/export implements the `imex.ImportExporter` interface
+directly on its `Service` struct:
 
 ```go
 type Importer interface {
-    Import(ctx context.Context, tx gorp.Tx, payload ImportPayload) (string, error)
+    Import( context.Context,  gorp.Tx,  Envelope) (string, error)
+    Type() ontology.ResourceType
 }
 
 type Exporter interface {
-    Export(ctx context.Context, key string) (Envelope, error)
+    Export( context.Context,  string) (Envelope, error)
+    Type() ontology.ResourceType
 }
 
-type ImporterExporter interface {
+type ImportExporter interface {
     Importer
     Exporter
 }
 ```
 
-The `Envelope` is the full wire-level format with `{Version, Type, Key, Name, Data}`
-fields. It is what gets serialized into JSON files on disk, what arrives in import
-request bodies, and what handlers return from `Export`. `ImportPayload` is a strict
-subset that handlers receive on import:
+The `Envelope` is the full portable format with `{Version, Type, Name, Data}` fields:
 
 ```go
-type ImportPayload struct {
-    Version int
+type Envelope struct {
+    Version Version
+    Type    string
     Name    string
     Data    map[string]any
 }
 ```
 
-`Type` is stripped because the central registry has already routed by it — by the time a
-handler is called, the type is implicit. `Key` is stripped because the original key is
-ignored on import (see §6.6) and including it on the handler-facing struct invites
-accidental use. `Data` is the already-decoded resource map, not raw bytes: the HTTP
-layer's portable codec (JSON today; YAML/TOML later) decodes once at the boundary, and
-the registry passes the map through. This makes Importer implementations independent of
-which codec produced the bytes. The central `imex.Service` translates wire `Envelope` →
-`ImportPayload` before invoking the handler.
+The same struct is what arrives in import request bodies, what handlers return from
+`Export`, and what gets serialized into portable files. There is no separate
+`ImportPayload` or stripping step — the registry routes by `Type` and hands the full
+`Envelope` to the handler unchanged. `Data` is the already-decoded resource map, not raw
+bytes: the HTTP layer's portable codec (JSON today; YAML/TOML later) decodes once at the
+boundary, and the registry passes the map through. This makes Importer implementations
+independent of which codec produced the bytes.
+
+`Type()` returns the broader ontology resource type the handler creates or reads. For
+symmetric services it equals the registration string (e.g., `"log"`). For asymmetric
+services it generalizes the wire-level `type` to a coarser access-control type — a
+`http_read` task importer registered under the wire-level `"http_read"` returns
+`ontology.ResourceTypeTask` from `Type()`, so RBAC sees a single `"task"` resource
+across every task subtype.
 
 `Import` takes a `gorp.Tx` because the central registry runs the entire import batch in
 a single transaction — all resources are persisted atomically or not at all. It does not
@@ -424,25 +455,34 @@ independent snapshot times across resources. Handlers use the service's normal r
 (e.g., its existing `Retrieve` builder against the service's own DB) rather than
 threading a transaction through.
 
-The handler validates `payload.Data` with the version-specific Zyn schema, parses into
-the matched frozen type, runs the migration chain, and calls `Writer.Create`. `Name` is
-available on the payload's promoted field for identity, and is also present in the
-Zyn-parsed struct since `name` remains in the data map.
+The handler validates `env.Data` with the version-specific Zyn schema (typically by
+delegating to the per-resource `migrations.Migrate(env.Version, env.Data)` dispatcher
+described in §4.3.2), runs the migration chain, and calls `Writer.Create` with a
+freshly-generated key. `env.Name` is the source of truth for the resource's name —
+`name` is not present in `env.Data` because `Envelope.UnmarshalJSON` plucks it into the
+typed field.
 
-`Export` returns an `Envelope` with `Type`, `Version`, `Key`, `Name`, and `Data`
-populated. Each handler stamps its own latest schema version. The central `imex.Service`
-does not stamp version because each resource type owns its own version sequence.
+`Export` returns an `Envelope` with `Version`, `Type`, `Name`, and `Data` populated.
+Each handler stamps its own latest schema version. The central `imex.Service` does not
+stamp version because each resource type owns its own version sequence. The original
+resource key is conveyed at the API layer — exports are addressed by `ontology.ID` — not
+via a field on the wire envelope.
 
 ## 4.6 - Central Registry and API Layer
 
 ### 4.6.0 - Endpoints
 
-A single import endpoint and a single export endpoint:
+A single import endpoint and a single export endpoint, both wired through Freighter
+following the rest of the API's RPC convention:
 
-```
-POST /api/v1/import   - Import one resource
-POST /api/v1/export   - Export one resource by key and type
-```
+- `imex.import` — request body is a single `Envelope`; response is the freshly generated
+  key as a string.
+- `imex.export` — request body is the source `ontology.ID` (`{type, key}`); response
+  body is the exported `Envelope`.
+
+Single-resource per request. Batching at the API layer is out of scope; the
+`imex.Service` itself accepts slices internally so a future bundled-import endpoint can
+wrap multiple envelopes in one transaction without touching the handler interface.
 
 ### 4.6.1 - Content Negotiation
 
@@ -456,19 +496,18 @@ the bytes on the wire don't match what users see in the file.
 The portable format may be any of JSON, YAML, or TOML (Section 3.1). Format selection is
 driven by standard HTTP content negotiation:
 
-- **Import** uses `Content-Type` on the request to declare the format of the envelopes
-  in the body (`application/json` is the only codec supported in the initial release;
+- **Import** uses `Content-Type` on the request to declare the format of the envelope in
+  the body (`application/json` is the only codec supported in the initial release;
   `application/yaml` and `application/toml` ship later). The response uses the rest of
   the API's wire convention — MessagePack — for the small confirmation payload.
-- **Export** uses MessagePack for the request body (a small `{type, key}` payload). The
+- **Export** uses MessagePack for the request body (a small `ontology.ID` payload). The
   response body uses the `Accept` header to select the portable format, defaulting to
   `application/json`.
 
-This requires extending Freighter's HTTP transport to support **asymmetric content type
-negotiation per endpoint** — each unary route can declare its accepted request and
-response codec sets independently of the symmetric default. Freighter's HTTP unary
-server today resolves a single codec per exchange; the implementation must allow
-per-route override of accepted request and response codecs.
+Freighter's HTTP transport supports **asymmetric content type negotiation per
+endpoint**: each unary route can declare its accepted request and response codec sets
+independently of the symmetric default. The `imex.import` and `imex.export` routes opt
+into this for their portable-format leg.
 
 Adding YAML and TOML later is purely a matter of registering codecs alongside the
 existing JSON codec at the HTTP boundary. The portable codec decodes raw bytes into a
@@ -477,26 +516,47 @@ consume identically. No format-specific code lives downstream of the HTTP layer.
 
 ### 4.6.2 - Central Registry
 
-The central `imex.Service` is a registry mapping type strings to handlers:
+The central `imex.Service` is a registry mapping the wire-level `type` string to its
+importer and the broader `ontology.ResourceType` to its exporter:
 
 ```go
 type Service struct {
-    db        *gorp.DB
+    cfg       ServiceConfig
     importers map[string]Importer
-    exporters map[string]Exporter
+    exporters map[ontology.ResourceType]Exporter
 }
 ```
 
-Services register during layer initialization. The registry supports separate
-registration of importers and exporters via `Register`, `RegisterImporter`, and
-`RegisterExporter`. This supports task subtypes that only need importer registration
-(see section 4.7).
+The asymmetric keying is what makes task subtypes work cleanly. Importers are keyed by
+the fine-grained wire type (`"http_read"`, `"opc_scan"`) so the wire-level `type` field
+directly selects a handler; exporters are keyed by the broader ontology type (`"task"`)
+so a single handler covers every subtype on the export side.
 
-Import runs all envelopes within a single database transaction. If any import fails, the
-entire batch rolls back. The registry strips `Type` and `Key` from each incoming
-`Envelope` to build the `ImportPayload` the handler sees, collects the new key each
-handler returns, and surfaces those keys to the API layer in batch order so the client
-can correlate request envelopes to created resources.
+Services register during layer initialization via three methods:
+
+- `RegisterImportExporter(ImportExporter)` — symmetric services (log, schematic,
+  lineplot, table, ...) where the same handler answers both halves under the same type.
+- `RegisterImporter(typ string, Importer)` — asymmetric: register one importer per
+  wire-level subtype.
+- `RegisterExporter(Exporter)` — asymmetric: register a single exporter that handles all
+  subtypes under the broader ontology type.
+
+A helper `ImporterType(typ string) (ontology.ResourceType, error)` returns the broader
+ontology type for a registered importer's wire type. The API layer uses it to resolve
+the access-control resource type for RBAC enforcement before invoking the service. If
+`typ` isn't registered the helper returns a `validate.PathedError` scoped to the
+`"type"` field, so the API layer surfaces it as a structured client error.
+
+Imports run within a single database transaction at the service layer. If any envelope
+fails, the batch rolls back. The registry hands the full `Envelope` to the handler
+unchanged — there is no `Type`/`Key` stripping pass — and collects each returned key in
+batch order for the API response.
+
+Future-version rejections go through
+`imex.NewErrUnsupportedVersion(typ, given, supported)`, which returns a
+`validate.PathedError` scoped to the `"version"` field wrapping
+`validate.ErrValidation`. Per-resource `migrations.Migrate` dispatchers construct it
+once they detect the incoming version exceeds their `LatestVersion`.
 
 Authentication and authorization are enforced by the API layer's RBAC checks before
 delegating to the service.
@@ -538,10 +598,11 @@ migration dispatch (§4.3.2) needs:
    changes between adjacent versions; the developer-written `migrate.go` calls it for
    the boilerplate parts and supplies hand-written code for non-trivial transforms.
 
-Each service still hand-writes its `migrateData` switch (§4.3.2) — the future-version
-guard, the floor matching, and the chain of `vN.Schema.Parse` + `vN+1.Migrate` calls.
-Centralizing that switch into a generic `imex` helper is a possible future refactor; for
-now the boilerplate is small enough that per-service open-coding wins on readability.
+Each resource still hand-writes its `migrations.Migrate` dispatch (§4.3.2) — the
+future-version guard, the version match, and the chain of `vN.Schema.Parse` +
+`vN+1.Migrate` calls. The dispatch lives in the per-resource `migrations` subpackage,
+not inside the service. Centralizing that dispatch into a generic `imex` helper is a
+possible future refactor (see §7.6).
 
 Format-specific marshaling and unmarshaling (JSON today; YAML and TOML later) live in
 the HTTP layer (§4.6.1). Oracle does not generate format-specific import/export
@@ -578,11 +639,13 @@ boundary concern.
 
 The portable format is a flat object — flat in JSON, and flat in YAML or TOML if those
 are added later. All fields sit at the same level. There is no nested `data` object.
-This is backwards compatible with old Console exports, which were already flat. Handlers
-receive the complete decoded map for zyn parsing. `version` and `type` are promoted to
-typed fields on the `Envelope` struct for routing and identity, but they remain in the
-data map for schema parsing. `key` and `name` are also promoted for convenient access
-(file naming, identity checks) without being removed from the map.
+This is backwards compatible with old Console exports, which were already flat.
+`version`, `type`, and `name` are promoted to typed fields on the `Envelope` struct;
+`Envelope.UnmarshalJSON` plucks them off the wire payload and removes them from the
+remaining map, so handlers see those three values via `env.Version`, `env.Type`, and
+`env.Name` and the schema-specific fields via `env.Data`. The wire envelope does not
+carry a `key`: addressing on export happens at the API layer via `ontology.ID`, and
+imports always generate fresh keys (§6.6).
 
 ## 6.1 - Per-Schema Incrementing Integer Versions
 
@@ -633,3 +696,76 @@ point.
 
 Exports include the source `key` so that downstream tooling can correlate the export
 back to the original resource if needed.
+
+# 7 - Next Steps
+
+The initial PR lands the JSON-only import/export pipeline for the log service plus the
+central `imex.Service` registry, error helper, version dispatch, per-version typed
+migration packages, and the asymmetric Freighter HTTP content-negotiation primitive the
+import/export endpoints depend on. Remaining work, roughly in priority order:
+
+## 7.0 - YAML and TOML Portable Codecs
+
+Register YAML and TOML decoders alongside JSON at the HTTP boundary. No changes
+downstream of the boundary are needed: the registry, handlers, Zyn schemas, and
+migration chains all operate on `map[string]any` regardless of which codec produced it.
+The asymmetric content-negotiation primitive is already in place.
+
+## 7.1 - Port the Remaining Resource Types
+
+Log lands first. The next services to port to the new pattern are lineplot, schematic,
+table, workspace (single-resource only, no children), arc, and task subtypes. Each
+follows the log shape:
+
+- Hand-written frozen typed structs in `migrations/vN/`.
+- Hand-written Zyn `ObjectZ` schemas alongside the structs.
+- Hand-written typed-lift `Migrate(prev) Curr` functions in `vN/migrate.go` (none for
+  the floor `v0`).
+- A per-resource `migrations/migrate.go` exporting `Latest`, `LatestVersion`, and a
+  `Migrate(version, data)` dispatch that rejects future versions via
+  `imex.NewErrUnsupportedVersion`, parses the matching version with `Schema.Parse`, and
+  walks the typed-lift chain forward.
+- A service-level `Import` / `Export` pair registered against the central `imex.Service`
+  via `RegisterImportExporter` (or, for tasks, `RegisterImporter` per subtype plus a
+  single `RegisterExporter` for `"task"`).
+
+## 7.2 - Oracle Zyn Schema Generation
+
+Section 4.8.0 introduces a `@zyn` attribute that emits a `zyn.ObjectZ` schema from an
+Oracle struct. Not yet implemented. Once landed, it removes the hand-written Zyn schemas
+for any version covered by Oracle, leaving only the typed lift functions hand-written.
+
+## 7.3 - Strongly-Typed Resource `Data` via Oracle
+
+Today `log.Log.Data`, `lineplot.LinePlot.Data`, etc. are `msgpack.EncodedJSON` (opaque
+maps). Promoting them to Oracle-defined typed structs removes the storage→typed decode
+step inside `Service.Export` (`l.Data.Unmarshal(&d)`) and lets the service struct
+participate directly in migrations. The `imex` interface and the dispatch are
+unaffected; only per-service `Export` and `migrations/vN/` simplify.
+
+## 7.4 - Remove TypeScript Migration Code from the Console
+
+After the Core stably handles import for all resource types, delete the parallel
+TypeScript migration chains in `console/src/*/types/v*.ts` and the per-feature
+extractors and ingesters listed in Section 5. Until then, both systems coexist to
+support older Core deployments.
+
+## 7.5 - Workspace and Project Bundle Import/Export
+
+Single-resource only is shipping now. Multi-resource bundles — workspaces with their
+child visualizations, projects packaging multiple resources — are out of scope for this
+iteration and intentionally deferred to the workspace→project rework. Bundle import
+requires a key-fixup pass to rewrite cross-resource references between bundled entities;
+that mechanism doesn't exist yet and should be designed alongside the project model. The
+current `Importer` interface (single envelope in, single key out) will need a composite
+layer above it, not changes to the leaf interface.
+
+## 7.6 - Generic Dispatch Helper
+
+Each resource currently owns a `migrations/migrate.go` with an open-coded switch over
+versions. Adding a new version means extending that switch by one case. Once two or
+three services have been ported with the current pattern, evaluate whether a generic
+helper — parameterized over the latest type and a chain of typed lifts — is worth
+introducing. A typed-erased step list with runtime type assertions can collapse the
+switch to one entry per version, at the cost of losing some compile-time safety. The
+trade-off is unclear at one resource; it'll be obvious at four.
