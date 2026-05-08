@@ -350,14 +350,6 @@ func (s *Service) validateFreeVirtual(channels *[]Channel) error {
 	return nil
 }
 
-// retrieveExistingAndAssignKeys looks up any existing channels whose names
-// match the input set and, when retrieveIfNameExists is true, replaces the
-// input channels in place with the existing DB records. Remaining slots get
-// fresh local keys allocated from the counter.
-//
-// Lookup goes through the name index via MatchNames, so it's O(1) per name
-// instead of a full table scan. Uses newRetrieve to skip the overflow
-// validator (see validateChannels for the deadlock reason).
 func (s *Service) retrieveExistingAndAssignKeys(
 	ctx context.Context,
 	tx gorp.Tx,
@@ -408,14 +400,6 @@ func (s *Service) retrieveExistingAndAssignKeys(
 	return toCreate, nil
 }
 
-// deleteOverwritten handles the OverwriteIfNameExistsAndDifferentProperties
-// create option: for each input channel whose name already exists in the DB
-// under a different key, either reuse the existing record (if the input is
-// property-equivalent modulo keys) or drop it so the create can proceed.
-//
-// Conflict lookup goes through the name index via MatchNames; the overwrite
-// vs reuse decision happens in a plain loop instead of inside a gorp.Match
-// predicate closure.
 func (s *Service) deleteOverwritten(
 	ctx context.Context,
 	tx gorp.Tx,

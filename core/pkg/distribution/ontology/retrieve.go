@@ -243,11 +243,15 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 		// Defensive: fall back to scan if the index isn't wired (e.g. tests
 		// that construct an Ontology without indexes for some reason). The
 		// caller will dispatch to traverseByScan instead.
-		return nil, errIndexUnavailable
+		return nil, gorp.ErrIndexInvalid
 	}
 	nextIDs := make([]ID, 0, len(ids)*4)
 	for _, id := range ids {
-		for _, key := range idx.GetTx(tx, id) {
+		keys, err := idx.GetTx(tx, id)
+		if err != nil {
+			return nil, err
+		}
+		for _, key := range keys {
 			rel, err := ParseRelationship(key)
 			if err != nil {
 				return nil, err
@@ -260,8 +264,6 @@ func parentsByIndex(r Retrieve, tx gorp.Tx, ids []ID) ([]ID, error) {
 	}
 	return nextIDs, nil
 }
-
-var errIndexUnavailable = errors.New("ontology: relationship index unavailable")
 
 var (
 	// ChildrenTraverser traverse to the children of a resource.
@@ -419,10 +421,11 @@ func (r Retrieve) traverse(
 		if err == nil {
 			return nextIDs, nil
 		}
-		// errIndexUnavailable is the only sentinel that means "index not
-		// wired, fall back to a scan-based path"; any other error is real
-		// and should propagate.
-		if !errors.Is(err, errIndexUnavailable) {
+		// gorp.ErrIndexInvalid is the only sentinel that means "this index
+		// path can't help; fall back to a scan-based path" — covers both
+		// "index never registered" and "index failed to populate". Any
+		// other error is real and should propagate.
+		if !errors.Is(err, gorp.ErrIndexInvalid) {
 			return nil, err
 		}
 	}

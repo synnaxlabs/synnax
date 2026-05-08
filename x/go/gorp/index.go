@@ -12,8 +12,25 @@ package gorp
 import (
 	"cmp"
 	"context"
+	"slices"
 	"sync"
+	"sync/atomic"
+
+	"github.com/synnaxlabs/x/errors"
 )
+
+// ErrIndexInvalid indicates that a registered secondary index failed to
+// populate. Retrieve.Where(idx.Filter(...)) catches this sentinel and falls
+// back to a sequential scan with a synthesized predicate, so queries continue
+// to return correct results — just at scan cost. Direct callers of Get / GetTx
+// receive the sentinel and are responsible for their own fallback (see
+// ontology.parentsByIndex for the canonical pattern).
+//
+// A populate failure is logged via the table's instrumentation and stays
+// sticky for the lifetime of the process: there is no automatic rebuild.
+// Operators should investigate the underlying error and restart the affected
+// node to retry population.
+var ErrIndexInvalid = errors.New("gorp: index failed to populate")
 
 // Index is a registered secondary index on a Table. Implementations are
 // provided by gorp (Lookup, Sorted) and constructed via NewLookup / NewSorted.
@@ -24,10 +41,12 @@ type Index[K Key, E Entry[K]] interface {
 	Name() string
 	// populate returns an insert closure and a finish closure for the
 	// populate phase. The caller must invoke insert once for every existing
-	// entry in the table and then invoke finish exactly once. finish is
-	// mandatory: implementations may hold a write lock across the populate
-	// phase, and skipping finish leaks it.
-	populate() (func(entry E), func(), error)
+	// entry in the table and then invoke finish exactly once with the
+	// terminal scan error (or nil on success). finish is mandatory:
+	// implementations hold a write lock across the populate phase and
+	// signal readiness to readers blocked in Filter; skipping finish leaks
+	// the lock and deadlocks every blocked reader.
+	populate() (func(entry E), func(error), error)
 	// set records entry in committed index state, keyed by entry.GorpKey(),
 	// replacing any prior mapping for the same key.
 	set(entry E)
@@ -56,6 +75,15 @@ type Lookup[K IndexKey, E Entry[K], V comparable] struct {
 	storage lookupStorage[K, V]
 	reverse map[K]V
 	overlay deltaOverlay[K, V]
+	// populateDone is closed by populate's finish closure once the index
+	// has been populated from the table (or once the populate scan has
+	// failed). Filter waits on this so reads issued before the index is
+	// ready block instead of returning empty results.
+	populateDone chan struct{}
+	// populateErr captures the populate scan error, if any. Filter checks
+	// it after populateDone closes to decide whether to use the index or
+	// fall back to a sequential scan via Eval.
+	populateErr atomic.Pointer[error]
 }
 
 // NewLookup constructs a Lookup index with the given display name and extract
@@ -67,10 +95,11 @@ func NewLookup[K IndexKey, E Entry[K], V comparable](
 	extract func(e *E) V,
 ) *Lookup[K, E, V] {
 	l := &Lookup[K, E, V]{
-		name:    name,
-		extract: extract,
-		storage: newLookupStorage[K, V](),
-		reverse: make(map[K]V),
+		name:         name,
+		extract:      extract,
+		storage:      newLookupStorage[K, V](),
+		reverse:      make(map[K]V),
+		populateDone: make(chan struct{}),
 	}
 	l.overlay.flush = l.flushTx
 	return l
@@ -80,7 +109,7 @@ func NewLookup[K IndexKey, E Entry[K], V comparable](
 func (l *Lookup[K, E, V]) Name() string { return l.name }
 
 //nolint:unused
-func (l *Lookup[K, E, V]) populate() (func(E), func(), error) {
+func (l *Lookup[K, E, V]) populate() (func(E), func(error), error) {
 	l.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -88,7 +117,13 @@ func (l *Lookup[K, E, V]) populate() (func(E), func(), error) {
 		l.storage.put(key, value)
 		l.reverse[key] = value
 	}
-	finish := func() { l.mu.Unlock() }
+	finish := func(err error) {
+		if err != nil {
+			l.populateErr.Store(&err)
+		}
+		close(l.populateDone)
+		l.mu.Unlock()
+	}
 	return insert, finish, nil
 }
 
@@ -162,29 +197,40 @@ func (l *Lookup[K, E, V]) flushTx(d *delta[K, V]) {
 	}
 }
 
+// resolveTx is called from Filter's resolve callback after it has already
+// gated on populateDone and populateErr, so it intentionally drops Get's
+// error: at this point a populate failure has already been routed to the
+// ErrIndexInvalid path and resolveTx will not be invoked.
 func (l *Lookup[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	return l.overlay.resolve(tx, l.Get(values...), values)
+	keys, _ := l.Get(values...)
+	return l.overlay.resolve(tx, keys, values)
 }
 
 // Get returns the primary keys of entries whose indexed field matches any of
-// the provided values.
-func (l *Lookup[K, E, V]) Get(values ...V) []K {
+// the provided values. Get blocks until the index has finished populating
+// (via the read lock that populate holds across its scan). After populate
+// settles, Get returns ErrIndexInvalid if population failed; callers should
+// fall back to a sequential scan or surface the error to their caller.
+func (l *Lookup[K, E, V]) Get(values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	if l.populateErr.Load() != nil {
+		return nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
+	}
 	if len(values) == 1 {
 		src := l.storage.get(values[0])
 		out := make([]K, len(src))
 		copy(out, src)
-		return out
+		return out, nil
 	}
 	var out []K
 	for _, v := range values {
 		out = append(out, l.storage.get(v)...)
 	}
-	return out
+	return out, nil
 }
 
 // Filter returns a Filter[K, E] matching entries whose indexed field is
@@ -193,11 +239,28 @@ func (l *Lookup[K, E, V]) Get(values ...V) []K {
 // entry observes those pending changes alongside committed index
 // state. A Retrieve against a DB used directly returns committed
 // state only.
+//
+// Filter blocks the Retrieve until the index has finished populating.
+// If population fails, the resolver returns ErrIndexInvalid; Retrieve
+// catches the sentinel and falls back to a sequential scan using the
+// eval predicate carried alongside the resolver, so queries continue
+// to return correct results at scan cost.
 func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			select {
+			case <-l.populateDone:
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+			if l.populateErr.Load() != nil {
+				return nil, nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
+			}
 			return l.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return slices.Contains(captured, l.extract(e)), nil
 		},
 	}
 }
@@ -209,12 +272,17 @@ func (l *Lookup[K, E, V]) Filter(values ...V) Filter[K, E] {
 // or has no staged mutations for this index, it returns the same
 // result as Get. Use GetTx when consuming keys directly outside of
 // Retrieve — e.g. graph traversal helpers that probe the index for
-// candidate IDs.
-func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) []K {
+// candidate IDs. Returns ErrIndexInvalid when population failed; see
+// Get for the failure-mode contract.
+func (l *Lookup[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
-	return l.resolveTx(tx, values)
+	committed, err := l.Get(values...)
+	if err != nil {
+		return nil, err
+	}
+	return l.overlay.resolve(tx, committed, values), nil
 }
 
 // Sorted is an ordered in-memory index on a field of type V extracted from
@@ -234,6 +302,12 @@ type Sorted[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 	storage *sortedStorage[K, V]
 	reverse map[K]V
 	overlay deltaOverlay[K, V]
+	// populateDone mirrors Lookup.populateDone: closed by populate's
+	// finish closure once the index is ready (or has settled with an
+	// error).
+	populateDone chan struct{}
+	// populateErr mirrors Lookup.populateErr.
+	populateErr atomic.Pointer[error]
 }
 
 // NewSorted constructs a Sorted index over the provided extract function.
@@ -244,10 +318,11 @@ func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
 	extract func(e *E) V,
 ) *Sorted[K, E, V] {
 	s := &Sorted[K, E, V]{
-		name:    name,
-		extract: extract,
-		storage: newSortedStorage[K, V](),
-		reverse: make(map[K]V),
+		name:         name,
+		extract:      extract,
+		storage:      newSortedStorage[K, V](),
+		reverse:      make(map[K]V),
+		populateDone: make(chan struct{}),
 	}
 	s.overlay.flush = s.flushTx
 	return s
@@ -257,7 +332,7 @@ func NewSorted[K IndexKey, E Entry[K], V cmp.Ordered](
 func (s *Sorted[K, E, V]) Name() string { return s.name }
 
 //nolint:unused
-func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
+func (s *Sorted[K, E, V]) populate() (func(E), func(error), error) {
 	s.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -268,8 +343,13 @@ func (s *Sorted[K, E, V]) populate() (func(E), func(), error) {
 		)
 		s.reverse[key] = value
 	}
-	finish := func() {
-		s.storage.sortBulk()
+	finish := func(err error) {
+		if err != nil {
+			s.populateErr.Store(&err)
+		} else {
+			s.storage.sortBulk()
+		}
+		close(s.populateDone)
 		s.mu.Unlock()
 	}
 	return insert, finish, nil
@@ -345,49 +425,74 @@ func (s *Sorted[K, E, V]) flushTx(d *delta[K, V]) {
 	}
 }
 
+// resolveTx mirrors Lookup.resolveTx — Filter has already gated on
+// populateErr by the time this runs, so any error from Get is dropped.
 func (s *Sorted[K, E, V]) resolveTx(tx Tx, values []V) []K {
-	return s.overlay.resolve(tx, s.Get(values...), values)
+	keys, _ := s.Get(values...)
+	return s.overlay.resolve(tx, keys, values)
 }
 
-// Get returns the primary keys of entries whose indexed field matches any of
-// the provided values.
-func (s *Sorted[K, E, V]) Get(values ...V) []K {
+// Get returns the primary keys of entries whose indexed field matches any
+// of the provided values. See Lookup.Get for the populate-failure contract.
+func (s *Sorted[K, E, V]) Get(values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	if s.populateErr.Load() != nil {
+		return nil, errors.Wrapf(ErrIndexInvalid, "sorted %q", s.name)
+	}
 	if len(values) == 1 {
 		src := s.storage.get(values[0])
 		out := make([]K, len(src))
 		copy(out, src)
-		return out
+		return out, nil
 	}
 	var out []K
 	for _, v := range values {
 		out = append(out, s.storage.get(v)...)
 	}
-	return out
+	return out, nil
 }
 
 // Filter returns an exact-match Filter[K, E] matching entries whose
 // indexed field is any of values. Read-your-own-writes semantics
 // match Lookup.Filter. Ordered cursor iteration (Sorted.Ordered /
 // OrderBy) is not covered; only equality Filter.
+//
+// Filter blocks the Retrieve until the index has finished populating
+// and falls back to a sequential scan when populate fails. See
+// Lookup.Filter for the populate-failure contract.
 func (s *Sorted[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
-		resolve: func(_ context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
+			select {
+			case <-s.populateDone:
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+			if s.populateErr.Load() != nil {
+				return nil, nil, errors.Wrapf(ErrIndexInvalid, "sorted %q", s.name)
+			}
 			return s.resolveTx(tx, captured), indexedKeyMembership[K], nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return slices.Contains(captured, s.extract(e)), nil
 		},
 	}
 }
 
 // GetTx is the tx-aware counterpart to Get. See Lookup.GetTx for
 // semantics.
-func (s *Sorted[K, E, V]) GetTx(tx Tx, values ...V) []K {
+func (s *Sorted[K, E, V]) GetTx(tx Tx, values ...V) ([]K, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
-	return s.resolveTx(tx, values)
+	committed, err := s.Get(values...)
+	if err != nil {
+		return nil, err
+	}
+	return s.overlay.resolve(tx, committed, values), nil
 }

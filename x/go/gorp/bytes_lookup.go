@@ -11,7 +11,11 @@ package gorp
 
 import (
 	"context"
+	"slices"
 	"sync"
+	"sync/atomic"
+
+	"github.com/synnaxlabs/x/errors"
 )
 
 // BytesLookup is the byte-keyed analogue of Lookup. It exists for tables
@@ -33,6 +37,10 @@ type BytesLookup[E Entry[[]byte], V comparable] struct {
 	storage *bytesLookupStorage[V]
 	reverse map[string]V
 	overlay deltaOverlay[string, V]
+	// populateDone mirrors Lookup.populateDone.
+	populateDone chan struct{}
+	// populateErr mirrors Lookup.populateErr.
+	populateErr atomic.Pointer[error]
 }
 
 // NewBytesLookup constructs a BytesLookup index with the given display name
@@ -44,10 +52,11 @@ func NewBytesLookup[E Entry[[]byte], V comparable](
 	extract func(e *E) V,
 ) *BytesLookup[E, V] {
 	l := &BytesLookup[E, V]{
-		name:    name,
-		extract: extract,
-		storage: newBytesLookupStorage[V](),
-		reverse: make(map[string]V),
+		name:         name,
+		extract:      extract,
+		storage:      newBytesLookupStorage[V](),
+		reverse:      make(map[string]V),
+		populateDone: make(chan struct{}),
 	}
 	l.overlay.flush = l.flushTx
 	return l
@@ -57,7 +66,7 @@ func NewBytesLookup[E Entry[[]byte], V comparable](
 func (l *BytesLookup[E, V]) Name() string { return l.name }
 
 //nolint:unused
-func (l *BytesLookup[E, V]) populate() (func(E), func(), error) {
+func (l *BytesLookup[E, V]) populate() (func(E), func(error), error) {
 	l.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -65,7 +74,13 @@ func (l *BytesLookup[E, V]) populate() (func(E), func(), error) {
 		l.storage.put(key, value)
 		l.reverse[string(key)] = value
 	}
-	finish := func() { l.mu.Unlock() }
+	finish := func(err error) {
+		if err != nil {
+			l.populateErr.Store(&err)
+		}
+		close(l.populateDone)
+		l.mu.Unlock()
+	}
 	return insert, finish, nil
 }
 
@@ -142,8 +157,10 @@ func (l *BytesLookup[E, V]) flushTx(d *delta[string, V]) {
 	}
 }
 
+// resolveTx mirrors Lookup.resolveTx — Filter has already gated on
+// populateErr by the time this runs, so any error from Get is dropped.
 func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {
-	committed := l.Get(values...)
+	committed, _ := l.Get(values...)
 	committedStrings := make([]string, len(committed))
 	for i, k := range committed {
 		committedStrings[i] = string(k)
@@ -161,20 +178,23 @@ func (l *BytesLookup[E, V]) resolveTx(tx Tx, values []V) [][]byte {
 
 // Get returns the primary keys of entries whose indexed field matches any of
 // the provided values. Returned keys are owned by the caller and may be
-// freely retained.
-func (l *BytesLookup[E, V]) Get(values ...V) [][]byte {
+// freely retained. See Lookup.Get for the populate-failure contract.
+func (l *BytesLookup[E, V]) Get(values ...V) ([][]byte, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
 	l.mu.RLock()
 	defer l.mu.RUnlock()
+	if l.populateErr.Load() != nil {
+		return nil, errors.Wrapf(ErrIndexInvalid, "bytes lookup %q", l.name)
+	}
 	if len(values) == 1 {
 		src := l.storage.get(values[0])
 		out := make([][]byte, len(src))
 		for i, k := range src {
 			out[i] = append([]byte(nil), k...)
 		}
-		return out
+		return out, nil
 	}
 	var out [][]byte
 	for _, v := range values {
@@ -182,17 +202,29 @@ func (l *BytesLookup[E, V]) Get(values ...V) [][]byte {
 			out = append(out, append([]byte(nil), k...))
 		}
 	}
-	return out
+	return out, nil
 }
 
 // Filter returns a Filter[[]byte, E] whose Keys are resolved at
 // Retrieve.Exec time against the passed transaction. See
-// Lookup.Filter for the read-your-own-writes semantics.
+// Lookup.Filter for the read-your-own-writes semantics, blocking
+// behavior, and populate-failure fallback.
 func (l *BytesLookup[E, V]) Filter(values ...V) Filter[[]byte, E] {
 	captured := append([]V(nil), values...)
 	return Filter[[]byte, E]{
-		resolve: func(_ context.Context, tx Tx) ([][]byte, func([][]byte) keyMembership[[]byte], error) {
+		resolve: func(ctx context.Context, tx Tx) ([][]byte, func([][]byte) keyMembership[[]byte], error) {
+			select {
+			case <-l.populateDone:
+			case <-ctx.Done():
+				return nil, nil, ctx.Err()
+			}
+			if l.populateErr.Load() != nil {
+				return nil, nil, errors.Wrapf(ErrIndexInvalid, "bytes lookup %q", l.name)
+			}
 			return l.resolveTx(tx, captured), bytesIndexedKeyMembership, nil
+		},
+		eval: func(_ Context, e *E, _, _ []byte) (bool, error) {
+			return slices.Contains(captured, l.extract(e)), nil
 		},
 	}
 }
@@ -201,11 +233,14 @@ func (l *BytesLookup[E, V]) Filter(values ...V) Filter[[]byte, E] {
 // semantics. Used by graph-traversal helpers (e.g. ontology's
 // parentsByIndex) that need to probe the index for candidate keys
 // directly without going through Retrieve.Exec.
-func (l *BytesLookup[E, V]) GetTx(tx Tx, values ...V) [][]byte {
+func (l *BytesLookup[E, V]) GetTx(tx Tx, values ...V) ([][]byte, error) {
 	if len(values) == 0 {
-		return nil
+		return nil, nil
 	}
-	return l.resolveTx(tx, values)
+	if _, err := l.Get(values...); err != nil {
+		return nil, err
+	}
+	return l.resolveTx(tx, values), nil
 }
 
 // bytesLookupStorage is the byte-keyed analogue of mapLookupStorage. The

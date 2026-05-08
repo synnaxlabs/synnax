@@ -31,17 +31,10 @@ type Reader[K Key, E Entry[K]] struct {
 }
 
 // WrapReader wraps the given Tx to provide a strongly typed Reader.
-func WrapReader[K Key, E Entry[K]](tx Tx) *Reader[K, E] {
-	r := wrapReader[K, E](tx, nil)
-	return &r
+func WrapReader[K Key, E Entry[K]](tx Tx) Reader[K, E] {
+	return wrapReader[K, E](tx, nil)
 }
 
-// wrapReader is the internal Reader constructor. Returns Reader by value so
-// callers that store it in a local variable keep the Reader on the stack —
-// avoiding the per-query heap allocation a pointer return would force.
-// Callsites that need a chain (e.g., wrapReader(...).OpenIterator(...)) must
-// take an intermediate variable: function-call results are not addressable
-// in Go, and Reader's methods are pointer-receiver.
 func wrapReader[K Key, E Entry[K]](tx Tx, prefix []byte) Reader[K, E] {
 	return Reader[K, E]{tx: tx, keyCodec: newKeyCodec[K, E](prefix)}
 }
@@ -105,7 +98,7 @@ type IterOptions struct {
 }
 
 // OpenIterator opens a new Iterator over the entries in the Reader.
-func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
+func (r Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err error) {
 	prefixedKey := append(r.keyCodec.prefix, opts.prefix...)
 	base, err := r.tx.OpenIterator(kv.IterPrefix(prefixedKey))
 	return &Iterator[E]{Iterator: base, codec: r.tx}, err
@@ -113,7 +106,7 @@ func (r *Reader[K, E]) OpenIterator(opts IterOptions) (iter *Iterator[E], err er
 
 // OpenNexter opens a new Nexter that can be used to iterate over
 // the entries in the reader in sequential order.
-func (r *Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
+func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, error) {
 	i, err := r.OpenIterator(IterOptions{})
 	if err != nil {
 		return nil, nil, err

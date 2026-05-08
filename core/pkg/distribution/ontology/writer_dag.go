@@ -189,17 +189,6 @@ func (d dagWriter) retrieveDescendants(ctx context.Context, id ID) (map[ID]Resou
 	return descendants, nil
 }
 
-// Relationship gorp keys are encoded as "<from>-><type>-><to>" (see
-// Relationship.GorpKey). The four delete helpers below exploit that layout to
-// avoid the decode-every-row pattern that gorp.Match would force:
-//
-//   - From-anchored deletes can use WherePrefix to narrow the pebble scan to
-//     the matching key range, so iteration cost drops from O(table) to
-//     O(matches).
-//   - To-anchored deletes still have to walk the table because To lives at
-//     the tail of the key, but a WhereRaw key-suffix check skips the ORC
-//     decode for every non-match (which is most rows).
-
 func (d dagWriter) deleteIncomingRelationships(ctx context.Context, id ID) error {
 	suffix := []byte(relationshipKeySep + id.String())
 	return d.relationshipTable.NewDelete().

@@ -226,12 +226,23 @@ func (r Retrieve[K, E]) Exec(ctx context.Context, tx Tx) error {
 // resolveFilter materializes the filter's deferred resolver against
 // the open tx, merging committed index state with any per-tx staged
 // mutations. No-op when the filter has no resolver.
+//
+// When the resolver returns ErrIndexInvalid (the index failed to
+// populate), resolveFilter swallows the error and leaves r.filter.keys
+// nil so dispatch falls through to the eval-only sequential scan path.
+// The accompanying eval predicate carried by index-backed filters
+// preserves correctness at scan cost.
 func (r *Retrieve[K, E]) resolveFilter(ctx context.Context, tx Tx) error {
 	if r.filter.resolve == nil {
 		return nil
 	}
 	keys, build, err := r.filter.resolve(ctx, tx)
 	if err != nil {
+		if errors.Is(err, ErrIndexInvalid) {
+			r.filter.keys = nil
+			r.filter.membership = nil
+			return nil
+		}
 		return err
 	}
 	r.filter.keys = keys

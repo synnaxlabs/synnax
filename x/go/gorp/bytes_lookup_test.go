@@ -57,7 +57,7 @@ var _ = Describe("BytesLookup", func() {
 			}))
 			defer func() { Expect(table.Close()).To(Succeed()) }()
 
-			keys := toIdx.Get("x")
+			keys := MustSucceed(toIdx.Get("x"))
 			Expect(keys).To(HaveLen(2))
 			asStrings := []string{string(keys[0]), string(keys[1])}
 			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
@@ -86,7 +86,7 @@ var _ = Describe("BytesLookup", func() {
 			Expect(gorp.NewCreate[[]byte, byteEntry]().
 				Entry(&byteEntry{From: "a", To: "x"}).
 				Exec(ctx, idxDB)).To(Succeed())
-			keys := toIdx.Get("x")
+			keys := MustSucceed(toIdx.Get("x"))
 			Expect(keys).To(HaveLen(1))
 			Expect(string(keys[0])).To(Equal("a->x"))
 		})
@@ -241,7 +241,7 @@ var _ = Describe("BytesLookup", func() {
 				Exec(ctx, tx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			keys := toIdx.Get("x")
+			keys := MustSucceed(toIdx.Get("x"))
 			Expect(keys).To(HaveLen(1))
 			Expect(string(keys[0])).To(Equal("a->x"))
 		})
@@ -254,7 +254,7 @@ var _ = Describe("BytesLookup", func() {
 			Expect(tx.Commit(ctx)).To(Succeed())
 			Expect(tx.Close()).To(Succeed())
 
-			keys := toIdx.Get("x")
+			keys := MustSucceed(toIdx.Get("x"))
 			asStrings := make([]string, len(keys))
 			for i, k := range keys {
 				asStrings[i] = string(k)

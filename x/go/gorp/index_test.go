@@ -66,7 +66,7 @@ var _ = Describe("Index", func() {
 				}))
 				defer func() { Expect(table.Close()).To(Succeed()) }()
 
-				keys := nameIdx.Get("alpha")
+				keys := MustSucceed(nameIdx.Get("alpha"))
 				Expect(keys).To(ConsistOf(int32(1), int32(3)))
 				Expect(nameIdx.Get("beta")).To(ConsistOf(int32(2)))
 				Expect(nameIdx.Get("missing")).To(BeEmpty())
@@ -326,12 +326,14 @@ var _ = Describe("Index", func() {
 				go func() {
 					defer wg.Done()
 					for i := 0; i < 200; i++ {
-						_ = nameIdx.Get("shared")
+						_, _ = nameIdx.Get("shared")
 					}
 				}()
 				wg.Wait()
-				Eventually(func() int { return len(nameIdx.Get("shared")) }).
-					Should(Equal(100))
+				Eventually(func() int {
+					keys, _ := nameIdx.Get("shared")
+					return len(keys)
+				}).Should(Equal(100))
 			})
 		})
 

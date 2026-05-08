@@ -15,6 +15,7 @@ import (
 	"io"
 	"iter"
 	"sort"
+	"sync/atomic"
 
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/x/change"
@@ -27,6 +28,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
 	"github.com/synnaxlabs/x/types"
+	"go.uber.org/zap"
 )
 
 // TableConfig configures a Table opened via OpenTable.
@@ -51,11 +53,28 @@ type Table[K Key, E Entry[K]] struct {
 	// disconnectObserver releases the index observer subscription, or
 	// nil if no observer was installed.
 	disconnectObserver func()
+	// populateCancel cancels the background populate goroutine on Close.
+	// Nil when the table has no indexes.
+	populateCancel context.CancelFunc
+	// populateGoroutineDone closes when the background populate
+	// goroutine returns. Nil when the table has no indexes. Used by
+	// WaitForIndexes and Close to synchronize.
+	populateGoroutineDone chan struct{}
+	// populateErr is the terminal error from the populate scan, if any.
+	// Mirrors the error stored on each index for convenient
+	// table-level access via WaitForIndexes.
+	populateErr atomic.Pointer[error]
 }
 
-// Close disconnects the table's index observer, if any, and releases related
+// Close disconnects the table's index observer, cancels any running
+// populate goroutine, waits for it to exit, and releases related
 // resources.
 func (t *Table[K, E]) Close() error {
+	if t.populateCancel != nil {
+		t.populateCancel()
+		<-t.populateGoroutineDone
+		t.populateCancel = nil
+	}
 	if t.disconnectObserver != nil {
 		t.disconnectObserver()
 		t.disconnectObserver = nil
@@ -63,11 +82,46 @@ func (t *Table[K, E]) Close() error {
 	return nil
 }
 
-// OpenTable creates or opens a table for the given entry type. It runs any provided
-// versioned migrations followed by key migrations to ensure entries are stored under
-// the current prefix and key encoding format. After migrations complete, any
-// secondary indexes in cfg.Indexes are populated by scanning the full table and
-// kept in sync via the observer pipeline.
+// WaitForIndexes blocks until the table's secondary indexes finish
+// populating. Returns nil on success, the populate error on failure,
+// or ctx.Err() if ctx is canceled before populate completes. Returns
+// nil immediately for tables with no registered indexes.
+//
+// Most callers do not need WaitForIndexes: idx.Filter inside Retrieve
+// blocks transparently until the index is ready and falls back to a
+// sequential scan if populate fails. WaitForIndexes is useful for tests
+// that observe indexed state directly via Get / GetTx, and for service
+// startup paths that want to fail fast on populate failure.
+func (t *Table[K, E]) WaitForIndexes(ctx context.Context) error {
+	if t.populateGoroutineDone == nil {
+		return nil
+	}
+	select {
+	case <-t.populateGoroutineDone:
+		if e := t.populateErr.Load(); e != nil {
+			return *e
+		}
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// OpenTable creates or opens a table for the given entry type. It runs
+// any provided versioned migrations followed by key migrations to
+// ensure entries are stored under the current prefix and key encoding
+// format. After migrations complete, OpenTable returns immediately;
+// any secondary indexes in cfg.Indexes are populated asynchronously by
+// a background goroutine that scans the table once and feeds every
+// index from the same scan.
+//
+// idx.Filter inside Retrieve blocks the query until the index has
+// finished populating. After populate completes the index serves
+// queries normally. If populate fails, idx.Filter falls back to a
+// sequential scan with a synthesized predicate so queries continue to
+// return correct results, and the failure is logged via
+// cfg.Instrumentation. WaitForIndexes lets callers synchronize
+// explicitly when they need to.
 func OpenTable[K Key, E Entry[K]](
 	ctx context.Context,
 	cfg TableConfig[K, E],
@@ -90,56 +144,81 @@ func OpenTable[K Key, E Entry[K]](
 		keyPrefix: newKeyPrefix[E](),
 		indexes:   cfg.Indexes,
 	}
-	if len(cfg.Indexes) > 0 {
-		if err = populateIndexes[K, E](ctx, cfg.DB, t.keyPrefix, cfg.Indexes); err != nil {
-			return nil, err
-		}
-		t.disconnectObserver = attachIndexObserver[K, E](
-			override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
-			cfg.DB,
-			cfg.Indexes,
-		)
+	if len(cfg.Indexes) == 0 {
+		return t, nil
 	}
-	return t, nil
-}
-
-// populateIndexes populates every registered index from the current
-// table contents in a single sequential scan. If any index fails to
-// start, finish runs on every index that did start so populate-phase
-// locks are released regardless of which step failed.
-func populateIndexes[K Key, E Entry[K]](
-	ctx context.Context,
-	db *DB,
-	keyPrefix []byte,
-	indexes []Index[K, E],
-) (err error) {
-	inserts := make([]func(E), 0, len(indexes))
-	finishes := make([]func(), 0, len(indexes))
-	defer func() {
-		for _, f := range finishes {
-			f()
-		}
-	}()
-	for _, idx := range indexes {
+	// Acquire each index's populate lock synchronously before attaching
+	// the observer. If the observer were attached first, a remote write
+	// replicated through aspen could race the goroutine and apply via
+	// idx.set() before populate locks mu, leaving the bulk-load path to
+	// double-insert when the iterator later sees the same row.
+	inserts := make([]func(E), 0, len(cfg.Indexes))
+	finishes := make([]func(error), 0, len(cfg.Indexes))
+	for _, idx := range cfg.Indexes {
 		insert, finish, startErr := idx.populate()
 		if startErr != nil {
-			return startErr
+			for _, f := range finishes {
+				f(startErr)
+			}
+			return nil, startErr
 		}
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}
-	reader := wrapReader[K, E](db, keyPrefix)
-	nexter, closer, nexterErr := reader.OpenNexter(ctx)
-	if nexterErr != nil {
-		return nexterErr
+	t.disconnectObserver = attachIndexObserver[K, E](
+		override.Nil[observe.Observable[kv.TxReader]](cfg.DB, cfg.DB.IndexObservable),
+		cfg.DB,
+		cfg.Indexes,
+	)
+	populateCtx, cancel := context.WithCancel(context.Background())
+	t.populateCancel = cancel
+	t.populateGoroutineDone = make(chan struct{})
+	go t.runPopulate(populateCtx, cfg.Instrumentation, inserts, finishes)
+	return t, nil
+}
+
+// runPopulate executes the bulk index scan in the background. It is
+// invoked exactly once per Table that has registered indexes, with the
+// inserts and finishes closures already obtained from each index's
+// populate() under their write locks. runPopulate guarantees that
+// every finish closure runs exactly once with the terminal scan error,
+// regardless of how the goroutine exits.
+func (t *Table[K, E]) runPopulate(
+	ctx context.Context,
+	ins alamos.Instrumentation,
+	inserts []func(E),
+	finishes []func(error),
+) {
+	var scanErr error
+	defer func() {
+		if scanErr != nil {
+			t.populateErr.Store(&scanErr)
+			ins.L.Error(
+				"gorp index populate failed; queries fall back to sequential scan",
+				zap.Error(scanErr),
+			)
+		}
+		for _, f := range finishes {
+			f(scanErr)
+		}
+		close(t.populateGoroutineDone)
+	}()
+	reader := wrapReader[K, E](t.DB, t.keyPrefix)
+	nexter, closer, openErr := reader.OpenNexter(ctx)
+	if openErr != nil {
+		scanErr = openErr
+		return
 	}
-	defer func() { _ = closer.Close() }()
+	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
 	for e := range nexter {
+		if ctx.Err() != nil {
+			scanErr = ctx.Err()
+			return
+		}
 		for _, insert := range inserts {
 			insert(e)
 		}
 	}
-	return nil
 }
 
 // attachIndexObserver subscribes to src and propagates every set and
