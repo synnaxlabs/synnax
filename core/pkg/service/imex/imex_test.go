@@ -56,6 +56,13 @@ var _ = Describe("ImEx", func() {
 				)
 			})
 
+			It("Should reject a negative numeric version", func() {
+				var env imex.Envelope
+				Expect(json.Unmarshal([]byte(`{"version":-1}`), &env)).To(
+					MatchError(ContainSubstring("invalid version number")),
+				)
+			})
+
 			It("Should reject a version string with more than three dot-separated parts", func() {
 				var env imex.Envelope
 				Expect(json.Unmarshal([]byte(`{"version":"1.0.0.0"}`), &env)).To(
