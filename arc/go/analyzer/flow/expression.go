@@ -14,7 +14,6 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -32,13 +31,7 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	if parser.IsLiteral(ctx.AST) {
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-				parsed, err := literal.ParseRawString(rawStr.GetText(), types.String())
-				if err != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-					return
-				}
-				body, _ := parsed.Value.(string)
-				expression.AnalyzeStringFmtSegments(ctx, body, ctx.AST)
+				expression.AnalyzeStringFmtLiteral(ctx, rawStr)
 			}
 		}
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})

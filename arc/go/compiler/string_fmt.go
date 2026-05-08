@@ -21,7 +21,7 @@ import (
 )
 
 // compileStringFmtSynthetic emits a zero-param WASM body returning the
-// formatted string handle for an ir.RewriteStringFmtNodes-produced Function.
+// formatted string handle for an analyzer-synthesized backtick Function.
 func compileStringFmtSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,

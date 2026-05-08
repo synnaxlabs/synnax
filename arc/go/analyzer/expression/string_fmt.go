@@ -14,10 +14,26 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
+
+// AnalyzeStringFmtLiteral parses a STR_LITERAL_RAW token and analyzes its
+// placeholders. Errors are recorded on ctx.Diagnostics.
+func AnalyzeStringFmtLiteral[T antlr.ParserRuleContext](
+	ctx context.Context[T],
+	rawStr antlr.TerminalNode,
+) {
+	parsed, err := literal.ParseRawString(rawStr.GetText(), basetypes.String())
+	if err != nil {
+		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+		return
+	}
+	body, _ := parsed.Value.(string)
+	AnalyzeStringFmtSegments(ctx, body, ctx.AST)
+}
 
 // AnalyzeStringFmtSegments parses body and analyzes each placeholder expression
 // in ctx's scope. Returns parsed segments, or nil if body is malformed.

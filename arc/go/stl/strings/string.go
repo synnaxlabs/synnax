@@ -20,11 +20,6 @@ import (
 	"github.com/tetratelabs/wazero/api"
 )
 
-const (
-	fmtSymbolName     = "fmt"
-	formatConfigParam = "format"
-)
-
 var SymbolResolver = &symbol.ModuleResolver{
 	Name: "string",
 	Members: symbol.MapResolver{
@@ -125,17 +120,6 @@ var SymbolResolver = &symbol.ModuleResolver{
 			Internal: true,
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "value", Type: types.F64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		fmtSymbolName: {
-			Name:     fmtSymbolName,
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecBoth,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: formatConfigParam, Type: types.String()}},
-				Config:  types.Params{{Name: formatConfigParam, Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},

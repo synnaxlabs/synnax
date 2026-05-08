@@ -526,13 +526,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
 		if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-			parsed, err := literal.ParseRawString(rawStr.GetText(), basetypes.String())
-			if err != nil {
-				ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
-				return
-			}
-			body, _ := parsed.Value.(string)
-			AnalyzeStringFmtSegments(ctx, body, ctx.AST)
+			AnalyzeStringFmtLiteral(ctx, rawStr)
 		}
 		return
 	}

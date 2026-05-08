@@ -158,10 +158,6 @@ func Analyze(
 		}
 	}
 
-	// Step 4B: Rewrite flow-form string.fmt nodes with placeholders into
-	// synthetic per-node Functions
-	ir.RewriteStringFmtNodes(irNodes, &g.Functions)
-
 	// Step 5: Check Types Across Edges, Unify, and Apply Substitutions
 	if !analyzer.ResolveNodeTypes(irNodes, g.Edges, aCtx.Constraints, aCtx.Diagnostics) {
 		return ir.IR{}, aCtx.Diagnostics

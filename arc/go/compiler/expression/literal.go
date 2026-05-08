@@ -61,11 +61,7 @@ func compileStringLiteral(
 	if err != nil {
 		return types.Type{}, err
 	}
-	strBytes := []byte(parsed.Value.(string))
-	offset := ctx.Module.AddData(strBytes)
-	ctx.Writer.WriteI32Const(int32(offset))
-	ctx.Writer.WriteI32Const(int32(len(strBytes)))
-	ctx.Resolver.EmitStringFromLiteral(ctx.Writer, ctx.WriterID)
+	emitLiteralSegment(ctx, parsed.Value.(string))
 	return types.String(), nil
 }
 

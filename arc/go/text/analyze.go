@@ -35,10 +35,11 @@ import (
 // invocations with the same logical name receive distinct keys.
 type keyGenerator struct {
 	occurrences map[string]int
+	synthFuncs  *ir.Functions
 }
 
-func newKeyGenerator() *keyGenerator {
-	return &keyGenerator{occurrences: make(map[string]int)}
+func newKeyGenerator(synthFuncs *ir.Functions) *keyGenerator {
+	return &keyGenerator{occurrences: make(map[string]int), synthFuncs: synthFuncs}
 }
 
 func (kg *keyGenerator) generate(role, name string) string {
@@ -489,21 +490,6 @@ func analyzeFunctionNode(
 	return newNodeResult(n, firstInputParam(n.Inputs), firstOutputParam(n.Outputs)), true
 }
 
-// hasFmtPlaceholder reports whether body contains any `{...}` placeholder.
-// Malformed bodies return false so the analyzer surfaces the parse error.
-func hasFmtPlaceholder(body string) bool {
-	segments, err := fmtstring.Parse(body)
-	if err != nil {
-		return false
-	}
-	for _, seg := range segments {
-		if seg.IsPlaceholder {
-			return true
-		}
-	}
-	return false
-}
-
 func analyzeExpression(
 	ctx acontext.Context[parser.IExpressionContext],
 	kg *keyGenerator,
@@ -524,13 +510,23 @@ func analyzeExpression(
 		}
 		if rawStr := literalCtx.STR_LITERAL_RAW(); rawStr != nil {
 			body, _ := parsedValue.Value.(string)
-			if hasFmtPlaceholder(body) {
+			segments, perr := fmtstring.Parse(body)
+			hasPlaceholder := perr == nil && slices.ContainsFunc(segments, func(s fmtstring.Segment) bool { return s.IsPlaceholder })
+			if hasPlaceholder {
 				key := kg.generate("fmt", "")
+				synthKey := ir.StringFmtSyntheticPrefix + key
+				*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+					Key:      synthKey,
+					Body:     ir.Body{Raw: body},
+					Inputs:   types.Params{},
+					Config:   types.Params{},
+					Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+					Channels: types.NewChannels(),
+				})
 				n := ir.Node{
 					Key:      key,
-					Type:     "string.fmt",
+					Type:     synthKey,
 					Channels: types.NewChannels(),
-					Config:   types.Params{{Name: "format", Type: types.String(), Value: body}},
 					Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
 				}
 				return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
@@ -611,7 +607,7 @@ func Analyze(
 			})
 		}
 	}
-	kg := newKeyGenerator()
+	kg := newKeyGenerator(&i.Functions)
 	shell := newShellBuilder()
 
 	// The root scope is always parallel and always-live.
@@ -700,7 +696,6 @@ func Analyze(
 	}
 
 	if len(i.Nodes) > 0 {
-		ir.RewriteStringFmtNodes(i.Nodes, &i.Functions)
 		if !analyzer.ResolveNodeTypes(i.Nodes, i.Edges, aCtx.Constraints, aCtx.Diagnostics) {
 			return i, aCtx.Diagnostics
 		}
