@@ -325,22 +325,9 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 // EmitNumericToString emits a call to the string.from_* host fn matching
 // the source numeric type. Shared by the str() typecast and f-strings.
 func (r *Resolver) EmitNumericToString(w *wasm.Writer, wID int, from types.Type) error {
-	var suffix string
-	switch from.Kind {
-	case types.KindI8, types.KindI16, types.KindI32:
-		suffix = "i32"
-	case types.KindU8, types.KindU16, types.KindU32:
-		suffix = "u32"
-	case types.KindI64:
-		suffix = "i64"
-	case types.KindU64:
-		suffix = "u64"
-	case types.KindF32:
-		suffix = "f32"
-	case types.KindF64:
-		suffix = "f64"
-	default:
-		return errors.Newf("cannot convert %s to str", from)
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
 	}
 	return r.EmitFixedCall(w, wID, "string.from_"+suffix)
 }

@@ -35,6 +35,15 @@ func HasPlaceholder(segs []Segment) bool {
 	return slices.ContainsFunc(segs, func(s Segment) bool { return s.IsPlaceholder })
 }
 
+// StripDelimiters returns the inner body of a `...` raw string token, or
+// ok=false if text isn't well-formed. \` escapes are left verbatim.
+func StripDelimiters(text string) (body string, ok bool) {
+	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+		return "", false
+	}
+	return text[1 : len(text)-1], true
+}
+
 // Parse splits a format-string body into ordered segments at `{...}` placeholders.
 // `\{` and `\}` in literal text escape to `{` and `}`.
 func Parse(body string) ([]Segment, error) {

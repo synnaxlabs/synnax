@@ -284,10 +284,10 @@ func mapLexerTokenType(antlrType int) *uint32 {
 func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
 	text := t.GetText()
 	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeStringRaw) }
-	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+	body, ok := fmtstring.StripDelimiters(text)
+	if !ok {
 		return fallback()
 	}
-	body := text[1 : len(text)-1]
 	segs, err := fmtstring.Parse(body)
 	if err != nil {
 		return fallback()

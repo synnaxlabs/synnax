@@ -12,8 +12,10 @@ package literal
 import (
 	"math"
 	"strconv"
+	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/units"
+	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -76,27 +78,14 @@ func ParseRawString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
 	}
-	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+	raw, ok := fmtstring.StripDelimiters(text)
+	if !ok {
 		return ParsedValue{}, errors.Newf("invalid raw string literal: %s", text)
 	}
-	body := unescapeRawBackticks(text[1 : len(text)-1])
-	return ParsedValue{Value: body, Type: types.String()}, nil
+	return ParsedValue{Value: rawBacktickUnescaper.Replace(raw), Type: types.String()}, nil
 }
 
-// unescapeRawBackticks replaces every \` sequence with a literal backtick.
-func unescapeRawBackticks(s string) string {
-	n := len(s)
-	var out []byte
-	for i := 0; i < n; i++ {
-		if s[i] == '\\' && i+1 < n && s[i+1] == '`' {
-			out = append(out, '`')
-			i++
-		} else {
-			out = append(out, s[i])
-		}
-	}
-	return string(out)
-}
+var rawBacktickUnescaper = strings.NewReplacer("\\`", "`")
 
 // ParseNumeric parses a numeric literal (integer or float, with optional unit suffix)
 // and returns its value and type.

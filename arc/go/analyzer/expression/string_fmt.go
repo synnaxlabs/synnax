@@ -27,14 +27,13 @@ func AnalyzeStringFmtLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	rawStr antlr.TerminalNode,
 ) {
-	text := rawStr.GetText()
-	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+	body, ok := fmtstring.StripDelimiters(rawStr.GetText())
+	if !ok {
 		ctx.Diagnostics.Add(diagnostics.Error(
-			errors.Newf("invalid raw string literal: %s", text), ctx.AST,
+			errors.Newf("invalid raw string literal: %s", rawStr.GetText()), ctx.AST,
 		))
 		return
 	}
-	body := text[1 : len(text)-1]
 	sym := rawStr.GetSymbol()
 	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + 1}
 	AnalyzeStringFmtSegments(ctx, body, base, ctx.AST)

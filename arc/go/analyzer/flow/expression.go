@@ -10,8 +10,6 @@
 package flow
 
 import (
-	"strings"
-
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
@@ -35,7 +33,12 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	if parser.IsLiteral(ctx.AST) {
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-				body := strings.Trim(rawStr.GetText(), "`")
+				body, ok := fmtstring.StripDelimiters(rawStr.GetText())
+				if !ok {
+					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
+						"invalid raw string literal: %s", rawStr.GetText()))
+					return
+				}
 				segs, perr := fmtstring.Parse(body)
 				if perr != nil {
 					ctx.Diagnostics.Add(diagnostics.Error(perr, ctx.AST))
