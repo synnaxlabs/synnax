@@ -152,10 +152,6 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
-  const isRemote = useSelectIsRemoteCreated(layoutKey);
-  const { update: renameRemote } = Base.useRename({
-    beforeUpdate: useCallback(() => isRemote === true, [isRemote]),
-  });
 
   useAsyncEffect(
     async (signal) => {
@@ -178,8 +174,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleTitleChange = (name: string): void => {
-    dispatch(Layout.rename({ key: layoutKey, name }));
-    renameRemote({ key: layoutKey, name });
+    syncDispatch(Layout.rename({ key: layoutKey, name }));
   };
 
   const handleLineChange = useCallback<

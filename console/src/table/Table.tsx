@@ -477,8 +477,8 @@ const useLoadRemote = createLoadRemote<table.Table>({
 });
 
 export const Table: Layout.Renderer = ({ layoutKey, ...rest }): ReactElement | null => {
-  const t = useLoadRemote(layoutKey);
-  if (t == null) return null;
+  const table = useLoadRemote(layoutKey);
+  if (table == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 

@@ -120,8 +120,8 @@ const useLoadRemote = createLoadRemote<log.Log>({
 });
 
 export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
-  const l = useLoadRemote(layoutKey);
-  if (l == null) return null;
+  const log = useLoadRemote(layoutKey);
+  if (log == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
 
