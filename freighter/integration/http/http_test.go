@@ -19,7 +19,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	ihttp "github.com/synnaxlabs/freighter/integration/http"
-	xerrors "github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/errors"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -112,12 +112,12 @@ var _ = Describe("TestError", func() {
 
 	It("Should round-trip through the freighter errors registry", func() {
 		original := ihttp.TestError{Code: 7, Message: "boom"}
-		payload := xerrors.Encode(context.Background(), original, false)
+		payload := errors.Encode(context.Background(), original, false)
 		Expect(payload.Type).To(Equal("integration.error"))
 
-		decoded := xerrors.Decode(context.Background(), payload)
+		decoded := errors.Decode(context.Background(), payload)
 		var got ihttp.TestError
-		Expect(xerrors.As(decoded, &got)).To(BeTrue())
+		Expect(errors.As(decoded, &got)).To(BeTrue())
 		Expect(got).To(Equal(original))
 	})
 })
