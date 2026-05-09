@@ -116,6 +116,12 @@ STR_LITERAL
     : '"' (~["\\\r\n] | ESCAPE_SEQUENCE)* '"'
     ;
 
+// Raw multi-line string literal. Supports \` for a literal backtick; all other
+// content is verbatim.
+STR_LITERAL_RAW
+    : '`' ('\\`' | ~[`])* '`'
+    ;
+
 fragment ESCAPE_SEQUENCE
     : '\\' [btnfr"\\]
     | '\\u' [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F] [0-9a-fA-F]
