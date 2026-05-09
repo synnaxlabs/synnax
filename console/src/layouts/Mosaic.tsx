@@ -198,7 +198,7 @@ const CustomTabName = ({
     retrieve();
   }, [retrieve]);
   const handleRename = useCallback(
-    (name: string) => {
+    (_: string, name: string) => {
       handleLayoutRename(name);
       onRename(name);
     },
