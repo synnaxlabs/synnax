@@ -194,7 +194,9 @@ const CustomTabName = ({
     [tabKey, propsOnRename],
   );
   const { onRename, retrieve } = useName(tabKey, handleLayoutRename);
-  useEffect(retrieve, [retrieve]);
+  useEffect(() => {
+    retrieve();
+  }, [retrieve]);
   const handleRename = useCallback(
     (name: string) => {
       handleLayoutRename(name);
