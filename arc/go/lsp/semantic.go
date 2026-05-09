@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -346,7 +347,14 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 		rb := lb + 1 + relR
 		emit(cursor, lb, SemanticTokenTypeStringRaw)
 		emit(lb, lb+1, SemanticTokenTypeStringPlaceholder)
-		emitInner(lb+1, rb)
+		exprEnd := rb
+		if _, spec, err := fmtstring.SplitSpec(text[lb+1 : rb]); err == nil && spec != "" {
+			exprEnd = rb - len(spec) - 1
+		}
+		emitInner(lb+1, exprEnd)
+		if exprEnd != rb {
+			emit(exprEnd, rb, SemanticTokenTypeStringPlaceholder)
+		}
 		emit(rb, rb+1, SemanticTokenTypeStringPlaceholder)
 		cursor, found = rb+1, true
 	}

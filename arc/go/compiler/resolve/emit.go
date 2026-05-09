@@ -345,6 +345,32 @@ func (r *Resolver) EmitNumericToString(w *wasm.Writer, wID int, from types.Type)
 	return r.EmitFixedCall(w, wID, "string.from_"+suffix)
 }
 
+func (r *Resolver) EmitNumericFormat(w *wasm.Writer, wID int, from types.Type) error {
+	suffix, err := numericSuffix(from)
+	if err != nil {
+		return err
+	}
+	return r.EmitFixedCall(w, wID, "string.format_"+suffix)
+}
+
+func numericSuffix(t types.Type) (string, error) {
+	switch t.Kind {
+	case types.KindI8, types.KindI16, types.KindI32:
+		return "i32", nil
+	case types.KindU8, types.KindU16, types.KindU32:
+		return "u32", nil
+	case types.KindI64:
+		return "i64", nil
+	case types.KindU64:
+		return "u64", nil
+	case types.KindF32:
+		return "f32", nil
+	case types.KindF64:
+		return "f64", nil
+	}
+	return "", errors.Newf("cannot convert %s to str", t)
+}
+
 // EmitMathPow emits a call to math.pow for the given type.
 func (r *Resolver) EmitMathPow(w *wasm.Writer, wID int, t types.Type) {
 	ct := types.Function(types.FunctionProperties{

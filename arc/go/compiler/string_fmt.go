@@ -17,7 +17,6 @@ import (
 	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/types"
-	"github.com/synnaxlabs/x/errors"
 )
 
 // compileStringFmtSynthetic emits a zero-param WASM body returning the
@@ -28,7 +27,7 @@ func compileStringFmtSynthetic(
 ) (compiledFunction, error) {
 	segments, err := fmtstring.Parse(fn.Body.Raw)
 	if err != nil {
-		return compiledFunction{}, errors.Wrapf(err, "parse synthetic format for %q", fn.Key)
+		return compiledFunction{}, err
 	}
 	ctx := rootCtx.WithNewWriter()
 	funcT := wasm.FunctionType{
@@ -36,7 +35,7 @@ func compileStringFmtSynthetic(
 	}
 	typeIdx := ctx.Module.AddType(funcT)
 	if _, err := expression.EmitFmtSegments(ctx, segments); err != nil {
-		return compiledFunction{}, errors.Wrapf(err, "emit synthetic format for %q", fn.Key)
+		return compiledFunction{}, err
 	}
 	return compiledFunction{
 		scopeName: fn.Key,

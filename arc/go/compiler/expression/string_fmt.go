@@ -60,6 +60,13 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 		return nil
 	}
 	if t.IsNumeric() {
+		if seg.Spec != "" {
+			specBytes := []byte(seg.Spec)
+			offset := ctx.Module.AddData(specBytes)
+			ctx.Writer.WriteI32Const(int32(offset))
+			ctx.Writer.WriteI32Const(int32(len(specBytes)))
+			return ctx.Resolver.EmitNumericFormat(ctx.Writer, ctx.WriterID, t)
+		}
 		return ctx.Resolver.EmitNumericToString(ctx.Writer, ctx.WriterID, t)
 	}
 	return errors.Newf(

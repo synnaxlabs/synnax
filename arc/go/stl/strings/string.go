@@ -11,6 +11,7 @@ package strings
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 
 	"github.com/synnaxlabs/arc/ir"
@@ -123,7 +124,41 @@ var SymbolResolver = &symbol.ModuleResolver{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
+		"format_i32": formatSym(types.I32()),
+		"format_u32": formatSym(types.U32()),
+		"format_i64": formatSym(types.I64()),
+		"format_u64": formatSym(types.U64()),
+		"format_f32": formatSym(types.F32()),
+		"format_f64": formatSym(types.F64()),
 	},
+}
+
+func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
+	if memory == nil {
+		return ""
+	}
+	spec, ok := memory.Read(ptr, length)
+	if !ok {
+		return ""
+	}
+	return fmt.Sprintf("%"+string(spec), value)
+}
+
+func formatSym(value types.Type) symbol.Symbol {
+	return symbol.Symbol{
+		Name:     "format_" + value.String(),
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs: types.Params{
+				{Name: "value", Type: value},
+				{Name: "spec_ptr", Type: types.I32()},
+				{Name: "spec_len", Type: types.I32()},
+			},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	}
 }
 
 type Module struct {
@@ -204,6 +239,30 @@ func NewModule(
 		WithFunc(func(_ context.Context, v float64) uint32 {
 			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
 		}).Export("from_f64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v int32, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, int64(v)))
+		}).Export("format_i32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v uint32, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, uint64(v)))
+		}).Export("format_u32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v int64, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, v))
+		}).Export("format_i64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v uint64, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, v))
+		}).Export("format_u64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v float32, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, float64(v)))
+		}).Export("format_f32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v float64, ptr, length uint32) uint32 {
+			return s.Create(formatWithSpec(m.memory, ptr, length, v))
+		}).Export("format_f64")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
