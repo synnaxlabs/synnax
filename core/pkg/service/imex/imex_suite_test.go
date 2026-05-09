@@ -159,11 +159,9 @@ var (
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
-	db = gorp.Wrap(memkv.New())
-	DeferCleanup(func() { Expect(db.Close()).To(Succeed()) })
+	db = DeferClose(gorp.Wrap(memkv.New()))
 	svc = MustSucceed(imex.NewService(imex.ServiceConfig{DB: db}))
-	ts = openTestService(ctx, db)
-	DeferCleanup(func() { Expect(ts.Close()).To(Succeed()) })
+	ts = DeferClose(openTestService(ctx, db))
 	svc.RegisterImportExporter(ts)
 	svc.RegisterImportExporter(errorService{})
 })
