@@ -407,6 +407,7 @@ typeCast
 literal
     : numericLiteral
     | STR_LITERAL
+    | STR_LITERAL_RAW
     | seriesLiteral
     ;
 
