@@ -38,7 +38,11 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
 				body := strings.Trim(rawStr.GetText(), "`")
 				segs, perr := fmtstring.Parse(body)
-				if perr == nil && slices.ContainsFunc(segs, func(s fmtstring.Segment) bool { return s.IsPlaceholder }) {
+				if perr != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(perr, ctx.AST))
+					return
+				}
+				if slices.ContainsFunc(segs, func(s fmtstring.Segment) bool { return s.IsPlaceholder }) {
 					fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))

@@ -26,64 +26,36 @@ type Segment struct {
 	IsPlaceholder bool
 }
 
-// Parse splits a format-string body into ordered segments; `{{` and `}}`
-// escape to literal `{` and `}`. // TODO: should be \{ and \}
+// Parse splits a format-string body into ordered segments at `{...}` placeholders.
 func Parse(body string) ([]Segment, error) {
-	var (
-		segments []Segment
-		lit      []byte
-		i        int
-	)
-	for i < len(body) {
-		c := body[i]
-		if c == '{' {
-			if i+1 < len(body) && body[i+1] == '{' {
-				lit = append(lit, '{')
-				i += 2
-				continue
-			}
-			if len(lit) > 0 {
-				segments = append(segments, Segment{Text: string(lit)})
-				lit = lit[:0]
-			}
-			end := -1
-			for j := i + 1; j < len(body); j++ {
-				if body[j] == '}' {
-					end = j
-					break
-				}
-				if body[j] == '{' {
-					return nil, errors.New("nested '{' inside placeholder")
-				}
-			}
-			if end == -1 {
-				return nil, errors.New("unterminated placeholder; expected closing '}'")
-			}
-			expr := body[i+1 : end]
-			if expr == "" {
-				return nil, errors.New("placeholder '{}' must contain an expression")
-			}
-			exprPart, spec, err := SplitSpec(expr)
-			if err != nil {
-				return nil, err
-			}
-			segments = append(segments, Segment{Text: exprPart, Spec: spec, IsPlaceholder: true})
-			i = end + 1
-			continue
+	var segments []Segment
+	for len(body) > 0 {
+		i := strings.IndexAny(body, "{}")
+		if i == -1 {
+			segments = append(segments, Segment{Text: body})
+			return segments, nil
 		}
-		if c == '}' {
-			if i+1 < len(body) && body[i+1] == '}' {
-				lit = append(lit, '}')
-				i += 2
-				continue
-			}
-			return nil, errors.New("unmatched '}'; use '}}' to escape a literal '}'")
+		if body[i] == '}' {
+			return nil, errors.New("unmatched '}'")
 		}
-		lit = append(lit, c)
-		i++
-	}
-	if len(lit) > 0 {
-		segments = append(segments, Segment{Text: string(lit)})
+		if i > 0 {
+			segments = append(segments, Segment{Text: body[:i]})
+		}
+		rest := body[i+1:]
+		j := strings.IndexAny(rest, "{}")
+		if j == -1 || rest[j] == '{' {
+			return nil, errors.New("unmatched '{'")
+		}
+		expr := rest[:j]
+		if expr == "" {
+			return nil, errors.New("placeholder '{}' must contain an expression")
+		}
+		exprPart, spec, err := SplitSpec(expr)
+		if err != nil {
+			return nil, err
+		}
+		segments = append(segments, Segment{Text: exprPart, Spec: spec, IsPlaceholder: true})
+		body = rest[j+1:]
 	}
 	return segments, nil
 }

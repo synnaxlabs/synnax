@@ -238,16 +238,6 @@ var _ = Describe("Semantic Tokens", func() {
 			}
 		})
 
-		It("treats `{{` and `}}` as escapes, no expansion", func(ctx SpecContext) {
-			OpenArcDocument(server, ctx, uri, "x := `{{not}}`")
-			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
-			raw := filterByType(all, tokenTypeStringRaw)
-			Expect(raw).To(HaveLen(1))
-			Expect(raw[0].Length).To(Equal(uint32(9)))
-			for _, op := range filterByType(all, tokenTypeOperator) {
-				Expect(op.StartChar < 5).To(BeTrue())
-			}
-		})
 	})
 
 	Describe("Legend", func() {
