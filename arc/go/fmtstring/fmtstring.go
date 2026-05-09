@@ -11,43 +11,64 @@ package fmtstring
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Segment is one piece of a parsed format string. If IsPlaceholder is false,
-// Text is literal output. If IsPlaceholder is true, Text is the source of an
-// Arc expression to evaluate and splice in.
+// Segment is one piece of a parsed format string. Start, End are body byte
+// offsets (End exclusive). SpecOffset is the body offset of `%`, or -1 if
+// no spec.
 type Segment struct {
 	Text          string
 	Spec          string
 	IsPlaceholder bool
+	Start         int
+	End           int
+	SpecOffset    int
+}
+
+// HasPlaceholder reports whether any segment is a placeholder.
+func HasPlaceholder(segs []Segment) bool {
+	return slices.ContainsFunc(segs, func(s Segment) bool { return s.IsPlaceholder })
 }
 
 // Parse splits a format-string body into ordered segments at `{...}` placeholders.
 // `\{` and `\}` in literal text escape to `{` and `}`.
 func Parse(body string) ([]Segment, error) {
 	var segments []Segment
-	for len(body) > 0 {
-		i := indexUnescapedBrace(body)
-		if i == -1 {
-			segments = append(segments, Segment{Text: braceUnescaper.Replace(body)})
+	pos := 0
+	for pos < len(body) {
+		rel := indexUnescapedBrace(body[pos:])
+		if rel == -1 {
+			segments = append(segments, Segment{
+				Text:       braceUnescaper.Replace(body[pos:]),
+				Start:      pos,
+				End:        len(body),
+				SpecOffset: -1,
+			})
 			return segments, nil
 		}
+		i := pos + rel
 		if body[i] == '}' {
 			return nil, errors.New("unmatched '}'")
 		}
-		if i > 0 {
-			segments = append(segments, Segment{Text: braceUnescaper.Replace(body[:i])})
+		if i > pos {
+			segments = append(segments, Segment{
+				Text:       braceUnescaper.Replace(body[pos:i]),
+				Start:      pos,
+				End:        i,
+				SpecOffset: -1,
+			})
 		}
-		rest := body[i+1:]
-		j := strings.IndexAny(rest, "{}")
-		if j == -1 || rest[j] == '{' {
+		relR := strings.IndexAny(body[i+1:], "{}")
+		if relR == -1 || body[i+1+relR] == '{' {
 			return nil, errors.New("unmatched '{'")
 		}
-		expr := rest[:j]
+		rb := i + 1 + relR
+		expr := body[i+1 : rb]
 		if expr == "" {
 			return nil, errors.New("placeholder '{}' must contain an expression")
 		}
@@ -55,8 +76,19 @@ func Parse(body string) ([]Segment, error) {
 		if err != nil {
 			return nil, err
 		}
-		segments = append(segments, Segment{Text: exprPart, Spec: spec, IsPlaceholder: true})
-		body = rest[j+1:]
+		specOffset := -1
+		if spec != "" {
+			specOffset = i + 1 + len(exprPart)
+		}
+		segments = append(segments, Segment{
+			Text:          exprPart,
+			Spec:          spec,
+			IsPlaceholder: true,
+			Start:         i,
+			End:           rb + 1,
+			SpecOffset:    specOffset,
+		})
+		pos = rb + 1
 	}
 	return segments, nil
 }

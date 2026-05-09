@@ -14,32 +14,40 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/fmtstring"
-	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
+	"github.com/synnaxlabs/x/errors"
 )
 
 // AnalyzeStringFmtLiteral parses a STR_LITERAL_RAW token and analyzes its
-// placeholders. Errors are recorded on ctx.Diagnostics.
+// placeholders. Bypasses literal.ParseRawString so body offsets map to source
+// bytes for per-placeholder diagnostic anchoring.
 func AnalyzeStringFmtLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	rawStr antlr.TerminalNode,
 ) {
-	parsed, err := literal.ParseRawString(rawStr.GetText(), basetypes.String())
-	if err != nil {
-		ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+	text := rawStr.GetText()
+	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+		ctx.Diagnostics.Add(diagnostics.Error(
+			errors.Newf("invalid raw string literal: %s", text), ctx.AST,
+		))
 		return
 	}
-	body, _ := parsed.Value.(string)
-	AnalyzeStringFmtSegments(ctx, body, ctx.AST)
+	body := text[1 : len(text)-1]
+	sym := rawStr.GetSymbol()
+	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + 1}
+	AnalyzeStringFmtSegments(ctx, body, base, ctx.AST)
 }
 
 // AnalyzeStringFmtSegments parses body and analyzes each placeholder expression
-// in ctx's scope. Returns parsed segments, or nil if body is malformed.
+// in ctx's scope. base is the source position of body[0]; placeholder
+// diagnostics anchor on the offending `{...}` span. Returns parsed segments,
+// or nil if body is malformed.
 func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	body string,
+	base diagnostics.Position,
 	anchor antlr.ParserRuleContext,
 ) []fmtstring.Segment {
 	segments, err := fmtstring.Parse(body)
@@ -51,35 +59,35 @@ func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
 		if !seg.IsPlaceholder {
 			continue
 		}
+		segStart := base.Advance(body, seg.Start)
+		segEnd := base.Advance(body, seg.End)
+		emit := func(d diagnostics.Diagnostic) {
+			ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
+		}
 		expr, diags := parser.ParseExpression(seg.Text)
 		if diags != nil && !diags.Ok() {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				anchor,
-				"invalid placeholder expression %q: %s", seg.Text, diags.String(),
-			))
+			emit(diagnostics.Errorf(anchor,
+				"invalid placeholder expression %q: %s", seg.Text, diags.String()))
 			continue
 		}
 		Analyze(context.Child(ctx, expr))
 		t := types.InferFromExpression(context.Child(ctx, expr)).UnwrapChan()
 		if !t.IsNumeric() && t.Kind != basetypes.KindString {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				anchor,
+			emit(diagnostics.Errorf(anchor,
 				"placeholder %q has type %s; only numeric and string types are supported",
-				seg.Text, t,
-			))
+				seg.Text, t))
 			continue
 		}
 		if seg.Spec == "" {
 			continue
 		}
 		if t.Kind == basetypes.KindString {
-			ctx.Diagnostics.Add(diagnostics.Errorf(
-				anchor, "placeholder %q: format spec not supported on string values", seg.Text,
-			))
+			emit(diagnostics.Errorf(anchor,
+				"placeholder %q: format spec not supported on string values", seg.Text))
 			continue
 		}
 		if err := fmtstring.ValidateNumericSpec(seg.Spec, t); err != nil {
-			ctx.Diagnostics.Add(diagnostics.Error(err, anchor))
+			emit(diagnostics.Error(err, anchor))
 		}
 	}
 	return segments

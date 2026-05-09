@@ -11,7 +11,6 @@ package lsp
 
 import (
 	"context"
-	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/fmtstring"
@@ -280,10 +279,20 @@ func mapLexerTokenType(antlrType int) *uint32 {
 }
 
 // expandRawStringPlaceholders tokenizes a STR_LITERAL_RAW with `{...}` placeholders.
+// All parsing is delegated to fmtstring.Parse; this function only translates
+// segment offsets into LSP semantic tokens with line/column bookkeeping.
 func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
 	text := t.GetText()
 	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeStringRaw) }
 	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+		return fallback()
+	}
+	body := text[1 : len(text)-1]
+	segs, err := fmtstring.Parse(body)
+	if err != nil {
+		return fallback()
+	}
+	if !fmtstring.HasPlaceholder(segs) {
 		return fallback()
 	}
 	posLine, posCol, posIdx := uint32(t.GetLine()-1), uint32(t.GetColumn()), 0
@@ -333,46 +342,25 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 			tokens = appendTextTokenPerLine(tokens, it.GetText(), absLine, absCol, *tt)
 		}
 	}
-	cursor, found := 0, false
-	for {
-		lb := indexUnescapedFrom(text, cursor, '{')
-		if lb == -1 {
-			break
-		}
-		relR := strings.IndexByte(text[lb+1:], '}')
-		if relR <= 0 {
-			return fallback()
-		}
-		rb := lb + 1 + relR
-		emit(cursor, lb, SemanticTokenTypeStringRaw)
-		emit(lb, lb+1, SemanticTokenTypeStringPlaceholder)
-		exprEnd := rb
-		if _, spec, err := fmtstring.SplitSpec(text[lb+1 : rb]); err == nil && spec != "" {
-			exprEnd = rb - len(spec) - 1
-		}
-		emitInner(lb+1, exprEnd)
-		if exprEnd != rb {
-			emit(exprEnd, rb, SemanticTokenTypeStringPlaceholder)
-		}
-		emit(rb, rb+1, SemanticTokenTypeStringPlaceholder)
-		cursor, found = rb+1, true
-	}
-	if !found {
-		return fallback()
-	}
-	emit(cursor, len(text), SemanticTokenTypeStringRaw)
-	return tokens
-}
-
-func indexUnescapedFrom(s string, from int, target byte) int {
-	for i := from; i < len(s); i++ {
-		if s[i] == '\\' && i+1 < len(s) {
-			i++
+	// bodyOff converts body offsets to text offsets (skip the leading backtick).
+	const bodyOff = 1
+	emit(0, 1, SemanticTokenTypeStringRaw)
+	for _, seg := range segs {
+		if !seg.IsPlaceholder {
+			emit(seg.Start+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringRaw)
 			continue
 		}
-		if s[i] == target {
-			return i
+		emit(seg.Start+bodyOff, seg.Start+bodyOff+1, SemanticTokenTypeStringPlaceholder)
+		exprEnd := seg.End - 1
+		if seg.SpecOffset >= 0 {
+			exprEnd = seg.SpecOffset
 		}
+		emitInner(seg.Start+bodyOff+1, exprEnd+bodyOff)
+		if seg.SpecOffset >= 0 {
+			emit(seg.SpecOffset+bodyOff, seg.End-1+bodyOff, SemanticTokenTypeStringPlaceholder)
+		}
+		emit(seg.End-1+bodyOff, seg.End+bodyOff, SemanticTokenTypeStringPlaceholder)
 	}
-	return -1
+	emit(len(text)-1, len(text), SemanticTokenTypeStringRaw)
+	return tokens
 }
