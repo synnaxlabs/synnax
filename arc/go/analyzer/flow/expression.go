@@ -10,9 +10,13 @@
 package flow
 
 import (
+	"slices"
+	"strings"
+
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
+	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
@@ -27,11 +31,23 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	t := types.Function(types.FunctionProperties{})
 	t.Outputs = append(t.Outputs, types.Param{Name: ir.DefaultOutputParam, Type: exprType})
 
-	// Literals register as KindConstant; IR shape is chosen in text/analyzeExpression.
+	// Literals register as KindConstant; raw strings with placeholders register
+	// as synthetic functions so placeholder channel reads track on the right symbol.
 	if parser.IsLiteral(ctx.AST) {
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-				expression.AnalyzeStringFmtLiteral(ctx, rawStr)
+				body := strings.Trim(rawStr.GetText(), "`")
+				segs, perr := fmtstring.Parse(body)
+				if perr == nil && slices.ContainsFunc(segs, func(s fmtstring.Segment) bool { return s.IsPlaceholder }) {
+					fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
+					if err != nil {
+						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+						return
+					}
+					fnScope.AutoName("string_fmt_")
+					expression.AnalyzeStringFmtLiteral(ctx.WithScope(fnScope), rawStr)
+					return
+				}
 			}
 		}
 		t.Config = append(t.Config, types.Param{Name: "value", Type: exprType})

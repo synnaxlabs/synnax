@@ -500,6 +500,41 @@ func analyzeExpression(
 		return nodeResult{}, false
 	}
 
+	if sym.Kind == symbol.KindFunction && parser.IsLiteral(ctx.AST) {
+		if literalCtx := parser.GetLiteral(ctx.AST); literalCtx != nil {
+			if rawStr := literalCtx.STR_LITERAL_RAW(); rawStr != nil {
+				outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
+				parsedValue, err := literal.Parse(literalCtx, outputType)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+					return nodeResult{}, false
+				}
+				body, _ := parsedValue.Value.(string)
+				segments, perr := fmtstring.Parse(body)
+				hasPlaceholder := perr == nil && slices.ContainsFunc(segments, func(s fmtstring.Segment) bool { return s.IsPlaceholder })
+				if hasPlaceholder {
+					key := kg.generate("fmt", "")
+					synthKey := ir.StringFmtSyntheticPrefix + key
+					*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
+						Key:      synthKey,
+						Body:     ir.Body{Raw: body},
+						Inputs:   types.Params{},
+						Config:   types.Params{},
+						Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+						Channels: sym.Channels.Copy(),
+					})
+					n := ir.Node{
+						Key:      key,
+						Type:     synthKey,
+						Channels: sym.Channels.Copy(),
+						Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
+					}
+					return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
+				}
+			}
+		}
+	}
+
 	if sym.Kind == symbol.KindConstant {
 		outputType := ctx.Constraints.ApplySubstitutions(sym.Type.Outputs[0].Type)
 		literalCtx := parser.GetLiteral(ctx.AST)
@@ -507,30 +542,6 @@ func analyzeExpression(
 		if err != nil {
 			ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 			return nodeResult{}, false
-		}
-		if rawStr := literalCtx.STR_LITERAL_RAW(); rawStr != nil {
-			body, _ := parsedValue.Value.(string)
-			segments, perr := fmtstring.Parse(body)
-			hasPlaceholder := perr == nil && slices.ContainsFunc(segments, func(s fmtstring.Segment) bool { return s.IsPlaceholder })
-			if hasPlaceholder {
-				key := kg.generate("fmt", "")
-				synthKey := ir.StringFmtSyntheticPrefix + key
-				*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
-					Key:      synthKey,
-					Body:     ir.Body{Raw: body},
-					Inputs:   types.Params{},
-					Config:   types.Params{},
-					Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-					Channels: types.NewChannels(),
-				})
-				n := ir.Node{
-					Key:      key,
-					Type:     synthKey,
-					Channels: types.NewChannels(),
-					Outputs:  types.Params{{Name: ir.DefaultOutputParam, Type: outputType}},
-				}
-				return newNodeResult(n, ir.DefaultInputParam, ir.DefaultOutputParam), true
-			}
 		}
 		key := kg.generate("const", "")
 		n := ir.Node{
