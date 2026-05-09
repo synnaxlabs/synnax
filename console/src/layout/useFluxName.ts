@@ -22,7 +22,7 @@ export const createUseFluxName =
       addStatusOnFailure: boolean;
     }) => { retrieve: RetrieveFn },
     useEnabled?: (layoutKey: string) => boolean | undefined,
-  ): Layout.NameHook =>
+  ): Layout.UseName =>
   (layoutKey, onChange) => {
     let isEnabled = true;
     // It's safe to call this hook conditionally as it is passed in as part

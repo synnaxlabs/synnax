@@ -179,49 +179,38 @@ const ModalContent = ({ node, tabKey }: ModalContentProps): ReactElement => {
 const contextMenu = Component.renderProp(ContextMenu);
 
 interface CustomTabNameProps extends Tabs.NameProps {
-  useName: Layout.NameHook;
+  useName: Layout.UseName;
 }
 
 const CustomTabName = ({
   useName,
   tabKey,
-  level,
-  editable,
   name,
-  onRename: fallbackOnRename,
+  onRename: propsOnRename,
+  ...rest
 }: CustomTabNameProps): ReactElement => {
-  const dispatch = useDispatch();
-  const handleNameChange = useCallback(
-    (next: string) => dispatch(Layout.rename({ key: tabKey, name: next })),
-    [dispatch, tabKey],
+  const handleLayoutRename = useCallback(
+    (name: string) => propsOnRename?.(tabKey, name),
+    [tabKey, propsOnRename],
   );
-  const { onRename: hookOnRename, retrieve } = useName(tabKey, handleNameChange);
-  useEffect(() => {
-    retrieve();
-  }, [retrieve]);
+  const { onRename, retrieve } = useName(tabKey, handleLayoutRename);
+  useEffect(retrieve, [retrieve]);
   const handleRename = useCallback(
-    (_: string, next: string) => {
-      dispatch(Layout.rename({ key: tabKey, name: next }));
-      hookOnRename?.(next);
+    (name: string) => {
+      handleLayoutRename(name);
+      onRename(name);
     },
-    [hookOnRename, dispatch, tabKey],
+    [handleLayoutRename, onRename],
   );
   return (
-    <Tabs.DefaultName
-      tabKey={tabKey}
-      name={name}
-      level={level}
-      editable={editable}
-      onRename={hookOnRename != null ? handleRename : fallbackOnRename}
-    />
+    <Tabs.DefaultName tabKey={tabKey} name={name} onRename={handleRename} {...rest} />
   );
 };
 
 const TabName: ComponentType<Tabs.NameProps> = (props) => {
   const type = Layout.useSelectType(props.tabKey);
-  const renderer = Layout.useOptionalRenderer(type ?? "");
-  if (renderer?.useName != null)
-    return <CustomTabName key={type} useName={renderer.useName} {...props} />;
+  const useName = Layout.useNameHook(type);
+  if (useName != null) return <CustomTabName key={type} useName={useName} {...props} />;
   return <Tabs.DefaultName {...props} />;
 };
 

@@ -230,7 +230,7 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
   return Wrapper;
 };
 
-const useName: Layout.NameHook = (layoutKey, onChange) => {
+const useName: Layout.UseName = (layoutKey, onChange) => {
   const args = Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
   const taskKey = args?.taskKey;
   const isPersisted = taskKey != null;

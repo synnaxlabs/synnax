@@ -618,7 +618,7 @@ export interface OnCloseProps {
   layoutKey: string;
 }
 
-/** The result returned by a layout's {@link NameHook}. */
+/** The result returned by a layout's {@link UseName}. */
 export interface NameHookResult {
   retrieve: () => void;
   /**
@@ -626,7 +626,7 @@ export interface NameHookResult {
    * in the mosaic). When undefined, the renderer falls back to dispatching
    * {@link rename} against the layout slice.
    */
-  onRename?: (name: string) => void;
+  onRename: (name: string) => void;
 }
 
 /**
@@ -636,7 +636,7 @@ export interface NameHookResult {
  * renames via {@link NameHookResult.onRename}. Display name is always read from
  * the layout slice; the hook keeps the slice in sync via `onChange`.
  */
-export type NameHook = (
+export type UseName = (
   layoutKey: string,
   onChange: (name: string) => void,
 ) => NameHookResult;
@@ -644,10 +644,10 @@ export type NameHook = (
 /**
  * A React component that renders a layout for a given type. All layouts in state are
  * rendered by a layout renderer of a specific type. Renderers may optionally bind a
- * {@link NameHook} via the `useName` property to take over the name read/write path
+ * {@link UseName} via the `useName` property to take over the name read/write path
  * for layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps> & { useName?: NameHook };
+export type Renderer = ComponentType<RendererProps> & { useName?: UseName };
 
 export interface ContextMenuProps {
   layoutKey: string;
