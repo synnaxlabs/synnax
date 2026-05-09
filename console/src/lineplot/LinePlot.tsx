@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   type axis,
@@ -148,7 +147,6 @@ const RangeAnnotationContextMenu = ({
 };
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
@@ -328,11 +326,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-    );
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
-  }, [windowKey, dispatch, layoutKey]);
+  }, [dispatch, layoutKey]);
 
   const handleSelectRule = useCallback(
     (ruleKey: string) => {

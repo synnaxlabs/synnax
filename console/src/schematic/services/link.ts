@@ -12,5 +12,11 @@ import { Schematic } from "@/schematic";
 
 export const handleLink: Link.Handler = async ({ client, key, placeLayout }) => {
   const schematic = await client.schematics.retrieve({ key });
-  placeLayout(Schematic.create({ key: schematic.key, name: schematic.name }));
+  placeLayout(
+    Schematic.create({
+      key: schematic.key,
+      name: schematic.name,
+      editable: false,
+    }),
+  );
 };

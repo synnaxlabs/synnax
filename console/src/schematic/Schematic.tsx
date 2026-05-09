@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Control,
@@ -38,7 +37,6 @@ import { useAutoUpload } from "@/schematic/useUpload";
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
-  const windowKey = useSelectWindowKey() as string;
   const dispatch = useDispatch();
   const {
     editable,
@@ -97,14 +95,8 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (editable)
-      dispatch(
-        Layout.setNavDrawerVisible({
-          windowKey,
-          key: "visualization",
-          value: true,
-        }),
-      );
-  }, [windowKey, editable, dispatch]);
+      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);
 
