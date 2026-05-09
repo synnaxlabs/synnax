@@ -43,13 +43,13 @@ const createTestSchematic = async (): Promise<schematic.Schematic> => {
 };
 
 describe("schematic queries", () => {
-  describe("useRetrieve", () => {
+  describe("useRetrieveSuspended", () => {
     it("suspends until the schematic loads, then returns it", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.useRetrieveSuspended({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 

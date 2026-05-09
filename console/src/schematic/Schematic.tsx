@@ -156,3 +156,7 @@ export const Schematic: Layout.Renderer = (props) => {
   if (!uploaded) return null;
   return <Internal {...props} />;
 };
+Schematic.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+);

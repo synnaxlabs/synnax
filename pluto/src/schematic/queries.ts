@@ -17,6 +17,7 @@ import { array, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
@@ -80,17 +81,34 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const { useRetrieve, useEnsureRetrieved } = Flux.createSuspendedRetrieve<
-  RetrieveQuery,
-  schematic.Schematic,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.schematics.onSet(onChange, key),
-  ],
-});
+export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
+  Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, query: { key }, onChange }) =>
+      store.schematics.onSet(onChange, key),
+  });
+
+export interface useRetrieveObservableNameParams extends Omit<
+  Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,
+  "onChange"
+> {
+  onChange: (name: string) => void;
+}
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: useRetrieveObservableNameParams): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback(
+      (result) => result.variant === "success" && onChangeRef.current(result.data.name),
+      [],
+    ),
+  });
+};
 
 export interface SelectKeyArgs {
   key: schematic.Key;
@@ -383,8 +401,7 @@ export const useAddNode = (resourceKey: string) => {
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
-      const spec = Node.resolveSpec(variant);
-      const config = spec.defaultConfig(theme);
+      const config = Node.resolveSpec(variant).defaultConfig(theme);
       if (
         (config.variant == "customActuator" || config.variant === "customStatic") &&
         specKey != null
