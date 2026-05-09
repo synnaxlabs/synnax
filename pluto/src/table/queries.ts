@@ -56,6 +56,8 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
   retrieve: retrieveSingle,
   mountListeners: ({ store, query: { key }, onChange }) => [
     store.tables.onSet(onChange, key),
+    // TODO : Using the ontology resources store to propagate name changes is a bit
+    // hacky, and shpould be removed once visualizations are strongly typed.
     store.resources.onSet(
       (r) => onChange(state.skipUndefined((p) => ({ ...p, name: r.name }))),
       ontology.idToString(table.ontologyID(key)),
