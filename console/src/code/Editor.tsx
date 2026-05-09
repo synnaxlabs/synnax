@@ -19,6 +19,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
+import { shouldTriggerSuggestion } from "@/code/placeholderSuggest";
 import { type Monaco, useMonaco } from "@/code/Provider";
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
@@ -96,22 +97,17 @@ const forwardGlobalTriggers = (
   };
 };
 
-// monaco-vscode-api ignores `tokenTypes` in language config, so the parent
-// `string.quoted.raw.arc` scope suppresses the popup inside `{...}`. The only
-// alternative is `quickSuggestions.strings: "on"`, which fires in every string.
-const PLACEHOLDER_RE = /`[^`]*\{[^}]*$/;
-
 const triggerSuggestInPlaceholders = (
   editor: Monaco.editor.IStandaloneCodeEditor,
 ): Monaco.IDisposable =>
   editor.onDidChangeModelContent((e) => {
     const ch = e.changes[0];
-    if (e.changes.length !== 1 || ch.rangeLength !== 0 || !/^\w$/.test(ch.text))
-      return;
+    if (e.changes.length !== 1 || ch.rangeLength !== 0) return;
     const model = editor.getModel();
     const pos = editor.getPosition();
     if (model == null || pos == null) return;
-    if (PLACEHOLDER_RE.test(model.getValue().slice(0, model.getOffsetAt(pos))))
+    const buffer = model.getValue().slice(0, model.getOffsetAt(pos));
+    if (shouldTriggerSuggestion(buffer, ch.text))
       editor.trigger("synnax", "editor.action.triggerSuggest", {});
   });
 

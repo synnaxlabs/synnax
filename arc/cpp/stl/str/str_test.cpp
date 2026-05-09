@@ -7,6 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+#include <cmath>
 #include <limits>
 #include <memory>
 #include <string>
@@ -247,6 +248,10 @@ TEST(StrModule, FromF32FormatsShortestRoundTrip) {
     EXPECT_EQ(call_from<float>(f, "call_from_f32", 100.0f), "100");
     EXPECT_EQ(call_from<float>(f, "call_from_f32", -2.5f), "-2.5");
     EXPECT_EQ(call_from<float>(f, "call_from_f32", 42.5f), "42.5");
+    EXPECT_EQ(
+        call_from<float>(f, "call_from_f32", std::copysign(0.0f, -1.0f)),
+        "-0"
+    );
 }
 
 TEST(StrModule, FromF64FormatsShortestRoundTrip) {
@@ -258,6 +263,10 @@ TEST(StrModule, FromF64FormatsShortestRoundTrip) {
     EXPECT_EQ(
         call_from<double>(f, "call_from_f64", 0.1234567890123456),
         "0.1234567890123456"
+    );
+    EXPECT_EQ(
+        call_from<double>(f, "call_from_f64", std::copysign(0.0, -1.0)),
+        "-0"
     );
 }
 

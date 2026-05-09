@@ -60,6 +60,8 @@ var _ = Describe("str() typecast end-to-end runtime", func() {
 		Entry("float literal 123. (whole-valued, no fraction)", "str(123.)", "123"),
 		Entry("float literal 1.0 (integer-valued)", "str(1.0)", "1"),
 		Entry("float literal 100.000 (trailing zeros)", "str(100.000)", "100"),
+		Entry("float literal -0.0 (negative zero)", "str(-0.0)", "-0"),
+		Entry("float literal -0.0000 (negative zero with trailing zeros)", "str(-0.0000)", "-0"),
 		Entry("explicit f32(3.14)", "str(f32(3.14))", "3.14"),
 		Entry("explicit f64(3.14)", "str(f64(3.14))", "3.14"),
 		Entry("integer literal 42", "str(42)", "42"),

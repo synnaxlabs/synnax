@@ -2453,6 +2453,72 @@ var _ = Describe("Text", func() {
 		})
 	})
 
+	Describe("Synthesized Format-String Functions", func() {
+		It("Registers a fmt$ function for a flow-form raw string with a single placeholder", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "sensor -> `v={sensor}` -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			f := synth[0]
+			Expect(f.Body.Raw).To(Equal("v={sensor}"))
+			Expect(f.Inputs).To(HaveLen(0))
+			Expect(f.Config).To(HaveLen(0))
+			Expect(f.Outputs).To(HaveLen(1))
+			Expect(f.Outputs[0].Type).To(Equal(types.String()))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+			Expect(f.Channels.Write).To(BeEmpty())
+
+			synthNode := findNodeByType(inter.Nodes, f.Key)
+			Expect(synthNode.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+		})
+
+		It("Registers a fmt$ function whose Channels.Read covers every placeholder channel", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"t":      {Name: "t", Kind: symbol.KindChannel, Type: types.Chan(types.I32()), ID: 102},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "sensor -> `v={sensor} t={t}` -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
+				return strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)
+			})
+			Expect(synth).To(HaveLen(1))
+			f := synth[0]
+			Expect(f.Body.Raw).To(Equal("v={sensor} t={t}"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(100), "sensor"))
+			Expect(f.Channels.Read).To(HaveKeyWithValue(uint32(102), "t"))
+		})
+
+		It("Does not synthesize a fmt$ function for a literal raw string with no placeholders", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"trig": {Name: "trig", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 100},
+				"log":  {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "trig -> `static` -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+			for _, f := range inter.Functions {
+				Expect(strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)).To(BeFalse(),
+					"unexpected fmt$ synthetic %q for placeholder-free literal", f.Key)
+			}
+		})
+	})
+
 	Describe("Unit Dimensional Analysis", func() {
 		DescribeTable("dimension compatibility",
 			func(ctx SpecContext, source string, expectOk bool, expectedErrorContains string) {

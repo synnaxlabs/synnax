@@ -14,14 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/types"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Parse", func() {
 	DescribeTable("valid bodies",
 		func(body string, expected []fmtstring.Segment) {
-			segs, err := fmtstring.Parse(body)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(segs).To(Equal(expected))
+			Expect(MustSucceed(fmtstring.Parse(body))).To(Equal(expected))
 		},
 		Entry("empty body", "", []fmtstring.Segment(nil)),
 		Entry("plain literal", "hello",
@@ -179,8 +178,7 @@ var _ = Describe("Parse", func() {
 
 	DescribeTable("error cases",
 		func(body, errSubstr string) {
-			_, err := fmtstring.Parse(body)
-			Expect(err).To(MatchError(ContainSubstring(errSubstr)))
+			Expect(fmtstring.Parse(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("lone closing brace", "}", "unmatched '}'"),
 		Entry("closing brace as prefix", "}foo", "unmatched '}'"),
@@ -207,11 +205,39 @@ var _ = Describe("Parse", func() {
 	)
 })
 
+var _ = Describe("StripDelimiters", func() {
+	DescribeTable("strips matching backtick delimiters",
+		func(input, expectedBody string) {
+			body, ok := fmtstring.StripDelimiters(input)
+			Expect(ok).To(BeTrue())
+			Expect(body).To(Equal(expectedBody))
+		},
+		Entry("empty body", "``", ""),
+		Entry("simple body", "`hello`", "hello"),
+		Entry("body with placeholder", "`{x}`", "{x}"),
+		Entry("body with embedded newline", "`a\nb`", "a\nb"),
+		Entry("body with escaped backtick", "`a\\`b`", "a\\`b"),
+	)
+
+	DescribeTable("rejects malformed delimiters",
+		func(input string) {
+			body, ok := fmtstring.StripDelimiters(input)
+			Expect(ok).To(BeFalse())
+			Expect(body).To(BeEmpty())
+		},
+		Entry("empty string", ""),
+		Entry("single backtick", "`"),
+		Entry("missing leading backtick", "hi`"),
+		Entry("missing trailing backtick", "`hi"),
+		Entry("double-quoted string", `"hi"`),
+		Entry("plain text no delimiters", "hello"),
+	)
+})
+
 var _ = Describe("SplitSpec", func() {
 	DescribeTable("valid splits",
 		func(body, expectedExpr, expectedSpec string) {
-			expr, spec, err := fmtstring.SplitSpec(body)
-			Expect(err).ToNot(HaveOccurred())
+			expr, spec := MustSucceed2(fmtstring.SplitSpec(body))
 			Expect(expr).To(Equal(expectedExpr))
 			Expect(spec).To(Equal(expectedSpec))
 		},
@@ -229,8 +255,7 @@ var _ = Describe("SplitSpec", func() {
 
 	DescribeTable("error cases",
 		func(body, errSubstr string) {
-			_, _, err := fmtstring.SplitSpec(body)
-			Expect(err).To(MatchError(ContainSubstring(errSubstr)))
+			Expect(fmtstring.SplitSpec(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("lone percent", "%", "expression before '%'"),
 		Entry("percent then spec only", "%d", "expression before '%'"),

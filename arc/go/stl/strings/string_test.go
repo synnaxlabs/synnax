@@ -185,6 +185,7 @@ var _ = Describe("Strings", func() {
 			},
 			Entry("simple decimal", float32(3.14), "3.14"),
 			Entry("zero", float32(0.0), "0"),
+			Entry("negative zero", float32(math.Copysign(0, -1)), "-0"),
 			Entry("negative", float32(-2.5), "-2.5"),
 			Entry("1.0 (integer-valued)", float32(1.0), "1"),
 			Entry("10.0 (integer-valued)", float32(10.0), "10"),
@@ -221,6 +222,7 @@ var _ = Describe("Strings", func() {
 			},
 			Entry("simple decimal", float64(3.14159), "3.14159"),
 			Entry("zero", float64(0.0), "0"),
+			Entry("negative zero", math.Copysign(0, -1), "-0"),
 			Entry("negative", float64(-2.5), "-2.5"),
 			Entry("high precision", float64(0.1234567890123456), "0.1234567890123456"),
 			Entry("1.0 (integer-valued)", float64(1.0), "1"),
@@ -249,6 +251,59 @@ var _ = Describe("Strings", func() {
 			h := callU32(ctx, "from_f64", testutil.F64(math.Inf(-1)))
 			Expect(MustBeOk(ss.Get(h))).To(Equal("-Inf"))
 		})
+	})
+
+	Describe("format_* spec read failures", func() {
+		writeSpec := func(spec string) (uint32, uint32) {
+			mem.Write(0, []byte(spec))
+			return 0, uint32(len(spec))
+		}
+
+		It("Should format an i32 against a spec read from memory", func(ctx SpecContext) {
+			ptr, length := writeSpec("05d")
+			h := callU32(ctx, "format_i32", testutil.I32(7), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("00007"))
+		})
+
+		It("Should format an f64 against a spec read from memory", func(ctx SpecContext) {
+			ptr, length := writeSpec(".2f")
+			h := callU32(ctx, "format_f64", testutil.F64(3.14159), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(h))).To(Equal("3.14"))
+		})
+
+		DescribeTable("Should return a handle to an empty string when the spec read is out-of-bounds",
+			func(ctx SpecContext, fn string, value uint64) {
+				h := callU32(ctx, fn, value, testutil.U32(1<<30), testutil.U32(4))
+				Expect(h).ToNot(BeZero())
+				Expect(MustBeOk(ss.Get(h))).To(BeEmpty())
+			},
+			Entry("format_i32 with OOB spec", "format_i32", testutil.I32(42)),
+			Entry("format_u32 with OOB spec", "format_u32", testutil.U32(42)),
+			Entry("format_i64 with OOB spec", "format_i64", testutil.I64(42)),
+			Entry("format_u64 with OOB spec", "format_u64", testutil.U64(42)),
+			Entry("format_f32 with OOB spec", "format_f32", testutil.F32(3.14)),
+			Entry("format_f64 with OOB spec", "format_f64", testutil.F64(3.14)),
+		)
+
+		DescribeTable("Should return a handle to an empty string when memory is nil",
+			func(ctx SpecContext, fn string, value uint64) {
+				rt2 := testutil.NewRuntime(ctx)
+				defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+				ss2 := strings.NewProgramState()
+				MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
+				rt2.Passthrough(ctx, "string")
+				res := rt2.Call(ctx, "string", fn, value, testutil.U32(0), testutil.U32(3))
+				h := testutil.AsU32(res[0])
+				Expect(h).ToNot(BeZero())
+				Expect(MustBeOk(ss2.Get(h))).To(BeEmpty())
+			},
+			Entry("format_i32 with nil memory", "format_i32", testutil.I32(42)),
+			Entry("format_u32 with nil memory", "format_u32", testutil.U32(42)),
+			Entry("format_i64 with nil memory", "format_i64", testutil.I64(42)),
+			Entry("format_u64 with nil memory", "format_u64", testutil.U64(42)),
+			Entry("format_f32 with nil memory", "format_f32", testutil.F32(3.14)),
+			Entry("format_f64 with nil memory", "format_f64", testutil.F64(3.14)),
+		)
 	})
 
 	Describe("cross-function handle reuse", func() {

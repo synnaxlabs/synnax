@@ -191,10 +191,6 @@ func classifyTokenAt(
 	return mapLexerTokenType(antlrType)
 }
 
-func classifyIdentifier(ctx context.Context, t antlr.Token, rootScope *symbol.Scope) *uint32 {
-	return classifyIdentifierAt(ctx, t.GetText(), t.GetLine(), t.GetColumn(), rootScope)
-}
-
 func classifyIdentifierAt(ctx context.Context, name string, line1, col0 int, rootScope *symbol.Scope) *uint32 {
 	scope := findScopeAtInternalPosition(rootScope, position{Line: line1, Col: col0})
 	sym, err := scope.Resolve(ctx, name)
