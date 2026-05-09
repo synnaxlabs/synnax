@@ -27,13 +27,14 @@ const CONFIG: Triggers.ModeConfig<Mode> = {
 
 const FLATTENED_CONFIG = Triggers.flattenConfig(CONFIG);
 
-export interface UseTriggersProps {
+export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
   onUndo: () => void;
   onRedo: () => void;
   onCopy: (cursor: xy.XY) => void;
   onPaste: (cursor: xy.XY) => void;
   onClear: () => void;
   onSelectAll: () => void;
+  disabled?: boolean;
 }
 
 export const useTriggers = ({
@@ -43,13 +44,16 @@ export const useTriggers = ({
   onSelectAll,
   onUndo,
   onRedo,
+  region,
+  disabled,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
     loose: true,
+    region,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (stage !== "start") return;
+        if (region?.current == null || stage !== "start" || disabled) return;
         const mode = Triggers.determineMode(CONFIG, triggers);
         if (mode == "undo") return onUndo();
         if (mode == "redo") return onRedo();
@@ -58,7 +62,7 @@ export const useTriggers = ({
         if (mode == "clear") return onClear();
         if (mode == "all") return onSelectAll();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, disabled, region],
     ),
   });
 };

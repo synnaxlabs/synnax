@@ -137,6 +137,7 @@ export const Schematic = ({
     onClear: handleClearSelection,
     onUndo: () => {},
     onRedo: () => {},
+    region: ref,
   });
 
   return (

@@ -26,8 +26,14 @@ const parseImport = (
     return { ...rest, name: fallbackName ?? rest.name };
   }
   // Legacy wire format: pre-v6 redux state. anyStateZ migrates forward to v6,
-  // populating pendingUpload from the legacy graph fields.
-  const legacy = anyStateZ.parse(data);
+  // populating pendingUpload from the legacy graph fields. remoteCreated is a
+  // local-state concept on the source machine; force it false here so the
+  // migration always extracts the graph for the new server.
+  const adjusted =
+    typeof data === "object" && data !== null
+      ? { ...(data as Record<string, unknown>), remoteCreated: false }
+      : data;
+  const legacy = anyStateZ.parse(adjusted);
   if (legacy.pendingUpload == null)
     throw new Error("Imported schematic has no graph data");
   const { snapshot, nodes, edges, configs } = legacy.pendingUpload;

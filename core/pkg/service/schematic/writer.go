@@ -158,8 +158,8 @@ func (w Writer) SetData(
 // given key. After a successful update the actions are notified to the
 // service-level observer so subscribers (cluster signals) can broadcast them.
 // sessionKey identifies the originating client so subscribers can self-dedup.
-// Returns validate.ErrValidation if the target schematic is a snapshot, since
-// snapshots are immutable.
+// Snapshots are immutable except for Rename: returns validate.ErrValidation if
+// the target is a snapshot and any action other than Rename is included.
 func (w Writer) Dispatch(
 	ctx context.Context,
 	key Key,
@@ -169,12 +169,17 @@ func (w Writer) Dispatch(
 	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
-				return s, errors.Wrapf(
-					validate.ErrValidation,
-					"[Schematic] - cannot dispatch actions on snapshot %s:%s",
-					key,
-					s.Name,
-				)
+				for _, a := range actions {
+					if a.Type != ActionTypeRename {
+						return s, errors.Wrapf(
+							validate.ErrValidation,
+							"[Schematic] - cannot dispatch %s on snapshot %s:%s",
+							a.Type,
+							key,
+							s.Name,
+						)
+					}
+				}
 			}
 			return ReduceAll(s, actions)
 		}).Exec(ctx, w.tx); err != nil {

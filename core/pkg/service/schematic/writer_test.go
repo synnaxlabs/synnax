@@ -126,7 +126,7 @@ var _ = Describe("Writer", func() {
 			Expect(res.Nodes).To(HaveLen(2))
 			Expect(res.Edges).To(HaveLen(1))
 		})
-		It("Should reject Dispatch on a snapshot schematic", func(ctx SpecContext) {
+		It("Should reject non-Rename Dispatch on a snapshot schematic", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			var snap schematic.Schematic
@@ -134,6 +134,31 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
 				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
 			})).To(MatchError(validate.ErrValidation))
+		})
+		It("Should allow Rename Dispatch on a snapshot schematic", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "test"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			var snap schematic.Schematic
+			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+				schematic.NewRenameAction(schematic.Rename{Name: "renamed-snap"}),
+			})).To(Succeed())
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(snap.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("renamed-snap"))
+		})
+		It("Should reject Dispatch on a snapshot when any action is not a Rename", func(ctx SpecContext) {
+			s := schematic.Schematic{Name: "test"}
+			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
+			var snap schematic.Schematic
+			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
+			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
+				schematic.NewRenameAction(schematic.Rename{Name: "renamed-snap"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+			})).To(MatchError(validate.ErrValidation))
+			var res schematic.Schematic
+			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(snap.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res.Name).To(Equal("snap"))
 		})
 		It("Should be a no-op when actions reference non-existent keys", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}

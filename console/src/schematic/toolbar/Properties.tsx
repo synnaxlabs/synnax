@@ -55,7 +55,7 @@ export const PropertiesControls = memo(
           Select a Schematic element to configure its properties.
         </Text.Text>
       );
-    if (selected.length > 1) return <MultiElementProperties layoutKey={layoutKey} />;
+    if (selected.length > 1) return <MultiConfig layoutKey={layoutKey} />;
     const elKey = selected[0];
     return <IndividualConfig key={elKey} layoutKey={layoutKey} elKey={elKey} />;
   },
@@ -122,9 +122,7 @@ interface MultiElementPropertiesProps {
   layoutKey: string;
 }
 
-const MultiElementProperties = ({
-  layoutKey,
-}: MultiElementPropertiesProps): ReactElement => {
+const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
   const selectedConfigs = Schematic.useSelectConfigs({
