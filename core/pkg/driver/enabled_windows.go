@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build driver && !windows
+//go:build driver && windows
 
 package driver
 
 import (
 	"embed"
-	"os/exec"
-	"syscall"
+	"io/fs"
+
+	"github.com/samber/lo"
 )
 
-//go:embed assets/driver
-var executable embed.FS
+//go:embed assets/driver.exe
+var embeddedAssets embed.FS
 
-// driverPath is the path to the driver executable
-const driverName = "driver"
+var defaultFS fs.FS
 
-func configureSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
-}
+func init() { defaultFS = lo.Must(fs.Sub(embeddedAssets, "assets")) }

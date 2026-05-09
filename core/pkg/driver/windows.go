@@ -7,10 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build !driver
+//go:build windows
 
 package driver
 
-import "io/fs"
+import (
+	"os/exec"
+	"syscall"
+)
 
-var defaultFS fs.FS = nil
+const driverName = "driver.exe"
+
+func configureSysProcAttr(cmd *exec.Cmd) {
+	cmd.SysProcAttr = &syscall.SysProcAttr{CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP}
+}

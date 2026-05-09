@@ -7,10 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build !driver
+//go:build driver && !windows
 
 package driver
 
-import "io/fs"
+import (
+	"embed"
+	"io/fs"
 
-var defaultFS fs.FS = nil
+	"github.com/samber/lo"
+)
+
+//go:embed assets/driver
+var embeddedAssets embed.FS
+
+var defaultFS fs.FS
+
+func init() { defaultFS = lo.Must(fs.Sub(embeddedAssets, "assets")) }
