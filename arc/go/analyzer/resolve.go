@@ -13,24 +13,8 @@ import (
 	"github.com/synnaxlabs/arc/analyzer/constraints"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
 	"github.com/synnaxlabs/arc/ir"
-	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 )
-
-// isDualShapeNode reports whether n satisfies the ExecBoth contract (see
-// symbol.ExecBoth). Inbound edges to such nodes are triggers, not typed inputs.
-func isDualShapeNode(n ir.Node) bool {
-	if len(n.Inputs) != len(n.Config) {
-		return false
-	}
-	for i := range n.Inputs {
-		if n.Inputs[i].Name != n.Config[i].Name ||
-			!types.Equal(n.Inputs[i].Type, n.Config[i].Type) {
-			return false
-		}
-	}
-	return true
-}
 
 // ResolveNodeTypes checks type compatibility across edges, unifies the constraint
 // system, and applies substitutions to resolve concrete types in node inputs,
@@ -63,9 +47,6 @@ func ResolveNodeTypes(
 		}
 		targetParam, ok := targetNode.Inputs.Get(edge.Target.Param)
 		if !ok {
-			continue
-		}
-		if isDualShapeNode(targetNode) {
 			continue
 		}
 		if err := atypes.Check(cs, sourceParam.Type, targetParam.Type, nil, ""); err != nil {

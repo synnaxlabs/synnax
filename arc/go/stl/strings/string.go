@@ -64,66 +64,12 @@ var SymbolResolver = &symbol.ModuleResolver{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			}),
 		},
-		"from_i32": {
-			Name:     "from_i32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u32": {
-			Name:     "from_u32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_i64": {
-			Name:     "from_i64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.I64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_u64": {
-			Name:     "from_u64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.U64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f32": {
-			Name:     "from_f32",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F32()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
-		"from_f64": {
-			Name:     "from_f64",
-			Kind:     symbol.KindFunction,
-			Exec:     symbol.ExecWASM,
-			Internal: true,
-			Type: types.Function(types.FunctionProperties{
-				Inputs:  types.Params{{Name: "value", Type: types.F64()}},
-				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
-			}),
-		},
+		"from_i32":   fromSym(types.I32()),
+		"from_u32":   fromSym(types.U32()),
+		"from_i64":   fromSym(types.I64()),
+		"from_u64":   fromSym(types.U64()),
+		"from_f32":   fromSym(types.F32()),
+		"from_f64":   fromSym(types.F64()),
 		"format_i32": formatSym(types.I32()),
 		"format_u32": formatSym(types.U32()),
 		"format_i64": formatSym(types.I64()),
@@ -131,6 +77,30 @@ var SymbolResolver = &symbol.ModuleResolver{
 		"format_f32": formatSym(types.F32()),
 		"format_f64": formatSym(types.F64()),
 	},
+}
+
+func registerFrom[T any](
+	builder wazero.HostModuleBuilder,
+	s *ProgramState,
+	name string,
+	conv func(T) string,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v T) uint32 {
+			return s.Create(conv(v))
+		}).Export(name)
+}
+
+func registerFormat[T any](
+	builder wazero.HostModuleBuilder,
+	m *Module,
+	name string,
+	coerce func(T) any,
+) wazero.HostModuleBuilder {
+	return builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v T, ptr, length uint32) uint32 {
+			return m.strings.Create(formatWithSpec(m.memory, ptr, length, coerce(v)))
+		}).Export(name)
 }
 
 func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
@@ -142,6 +112,19 @@ func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
 		return ""
 	}
 	return fmt.Sprintf("%"+string(spec), value)
+}
+
+func fromSym(value types.Type) symbol.Symbol {
+	return symbol.Symbol{
+		Name:     "from_" + value.String(),
+		Kind:     symbol.KindFunction,
+		Exec:     symbol.ExecWASM,
+		Internal: true,
+		Type: types.Function(types.FunctionProperties{
+			Inputs:  types.Params{{Name: "value", Type: value}},
+			Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+		}),
+	}
 }
 
 func formatSym(value types.Type) symbol.Symbol {
@@ -215,54 +198,18 @@ func NewModule(
 			}
 			return 0
 		}).Export("len")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int32) uint32 {
-			return s.Create(strconv.FormatInt(int64(v), 10))
-		}).Export("from_i32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint32) uint32 {
-			return s.Create(strconv.FormatUint(uint64(v), 10))
-		}).Export("from_u32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int64) uint32 {
-			return s.Create(strconv.FormatInt(v, 10))
-		}).Export("from_i64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint64) uint32 {
-			return s.Create(strconv.FormatUint(v, 10))
-		}).Export("from_u64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float32) uint32 {
-			return s.Create(strconv.FormatFloat(float64(v), 'g', -1, 32))
-		}).Export("from_f32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float64) uint32 {
-			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
-		}).Export("from_f64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int32, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, int64(v)))
-		}).Export("format_i32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint32, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, uint64(v)))
-		}).Export("format_u32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v int64, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, v))
-		}).Export("format_i64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v uint64, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, v))
-		}).Export("format_u64")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float32, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, float64(v)))
-		}).Export("format_f32")
-	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, v float64, ptr, length uint32) uint32 {
-			return s.Create(formatWithSpec(m.memory, ptr, length, v))
-		}).Export("format_f64")
+	builder = registerFrom(builder, s, "from_i32", func(v int32) string { return strconv.FormatInt(int64(v), 10) })
+	builder = registerFrom(builder, s, "from_u32", func(v uint32) string { return strconv.FormatUint(uint64(v), 10) })
+	builder = registerFrom(builder, s, "from_i64", func(v int64) string { return strconv.FormatInt(v, 10) })
+	builder = registerFrom(builder, s, "from_u64", func(v uint64) string { return strconv.FormatUint(v, 10) })
+	builder = registerFrom(builder, s, "from_f32", func(v float32) string { return strconv.FormatFloat(float64(v), 'g', -1, 32) })
+	builder = registerFrom(builder, s, "from_f64", func(v float64) string { return strconv.FormatFloat(v, 'g', -1, 64) })
+	builder = registerFormat(builder, m, "format_i32", func(v int32) any { return int64(v) })
+	builder = registerFormat(builder, m, "format_u32", func(v uint32) any { return uint64(v) })
+	builder = registerFormat(builder, m, "format_i64", func(v int64) any { return v })
+	builder = registerFormat(builder, m, "format_u64", func(v uint64) any { return v })
+	builder = registerFormat(builder, m, "format_f32", func(v float32) any { return float64(v) })
+	builder = registerFormat(builder, m, "format_f64", func(v float64) any { return v })
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}

@@ -511,8 +511,7 @@ func analyzeExpression(
 				}
 				body, _ := parsedValue.Value.(string)
 				segments, perr := fmtstring.Parse(body)
-				hasPlaceholder := perr == nil && slices.ContainsFunc(segments, func(s fmtstring.Segment) bool { return s.IsPlaceholder })
-				if hasPlaceholder {
+				if perr == nil && fmtstring.HasPlaceholder(segments) {
 					key := kg.generate("fmt", "")
 					synthKey := ir.StringFmtSyntheticPrefix + key
 					*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{

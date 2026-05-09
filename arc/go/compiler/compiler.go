@@ -33,6 +33,7 @@ package compiler
 import (
 	"context"
 	"slices"
+	"strings"
 
 	"github.com/antlr4-go/antlr/v4"
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
@@ -94,7 +95,7 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	var compiled []compiledFunction
 	for _, i := range program.Functions {
-		if ir.IsStringFmtSyntheticKey(i.Key) {
+		if strings.HasPrefix(i.Key, ir.StringFmtSyntheticPrefix) {
 			cf, err := compileStringFmtSynthetic(compCtx, i)
 			if err != nil {
 				return Output{}, err

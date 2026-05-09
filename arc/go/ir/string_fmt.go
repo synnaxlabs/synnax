@@ -9,13 +9,6 @@
 
 package ir
 
-import "strings"
-
 // StringFmtSyntheticPrefix tags Function entries synthesized for backtick
 // literals with placeholders, gating synthetic emission in the compiler.
 const StringFmtSyntheticPrefix = "fmt$"
-
-// IsStringFmtSyntheticKey reports whether key names a synthetic Function.
-func IsStringFmtSyntheticKey(key string) bool {
-	return strings.HasPrefix(key, StringFmtSyntheticPrefix)
-}

@@ -20,6 +20,8 @@ import (
 
 // EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
 // literals emit string.from_literal, placeholders compile their expression.
+// Assumes the analyzer has already run fmtstring.ValidateNumericSpec on every
+// placeholder spec; the compiler emits spec bytes verbatim without revalidation.
 func EmitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	segments []fmtstring.Segment,

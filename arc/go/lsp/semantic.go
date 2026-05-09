@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/lsp"
 	"github.com/synnaxlabs/x/lsp/protocol"
 )
@@ -295,18 +296,12 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 	if !fmtstring.HasPlaceholder(segs) {
 		return fallback()
 	}
-	posLine, posCol, posIdx := uint32(t.GetLine()-1), uint32(t.GetColumn()), 0
+	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}
+	prevOff := 0
 	posOf := func(off int) (uint32, uint32) {
-		for posIdx < off {
-			if text[posIdx] == '\n' {
-				posLine++
-				posCol = 0
-			} else {
-				posCol++
-			}
-			posIdx++
-		}
-		return posLine, posCol
+		cursor = cursor.Advance(text[prevOff:], off-prevOff)
+		prevOff = off
+		return uint32(cursor.Line), uint32(cursor.Col)
 	}
 	var tokens []lsp.Token
 	emit := func(a, b int, tt uint32) {

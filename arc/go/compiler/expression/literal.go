@@ -113,7 +113,8 @@ func compileNumericLiteral(
 ) (types.Type, error) {
 	targetType := ctx.Hint
 
-	if !targetType.IsValid() {
+	if !targetType.IsValid() || !targetType.IsNumeric() {
+		targetType = types.Type{}
 		if parent := ctx.AST.GetParent(); parent != nil {
 			if litCtx, ok := parent.(parser.ILiteralContext); ok {
 				if inferredType, ok := ctx.TypeMap[litCtx]; ok {
