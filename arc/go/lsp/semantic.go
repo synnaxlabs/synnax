@@ -335,11 +335,10 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 	}
 	cursor, found := 0, false
 	for {
-		rel := strings.IndexByte(text[cursor:], '{')
-		if rel == -1 {
+		lb := indexUnescapedFrom(text, cursor, '{')
+		if lb == -1 {
 			break
 		}
-		lb := cursor + rel
 		relR := strings.IndexByte(text[lb+1:], '}')
 		if relR <= 0 {
 			return fallback()
@@ -363,4 +362,17 @@ func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR
 	}
 	emit(cursor, len(text), SemanticTokenTypeStringRaw)
 	return tokens
+}
+
+func indexUnescapedFrom(s string, from int, target byte) int {
+	for i := from; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			i++
+			continue
+		}
+		if s[i] == target {
+			return i
+		}
+	}
+	return -1
 }

@@ -29,7 +29,8 @@ const (
 	tokenTypeString    = uint32(4)
 	tokenTypeNumber    = uint32(5)
 	tokenTypeChannel   = uint32(9)
-	tokenTypeStringRaw = uint32(21)
+	tokenTypeStringRaw         = uint32(21)
+	tokenTypeStringPlaceholder = uint32(22)
 )
 
 // decodeSemanticTokens turns the LSP delta-encoded uint32 stream from
@@ -225,6 +226,21 @@ var _ = Describe("Semantic Tokens", func() {
 			ch := filterByType(all, tokenTypeChannel)
 			Expect(ch).To(HaveLen(1))
 			Expect(ch[0]).To(Equal(decodedToken{Line: 0, StartChar: 10, Length: 10, TokenType: tokenTypeChannel}))
+		})
+
+		It("does not treat `\\{` or `\\}` as placeholder bounds", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `a \\{ b \\} c`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(BeEmpty())
+			raw := filterByType(all, tokenTypeStringRaw)
+			Expect(raw).ToNot(BeEmpty())
+		})
+
+		It("recognizes a real placeholder while ignoring surrounding escapes", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `\\{ {42} \\}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
 		})
 
 		It("falls back to a single stringRaw on a malformed placeholder", func(ctx SpecContext) {

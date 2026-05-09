@@ -27,19 +27,20 @@ type Segment struct {
 }
 
 // Parse splits a format-string body into ordered segments at `{...}` placeholders.
+// `\{` and `\}` in literal text escape to `{` and `}`.
 func Parse(body string) ([]Segment, error) {
 	var segments []Segment
 	for len(body) > 0 {
-		i := strings.IndexAny(body, "{}")
+		i := indexUnescapedBrace(body)
 		if i == -1 {
-			segments = append(segments, Segment{Text: body})
+			segments = append(segments, Segment{Text: braceUnescaper.Replace(body)})
 			return segments, nil
 		}
 		if body[i] == '}' {
 			return nil, errors.New("unmatched '}'")
 		}
 		if i > 0 {
-			segments = append(segments, Segment{Text: body[:i]})
+			segments = append(segments, Segment{Text: braceUnescaper.Replace(body[:i])})
 		}
 		rest := body[i+1:]
 		j := strings.IndexAny(rest, "{}")
@@ -59,6 +60,21 @@ func Parse(body string) ([]Segment, error) {
 	}
 	return segments, nil
 }
+
+func indexUnescapedBrace(s string) int {
+	for i := 0; i < len(s); i++ {
+		if s[i] == '\\' && i+1 < len(s) {
+			i++
+			continue
+		}
+		if s[i] == '{' || s[i] == '}' {
+			return i
+		}
+	}
+	return -1
+}
+
+var braceUnescaper = strings.NewReplacer(`\{`, `{`, `\}`, `}`)
 
 // SplitSpec splits a placeholder body on the last `%` not flanked by
 // whitespace, leaving `a % b` as modulo and `x%.2f` as (x, .2f).
