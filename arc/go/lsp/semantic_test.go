@@ -25,10 +25,10 @@ import (
 // Tests in this file pin both the legend ordering and the token-type routing
 // for STR_LITERAL vs STR_LITERAL_RAW to those ids.
 const (
-	tokenTypeOperator  = uint32(2)
-	tokenTypeString    = uint32(4)
-	tokenTypeNumber    = uint32(5)
-	tokenTypeChannel   = uint32(9)
+	tokenTypeOperator          = uint32(2)
+	tokenTypeString            = uint32(4)
+	tokenTypeNumber            = uint32(5)
+	tokenTypeChannel           = uint32(9)
 	tokenTypeStringRaw         = uint32(21)
 	tokenTypeStringPlaceholder = uint32(22)
 )
@@ -195,7 +195,7 @@ var _ = Describe("Semantic Tokens", func() {
 	})
 
 	Describe("Raw-string placeholders", func() {
-		It("splits `{42}` into stringRaw, operator, number, operator, stringRaw", func(ctx SpecContext) {
+		It("splits `{42}` into stringRaw segments, placeholder braces, and a number", func(ctx SpecContext) {
 			OpenArcDocument(server, ctx, uri, "x := `val: {42}`")
 			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
 			var inLit []decodedToken
@@ -204,12 +204,13 @@ var _ = Describe("Semantic Tokens", func() {
 					inLit = append(inLit, t)
 				}
 			}
-			Expect(inLit).To(HaveLen(5))
-			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 6, TokenType: tokenTypeStringRaw}))
-			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 1, TokenType: tokenTypeOperator}))
-			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 2, TokenType: tokenTypeNumber}))
-			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 14, Length: 1, TokenType: tokenTypeOperator}))
-			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringRaw}))
+			Expect(inLit).To(HaveLen(6))
+			Expect(inLit[0]).To(Equal(decodedToken{Line: 0, StartChar: 5, Length: 1, TokenType: tokenTypeStringRaw}))
+			Expect(inLit[1]).To(Equal(decodedToken{Line: 0, StartChar: 6, Length: 5, TokenType: tokenTypeStringRaw}))
+			Expect(inLit[2]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[3]).To(Equal(decodedToken{Line: 0, StartChar: 12, Length: 2, TokenType: tokenTypeNumber}))
+			Expect(inLit[4]).To(Equal(decodedToken{Line: 0, StartChar: 14, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(inLit[5]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringRaw}))
 		})
 
 		It("classifies a placeholder identifier through the global resolver", func(ctx SpecContext) {
@@ -257,7 +258,7 @@ var _ = Describe("Semantic Tokens", func() {
 	})
 
 	Describe("Legend", func() {
-		It("places stringRaw last in the semantic token types legend", func(ctx SpecContext) {
+		It("registers stringRaw and stringPlaceholder at the end of the semantic token types legend", func(ctx SpecContext) {
 			result := MustSucceed(server.Initialize(ctx, &protocol.InitializeParams{
 				ClientInfo: &protocol.ClientInfo{Name: "test"},
 			}))
@@ -266,9 +267,11 @@ var _ = Describe("Semantic Tokens", func() {
 			legend, ok := provider["legend"].(protocol.SemanticTokensLegend)
 			Expect(ok).To(BeTrue())
 			Expect(legend.TokenTypes).ToNot(BeEmpty())
-			last := legend.TokenTypes[len(legend.TokenTypes)-1]
-			Expect(string(last)).To(Equal("stringRaw"))
-			Expect(uint32(len(legend.TokenTypes) - 1)).To(Equal(tokenTypeStringRaw))
+			n := len(legend.TokenTypes)
+			Expect(string(legend.TokenTypes[n-2])).To(Equal("stringRaw"))
+			Expect(string(legend.TokenTypes[n-1])).To(Equal("stringPlaceholder"))
+			Expect(uint32(n - 2)).To(Equal(tokenTypeStringRaw))
+			Expect(uint32(n - 1)).To(Equal(tokenTypeStringPlaceholder))
 		})
 	})
 })
