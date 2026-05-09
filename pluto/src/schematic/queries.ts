@@ -250,8 +250,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { workspace, ...rest } = data;
     data.key ??= uuid.create();
+    const { workspace, ...rest } = data;
     rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
     const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
     return { ...s, workspace };

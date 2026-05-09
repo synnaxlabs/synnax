@@ -33,6 +33,7 @@ export interface StoreState {
 
 export interface CreatePayload {
   key: string;
+  editable?: boolean;
 }
 
 export interface SetSelectedPayload {
@@ -108,6 +109,7 @@ export const { actions, reducer } = createSlice({
         ...ZERO_STATE,
         legend: { ...ZERO_STATE.legend },
         selected: [],
+        editable: payload.editable ?? ZERO_STATE.editable,
       };
     },
     setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {

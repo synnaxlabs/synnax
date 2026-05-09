@@ -186,7 +186,7 @@ export const stateMigration = migrate.createMigration<v5.State, State>({
     editable: state.editable,
     fitViewOnResize: state.fitViewOnResize,
     viewport: { ...state.viewport, mode: "select" },
-    pendingUpload: buildPendingUpload(state),
+    pendingUpload: state.remoteCreated ? undefined : buildPendingUpload(state),
   }),
 });
 
