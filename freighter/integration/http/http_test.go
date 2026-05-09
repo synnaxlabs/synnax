@@ -20,6 +20,7 @@ import (
 	. "github.com/onsi/gomega"
 	ihttp "github.com/synnaxlabs/freighter/integration/http"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -27,6 +28,10 @@ var _ = Describe("BindTo", func() {
 	It("Should register every integration endpoint on the provided Fiber app", func() {
 		app := fiber.New(fiber.Config{})
 		Expect(ihttp.BindTo(app)).To(Succeed())
+		registered := set.New[string]()
+		for _, r := range app.GetRoutes() {
+			registered = registered.Add(r.Path)
+		}
 
 		routes := []string{
 			"/stream/echo",
@@ -42,13 +47,8 @@ var _ = Describe("BindTo", func() {
 			"/unary/middlewareCheck",
 			"/unary/slamMessagesTimeoutCheck",
 		}
-
-		registered := make(map[string]struct{})
-		for _, r := range app.GetRoutes() {
-			registered[r.Path] = struct{}{}
-		}
 		for _, path := range routes {
-			Expect(registered).To(HaveKey(path))
+			Expect(registered.Contains(path)).To(BeTrue())
 		}
 	})
 
