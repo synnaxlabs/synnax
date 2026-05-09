@@ -249,6 +249,21 @@ var _ = Describe("Formatter", func() {
 		Entry("preserve string escapes", `x := "hello\nworld"`, "x := \"hello\\nworld\"\n"),
 	)
 
+	DescribeTable("Raw String Literals",
+		func(input, expected string) {
+			Expect(formatter.Format(input)).To(Equal(expected))
+		},
+		Entry("bare raw literal", "`hello`", "`hello`\n"),
+		Entry("simple raw in assignment", "x := `hello`", "x := `hello`\n"),
+		Entry("tight raw in assignment adds spaces", "x:=`hi`", "x := `hi`\n"),
+		Entry("raw in func call", "log(`hi`)", "log(`hi`)\n"),
+		Entry("multi-line preserves newlines", "x := `a\nb`", "x := `a\nb`\n"),
+		Entry("multi-line preserves indentation", "x := `\n    indent`", "x := `\n    indent`\n"),
+		Entry("embedded double quotes preserved", "x := `say \"hi\"`", "x := `say \"hi\"`\n"),
+		Entry("spacing raw next to identifier", "x:=`y`", "x := `y`\n"),
+		Entry("escaped backtick preserved", "x := `say \\`hi\\``", "x := `say \\`hi\\``\n"),
+	)
+
 	DescribeTable("Global Constants",
 		func(input, expected string) {
 			Expect(formatter.Format(input)).To(Equal(expected))
