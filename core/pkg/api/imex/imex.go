@@ -36,7 +36,9 @@ func NewService(cfgs ...config.LayerConfig) (*Service, error) {
 
 type (
 	ImportRequest  = imex.Envelope
-	ImportResponse = string
+	ImportResponse struct {
+		Key string `json:"key" msgpack:"key"`
+	}
 )
 
 func (s *Service) Import(
@@ -45,20 +47,20 @@ func (s *Service) Import(
 ) (ImportResponse, error) {
 	resourceType, err := s.internal.ImporterType(req.Type)
 	if err != nil {
-		return "", err
+		return ImportResponse{}, err
 	}
 	if err := s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  access.ActionCreate,
 		Objects: []ontology.ID{{Type: resourceType, Key: ""}},
 	}); err != nil {
-		return "", err
+		return ImportResponse{}, err
 	}
 	keys, err := s.internal.Import(ctx, []imex.Envelope{req})
 	if err != nil {
-		return "", err
+		return ImportResponse{}, err
 	}
-	return keys[0], nil
+	return ImportResponse{Key: keys[0]}, nil
 }
 
 type (
