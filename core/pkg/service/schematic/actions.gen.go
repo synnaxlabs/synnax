@@ -17,6 +17,7 @@ import (
 )
 
 const (
+	ActionTypeRename          = "rename"
 	ActionTypeSetNodePosition = "set_node_position"
 	ActionTypeSetNodeMeasured = "set_node_measured"
 	ActionTypeSetNode         = "set_node"
@@ -25,6 +26,11 @@ const (
 	ActionTypeRemoveEdge      = "remove_edge"
 	ActionTypeSetConfig       = "set_config"
 )
+
+// Rename renames the schematic.
+type Rename struct {
+	Name string `json:"name" msgpack:"name"`
+}
 
 // SetNodePosition moves a node to a new position.
 type SetNodePosition struct {
@@ -78,6 +84,7 @@ type SetConfig struct {
 // the variant; the matching pointer field carries the payload and others are nil.
 type Action struct {
 	Type            string           `json:"type" msgpack:"type"`
+	Rename          *Rename          `json:"rename,omitempty" msgpack:"rename,omitempty"`
 	SetNodePosition *SetNodePosition `json:"set_node_position,omitempty" msgpack:"set_node_position,omitempty"`
 	SetNodeMeasured *SetNodeMeasured `json:"set_node_measured,omitempty" msgpack:"set_node_measured,omitempty"`
 	SetNode         *SetNode         `json:"set_node,omitempty" msgpack:"set_node,omitempty"`
@@ -92,6 +99,11 @@ type Action struct {
 // payload pointer for the named Type return state unchanged.
 func (a Action) Reduce(state Schematic) (Schematic, error) {
 	switch a.Type {
+	case ActionTypeRename:
+		if a.Rename == nil {
+			return state, nil
+		}
+		return a.Rename.Handle(state)
 	case ActionTypeSetNodePosition:
 		if a.SetNodePosition == nil {
 			return state, nil
@@ -143,6 +155,11 @@ func ReduceAll(state Schematic, actions []Action) (Schematic, error) {
 		}
 	}
 	return state, nil
+}
+
+// NewRenameAction wraps a Rename payload in an Action envelope.
+func NewRenameAction(p Rename) Action {
+	return Action{Type: ActionTypeRename, Rename: &p}
 }
 
 // NewSetNodePositionAction wraps a SetNodePosition payload in an Action envelope.

@@ -54,16 +54,6 @@ var _ = Describe("Writer", func() {
 			Expect(s.Key).ToNot(Equal(uuid.Nil))
 		})
 	})
-	Describe("Update", func() {
-		It("Should rename a Schematic", func(ctx SpecContext) {
-			s := schematic.Schematic{Name: "test"}
-			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
-			Expect(svc.NewWriter(tx).Rename(ctx, s.Key, "test2")).To(Succeed())
-			var res schematic.Schematic
-			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
-			Expect(res.Name).To(Equal("test2"))
-		})
-	})
 	Describe("SetData", func() {
 		It("Should replace every body field on the Schematic while preserving Key and Name", func(ctx SpecContext) {
 			s := schematic.Schematic{Name: "test"}

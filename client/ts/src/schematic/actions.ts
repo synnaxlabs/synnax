@@ -12,6 +12,9 @@ import { color } from "@synnaxlabs/x";
 import { createReduceAll, createReducer, type Handlers } from "@/schematic/actions.gen";
 
 const handlers: Handlers = {
+  rename: (state, payload) => {
+    state.name = payload.name;
+  },
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node != null) node.position = payload.position;

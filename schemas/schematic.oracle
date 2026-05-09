@@ -98,6 +98,12 @@ Schematic struct {
         @ts preserve_case
     }
 
+    action Rename {
+        name string
+
+        @doc value "renames the schematic."
+    }
+
     action SetNodePosition {
         key      string
         position spatial.XY

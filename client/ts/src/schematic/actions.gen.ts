@@ -14,6 +14,13 @@ import { z } from "zod";
 
 import { edgeZ, nodeZ, type Schematic } from "@/schematic/types.gen";
 
+/** Rename renames the schematic. */
+export const renamePayloadZ = z.object({
+  name: z.string(),
+});
+
+export type RenamePayload = z.infer<typeof renamePayloadZ>;
+
 /** SetNodePosition moves a node to a new position. */
 export const setNodePositionPayloadZ = z.object({
   key: z.string(),
@@ -86,6 +93,7 @@ export const setConfigPayloadZ = z.object({
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
 export const ACTION_TYPES = {
+  rename: "rename",
   set_node_position: "set_node_position",
   set_node_measured: "set_node_measured",
   set_node: "set_node",
@@ -96,6 +104,7 @@ export const ACTION_TYPES = {
 } as const;
 
 export const actionZ = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({
     type: z.literal("set_node_position"),
     setNodePosition: setNodePositionPayloadZ,
@@ -112,6 +121,11 @@ export const actionZ = z.discriminatedUnion("type", [
 ]);
 
 export type Action = z.infer<typeof actionZ>;
+
+export const rename = (payload: RenamePayload): Action => ({
+  type: "rename",
+  rename: payload,
+});
 
 export const setNodePosition = (payload: SetNodePositionPayload): Action => ({
   type: "set_node_position",
@@ -149,6 +163,7 @@ export const setConfig = (payload: SetConfigPayload): Action => ({
 });
 
 export interface Handlers {
+  rename: (state: Schematic, payload: RenamePayload) => void;
   setNodePosition: (state: Schematic, payload: SetNodePositionPayload) => void;
   setNodeMeasured: (state: Schematic, payload: SetNodeMeasuredPayload) => void;
   setNode: (state: Schematic, payload: SetNodePayload) => void;
@@ -162,6 +177,10 @@ export const createReducer =
   (handlers: Handlers) =>
   (state: Schematic, action: Action): Schematic => {
     switch (action.type) {
+      case "rename":
+        if (action.rename == null) break;
+        handlers.rename(state, action.rename);
+        break;
       case "set_node_position":
         if (action.setNodePosition == null) break;
         handlers.setNodePosition(state, action.setNodePosition);

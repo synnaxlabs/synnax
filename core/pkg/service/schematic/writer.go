@@ -90,19 +90,6 @@ func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key
 	return k, true, err
 }
 
-// Rename renames the schematic with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key Key,
-	name string,
-) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
-		Change(func(_ gorp.Context, s Schematic) Schematic {
-			s.Name = name
-			return s
-		}).Exec(ctx, w.tx)
-}
-
 // Copy creates a copy of the schematic with the given key and name. If the
 // snapshot flag is set to true, the copy will be a snapshot and will no
 // longer be editable. The copied schematic will be bound into the result

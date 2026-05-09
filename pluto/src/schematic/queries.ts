@@ -39,6 +39,13 @@ const ACTION_LISTENER: Flux.ChannelListener<
     if (current == null) return;
     const next = schematic.reduceAll(current, changed.actions);
     store.schematics.set(changed.key, next);
+    for (const action of changed.actions)
+      if (action.type === "rename")
+        Ontology.renameFluxResource(
+          store,
+          schematic.ontologyID(changed.key),
+          action.rename.name,
+        );
   },
 };
 
@@ -352,9 +359,11 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    await client.schematics.rename(key, name);
-    rollbacks.push(Flux.partialUpdate(store.schematics, key, { name }));
+    const current = store.schematics.get(key);
+    if (current != null)
+      rollbacks.push(store.schematics.set(key, { ...current, name }));
     rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
+    await client.schematics.rename(key, name);
     return data;
   },
 });
