@@ -16,5 +16,5 @@ export const useDebouncedCallback = <Args extends unknown[]>(
   deps: DependencyList,
 ): ((...args: Args) => void) => {
   const debouncePeriod = new TimeSpan(waitFor).valueOf();
-  return useCallback(debounce(func, debouncePeriod), [func, debouncePeriod, ...deps]);
+  return useCallback(debounce(func, debouncePeriod), [debouncePeriod, ...deps]);
 };
