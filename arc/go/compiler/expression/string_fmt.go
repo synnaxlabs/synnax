@@ -20,7 +20,7 @@ import (
 
 // EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
 // literals emit string.from_literal, placeholders compile their expression.
-// Assumes the analyzer has already run fmtstring.ValidateNumericSpec on every
+// Assumes the analyzer has already run fmtstring.ValidateSpec on every
 // placeholder spec; the compiler emits spec bytes verbatim without revalidation.
 func EmitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
@@ -59,14 +59,15 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 		return err
 	}
 	if t.Kind == types.KindString {
+		if seg.Spec != "" {
+			emitSpecBytes(ctx, seg.Spec)
+			return ctx.Resolver.EmitStringFormat(ctx.Writer, ctx.WriterID)
+		}
 		return nil
 	}
 	if t.IsNumeric() {
 		if seg.Spec != "" {
-			specBytes := []byte(seg.Spec)
-			offset := ctx.Module.AddData(specBytes)
-			ctx.Writer.WriteI32Const(int32(offset))
-			ctx.Writer.WriteI32Const(int32(len(specBytes)))
+			emitSpecBytes(ctx, seg.Spec)
 			return ctx.Resolver.EmitNumericFormat(ctx.Writer, ctx.WriterID, t)
 		}
 		return ctx.Resolver.EmitNumericToString(ctx.Writer, ctx.WriterID, t)
@@ -75,6 +76,13 @@ func emitFmtSegment[T antlr.ParserRuleContext](
 		"placeholder %q has type %s; only numeric and string types are supported",
 		seg.Text, t,
 	)
+}
+
+func emitSpecBytes[T antlr.ParserRuleContext](ctx context.Context[T], spec string) {
+	specBytes := []byte(spec)
+	offset := ctx.Module.AddData(specBytes)
+	ctx.Writer.WriteI32Const(int32(offset))
+	ctx.Writer.WriteI32Const(int32(len(specBytes)))
 }
 
 func emitLiteralSegment[T antlr.ParserRuleContext](

@@ -80,12 +80,7 @@ func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
 		if seg.Spec == "" {
 			continue
 		}
-		if t.Kind == basetypes.KindString {
-			emit(diagnostics.Errorf(anchor,
-				"placeholder %q: format spec not supported on string values", seg.Text))
-			continue
-		}
-		if err := fmtstring.ValidateNumericSpec(seg.Spec, t); err != nil {
+		if err := fmtstring.ValidateSpec(seg.Spec, t); err != nil {
 			emit(diagnostics.Error(err, anchor))
 		}
 	}

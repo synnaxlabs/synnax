@@ -64,18 +64,19 @@ var SymbolResolver = &symbol.ModuleResolver{
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
 			}),
 		},
-		"from_i32":   fromSym(types.I32()),
-		"from_u32":   fromSym(types.U32()),
-		"from_i64":   fromSym(types.I64()),
-		"from_u64":   fromSym(types.U64()),
-		"from_f32":   fromSym(types.F32()),
-		"from_f64":   fromSym(types.F64()),
-		"format_i32": formatSym(types.I32()),
-		"format_u32": formatSym(types.U32()),
-		"format_i64": formatSym(types.I64()),
-		"format_u64": formatSym(types.U64()),
-		"format_f32": formatSym(types.F32()),
-		"format_f64": formatSym(types.F64()),
+		"from_i32":      fromSym(types.I32()),
+		"from_u32":      fromSym(types.U32()),
+		"from_i64":      fromSym(types.I64()),
+		"from_u64":      fromSym(types.U64()),
+		"from_f32":      fromSym(types.F32()),
+		"from_f64":      fromSym(types.F64()),
+		"format_i32":    formatSym(types.I32()),
+		"format_u32":    formatSym(types.U32()),
+		"format_i64":    formatSym(types.I64()),
+		"format_u64":    formatSym(types.U64()),
+		"format_f32":    formatSym(types.F32()),
+		"format_f64":    formatSym(types.F64()),
+		"format_string": formatSym(types.String()),
 	},
 }
 
@@ -210,6 +211,11 @@ func NewModule(
 	builder = registerFormat(builder, m, "format_u64", func(v uint64) any { return v })
 	builder = registerFormat(builder, m, "format_f32", func(v float32) any { return float64(v) })
 	builder = registerFormat(builder, m, "format_f64", func(v float64) any { return v })
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {
+			str, _ := s.Get(handle)
+			return s.Create(formatWithSpec(m.memory, ptr, length, str))
+		}).Export("format_string")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}

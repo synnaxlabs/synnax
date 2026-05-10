@@ -10,7 +10,7 @@
 // monaco-vscode-api ignores `tokenTypes` in language config, so the parent
 // `string.quoted.raw.arc` scope suppresses the popup inside `{...}`. The only
 // alternative is `quickSuggestions.strings: "on"`, which fires in every string.
-export const PLACEHOLDER_RE = /`[^`]*\{[^}]*$/;
+export const PLACEHOLDER_RE = /`[^`]*(?<!\\)\{[^}]*$/;
 const WORD_CHAR_RE = /^\w$/;
 
 export const shouldTriggerSuggestion = (

@@ -264,10 +264,10 @@ var _ = Describe("SplitSpec", func() {
 	)
 })
 
-var _ = Describe("ValidateNumericSpec", func() {
+var _ = Describe("ValidateSpec", func() {
 	DescribeTable("valid specs",
 		func(spec string, t types.Type) {
-			Expect(fmtstring.ValidateNumericSpec(spec, t)).To(Succeed())
+			Expect(fmtstring.ValidateSpec(spec, t)).To(Succeed())
 		},
 		Entry("float decimal on f64", ".2f", types.F64()),
 		Entry("float exponential on f32", "e", types.F32()),
@@ -282,17 +282,30 @@ var _ = Describe("ValidateNumericSpec", func() {
 		Entry("decimal on u8", "d", types.U8()),
 		Entry("decimal on i16", "d", types.I16()),
 		Entry("decimal on u16", "d", types.U16()),
+		Entry("type verb on i32", "T", types.I32()),
+		Entry("type verb on f64", "T", types.F64()),
+		Entry("type verb on string", "T", types.String()),
+		Entry("default verb on i32", "v", types.I32()),
+		Entry("default verb on string", "v", types.String()),
+		Entry("string verb on string", "s", types.String()),
+		Entry("quoted on string", "q", types.String()),
+		Entry("hex of bytes on string", "x", types.String()),
+		Entry("decimal on integer constant", "d", types.IntegerConstraint()),
+		Entry("hex on integer constant", "05x", types.IntegerConstraint()),
+		Entry("float on float constant", ".2f", types.FloatConstraint()),
+		Entry("empty spec on string skips check", "", types.String()),
 	)
 
 	DescribeTable("error cases",
 		func(spec string, t types.Type, errSubstr string) {
-			err := fmtstring.ValidateNumericSpec(spec, t)
+			err := fmtstring.ValidateSpec(spec, t)
 			Expect(err).To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("unknown verb on int", "z", types.I32(), "invalid format spec"),
 		Entry("unknown verb on float", "z", types.F64(), "invalid format spec"),
-		Entry("empty spec on int", "", types.I32(), "invalid format spec"),
-		Entry("string type not supported", ".2f", types.String(),
-			"cannot format type"),
+		Entry("integer-only verb on float", "d", types.F64(), "invalid format spec"),
+		Entry("integer-only verb %o on float", "o", types.F64(), "invalid format spec"),
+		Entry("decimal on string", "d", types.String(), "invalid format spec"),
+		Entry("float verb on string", ".2f", types.String(), "invalid format spec"),
 	)
 })

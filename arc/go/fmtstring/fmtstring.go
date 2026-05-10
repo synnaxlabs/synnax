@@ -152,16 +152,30 @@ func isSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
-// ValidateNumericSpec probes fmt.Sprintf with a typed dummy and reports an
-// error if the spec is not a valid Go fmt verb for the given numeric type.
-func ValidateNumericSpec(spec string, t types.Type) error {
+// ValidateSpec probes fmt.Sprintf with a typed dummy and reports an error if
+// the spec is not a valid Go fmt verb for the given type.
+func ValidateSpec(spec string, t types.Type) error {
+	if spec == "" {
+		return nil
+	}
+	if t.Kind == types.KindVariable {
+		if t.Constraint == nil {
+			return errors.Newf("cannot format type %s", t)
+		}
+		return ValidateSpec(spec, *t.Constraint)
+	}
 	var dummy any
 	switch t.Kind {
-	case types.KindI8, types.KindI16, types.KindI32, types.KindI64:
+	case types.KindString:
+		dummy = ""
+	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+		types.KindIntegerConstant:
 		dummy = int64(0)
 	case types.KindU8, types.KindU16, types.KindU32, types.KindU64:
 		dummy = uint64(0)
-	case types.KindF32, types.KindF64:
+	case types.KindF32, types.KindF64,
+		types.KindFloatConstant, types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
 		dummy = float64(0)
 	default:
 		return errors.Newf("cannot format type %s", t)

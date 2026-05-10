@@ -340,19 +340,26 @@ func (r *Resolver) EmitNumericFormat(w *wasm.Writer, wID int, from types.Type) e
 	return r.EmitFixedCall(w, wID, "string.format_"+suffix)
 }
 
+// EmitStringFormat emits a call to string.format_string.
+func (r *Resolver) EmitStringFormat(w *wasm.Writer, wID int) error {
+	return r.EmitFixedCall(w, wID, "string.format_string")
+}
+
 func numericSuffix(t types.Type) (string, error) {
 	switch t.Kind {
 	case types.KindI8, types.KindI16, types.KindI32:
 		return "i32", nil
 	case types.KindU8, types.KindU16, types.KindU32:
 		return "u32", nil
-	case types.KindI64:
+	case types.KindI64, types.KindIntegerConstant:
 		return "i64", nil
 	case types.KindU64:
 		return "u64", nil
 	case types.KindF32:
 		return "f32", nil
-	case types.KindF64:
+	case types.KindF64,
+		types.KindFloatConstant, types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant:
 		return "f64", nil
 	}
 	return "", errors.Newf("cannot convert %s to str", t)

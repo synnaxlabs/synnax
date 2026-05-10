@@ -53,6 +53,16 @@ var _ = Describe("Backtick Format String Analyzer Diagnostics", func() {
 		return nil
 	}
 
+	countErrors := func(diags diagnostics.Diagnostics, substr string) int {
+		n := 0
+		for _, d := range diags {
+			if d.Severity == diagnostics.SeverityError && strings.Contains(d.Message, substr) {
+				n++
+			}
+		}
+		return n
+	}
+
 	expectError := func(specCtx SpecContext, code, substr string) diagnostics.Diagnostic {
 		diags := analyze(specCtx, code)
 		Expect(diags.Ok()).To(BeFalse(),
@@ -138,12 +148,6 @@ trig -> f{}`
 	})
 
 	Describe("Format spec validation", func() {
-		It("rejects a spec applied to a string-typed placeholder", func(specCtx SpecContext) {
-			d := expectError(specCtx, wrap(`    log = `+"`{chStr%s}`"),
-				"format spec not supported on string values")
-			Expect(d.Severity).To(Equal(diagnostics.SeverityError))
-		})
-
 		DescribeTable("rejects float-only specs on integer placeholders",
 			func(specCtx SpecContext, body string) {
 				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
@@ -162,6 +166,14 @@ trig -> f{}`
 			Entry("f64 channel %o", "`{chF64%o}`"),
 		)
 
+		DescribeTable("rejects invalid verbs on string placeholders",
+			func(specCtx SpecContext, body string) {
+				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
+			},
+			Entry("string channel %d", "`{chStr%d}`"),
+			Entry("string channel %.2f", "`{chStr%.2f}`"),
+		)
+
 		DescribeTable("accepts valid specs",
 			func(specCtx SpecContext, body string) {
 				expectSuccess(specCtx, wrap(`    log = `+body))
@@ -169,9 +181,18 @@ trig -> f{}`
 			Entry("i32 channel %d", "`{chI32%d}`"),
 			Entry("i32 channel %05d", "`{chI32%05d}`"),
 			Entry("i32 channel %x", "`{chI32%x}`"),
+			Entry("i32 channel %T", "`{chI32%T}`"),
 			Entry("f64 channel %.2f", "`{chF64%.2f}`"),
 			Entry("f64 channel %e", "`{chF64%e}`"),
+			Entry("f64 channel %T", "`{chF64%T}`"),
 			Entry("u8 channel %d", "`{chU8%d}`"),
+			Entry("string channel %s", "`{chStr%s}`"),
+			Entry("string channel %q", "`{chStr%q}`"),
+			Entry("string channel %T", "`{chStr%T}`"),
+			Entry("string channel %v", "`{chStr%v}`"),
+			Entry("integer literal %d", "`{123%d}`"),
+			Entry("integer literal %T", "`{42%T}`"),
+			Entry("float literal %.2f", "`{3.14%.2f}`"),
 		)
 
 		// Go's fmt accepts %x and %b on float64; pin so a future validator change cannot regress.
@@ -263,8 +284,8 @@ trig -> f{}`
 
 	Describe("Diagnostic position anchoring", func() {
 		It("anchors a placeholder spec error on the same line as the literal", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `{chStr%s}`\n}\ntrig -> f{}"
-			d := expectError(specCtx, code, "format spec not supported on string values")
+			code := "func f() {\n    log = `{chStr%d}`\n}\ntrig -> f{}"
+			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(2),
 				"expected diagnostic on line 2, got line %d (col %d)", d.Start.Line, d.Start.Col)
 			Expect(d.End.Line).To(BeNumerically(">=", d.Start.Line))
@@ -275,16 +296,16 @@ trig -> f{}`
 		})
 
 		It("anchors a placeholder spec error on a later line for a multi-line raw string", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `line1\nline2\n{chStr%s}`\n}\ntrig -> f{}"
-			d := expectError(specCtx, code, "format spec not supported on string values")
+			code := "func f() {\n    log = `line1\nline2\n{chStr%d}`\n}\ntrig -> f{}"
+			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(4),
 				"expected diagnostic on line 4 (third line of literal), got line %d col %d",
 				d.Start.Line, d.Start.Col)
 		})
 
 		It("anchors a placeholder error past the opening backtick on a single-line literal", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `pre {chStr%s} post`\n}\ntrig -> f{}"
-			d := expectError(specCtx, code, "format spec not supported on string values")
+			code := "func f() {\n    log = `pre {chStr%d} post`\n}\ntrig -> f{}"
+			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(2))
 			Expect(d.Start.Col).To(BeNumerically(">", 11),
 				"placeholder column %d should be past the opening backtick", d.Start.Col)
@@ -293,23 +314,19 @@ trig -> f{}`
 
 	Describe("Multiple errors in one literal", func() {
 		It("emits one diagnostic per offending placeholder", func(specCtx SpecContext) {
-			code := wrap(`    log = ` + "`{chStr%s} {chF64%d}`")
+			code := wrap(`    log = ` + "`{chStr%d} {chF64%d}`")
 			diags := analyze(specCtx, code)
 			Expect(diags.Ok()).To(BeFalse())
-			Expect(findError(diags, "format spec not supported on string values")).
-				ToNot(BeNil(), "missing string-spec error in:\n%s", diags.String())
-			Expect(findError(diags, "invalid format spec")).
-				ToNot(BeNil(), "missing invalid-spec error in:\n%s", diags.String())
+			Expect(countErrors(diags, "invalid format spec")).To(Equal(2),
+				"expected one diagnostic per placeholder; got:\n%s", diags.String())
 		})
 
 		It("continues analyzing later placeholders after an earlier spec error", func(specCtx SpecContext) {
-			code := wrap(`    log = ` + "`{chStr%s} and {chF64%d}`")
+			code := wrap(`    log = ` + "`{chStr%d} and {chF64%d}`")
 			diags := analyze(specCtx, code)
 			Expect(diags.Ok()).To(BeFalse())
-			Expect(findError(diags, "format spec not supported on string values")).
-				ToNot(BeNil(), "missing string-spec error in:\n%s", diags.String())
-			Expect(findError(diags, "invalid format spec")).
-				ToNot(BeNil(), "missing float-spec error in:\n%s", diags.String())
+			Expect(countErrors(diags, "invalid format spec")).To(Equal(2),
+				"expected later placeholder error; got:\n%s", diags.String())
 		})
 	})
 })

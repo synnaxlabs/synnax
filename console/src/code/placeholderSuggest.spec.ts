@@ -27,6 +27,8 @@ describe("shouldTriggerSuggestion", () => {
     ["space is not a word char", "`hello {x", " ", false],
     ["caret on second line inside placeholder", "x = `hi\n{na", "m", true],
     ["closed placeholder followed by new open one", "`{a} {b", "c", true],
+    ["escaped open brace does not trigger", "`hello \\{va", "l", false],
+    ["real placeholder after escaped brace still triggers", "`\\{ {va", "l", true],
   ])("%s", (_label, buffer, typed, expected) => {
     expect(shouldTriggerSuggestion(buffer, typed)).toBe(expected);
   });

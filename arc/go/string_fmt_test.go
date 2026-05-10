@@ -410,7 +410,7 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 	})
 
 	Describe("Compile-time diagnostics for invalid placeholder usage", func() {
-		DescribeTable("rejects format spec on a string-typed placeholder",
+		DescribeTable("rejects invalid format spec on a string-typed placeholder",
 			func(ctx SpecContext, source, errSubstr string) {
 				program := `func f() {
 				    name := "probe"
@@ -420,9 +420,8 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
 					Error().To(MatchError(ContainSubstring(errSubstr)))
 			},
-			Entry("string with %s spec", "`{name%s}`", "format spec"),
-			Entry("string with %d spec", "`{name%d}`", "format spec"),
-			Entry("string with %.2f spec", "`{name%.2f}`", "format spec"),
+			Entry("string with %d spec", "`{name%d}`", "invalid format spec"),
+			Entry("string with %.2f spec", "`{name%.2f}`", "invalid format spec"),
 		)
 
 		DescribeTable("rejects float-only specs on integer-typed placeholders",
