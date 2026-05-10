@@ -306,6 +306,48 @@ var _ = Describe("Strings", func() {
 		)
 	})
 
+	Describe("format_string", func() {
+		writeSpec := func(spec string) (uint32, uint32) {
+			mem.Write(0, []byte(spec))
+			return 0, uint32(len(spec))
+		}
+
+		It("Should format a string handle against a spec read from memory", func(ctx SpecContext) {
+			h := ss.Create("hi")
+			ptr, length := writeSpec("5s")
+			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(rh))).To(Equal("   hi"))
+		})
+
+		It("Should format an unknown handle as the empty-string spec result", func(ctx SpecContext) {
+			ptr, length := writeSpec("q")
+			rh := callU32(ctx, "format_string", testutil.U32(9999), testutil.U32(ptr), testutil.U32(length))
+			Expect(MustBeOk(ss.Get(rh))).To(Equal(`""`))
+		})
+
+		It("Should return a handle to an empty string when the spec read is out-of-bounds", func(ctx SpecContext) {
+			h := ss.Create("hi")
+			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))
+			Expect(rh).ToNot(BeZero())
+			Expect(MustBeOk(ss.Get(rh))).To(BeEmpty())
+		})
+	})
+
+	Describe("Module.SetMemory", func() {
+		It("Should swap the backing memory used by format_*", func(ctx SpecContext) {
+			rt2 := testutil.NewRuntime(ctx)
+			defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
+			ss2 := strings.NewProgramState()
+			m := MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
+			rt2.Passthrough(ctx, "string")
+			mem2 := wazerotest.NewMemory(1)
+			m.SetMemory(mem2)
+			mem2.Write(0, []byte("05d"))
+			res := rt2.Call(ctx, "string", "format_i32", testutil.I32(7), testutil.U32(0), testutil.U32(3))
+			Expect(MustBeOk(ss2.Get(testutil.AsU32(res[0])))).To(Equal("00007"))
+		})
+	})
+
 	Describe("cross-function handle reuse", func() {
 		It("Should use from_literal result in concat and verify with equal", func(ctx SpecContext) {
 			mem.Write(0, []byte("helloworld"))

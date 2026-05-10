@@ -25,6 +25,7 @@ import (
 // Tests in this file pin both the legend ordering and the token-type routing
 // for STR_LITERAL vs STR_LITERAL_RAW to those ids.
 const (
+	tokenTypeVariable          = uint32(3)
 	tokenTypeOperator          = uint32(2)
 	tokenTypeString            = uint32(4)
 	tokenTypeNumber            = uint32(5)
@@ -255,6 +256,49 @@ var _ = Describe("Semantic Tokens", func() {
 			}
 		})
 
+		It("emits a placeholder span for a numeric format spec after the expression", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `v={42%05d}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			ph := filterByType(all, tokenTypeStringPlaceholder)
+			Expect(ph).To(HaveLen(3))
+			Expect(ph[0]).To(Equal(decodedToken{Line: 0, StartChar: 8, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(ph[1]).To(Equal(decodedToken{Line: 0, StartChar: 11, Length: 4, TokenType: tokenTypeStringPlaceholder}))
+			Expect(ph[2]).To(Equal(decodedToken{Line: 0, StartChar: 15, Length: 1, TokenType: tokenTypeStringPlaceholder}))
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+		})
+
+		It("classifies multi-token placeholder expressions with prev/next context", func(ctx SpecContext) {
+			globalResolver := symbol.MapResolver{
+				"sensor": symbol.Symbol{
+					Name: "sensor",
+					Type: types.Chan(types.F64()),
+					Kind: symbol.KindChannel,
+				},
+			}
+			server, uri = SetupTestServer(lsp.Config{GlobalResolver: globalResolver})
+			OpenArcDocument(server, ctx, uri, "x := `v={sensor + 1}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeChannel)).To(HaveLen(1))
+			plus := filterByType(all, tokenTypeOperator)
+			Expect(plus).ToNot(BeEmpty())
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+		})
+
+		It("skips inner placeholder tokens that classify to nil (parens)", func(ctx SpecContext) {
+			OpenArcDocument(server, ctx, uri, "x := `v={(42)}`")
+			all := decodeSemanticTokens(SemanticTokens(server, ctx, uri).Data)
+			Expect(filterByType(all, tokenTypeNumber)).To(HaveLen(1))
+			Expect(filterByType(all, tokenTypeStringPlaceholder)).To(HaveLen(2))
+		})
+	})
+
+	Describe("SemanticTokensFull", func() {
+		It("returns an empty token stream for an unknown document URI", func(ctx SpecContext) {
+			result := MustSucceed(server.SemanticTokensFull(ctx, &protocol.SemanticTokensParams{
+				TextDocument: protocol.TextDocumentIdentifier{URI: "file:///not-open.arc"},
+			}))
+			Expect(result.Data).To(BeEmpty())
+		})
 	})
 
 	Describe("Legend", func() {

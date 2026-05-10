@@ -13,10 +13,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/antlr4-go/antlr/v4"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/arc/analyzer"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
+	"github.com/synnaxlabs/arc/analyzer/expression"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -309,6 +311,39 @@ trig -> f{}`
 			Expect(d.Start.Line).To(Equal(2))
 			Expect(d.Start.Col).To(BeNumerically(">", 11),
 				"placeholder column %d should be past the opening backtick", d.Start.Col)
+		})
+	})
+
+	Describe("Defensive guards", func() {
+		// findRawStrTerminal locates the first STR_LITERAL_RAW terminal in tree.
+		var findRawStrTerminal func(t antlr.Tree) antlr.TerminalNode
+		findRawStrTerminal = func(t antlr.Tree) antlr.TerminalNode {
+			if tn, ok := t.(antlr.TerminalNode); ok {
+				if tok := tn.GetSymbol(); tok != nil &&
+					tok.GetTokenType() == parser.ArcParserSTR_LITERAL_RAW {
+					return tn
+				}
+			}
+			for i := 0; i < t.GetChildCount(); i++ {
+				if found := findRawStrTerminal(t.GetChild(i)); found != nil {
+					return found
+				}
+			}
+			return nil
+		}
+
+		It("emits a diagnostic when raw token text lacks backticks", func(specCtx SpecContext) {
+			ast := MustSucceed(parser.Parse("func f() {\n    log = `x`\n}\ntrig -> f{}"))
+			rawStr := findRawStrTerminal(ast)
+			Expect(rawStr).ToNot(BeNil())
+			// Mutate token text to drop the backticks. This is unreachable via
+			// the grammar but exercises the StripDelimiters guard.
+			rawStr.GetSymbol().SetText("no_backticks")
+			ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
+			expression.AnalyzeStringFmtLiteral(ctx, rawStr)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect(findError(*ctx.Diagnostics, "invalid raw string literal")).
+				ToNot(BeNil())
 		})
 	})
 

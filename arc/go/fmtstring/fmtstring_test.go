@@ -264,6 +264,22 @@ var _ = Describe("SplitSpec", func() {
 	)
 })
 
+var _ = Describe("HasPlaceholder", func() {
+	It("returns true when any segment is a placeholder", func() {
+		segs := MustSucceed(fmtstring.Parse("hello {x}"))
+		Expect(fmtstring.HasPlaceholder(segs)).To(BeTrue())
+	})
+
+	It("returns false when no segment is a placeholder", func() {
+		segs := MustSucceed(fmtstring.Parse("plain literal"))
+		Expect(fmtstring.HasPlaceholder(segs)).To(BeFalse())
+	})
+
+	It("returns false for an empty segment slice", func() {
+		Expect(fmtstring.HasPlaceholder(nil)).To(BeFalse())
+	})
+})
+
 var _ = Describe("ValidateSpec", func() {
 	DescribeTable("valid specs",
 		func(spec string, t types.Type) {
@@ -308,4 +324,25 @@ var _ = Describe("ValidateSpec", func() {
 		Entry("decimal on string", "d", types.String(), "invalid format spec"),
 		Entry("float verb on string", ".2f", types.String(), "invalid format spec"),
 	)
+
+	It("validates against the constraint of a constrained type variable", func() {
+		intConstraint := types.IntegerConstraint()
+		Expect(fmtstring.ValidateSpec("d", types.Variable("T", &intConstraint))).To(Succeed())
+	})
+
+	It("rejects a spec invalid for the variable's constraint", func() {
+		stringConstraint := types.String()
+		err := fmtstring.ValidateSpec(".2f", types.Variable("T", &stringConstraint))
+		Expect(err).To(MatchError(ContainSubstring("invalid format spec")))
+	})
+
+	It("errors on an unconstrained type variable", func() {
+		err := fmtstring.ValidateSpec("d", types.Variable("T", nil))
+		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
+	})
+
+	It("errors on a non-formattable type kind", func() {
+		err := fmtstring.ValidateSpec("d", types.Chan(types.I32()))
+		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
+	})
 })
