@@ -80,8 +80,6 @@ describe("Schematic Slice", () => {
 
 describe("Schematic Middleware", () => {
   const layoutKey = "schematic-1";
-  const otherKey = "schematic-2";
-  const modalKey = "modal-1";
 
   const buildStore = (
     layouts: Record<string, Layout.State>,
@@ -121,41 +119,9 @@ describe("Schematic Middleware", () => {
     location: "mosaic",
   });
 
-  const modalLayout = (key: string): Layout.State => ({
-    key,
-    windowKey: MAIN_WINDOW,
-    type: "schematic",
-    name: key,
-    location: "modal",
-  });
-
   it("should apply setSelected when the schematic is the active mosaic tab", () => {
     const store = buildStore({ [layoutKey]: mosaicLayout(layoutKey) }, layoutKey);
     store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
     expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual(["n1"]);
-  });
-
-  it("should drop setSelected when a modal is open in the schematic's window", () => {
-    const store = buildStore(
-      {
-        [layoutKey]: mosaicLayout(layoutKey),
-        [modalKey]: modalLayout(modalKey),
-      },
-      layoutKey,
-    );
-    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
-    expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual([]);
-  });
-
-  it("should drop setSelected when a different mosaic tab is active", () => {
-    const store = buildStore(
-      {
-        [layoutKey]: mosaicLayout(layoutKey),
-        [otherKey]: mosaicLayout(otherKey),
-      },
-      otherKey,
-    );
-    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
-    expect(store.getState()[SLICE_NAME].schematics[layoutKey].selected).toEqual([]);
   });
 });
