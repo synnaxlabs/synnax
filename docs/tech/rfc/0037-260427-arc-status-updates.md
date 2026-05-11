@@ -15,9 +15,12 @@ Date**: 2026-04-27 <br /> **Authors**: Nico Alba <br />
 - [4 - Arc Syntax](#4---arc-syntax)
   - [4.0 - `status.set`](#40---statusset)
   - [4.1 - `status.delete`](#41---statusdelete)
-  - [4.2 - Client Interface Comparison](#42---client-interface-comparison)
+  - [4.2 - Variant Values](#42---variant-values)
+  - [4.3 - Client Interface Comparison](#43---client-interface-comparison)
 - [5 - Detailed Design](#5---detailed-design)
-  - [5.0 - Type System Prerequisite](#50---type-system-prerequisite)
+  - [5.0 - Type System Prerequisites](#50---type-system-prerequisites)
+    - [5.0.0 - Preserve-on-Omit Parameters](#500---preserve-on-omit-parameters)
+    - [5.0.1 - Literal-Value Constraints](#501---literal-value-constraints)
   - [5.1 - Symbol Registration](#51---symbol-registration)
   - [5.2 - WASM Host Functions](#52---wasm-host-functions)
     - [5.2.0 - Host Function Reporting Helpers](#520---host-function-reporting-helpers)
@@ -35,6 +38,17 @@ Date**: 2026-04-27 <br /> **Authors**: Nico Alba <br />
 
 # 0 - Summary
 
+> **v1 scope note (2026-05-11):** For the v1 implementation, **all `status.set`
+> arguments are required** (`key_or_name`, `message`, and `variant`). The
+> optional-parameter mechanism (Section 5.0.0, "Preserve-on-Omit Parameters") and the
+> preserve-on-omit / touch / literal-default semantics that depend on it — described
+> throughout Sections 4.0, 5.2.1, 5.3, and the implementation plan — are **deferred to a
+> future v2 RFC**. Read the `?` markers on `message` and `variant`, the "supplied vs
+> omitted" discussion, the handle-0 omission sentinel, and the touch path as
+> forward-looking design that v2 will pick up; the v1 surface is the strictly-
+> required-args subset. The variant string-literal validation (Section 5.0.1) and
+> empty-string-as-non-truthy prerequisite (Section 3) are **in scope for v1**.
+
 This RFC defines the Arc `status` module. The module exposes two functions for managing
 Synnax statuses from Arc programs: `status.set` for upserting a status (creating it if
 none exists with the given name, updating it if one does), and `status.delete` for
@@ -43,10 +57,10 @@ removing a status by key or name. Both functions support both WASM and Flow exec
 
 ## 0.1 - Function Overview
 
-| Function        | Signature                                                               | Summary                                                                                                                                                                                      |
-| --------------- | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `status.set`    | `set(identifier: string, message?: string, variant?: string) -> string` | Upsert a status by name or key. Creates the status if no match exists for a name; updates supplied fields and preserves omitted ones if a match does. Returns the key (handle 0 on failure). |
-| `status.delete` | `delete(identifier: string)`                                            | Delete a status by key or name.                                                                                                                                                              |
+| Function        | Signature                                                                | Summary                                                                                                                                                                                                                                                                                                                     |
+| --------------- | ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `status.set`    | `set(key_or_name: string, message?: string, variant?: string) -> string` | Upsert a status by name or key. Creates the status if no match exists for a name; updates supplied fields and preserves omitted ones if a match does. Returns the key (handle 0 on failure). String literals passed for `variant` are constrained to a fixed set at compile time (see [Section 4.2](#42---variant-values)). |
+| `status.delete` | `delete(key_or_name: string)`                                            | Delete a status by key or name.                                                                                                                                                                                                                                                                                             |
 
 # 1 - Vocabulary
 
@@ -58,7 +72,7 @@ removing a status by key or name. Both functions support both WASM and Flow exec
 - **WASM Form**: An Arc symbol invoked inside a `func` block; compiled to WebAssembly
   and called as a host function with positional arguments.
 - **Flow Form**: An Arc symbol invoked as a graph node with named curly-brace config
-  (e.g., `trigger -> status.set{identifier=..., ...}`).
+  (e.g., `trigger -> status.set{key_or_name=..., ...}`).
 - **`ExecBoth`**: A symbol exec mode where the same function is exposed in both WASM and
   Flow form, sharing one parameter list. Parameters are declared as `Config` (the
   curly-brace block); WASM fills them positionally at the call site, Flow fills them by
@@ -79,15 +93,15 @@ status (create if missing, update if present), and remove it when no longer rele
 subsequent call with the same name (or its key) updates it. Both `message` and `variant`
 are optional, and omitted fields are preserved on the existing row:
 
-- `set(identifier)` refreshes the status's timestamp without changing message or
+- `set(key_or_name)` refreshes the status's timestamp without changing message or
   variant. The semantics are "this happened now" with the existing wording reused,
   whether that's a periodic heartbeat ("still alive"), a discrete event punctuation
   ("valve opened", "entered hold state"), or any other moment where the caller wants to
   re-stamp the status without re-stating what it says. If the status does not yet exist,
   the first call creates it with default message (`""`) and variant (`"info"`).
-- `set(identifier, message)` overwrites the message and preserves the variant (or, on
+- `set(key_or_name, message)` overwrites the message and preserves the variant (or, on
   first call, creates the status with the supplied message and the default variant).
-- `set(identifier, message, variant)` overwrites both (or creates the status with both
+- `set(key_or_name, message, variant)` overwrites both (or creates the status with both
   fields specified on first call).
 
 When a field is supplied, it overwrites the existing value on that call. When it is
@@ -96,7 +110,7 @@ call). The semantics are explicit per call: if the caller wants the message or v
 to change, they pass the new value; otherwise the prior value stands.
 
 This dynamic dispatch is what makes `set` powerful. A single function, with the same
-identifier and the same call site shape, expresses the **full range** of status
+key_or_name and the same call site shape, expresses the **full range** of status
 lifecycle operations (initial registration, touch, message-only update, variant-only
 update, full overwrite), and the caller writes only the parts that change. There is no
 read-modify-write dance and no separate registration step: the caller does not have to
@@ -147,22 +161,22 @@ the normative reference for what Arc programs can express.
 
 ## 4.0 - `status.set`
 
-Upserts a status by name or key. If `identifier` resolves to an existing status,
-supplied fields overwrite and omitted fields are preserved. If `identifier` is a name
+Upserts a status by name or key. If `key_or_name` resolves to an existing status,
+supplied fields overwrite and omitted fields are preserved. If `key_or_name` is a name
 that does not resolve, a new status is created with that name; supplied fields are used
 and omitted fields take their literal defaults (`message = ""`, `variant = "info"`).
 
 **Signature:**
 
 ```
-status.set(identifier: string, message?: string, variant?: string) -> string
+status.set(key_or_name: string, message?: string, variant?: string) -> string
 ```
 
-| Param        | Type     | Required | Default                                | Description                                                                                |
-| ------------ | -------- | -------- | -------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `identifier` | `string` | yes      | n/a                                    | Status key (UUID) or name                                                                  |
-| `message`    | `string` | no       | preserve existing / `""` on create     | If supplied, overwrites; if omitted, preserves the existing value (or `""` on create).     |
-| `variant`    | `string` | no       | preserve existing / `"info"` on create | If supplied, overwrites; if omitted, preserves the existing value (or `"info"` on create). |
+| Param         | Type     | Required | Default                                | Description                                                                                                                                                                                                                 |
+| ------------- | -------- | -------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `key_or_name` | `string` | yes      | n/a                                    | Status key (UUID) or name                                                                                                                                                                                                   |
+| `message`     | `string` | no       | preserve existing / `""` on create     | If supplied, overwrites; if omitted, preserves the existing value (or `""` on create).                                                                                                                                      |
+| `variant`     | `string` | no       | preserve existing / `"info"` on create | If supplied, overwrites; if omitted, preserves the existing value (or `"info"` on create). A string-literal argument is validated against the six allowed values at compile time (see [Section 4.2](#42---variant-values)). |
 
 **Returns:** Status key string. In WASM form, returned as a string handle (handle 0 on
 failure; see Section 3). In Flow form, `set` is a sink and the return value is
@@ -170,7 +184,7 @@ discarded.
 
 The signature is identical in both forms (`ExecBoth`, see Vocabulary): WASM passes the
 arguments positionally; Flow passes them as named config fields. The wire in Flow is a
-trigger only and never carries a value into `identifier`, `message`, or `variant`.
+trigger only and never carries a value into `key_or_name`, `message`, or `variant`.
 
 **Upsert semantics (supplied vs omitted):**
 
@@ -178,7 +192,7 @@ When a field is supplied at the call site, it overwrites the existing value on t
 (or is used as the initial value if a new status is being created). When it is omitted
 on an update, the existing value is preserved; when it is omitted on a create, the
 literal default is used (`""` for message, `"info"` for variant). The status's `time`
-field is always refreshed to the current timestamp, which makes `set(identifier)` with
+field is always refreshed to the current timestamp, which makes `set(key_or_name)` with
 no other arguments a "touch" call on existing statuses: re-stamp the status as having
 occurred now without restating its message or variant. Touch covers periodic heartbeats
 ("still alive") as well as discrete event marks ("valve opened", "entered hold state"),
@@ -202,10 +216,10 @@ introduces. It is enforced at three layers:
   `compileFunctionCallExpr` only fills trailing defaults (positions `actualCount`
   through `totalCount-1`).
 
-With the parameter order `(identifier, message?, variant?)`, this means
-`set(identifier)` and `set(identifier, message)` work as expected, but a WASM caller
+With the parameter order `(key_or_name, message?, variant?)`, this means
+`set(key_or_name)` and `set(key_or_name, message)` work as expected, but a WASM caller
 cannot express a variant-only update. The Flow form covers this case via named config:
-`trigger -> status.set{identifier="Pressure Check", variant="error"}`.
+`trigger -> status.set{key_or_name="Pressure Check", variant="error"}`.
 
 **Future Arc work:** Adding `name = value` syntax to `argumentList` would let WASM
 callers express variant-only updates as `status.set("Pressure Check", variant="error")`,
@@ -216,16 +230,16 @@ closes for free.
 
 **Resolution logic:**
 
-1. `uuid.Parse(identifier)`.
-   - Parseable: attempt key lookup via `WhereKeys(identifier)`.
+1. `uuid.Parse(key_or_name)`.
+   - Parseable: attempt key lookup via `WhereKeys(key_or_name)`.
      - On success: apply the update (see below) to that row and return its key.
      - On `query.ErrNotFound`: emit an error-level task status (UUIDs are
        server-assigned and cannot be created by the caller), return handle 0.
      - On any other error: emit an error-level task status, return handle 0.
    - Not parseable: continue to step 2.
-2. Query `Where(Name == identifier)`.
+2. Query `Where(Name == key_or_name)`.
    - Exactly one match: apply the update to that row and return its key.
-   - Zero matches: create a new status with `Name = identifier` and the supplied (or
+   - Zero matches: create a new status with `Name = key_or_name` and the supplied (or
      defaulted) `message` and `variant`. Return the new key.
    - More than one match: emit an error-level task status, return handle 0.
    - On query error: emit an error-level task status, return handle 0.
@@ -263,8 +277,8 @@ status.set("Pressure Check", "Sensor offline", "error")
 status.set(key, "Pressure normalized", "success")
 
 // Flow form: same parameter names as named config. Omit fields you want to preserve.
-trigger -> status.set{identifier="Pressure Check", message="All nominal"}
-trigger -> status.set{identifier="Heart Beat"}
+trigger -> status.set{key_or_name="Pressure Check", message="All nominal"}
+trigger -> status.set{key_or_name="Heart Beat"}
 ```
 
 ## 4.1 - `status.delete`
@@ -274,26 +288,26 @@ Deletes one or more statuses by key or by name.
 **Signature:**
 
 ```
-status.delete(identifier: string)
+status.delete(key_or_name: string)
 ```
 
-| Param        | Type     | Required | Description        |
-| ------------ | -------- | -------- | ------------------ |
-| `identifier` | `string` | yes      | Status key or name |
+| Param         | Type     | Required | Description        |
+| ------------- | -------- | -------- | ------------------ |
+| `key_or_name` | `string` | yes      | Status key or name |
 
 **Returns:** Nothing.
 
 The signature is identical in both forms (`ExecBoth`, see Vocabulary): WASM passes
-`identifier` positionally; Flow passes it as a named config field. The wire is a trigger
-only.
+`key_or_name` positionally; Flow passes it as a named config field. The wire is a
+trigger only.
 
 **Resolution logic:**
 
-1. `uuid.Parse(identifier)`.
+1. `uuid.Parse(key_or_name)`.
    - Parseable: delete the row with that key. On `query.ErrNotFound`, emit a
      warning-level task status. On any other error, report and return.
    - Not parseable: continue to step 2.
-2. Query `Where(Name == identifier)`.
+2. Query `Where(Name == key_or_name)`.
    - One match: delete that row.
    - Multiple matches: delete **all** and emit an info-level task status with the count.
    - Zero matches: emit a warning-level task status.
@@ -306,11 +320,82 @@ status.delete("550e8400-e29b-41d4-a716-446655440000")
 status.delete("Pressure Check")
 
 // Flow
-trigger -> status.delete{identifier="550e8400-e29b-41d4-a716-446655440000"}
-trigger -> status.delete{identifier="Pressure Check"}
+trigger -> status.delete{key_or_name="550e8400-e29b-41d4-a716-446655440000"}
+trigger -> status.delete{key_or_name="Pressure Check"}
 ```
 
-## 4.2 - Client Interface Comparison
+## 4.2 - Variant Values
+
+`variant` is a `string` parameter, but the set of meaningful values is fixed by
+[`schemas/status.oracle`](../../../schemas/status.oracle) — the same schema that
+generates `xstatus.Variant` (Go), `Variant = Literal[...]` (Python),
+`status.variant.Variant` (TypeScript union), and `x::status::Variant` (C++). The Arc
+binding reuses those constants directly rather than redeclaring its own list, so adding,
+renaming, or removing a variant in the schema propagates to Arc on the next
+`oracle sync` with no per-language follow-up.
+
+The allowed values are:
+
+| Value        | Meaning                                                               |
+| ------------ | --------------------------------------------------------------------- |
+| `"success"`  | The operation completed as intended.                                  |
+| `"info"`     | A neutral status notice. Default when `variant` is omitted on create. |
+| `"warning"`  | A non-fatal condition the operator should be aware of.                |
+| `"error"`    | A failure or fault condition.                                         |
+| `"loading"`  | An in-progress operation that has not yet completed.                  |
+| `"disabled"` | An entity is intentionally inactive.                                  |
+
+**Compile-time validation of string literals.** When the call-site argument is a string
+literal, the analyzer checks its value against the allowed set. A mismatch is a
+compile-time error: the analyzer rejects the call, the compiler refuses to emit code,
+and the Arc LSP surfaces the rejection as an editor diagnostic (red underline at the
+literal plus a hover message listing the allowed values). This catches the dominant typo
+case — `status.set("Heart Beat", msg, "errpr")` — before the program ever runs,
+mirroring the way the Python client constrains the field via `Literal[...]` and the
+TypeScript client via a string union.
+
+**Variables and computed expressions pass through compile time.** A `string` variable or
+any non-literal expression is accepted by the analyzer and validated at runtime by the
+host function. An unrecognized value at runtime emits an error-level task status and the
+call returns handle 0, joining the rest of `status.set`'s failure surface (Section
+5.3.0). The compile-time check is a fast-path safety net for the case the analyzer can
+see; it does not change the parameter's underlying type.
+
+The mechanism is described in [Section 5.0.1](#501---literal-value-constraints).
+
+**Examples:**
+
+```go
+// Valid: each literal is a member of the allowed set.
+status.set("Pressure Check", "Pressure rising", "warning")
+trigger -> status.set{key_or_name="Pressure Check", variant="error"}
+
+// Compile-time error: "errpr" is not a valid variant.
+status.set("Pressure Check", "Pressure rising", "errpr")
+//                                              ^^^^^^^ expected one of: "success",
+//                                                      "info", "warning", "error",
+//                                                      "loading", "disabled"
+
+// Valid: variable holding a valid value. The argument is not a literal, so the
+// compile-time check is skipped; the host function accepts the value at runtime.
+v := "error"
+status.set("Pressure Check", "Pressure rising", v)
+
+// Runtime error (not compile-time): variable holds an invalid value. The host
+// function emits an error-level task status and returns handle 0.
+v := "errpr"
+status.set("Pressure Check", "Pressure rising", v)
+```
+
+**Future work.** When Arc gains a first-class enum / literal-union type, the
+compile-time check extends from "literal at the call site" to "any expression with a
+constrained variant type", closing the runtime gap above. Callers would then write
+`v: Variant = "error"; status.set("foo", "bar", v)` and the analyzer would catch a bad
+assignment at the `:=` instead of in the host function. The host function continues to
+receive a string handle on the wire either way, so the change is type-system-only and
+out of scope for this RFC; the design here is forward-compatible with it.
+
+## 4.3 - Client Interface Comparison
 
 The same consistency argument that makes `status.set` a single upsert (rather than
 splitting into `create` + `update`) also dictates the **shape** of the call and the
@@ -322,17 +407,23 @@ mental model: `client.statuses.set(...)` in Python and TS, `status.set(...)` in 
 upsert by identifier with the same handling of omitted fields. The trade study companion
 document evaluates the alternative shapes and syntaxes that were considered.
 
-| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                                               | Arc Flow                                               |
-| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------ |
-| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `identifier, message? (preserve), variant? (preserve)` | `identifier, message? (preserve), variant? (preserve)` |
-| **Set return**    | `Status` object                            | `Status` object                      | key string                                             | none (sink)                                            |
-| **Set semantics** | Upsert by key (or new if no key)           | Upsert by key (or new if no key)     | Upsert by key or by name                               | Upsert by key or by name                               |
-| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `identifier` (key or name)                             | `identifier` (key or name)                             |
-| **Delete return** | `None`                                     | `void`                               | nothing                                                | none (sink)                                            |
+| Concern           | Python Client                              | TypeScript Client                    | Arc WASM                                                | Arc Flow                                                |
+| ----------------- | ------------------------------------------ | ------------------------------------ | ------------------------------------------------------- | ------------------------------------------------------- |
+| **Set params**    | `Status(key, name, variant, message, ...)` | `{key, name, variant, message, ...}` | `key_or_name, message? (preserve), variant? (preserve)` | `key_or_name, message? (preserve), variant? (preserve)` |
+| **Set return**    | `Status` object                            | `Status` object                      | key string                                              | none (sink)                                             |
+| **Set semantics** | Upsert by key (or new if no key)           | Upsert by key (or new if no key)     | Upsert by key or by name                                | Upsert by key or by name                                |
+| **Delete params** | `keys: str \| list[str]`                   | `keys: Key \| Key[]`                 | `key_or_name` (key or name)                             | `key_or_name` (key or name)                             |
+| **Delete return** | `None`                                     | `void`                               | nothing                                                 | none (sink)                                             |
 
 # 5 - Detailed Design
 
-## 5.0 - Type System Prerequisite
+## 5.0 - Type System Prerequisites
+
+This RFC requires two type-system additions before the rest of the status-module work
+can land. Both are small, generic mechanisms that other modules can adopt for their own
+purposes.
+
+### 5.0.0 - Preserve-on-Omit Parameters
 
 The current `types.Param` struct (in `arc/go/types/types.gen.go`) carries a single
 field, `Value any`, that doubles as a default-value slot. `Value` covers the case where
@@ -363,6 +454,66 @@ nil, `Optional` true). The status module only uses the preserve-on-omit form; th
 existing `Value` mechanism remains available to other modules that need
 default-substituted optionality.
 
+### 5.0.1 - Literal-Value Constraints
+
+`variant` is a plain `string` at the Arc type level, but only the six values listed in
+[Section 4.2](#42---variant-values) are meaningful. The analyzer needs a way to
+recognize that the `variant` parameter of `status.set` carries an "allowed values" list
+so that a string-literal argument can be checked against it at compile time.
+
+This RFC adds an `AllowedLiterals []string` field to `types.Param` (in
+[arc/go/types/types.gen.go](../../../arc/go/types/types.gen.go), via the schema in
+`/schemas/`). When non-nil on a param whose `Type.Kind == KindString`, it carries the
+list of values that string-literal arguments must match:
+
+```go
+type Param struct {
+    Name            string
+    Type            Type
+    Value           any      // default value (per 5.0.0)
+    Optional        bool     // preserve-on-omit flag (per 5.0.0)
+    AllowedLiterals []string // when non-nil on a string param, restricts
+                             // string-literal arguments to this set; non-literal
+                             // arguments pass through to runtime validation.
+}
+```
+
+**Analyzer behavior.** `validateFunctionCall` (in
+[arc/go/analyzer/expression.go](../../../arc/go/analyzer/expression.go)) is extended so
+that when a param has a non-nil `AllowedLiterals` slice:
+
+- If the call-site argument is a **string literal expression**, the analyzer checks its
+  value against `AllowedLiterals`. A mismatch emits an analyzer error at the literal's
+  position with a message listing the allowed values.
+- If the argument is any **other expression** of type `string` (a variable, a
+  function-call result, a concatenation), the analyzer leaves it alone. The host
+  function performs a runtime check on the resolved value and emits an error-level task
+  status with handle 0 if it falls outside the allowed set (Section 5.3.0).
+
+The constraint lives on `Param`, not on `Type`, because the type is still ordinary
+`string`: any value the type accepts is structurally valid, but only a subset is
+semantically meaningful. Modeling it as a param-level annotation keeps the type system
+simple — no new kind, no new assignability rules — and limits the analyzer's extra work
+to the call-site argument-by-argument loop it already runs.
+
+**LSP integration.** The Arc LSP server already routes analyzer errors through
+`PublishDiagnostics` ([arc/go/lsp/server.go](../../../arc/go/lsp/server.go)), so a
+variant-value mismatch becomes an editor diagnostic — red underline at the literal,
+hover text listing the six allowed values — with no additional LSP code beyond the
+standard error formatting. The diagnostic fires on every keystroke once the analyzer
+debounce window elapses, matching how existing analyzer errors behave today.
+
+**Sourcing the allowed values.** The status module populates `AllowedLiterals` from the
+constants exported by [x/go/status](../../../x/go/status/types.gen.go)
+(`VariantSuccess`, `VariantInfo`, …), which are themselves generated from
+`schemas/status.oracle`. The Arc binding never hard-codes the list; if a future schema
+edit adds a `"pending"` variant, the next `oracle sync` regenerates the Go constants,
+and the status module's `setType` (Section 5.1) picks them up on recompile.
+
+`AllowedLiterals` is a generic mechanism, not status-specific. Future modules needing
+similar constrained-string params (e.g., a `direction: "asc" | "desc"` flag) use the
+same field and inherit the same compile-time check and LSP diagnostic.
+
 ## 5.1 - Symbol Registration
 
 The `status` module resolver registers two `ExecBoth` members (`set` and `delete`):
@@ -390,11 +541,29 @@ moduleResolver = &symbol.ModuleResolver{
 Type definitions:
 
 ```go
+// variantLiterals reuses the canonical Variant constants from x/go/status, which
+// are generated from schemas/status.oracle and shared with the Python, TS, Go, and
+// C++ clients. Adding a new variant in the schema propagates to Arc on the next
+// `oracle sync` with no edit here.
+var variantLiterals = []string{
+    string(xstatus.VariantSuccess),
+    string(xstatus.VariantInfo),
+    string(xstatus.VariantWarning),
+    string(xstatus.VariantError),
+    string(xstatus.VariantLoading),
+    string(xstatus.VariantDisabled),
+}
+
 var setType = types.Function(types.FunctionProperties{
     Config: types.Params{
-        {Name: "identifier", Type: types.String()},
+        {Name: "key_or_name", Type: types.String()},
         {Name: "message", Type: types.String(), Optional: true},
-        {Name: "variant", Type: types.String(), Optional: true},
+        {
+            Name:            "variant",
+            Type:            types.String(),
+            Optional:        true,
+            AllowedLiterals: variantLiterals,
+        },
     },
     Outputs: types.Params{
         {Name: "key", Type: types.String()},
@@ -403,7 +572,7 @@ var setType = types.Function(types.FunctionProperties{
 
 var deleteType = types.Function(types.FunctionProperties{
     Config: types.Params{
-        {Name: "identifier", Type: types.String()},
+        {Name: "key_or_name", Type: types.String()},
     },
 })
 ```
@@ -413,7 +582,7 @@ and `time.wait` ([arc/go/stl/time/time.go](../../../arc/go/stl/time/time.go)) an
 default applied to user-defined Arc functions in
 [arc/go/analyzer/function/function.go](../../../arc/go/analyzer/function/function.go).
 In Flow form, Config slots are filled by the curly-brace block
-(`status.set{identifier="X", message="Y"}`); the wire is a trigger only and does not
+(`status.set{key_or_name="X", message="Y"}`); the wire is a trigger only and does not
 feed values, exactly as `trigger -> time.wait{duration=3s} -> next` works today. In WASM
 form, the same Config slots are filled positionally at the call site
 (`status.set("X", "Y")`) in declared order. `Inputs` would describe wire-fed runtime
@@ -430,10 +599,10 @@ compiler handles optional-omission sentinels at the call site.
 
 Host functions are registered via `wazero.HostModuleBuilder("status")`:
 
-| WASM Module | Function | WASM Signature           | Description                                                                               |
-| ----------- | -------- | ------------------------ | ----------------------------------------------------------------------------------------- |
-| `status`    | `set`    | `(i32, i32, i32) -> i32` | identifier, message, variant handles -> key handle (handle 0 on omitted optional / error) |
-| `status`    | `delete` | `(i32)`                  | identifier handle                                                                         |
+| WASM Module | Function | WASM Signature           | Description                                                                                |
+| ----------- | -------- | ------------------------ | ------------------------------------------------------------------------------------------ |
+| `status`    | `set`    | `(i32, i32, i32) -> i32` | key_or_name, message, variant handles -> key handle (handle 0 on omitted optional / error) |
+| `status`    | `delete` | `(i32)`                  | key_or_name handle                                                                         |
 
 Optional omission on `set` is encoded by passing handle 0 for the omitted argument; the
 host function detects handle 0 and either preserves the corresponding existing field (on
@@ -492,8 +661,22 @@ transaction, matching the channel service's pattern for analogous name-uniquenes
 (see "Concurrency on by-name create" below).
 
 ```go
-func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32) uint32 {
-    identifier := strings.Get(identifierHandle)
+func(ctx context.Context, keyOrNameHandle, messageHandle, variantHandle uint32) uint32 {
+    keyOrName := strings.Get(keyOrNameHandle)
+
+    // Runtime variant validation for non-literal arguments. Literals are already
+    // caught at compile time (Section 5.0.1); this covers variables and computed
+    // expressions whose value the analyzer could not see.
+    var variantValue status.Variant
+    if variantHandle != 0 {
+        v := strings.Get(variantHandle)
+        if !slices.Contains(variantLiterals, v) {
+            reportError(ctx, "invalid variant '%s'; expected one of: %s",
+                v, strings.Join(variantLiterals, ", "))
+            return 0
+        }
+        variantValue = status.Variant(v)
+    }
 
     // overlay applies supplied fields to stat; omitted fields are left as-is. The
     // timestamp is always refreshed.
@@ -502,7 +685,7 @@ func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32)
             stat.Message = strings.Get(messageHandle)
         }
         if variantHandle != 0 {
-            stat.Variant = status.Variant(strings.Get(variantHandle))
+            stat.Variant = variantValue
         }
         stat.Time = telem.Now()
         return nil
@@ -510,23 +693,23 @@ func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32)
 
     // By-key path: must resolve to an existing status. UUIDs are server-assigned and
     // cannot be created by the caller.
-    if _, err := uuid.Parse(identifier); err == nil {
-        err := statusSvc.NewWriter(nil).Update(ctx, identifier, overlay)
+    if _, err := uuid.Parse(keyOrName); err == nil {
+        err := statusSvc.NewWriter(nil).Update(ctx, keyOrName, overlay)
         if errors.Is(err, query.ErrNotFound) {
-            reportError(ctx, "no status found with key '%s'", identifier)
+            reportError(ctx, "no status found with key '%s'", keyOrName)
             return 0
         }
         if err != nil {
             reportError(ctx, err)
             return 0
         }
-        return strings.Create(identifier)
+        return strings.Create(keyOrName)
     }
 
     // By-name path: retrieve and update-or-create are scoped inside a single tx.
-    key, err := statusSvc.NewWriter(nil).UpsertByName(ctx, identifier, overlay)
+    key, err := statusSvc.NewWriter(nil).UpsertByName(ctx, keyOrName, overlay)
     if errors.Is(err, errMultipleMatches) {
-        reportError(ctx, "multiple statuses named '%s'", identifier)
+        reportError(ctx, "multiple statuses named '%s'", keyOrName)
         return 0
     }
     if err != nil {
@@ -539,7 +722,7 @@ func(ctx context.Context, identifierHandle, messageHandle, variantHandle uint32)
 
 When both `messageHandle` and `variantHandle` are 0 on an update, `Update` still
 re-persists the row to refresh its `time` field. This is the "touch" path that
-`set(identifier)` with no other arguments produces against an existing status. When the
+`set(key_or_name)` with no other arguments produces against an existing status. When the
 same shape hits the create branch, the row is persisted with default message and
 variant: this is the first-call "register on touch" path.
 
@@ -573,12 +756,12 @@ and re-creating the status fresh.
 ### 5.2.2 - Delete Host Function
 
 ```go
-func(ctx context.Context, identifierHandle uint32) {
-    identifier := strings.Get(identifierHandle)
-    if _, err := uuid.Parse(identifier); err == nil {
-        if err := statusSvc.NewWriter(nil).Delete(ctx, identifier); err != nil {
+func(ctx context.Context, keyOrNameHandle uint32) {
+    keyOrName := strings.Get(keyOrNameHandle)
+    if _, err := uuid.Parse(keyOrName); err == nil {
+        if err := statusSvc.NewWriter(nil).Delete(ctx, keyOrName); err != nil {
             if errors.Is(err, query.ErrNotFound) {
-                reportWarning(ctx, "No status found with key '%s'", identifier)
+                reportWarning(ctx, "No status found with key '%s'", keyOrName)
                 return
             }
             reportError(ctx, err)
@@ -587,12 +770,12 @@ func(ctx context.Context, identifierHandle uint32) {
     }
     var results []status.Status[any]
     if err := statusSvc.NewRetrieve().
-        WhereNames(identifier).Entries(&results).Exec(ctx, nil); err != nil {
+        WhereNames(keyOrName).Entries(&results).Exec(ctx, nil); err != nil {
         reportError(ctx, err)
         return
     }
     if len(results) == 0 {
-        reportWarning(ctx, "No status found matching '%s'", identifier)
+        reportWarning(ctx, "No status found matching '%s'", keyOrName)
         return
     }
     for _, s := range results {
@@ -601,7 +784,7 @@ func(ctx context.Context, identifierHandle uint32) {
         }
     }
     if len(results) > 1 {
-        reportInfo(ctx, "Deleted %d statuses named '%s'", len(results), identifier)
+        reportInfo(ctx, "Deleted %d statuses named '%s'", len(results), keyOrName)
     }
 }
 ```
@@ -618,13 +801,13 @@ The status module follows three established patterns:
   validation (`core/pkg/service/arc/status/`)
 
 Each node's `Next()` runs the resolution logic from its WASM counterpart (Sections 5.2.1
-and 5.2.2). The configs mirror the WASM signatures: `setStatus` takes `identifier`
+and 5.2.2). The configs mirror the WASM signatures: `setStatus` takes `key_or_name`
 (required) plus `message` and `variant` (both optional, preserve-on-omit during update /
 literal-default on create, expressed via `zyn.Object`'s `.Optional()`); `deleteStatus`
-takes `identifier` (required). On `setStatus`, omitting both `message` and `variant`
+takes `key_or_name` (required). On `setStatus`, omitting both `message` and `variant`
 produces the touch path against an existing status (timestamp refresh only) or registers
 a new status with default message and variant if none exists with that name; on a UUID
-identifier that does not resolve, the node emits an error-level task status and
+`key_or_name` that does not resolve, the node emits an error-level task status and
 execution continues.
 
 ### 5.3.0 - Runtime Outcomes
@@ -633,16 +816,17 @@ Outcomes during `Next()` execution. Missing required config at startup follows t
 generic Flow factory contract (task fails to start with an error status) and is not
 status-specific.
 
-| Function | Condition                  | Behavior                                                                     |
-| -------- | -------------------------- | ---------------------------------------------------------------------------- |
-| any      | API error                  | `ctx.ReportError(err)`, execution continues                                  |
-| `set`    | Successful update          | Existing key returned; supplied fields overwrite, omitted fields preserve    |
-| `set`    | Touch only (existing)      | Existing key returned; only `time` is refreshed                              |
-| `set`    | Successful create by name  | New key returned; supplied fields used, omitted fields take literal defaults |
-| `set`    | Unknown UUID               | Error status, handle 0 returned                                              |
-| `set`    | Multiple matches by name   | Error status, handle 0 returned                                              |
-| `delete` | No match on delete-by-name | Warning status, execution continues                                          |
-| `delete` | Multiple matches by name   | All deleted, info status with count                                          |
+| Function | Condition                         | Behavior                                                                                                        |
+| -------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| any      | API error                         | `ctx.ReportError(err)`, execution continues                                                                     |
+| `set`    | Successful update                 | Existing key returned; supplied fields overwrite, omitted fields preserve                                       |
+| `set`    | Touch only (existing)             | Existing key returned; only `time` is refreshed                                                                 |
+| `set`    | Successful create by name         | New key returned; supplied fields used, omitted fields take literal defaults                                    |
+| `set`    | Unknown UUID                      | Error status, handle 0 returned                                                                                 |
+| `set`    | Multiple matches by name          | Error status, handle 0 returned                                                                                 |
+| `set`    | Invalid variant (non-literal arg) | Error status, handle 0 returned (no row written; literals are caught earlier at compile time per Section 5.0.1) |
+| `delete` | No match on delete-by-name        | Warning status, execution continues                                                                             |
+| `delete` | Multiple matches by name          | All deleted, info status with count                                                                             |
 
 ## 5.4 - Name Resolution
 
@@ -668,11 +852,11 @@ func (r Retrieve[D]) WhereNames(names ...string) Retrieve[D] {
 ```
 
 Variadic shape future-proofs for batch lookups even though the status module's initial
-use is single-name. The pseudocode in 5.2.1 and 5.2.2 calls `WhereNames(identifier)`
+use is single-name. The pseudocode in 5.2.1 and 5.2.2 calls `WhereNames(key_or_name)`
 accordingly.
 
 **Performance note**: Status keys are UUIDs, so the `set` and `delete` host functions
-discriminate via `uuid.Parse(identifier)` before issuing any query. The name path
+discriminate via `uuid.Parse(key_or_name)` before issuing any query. The name path
 (operator writes `status.set("Pressure Check", "Pressure rising")`) hits exactly one
 query (the name scan), because the parse fails and `WhereKeys` is skipped entirely. The
 key path hits one query (`WhereKeys`) and returns an error on `query.ErrNotFound` rather
@@ -719,7 +903,7 @@ that pattern.
 inside a single gorp transaction:
 
 ```go
-// UpsertByName finds the status whose Name matches the supplied identifier and applies
+// UpsertByName finds the status whose Name matches the supplied name and applies
 // the change function to it, or creates a new status with that name if none exists. The
 // retrieve and the subsequent update or create are scoped inside a single gorp
 // transaction so they are atomic with respect to other callers on the same node. If
@@ -795,20 +979,27 @@ package, in `set.go` and `delete.go` respectively.
 
 ## 6.0 - Modified Files
 
-| File                                    | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `core/pkg/service/status/retrieve.go`   | Add `WhereNames(names ...string) Retrieve[D]` method per Section 5.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `core/pkg/service/status/writer.go`     | Add `Update(ctx, key, change func(*Status[D]) error) error` (wraps `gorp.NewUpdate`, returns `query.ErrNotFound` on by-key miss) and `UpsertByName(ctx, name, change func(*Status[D]) error) (string, error)` (transaction-scoped retrieve + update-or-create, returns `errMultipleMatches` when multiple rows share the name), per Section 5.5                                                                                                                                                                                                                                      |
-| `core/pkg/service/arc/status/set.go`    | Change `set` to `ExecBoth` with `identifier` required and `message` + `variant` optional (preserve-on-omit on update / literal-default on create, encoded as handle 0); add WASM host function binding, update symbol type, rewrite Flow node to share host-function logic and to upsert (create on by-name miss)                                                                                                                                                                                                                                                                    |
-| `core/pkg/service/arc/status/delete.go` | New file: `delete` symbol (`ExecBoth`, single `identifier` input), WASM host function, `deleteStatus` Flow node                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
-| `core/pkg/service/arc/runtime/task.go`  | Register `set` and `delete` WASM host functions in the WASM builder; pass `*status.Service` and `*strings.ProgramState` into both closures                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| `driver/arc/status/status.h`            | Rewrite `SetStatus`'s constructor and `next()` to take `identifier` plus optional `message`/`variant`, run `uuid.Parse`-then-name dispatch, and apply upsert semantics with preserve-on-omit on update / literal-default on create (today it takes a fully populated `x::status::Status<>` from config and only refreshes the timestamp); add `DeleteStatus`; register `set` and `delete` in `Module::handles` / `Module::create` (decide whether to add a bare-symbol form for `delete` or only the qualified `status.delete` form, mirroring the existing `set_status` bare alias) |
+| File                                               | Change                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schemas/arc.oracle` + `arc/go/types/types.gen.go` | Add `AllowedLiterals []string` field to `types.Param` per Section 5.0.1 (regenerated via `oracle sync`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `arc/go/analyzer/expression.go`                    | Extend `validateFunctionCall` to check string-literal arguments against `AllowedLiterals` when the param carries one, leaving non-literal arguments to runtime validation per Section 5.0.1                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| `core/pkg/service/status/retrieve.go`              | Add `WhereNames(names ...string) Retrieve[D]` method per Section 5.4                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| `core/pkg/service/status/writer.go`                | Add `Update(ctx, key, change func(*Status[D]) error) error` (wraps `gorp.NewUpdate`, returns `query.ErrNotFound` on by-key miss) and `UpsertByName(ctx, name, change func(*Status[D]) error) (string, error)` (transaction-scoped retrieve + update-or-create, returns `errMultipleMatches` when multiple rows share the name), per Section 5.5                                                                                                                                                                                                                                                                                                                  |
+| `core/pkg/service/arc/status/set.go`               | Change `set` to `ExecBoth` with `key_or_name` required and `message` + `variant` optional (preserve-on-omit on update / literal-default on create, encoded as handle 0); populate `variant`'s `AllowedLiterals` from `xstatus.Variant*` constants per Section 5.1; validate variant at runtime in the host function for non-literal arguments; add WASM host function binding, update symbol type, rewrite Flow node to share host-function logic and to upsert (create on by-name miss)                                                                                                                                                                         |
+| `core/pkg/service/arc/status/delete.go`            | New file: `delete` symbol (`ExecBoth`, single `key_or_name` input), WASM host function, `deleteStatus` Flow node                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `core/pkg/service/arc/runtime/task.go`             | Register `set` and `delete` WASM host functions in the WASM builder; pass `*status.Service` and `*strings.ProgramState` into both closures                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `driver/arc/status/status.h`                       | Rewrite `SetStatus`'s constructor and `next()` to take `key_or_name` plus optional `message`/`variant`, run `uuid.Parse`-then-name dispatch, and apply upsert semantics with preserve-on-omit on update / literal-default on create (today it takes a fully populated `x::status::Status<>` from config and only refreshes the timestamp); validate `variant` against `x::status::Variant` and reject unknown values; add `DeleteStatus`; register `set` and `delete` in `Module::handles` / `Module::create` (decide whether to add a bare-symbol form for `delete` or only the qualified `status.delete` form, mirroring the existing `set_status` bare alias) |
 
 ## 6.1 - Implementation Sequence
 
-1. Land the type-system prerequisite from Section 5.0: edit the schema in `/schemas/` to
-   add `Optional bool` to `types.Param`, run `oracle sync`, and confirm the regenerated
-   `types.gen.go` compiles
+1. Land the type-system prerequisites from Section 5.0:
+   - **5.0.0:** edit the schema in `/schemas/` to add `Optional bool` to `types.Param`,
+     run `oracle sync`, and confirm the regenerated `types.gen.go` compiles
+   - **5.0.1:** add `AllowedLiterals []string` to `types.Param` in the same schema pass;
+     extend `validateFunctionCall` in `arc/go/analyzer/expression.go` to check
+     string-literal arguments against the slice when present (leaving non-literal
+     arguments untouched); confirm analyzer errors surface as LSP diagnostics end-to-end
+     via an integration test
 2. Land the language-level prerequisite from Section 3: extend the Arc compiler so an
    empty string is non-truthy in conditional expressions
 3. Extend the status service: add `WhereNames` to `core/pkg/service/status/retrieve.go`
@@ -816,8 +1007,9 @@ package, in `set.go` and `delete.go` respectively.
    `core/pkg/service/status/writer.go` per Section 5.5
 4. Register the two `ExecBoth` symbols (`set`, `delete`) in the `status` module resolver
    and define their type signatures per Section 5.1, with `message`/`variant`
-   optionality on `set` (`Optional: true`)
-5. Update `setStatus` in `set.go` to take `identifier` required plus optional
+   optionality on `set` (`Optional: true`) and `variant`'s `AllowedLiterals` populated
+   from the `xstatus.Variant*` constants
+5. Update `setStatus` in `set.go` to take `key_or_name` required plus optional
    `message`/`variant` and run the `uuid.Parse`-then-name dispatch from Sections 4.0 and
    5.2.1; the by-key path delegates to `Writer.Update`; the by-name path delegates to
    `Writer.UpsertByName` (Section 5.5), which scopes the retrieve and the subsequent
@@ -825,7 +1017,7 @@ package, in `set.go` and `delete.go` respectively.
    task status and return handle 0; on by-name multi-match (errMultipleMatches) emit an
    error-level task status and return handle 0; the touch path (no `message` or
    `variant` supplied against an existing status) refreshes only the row's `time`
-6. Implement `deleteStatus` in `delete.go` with `identifier` config and the dispatch
+6. Implement `deleteStatus` in `delete.go` with `key_or_name` config and the dispatch
    from Sections 4.1 and 5.2.2
 7. Add WASM host function bindings for `set` and `delete` matching the pseudocode in
    Section 5.2, and register them in `task.go` with closures over `*status.Service` and
@@ -833,7 +1025,7 @@ package, in `set.go` and `delete.go` respectively.
    arguments; host function detects handle 0 and either preserves the existing field (on
    update) or substitutes the literal default (on create)
 8. Update the C++ Arc runtime in `driver/arc/status/status.h`: rewrite `SetStatus`'s
-   constructor and `next()` to take `identifier` plus optional `message`/`variant`, run
+   constructor and `next()` to take `key_or_name` plus optional `message`/`variant`, run
    the `uuid.Parse`-then-name dispatch, apply upsert semantics with preserve-on-omit on
    update and literal-default on create; add `DeleteStatus`, and register `set` and
    `delete` in `Module::handles` / `Module::create` (decide whether a bare-symbol form
@@ -847,4 +1039,10 @@ package, in `set.go` and `delete.go` respectively.
    multi-match (returns handle 0, error-level task status); same-node concurrent
    `set("Same Name", ...)` callers serialize through `UpsertByName`'s transaction and
    produce exactly one row (no duplicate); `delete`-by-name multi-match (deletes all
-   rows, info-level task status with count)
+   rows, info-level task status with count); variant compile-time validation (each of
+   the six valid literals accepted; an unknown literal like `"errpr"` fails analysis
+   with an error message listing the allowed values; a `string` variable holding a valid
+   value compiles successfully and passes through to the host function); variant runtime
+   validation (a `string` variable holding an unknown value emits an error-level task
+   status and returns handle 0); LSP end-to-end (the analyzer error for an invalid
+   variant literal appears as a `protocol.Diagnostic` at the literal's range)
