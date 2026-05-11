@@ -480,7 +480,11 @@ func analyzeFunctionNode(
 		Channels: sym.Channels.Copy(),
 		Config:   slices.Clone(freshType.Config),
 		Outputs:  slices.Clone(freshType.Outputs),
-		Inputs:   slices.Clone(freshType.Inputs),
+	}
+	// ExecBoth inputs mirror config for the WASM shape. In flow form the
+	// upstream is a trigger, so omit them to avoid spurious edge type checks.
+	if sym.Exec != symbol.ExecBoth {
+		n.Inputs = slices.Clone(freshType.Inputs)
 	}
 	var ok bool
 	n.Config, ok = extractConfigValues(acontext.Child(ctx, ctx.AST.ConfigValues()), n.Config, n, sym)

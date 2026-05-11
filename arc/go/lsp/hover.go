@@ -332,9 +332,9 @@ var keywordDocs = map[string]string{
 		doc.TitleWithKind("status.set", "Function"),
 		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),
 		doc.Divider(),
-		arcCode("sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
+		arcCode("sensor -> status.set{key_or_name=\"ox_alarm\", message=\"Overpressure\", variant=\"error\"}"),
 		doc.Divider(),
-		doc.Paragraph("Accepted variants: success, error, warning, info."),
+		doc.Paragraph("Accepted variants: success, info, warning, error, loading, disabled."),
 	).Render(),
 	"math.avg": doc.New(
 		doc.TitleWithKind("math.avg", "Function"),

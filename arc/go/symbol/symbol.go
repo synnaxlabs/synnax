@@ -54,6 +54,7 @@ package symbol
 
 import (
 	"github.com/antlr4-go/antlr/v4"
+	"github.com/synnaxlabs/arc/symbol/hooks"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -163,4 +164,8 @@ type Symbol struct {
 	// Empty means not deprecated. When set, analysis helpers can automatically
 	// emit deprecation warnings (e.g., "math.avg" means "use math.avg instead").
 	Deprecated string
+	// AnalyzeCall runs after generic func-form validation. Optional.
+	AnalyzeCall hooks.CallHook
+	// AnalyzeFlowConfig runs after generic flow-form config validation. Optional.
+	AnalyzeFlowConfig hooks.FlowConfigHook
 }

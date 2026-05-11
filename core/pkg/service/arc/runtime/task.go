@@ -152,6 +152,11 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
+	statusMod, err := arcstatus.NewModule(ctx, t.factoryCfg.Status, drt.state.strings, wasmRT, nil)
+	if err != nil {
+		t.setStatus(ctx, status.VariantError, false, err.Error())
+		return err
+	}
 
 	f := node.CompoundFactory{
 		channelMod,
@@ -161,7 +166,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		constant.NewModule(),
 		stlop.NewModule(),
 		stable.NewModule(),
-		arcstatus.NewModule(t.factoryCfg.Status),
+		statusMod,
 		stlauthority.NewModule(drt.state.authority),
 		mathMod,
 	}
@@ -174,6 +179,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		}
 		stringsMod.SetMemory(guest.Memory())
 		errorsMod.SetMemory(guest.Memory())
+		statusMod.SetMemory(guest.Memory())
 		closers = append(closers, xio.CloserFunc(func() error {
 			return guest.Close(ctx)
 		}))
