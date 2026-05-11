@@ -9,10 +9,11 @@
 
 import { label, ontology, ranger, type Synnax } from "@synnaxlabs/client";
 import { array, type optional, primitive } from "@synnaxlabs/x";
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { Label } from "@/label";
 import { type List } from "@/list";
 import { Ontology } from "@/ontology";
@@ -397,6 +398,22 @@ export const { useRetrieve, useRetrieveObservable } = Flux.createRetrieve<
     }),
   ],
 });
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: Omit<Flux.UseRetrieveObservableParams<RetrieveQuery, ranger.Range>, "onChange"> & {
+  onChange: (name: string) => void;
+}): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback((result) => {
+      if (result.variant !== "success") return;
+      onChangeRef.current(result.data.name);
+    }, []),
+  });
+};
 
 export interface RetrieveMultipleQuery {
   keys: ranger.Key[];

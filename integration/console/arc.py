@@ -98,6 +98,8 @@ class ArcClient:
         Clipboard paste in headless browsers can intermittently fail, so we
         verify the editor received content and retry if it didn't.
         """
+        if source == "":
+            return
         for attempt in range(max_retries):
             self.layout.press_key("ControlOrMeta+a")
             self.layout.page.evaluate(f"navigator.clipboard.writeText({repr(source)})")
