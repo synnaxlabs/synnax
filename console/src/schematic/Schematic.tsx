@@ -152,7 +152,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
         onPositionChange={handleLegendPositionChange}
         colors={legend.colors}
         onColorsChange={handleLegendColorsChange}
-        allowVisibleChange={false}
+        allowEntryVisibleChange={false}
       />
     </Controller>
   );

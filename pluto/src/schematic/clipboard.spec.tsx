@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/unbound-method */
 // Copyright 2026 Synnax Labs, Inc.
 //
 // Use of this software is governed by the Business Source License included in the file
@@ -11,12 +10,19 @@
 import { createTestClient, schematic } from "@synnaxlabs/client";
 import { uuid, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ClipboardEvent as ReactClipboardEvent, type ReactElement } from "react";
+import {
+  type ClipboardEvent as ReactClipboardEvent,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+} from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
+
+/* eslint-disable @typescript-eslint/unbound-method */
 
 const createDataTransfer = (initial: Record<string, string> = {}): DataTransfer => {
   const store: Record<string, string> = { ...initial };
@@ -69,46 +75,36 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   });
 };
 
+// Populates the flux store with the schematic at `key`. Uses a single-hook
+// bootstrap component so the suspending `useEnsureRetrieved` is not followed by
+// additional hooks — that shape trips a React 19 concurrent-replay warning.
+const loadSchematic = async (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    Schematic.useEnsureRetrieved({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Wrapper>
+        <Errors.SuspenseBoundary loading={null}>
+          <Bootstrap />
+        </Errors.SuspenseBoundary>
+      </Wrapper>,
+    );
+  });
+  await utils.findByTestId("loaded");
+};
+
 describe("schematic clipboard", () => {
   describe("useClipboard", () => {
-    const renderEnsuredSchematic = async (
-      Wrapper: Awaited<ReturnType<typeof createAsyncSynnaxWrapper>>,
-      key: string,
-    ) => {
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key });
-        const nodes = Schematic.useSelectAllNodes({ key });
-        const edges = Schematic.useSelectAllEdges({ key });
-        return (
-          <div>
-            <div data-testid="nodes">{nodes.map((n) => n.key).join(",")}</div>
-            <div data-testid="edges">{edges.map((e) => e.key).join(",")}</div>
-            <div data-testid="positions">
-              {nodes.map((n) => `${n.key}:${n.position.x},${n.position.y}`).join("|")}
-            </div>
-          </div>
-        );
-      };
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-      await waitFor(() =>
-        expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2,n3"),
-      );
-      return utils;
-    };
-
     it("writes selected nodes, edges, and configs to clipboardData on copy", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
         () =>
@@ -141,7 +137,7 @@ describe("schematic clipboard", () => {
     it("does nothing on copy when nothing is selected", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
         () => Schematic.useClipboard({ key: schem.key, selected: [] }),
@@ -159,51 +155,49 @@ describe("schematic clipboard", () => {
     it("pastes copied nodes and edges with fresh keys at the cursor offset", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      const utils = await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const onPaste = vi.fn();
       const { result } = renderHook(
-        () =>
-          Schematic.useClipboard({
+        () => ({
+          clipboard: Schematic.useClipboard({
             key: schem.key,
             selected: ["n1", "n2", "e1"],
             onPaste,
           }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          edges: Schematic.useSelectAllEdges({ key: schem.key }),
+        }),
         { wrapper: Wrapper },
       );
 
       const copyData = createDataTransfer();
-      act(() => result.current.onCopy(createClipboardEvent(copyData), xy.ZERO));
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
       const raw = copyData.getData(MIME);
       expect(raw).not.toBe("");
 
       // Paste at (200, 200): centroid was (50, 50), so offset is (150, 150).
       const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
       await act(async () => {
-        result.current.onPaste(pasteEvent, { x: 200, y: 200 });
+        result.current.clipboard.onPaste(pasteEvent, { x: 200, y: 200 });
       });
 
-      await waitFor(() => {
-        const nodeText = utils.queryByTestId("nodes")?.textContent ?? "";
-        expect(nodeText.split(",")).toHaveLength(5);
-      });
+      await waitFor(() => expect(result.current.nodes).toHaveLength(5));
 
-      const nodeKeys = (utils.queryByTestId("nodes")?.textContent ?? "").split(",");
-      const newNodeKeys = nodeKeys.filter((k) => !["n1", "n2", "n3"].includes(k));
-      expect(newNodeKeys).toHaveLength(2);
-      expect(new Set(nodeKeys).size).toBe(nodeKeys.length);
-
-      const positions = (utils.queryByTestId("positions")?.textContent ?? "").split(
-        "|",
+      const newNodes = result.current.nodes.filter(
+        (n) => !["n1", "n2", "n3"].includes(n.key),
       );
-      const newPositions = positions
-        .filter((p) => newNodeKeys.some((k) => p.startsWith(`${k}:`)))
-        .map((p) => p.split(":")[1])
+      expect(newNodes).toHaveLength(2);
+      expect(new Set(result.current.nodes.map((n) => n.key)).size).toBe(5);
+
+      const newPositions = newNodes
+        .map((n) => `${n.position.x},${n.position.y}`)
         .sort();
       expect(newPositions).toEqual(["150,150", "250,250"]);
 
-      const edgeKeys = (utils.queryByTestId("edges")?.textContent ?? "").split(",");
-      expect(edgeKeys.filter((k) => k !== "e1")).toHaveLength(1);
+      expect(result.current.edges.filter((e) => e.key !== "e1")).toHaveLength(1);
 
       expect(onPaste).toHaveBeenCalledTimes(1);
       expect(onPaste.mock.calls[0][0] as string[]).toHaveLength(2);
@@ -213,28 +207,34 @@ describe("schematic clipboard", () => {
     it("does nothing when the clipboard has no Synnax payload", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      const utils = await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
-        () => Schematic.useClipboard({ key: schem.key, selected: [] }),
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
         { wrapper: Wrapper },
       );
 
       const event = createClipboardEvent(createDataTransfer());
       await act(async () => {
-        result.current.onPaste(event, xy.ZERO);
+        result.current.clipboard.onPaste(event, xy.ZERO);
       });
-      expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2,n3");
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
     it("ignores a payload with a mismatched version", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      const utils = await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
-        () => Schematic.useClipboard({ key: schem.key, selected: [] }),
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
         { wrapper: Wrapper },
       );
 
@@ -250,9 +250,9 @@ describe("schematic clipboard", () => {
         }),
       );
       await act(async () => {
-        result.current.onPaste(event, xy.ZERO);
+        result.current.clipboard.onPaste(event, xy.ZERO);
       });
-      expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2,n3");
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
       expect(event.preventDefault).not.toHaveBeenCalled();
     });
   });

@@ -96,7 +96,7 @@ export const Schematic = ({
       const valid = filterHaulItems(items);
       if (event == null) return valid;
       const position = xy.truncate(calculateCursorPosition(event), 0);
-      valid.forEach(({ data }) => handleAddNode({ position, ...data }));
+      valid.forEach(({ data }) => handleAddNode({ ...data, position }));
       return valid;
     },
     [handleAddNode, calculateCursorPosition],

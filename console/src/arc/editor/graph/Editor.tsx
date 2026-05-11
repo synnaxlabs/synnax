@@ -260,11 +260,10 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const store = useStore<RootState>();
 
-  const enableTriggers = useCallback(() => {
-    const state = store.getState();
-    const activeKey = Layout.selectActiveMosaicTabKeyAndNotBlurred(state);
-    return activeKey === layoutKey;
-  }, [store, layoutKey]);
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === layoutKey,
+    [store, layoutKey],
+  );
 
   Diagram.useTriggers({
     onCopy: handleCopySelection,
