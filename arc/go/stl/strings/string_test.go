@@ -61,10 +61,8 @@ var _ = Describe("Strings", func() {
 			Expect(callU32(ctx, "from_literal", testutil.U32(100000), testutil.U32(5))).To(Equal(uint32(0)))
 		})
 
-		It("Should handle empty string with length 0", func(ctx SpecContext) {
-			h := callU32(ctx, "from_literal", testutil.U32(0), testutil.U32(0))
-			Expect(h).ToNot(BeZero())
-			Expect(callU64(ctx, "len", testutil.U32(h))).To(Equal(uint64(0)))
+		It("Should return handle 0 for empty string with length 0", func(ctx SpecContext) {
+			Expect(callU32(ctx, "from_literal", testutil.U32(0), testutil.U32(0))).To(Equal(uint32(0)))
 		})
 	})
 
@@ -271,11 +269,9 @@ var _ = Describe("Strings", func() {
 			Expect(MustBeOk(ss.Get(h))).To(Equal("3.14"))
 		})
 
-		DescribeTable("Should return a handle to an empty string when the spec read is out-of-bounds",
+		DescribeTable("Should return handle 0 when the spec read is out-of-bounds",
 			func(ctx SpecContext, fn string, value uint64) {
-				h := callU32(ctx, fn, value, testutil.U32(1<<30), testutil.U32(4))
-				Expect(h).ToNot(BeZero())
-				Expect(MustBeOk(ss.Get(h))).To(BeEmpty())
+				Expect(callU32(ctx, fn, value, testutil.U32(1<<30), testutil.U32(4))).To(Equal(uint32(0)))
 			},
 			Entry("format_i32 with OOB spec", "format_i32", testutil.I32(42)),
 			Entry("format_u32 with OOB spec", "format_u32", testutil.U32(42)),
@@ -285,7 +281,7 @@ var _ = Describe("Strings", func() {
 			Entry("format_f64 with OOB spec", "format_f64", testutil.F64(3.14)),
 		)
 
-		DescribeTable("Should return a handle to an empty string when memory is nil",
+		DescribeTable("Should return handle 0 when memory is nil",
 			func(ctx SpecContext, fn string, value uint64) {
 				rt2 := testutil.NewRuntime(ctx)
 				defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
@@ -293,9 +289,7 @@ var _ = Describe("Strings", func() {
 				MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
 				rt2.Passthrough(ctx, "string")
 				res := rt2.Call(ctx, "string", fn, value, testutil.U32(0), testutil.U32(3))
-				h := testutil.AsU32(res[0])
-				Expect(h).ToNot(BeZero())
-				Expect(MustBeOk(ss2.Get(h))).To(BeEmpty())
+				Expect(testutil.AsU32(res[0])).To(Equal(uint32(0)))
 			},
 			Entry("format_i32 with nil memory", "format_i32", testutil.I32(42)),
 			Entry("format_u32 with nil memory", "format_u32", testutil.U32(42)),
@@ -325,11 +319,9 @@ var _ = Describe("Strings", func() {
 			Expect(MustBeOk(ss.Get(rh))).To(Equal(`""`))
 		})
 
-		It("Should return a handle to an empty string when the spec read is out-of-bounds", func(ctx SpecContext) {
+		It("Should return handle 0 when the spec read is out-of-bounds", func(ctx SpecContext) {
 			h := ss.Create("hi")
-			rh := callU32(ctx, "format_string", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))
-			Expect(rh).ToNot(BeZero())
-			Expect(MustBeOk(ss.Get(rh))).To(BeEmpty())
+			Expect(callU32(ctx, "format_string", testutil.U32(h), testutil.U32(1<<30), testutil.U32(4))).To(Equal(uint32(0)))
 		})
 	})
 

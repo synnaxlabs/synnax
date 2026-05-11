@@ -38,7 +38,11 @@ func NewProgramState() *ProgramState {
 }
 
 // Create stores a string and returns a transient handle for later retrieval.
+// Empty input returns handle 0.
 func (s *ProgramState) Create(str string) uint32 {
+	if str == "" {
+		return 0
+	}
 	handle := s.counter
 	s.counter++
 	s.strings[handle] = str
@@ -48,8 +52,11 @@ func (s *ProgramState) Create(str string) uint32 {
 // CreateConfig stores a string and returns a stable handle that persists
 // for the lifetime of the ProgramState and is never cleared by Clear.
 // Use this for config param strings whose handles are baked into node args
-// at configure time.
+// at configure time. Empty input returns handle 0.
 func (s *ProgramState) CreateConfig(str string) uint32 {
+	if str == "" {
+		return 0
+	}
 	handle := s.configStringCounter
 	s.configStringCounter++
 	s.configStrings[handle] = str
