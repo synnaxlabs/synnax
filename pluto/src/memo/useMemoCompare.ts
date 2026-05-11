@@ -32,3 +32,18 @@ export const useMemoDeepEqual = <T>(value: T): T => {
   else if (!deep.equal(ref.current, value)) ref.current = value;
   return ref.current;
 };
+
+/**
+ * Returns a referentially stable array as long as its contents are element-wise
+ * equal to the previous render's contents. Faster than {@link useMemoDeepEqual}
+ * for primitive arrays since it short-circuits on length and uses `===` per
+ * element.
+ */
+export const useMemoPrimitiveArray = <T extends primitive.Value>(
+  value: readonly T[],
+): readonly T[] => {
+  const ref = useRef<readonly T[]>(null);
+  if (ref.current == null || compare.primitiveArrays(ref.current, value) !== 0)
+    ref.current = value;
+  return ref.current;
+};
