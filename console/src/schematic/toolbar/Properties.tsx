@@ -126,7 +126,7 @@ interface MultiElementPropertiesProps {
   selectedConfigs: Schematic.ElementConfig[];
 }
 
-const Multiconfig = ({
+const MultiConfig = ({
   layoutKey,
   selectedConfigs,
 }: MultiElementPropertiesProps): ReactElement => {
