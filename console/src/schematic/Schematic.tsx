@@ -17,7 +17,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
@@ -33,6 +33,7 @@ import {
   setViewportMode,
 } from "@/schematic/slice";
 import { useAutoUpload } from "@/schematic/useUpload";
+import { type RootState } from "@/store";
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
@@ -110,9 +111,17 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
     [handleNodeClickAction],
   );
 
+  const store = useStore<RootState>();
+
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key,
+    [store, key],
+  );
+
   return (
     <Controller resourceKey={key} authority={authority}>
       <Base.Schematic
+        enableTriggers={enableTriggers}
         resourceKey={key}
         selected={selected}
         onSelectionChange={handleSelectionChange}
@@ -137,15 +146,14 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
           hasUpdatePermission={hasUpdatePermission}
         />
       </Base.Schematic>
-      {legend.visible && (
-        <Control.Legend
-          position={legend.position}
-          onPositionChange={handleLegendPositionChange}
-          colors={legend.colors}
-          onColorsChange={handleLegendColorsChange}
-          allowVisibleChange={false}
-        />
-      )}
+      <Control.Legend
+        visible={legend.visible}
+        position={legend.position}
+        onPositionChange={handleLegendPositionChange}
+        colors={legend.colors}
+        onColorsChange={handleLegendColorsChange}
+        allowVisibleChange={false}
+      />
     </Controller>
   );
 };

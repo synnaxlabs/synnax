@@ -24,13 +24,35 @@ export const useAutoUpload = (key: string): boolean => {
   const { update: create } = Schematic.useCreate({
     afterSuccess: useCallback(
       ({ data: { key } }: Flux.AfterSuccessParams<Schematic.UseCreateResult>) => {
+        // eslint-disable-next-line no-console
+        console.log("[useAutoUpload] afterSuccess clearing pending for key=", key);
         dispatch(clearPendingUpload({ key }));
       },
       [dispatch],
     ),
   });
+  // eslint-disable-next-line no-console
+  console.log(
+    "[useAutoUpload] key=",
+    key,
+    "pendingUpload=",
+    pendingUpload != null,
+    "pendingKey=",
+    pendingUpload?.key,
+    "workspaceKey=",
+    workspaceKey,
+    "name=",
+    name,
+  );
   useEffect(() => {
     if (pendingUpload == null) return;
+    // eslint-disable-next-line no-console
+    console.log(
+      "[useAutoUpload] firing create for key=",
+      key,
+      "pendingKey=",
+      pendingUpload.key,
+    );
     create({ ...pendingUpload, workspace: workspaceKey ?? undefined, name });
   }, [pendingUpload, workspaceKey, key, create, name]);
   return pendingUpload == null;

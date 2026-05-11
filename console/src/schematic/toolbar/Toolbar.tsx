@@ -31,6 +31,7 @@ import { useExport } from "@/schematic/export";
 import {
   useSelectControlStatus,
   useSelectEditable,
+  useSelectPendingUpload,
   useSelectSelected,
   useSelectToolbar,
 } from "@/schematic/selectors";
@@ -76,7 +77,7 @@ export interface ToolbarProps {
   layoutKey: string;
 }
 
-export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
+const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   PSchematic.useEnsureRetrieved({ key: layoutKey });
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
@@ -164,4 +165,9 @@ export const Toolbar = ({ layoutKey }: ToolbarProps): ReactElement | null => {
       </Key.Provider>
     </Tabs.Provider>
   );
+};
+
+export const Toolbar = (props: ToolbarProps) => {
+  const pendingUpload = useSelectPendingUpload(props.layoutKey);
+  return pendingUpload == null ? <Internal {...props} /> : null;
 };

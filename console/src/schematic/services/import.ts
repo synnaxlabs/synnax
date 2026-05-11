@@ -9,7 +9,7 @@
 
 import { DisconnectedError, schematic } from "@synnaxlabs/client";
 import { Access } from "@synnaxlabs/pluto";
-import { uuid } from "@synnaxlabs/x";
+import { type record, uuid } from "@synnaxlabs/x";
 
 import { type Import } from "@/import";
 import { create, LAYOUT_TYPE } from "@/schematic/layout";
@@ -19,21 +19,12 @@ const parseImport = (
   data: unknown,
   fallbackName: string | undefined,
 ): schematic.New => {
-  // Modern wire format: server-schematic shape (what extract emits).
   const direct = schematic.schematicZ.safeParse(data);
   if (direct.success) {
     const { key: _key, ...rest } = direct.data;
     return { ...rest, name: fallbackName ?? rest.name };
   }
-  // Legacy wire format: pre-v6 redux state. anyStateZ migrates forward to v6,
-  // populating pendingUpload from the legacy graph fields. remoteCreated is a
-  // local-state concept on the source machine; force it false here so the
-  // migration always extracts the graph for the new server.
-  const adjusted =
-    typeof data === "object" && data !== null
-      ? { ...(data as Record<string, unknown>), remoteCreated: false }
-      : data;
-  const legacy = anyStateZ.parse(adjusted);
+  const legacy = anyStateZ.parse({ ...(data as record.Unknown), remoteCreated: false });
   if (legacy.pendingUpload == null)
     throw new Error("Imported schematic has no graph data");
   const { snapshot, nodes, edges, configs } = legacy.pendingUpload;
@@ -49,13 +40,7 @@ export const ingest: Import.FileIngester = async (
   if (client == null) throw new DisconnectedError();
   const newPayload = parseImport(data, layout?.name);
   const created = await client.schematics.create(workspaceKey ?? uuid.ZERO, newPayload);
-  store.schematics.set(created.key, created);
-  placeLayout(
-    create({
-      ...layout,
-      key: created.key,
-      name: created.name,
-      type: LAYOUT_TYPE,
-    }),
-  );
+  const { key, name } = created;
+  store.schematics.set(key, created);
+  placeLayout(create({ ...layout, key, name, type: LAYOUT_TYPE }));
 };

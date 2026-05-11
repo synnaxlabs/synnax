@@ -42,6 +42,7 @@ export interface SchematicProps extends Omit<
   | "onEdgesChange"
   | "onChange"
 > {
+  enableTriggers?: boolean | (() => boolean);
   resourceKey: schematic.Key;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
@@ -54,6 +55,7 @@ export const Schematic = ({
   onDoubleClick,
   onSelectionChange,
   selected,
+  enableTriggers,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -118,26 +120,16 @@ export const Schematic = ({
     ]);
   }, [onSelectionChange]);
 
-  const { copy, paste } = useClipboard({
+  const { onCopy, onPaste } = useClipboard({
     key,
     selected,
     onPaste: onSelectionChange,
   });
-  const handlePaste = useCallback(
-    (cursor: xy.XY) => {
-      void paste(calculateCursorPosition(cursor));
-    },
-    [paste, calculateCursorPosition],
-  );
 
   BaseDiagram.useTriggers({
-    onCopy: copy,
-    onPaste: handlePaste,
     onSelectAll: handleSelectAll,
-    onClear: handleClearSelection,
-    onUndo: () => {},
-    onRedo: () => {},
-    region: ref,
+    onClearSelection: handleClearSelection,
+    enabled: enableTriggers,
   });
 
   return (
@@ -152,6 +144,8 @@ export const Schematic = ({
         viewport={viewport}
         onSelectionChange={onSelectionChange}
         onDoubleClick={onDoubleClick}
+        onCopy={onCopy}
+        onPaste={onPaste}
         nodes={nodes}
         edges={edges}
         selected={selected}

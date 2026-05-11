@@ -27,7 +27,7 @@ const defaultProps: UseTriggersProps = {
   onRedo: noop,
   onCopy: noopCursor,
   onPaste: noopCursor,
-  onClear: noop,
+  onClearSelection: noop,
   onSelectAll: noop,
 };
 
@@ -98,7 +98,7 @@ describe("Diagram.useTriggers", () => {
     const onClear = vi.fn();
     render(
       <Triggers.Provider>
-        <TestComponent {...defaultProps} onClear={onClear} />
+        <TestComponent {...defaultProps} onClearSelection={onClear} />
       </Triggers.Provider>,
     );
     fireEvent.keyDown(document.body, { code: "Escape" });
