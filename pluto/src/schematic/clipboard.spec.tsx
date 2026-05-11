@@ -8,67 +8,41 @@
 // included in the file licenses/APL.txt.
 
 import { createTestClient, schematic } from "@synnaxlabs/client";
-import { uuid } from "@synnaxlabs/x";
+import { uuid, xy } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  type ClipboardEvent as ReactClipboardEvent,
+  type FC,
+  type PropsWithChildren,
+  type ReactElement,
+} from "react";
+import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
-import * as clipboard from "@/schematic/clipboard";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
-class StringBlob {
-  private readonly value: string;
-  readonly type: string;
-  constructor(parts: string[], options: { type: string }) {
-    this.value = parts.join("");
-    this.type = options.type;
-  }
-  async text(): Promise<string> {
-    return this.value;
-  }
-}
+/* eslint-disable @typescript-eslint/unbound-method */
 
-class MockClipboardItem {
-  readonly types: string[];
-  private readonly blobs: Map<string, StringBlob>;
-  constructor(items: Record<string, StringBlob>) {
-    this.blobs = new Map(Object.entries(items));
-    this.types = Array.from(this.blobs.keys());
-  }
-  async getType(type: string): Promise<StringBlob> {
-    const blob = this.blobs.get(type);
-    if (blob == null) throw new Error(`type not found: ${type}`);
-    return blob;
-  }
-}
-
-const installClipboardMock = () => {
-  const buffer: MockClipboardItem[] = [];
-  const write = vi.fn(async (items: MockClipboardItem[]) => {
-    buffer.length = 0;
-    buffer.push(...items);
-  });
-  const read = vi.fn(async () => buffer.slice());
-  vi.stubGlobal("ClipboardItem", MockClipboardItem);
-  vi.stubGlobal("Blob", StringBlob);
-  Object.defineProperty(globalThis.navigator, "clipboard", {
-    configurable: true,
-    value: { read, write },
-  });
+const createDataTransfer = (initial: Record<string, string> = {}): DataTransfer => {
+  const store: Record<string, string> = { ...initial };
   return {
-    write,
-    read,
-    seed: (item: MockClipboardItem) => {
-      buffer.length = 0;
-      buffer.push(item);
+    getData: (type: string) => store[type] ?? "",
+    setData: (type: string, value: string) => {
+      store[type] = value;
     },
-    clear: () => {
-      buffer.length = 0;
-    },
-  };
+  } as unknown as DataTransfer;
 };
+
+const createClipboardEvent = (
+  data: DataTransfer,
+): ReactClipboardEvent<HTMLDivElement> =>
+  ({
+    clipboardData: data,
+    preventDefault: vi.fn(),
+  }) as unknown as ReactClipboardEvent<HTMLDivElement>;
+
+const MIME = "web application/synnax-schematic+json";
 
 const client = createTestClient();
 
@@ -101,96 +75,36 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
   });
 };
 
+// Populates the flux store with the schematic at `key`. Uses a single-hook
+// bootstrap component so the suspending `useEnsureRetrieved` is not followed by
+// additional hooks — that shape trips a React 19 concurrent-replay warning.
+const loadSchematic = async (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    Schematic.useEnsureRetrieved({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Wrapper>
+        <Errors.SuspenseBoundary loading={null}>
+          <Bootstrap />
+        </Errors.SuspenseBoundary>
+      </Wrapper>,
+    );
+  });
+  await utils.findByTestId("loaded");
+};
+
 describe("schematic clipboard", () => {
-  let mock: ReturnType<typeof installClipboardMock>;
-
-  beforeEach(() => {
-    mock = installClipboardMock();
-  });
-
-  afterEach(() => {
-    vi.unstubAllGlobals();
-  });
-
-  describe("encoding", () => {
-    it("round-trips a payload through write and read", async () => {
-      await clipboard.write(
-        [{ key: "a", position: { x: 1, y: 2 } }],
-        [
-          {
-            key: "e",
-            source: { node: "a", param: "out" },
-            target: { node: "b", param: "in" },
-          },
-        ],
-        { a: { color: "red" } },
-        { x: 1, y: 2 },
-      );
-      const got = await clipboard.read();
-      expect(got).not.toBeNull();
-      expect(got?.nodes).toEqual([{ key: "a", position: { x: 1, y: 2 } }]);
-      expect(got?.edges[0].key).toBe("e");
-      expect(got?.configs.a).toEqual({ color: "red" });
-      expect(got?.anchor).toEqual({ x: 1, y: 2 });
-    });
-
-    it("returns null when the clipboard does not contain a Synnax payload", async () => {
-      mock.clear();
-      expect(await clipboard.read()).toBeNull();
-    });
-
-    it("returns null when the version does not match", async () => {
-      mock.seed(
-        new MockClipboardItem({
-          "application/synnax-schematic+json": new StringBlob(
-            [JSON.stringify({ version: 999, nodes: [], edges: [], configs: {} })],
-            { type: "application/synnax-schematic+json" },
-          ),
-        }),
-      );
-      expect(await clipboard.read()).toBeNull();
-    });
-  });
-
   describe("useClipboard", () => {
-    const renderEnsuredSchematic = async (
-      Wrapper: Awaited<ReturnType<typeof createAsyncSynnaxWrapper>>,
-      key: string,
-    ) => {
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key });
-        const nodes = Schematic.useSelectAllNodes({ key });
-        const edges = Schematic.useSelectAllEdges({ key });
-        return (
-          <div>
-            <div data-testid="nodes">{nodes.map((n) => n.key).join(",")}</div>
-            <div data-testid="edges">{edges.map((e) => e.key).join(",")}</div>
-            <div data-testid="positions">
-              {nodes.map((n) => `${n.key}:${n.position.x},${n.position.y}`).join("|")}
-            </div>
-          </div>
-        );
-      };
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-      await waitFor(() =>
-        expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2,n3"),
-      );
-      return utils;
-    };
-
-    it("copies the selected nodes, edges, and configs", async () => {
+    it("writes selected nodes, edges, and configs to clipboardData on copy", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
         () =>
@@ -201,95 +115,145 @@ describe("schematic clipboard", () => {
         { wrapper: Wrapper },
       );
 
-      act(() => result.current.copy());
-      await waitFor(() => expect(mock.write).toHaveBeenCalled());
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      act(() => result.current.onCopy(event, xy.ZERO));
 
-      const payload = await clipboard.read();
-      expect(payload?.nodes.map((n) => n.key).sort()).toEqual(["n1", "n2"]);
-      expect(payload?.edges.map((e) => e.key)).toEqual(["e1"]);
-      expect(payload?.configs.n1).toEqual({ variant: "tank", label: "Pump" });
-      expect(payload?.configs.e1).toEqual({ variant: "pipe" });
+      const raw = data.getData(MIME);
+      expect(raw).not.toBe("");
+      const payload = JSON.parse(raw);
+      expect(payload.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "n1",
+        "n2",
+      ]);
+      expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
+      expect(payload.configs.n1).toEqual({ variant: "tank", label: "Pump" });
+      expect(payload.configs.e1).toEqual({ variant: "pipe" });
       // Centroid of n1 (0,0) and n2 (100,100) = (50,50).
-      expect(payload?.anchor).toEqual({ x: 50, y: 50 });
+      expect(payload.anchor).toEqual({ x: 50, y: 50 });
+      expect(event.preventDefault).toHaveBeenCalled();
     });
 
-    it("does nothing when nothing is selected", async () => {
+    it("does nothing on copy when nothing is selected", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
         () => Schematic.useClipboard({ key: schem.key, selected: [] }),
         { wrapper: Wrapper },
       );
-      act(() => result.current.copy());
-      expect(mock.write).not.toHaveBeenCalled();
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      act(() => result.current.onCopy(event, xy.ZERO));
+
+      expect(data.getData(MIME)).toBe("");
+      expect(event.preventDefault).not.toHaveBeenCalled();
     });
 
-    it("pastes copied nodes and edges with fresh keys at the target offset", async () => {
+    it("pastes copied nodes and edges with fresh keys at the cursor offset", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      const utils = await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const onPaste = vi.fn();
       const { result } = renderHook(
-        () =>
-          Schematic.useClipboard({
+        () => ({
+          clipboard: Schematic.useClipboard({
             key: schem.key,
             selected: ["n1", "n2", "e1"],
             onPaste,
           }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          edges: Schematic.useSelectAllEdges({ key: schem.key }),
+        }),
         { wrapper: Wrapper },
       );
 
-      act(() => result.current.copy());
-      await waitFor(() => expect(mock.write).toHaveBeenCalled());
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+      expect(raw).not.toBe("");
 
       // Paste at (200, 200): centroid was (50, 50), so offset is (150, 150).
+      const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
       await act(async () => {
-        await result.current.paste({ x: 200, y: 200 });
+        result.current.clipboard.onPaste(pasteEvent, { x: 200, y: 200 });
       });
 
-      await waitFor(() => {
-        const nodeText = utils.queryByTestId("nodes")?.textContent ?? "";
-        expect(nodeText.split(",")).toHaveLength(5);
-      });
+      await waitFor(() => expect(result.current.nodes).toHaveLength(5));
 
-      const nodeKeys = (utils.queryByTestId("nodes")?.textContent ?? "").split(",");
-      const newNodeKeys = nodeKeys.filter((k) => !["n1", "n2", "n3"].includes(k));
-      expect(newNodeKeys).toHaveLength(2);
-      expect(new Set(nodeKeys).size).toBe(nodeKeys.length);
-
-      const positions = (utils.queryByTestId("positions")?.textContent ?? "").split(
-        "|",
+      const newNodes = result.current.nodes.filter(
+        (n) => !["n1", "n2", "n3"].includes(n.key),
       );
-      const newPositions = positions
-        .filter((p) => newNodeKeys.some((k) => p.startsWith(`${k}:`)))
-        .map((p) => p.split(":")[1])
+      expect(newNodes).toHaveLength(2);
+      expect(new Set(result.current.nodes.map((n) => n.key)).size).toBe(5);
+
+      const newPositions = newNodes
+        .map((n) => `${n.position.x},${n.position.y}`)
         .sort();
       expect(newPositions).toEqual(["150,150", "250,250"]);
 
-      const edgeKeys = (utils.queryByTestId("edges")?.textContent ?? "").split(",");
-      expect(edgeKeys.filter((k) => k !== "e1")).toHaveLength(1);
+      expect(result.current.edges.filter((e) => e.key !== "e1")).toHaveLength(1);
 
       expect(onPaste).toHaveBeenCalledTimes(1);
       expect(onPaste.mock.calls[0][0] as string[]).toHaveLength(2);
+      expect(pasteEvent.preventDefault).toHaveBeenCalled();
     });
 
     it("does nothing when the clipboard has no Synnax payload", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createSchematicWithGraph();
-      const utils = await renderEnsuredSchematic(Wrapper, schem.key);
+      await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
-        () => Schematic.useClipboard({ key: schem.key, selected: [] }),
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
         { wrapper: Wrapper },
       );
-      mock.clear();
+
+      const event = createClipboardEvent(createDataTransfer());
       await act(async () => {
-        await result.current.paste({ x: 0, y: 0 });
+        result.current.clipboard.onPaste(event, xy.ZERO);
       });
-      expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2,n3");
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
+      expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("ignores a payload with a mismatched version", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGraph();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: [] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const event = createClipboardEvent(
+        createDataTransfer({
+          [MIME]: JSON.stringify({
+            version: 999,
+            nodes: [],
+            edges: [],
+            configs: {},
+            anchor: { x: 0, y: 0 },
+          }),
+        }),
+      );
+      await act(async () => {
+        result.current.clipboard.onPaste(event, xy.ZERO);
+      });
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
+      expect(event.preventDefault).not.toHaveBeenCalled();
     });
   });
 });

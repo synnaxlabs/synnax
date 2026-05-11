@@ -17,6 +17,7 @@ import {
   type Handlers,
   removeEdge,
   removeNode,
+  rename,
   setConfig,
   setNode,
   setNodePosition,
@@ -25,6 +26,14 @@ import {
 const NO_OP: HandlerResult = { inverse: [], targets: [] };
 
 const handlers: Handlers = {
+  rename: (state, payload) => {
+    const oldName = state.name;
+    state.name = payload.name;
+    return {
+      inverse: [rename({ name: oldName })],
+      targets: [state.key],
+    };
+  },
   setNodePosition: (state, payload) => {
     const node = state.nodes.find((n) => n.key === payload.key);
     if (node == null) return NO_OP;

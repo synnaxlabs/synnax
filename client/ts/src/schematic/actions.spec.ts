@@ -17,6 +17,7 @@ import {
   addEdge,
   removeEdge,
   removeNode,
+  rename,
   setConfig,
   setNode,
   setNodeMeasured,
@@ -55,6 +56,31 @@ const apply = (state: Schematic, ...actions: Action[]): Schematic =>
   reduceAll(state, actions).next;
 
 describe("schematic reducer", () => {
+  describe("rename", () => {
+    it("should set the schematic name to the payload name", () => {
+      const state = empty({ name: "old" });
+      const out = apply(state, rename({ name: "new" }));
+      expect(out.name).toEqual("new");
+    });
+    it("should accept an empty name", () => {
+      const state = empty({ name: "old" });
+      const out = apply(state, rename({ name: "" }));
+      expect(out.name).toEqual("");
+    });
+    it("should leave nodes, edges, and configs untouched", () => {
+      const state = empty({
+        name: "old",
+        nodes: [node("n1", 0, 0)],
+        edges: [edge("e1", "a", "o", "b", "i")],
+        configs: { n1: { label: "Pump" } },
+      });
+      const out = apply(state, rename({ name: "new" }));
+      expect(out.nodes).toEqual(state.nodes);
+      expect(out.edges).toEqual(state.edges);
+      expect(out.configs).toEqual(state.configs);
+    });
+  });
+
   describe("setNodePosition", () => {
     it("should move the matching node to the new position", () => {
       const state = empty({ nodes: [node("n1", 0, 0), node("n2", 5, 5)] });
@@ -438,6 +464,22 @@ describe("schematic reducer inverses", () => {
       expect(restored.configs[k]).toEqual(v);
   };
 
+  describe("rename", () => {
+    it("should invert to restore the prior name", () => {
+      const state = empty({ name: "old" });
+      expectRoundTrip(state, [rename({ name: "new" })]);
+    });
+    it("should round-trip when renaming to the same name", () => {
+      const state = empty({ name: "same" });
+      expectRoundTrip(state, [rename({ name: "same" })]);
+    });
+    it("should report the schematic key as a target so concurrent renames invalidate each other", () => {
+      const state = empty({ key: "11111111-1111-1111-1111-111111111111", name: "a" });
+      const { targets } = reduceAll(state, [rename({ name: "b" })]);
+      expect(targets).toEqual([state.key]);
+    });
+  });
+
   describe("setNodePosition", () => {
     it("should invert to restore the prior position", () => {
       const state = empty({ nodes: [node("n1", 1, 2)] });
@@ -603,6 +645,7 @@ describe("schematic reducer inverses", () => {
 
   describe("isUndoable", () => {
     it("should return true for every action other than setNodeMeasured", () => {
+      expect(isUndoable(rename({ name: "x" }))).toBe(true);
       expect(isUndoable(setNodePosition({ key: "n1", position: { x: 0, y: 0 } }))).toBe(
         true,
       );

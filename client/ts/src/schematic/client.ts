@@ -11,7 +11,7 @@ import { sendRequired, type UnaryClient } from "@synnaxlabs/freighter";
 import { array } from "@synnaxlabs/x";
 import { z } from "zod";
 
-import { type Action, actionZ } from "@/schematic/actions.gen";
+import { type Action, actionZ, rename as renameAction } from "@/schematic/actions.gen";
 import { symbol } from "@/schematic/symbol";
 import {
   type Key,
@@ -23,8 +23,6 @@ import {
 } from "@/schematic/types.gen";
 import { checkForMultipleOrNoResults } from "@/util/retrieve";
 import { workspace } from "@/workspace";
-
-const renameReqZ = z.object({ key: keyZ, name: z.string() });
 
 export const SET_CHANNEL_NAME = "sy_schematic_set";
 
@@ -101,13 +99,7 @@ export class Client {
   }
 
   async rename(key: Key, name: string): Promise<void> {
-    await sendRequired(
-      this.client,
-      "/schematic/rename",
-      { key, name },
-      renameReqZ,
-      emptyResZ,
-    );
+    await this.dispatch(key, "", [renameAction({ name })]);
   }
 
   async setData(key: Key, data: SetDataBody): Promise<void> {

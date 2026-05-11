@@ -32,7 +32,7 @@ import {
 } from "@/triggers/triggers";
 
 export interface Listen {
-  (callback: Callback): destructor.Destructor;
+  (callback: Callback, priority?: number): destructor.Destructor;
 }
 
 export interface ContextValue {
@@ -98,8 +98,11 @@ export const Provider = ({
     cursor.current = xy.construct(e);
   }, []);
 
-  // All registered triggers and callbacks
-  const registry = useRef<Map<Callback, null>>(new Map());
+  // All registered triggers and callbacks, kept sorted by priority descending.
+  // Same-priority entries are stored in insertion order. Higher priority
+  // subscribers receive events first and can stop propagation to lower priority
+  // subscribers.
+  const registry = useRef<Array<{ callback: Callback; priority: number }>>([]);
 
   // The current trigger.
   const [, setCurr] = useStateRef<RefState>({ ...ZERO_REF_STATE });
@@ -107,8 +110,14 @@ export const Provider = ({
   const updateListeners = useCallback((state: RefState, target: HTMLElement): void => {
     const next = state.next.length > 0 ? [state.next] : [];
     const prev = state.prev.length > 0 ? [state.prev] : [];
-    const event = { target, next, prev, cursor: cursor.current };
-    registry.current.forEach((_, f) => f(event));
+    let minPriority = Number.NEGATIVE_INFINITY;
+    for (const { callback, priority } of registry.current) {
+      if (priority < minPriority) break;
+      const stopPropagation = () => {
+        minPriority = priority;
+      };
+      callback({ target, next, prev, cursor: cursor.current, stopPropagation });
+    }
   }, []);
 
   const handleKeyDown = useCallback((e: KeyboardEvent | MouseEvent): void => {
@@ -199,9 +208,15 @@ export const Provider = ({
     };
   }, [handleKeyDown, handleKeyUp, handleMouseMove]);
 
-  const listen = useCallback<Listen>((callback) => {
-    registry.current.set(callback, null);
-    return () => registry.current.delete(callback);
+  const listen = useCallback<Listen>((callback, priority = 0) => {
+    const entries = registry.current;
+    let i = 0;
+    while (i < entries.length && entries[i].priority >= priority) i++;
+    entries.splice(i, 0, { callback, priority });
+    return () => {
+      const idx = entries.findIndex((e) => e.callback === callback);
+      if (idx >= 0) entries.splice(idx, 1);
+    };
   }, []);
 
   const ctxValue = useMemo(() => ({ listen }), [listen]);

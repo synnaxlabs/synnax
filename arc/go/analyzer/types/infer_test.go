@@ -114,6 +114,10 @@ var _ = Describe("Type Inference", func() {
 			Entry("integer literal", "42", types.KindVariable, types.KindIntegerConstant),
 			Entry("float literal", "3.14", types.KindVariable, types.KindFloatConstant),
 			Entry("string literal", `"hello"`, types.KindString, types.KindInvalid),
+			Entry("raw string literal", "`hello`", types.KindString, types.KindInvalid),
+			Entry("empty raw string literal", "``", types.KindString, types.KindInvalid),
+			Entry("multi-line raw string literal", "`a\nb`", types.KindString, types.KindInvalid),
+			Entry("raw string with escaped backtick", "`say \\`hi\\``", types.KindString, types.KindInvalid),
 			Entry("boolean true", "true", types.KindU8, types.KindInvalid),
 			Entry("boolean false", "false", types.KindU8, types.KindInvalid),
 		)

@@ -22,7 +22,7 @@ export interface SimpleProps extends Omit<
   onEntryChange?: (value: EntryData) => void;
   position?: ContainerProps["value"];
   onPositionChange?: ContainerProps["onChange"];
-  allowVisibleChange?: boolean;
+  allowEntryVisibleChange?: boolean;
   background?: Theming.Shade;
 }
 
@@ -31,7 +31,7 @@ export const Simple = ({
   onEntryChange,
   position,
   onPositionChange,
-  allowVisibleChange = true,
+  allowEntryVisibleChange: allowVisibleChange = true,
   background = 1,
   ...rest
 }: SimpleProps): ReactElement | null => {

@@ -17,6 +17,7 @@ import { array, type record, uuid, xy } from "@synnaxlabs/x";
 import { useCallback } from "react";
 
 import { Flux } from "@/flux";
+import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
@@ -53,17 +54,34 @@ export const retrieveSingle = async ({
   return s;
 };
 
-export const { useRetrieve, useEnsureRetrieved } = Flux.createSuspendedRetrieve<
-  RetrieveQuery,
-  schematic.Schematic,
-  FluxSubStore
->({
-  name: RESOURCE_NAME,
-  retrieve: retrieveSingle,
-  mountListeners: ({ store, query: { key }, onChange }) => [
-    store.schematics.onSet(onChange, key),
-  ],
-});
+export const { useRetrieveSuspended, useRetrieveObservable, useEnsureRetrieved } =
+  Flux.createRetrieve<RetrieveQuery, schematic.Schematic, FluxSubStore>({
+    name: RESOURCE_NAME,
+    retrieve: retrieveSingle,
+    mountListeners: ({ store, query: { key }, onChange }) =>
+      store.schematics.onSet(onChange, key),
+  });
+
+export interface useRetrieveObservableNameParams extends Omit<
+  Flux.UseRetrieveObservableParams<RetrieveQuery, schematic.Schematic>,
+  "onChange"
+> {
+  onChange: (name: string) => void;
+}
+
+export const useRetrieveObservableName = ({
+  onChange,
+  ...params
+}: useRetrieveObservableNameParams): Flux.UseRetrieveObservableReturn<RetrieveQuery> => {
+  const onChangeRef = useSyncedRef(onChange);
+  return useRetrieveObservable({
+    ...params,
+    onChange: useCallback(
+      (result) => result.variant === "success" && onChangeRef.current(result.data.name),
+      [],
+    ),
+  });
+};
 
 export interface SelectKeyArgs {
   key: schematic.Key;
@@ -231,8 +249,8 @@ export const { useUpdate: useCreate } = Flux.createUpdate<
   name: RESOURCE_NAME,
   verbs: Flux.CREATE_VERBS,
   update: async ({ client, data, store, rollbacks }) => {
-    const { workspace, ...rest } = data;
     data.key ??= uuid.create();
+    const { workspace, ...rest } = data;
     rollbacks.push(store.schematics.set(data.key, data as schematic.Schematic));
     const s = await client.schematics.create(workspace ?? uuid.ZERO, rest);
     return { ...s, workspace };
@@ -352,9 +370,11 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   verbs: Flux.RENAME_VERBS,
   update: async ({ client, data, rollbacks, store }) => {
     const { key, name } = data;
-    await client.schematics.rename(key, name);
-    rollbacks.push(Flux.partialUpdate(store.schematics, key, { name }));
+    const current = store.schematics.get(key);
+    if (current != null)
+      rollbacks.push(store.schematics.set(key, { ...current, name }));
     rollbacks.push(Ontology.renameFluxResource(store, schematic.ontologyID(key), name));
+    await client.schematics.rename(key, name);
     return data;
   },
 });
@@ -374,8 +394,7 @@ export const useAddNode = (resourceKey: string) => {
 
   return useCallback(
     ({ key, variant, position, specKey, config: override }: AddNodeProps) => {
-      const spec = Node.resolveSpec(variant);
-      const config = spec.defaultConfig(theme);
+      const config = Node.resolveSpec(variant).defaultConfig(theme);
       if (
         (config.variant == "customActuator" || config.variant === "customStatic") &&
         specKey != null

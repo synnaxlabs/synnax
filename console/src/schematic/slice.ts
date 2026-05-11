@@ -33,6 +33,11 @@ export interface StoreState {
 
 export interface CreatePayload {
   key: string;
+  editable?: boolean;
+  // Optional legacy state used by the import pipeline. When present, it is
+  // migrated forward via anyStateZ and the resulting pendingUpload is stored
+  // on the slice so useAutoUpload pushes the graph to the active workspace.
+  data?: unknown;
 }
 
 export interface SetSelectedPayload {
@@ -103,11 +108,58 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      if (state.schematics[payload.key] != null) return;
+      // eslint-disable-next-line no-console
+      console.log(
+        "[schematic/create] payload.key=",
+        payload.key,
+        "data?",
+        payload.data != null,
+      );
+      if (state.schematics[payload.key] != null) {
+        // eslint-disable-next-line no-console
+        console.log(
+          "[schematic/create] skipping: already exists for key=",
+          payload.key,
+        );
+        return;
+      }
+      let migrated: State | undefined;
+      if (payload.data != null) {
+        const adjusted =
+          typeof payload.data === "object" && payload.data !== null
+            ? { ...(payload.data as Record<string, unknown>), remoteCreated: false }
+            : payload.data;
+        const parsed = anyStateZ.safeParse(adjusted);
+        if (parsed.success) migrated = parsed.data;
+        // eslint-disable-next-line no-console
+        console.log(
+          "[schematic/create] parsed?",
+          parsed.success,
+          "migrated.pendingUpload?",
+          migrated?.pendingUpload != null,
+          "pendingKey=",
+          migrated?.pendingUpload?.key,
+        );
+      }
       state.schematics[payload.key] = {
         ...ZERO_STATE,
         legend: { ...ZERO_STATE.legend },
         selected: [],
+        editable: payload.editable ?? migrated?.editable ?? ZERO_STATE.editable,
+        ...(migrated == null
+          ? {}
+          : {
+              authority: migrated.authority,
+              controlStatus: migrated.controlStatus,
+              legend: { ...migrated.legend },
+              toolbar: migrated.toolbar,
+              fitViewOnResize: migrated.fitViewOnResize,
+              viewport: migrated.viewport,
+              pendingUpload:
+                migrated.pendingUpload == null
+                  ? undefined
+                  : { ...migrated.pendingUpload, key: payload.key },
+            }),
       };
     },
     setSelected: (state, { payload }: PayloadAction<SetSelectedPayload>) => {

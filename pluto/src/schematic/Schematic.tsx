@@ -44,6 +44,7 @@ export interface SchematicProps extends Omit<
   | "onEdgesChange"
   | "onChange"
 > {
+  enableTriggers?: boolean | (() => boolean);
   resourceKey: schematic.Key;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
@@ -56,6 +57,7 @@ export const Schematic = ({
   onDoubleClick,
   onSelectionChange,
   selected,
+  enableTriggers,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -96,7 +98,7 @@ export const Schematic = ({
       const valid = filterHaulItems(items);
       if (event == null) return valid;
       const position = xy.truncate(calculateCursorPosition(event), 0);
-      valid.forEach(({ data }) => handleAddNode({ position, ...data }));
+      valid.forEach(({ data }) => handleAddNode({ ...data, position }));
       return valid;
     },
     [handleAddNode, calculateCursorPosition],
@@ -122,25 +124,18 @@ export const Schematic = ({
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
-  const { copy, paste } = useClipboard({
+  const { onCopy, onPaste } = useClipboard({
     key,
     selected,
     onPaste: onSelectionChange,
   });
-  const handlePaste = useCallback(
-    (cursor: xy.XY) => {
-      void paste(calculateCursorPosition(cursor));
-    },
-    [paste, calculateCursorPosition],
-  );
 
   BaseDiagram.useTriggers({
-    onCopy: copy,
-    onPaste: handlePaste,
     onSelectAll: handleSelectAll,
-    onClear: handleClearSelection,
+    onClearSelection: handleClearSelection,
     onUndo: undo,
     onRedo: redo,
+    enabled: enableTriggers,
   });
 
   return (
@@ -155,6 +150,8 @@ export const Schematic = ({
         viewport={viewport}
         onSelectionChange={onSelectionChange}
         onDoubleClick={onDoubleClick}
+        onCopy={onCopy}
+        onPaste={onPaste}
         nodes={nodes}
         edges={edges}
         selected={selected}

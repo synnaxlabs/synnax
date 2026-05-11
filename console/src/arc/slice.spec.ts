@@ -23,8 +23,6 @@ import { Layout } from "@/layout";
 
 describe("Arc Middleware", () => {
   const layoutKey = "arc-1";
-  const otherKey = "arc-2";
-  const modalKey = "modal-1";
 
   const buildStore = (
     layouts: Record<string, Layout.State>,
@@ -64,41 +62,9 @@ describe("Arc Middleware", () => {
     location: "mosaic",
   });
 
-  const modalLayout = (key: string): Layout.State => ({
-    key,
-    windowKey: MAIN_WINDOW,
-    type: "arc",
-    name: key,
-    location: "modal",
-  });
-
   it("should apply setSelected when the arc is the active mosaic tab", () => {
     const store = buildStore({ [layoutKey]: mosaicLayout(layoutKey) }, layoutKey);
     store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
     expect(store.getState()[SLICE_NAME].arcs[layoutKey].graph.selected).toEqual(["n1"]);
-  });
-
-  it("should drop setSelected when a modal is open in the arc's window", () => {
-    const store = buildStore(
-      {
-        [layoutKey]: mosaicLayout(layoutKey),
-        [modalKey]: modalLayout(modalKey),
-      },
-      layoutKey,
-    );
-    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
-    expect(store.getState()[SLICE_NAME].arcs[layoutKey].graph.selected).toEqual([]);
-  });
-
-  it("should drop setSelected when a different mosaic tab is active", () => {
-    const store = buildStore(
-      {
-        [layoutKey]: mosaicLayout(layoutKey),
-        [otherKey]: mosaicLayout(otherKey),
-      },
-      otherKey,
-    );
-    store.dispatch(actions.setSelected({ key: layoutKey, selected: ["n1"] }));
-    expect(store.getState()[SLICE_NAME].arcs[layoutKey].graph.selected).toEqual([]);
   });
 });

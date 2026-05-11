@@ -38,11 +38,12 @@ const parseSubjectName = (name: string): ParsedName => {
 export interface LegendProps extends Omit<Base.SimpleProps, "data" | "onEntryChange"> {
   colors?: Record<string, color.Color>;
   onColorsChange?: (colors: Record<string, color.Color>) => void;
+  visible?: boolean;
 }
 
 export const Legend = (props: LegendProps): ReactElement | null => {
   const { key: contextKey, needsControlOf } = useContext();
-  const { colors = {}, onColorsChange, ...restProps } = props;
+  const { colors = {}, onColorsChange, visible, ...restProps } = props;
 
   const [, { states }, setState] = Aether.use({
     type: control.Legend.TYPE,
@@ -57,7 +58,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
   const {
     position,
     onPositionChange,
-    allowVisibleChange: _,
+    allowEntryVisibleChange: _,
     background = 1,
     ...rest
   } = restProps;
@@ -86,7 +87,7 @@ export const Legend = (props: LegendProps): ReactElement | null => {
 
   const [pickerVisible, setPickerVisible] = useState(false);
 
-  if (data.length === 0) return null;
+  if (data.length === 0 || !visible) return null;
 
   return (
     <Base.Container

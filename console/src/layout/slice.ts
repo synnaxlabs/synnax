@@ -13,6 +13,7 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
@@ -125,8 +126,8 @@ export interface SetWorkspacePayload {
   slice: SliceState;
 }
 
-interface SetNavDrawerVisiblePayload {
-  windowKey: string;
+export interface SetNavDrawerVisiblePayload {
+  windowKey?: string;
   key?: string;
   location?: NavDrawerLocation;
   value?: boolean;
@@ -385,6 +386,11 @@ export const { actions, reducer } = createSlice({
         payload: { windowKey, key, location, value },
       }: PayloadAction<SetNavDrawerVisiblePayload>,
     ) => {
+      if (windowKey == null)
+        throw new UnexpectedError(
+          "setNavDrawerVisible requires a windowKey; the layout middleware should " +
+            "have injected one from drift state",
+        );
       let navState = state.nav[windowKey];
       if (navState == null) {
         navState = { drawers: {} };
@@ -618,11 +624,36 @@ export interface OnCloseProps {
   layoutKey: string;
 }
 
+/** The result returned by a layout's {@link UseName}. */
+export interface NameHookResult {
+  retrieve: () => void;
+  /**
+   * Called when the user renames the layout from the UI (e.g., editing the tab
+   * in the mosaic). When undefined, the renderer falls back to dispatching
+   * {@link rename} against the layout slice.
+   */
+  onRename: (name: string) => void;
+}
+
+/**
+ * A hook bound to a layout {@link Renderer} that owns the name read/write path
+ * for the layout. The hook is responsible for invoking {@link NameHookProps.onChange}
+ * whenever its source-of-truth name updates and for persisting user-initiated
+ * renames via {@link NameHookResult.onRename}. Display name is always read from
+ * the layout slice; the hook keeps the slice in sync via `onChange`.
+ */
+export type UseName = (
+  layoutKey: string,
+  onChange: (name: string) => void,
+) => NameHookResult;
+
 /**
  * A React component that renders a layout for a given type. All layouts in state are
- * rendered by a layout renderer of a specific type.
+ * rendered by a layout renderer of a specific type. Renderers may optionally bind a
+ * {@link UseName} via the `useName` property to take over the name read/write path
+ * for layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps>;
+export type Renderer = ComponentType<RendererProps> & { useName?: UseName };
 
 export interface ContextMenuProps {
   layoutKey: string;

@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, type xy } from "@synnaxlabs/x";
+import { box, xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
@@ -31,9 +31,11 @@ import {
   type Viewport as RFViewport,
 } from "@xyflow/react";
 import {
+  type ClipboardEvent as ReactClipboardEvent,
   type ComponentPropsWithRef,
   type FC,
   memo,
+  type MouseEvent as ReactMouseEvent,
   type ReactElement,
   useCallback,
   useEffect,
@@ -65,6 +67,7 @@ import {
   type Viewport,
 } from "@/vis/diagram/aether/types";
 import { Context } from "@/vis/diagram/Context";
+import { calculateCursorPosition } from "@/vis/diagram/util";
 
 export interface NodeProps {
   nodeKey: string;
@@ -111,9 +114,15 @@ const PRO_OPTIONS: ProOptions = {
   hideAttribution: true,
 };
 
+export type DiagramClipboardHandler = (
+  this: void,
+  e: ReactClipboardEvent<HTMLDivElement>,
+  cursor: xy.XY,
+) => void;
+
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithRef<"div">, "onError">,
+    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onPaste">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -142,6 +151,18 @@ export interface DiagramProps
   onViewportModeChange: (v: BaseViewport.Mode) => void;
   triggers?: BaseViewport.UseTriggers;
   dragHandleSelector?: string;
+  /**
+   * Called when a copy event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the copy, derived from
+   * the most recent mousemove over the diagram.
+   */
+  onCopy?: DiagramClipboardHandler;
+  /**
+   * Called when a paste event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the paste, derived from
+   * the most recent mousemove over the diagram.
+   */
+  onPaste?: DiagramClipboardHandler;
 }
 
 const DELETE_KEY_CODES: Triggers.Trigger = ["Backspace", "Delete"];
@@ -242,6 +263,9 @@ export const create = ({
     onViewportModeChange,
     autoRenderInterval,
     onDoubleClick,
+    onCopy,
+    onPaste,
+    onMouseMove,
     ...rest
   }: DiagramProps): ReactElement => {
     const [{ path }, , setState] = Aether.use({
@@ -440,11 +464,50 @@ export const create = ({
       [viewport],
     );
 
+    const viewportSyncRef = useSyncedRef(viewport);
+    const cursorRef = useRef<xy.XY>(xy.ZERO);
+
+    const handleMouseMove = useCallback(
+      (e: ReactMouseEvent<HTMLDivElement>): void => {
+        cursorRef.current = xy.construct(e.nativeEvent);
+        onMouseMove?.(e);
+      },
+      [onMouseMove],
+    );
+
+    const cursorInDiagramSpace = useCallback(
+      (target: HTMLDivElement): xy.XY =>
+        calculateCursorPosition(
+          box.construct(target),
+          cursorRef.current,
+          viewportSyncRef.current,
+        ),
+      [],
+    );
+
+    const handleCopy = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        onCopy?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onCopy, cursorInDiagramSpace],
+    );
+
+    const handlePaste = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onPaste, cursorInDiagramSpace],
+    );
+
     return (
       <div
         className={CSS.BE("diagram", "container")}
         ref={ref}
         onDoubleClick={onDoubleClick}
+        onCopy={handleCopy}
+        onPaste={handlePaste}
+        onMouseMove={handleMouseMove}
+        tabIndex={-1}
       >
         <Context value={ctxValue}>
           <Aether.Composite path={path}>

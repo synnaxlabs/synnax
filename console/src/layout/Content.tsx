@@ -10,7 +10,7 @@
 import { Errors } from "@synnaxlabs/pluto";
 import { memo, type ReactElement } from "react";
 
-import { useOptionalRenderer } from "@/layout/context";
+import { useRenderer } from "@/layout/context";
 import { useSelectFocused, useSelectType } from "@/layout/selectors";
 import { useRemover } from "@/layout/useRemover";
 
@@ -31,9 +31,8 @@ export const Content = memo(
   ({ layoutKey, forceHidden }: ContentProps): ReactElement => {
     const type = useSelectType(layoutKey) ?? "";
     const handleClose = useRemover(layoutKey);
-    const Renderer = useOptionalRenderer(type);
+    const Renderer = useRenderer(type);
     const { focused } = useSelectFocused();
-    if (Renderer == null) throw new Error(`layout renderer ${type} not found`);
     const isFocused = focused === layoutKey;
     let visible = focused == null || isFocused;
     if (forceHidden) visible = false;

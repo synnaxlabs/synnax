@@ -197,10 +197,10 @@ describe("retrieve", () => {
   });
 });
 
-describe("Flux.createSuspendedRetrieve", () => {
+describe("useRetrieveSuspended", () => {
   it("suspends until the retrieve resolves, then returns the value", async () => {
     let resolveRetrieve: (value: number) => void = () => {};
-    const { useRetrieve } = Flux.createSuspendedRetrieve<{ key: string }, number>({
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: () =>
         new Promise<number>((resolve) => {
@@ -209,7 +209,7 @@ describe("Flux.createSuspendedRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "first-test" });
+      const value = useRetrieveSuspended({ key: "first-test" });
       return <div data-testid="value">{value}</div>;
     };
 
@@ -242,13 +242,13 @@ describe("Flux.createSuspendedRetrieve", () => {
           resolveRetrieve = resolve;
         }),
     );
-    const { useRetrieve } = Flux.createSuspendedRetrieve<{ key: string }, number>({
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve,
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "dedupe-test" });
+      const value = useRetrieveSuspended({ key: "dedupe-test" });
       return <div>{value}</div>;
     };
 
@@ -272,7 +272,7 @@ describe("Flux.createSuspendedRetrieve", () => {
   });
 
   it("routes a thrown error to the error fallback", async () => {
-    const { useRetrieve } = Flux.createSuspendedRetrieve<{ key: string }, number>({
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
       name: "Number",
       retrieve: async () => {
         throw new Error("boom");
@@ -280,7 +280,7 @@ describe("Flux.createSuspendedRetrieve", () => {
     });
 
     const Display = (): ReactElement => {
-      const value = useRetrieve({ key: "error-test" });
+      const value = useRetrieveSuspended({ key: "error-test" });
       return <div>{value}</div>;
     };
 

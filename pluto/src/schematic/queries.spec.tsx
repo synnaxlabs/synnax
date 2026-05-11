@@ -10,7 +10,7 @@
 import { createTestClient, NotFoundError, schematic } from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
-import { type ReactElement } from "react";
+import { type FC, type PropsWithChildren, type ReactElement } from "react";
 import { describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
@@ -42,14 +42,38 @@ const createTestSchematic = async (): Promise<schematic.Schematic> => {
   });
 };
 
+// Populates the flux store with the schematic at `key`. Uses a single-hook
+// bootstrap component so the suspending `useEnsureRetrieved` is not followed by
+// additional hooks — that shape trips a React 19 concurrent-replay warning.
+const loadSchematic = async (
+  Wrapper: FC<PropsWithChildren>,
+  key: string,
+): Promise<void> => {
+  const Bootstrap = (): ReactElement => {
+    Schematic.useEnsureRetrieved({ key });
+    return <div data-testid="loaded" />;
+  };
+  let utils!: ReturnType<typeof render>;
+  await act(async () => {
+    utils = render(
+      <Wrapper>
+        <Errors.SuspenseBoundary loading={null}>
+          <Bootstrap />
+        </Errors.SuspenseBoundary>
+      </Wrapper>,
+    );
+  });
+  await utils.findByTestId("loaded");
+};
+
 describe("schematic queries", () => {
-  describe("useRetrieve", () => {
+  describe("useRetrieveSuspended", () => {
     it("suspends until the schematic loads, then returns it", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
 
       const Display = (): ReactElement => {
-        const s = Schematic.useRetrieve({ key: schem.key });
+        const s = Schematic.useRetrieveSuspended({ key: schem.key });
         return <div data-testid="name">{s.name}</div>;
       };
 
@@ -57,16 +81,16 @@ describe("schematic queries", () => {
       await act(async () => {
         utils = render(
           <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
+            <Errors.SuspenseBoundary loading={null}>
               <Display />
             </Errors.SuspenseBoundary>
           </Wrapper>,
         );
       });
 
-      await waitFor(() => {
-        expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic");
-      });
+      await waitFor(() =>
+        expect(utils.queryByTestId("name")?.textContent).toBe("test_schematic"),
+      );
     });
   });
 
@@ -74,27 +98,13 @@ describe("schematic queries", () => {
     it("populates the store so downstream selectors resolve", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
 
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key: schem.key });
-        const nodes = Schematic.useSelectAllNodes({ key: schem.key });
-        return <div data-testid="nodes">{nodes.map((n) => n.key).join(",")}</div>;
-      };
-
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-
-      await waitFor(() => {
-        expect(utils.queryByTestId("nodes")?.textContent).toBe("n1,n2");
-      });
+      const { result } = renderHook(
+        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
   });
 
@@ -102,82 +112,41 @@ describe("schematic queries", () => {
     it("useSelectAllEdges returns the schematic's edges", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
 
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key: schem.key });
-        const edges = Schematic.useSelectAllEdges({ key: schem.key });
-        return <div data-testid="edges">{edges.map((e) => e.key).join(",")}</div>;
-      };
-
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-
-      await waitFor(() => {
-        expect(utils.queryByTestId("edges")?.textContent).toBe("e1");
-      });
+      const { result } = renderHook(
+        () => Schematic.useSelectAllEdges({ key: schem.key }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.map((e) => e.key)).toEqual(["e1"]);
     });
 
     it("useSelectSnapshot returns the snapshot flag", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
 
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key: schem.key });
-        const snap = Schematic.useSelectSnapshot({ key: schem.key });
-        return <div data-testid="snap">{String(snap)}</div>;
-      };
-
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-
-      await waitFor(() => {
-        expect(utils.queryByTestId("snap")?.textContent).toBe("false");
-      });
+      const { result } = renderHook(
+        () => Schematic.useSelectSnapshot({ key: schem.key }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
     });
 
     it("useSelectElementConfig returns a config by element key", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
 
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key: schem.key });
-        const cfg = Schematic.useSelectElementConfig({
-          key: schem.key,
-          elKey: "n1",
-        });
-        return <div data-testid="variant">{(cfg as { variant: string }).variant}</div>;
-      };
-
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-
-      await waitFor(() => {
-        expect(utils.queryByTestId("variant")?.textContent).toBe("tank");
-      });
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectElementConfig({
+            key: schem.key,
+            elKey: "n1",
+          }),
+        { wrapper: Wrapper },
+      );
+      expect((result.current as { variant: string }).variant).toBe("tank");
     });
   });
 
@@ -263,31 +232,15 @@ describe("schematic queries", () => {
     it("applies actions to the schematic and updates the store", async () => {
       const Wrapper = await createAsyncSynnaxWrapper({ client });
       const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
 
-      const Display = (): ReactElement => {
-        Schematic.useEnsureRetrieved({ key: schem.key });
-        const nodes = Schematic.useSelectAllNodes({ key: schem.key });
-        const n1 = nodes.find((n) => n.key === "n1");
-        return (
-          <div data-testid="pos">
-            {n1?.position.x ?? "?"},{n1?.position.y ?? "?"}
-          </div>
-        );
-      };
-
-      let utils!: ReturnType<typeof render>;
-      await act(async () => {
-        utils = render(
-          <Wrapper>
-            <Errors.SuspenseBoundary loading={<div>loading</div>}>
-              <Display />
-            </Errors.SuspenseBoundary>
-          </Wrapper>,
-        );
-      });
-
-      await waitFor(() => {
-        expect(utils.queryByTestId("pos")?.textContent).toBe("0,0");
+      const { result: nodes } = renderHook(
+        () => Schematic.useSelectAllNodes({ key: schem.key }),
+        { wrapper: Wrapper },
+      );
+      expect(nodes.current.find((n) => n.key === "n1")?.position).toEqual({
+        x: 0,
+        y: 0,
       });
 
       const { result: dispatchHook } = renderHook(() => Schematic.useDispatch(), {
@@ -306,9 +259,12 @@ describe("schematic queries", () => {
         });
       });
 
-      await waitFor(() => {
-        expect(utils.queryByTestId("pos")?.textContent).toBe("100,200");
-      });
+      await waitFor(() =>
+        expect(nodes.current.find((n) => n.key === "n1")?.position).toEqual({
+          x: 100,
+          y: 200,
+        }),
+      );
     });
   });
 });

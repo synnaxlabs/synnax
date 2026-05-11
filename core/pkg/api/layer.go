@@ -28,6 +28,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api/device"
 	"github.com/synnaxlabs/synnax/pkg/api/framer"
 	"github.com/synnaxlabs/synnax/pkg/api/group"
+	"github.com/synnaxlabs/synnax/pkg/api/imex"
 	"github.com/synnaxlabs/synnax/pkg/api/label"
 	"github.com/synnaxlabs/synnax/pkg/api/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/api/log"
@@ -108,7 +109,6 @@ type Transport struct {
 	SchematicCreate   freighter.UnaryServer[schematic.CreateRequest, schematic.CreateResponse]
 	SchematicRetrieve freighter.UnaryServer[schematic.RetrieveRequest, schematic.RetrieveResponse]
 	SchematicDelete   freighter.UnaryServer[schematic.DeleteRequest, types.Nil]
-	SchematicRename   freighter.UnaryServer[schematic.RenameRequest, types.Nil]
 	SchematicSetData  freighter.UnaryServer[schematic.SetDataRequest, types.Nil]
 	SchematicDispatch freighter.UnaryServer[schematic.DispatchRequest, types.Nil]
 	SchematicCopy     freighter.UnaryServer[schematic.CopyRequest, schematic.CopyResponse]
@@ -177,6 +177,9 @@ type Transport struct {
 	ViewCreate   freighter.UnaryServer[view.CreateRequest, view.CreateResponse]
 	ViewRetrieve freighter.UnaryServer[view.RetrieveRequest, view.RetrieveResponse]
 	ViewDelete   freighter.UnaryServer[view.DeleteRequest, types.Nil]
+	// IMPORT/EXPORT
+	ImExImport freighter.UnaryServer[imex.ImportRequest, imex.ImportResponse]
+	ImExExport freighter.UnaryServer[imex.ExportRequest, imex.ExportResponse]
 }
 
 // Layer wraps all implemented API services into a single container. Protocol-specific Layer
@@ -205,6 +208,7 @@ type Layer struct {
 	Access       *access.Service
 	Arc          *arc.Service
 	Status       *status.Service
+	ImEx         *imex.Service
 	config       config.LayerConfig
 }
 
@@ -291,7 +295,6 @@ func (l *Layer) BindTo(t Transport) {
 		t.SchematicCreate,
 		t.SchematicRetrieve,
 		t.SchematicDelete,
-		t.SchematicRename,
 		t.SchematicSetData,
 		t.SchematicDispatch,
 		t.SchematicCopy,
@@ -371,6 +374,10 @@ func (l *Layer) BindTo(t Transport) {
 		t.ArcCreate,
 		t.ArcDelete,
 		t.ArcRetrieve,
+
+		// IMPORT/EXPORT
+		t.ImExImport,
+		t.ImExExport,
 	)
 
 	// AUTH
@@ -438,7 +445,6 @@ func (l *Layer) BindTo(t Transport) {
 	t.SchematicCreate.BindHandler(l.Schematic.Create)
 	t.SchematicRetrieve.BindHandler(l.Schematic.Retrieve)
 	t.SchematicDelete.BindHandler(l.Schematic.Delete)
-	t.SchematicRename.BindHandler(l.Schematic.Rename)
 	t.SchematicSetData.BindHandler(l.Schematic.SetData)
 	t.SchematicDispatch.BindHandler(l.Schematic.Dispatch)
 	t.SchematicCopy.BindHandler(l.Schematic.Copy)
@@ -519,6 +525,10 @@ func (l *Layer) BindTo(t Transport) {
 	t.ArcDelete.BindHandler(l.Arc.Delete)
 	t.ArcRetrieve.BindHandler(l.Arc.Retrieve)
 	t.ArcLSP.BindHandler(l.Arc.LSP)
+
+	// IMPORT/EXPORT
+	t.ImExImport.BindHandler(l.ImEx.Import)
+	t.ImExExport.BindHandler(l.ImEx.Export)
 }
 
 // NewLayer instantiates the server API layer using the provided Configs. This should
@@ -596,6 +606,9 @@ func NewLayer(cfgs ...LayerConfig) (*Layer, error) {
 		return nil, err
 	}
 	if l.View, err = view.NewService(cfg); err != nil {
+		return nil, err
+	}
+	if l.ImEx, err = imex.NewService(cfg); err != nil {
 		return nil, err
 	}
 	return l, nil

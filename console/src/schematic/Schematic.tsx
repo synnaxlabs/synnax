@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Control,
@@ -18,7 +17,7 @@ import {
 } from "@synnaxlabs/pluto";
 import { type color, type sticky } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useStore } from "react-redux";
 
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
@@ -34,11 +33,11 @@ import {
   setViewportMode,
 } from "@/schematic/slice";
 import { useAutoUpload } from "@/schematic/useUpload";
+import { type RootState } from "@/store";
 
 const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
   Base.useEnsureRetrieved({ key });
   const isSnapshot = Base.useSelectSnapshot({ key });
-  const windowKey = useSelectWindowKey() as string;
   const dispatch = useDispatch();
   const {
     editable,
@@ -97,14 +96,8 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (editable)
-      dispatch(
-        Layout.setNavDrawerVisible({
-          windowKey,
-          key: "visualization",
-          value: true,
-        }),
-      );
-  }, [windowKey, editable, dispatch]);
+      dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [editable, dispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(key);
 
@@ -118,9 +111,17 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
     [handleNodeClickAction],
   );
 
+  const store = useStore<RootState>();
+
+  const enableTriggers = useCallback(
+    () => Layout.selectActiveMosaicTabKeyAndNotBlurred(store.getState()) === key,
+    [store, key],
+  );
+
   return (
     <Controller resourceKey={key} authority={authority}>
       <Base.Schematic
+        enableTriggers={enableTriggers}
         resourceKey={key}
         selected={selected}
         onSelectionChange={handleSelectionChange}
@@ -145,15 +146,14 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
           hasUpdatePermission={hasUpdatePermission}
         />
       </Base.Schematic>
-      {legend.visible && (
-        <Control.Legend
-          position={legend.position}
-          onPositionChange={handleLegendPositionChange}
-          colors={legend.colors}
-          onColorsChange={handleLegendColorsChange}
-          allowVisibleChange={false}
-        />
-      )}
+      <Control.Legend
+        visible={legend.visible}
+        position={legend.position}
+        onPositionChange={handleLegendPositionChange}
+        colors={legend.colors}
+        onColorsChange={handleLegendColorsChange}
+        allowEntryVisibleChange={false}
+      />
     </Controller>
   );
 };
@@ -164,3 +164,7 @@ export const Schematic: Layout.Renderer = (props) => {
   if (!uploaded) return null;
   return <Internal {...props} />;
 };
+Schematic.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+);

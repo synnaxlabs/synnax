@@ -23,6 +23,12 @@ type ScopedAction struct {
 	Actions    []Action `json:"actions" msgpack:"actions"`
 }
 
+// Handle replaces the schematic's name.
+func (a Rename) Handle(state Schematic) (Schematic, error) {
+	state.Name = a.Name
+	return state, nil
+}
+
 // Handle moves the named node to the given position. No-op if no node matches.
 func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
