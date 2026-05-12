@@ -86,7 +86,6 @@ export const render = (): void => {
   };
 
   void aether.render({
-    comms: aether.wrapWorkerScope(),
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

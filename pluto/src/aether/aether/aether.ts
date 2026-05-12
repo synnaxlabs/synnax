@@ -18,6 +18,7 @@ import {
   type MainUpdateRequest,
   type Sender,
   type WorkerComms,
+  wrapWorkerScope,
 } from "@/aether/aether/message";
 
 export {
@@ -597,11 +598,12 @@ const aetherRootState = z.object({});
 
 /** Arguments for {@link Root.render}. */
 export interface RootProps {
-  /** Bidirectional channel with the main thread; usually
-   * {@link wrapWorkerScope} in production or {@link createMockPair} in tests. */
-  comms: WorkerComms;
   /** Map of component types this tree can instantiate. */
   registry: ComponentRegistry;
+  /** Bidirectional channel with the main thread; usually
+   * {@link wrapWorkerScope} in production or {@link createMockPair} in tests. */
+  worker?: WorkerComms;
+  /** Instrumentation used for logging, tracing, etc. */
   instrumentation?: alamos.Instrumentation;
 }
 
@@ -622,18 +624,18 @@ export class Root extends Composite<typeof aetherRootState> {
   schema = aetherRootState;
 
   constructor({
-    comms,
+    worker = wrapWorkerScope(),
     instrumentation = alamos.Instrumentation.NOOP,
     registry,
   }: RootProps) {
     super({
       key: Root.KEY,
       type: Root.TYPE,
-      sender: comms,
+      sender: worker,
       instrumentation,
       parentCtxValues: null,
     });
-    this.comms = comms;
+    this.comms = worker;
     this.registry = registry;
   }
 

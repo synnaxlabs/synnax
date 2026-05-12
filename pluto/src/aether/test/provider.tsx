@@ -18,7 +18,7 @@ export const createProvider = (
   const TestProvider: FC<PropsWithChildren> = ({ children }) => {
     const worker = useMemo(() => {
       const [workerSide, mainSide] = aether.createMockPair();
-      aether.render({ comms: workerSide, registry });
+      aether.render({ worker: workerSide, registry });
       return mainSide;
     }, []);
 

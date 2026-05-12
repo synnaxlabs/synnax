@@ -169,7 +169,7 @@ type TestProviderProps = PropsWithChildren<
 
 const newProvider = async (): Promise<[FC<TestProviderProps>, aether.Root]> => {
   const [workerSide, mainSide] = aether.createMockPair();
-  const root = aether.render({ comms: workerSide, registry: REGISTRY });
+  const root = aether.render({ worker: workerSide, registry: REGISTRY });
   return [
     (props: TestProviderProps) => <Aether.Provider worker={mainSide} {...props} />,
     root,
@@ -1646,7 +1646,7 @@ describe("Aether Main", () => {
       // unmount/remount window). The store should fall back to the last
       // known snapshot for that key rather than throw.
       const [workerSide, mainSide] = aether.createMockPair();
-      aether.render({ comms: workerSide, registry: REGISTRY });
+      aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });
       const key = "pinned";
       const snapshot = () => store.getSnapshot<typeof exampleProps>(key);
