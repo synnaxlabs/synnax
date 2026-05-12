@@ -12,8 +12,8 @@ import { type destructor, status } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
-import { useQueryCache, useStore } from "@/flux/Provider";
 import { hashQuery, type QueryCache } from "@/flux/base/queryCache";
+import { useQueryCache, useStore } from "@/flux/Provider";
 import {
   errorResult,
   loadingResult,
