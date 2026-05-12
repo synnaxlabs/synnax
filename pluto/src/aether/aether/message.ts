@@ -26,9 +26,8 @@ export interface MainDeleteRequest {
   path: readonly string[];
 }
 
-/** Main → worker: invoke `method` on the component at `path` with `args`.
- * `key` correlates a response on {@link WorkerInvokeResponse}; omit for
- * fire-and-forget. */
+/** Main → worker: invoke `method` on the component at `path` with `args`. `key`
+ * correlates a response on {@link WorkerInvokeResponse}; omit for fire-and-forget. */
 export interface MainInvokeRequest {
   variant: "invoke_request";
   key?: string;
@@ -50,8 +49,8 @@ export interface WorkerNotifyErrorRequest {
   error: errors.NativePayload;
 }
 
-/** Worker → main: response to a {@link MainInvokeRequest}. `error` is set
- * when the handler threw; otherwise `result` carries the return value. */
+/** Worker → main: response to a {@link MainInvokeRequest}. `error` is set when the
+ * handler threw; otherwise `result` carries the return value. */
 export interface WorkerInvokeResponse {
   variant: "invoke_response";
   key: string;
@@ -68,8 +67,8 @@ export type WorkerMessage =
 /** Any message sent from the main thread to the worker thread. */
 export type MainMessage = MainUpdateRequest | MainDeleteRequest | MainInvokeRequest;
 
-/** Send-only channel from the worker side. Held by individual aether
- * components to post {@link WorkerMessage}s back to the main thread. */
+/** Send-only channel from the worker side. Held by individual aether components to post
+ * {@link WorkerMessage}s back to the main thread. */
 export interface Sender {
   send: (value: WorkerMessage, transfer?: Transferable[]) => void;
 }
@@ -87,9 +86,9 @@ export interface MainComms {
   handle: (handler: (value: WorkerMessage) => void) => void;
 }
 
-/** Sentinel used when `workerEnabled: false`. Lets the store stay non-null
- * without runtime null checks; any other missing-worker configuration is a
- * constructor-time error. */
+/** Sentinel used when `workerEnabled: false`. Lets the store stay non-null without
+ * runtime null checks; any other missing-worker configuration is a constructor-time
+ * error. */
 export const NOOP_MAIN_COMMS: MainComms = { send: () => {}, handle: () => {} };
 
 /** Adapts a `Worker` to {@link MainComms} for main-thread use. */
@@ -100,9 +99,9 @@ export const wrapWorker = (worker: Worker): MainComms => ({
   },
 });
 
-/** Returns {@link WorkerComms} bound to the dedicated worker global scope.
- * The worker-side parallel of {@link wrapWorker}; must be called from inside
- * a dedicated worker. */
+/** Returns {@link WorkerComms} bound to the dedicated worker global scope. The
+ * worker-side parallel of {@link wrapWorker}; must be called from inside a dedicated
+ * worker. */
 export const wrapWorkerScope = (): WorkerComms => ({
   send: (value, transfer = []) => postMessage(value, { transfer }),
   handle: (handler) => {
@@ -110,10 +109,9 @@ export const wrapWorkerScope = (): WorkerComms => ({
   },
 });
 
-/** Creates a paired `[workerSide, mainSide]` of comms that route to each
- * other. Use in tests in place of a real {@link Worker}; the tuple order
- * matches the direction expected by {@link aether.render} and
- * {@link Aether.Provider}. */
+/** Creates a paired `[workerSide, mainSide]` of comms that route to each other. Use in
+ * tests in place of a real {@link Worker}; the tuple order matches the direction
+ * expected by {@link aether.render} and {@link Aether.Provider}. */
 export const createMockPair = (): [WorkerComms, MainComms] => {
   let workerHandler: ((value: MainMessage) => void) | null = null;
   let mainHandler: ((value: WorkerMessage) => void) | null = null;

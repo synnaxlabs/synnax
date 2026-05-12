@@ -44,8 +44,8 @@ const newTreeError = (e: unknown, pathOrMessage?: string): Error => {
  * for propagating context to descendants. */
 export interface ContextMap extends Pick<Map<string, unknown>, "get" | "forEach"> {}
 
-/** Factory passed to {@link Component._updateState} so a {@link Composite} can
- * lazily instantiate a missing child with the right parent context. */
+/** Factory passed to {@link Component._updateState} so a {@link Composite} can lazily
+ * instantiate a missing child with the right parent context. */
 interface CreateComponent {
   (initialParentCtxValues: ContextMap): Component;
 }
@@ -59,10 +59,9 @@ export interface UpdateStateParams extends Pick<
 
 export interface InvokeMethodParams extends Omit<MainInvokeRequest, "variant"> {}
 
-/** A node in the worker-side Aether tree, identified by `type` (class) and
- * `key` (instance). The `_`-prefixed methods are the internal tree protocol —
- * implementations live on {@link Leaf} and {@link Composite}; subclasses
- * should not call them. */
+/** A node in the worker-side Aether tree, identified by `type` (class) and `key`
+ * (instance). The `_`-prefixed methods are the internal tree protocol — implementations
+ * live on {@link Leaf} and {@link Composite}; subclasses should not call them. */
 export interface Component {
   type: string;
   key: string;
@@ -84,8 +83,7 @@ export interface ComponentConstructorProps {
   parentCtxValues: ContextMap | null;
 }
 
-/** Constructor signature every entry in a {@link ComponentRegistry} must
- * satisfy. */
+/** Constructor signature every entry in a {@link ComponentRegistry} must satisfy. */
 export interface ComponentConstructor {
   new (props: ComponentConstructorProps): Component;
 }
@@ -93,37 +91,36 @@ export interface ComponentConstructor {
 /** Passed to {@link Leaf.afterUpdate} / {@link Leaf.afterDelete}: read inherited
  * parent-context values and publish new ones to descendants. */
 export interface Context {
-  /** Returns the parent-context value at `key`, typed as `P`. The cast is
-   * unchecked. Throws {@link NotFoundError} if the key is absent. */
+  /** Returns the parent-context value at `key`, typed as `P`. The cast is unchecked.
+   * Throws {@link NotFoundError} if the key is absent. */
   get<P>(key: string): P;
-  /** Returns the parent-context value at `key`, typed as `P`, or `null` if
-   * absent. The cast is unchecked. */
+  /** Returns the parent-context value at `key`, typed as `P`, or `null` if absent. The
+   * cast is unchecked. */
   getOptional<P>(key: string): P | null;
-  /** Reports whether a parent-context value exists at `key`. Does not see
-   * values set on this component via {@link Context.set}; use
-   * {@link Context.wasSetPreviously} for that. */
+  /** Reports whether a parent-context value exists at `key`. Does not see values set on
+   * this component via {@link Context.set}; use {@link Context.wasSetPreviously} for
+   * that. */
   has(key: string): boolean;
-  /** Publishes `value` at `key` to this component's descendants. The
-   * publishing component itself does not see the value via {@link Context.get}
-   * — overriding a parent's key keeps the parent's value visible locally.
-   * If `trigger` (default `true`), descendants are notified of the change. */
+  /** Publishes `value` at `key` to this component's descendants. The publishing
+   * component itself does not see the value via {@link Context.get} — overriding a
+   * parent's key keeps the parent's value visible locally. If `trigger` (default
+   * `true`), descendants are notified of the change. */
   set(key: string, value: unknown, trigger?: boolean): void;
-  /** Reports whether this component has previously published a value at
-   * `key`. Counterpart to {@link Context.has}, which sees only parent values. */
+  /** Reports whether this component has previously published a value at `key`.
+   * Counterpart to {@link Context.has}, which sees only parent values. */
   wasSetPreviously(key: string): boolean;
 }
 
-/** Schema describing the invokable methods of a component. Keys are method
- * names; values are the per-method `z.ZodFunction` describing inputs and
- * output. */
+/** Schema describing the invocable methods of a component. Keys are method names;
+ * values are the per-method `z.ZodFunction` describing inputs and output. */
 export type MethodsSchema = Record<string, z.ZodFunction>;
 
 /** Empty {@link MethodsSchema} for components that do not invoke any methods. */
 export type EmptyMethodsSchema = Record<string, never>;
 
-/** Worker-side handler signatures derived from a {@link MethodsSchema}. A
- * schema with a sync output may be implemented sync or async; a schema with
- * a `Promise<T>` output must be implemented async (no double-wrap). */
+/** Worker-side handler signatures derived from a {@link MethodsSchema}. A schema with a
+ * sync output may be implemented sync or async; a schema with a `Promise<T>` output
+ * must be implemented async (no double-wrap). */
 export type HandlersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
     ? F extends (...params: infer A) => infer R
@@ -145,8 +142,8 @@ export const isFireAndForget = <F extends z.ZodFunction>(schema: F): boolean => 
   );
 };
 
-/** Main-side caller signatures derived from a {@link MethodsSchema}. Void
- * outputs become fire-and-forget; non-void outputs return `Promise<R>`. */
+/** Main-side caller signatures derived from a {@link MethodsSchema}. Void outputs
+ * become fire-and-forget; non-void outputs return `Promise<R>`. */
 export type CallersFromSchema<T> = {
   [K in keyof T]: T[K] extends z.ZodType<infer F>
     ? F extends (...params: infer A) => infer R
@@ -158,15 +155,14 @@ export type CallersFromSchema<T> = {
 };
 
 /**
- * Base class for childless aether components. The corresponding React
- * component must not have descendants that use Aether — use {@link Composite}
- * for those.
+ * Base class for childless aether components. The corresponding React component must
+ * not have descendants that use Aether — use {@link Composite} for those.
  *
  * Subclasses define a Zod {@link schema} for their state and override
- * {@link afterUpdate} / {@link afterDelete} for lifecycle behavior. To expose
- * invokable methods, set {@link methods} to a {@link MethodsSchema} and
- * `implements HandlersFromSchema<typeof schema>` — method names on the class
- * must match keys in the schema.
+ * {@link afterUpdate} / {@link afterDelete} for lifecycle behavior. To expose invocable
+ * methods, set {@link methods} to a {@link MethodsSchema} and `implements
+ * HandlersFromSchema<typeof schema>` — method names on the class must match keys in the
+ * schema.
  *
  * @example
  * ```typescript
@@ -201,16 +197,16 @@ export abstract class Leaf<
   protected readonly parentCtxValues: Map<string, any>;
   /** Context values this component has published to its descendants. */
   protected readonly childCtxValues: Map<string, any>;
-  /** Keys in {@link childCtxValues} whose changes should trigger descendants
-   * to re-run {@link afterUpdate}. Cleared at the start of each update. */
+  /** Keys in {@link childCtxValues} whose changes should trigger descendants to re-run
+   * {@link afterUpdate}. Cleared at the start of each update. */
   protected readonly childCtxChangedKeys: Set<string>;
   readonly instrumentation: alamos.Instrumentation;
 
   /** Zod schema for the component's state. Must be defined by every subclass. */
   schema: StateSchema | undefined = undefined;
 
-  /** Optional schema enabling {@link Component._invokeMethod}. Each key must
-   * correspond to a method on the class with a matching signature. */
+  /** Optional schema enabling {@link Component._invokeMethod}. Each key must correspond
+   * to a method on the class with a matching signature. */
   methods: Methods | undefined = undefined;
   private _methodImplementations: Record<
     string,
@@ -257,9 +253,9 @@ export abstract class Leaf<
     return this.schema;
   }
 
-  /** Sets the state on the worker side and propagates the change to the
-   * corresponding component on the main thread. Accepts either the next
-   * state value or a pure function deriving it from the current state. */
+  /** Sets the state on the worker side and propagates the change to the corresponding
+   * component on the main thread. Accepts either the next state value or a pure
+   * function deriving it from the current state. */
   setState(next: state.SetArg<z.infer<StateSchema>>): void {
     const nextState = state.executeSetter(next, this.state);
     this._prevState = shallow.copy(this._state);
@@ -267,8 +263,8 @@ export abstract class Leaf<
     this.sender.send({ variant: "update", key: this.key, state: this._state });
   }
 
-  /** The component's current parsed state. Throws if read before the first
-   * update has been applied. */
+  /** The component's current parsed state. Throws if read before the first update has
+   * been applied. */
   get state(): z.infer<StateSchema> {
     if (this._state == null)
       throw new UnexpectedError(
@@ -277,22 +273,21 @@ export abstract class Leaf<
     return this._state;
   }
 
-  /** Scratch space the component can use to hold derived or cached values
-   * that should survive across updates without being part of the parsed
-   * state. */
+  /** Scratch space the component can use to hold derived or cached values that should
+   * survive across updates without being part of the parsed state. */
   get internal(): InternalState {
     return this._internalState;
   }
 
-  /** State prior to the most recent update. Throws when accessed before the
-   * second update — first-update consumers should use {@link state} only. */
+  /** State prior to the most recent update. Throws when accessed before the second
+   * update — first-update consumers should use {@link state} only. */
   get prevState(): z.infer<StateSchema> {
     if (this._prevState === undefined) throw new Error("prevState not defined");
     return this._prevState;
   }
 
-  /** True once the component has been spliced out of the tree. Stays true
-   * for the remainder of the instance's lifetime. */
+  /** True once the component has been spliced out of the tree. Stays true for the
+   * remainder of the instance's lifetime. */
   get deleted(): boolean {
     return this._deleted;
   }
@@ -355,8 +350,8 @@ export abstract class Leaf<
     }
   }
 
-  /** Internal: routes delete from the tree. Subclasses other than
-   * {@link Composite} must not call this. */
+  /** Internal: routes delete from the tree. Subclasses other than {@link Composite}
+   * must not call this. */
   _delete(path: readonly string[]): void {
     try {
       const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
@@ -369,14 +364,14 @@ export abstract class Leaf<
     }
   }
 
-  /** Hook fired after the component's state, context, or both are updated.
-   * Override to react to changes. {@link state}, {@link prevState},
-   * {@link internal}, and the provided {@link Context} are all available. */
+  /** Hook fired after the component's state, context, or both are updated. Override to
+   * react to changes. {@link state}, {@link prevState}, {@link internal}, and the
+   * provided {@link Context} are all available. */
   afterUpdate(_: Context): void {}
 
-  /** Hook fired after the component is spliced out of the tree. Override
-   * for cleanup (unsubscriptions, resource release, etc.). {@link deleted}
-   * is `true` here; {@link state} and {@link prevState} are still readable. */
+  /** Hook fired after the component is spliced out of the tree. Override for cleanup
+   * (unsubscriptions, resource release, etc.). {@link deleted} is `true` here;
+   * {@link state} and {@link prevState} are still readable. */
   afterDelete(_: Context): void {}
 
   private validatePath(path: readonly string[]): void {
@@ -448,9 +443,9 @@ export abstract class Leaf<
 }
 
 /**
- * Base class for aether components that own children. Extends {@link Leaf}
- * with a typed children registry, descendant context propagation, and routing
- * for updates/deletes/invokes addressed at descendants. */
+ * Base class for aether components that own children. Extends {@link Leaf} with a typed
+ * children registry, descendant context propagation, and routing for
+ * updates/deletes/invokes addressed at descendants. */
 export abstract class Composite<
   StateSchema extends z.ZodType<state.State>,
   InternalState extends {} = {},
@@ -467,15 +462,14 @@ export abstract class Composite<
     return Array.from(this._children.values());
   }
 
-  /** Returns the child at `key`, or `null` if none. The `T` cast is
-   * unchecked — callers must know which subtype they are looking up. */
+  /** Returns the child at `key`, or `null` if none. The `T` cast is unchecked — callers
+   * must know which subtype they are looking up. */
   getChild<T extends ChildComponents = ChildComponents>(key: string): T | null {
     return (this._children.get(key) ?? null) as T | null;
   }
 
-  /** Returns the children whose `type` matches one of `types`. The `T` cast
-   * is unchecked — callers must align the type filter with the asserted
-   * return type. */
+  /** Returns the children whose `type` matches one of `types`. The `T` cast is
+   * unchecked — callers must align the type filter with the asserted return type. */
   childrenOfType<T extends ChildComponents = ChildComponents>(
     ...types: Array<T["type"]>
   ): readonly T[] {
@@ -559,9 +553,9 @@ export abstract class Composite<
     child._delete(subPath);
   }
 
-  /** Walks down the tree by `path` (relative to this composite — i.e.
-   * excluding this component's own key) and returns the component at the
-   * leaf, or `null` if any step is missing. */
+  /** Walks down the tree by `path` (relative to this composite — i.e. excluding this
+   * component's own key) and returns the component at the leaf, or `null` if any step
+   * is missing. */
   findChildAtPath(path: string[]): Component | null {
     if (path.length === 0) return null;
     const [key, ...rest] = path;
@@ -590,8 +584,8 @@ export abstract class Composite<
   }
 }
 
-/** Map from component `type` to constructor, consulted by {@link Root} to
- * instantiate new components on demand. */
+/** Map from component `type` to constructor, consulted by {@link Root} to instantiate
+ * new components on demand. */
 export type ComponentRegistry = Record<string, ComponentConstructor>;
 
 const aetherRootState = z.object({});
@@ -600,8 +594,8 @@ const aetherRootState = z.object({});
 export interface RootProps {
   /** Map of component types this tree can instantiate. */
   registry: ComponentRegistry;
-  /** Bidirectional channel with the main thread; usually
-   * {@link wrapWorkerScope} in production or {@link createMockPair} in tests. */
+  /** Bidirectional channel with the main thread; usually {@link wrapWorkerScope} in
+   * production or {@link createMockPair} in tests. */
   worker?: WorkerComms;
   /** Instrumentation used for logging, tracing, etc. */
   instrumentation?: alamos.Instrumentation;
@@ -611,9 +605,9 @@ const shouldNotCallCreate = () => {
   throw new Error("should not call create");
 };
 
-/** Top-level node of the worker-side Aether tree. Owns the {@link comms}
- * channel and the component {@link registry}; routes messages from the main
- * thread to the appropriate descendant. Construct via {@link Root.render}. */
+/** Top-level node of the worker-side Aether tree. Owns the {@link comms} channel and
+ * the component {@link registry}; routes messages from the main thread to the
+ * appropriate descendant. Construct via {@link Root.render}. */
 export class Root extends Composite<typeof aetherRootState> {
   private static readonly TYPE = "root";
   private static readonly KEY = "root";
@@ -639,9 +633,9 @@ export class Root extends Composite<typeof aetherRootState> {
     this.registry = registry;
   }
 
-  /** Constructs a new aether tree and starts handling messages on `comms`.
-   * Any synchronous error thrown while processing a message is caught and
-   * surfaced on the main thread as a {@link WorkerNotifyErrorRequest}. */
+  /** Constructs a new aether tree and starts handling messages on `comms`. Any
+   * synchronous error thrown while processing a message is caught and surfaced on the
+   * main thread as a {@link WorkerNotifyErrorRequest}. */
   static render(props: RootProps): Root {
     const root = new Root(props);
     root._updateState({
@@ -650,8 +644,8 @@ export class Root extends Composite<typeof aetherRootState> {
       state: {},
       create: shouldNotCallCreate,
     });
-    // Messages are handled sequentially: concurrent component updates lead
-    // to races, so the tree is implicitly serialized via the message queue.
+    // Messages are handled sequentially: concurrent component updates lead to races, so
+    // the tree is implicitly serialized via the message queue.
     root.comms.handle((msg) => {
       try {
         root.handle(msg);
@@ -744,6 +738,6 @@ export class Root extends Composite<typeof aetherRootState> {
   }
 }
 
-/** Convenience binding of {@link Root.render}: constructs an aether tree
- * and binds it to the provided `comms`. */
+/** Convenience binding of {@link Root.render}: constructs an aether tree and binds it
+ * to the provided `comms`. */
 export const render = Root.render.bind(Root);

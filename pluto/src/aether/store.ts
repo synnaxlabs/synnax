@@ -75,17 +75,17 @@ class InvokeTracker {
   }
 }
 
-/** Setter argument accepted by {@link Handle.setState}: a new state value or
- * a function that derives one from the previous value. */
+/** Setter argument accepted by {@link Handle.setState}: a new state value or a function
+ * that derives one from the previous value. */
 export type RawSetArg<State extends z.ZodType<state.State>> =
   | (z.input<State> | z.infer<State>)
   | ((prev: z.infer<State>) => z.input<State> | z.infer<State>);
 
 type Listener = () => void;
 
-/** Live worker component tracked by the store. Generic over its schema so
- * reads through {@link Store.getEntry} recover the per-entry state and
- * callback types without re-asserting at every field access. */
+/** Live worker component tracked by the store. Generic over its schema so reads through
+ * {@link Store.getEntry} recover the per-entry state and callback types without
+ * re-asserting at every field access. */
 interface Entry<State extends z.ZodType<state.State> = z.ZodType<state.State>> {
   type: string;
   path: readonly string[];
@@ -100,8 +100,8 @@ export interface RegisterParams<
   State extends z.ZodType<state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
-  /** Stable, unique key identifying the component for the lifetime of the
-   * registration. */
+  /** Stable, unique key identifying the component for the lifetime of the registration.
+   * */
   key: string;
   /** Component type, matched against the worker-side registry. */
   type: string;
@@ -118,8 +118,8 @@ export interface RegisterParams<
   onReceiveRef?: { current: ((state: z.infer<State>) => void) | undefined };
 }
 
-/** Per-component operations returned by {@link Store.register}: typed
- * setState, delete, and method callers. */
+/** Per-component operations returned by {@link Store.register}: typed setState, delete,
+ * and method callers. */
 export interface Handle<
   State extends z.ZodType<state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
@@ -131,10 +131,10 @@ export interface Handle<
   delete: () => void;
 }
 
-/** Configuration for a {@link Store}. Provide either a pre-built `worker`
- * (e.g. {@link createMockPair} in tests) or a `workerURL` for the store to
- * spawn its own. Set `workerEnabled: false` to explicitly opt out — any
- * other missing-worker configuration throws at construction. */
+/** Configuration for a {@link Store}. Provide either a pre-built `worker` (e.g.
+ * {@link createMockPair} in tests) or a `workerURL` for the store to spawn its own. Set
+ * `workerEnabled: false` to explicitly opt out — any other missing-worker configuration
+ * throws at construction. */
 export interface StoreConfig {
   worker?: aether.MainComms;
   workerURL?: string | URL;
@@ -144,40 +144,40 @@ export interface StoreConfig {
 }
 
 /**
- * Single source of truth for aether component state on the main thread. One
- * store is owned per {@link Aether.Provider} and shared across all components
- * in its tree. Components register on render, subscribe via
- * `useSyncExternalStore`, and unregister on unmount; worker pushes land in
- * the store and notify listeners outside of any React render.
+ * Single source of truth for aether component state on the main thread. One store is
+ * owned per {@link Aether.Provider} and shared across all components in its tree.
+ * Components register on render, subscribe via `useSyncExternalStore`, and unregister
+ * on unmount; worker pushes land in the store and notify listeners outside of any React
+ * render.
  */
 export class Store {
   private entries: Map<string, Entry> = new Map();
-  /** Subscribers keyed by component key. Listeners persist across an
-   * entry's register-unregister-register cycle so subscriptions wired during
-   * a StrictMode pseudo-remount stay live once the real register fires. */
+  /** Subscribers keyed by component key. Listeners persist across an entry's
+   * register-unregister-register cycle so subscriptions wired during a StrictMode
+   * pseudo-remount stay live once the real register fires. */
   private listenersByKey: Map<string, Set<Listener>> = new Map();
   /** Last known state per key. Survives entry unregistration so that
-   * `useSyncExternalStore`'s tearing-detection getSnapshot calls return a
-   * stable value across the unregister-then-register window. Cleaned up
-   * when both the entry and all subscribers for the key are gone. */
+   * `useSyncExternalStore`'s tearing-detection getSnapshot calls return a stable value
+   * across the unregister-then-register window. Cleaned up when both the entry and all
+   * subscribers for the key are gone. */
   private snapshotsByKey: Map<string, state.State> = new Map();
-  /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false`
-   * or between {@link dispose} and the next send (lazy re-attach). */
+  /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false` or between
+   * {@link dispose} and the next send (lazy re-attach). */
   private worker: aether.MainComms = aether.NOOP_MAIN_COMMS;
   private invokeTracker = new InvokeTracker();
-  /** Most recent worker-reported error. Buffered so it survives the gap
-   * between a synchronous worker push and the Provider's subscription. */
+  /** Most recent worker-reported error. Buffered so it survives the gap between a
+   * synchronous worker push and the Provider's subscription. */
   private currentError: Error | null = null;
   private errorListeners: Set<Listener> = new Set();
-  /** Raw {@link Worker} this store spawned; `null` for externally-injected
-   * comms (tests) which are owned by the caller. */
+  /** Raw {@link Worker} this store spawned; `null` for externally-injected comms
+   * (tests) which are owned by the caller. */
   private ownedWorker: Worker | null = null;
-  /** Config retained so {@link ensureAttached} can lazily rebuild the worker
-   * after {@link dispose} — required for the StrictMode reused-fiber cycle. */
+  /** Config retained so {@link ensureAttached} can lazily rebuild the worker after
+   * {@link dispose} — required for the StrictMode reused-fiber cycle. */
   private config: StoreConfig;
 
-  /** Throws {@link ValidationError} if `workerEnabled` is true (the default)
-   * and neither `worker` nor `workerURL` is provided. */
+  /** Throws {@link ValidationError} if `workerEnabled` is true (the default) and
+   * neither `worker` nor `workerURL` is provided. */
   constructor(config: StoreConfig = {}) {
     const { worker, workerURL, workerEnabled = true } = config;
     if (workerEnabled && worker == null && workerURL == null)
@@ -196,9 +196,9 @@ export class Store {
     else if (workerURL != null) {
       this.ownedWorker = new Worker(workerURL, { type: "module" });
       // Transport-level failures (script load, syntax error, CSP rejection,
-      // structured-clone deserialization) don't reach `onmessage`. Route them
-      // into the same error pipeline as worker-reported errors so the
-      // Provider can rethrow them into an error boundary.
+      // structured-clone deserialization) don't reach `onmessage`. Route them into the
+      // same error pipeline as worker-reported errors so the Provider can rethrow them
+      // into an error boundary.
       this.ownedWorker.onerror = (e) => {
         const location =
           e.filename != null && e.filename.length > 0
@@ -226,9 +226,9 @@ export class Store {
     this.errorListeners.forEach((l) => l());
   }
 
-  /** Detaches the worker handler, terminates any owned `Worker`, and aborts
-   * in-flight invokes. The store remains usable: a subsequent send lazily
-   * re-attaches via a fresh `Worker`. Idempotent. */
+  /** Detaches the worker handler, terminates any owned `Worker`, and aborts in-flight
+   * invokes. The store remains usable: a subsequent send lazily re-attaches via a fresh
+   * `Worker`. Idempotent. */
   dispose(): void {
     if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
@@ -238,15 +238,14 @@ export class Store {
     this.ownedWorker = null;
   }
 
-  /** Returns the most recent worker-reported error, or `null` if none.
-   * Suitable for `useSyncExternalStore`. */
+  /** Returns the most recent worker-reported error, or `null` if none. Suitable for
+   * `useSyncExternalStore`. */
   getError(): Error | null {
     return this.currentError;
   }
 
-  /** Subscribes to worker-error notifications. The listener fires whenever
-   * a new error is buffered; re-read via {@link getError}. Returns an
-   * unsubscribe function. */
+  /** Subscribes to worker-error notifications. The listener fires whenever a new error
+   * is buffered; re-read via {@link getError}. Returns an unsubscribe function. */
   subscribeError(listener: Listener): () => void {
     this.errorListeners.add(listener);
     return () => {
@@ -254,10 +253,9 @@ export class Store {
     };
   }
 
-  /** Subscribes to state changes for the component at `key`. Fires on both
-   * worker pushes and local {@link Handle.setState} calls. Subscriptions
-   * persist across register-unregister cycles. Returns an unsubscribe
-   * function. */
+  /** Subscribes to state changes for the component at `key`. Fires on both worker
+   * pushes and local {@link Handle.setState} calls. Subscriptions persist across
+   * register-unregister cycles. Returns an unsubscribe function. */
   subscribe(key: string, listener: Listener): () => void {
     let set = this.listenersByKey.get(key);
     if (set == null) {
@@ -275,10 +273,10 @@ export class Store {
     };
   }
 
-  /** Returns the latest known state for the component at `key`. Falls back
-   * to the cached last-known snapshot when the entry has been unregistered
-   * but subscribers remain (e.g. StrictMode's unregister-then-register
-   * window). Throws {@link UnexpectedError} only when neither is available. */
+  /** Returns the latest known state for the component at `key`. Falls back to the
+   * cached last-known snapshot when the entry has been unregistered but subscribers
+   * remain (e.g. StrictMode's unregister-then-register window). Throws
+   * {@link UnexpectedError} only when neither is available. */
   getSnapshot<State extends z.ZodType<state.State>>(key: string): z.infer<State> {
     const entry = this.getEntry<State>(key);
     if (entry != null) return entry.state;
@@ -287,16 +285,16 @@ export class Store {
     throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
   }
 
-  /** Single seam where the schema-specific types of `state` and
-   * `onReceiveRef` are recovered from the erased storage map. */
+  /** Single seam where the schema-specific types of `state` and `onReceiveRef` are
+   * recovered from the erased storage map. */
   private getEntry<State extends z.ZodType<state.State>>(
     key: string,
   ): Entry<State> | undefined {
     return this.entries.get(key) as Entry<State> | undefined;
   }
 
-  /** Single seam where an Entry's schema-specific types are erased on
-   * insert into the uniform storage map. */
+  /** Single seam where an Entry's schema-specific types are erased on insert into the
+   * uniform storage map. */
   private setEntry<State extends z.ZodType<state.State>>(
     key: string,
     entry: Entry<State>,
@@ -304,10 +302,9 @@ export class Store {
     this.entries.set(key, entry as Entry);
   }
 
-  /** Registers the component described by `params` and sends its initial
-   * state to the worker. If a component with the same key already exists, the
-   * prior worker component is deleted and the entry is replaced; subscribers
-   * keep their subscriptions. */
+  /** Registers the component described by `params` and sends its initial state to the
+   * worker. If a component with the same key already exists, the prior worker component
+   * is deleted and the entry is replaced; subscribers keep their subscriptions. */
   register<State extends z.ZodType<state.State>, Methods extends aether.MethodsSchema>(
     params: RegisterParams<State, Methods>,
   ): Handle<State, Methods> {
@@ -344,9 +341,9 @@ export class Store {
       controller: new AbortController(),
     });
     this.snapshotsByKey.set(key, parsed);
-    // Deferred: register runs during a React render and uSES listeners are
-    // setStates React refuses to accept mid-render. StrictMode's pseudo-
-    // remount path can hit this with a persisted listener still attached.
+    // Deferred: register runs during a React render and uses listeners are setStates
+    // React refuses to accept mid-render. StrictMode's pseudo- remount path can hit
+    // this with a persisted listener still attached.
     const listeners = this.listenersByKey.get(key);
     if (listeners != null && listeners.size > 0)
       queueMicrotask(() => listeners.forEach((l) => l()));
@@ -355,9 +352,8 @@ export class Store {
     return this.buildHandle(key, methodsSchema);
   }
 
-  /** Deletes the component at `key`: sends a delete message to the worker
-   * and aborts any pending invokes scoped to the component. No-op if the
-   * key isn't registered. */
+  /** Deletes the component at `key`: sends a delete message to the worker and aborts
+   * any pending invokes scoped to the component. No-op if the key isn't registered. */
   unregister(key: string): void {
     const entry = this.entries.get(key);
     if (entry == null) return;
@@ -385,8 +381,8 @@ export class Store {
     }
     const { key, state } = msg;
     const entry = this.entries.get(key);
-    // Drop pushes for an unregistered key — possible when delete/update
-    // messages cross in flight, or after a StrictMode pseudo-unmount.
+    // Drop pushes for an unregistered key — possible when delete/update messages cross
+    // in flight, or after a StrictMode pseudo-unmount.
     if (entry == null) return;
     const parsed = zod.parse(entry.schema, state, { label: entry.type });
     entry.state = parsed;

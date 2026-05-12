@@ -34,10 +34,9 @@ export const useMemoDeepEqual = <T>(value: T): T => {
 };
 
 /**
- * Returns a referentially stable array as long as its contents are element-wise
- * equal to the previous render's contents. Faster than {@link useMemoDeepEqual}
- * for primitive arrays since it short-circuits on length and uses `===` per
- * element.
+ * Returns a referentially stable array as long as its contents are element-wise equal
+ * to the previous render's contents. Faster than {@link useMemoDeepEqual} for primitive
+ * arrays since it short-circuits on length and uses `===` per element.
  */
 export const useMemoPrimitiveArray = <T extends primitive.Value>(
   value: readonly T[],

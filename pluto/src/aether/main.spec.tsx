@@ -1645,9 +1645,9 @@ describe("Aether Main", () => {
     it("should apply worker state pushes that arrive during the mount window", async () => {
       // Pin: today, when the worker pushes state asynchronously in response to the
       // synchronous initial-state send, the consumer's rendered state eventually
-      // reflects the push. The refactor should preserve this end-state behavior
-      // while eliminating the React warnings that currently fire along the way
-      // (see the warning pin below).
+      // reflects the push. The refactor should preserve this end-state behavior while
+      // eliminating the React warnings that currently fire along the way (see the
+      // warning pin below).
       const [Provider, root] = await newProvider();
       let observedX: number | null = null;
       const C = () => {
@@ -1702,10 +1702,10 @@ describe("Aether Main", () => {
       errorSpy.mockRestore();
     });
     it("should return a cached snapshot while a subscriber outlives the entry", () => {
-      // Pin: useSyncExternalStore may call getSnapshot for tearing detection
-      // after the entry has been unregistered (e.g. StrictMode's pseudo-
-      // unmount/remount window). The store should fall back to the last
-      // known snapshot for that key rather than throw.
+      // Pin: useSyncExternalStore may call getSnapshot for tearing detection after the
+      // entry has been unregistered (e.g. StrictMode's pseudo- unmount/remount window).
+      // The store should fall back to the last known snapshot for that key rather than
+      // throw.
       const [workerSide, mainSide] = aether.createMockPair();
       aether.render({ worker: workerSide, registry: REGISTRY });
       const store = new Aether.Store({ worker: mainSide });
