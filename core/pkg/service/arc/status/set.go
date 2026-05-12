@@ -42,6 +42,13 @@ const (
 	moduleName    = "status"
 )
 
+// Reporter message templates. Keep in sync with driver/arc/status/status.h.
+const (
+	setInvalidVariantMsg = "status.set: %q is not a valid variant"
+	setMultiMatchMsg     = "status.set: multiple statuses named %q; updated first match (%s)"
+	setFailureMsg        = "status.set: %v"
+)
+
 // setParams is the shared Inputs/Config list. Empty-string defaults mark the
 // inputs optional so flow-form usage (Config-fulfilled, no edges) analyzes.
 var setParams = types.Params{
@@ -79,22 +86,30 @@ type Module struct {
 	report  taskreporter.Reporter
 }
 
+// ModuleConfig wires the Arc `status` module into a wazero runtime.
+type ModuleConfig struct {
+	Status   *status.Service
+	Strings  *stlstrings.ProgramState
+	Runtime  wazero.Runtime
+	Memory   api.Memory
+	Reporter taskreporter.Reporter
+	alamos.Instrumentation
+}
+
 func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
 
-func NewModule(
-	ctx context.Context,
-	stat *status.Service,
-	strings *stlstrings.ProgramState,
-	rat wazero.Runtime,
-	memory api.Memory,
-	ins alamos.Instrumentation,
-	report taskreporter.Reporter,
-) (*Module, error) {
-	m := &Module{stat: stat, strings: strings, memory: memory, ins: ins, report: report}
-	if rat == nil {
+func NewModule(ctx context.Context, cfg ModuleConfig) (*Module, error) {
+	m := &Module{
+		stat:    cfg.Status,
+		strings: cfg.Strings,
+		memory:  cfg.Memory,
+		ins:     cfg.Instrumentation,
+		report:  cfg.Reporter,
+	}
+	if cfg.Runtime == nil {
 		return m, nil
 	}
-	builder := rat.NewHostModuleBuilder(moduleName)
+	builder := cfg.Runtime.NewHostModuleBuilder(moduleName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyOrNameH, msgH, variantH uint32) uint32 {
 			keyOrName, kOK := m.strings.Get(keyOrNameH)
@@ -211,22 +226,22 @@ func dispatchSet(
 	if errors.Is(err, status.ErrInvalidVariant) {
 		ins.L.Error("invalid status variant",
 			zap.String("variant", variantStr),
-			zap.Strings("allowed", status.AllowedVariants))
+			zap.Strings("allowed", xstatus.AllowedVariants))
 		report(ctx, xstatus.VariantWarning,
-			fmt.Sprintf("status.set: %q is not a valid variant", variantStr))
+			fmt.Sprintf(setInvalidVariantMsg, variantStr))
 		return ""
 	}
 	if err == nil {
 		if multi {
 			report(ctx, xstatus.VariantWarning,
-				fmt.Sprintf("status.set: multiple statuses named %q; updated first match (%s)", keyOrName, key))
+				fmt.Sprintf(setMultiMatchMsg, keyOrName, key))
 		}
 		return key
 	}
 	ins.L.Error("status.set failed",
 		zap.String("key_or_name", keyOrName), zap.Error(err))
 	report(ctx, xstatus.VariantWarning,
-		fmt.Sprintf("status.set: %v", err))
+		fmt.Sprintf(setFailureMsg, err))
 	return ""
 }
 
@@ -279,11 +294,11 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || slices.Contains(status.AllowedVariants, value) {
+	if !ok || slices.Contains(xstatus.AllowedVariants, value) {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,
 		"%q is not a valid status variant: [%s]",
-		value, strings.Join(status.AllowedVariants, ", "),
+		value, strings.Join(xstatus.AllowedVariants, ", "),
 	))
 }

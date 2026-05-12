@@ -28,6 +28,13 @@ import (
 
 const deleteMemberName = "delete"
 
+// Reporter message templates. Keep in sync with driver/arc/status/status.h.
+const (
+	deleteFailureMsg    = "status.delete: %v"
+	deleteNotFoundMsg   = "status.delete: no status found %q"
+	deleteMultiMatchMsg = "status.delete: multiple statuses named %q; deleted all (%d)"
+)
+
 var deleteParams = types.Params{
 	{Name: "key_or_name", Type: types.String(), Value: ""},
 }
@@ -84,16 +91,16 @@ func dispatchDelete(
 	count, err := stat.DeleteByKeyOrName(ctx, keyOrName)
 	if err != nil {
 		ins.L.Error("status.delete failed", zap.String("key_or_name", keyOrName), zap.Error(err))
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: %v", err))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf(deleteFailureMsg, err))
 		return false
 	}
 	if count == 0 {
-		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: no status found %q", keyOrName))
+		report(ctx, xstatus.VariantWarning, fmt.Sprintf(deleteNotFoundMsg, keyOrName))
 		return false
 	}
 	if count > 1 {
 		report(ctx, xstatus.VariantWarning,
-			fmt.Sprintf("status.delete: multiple statuses named %q; deleted all (%d)", keyOrName, count))
+			fmt.Sprintf(deleteMultiMatchMsg, keyOrName, count))
 	}
 	return true
 }

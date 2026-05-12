@@ -16,6 +16,16 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
+// AllowedVariants is the canonical list of variant strings.
+var AllowedVariants = []string{
+	string(VariantSuccess),
+	string(VariantInfo),
+	string(VariantWarning),
+	string(VariantError),
+	string(VariantLoading),
+	string(VariantDisabled),
+}
+
 // String returns a formatted string representation of the Status.
 func (s Status[D]) String() string {
 	var b strings.Builder

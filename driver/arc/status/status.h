@@ -32,6 +32,31 @@ namespace driver::arc::status {
 using Reporter = std::function<
     void(const std::string &variant, const std::string &message)>;
 
+// Reporter message templates. Keep in sync with core/pkg/service/arc/status/{set,delete}.go.
+inline std::string set_failure_msg(const std::string &err) {
+    return "status.set: " + err;
+}
+inline std::string set_multi_match_msg(
+    const std::string &key_or_name,
+    const std::string &resolved_key
+) {
+    return "status.set: multiple statuses named \"" + key_or_name +
+        "\"; updated first match (" + resolved_key + ")";
+}
+inline std::string delete_failure_msg(const std::string &err) {
+    return "status.delete: " + err;
+}
+inline std::string delete_not_found_msg(const std::string &key_or_name) {
+    return "status.delete: no status found \"" + key_or_name + "\"";
+}
+inline std::string delete_multi_match_msg(
+    const std::string &key_or_name,
+    int count
+) {
+    return "status.delete: multiple statuses named \"" + key_or_name +
+        "\"; deleted all (" + std::to_string(count) + ")";
+}
+
 /// @brief Upserts a status via the cluster API and surfaces failures via report.
 /// Returns the resolved key on success, "" on failure.
 inline std::string dispatch_set(
@@ -51,14 +76,13 @@ inline std::string dispatch_set(
         multi
     );
     if (err) {
-        report(x::status::VARIANT_WARNING, "status.set: " + err.data);
+        report(x::status::VARIANT_WARNING, set_failure_msg(err.data));
         return "";
     }
     if (multi)
         report(
             x::status::VARIANT_WARNING,
-            "status.set: multiple statuses named \"" + key_or_name +
-                "\"; updated first match (" + resolved_key + ")"
+            set_multi_match_msg(key_or_name, resolved_key)
         );
     return resolved_key;
 }
@@ -73,21 +97,17 @@ inline bool dispatch_delete(
     int count = 0;
     const auto err = client->statuses.delete_by_key_or_name(key_or_name, count);
     if (err) {
-        report(x::status::VARIANT_WARNING, "status.delete: " + err.data);
+        report(x::status::VARIANT_WARNING, delete_failure_msg(err.data));
         return false;
     }
     if (count == 0) {
-        report(
-            x::status::VARIANT_WARNING,
-            "status.delete: no status found \"" + key_or_name + "\""
-        );
+        report(x::status::VARIANT_WARNING, delete_not_found_msg(key_or_name));
         return false;
     }
     if (count > 1)
         report(
             x::status::VARIANT_WARNING,
-            "status.delete: multiple statuses named \"" + key_or_name +
-                "\"; deleted all (" + std::to_string(count) + ")"
+            delete_multi_match_msg(key_or_name, count)
         );
     return true;
 }
@@ -127,11 +147,8 @@ public:
             this->message,
             this->variant
         );
-        const auto &o = this->state.output(0);
-        const auto &o_time = this->state.output_time(0);
-        *o = x::telem::Series(resolved_key);
-        o_time->resize(1);
-        o_time->set(0, this->clock.now());
+        *this->state.output(0) = x::telem::Series(resolved_key);
+        *this->state.output_time(0) = x::telem::Series(this->clock.now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }
@@ -166,12 +183,8 @@ public:
         const uint8_t v = dispatch_delete(this->client, this->report, this->key_or_name)
                             ? 1
                             : 0;
-        const auto &o = this->state.output(0);
-        const auto &o_time = this->state.output_time(0);
-        o->resize(1);
-        o->set(0, x::telem::SampleValue(v));
-        o_time->resize(1);
-        o_time->set(0, this->clock.now());
+        *this->state.output(0) = x::telem::Series(v);
+        *this->state.output_time(0) = x::telem::Series(this->clock.now());
         ctx.mark_changed(0);
         return x::errors::NIL;
     }

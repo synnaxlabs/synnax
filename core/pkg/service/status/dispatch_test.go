@@ -50,8 +50,8 @@ var _ = Describe("Dispatch", Ordered, func() {
 
 	Describe("AllowedVariants", func() {
 		It("Should contain exactly the six allowed variant strings", func() {
-			Expect(status.AllowedVariants).To(HaveLen(6))
-			Expect(status.AllowedVariants).To(ContainElements(
+			Expect(xstatus.AllowedVariants).To(HaveLen(6))
+			Expect(xstatus.AllowedVariants).To(ContainElements(
 				string(xstatus.VariantSuccess),
 				string(xstatus.VariantInfo),
 				string(xstatus.VariantWarning),

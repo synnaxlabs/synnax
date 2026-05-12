@@ -21,17 +21,7 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
-// AllowedVariants enumerates the variant strings accepted by SetByKeyOrName.
-var AllowedVariants = []string{
-	string(xstatus.VariantSuccess),
-	string(xstatus.VariantInfo),
-	string(xstatus.VariantWarning),
-	string(xstatus.VariantError),
-	string(xstatus.VariantLoading),
-	string(xstatus.VariantDisabled),
-}
-
-// ErrInvalidVariant signals a variant string outside AllowedVariants.
+// ErrInvalidVariant signals a variant string outside xstatus.AllowedVariants.
 var ErrInvalidVariant = errors.New("invalid status variant")
 
 // SetByKeyOrName upserts a status by UUID key or by name. On by-name multi-match,
@@ -40,7 +30,7 @@ func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
 ) (key string, multipleMatches bool, err error) {
-	if !slices.Contains(AllowedVariants, variant) {
+	if !slices.Contains(xstatus.AllowedVariants, variant) {
 		return "", false, ErrInvalidVariant
 	}
 	overlay := func(st *Status[any]) error {

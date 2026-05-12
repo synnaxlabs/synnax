@@ -18,7 +18,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
-	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
@@ -58,7 +57,10 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (covered C++-side).
 func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Module {
-	mod, err := arcstatus.NewModule(ctx, statSvc, nil, nil, nil, alamos.Instrumentation{}, reporter.report)
+	mod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+		Status:   statSvc,
+		Reporter: reporter.report,
+	})
 	Expect(err).ToNot(HaveOccurred())
 	return mod
 }

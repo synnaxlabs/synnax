@@ -153,7 +153,13 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	statusMod, err := arcstatus.NewModule(ctx, t.factoryCfg.Status, drt.state.strings, wasmRT, nil, t.factoryCfg.Instrumentation, t.reporter())
+	statusMod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+		Status:          t.factoryCfg.Status,
+		Strings:         drt.state.strings,
+		Runtime:         wasmRT,
+		Reporter:        t.reporter(),
+		Instrumentation: t.factoryCfg.Instrumentation,
+	})
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err

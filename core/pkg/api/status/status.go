@@ -22,6 +22,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xconfig "github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/identifier"
 	xstatus "github.com/synnaxlabs/x/status"
 )
 
@@ -95,15 +96,21 @@ func (s *Service) Set(
 }
 
 // enforceKeyOrName enforces access for a single-status key-or-name operation.
+// UUID inputs enforce on the specific row; name inputs enforce on the status
+// resource type (row-level grants don't apply to by-name lookups).
 func (s *Service) enforceKeyOrName(
 	ctx context.Context,
 	action access.Action,
 	keyOrName string,
 ) error {
+	obj := ontology.ID{Type: ontology.ResourceTypeStatus}
+	if identifier.IsKey(keyOrName) {
+		obj = status.OntologyID(keyOrName)
+	}
 	return s.access.Enforce(ctx, access.Request{
 		Subject: auth.GetSubject(ctx),
 		Action:  action,
-		Objects: []ontology.ID{status.OntologyID(keyOrName)},
+		Objects: []ontology.ID{obj},
 	})
 }
 

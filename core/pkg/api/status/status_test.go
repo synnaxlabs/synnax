@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
@@ -22,13 +23,17 @@ import (
 	"github.com/synnaxlabs/x/telem"
 )
 
+// statusTypeOnly is the type-level ontology ID for granting access across all
+// statuses. By-name requests enforce against this (not a specific row).
+var statusTypeOnly = ontology.ID{Type: ontology.ResourceTypeStatus}
+
 var _ = Describe("api/status SetByKeyOrName", func() {
 	Describe("authorized requests", func() {
 		It("Should upsert a fresh row by name", func(ctx SpecContext) {
 			name := "api_set_fresh_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
@@ -74,7 +79,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
@@ -91,7 +96,7 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			name := "api_iv_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionCreate},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
@@ -116,6 +121,20 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 			Expect(statusSvc.NewRetrieve().Where(status.MatchNames[any](name)).
 				Entry(&status.Status[any]{}).Exec(ctx, nil)).To(MatchError(query.ErrNotFound))
 		})
+
+		It("Should deny by-name when the caller only has a row-level grant", func(ctx SpecContext) {
+			name := "api_rowlevel_" + uuid.New().String()
+			grantOn(ctx, user.OntologyID(author.Key),
+				[]access.Action{access.ActionCreate},
+				status.OntologyID(uuid.NewString()))
+
+			_, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+				KeyOrName: name,
+				Message:   "x",
+				Variant:   string(xstatus.VariantInfo),
+			})
+			Expect(err).To(MatchError(access.ErrDenied))
+		})
 	})
 })
 
@@ -128,7 +147,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionDelete},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
@@ -150,7 +169,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			})).To(Succeed())
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionDelete},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
@@ -163,7 +182,7 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			name := "api_del_missing_" + uuid.New().String()
 			grantOn(ctx, user.OntologyID(author.Key),
 				[]access.Action{access.ActionDelete},
-				status.OntologyID(name))
+				statusTypeOnly)
 
 			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
