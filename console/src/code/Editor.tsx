@@ -19,7 +19,6 @@ import {
 } from "@synnaxlabs/pluto";
 import { type RefObject, useCallback, useEffect, useRef } from "react";
 
-import { shouldTriggerSuggestion } from "@/code/placeholderSuggest";
 import { type Monaco, useMonaco } from "@/code/Provider";
 import { ContextMenu } from "@/components";
 import { CSS } from "@/css";
@@ -97,25 +96,17 @@ const forwardGlobalTriggers = (
   };
 };
 
-const triggerSuggestInPlaceholders = (
+// Plug-in point for attaching language-specific behavior to a Monaco editor.
+export type EditorExtension = (
   editor: Monaco.editor.IStandaloneCodeEditor,
-): Monaco.IDisposable =>
-  editor.onDidChangeModelContent((e) => {
-    const ch = e.changes[0];
-    if (e.changes.length !== 1 || ch.rangeLength !== 0) return;
-    const model = editor.getModel();
-    const pos = editor.getPosition();
-    if (model == null || pos == null) return;
-    const buffer = model.getValue().slice(0, model.getOffsetAt(pos));
-    if (shouldTriggerSuggestion(buffer, ch.text))
-      editor.trigger("synnax", "editor.action.triggerSuggest", {});
-  });
+) => Monaco.IDisposable;
 
 interface UseProps extends Input.Control<string> {
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
   openContextMenu?: Menu.ContextMenuProps["open"];
+  extensions?: EditorExtension[];
 }
 
 const useTheme = (language: string) => {
@@ -137,6 +128,7 @@ const use = ({
   isBlock = false,
   scrollBeyondLastLine = false,
   openContextMenu,
+  extensions,
 }: UseProps): UseReturn => {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null);
@@ -192,16 +184,14 @@ const use = ({
         target: container,
       }),
     );
-    const placeholderSuggestDispose =
-      language === "arc"
-        ? triggerSuggestInPlaceholders(editorRef.current)
-        : { dispose: () => {} };
+    const extensionDisposables =
+      extensions?.map((ext) => ext(editorRef.current!)) ?? [];
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
-      placeholderSuggestDispose.dispose();
+      extensionDisposables.forEach((d) => d.dispose());
       editorRef.current?.dispose();
       model?.dispose();
     };
@@ -219,6 +209,7 @@ export interface EditorProps
   language: string;
   isBlock?: boolean;
   scrollBeyondLastLine?: boolean;
+  extensions?: EditorExtension[];
 }
 
 const MENU_EDITOR_ACTIONS: Record<string, string> = {
@@ -236,6 +227,7 @@ export const Editor = ({
   language,
   isBlock,
   scrollBeyondLastLine,
+  extensions,
   ...rest
 }: EditorProps) => {
   const { className: menuClassName, ...menuProps } = Menu.useContextMenu();
@@ -246,6 +238,7 @@ export const Editor = ({
     isBlock,
     scrollBeyondLastLine,
     openContextMenu: menuProps.open,
+    extensions,
   });
 
   const createMenuAction = useCallback(

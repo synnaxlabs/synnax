@@ -176,6 +176,19 @@ trig -> f{}`
 			Entry("string channel %.2f", "`{chStr%.2f}`"),
 		)
 
+		DescribeTable("rejects blacklisted verbs across placeholder types",
+			func(specCtx SpecContext, body string) {
+				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
+			},
+			Entry("i32 channel %T", "`{chI32%T}`"),
+			Entry("f64 channel %T", "`{chF64%T}`"),
+			Entry("string channel %T", "`{chStr%T}`"),
+			Entry("i32 channel %v", "`{chI32%v}`"),
+			Entry("f64 channel %v", "`{chF64%v}`"),
+			Entry("string channel %v", "`{chStr%v}`"),
+			Entry("integer literal %T", "`{42%T}`"),
+		)
+
 		DescribeTable("accepts valid specs",
 			func(specCtx SpecContext, body string) {
 				expectSuccess(specCtx, wrap(`    log = `+body))
@@ -183,17 +196,12 @@ trig -> f{}`
 			Entry("i32 channel %d", "`{chI32%d}`"),
 			Entry("i32 channel %05d", "`{chI32%05d}`"),
 			Entry("i32 channel %x", "`{chI32%x}`"),
-			Entry("i32 channel %T", "`{chI32%T}`"),
 			Entry("f64 channel %.2f", "`{chF64%.2f}`"),
 			Entry("f64 channel %e", "`{chF64%e}`"),
-			Entry("f64 channel %T", "`{chF64%T}`"),
 			Entry("u8 channel %d", "`{chU8%d}`"),
 			Entry("string channel %s", "`{chStr%s}`"),
 			Entry("string channel %q", "`{chStr%q}`"),
-			Entry("string channel %T", "`{chStr%T}`"),
-			Entry("string channel %v", "`{chStr%v}`"),
 			Entry("integer literal %d", "`{123%d}`"),
-			Entry("integer literal %T", "`{42%T}`"),
 			Entry("float literal %.2f", "`{3.14%.2f}`"),
 		)
 

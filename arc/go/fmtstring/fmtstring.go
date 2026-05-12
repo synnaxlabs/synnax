@@ -11,6 +11,7 @@ package fmtstring
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -152,6 +153,20 @@ func isSpace(c byte) bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
 }
 
+// blacklistedVerbs lists fmt verbs that Go's fmt accepts for our scalar types
+// but that we reject so they surface as invalid specs to the user. Reasons:
+//
+//	v: produces byte-identical output to the bare `{x}` form for every scalar
+//	   type Arc allows in a placeholder, so it is a redundant alias.
+//	T: leaks Go-runtime type names and duplicates type info already shown
+//	   on hover in the Arc editor.
+const blacklistedVerbs = "vT"
+
+// specShape enforces the canonical anatomy [flags][width][.precision][verb].
+// Anything trailing the verb (e.g., "f.2") fails this check; Go's fmt would
+// otherwise treat it as literal text and silently accept the malformed spec.
+var specShape = regexp.MustCompile(`^[#+\- 0]*\d*(\.\d+)?[a-zA-Z]$`)
+
 // ValidateSpec probes fmt.Sprintf with a typed dummy and reports an error if
 // the spec is not a valid Go fmt verb for the given type.
 func ValidateSpec(spec string, t types.Type) error {
@@ -180,7 +195,9 @@ func ValidateSpec(spec string, t types.Type) error {
 	default:
 		return errors.Newf("cannot format type %s", t)
 	}
-	if strings.Contains(fmt.Sprintf("%"+spec, dummy), "%!") {
+	if !specShape.MatchString(spec) ||
+		strings.ContainsAny(spec, blacklistedVerbs) ||
+		strings.Contains(fmt.Sprintf("%"+spec, dummy), "%!") {
 		return errors.Newf("invalid format spec %q for type %s", spec, t)
 	}
 	return nil

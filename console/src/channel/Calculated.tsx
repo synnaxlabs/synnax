@@ -39,6 +39,8 @@ const NAME_INPUT_PROPS: Partial<Input.TextProps> = {
   placeholder: "Name",
 };
 
+const EDITOR_EXTENSIONS = [Arc.Editor.triggerSuggestInPlaceholders];
+
 export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElement => {
   const args = Layout.useSelectArgs<CalculatedLayoutArgs>(layoutKey);
   const isEdit = args?.channelKey !== 0;
@@ -80,6 +82,7 @@ export const Calculated: Layout.Renderer = ({ layoutKey, onClose }): ReactElemen
                   isBlock
                   bordered
                   rounded
+                  extensions={EDITOR_EXTENSIONS}
                 />
               )}
             </Form.Field>

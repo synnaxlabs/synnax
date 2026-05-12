@@ -397,15 +397,15 @@ Placeholders inside `{...}` accept any expression, and a `%spec` after the expre
 controls formatting:
 
 ```arc
-func status{sensor str} (value f64) str {
-    return `{sensor}: {value%.2f} psi`
+func fmt_pressure(value f64) str {
+    return `Pressure: {value%.2f} psi`
 }
 
-pressure -> status{sensor="ox_pt_1"} -> pressure_status
+pressure -> fmt_pressure{} -> pressure_status
 ```
 
 Each time `pressure` updates, `pressure_status` receives a string like
-`"ox_pt_1: 523.70 psi"`. Format specs are validated against the placeholder type at
+`"Pressure: 523.70 psi"`. Format specs are validated against the placeholder type at
 compile time, so a `%.2f` against an integer is caught before the program runs.
 
 Format strings are useful for writing diagnostic outputs:

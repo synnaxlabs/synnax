@@ -11,10 +11,13 @@ import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Controls } from "@/arc/editor/Controls";
+import { triggerSuggestInPlaceholders } from "@/arc/editor/placeholderSuggest";
 import { useSelect } from "@/arc/selectors";
 import { setRawText } from "@/arc/slice";
 import { Editor as BaseEditor } from "@/code/Editor";
 import { type Layout } from "@/layout";
+
+const EXTENSIONS = [triggerSuggestInPlaceholders];
 
 export const Editor: Layout.Renderer = ({ layoutKey }) => {
   const state = useSelect(layoutKey);
@@ -32,6 +35,7 @@ export const Editor: Layout.Renderer = ({ layoutKey }) => {
         onChange={onChange}
         language="arc"
         scrollBeyondLastLine
+        extensions={EXTENSIONS}
       />
       <Controls state={state} />
     </>
