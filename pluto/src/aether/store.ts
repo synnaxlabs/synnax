@@ -299,7 +299,7 @@ export class Store {
     key: string,
     entry: Entry<State>,
   ): void {
-    this.entries.set(key, entry as Entry);
+    this.entries.set(key, entry);
   }
 
   /** Registers the component described by `params` and sends its initial state to the
