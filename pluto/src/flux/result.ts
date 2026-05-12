@@ -128,12 +128,7 @@ export const pendingResult = <Data extends state.State>(
   name: string,
   promise: Promise<Data>,
 ): LoadingResult<Data> => ({
-  variant: "loading",
-  status: status.create<z.ZodNever, "loading">({
-    variant: "loading",
-    message: caseconv.capitalize(`retrieving ${name}`),
-  }),
-  data: undefined,
+  ...(loadingResult<Data>(`retrieving ${name}`) as LoadingResult<Data>),
   promise,
   name,
 });
