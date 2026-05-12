@@ -166,11 +166,12 @@ export interface UseSuspendedRetrieve<
 }
 
 /// A Suspense-shaped hook that ensures a query has been retrieved into the
-/// cache (and any listener-driven side effects have been mounted) but does
-/// NOT subscribe the calling component to subsequent cache updates. Use this
-/// in components that only need to gate rendering on data being present, e.g.,
-/// a parent that wants children to read fresh values via their own selectors
-/// without itself re-rendering when the data changes.
+/// cache and then forgets about it: no cache subscription, no listener
+/// mounting. Use this in a parent that needs to gate rendering on data being
+/// present, while children read the live value via `useRetrieveSuspended` or
+/// a selector (whichever variant subscribes to updates is the right home for
+/// listener-driven freshness). Reach for `useRetrieveSuspended` instead if
+/// the caller itself needs to re-render when the data changes.
 export interface UseEnsureRetrieved<Query extends base.Shape> {
   (query: Query): void;
 }
@@ -426,7 +427,10 @@ const useSuspended = <
           const current = cache.get<Data>(hash);
           const prev = current?.variant === "success" ? current.data : undefined;
           const next = state.executeSetter(value, prev);
-          if (next == null) return;
+          if (next == null) {
+            cache.invalidate(hash);
+            return;
+          }
           cache.set(hash, successResult(name, next));
         };
         const result = mountListeners({

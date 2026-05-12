@@ -118,10 +118,6 @@ export class QueryCache {
     };
   }
 
-  clear(): void {
-    this.entries.clear();
-  }
-
   /// Replace the entry only if it is still the same instance the caller
   /// expects. Guards against a channel listener (or another caller) replacing
   /// the entry mid-flight: a late promise resolution must not clobber a

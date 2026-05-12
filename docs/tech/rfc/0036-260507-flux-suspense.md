@@ -207,8 +207,7 @@ inputs. Callers pass primitives, plain objects, and arrays. This matches what
   read path observes whatever the store currently holds via its `mountListeners` wiring.
 - **Cache eviction.** Entries live for the life of the client. No LRU, no TTL. If
   long-session memory growth becomes a problem, an eviction policy can be added behind
-  the existing `cache.invalidate(hash)` and `cache.clear()` methods without touching the
-  read API.
+  the existing `cache.invalidate(hash)` method without touching the read API.
 - **Dev-mode boundary detection.** A consumer that calls `useRetrieveSuspended` without
   a `<Suspense>` ancestor produces React's default suspended-without-boundary warning. A
   Synnax-specific dev warning that points at the `SuspenseBoundary` primitive is a

@@ -197,7 +197,7 @@ describe("QueryCache", () => {
     });
   });
 
-  describe("invalidate and clear", () => {
+  describe("invalidate", () => {
     it("removes the entry and notifies subscribers", () => {
       const cache = new QueryCache();
       const listener = vi.fn();
@@ -208,21 +208,12 @@ describe("QueryCache", () => {
       expect(listener).toHaveBeenCalledTimes(1);
     });
 
-    it("no-ops invalidate on an absent hash", () => {
+    it("no-ops on an absent hash", () => {
       const cache = new QueryCache();
       const listener = vi.fn();
       cache.subscribe("k", listener);
       cache.invalidate("k");
       expect(listener).not.toHaveBeenCalled();
-    });
-
-    it("drops all entries on clear", () => {
-      const cache = new QueryCache();
-      cache.set("a", successResult<number>("retrieved", 1));
-      cache.set("b", successResult<number>("retrieved", 2));
-      cache.clear();
-      expect(cache.get("a")).toBeUndefined();
-      expect(cache.get("b")).toBeUndefined();
     });
   });
 });
