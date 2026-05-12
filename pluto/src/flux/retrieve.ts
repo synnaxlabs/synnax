@@ -13,7 +13,7 @@ import { use, useCallback, useRef, useState, useSyncExternalStore } from "react"
 
 import { type base } from "@/flux/base";
 import { useQueryCache, useStore } from "@/flux/Provider";
-import { hashQuery, type QueryCache } from "@/flux/queryCache";
+import { hashQuery, type QueryCache } from "@/flux/base/queryCache";
 import {
   errorResult,
   loadingResult,

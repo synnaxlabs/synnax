@@ -219,7 +219,7 @@ inputs. Callers pass primitives, plain objects, and arrays. This matches what
 The substrate has shipped on `sy-4158-refactor-flux-to-support-react-suspense`. The
 implementation lives in:
 
-- `pluto/src/flux/queryCache.ts` holds the `QueryCache` class and `hashQuery`.
+- `pluto/src/flux/base/queryCache.ts` holds the `QueryCache` class and `hashQuery`.
 - `pluto/src/flux/retrieve.ts` appends `useRetrieveSuspended` and `useEnsureRetrieved`
   to `createRetrieve`'s return, and adds an optional `cache` field to `RetrieveParams`.
 - `pluto/src/flux/result.ts` extends `LoadingResult` with optional `promise` and `name`

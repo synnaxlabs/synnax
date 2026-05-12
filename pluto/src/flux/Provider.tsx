@@ -14,7 +14,7 @@ import { Aether } from "@/aether";
 import { context } from "@/context";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
-import { type QueryCache } from "@/flux/queryCache";
+import { type QueryCache } from "@/flux/base/queryCache";
 import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status/base";
