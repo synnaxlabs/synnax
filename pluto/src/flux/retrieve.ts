@@ -418,7 +418,7 @@ const useSuspended = <
       `Cannot retrieve ${name}: no Synnax client connected. Pass allowDisconnected to opt out.`,
     );
 
-  useSyncExternalStore(
+  const entry = useSyncExternalStore(
     useCallback(
       (notify) => {
         const cacheSub = cache.subscribe(hash, notify);
@@ -448,10 +448,9 @@ const useSuspended = <
       },
       [cache, hash, client, store, memoQuery],
     ),
-    useCallback(() => cache.get(hash), [cache, hash]),
+    useCallback(() => cache.get<Data>(hash), [cache, hash]),
   );
 
-  const entry = cache.get<Data>(hash);
   if (entry?.variant === "success") return entry.data;
   if (entry?.variant === "error") throw status.toError(entry.status);
   if (entry?.variant === "loading" && entry.promise != null) return use(entry.promise);
