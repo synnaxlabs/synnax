@@ -18,10 +18,7 @@ import { Node } from "@/schematic/node";
 import { useDispatch, useSelectElementConfig } from "@/schematic/queries";
 import { Diagram as Base } from "@/vis/diagram";
 
-export const NodeRenderer = ({
-  position,
-  ...rest
-}: Base.NodeProps): ReactElement | null => {
+const NodeRenderer = ({ position, ...rest }: Base.NodeProps): ReactElement | null => {
   const { nodeKey } = rest;
   const key = Key.use<string>("Schematic.Node.Renderer");
   const config = useSelectElementConfig({ key, elKey: nodeKey });
@@ -32,7 +29,7 @@ export const NodeRenderer = ({
     [nodeKey, key, dispatch],
   );
   // React flow can take time to unmount the node, meaning that we need to tolerate
-  // temporarily undefinec configs.
+  // temporarily undefined configs.
   if (config == null) return null;
   const Spec = Node.resolveSpec(config.variant);
   return (
@@ -56,7 +53,7 @@ const EdgeRenderer = (props: Base.EdgeProps): ReactElement | null => {
     [edgeKey, key, dispatch],
   );
   // React flow can take time to unmount the edge, meaning that we need to tolerate
-  // temporarily undefinec configs.
+  // temporarily undefined configs.
   if (config == null) return null;
   const Spec = Edge.resolveSpec(config.variant);
   return (
@@ -99,6 +96,7 @@ export const edgeChangesToActions = (changes: Base.EdgeChange[]): schematic.Acti
           schematic.addEdge({ edge: ch.edge }),
           schematic.setConfig({
             key: ch.edge.key,
+            // TODO: Remove this once schematic configs are strongly typed.
             config: Edge.REGISTRY.pipe.defaultConfig() as unknown as record.Unknown,
           }),
         ];
