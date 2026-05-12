@@ -18,7 +18,7 @@ import {
   useEffect,
   useRef,
 } from "react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { Aether } from "@/aether";
@@ -175,6 +175,15 @@ const newProvider = async (): Promise<[FC<TestProviderProps>, aether.Root]> => {
     root,
   ];
 };
+
+class FakeWorker {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  onerror: ((e: ErrorEvent) => void) | null = null;
+  onmessageerror: ((e: MessageEvent) => void) | null = null;
+  postMessage = vi.fn();
+  terminate = vi.fn();
+  constructor(public url: string | URL) {}
+}
 
 interface CapturedError {
   current: Error | null;
@@ -1523,6 +1532,58 @@ describe("Aether Main", () => {
     });
     it("should throw when constructed without a worker source", () => {
       expect(() => new Aether.Store()).toThrow(/neither `worker` nor `workerURL`/);
+    });
+  });
+  describe("worker transport errors", () => {
+    let instances: FakeWorker[];
+    beforeEach(() => {
+      instances = [];
+      class TrackedWorker extends FakeWorker {
+        constructor(url: string | URL) {
+          super(url);
+          instances.push(this);
+        }
+      }
+      vi.stubGlobal("Worker", TrackedWorker);
+    });
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+    it("should surface worker.onerror events with location info", () => {
+      const store = new Aether.Store({ workerURL: "test://worker" });
+      const listener = vi.fn();
+      store.subscribeError(listener);
+      expect(store.getError()).toBeNull();
+      instances[0].onerror?.(
+        new ErrorEvent("error", {
+          message: "boom",
+          filename: "worker.js",
+          lineno: 42,
+          colno: 7,
+        }),
+      );
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(store.getError()?.message).toBe(
+        "[aether] worker error: boom (worker.js:42:7)",
+      );
+      store.dispose();
+    });
+    it("should fall back to 'unknown' when ErrorEvent carries no message", () => {
+      const store = new Aether.Store({ workerURL: "test://worker" });
+      instances[0].onerror?.(new ErrorEvent("error"));
+      expect(store.getError()?.message).toBe("[aether] worker error: unknown");
+      store.dispose();
+    });
+    it("should surface worker.onmessageerror as a deserialization failure", () => {
+      const store = new Aether.Store({ workerURL: "test://worker" });
+      const listener = vi.fn();
+      store.subscribeError(listener);
+      instances[0].onmessageerror?.(new MessageEvent("messageerror"));
+      expect(listener).toHaveBeenCalledTimes(1);
+      expect(store.getError()?.message).toBe(
+        "[aether] failed to deserialize message from worker",
+      );
+      store.dispose();
     });
   });
   describe("regression pins", () => {

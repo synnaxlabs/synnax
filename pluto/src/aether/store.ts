@@ -195,9 +195,35 @@ export class Store {
     if (worker != null) this.worker = worker;
     else if (workerURL != null) {
       this.ownedWorker = new Worker(workerURL, { type: "module" });
+      // Transport-level failures (script load, syntax error, CSP rejection,
+      // structured-clone deserialization) don't reach `onmessage`. Route them
+      // into the same error pipeline as worker-reported errors so the
+      // Provider can rethrow them into an error boundary.
+      this.ownedWorker.onerror = (e) => {
+        const location =
+          e.filename != null && e.filename.length > 0
+            ? ` (${e.filename}:${e.lineno}:${e.colno})`
+            : "";
+        const message =
+          e.message != null && e.message.length > 0 ? e.message : "unknown";
+        this.setError(new Error(`[aether] worker error: ${message}${location}`));
+      };
+      this.ownedWorker.onmessageerror = () =>
+        this.setError(new Error("[aether] failed to deserialize message from worker"));
       this.worker = aether.wrapWorker(this.ownedWorker);
     }
     this.worker.handle((msg) => this.handleWorkerMessage(msg));
+  }
+
+  private setError(err: Error): void {
+    if (this.currentError != null) {
+      console.error(
+        "[aether] received new error after error was already set, but before previous error was thrown.",
+      );
+      console.error(err);
+    }
+    this.currentError = err;
+    this.errorListeners.forEach((l) => l());
   }
 
   /** Detaches the worker handler, terminates any owned `Worker`, and aborts
@@ -350,15 +376,7 @@ export class Store {
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
     const { variant } = msg;
     if (variant === "error") {
-      const err = reconstructError(msg.error);
-      if (this.currentError != null) {
-        console.error(
-          "[aether] received new error after error was already set, but before previous error was thrown.",
-        );
-        console.error(err);
-      }
-      this.currentError = err;
-      this.errorListeners.forEach((l) => l());
+      this.setError(reconstructError(msg.error));
       return;
     }
     if (variant === "invoke_response") {
