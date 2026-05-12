@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { arc } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Arc as Base,
@@ -116,7 +115,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
   const state = useSelect(layoutKey);
 
   const dispatch = useDispatch();
@@ -225,14 +223,8 @@ export const Editor: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.graph.editable) return;
-    dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [windowKey, state.graph.editable, dispatch]);
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [state.graph.editable, dispatch]);
 
   const handleViewportModeChange = useCallback(
     (mode: Viewport.Mode) => dispatch(setViewportMode({ mode })),
