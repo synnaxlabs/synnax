@@ -48,6 +48,13 @@ func resolveStatus(t *Task, provided *status.Status[StatusDetails]) *status.Stat
 	return provided
 }
 
+// SetDefaultStatus writes a default "status unknown" row for the task, using
+// the same resolveStatus path as Create.
+func (w Writer) SetDefaultStatus(ctx context.Context, t *Task) (*status.Status[StatusDetails], error) {
+	fresh := resolveStatus(t, nil)
+	return fresh, w.status.Set(ctx, fresh)
+}
+
 // Create creates or updates a task. If a status is provided on the task,
 // it will be used instead of the default "unknown" status.
 func (w Writer) Create(ctx context.Context, t *Task) error {
