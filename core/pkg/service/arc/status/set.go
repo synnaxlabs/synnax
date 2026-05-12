@@ -31,72 +31,44 @@ import (
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
-	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"go.uber.org/zap"
 )
 
 const (
-	bareSymbolName      = "set_status"
-	qualifiedMemberName = "set"
-	moduleName          = "status"
+	setMemberName = "set"
+	moduleName    = "status"
 )
 
-// bareSymbolProps describes the deprecated set_status form. Preserved verbatim
-// for backwards compatibility; the qualified status.set form supersedes it.
-var bareSymbolProps = types.Function(types.FunctionProperties{
-	Config: types.Params{
-		{Name: "status_key", Type: types.String()},
-		{Name: "variant", Type: types.String()},
-		{Name: "message", Type: types.String()},
-		{Name: "name", Type: types.String(), Value: ""},
-	},
-	Inputs: types.Params{
-		{Name: ir.DefaultOutputParam, Type: types.U8()},
-	},
-})
-
-// qualifiedParams is the shared parameter list for the ExecBoth form. Inputs
-// and Config reference it directly to satisfy the dual-shape mirror contract.
-var qualifiedParams = types.Params{
+// setParams is the shared parameter list for the ExecBoth form. Inputs and
+// Config reference it directly to satisfy the dual-shape mirror contract.
+var setParams = types.Params{
 	{Name: "key_or_name", Type: types.String()},
 	{Name: "message", Type: types.String()},
 	{Name: "variant", Type: types.String()},
 }
 
-var qualifiedSymbolProps = types.Function(types.FunctionProperties{
-	Inputs:  qualifiedParams,
-	Config:  qualifiedParams,
+var setSymbolProps = types.Function(types.FunctionProperties{
+	Inputs:  setParams,
+	Config:  setParams,
 	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 })
 
-var (
-	bareResolver = symbol.MapResolver{
-		bareSymbolName: {
-			Name:       bareSymbolName,
-			Kind:       symbol.KindFunction,
-			Exec:       symbol.ExecFlow,
-			Type:       bareSymbolProps,
-			Deprecated: "status.set",
+var SymbolResolver = &symbol.ModuleResolver{
+	Name: moduleName,
+	Members: symbol.MapResolver{
+		setMemberName: {
+			Name:              setMemberName,
+			Kind:              symbol.KindFunction,
+			Exec:              symbol.ExecBoth,
+			Type:              setSymbolProps,
+			AnalyzeCall:       analyzeStatusSetCall,
+			AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
 		},
-	}
-	moduleResolver = &symbol.ModuleResolver{
-		Name: moduleName,
-		Members: symbol.MapResolver{
-			qualifiedMemberName: {
-				Name:              qualifiedMemberName,
-				Kind:              symbol.KindFunction,
-				Exec:              symbol.ExecBoth,
-				Type:              qualifiedSymbolProps,
-				AnalyzeCall:       analyzeStatusSetCall,
-				AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
-			},
-			deleteMemberName: deleteResolverEntry,
-		},
-	}
-	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
-)
+		deleteMemberName: deleteResolverEntry,
+	},
+}
 
 type Module struct {
 	stat    *status.Service
@@ -128,7 +100,7 @@ func NewModule(
 			msg, _ := m.strings.Get(msgH)
 			variant, _ := m.strings.Get(variantH)
 			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, m.report, keyOrName, msg, variant))
-		}).Export(qualifiedMemberName)
+		}).Export(setMemberName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyOrNameH uint32) uint32 {
 			keyOrName, _ := m.strings.Get(keyOrNameH)
@@ -155,26 +127,9 @@ func (m *Module) ModuleName() string { return moduleName }
 
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
-	case bareSymbolName:
-		var nodeCfg legacySetNodeConfig
-		if err := legacySetNodeConfigSchema.Parse(cfg.Node.Config.ValueMap(), &nodeCfg); err != nil {
-			return nil, err
-		}
-		var stat status.Status[any]
-		if err := m.stat.NewRetrieve().
-			Where(status.MatchKeys[any](nodeCfg.StatusKey)).
-			Entry(&stat).
-			Exec(ctx, nil); errors.Skip(err, query.ErrNotFound) != nil {
-			return nil, err
-		}
-		stat.Key = nodeCfg.StatusKey
-		stat.Name = nodeCfg.Name
-		stat.Message = nodeCfg.Message
-		stat.Variant = xstatus.Variant(nodeCfg.Variant)
-		return &setNode{ins: cfg.Instrumentation, stat: stat, statusSvc: m.stat}, nil
-	case qualifiedMemberName:
+	case setMemberName:
 		vm := cfg.Node.Config.ValueMap()
-		return &qualifiedSetNode{
+		return &setNode{
 			State:     cfg.State,
 			stat:      m.stat,
 			ins:       cfg.Instrumentation,
@@ -185,7 +140,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 		}, nil
 	case deleteMemberName:
 		vm := cfg.Node.Config.ValueMap()
-		return &qualifiedDeleteNode{
+		return &deleteNode{
 			State:     cfg.State,
 			stat:      m.stat,
 			ins:       cfg.Instrumentation,
@@ -197,40 +152,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 	}
 }
 
-type legacySetNodeConfig struct {
-	StatusKey string `json:"status_key"`
-	Message   string `json:"message"`
-	Variant   string `json:"variant"`
-	Name      string `json:"name"`
-}
-
-var legacySetNodeConfigSchema = zyn.Object(map[string]zyn.Schema{
-	"status_key": zyn.String(),
-	"message":    zyn.String(),
-	"variant":    zyn.String(),
-	"name":       zyn.String().Optional(),
-})
-
 type setNode struct {
-	statusSvc *status.Service
-	ins       alamos.Instrumentation
-	stat      status.Status[any]
-}
-
-func (s *setNode) Init(node.Context) {}
-
-func (s *setNode) Reset() {}
-
-func (s *setNode) IsOutputTruthy(int) bool { return false }
-
-func (s *setNode) Next(ctx node.Context) {
-	s.stat.Time = telem.Now()
-	if err := s.statusSvc.NewWriter(nil).Set(ctx, &s.stat); err != nil {
-		s.ins.L.Error("error setting status", zap.Error(err))
-	}
-}
-
-type qualifiedSetNode struct {
 	*node.State
 	stat      *status.Service
 	ins       alamos.Instrumentation
@@ -240,7 +162,7 @@ type qualifiedSetNode struct {
 	variant   string
 }
 
-func (s *qualifiedSetNode) Next(ctx node.Context) {
+func (s *setNode) Next(ctx node.Context) {
 	key := dispatchSet(ctx, s.stat, s.ins, s.report, s.keyOrName, s.message, s.variant)
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())

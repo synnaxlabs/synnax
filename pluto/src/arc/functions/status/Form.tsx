@@ -16,7 +16,7 @@ import { Status } from "@/status";
 
 export const Form = (): ReactElement => (
   <Flex.Box y grow empty>
-    <Base.Field<string> path="statusKey" label="Status">
+    <Base.Field<string> path="key_or_name" label="Status">
       {(p) => <Status.Select {...p} />}
     </Base.Field>
     <Flex.Box x grow>

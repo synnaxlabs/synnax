@@ -327,7 +327,6 @@ var keywordDocs = map[string]string{
 		doc.Divider(),
 		doc.Paragraph("Authority is a u8 (0-255). Higher values take priority. Setting authority to 0 releases control of the channel."),
 	).Render(),
-	"set_status": deprecatedDoc("set_status", "status.set{}", "sensor -> status.set{status_key=\"ox_alarm\", variant=\"error\", message=\"Overpressure\"}"),
 	"status.set": doc.New(
 		doc.TitleWithKind("status.set", "Function"),
 		doc.Paragraph("Sets a status notification on the cluster. Used to report alarms, warnings, or operational state."),

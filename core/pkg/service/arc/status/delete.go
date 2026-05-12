@@ -44,7 +44,7 @@ var deleteResolverEntry = symbol.Symbol{
 	Type: deleteSymbolProps,
 }
 
-type qualifiedDeleteNode struct {
+type deleteNode struct {
 	*node.State
 	stat      *status.Service
 	ins       alamos.Instrumentation
@@ -52,7 +52,7 @@ type qualifiedDeleteNode struct {
 	keyOrName string
 }
 
-func (s *qualifiedDeleteNode) Next(ctx node.Context) {
+func (s *deleteNode) Next(ctx node.Context) {
 	var v uint8
 	if dispatchDelete(ctx, s.stat, s.ins, s.report, s.keyOrName) {
 		v = 1
