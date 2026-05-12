@@ -148,6 +148,19 @@ func (w Writer[D]) Update(
 	return w.Set(ctx, &s)
 }
 
+// retrieveByName returns all statuses sharing the given name. Used by UpsertByName
+// and DeleteByName to share the predicate-scan retrieve.
+func (w Writer[D]) retrieveByName(ctx context.Context, name string) ([]Status[D], error) {
+	var matches []Status[D]
+	err := gorp.NewRetrieve[string, status.Status[D]]().
+		Where(gorp.Match(func(_ gorp.Context, s *status.Status[D]) (bool, error) {
+			return s.Name == name, nil
+		})).
+		Entries(&matches).
+		Exec(ctx, w.tx)
+	return matches, errors.Skip(err, query.ErrNotFound)
+}
+
 // UpsertByName updates the status with this name, or creates one if none exists.
 // When multiple rows share the name, writes to the first by key order and returns
 // multipleMatches=true so callers can surface the ambiguity.
@@ -156,13 +169,8 @@ func (w Writer[D]) UpsertByName(
 	name string,
 	change func(*Status[D]) error,
 ) (key string, multipleMatches bool, err error) {
-	var matches []Status[D]
-	if err = gorp.NewRetrieve[string, status.Status[D]]().
-		Where(gorp.Match(func(_ gorp.Context, s *status.Status[D]) (bool, error) {
-			return s.Name == name, nil
-		})).
-		Entries(&matches).
-		Exec(ctx, w.tx); errors.Skip(err, query.ErrNotFound) != nil {
+	matches, err := w.retrieveByName(ctx, name)
+	if err != nil {
 		return "", false, err
 	}
 	var s Status[D]
@@ -176,6 +184,21 @@ func (w Writer[D]) UpsertByName(
 		return "", false, err
 	}
 	return s.Key, multipleMatches, w.Set(ctx, &s)
+}
+
+// DeleteByName deletes all statuses with the given name and returns the count
+// of rows deleted so callers can distinguish not-found, single, and multi-match.
+func (w Writer[D]) DeleteByName(ctx context.Context, name string) (count int, err error) {
+	matches, err := w.retrieveByName(ctx, name)
+	if err != nil {
+		return 0, err
+	}
+	for _, m := range matches {
+		if err = w.Delete(ctx, m.Key); err != nil {
+			return 0, err
+		}
+	}
+	return len(matches), nil
 }
 
 // Delete deletes the status with the given key. Delete is idempotent.

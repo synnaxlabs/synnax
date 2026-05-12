@@ -94,6 +94,7 @@ var (
 				AnalyzeCall:       analyzeStatusSetCall,
 				AnalyzeFlowConfig: analyzeStatusSetFlowConfig,
 			},
+			deleteMemberName: deleteResolverEntry,
 		},
 	}
 	SymbolResolver = symbol.CompoundResolver{bareResolver, moduleResolver}
@@ -130,6 +131,14 @@ func NewModule(
 			variant, _ := m.strings.Get(variantH)
 			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, m.report, keyOrName, msg, variant))
 		}).Export(qualifiedMemberName)
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(ctx context.Context, keyOrNameH uint32) uint32 {
+			keyOrName, _ := m.strings.Get(keyOrNameH)
+			if dispatchDelete(ctx, m.stat, m.ins, m.report, keyOrName) {
+				return 1
+			}
+			return 0
+		}).Export(deleteMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}
@@ -175,6 +184,15 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 			keyOrName: vm["key_or_name"].(string),
 			message:   vm["message"].(string),
 			variant:   vm["variant"].(string),
+		}, nil
+	case deleteMemberName:
+		vm := cfg.Node.Config.ValueMap()
+		return &qualifiedDeleteNode{
+			State:     cfg.State,
+			stat:      m.stat,
+			ins:       cfg.Instrumentation,
+			report:    m.report,
+			keyOrName: vm["key_or_name"].(string),
 		}, nil
 	default:
 		return nil, query.ErrNotFound
