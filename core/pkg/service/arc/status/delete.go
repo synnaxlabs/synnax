@@ -13,7 +13,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
@@ -21,9 +20,6 @@ import (
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
-	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
-	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	"go.uber.org/zap"
@@ -76,7 +72,7 @@ func dispatchDelete(
 	report taskreporter.Reporter,
 	keyOrName string,
 ) bool {
-	count, err := countAndDelete(ctx, stat, keyOrName)
+	count, err := stat.DeleteByKeyOrName(ctx, keyOrName)
 	if err != nil {
 		ins.L.Error("status.delete failed", zap.String("key_or_name", keyOrName), zap.Error(err))
 		report(ctx, xstatus.VariantWarning, fmt.Sprintf("status.delete: %v", err))
@@ -93,24 +89,3 @@ func dispatchDelete(
 	return true
 }
 
-// countAndDelete deletes by key (UUID, count 0 or 1) or by name (count = matches).
-func countAndDelete(ctx context.Context, stat *status.Service, keyOrName string) (int, error) {
-	if _, perr := uuid.Parse(keyOrName); perr == nil {
-		var s status.Status[any]
-		err := stat.NewRetrieve().Where(status.MatchKeys[any](keyOrName)).Entry(&s).Exec(ctx, nil)
-		if errors.Is(err, query.ErrNotFound) {
-			return 0, nil
-		}
-		if err != nil {
-			return 0, err
-		}
-		return 1, stat.NewWriter(nil).Delete(ctx, keyOrName)
-	}
-	var count int
-	err := stat.WithTx(ctx, func(tx gorp.Tx) error {
-		var ierr error
-		count, ierr = stat.NewWriter(tx).DeleteByName(ctx, keyOrName)
-		return ierr
-	})
-	return count, err
-}

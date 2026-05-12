@@ -94,6 +94,75 @@ func (s *Service) Set(
 	})
 }
 
+// enforceKeyOrName enforces access for a single-status key-or-name operation.
+func (s *Service) enforceKeyOrName(
+	ctx context.Context,
+	action access.Action,
+	keyOrName string,
+) error {
+	return s.access.Enforce(ctx, access.Request{
+		Subject: auth.GetSubject(ctx),
+		Action:  action,
+		Objects: []ontology.ID{status.OntologyID(keyOrName)},
+	})
+}
+
+// SetByKeyOrNameRequest is a request to upsert a status by UUID key or by name.
+type SetByKeyOrNameRequest struct {
+	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
+	Message   string `json:"message" msgpack:"message"`
+	Variant   string `json:"variant" msgpack:"variant"`
+}
+
+// SetByKeyOrNameResponse is a response to a SetByKeyOrNameRequest.
+type SetByKeyOrNameResponse struct {
+	Key             string `json:"key" msgpack:"key"`
+	MultipleMatches bool   `json:"multiple_matches" msgpack:"multiple_matches"`
+}
+
+// SetByKeyOrName upserts a status in the cluster by UUID key or by name. On
+// by-name multi-match, writes to the first match by key order and returns
+// multiple_matches=true so the caller can surface the ambiguity.
+func (s *Service) SetByKeyOrName(
+	ctx context.Context,
+	req SetByKeyOrNameRequest,
+) (SetByKeyOrNameResponse, error) {
+	if err := s.enforceKeyOrName(ctx, access.ActionCreate, req.KeyOrName); err != nil {
+		return SetByKeyOrNameResponse{}, err
+	}
+	key, multi, err := s.internal.SetByKeyOrName(ctx, req.KeyOrName, req.Message, req.Variant)
+	if err != nil {
+		return SetByKeyOrNameResponse{}, err
+	}
+	return SetByKeyOrNameResponse{Key: key, MultipleMatches: multi}, nil
+}
+
+// DeleteByKeyOrNameRequest is a request to delete statuses by UUID key or name.
+type DeleteByKeyOrNameRequest struct {
+	KeyOrName string `json:"key_or_name" msgpack:"key_or_name"`
+}
+
+// DeleteByKeyOrNameResponse is a response to a DeleteByKeyOrNameRequest.
+type DeleteByKeyOrNameResponse struct {
+	Count int `json:"count" msgpack:"count"`
+}
+
+// DeleteByKeyOrName deletes a status by UUID key (count 0 or 1) or by name
+// (deletes all matches; count = matches).
+func (s *Service) DeleteByKeyOrName(
+	ctx context.Context,
+	req DeleteByKeyOrNameRequest,
+) (DeleteByKeyOrNameResponse, error) {
+	if err := s.enforceKeyOrName(ctx, access.ActionDelete, req.KeyOrName); err != nil {
+		return DeleteByKeyOrNameResponse{}, err
+	}
+	count, err := s.internal.DeleteByKeyOrName(ctx, req.KeyOrName)
+	if err != nil {
+		return DeleteByKeyOrNameResponse{}, err
+	}
+	return DeleteByKeyOrNameResponse{Count: count}, nil
+}
+
 type RetrieveRequest struct {
 	// SearchTerm is used for fuzzy searching statuses.
 	SearchTerm string `json:"search_term" msgpack:"search_term"`

@@ -18,6 +18,9 @@
 #include "wasmtime.hh"
 
 namespace arc::stl {
+namespace str {
+class State;
+}
 
 /// WasmType maps C++ types to their WASM-compatible equivalents.
 /// WASM only has i32, i64, f32, f64 - smaller integer types must be widened.
@@ -51,6 +54,11 @@ public:
 
     /// Registers host functions with the WASM Linker under a named module.
     virtual void bind_to(wasmtime::Linker &linker, wasmtime::Store::Context cx) {}
+
+    /// Injects the runtime's shared string handle state so this module can use
+    /// it from bind_to. Called by the runtime before bind_to for cfg.factories
+    /// that need handle access. Modules that don't need strings ignore this.
+    virtual void set_str_state(std::shared_ptr<str::State>) {}
 
     std::pair<std::unique_ptr<runtime::node::Node>, x::errors::Error>
     create(runtime::node::Config &&cfg) override {

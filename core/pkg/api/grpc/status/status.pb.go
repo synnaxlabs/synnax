@@ -308,6 +308,206 @@ func (x *DeleteRequest) GetKeys() []string {
 	return nil
 }
 
+type SetByKeyOrNameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyOrName     string                 `protobuf:"bytes,1,opt,name=key_or_name,json=keyOrName,proto3" json:"key_or_name,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	Variant       string                 `protobuf:"bytes,3,opt,name=variant,proto3" json:"variant,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetByKeyOrNameRequest) Reset() {
+	*x = SetByKeyOrNameRequest{}
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetByKeyOrNameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetByKeyOrNameRequest) ProtoMessage() {}
+
+func (x *SetByKeyOrNameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetByKeyOrNameRequest.ProtoReflect.Descriptor instead.
+func (*SetByKeyOrNameRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_grpc_status_status_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *SetByKeyOrNameRequest) GetKeyOrName() string {
+	if x != nil {
+		return x.KeyOrName
+	}
+	return ""
+}
+
+func (x *SetByKeyOrNameRequest) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
+func (x *SetByKeyOrNameRequest) GetVariant() string {
+	if x != nil {
+		return x.Variant
+	}
+	return ""
+}
+
+type SetByKeyOrNameResponse struct {
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Key             string                 `protobuf:"bytes,1,opt,name=key,proto3" json:"key,omitempty"`
+	MultipleMatches bool                   `protobuf:"varint,2,opt,name=multiple_matches,json=multipleMatches,proto3" json:"multiple_matches,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
+}
+
+func (x *SetByKeyOrNameResponse) Reset() {
+	*x = SetByKeyOrNameResponse{}
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetByKeyOrNameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetByKeyOrNameResponse) ProtoMessage() {}
+
+func (x *SetByKeyOrNameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetByKeyOrNameResponse.ProtoReflect.Descriptor instead.
+func (*SetByKeyOrNameResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_grpc_status_status_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *SetByKeyOrNameResponse) GetKey() string {
+	if x != nil {
+		return x.Key
+	}
+	return ""
+}
+
+func (x *SetByKeyOrNameResponse) GetMultipleMatches() bool {
+	if x != nil {
+		return x.MultipleMatches
+	}
+	return false
+}
+
+type DeleteByKeyOrNameRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	KeyOrName     string                 `protobuf:"bytes,1,opt,name=key_or_name,json=keyOrName,proto3" json:"key_or_name,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteByKeyOrNameRequest) Reset() {
+	*x = DeleteByKeyOrNameRequest{}
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteByKeyOrNameRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteByKeyOrNameRequest) ProtoMessage() {}
+
+func (x *DeleteByKeyOrNameRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteByKeyOrNameRequest.ProtoReflect.Descriptor instead.
+func (*DeleteByKeyOrNameRequest) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_grpc_status_status_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *DeleteByKeyOrNameRequest) GetKeyOrName() string {
+	if x != nil {
+		return x.KeyOrName
+	}
+	return ""
+}
+
+type DeleteByKeyOrNameResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Count         int32                  `protobuf:"varint,1,opt,name=count,proto3" json:"count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DeleteByKeyOrNameResponse) Reset() {
+	*x = DeleteByKeyOrNameResponse{}
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DeleteByKeyOrNameResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DeleteByKeyOrNameResponse) ProtoMessage() {}
+
+func (x *DeleteByKeyOrNameResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_core_pkg_api_grpc_status_status_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DeleteByKeyOrNameResponse.ProtoReflect.Descriptor instead.
+func (*DeleteByKeyOrNameResponse) Descriptor() ([]byte, []int) {
+	return file_core_pkg_api_grpc_status_status_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *DeleteByKeyOrNameResponse) GetCount() int32 {
+	if x != nil {
+		return x.Count
+	}
+	return 0
+}
+
 var File_core_pkg_api_grpc_status_status_proto protoreflect.FileDescriptor
 
 const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
@@ -332,13 +532,28 @@ const file_core_pkg_api_grpc_status_status_proto_rawDesc = "" +
 	"\x10RetrieveResponse\x12/\n" +
 	"\bstatuses\x18\x01 \x03(\v2\x13.x.status.pb.StatusR\bstatuses\"#\n" +
 	"\rDeleteRequest\x12\x12\n" +
-	"\x04keys\x18\x01 \x03(\tR\x04keys2O\n" +
+	"\x04keys\x18\x01 \x03(\tR\x04keys\"k\n" +
+	"\x15SetByKeyOrNameRequest\x12\x1e\n" +
+	"\vkey_or_name\x18\x01 \x01(\tR\tkeyOrName\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12\x18\n" +
+	"\avariant\x18\x03 \x01(\tR\avariant\"U\n" +
+	"\x16SetByKeyOrNameResponse\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12)\n" +
+	"\x10multiple_matches\x18\x02 \x01(\bR\x0fmultipleMatches\":\n" +
+	"\x18DeleteByKeyOrNameRequest\x12\x1e\n" +
+	"\vkey_or_name\x18\x01 \x01(\tR\tkeyOrName\"1\n" +
+	"\x19DeleteByKeyOrNameResponse\x12\x14\n" +
+	"\x05count\x18\x01 \x01(\x05R\x05count2O\n" +
 	"\x10StatusSetService\x12;\n" +
 	"\x04Exec\x12\x17.grpc.status.SetRequest\x1a\x18.grpc.status.SetResponse\"\x002^\n" +
 	"\x15StatusRetrieveService\x12E\n" +
 	"\x04Exec\x12\x1c.grpc.status.RetrieveRequest\x1a\x1d.grpc.status.RetrieveResponse\"\x002S\n" +
 	"\x13StatusDeleteService\x12<\n" +
-	"\x04Exec\x12\x1a.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x00B\x9d\x01\n" +
+	"\x04Exec\x12\x1a.grpc.status.DeleteRequest\x1a\x16.google.protobuf.Empty\"\x002p\n" +
+	"\x1bStatusSetByKeyOrNameService\x12Q\n" +
+	"\x04Exec\x12\".grpc.status.SetByKeyOrNameRequest\x1a#.grpc.status.SetByKeyOrNameResponse\"\x002y\n" +
+	"\x1eStatusDeleteByKeyOrNameService\x12W\n" +
+	"\x04Exec\x12%.grpc.status.DeleteByKeyOrNameRequest\x1a&.grpc.status.DeleteByKeyOrNameResponse\"\x00B\x9d\x01\n" +
 	"\x0fcom.grpc.statusB\vStatusProtoP\x01Z0github.com/synnaxlabs/synnax/pkg/api/grpc/status\xa2\x02\x03GSX\xaa\x02\vGrpc.Status\xca\x02\vGrpc\\Status\xe2\x02\x17Grpc\\Status\\GPBMetadata\xea\x02\fGrpc::Statusb\x06proto3"
 
 var (
@@ -353,31 +568,39 @@ func file_core_pkg_api_grpc_status_status_proto_rawDescGZIP() []byte {
 	return file_core_pkg_api_grpc_status_status_proto_rawDescData
 }
 
-var file_core_pkg_api_grpc_status_status_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_core_pkg_api_grpc_status_status_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_core_pkg_api_grpc_status_status_proto_goTypes = []any{
-	(*SetRequest)(nil),       // 0: grpc.status.SetRequest
-	(*SetResponse)(nil),      // 1: grpc.status.SetResponse
-	(*RetrieveRequest)(nil),  // 2: grpc.status.RetrieveRequest
-	(*RetrieveResponse)(nil), // 3: grpc.status.RetrieveResponse
-	(*DeleteRequest)(nil),    // 4: grpc.status.DeleteRequest
-	(*pb.Status)(nil),        // 5: x.status.pb.Status
-	(*emptypb.Empty)(nil),    // 6: google.protobuf.Empty
+	(*SetRequest)(nil),                // 0: grpc.status.SetRequest
+	(*SetResponse)(nil),               // 1: grpc.status.SetResponse
+	(*RetrieveRequest)(nil),           // 2: grpc.status.RetrieveRequest
+	(*RetrieveResponse)(nil),          // 3: grpc.status.RetrieveResponse
+	(*DeleteRequest)(nil),             // 4: grpc.status.DeleteRequest
+	(*SetByKeyOrNameRequest)(nil),     // 5: grpc.status.SetByKeyOrNameRequest
+	(*SetByKeyOrNameResponse)(nil),    // 6: grpc.status.SetByKeyOrNameResponse
+	(*DeleteByKeyOrNameRequest)(nil),  // 7: grpc.status.DeleteByKeyOrNameRequest
+	(*DeleteByKeyOrNameResponse)(nil), // 8: grpc.status.DeleteByKeyOrNameResponse
+	(*pb.Status)(nil),                 // 9: x.status.pb.Status
+	(*emptypb.Empty)(nil),             // 10: google.protobuf.Empty
 }
 var file_core_pkg_api_grpc_status_status_proto_depIdxs = []int32{
-	5, // 0: grpc.status.SetRequest.statuses:type_name -> x.status.pb.Status
-	5, // 1: grpc.status.SetResponse.statuses:type_name -> x.status.pb.Status
-	5, // 2: grpc.status.RetrieveResponse.statuses:type_name -> x.status.pb.Status
-	0, // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
-	2, // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
-	4, // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
-	1, // 6: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
-	3, // 7: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
-	6, // 8: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
-	6, // [6:9] is the sub-list for method output_type
-	3, // [3:6] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	9,  // 0: grpc.status.SetRequest.statuses:type_name -> x.status.pb.Status
+	9,  // 1: grpc.status.SetResponse.statuses:type_name -> x.status.pb.Status
+	9,  // 2: grpc.status.RetrieveResponse.statuses:type_name -> x.status.pb.Status
+	0,  // 3: grpc.status.StatusSetService.Exec:input_type -> grpc.status.SetRequest
+	2,  // 4: grpc.status.StatusRetrieveService.Exec:input_type -> grpc.status.RetrieveRequest
+	4,  // 5: grpc.status.StatusDeleteService.Exec:input_type -> grpc.status.DeleteRequest
+	5,  // 6: grpc.status.StatusSetByKeyOrNameService.Exec:input_type -> grpc.status.SetByKeyOrNameRequest
+	7,  // 7: grpc.status.StatusDeleteByKeyOrNameService.Exec:input_type -> grpc.status.DeleteByKeyOrNameRequest
+	1,  // 8: grpc.status.StatusSetService.Exec:output_type -> grpc.status.SetResponse
+	3,  // 9: grpc.status.StatusRetrieveService.Exec:output_type -> grpc.status.RetrieveResponse
+	10, // 10: grpc.status.StatusDeleteService.Exec:output_type -> google.protobuf.Empty
+	6,  // 11: grpc.status.StatusSetByKeyOrNameService.Exec:output_type -> grpc.status.SetByKeyOrNameResponse
+	8,  // 12: grpc.status.StatusDeleteByKeyOrNameService.Exec:output_type -> grpc.status.DeleteByKeyOrNameResponse
+	8,  // [8:13] is the sub-list for method output_type
+	3,  // [3:8] is the sub-list for method input_type
+	3,  // [3:3] is the sub-list for extension type_name
+	3,  // [3:3] is the sub-list for extension extendee
+	0,  // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_core_pkg_api_grpc_status_status_proto_init() }
@@ -391,9 +614,9 @@ func file_core_pkg_api_grpc_status_status_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_core_pkg_api_grpc_status_status_proto_rawDesc), len(file_core_pkg_api_grpc_status_status_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   5,
+			NumMessages:   9,
 			NumExtensions: 0,
-			NumServices:   3,
+			NumServices:   5,
 		},
 		GoTypes:           file_core_pkg_api_grpc_status_status_proto_goTypes,
 		DependencyIndexes: file_core_pkg_api_grpc_status_status_proto_depIdxs,

@@ -15,7 +15,6 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
@@ -29,7 +28,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
-	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -249,9 +247,8 @@ func (s *qualifiedSetNode) Next(ctx node.Context) {
 	ctx.MarkChanged(0)
 }
 
-// dispatchSet upserts a status by key (UUID) or by name. Returns the resulting
-// key, or "" after logging via ins and surfacing the failure as a task status
-// via report.
+// dispatchSet upserts a status by key (UUID) or by name. Failures use
+// VariantWarning so the task continues running.
 func dispatchSet(
 	ctx context.Context,
 	stat *status.Service,
@@ -259,35 +256,14 @@ func dispatchSet(
 	report taskreporter.Reporter,
 	keyOrName, message, variantStr string,
 ) string {
-	// Failure paths use VariantWarning and task continues runnin.
-	if !slices.Contains(allowedVariants, variantStr) {
+	key, multi, err := stat.SetByKeyOrName(ctx, keyOrName, message, variantStr)
+	if errors.Is(err, status.ErrInvalidVariant) {
 		ins.L.Error("invalid status variant",
 			zap.String("variant", variantStr),
-			zap.Strings("allowed", allowedVariants))
+			zap.Strings("allowed", status.AllowedVariants))
 		report(ctx, xstatus.VariantWarning,
 			fmt.Sprintf("status.set: %q is not a valid variant", variantStr))
 		return ""
-	}
-	overlay := func(s *status.Status[any]) error {
-		s.Message = message
-		s.Variant = xstatus.Variant(variantStr)
-		s.Time = telem.Now()
-		return nil
-	}
-	var (
-		key string
-		err error
-	)
-	var multi bool
-	if _, perr := uuid.Parse(keyOrName); perr == nil {
-		key = keyOrName
-		err = stat.NewWriter(nil).Update(ctx, keyOrName, overlay)
-	} else {
-		err = stat.WithTx(ctx, func(tx gorp.Tx) error {
-			var ierr error
-			key, multi, ierr = stat.NewWriter(tx).UpsertByName(ctx, keyOrName, overlay)
-			return ierr
-		})
 	}
 	if err == nil {
 		if multi {
@@ -301,15 +277,6 @@ func dispatchSet(
 	report(ctx, xstatus.VariantWarning,
 		fmt.Sprintf("status.set: %v", err))
 	return ""
-}
-
-var allowedVariants = []string{
-	string(xstatus.VariantSuccess),
-	string(xstatus.VariantInfo),
-	string(xstatus.VariantWarning),
-	string(xstatus.VariantError),
-	string(xstatus.VariantLoading),
-	string(xstatus.VariantDisabled),
 }
 
 const variantIndex = 2
@@ -361,11 +328,11 @@ func checkVariantLiteral(diags *diagnostics.Diagnostics, expr parser.IExpression
 		return
 	}
 	value, ok := parsed.Value.(string)
-	if !ok || slices.Contains(allowedVariants, value) {
+	if !ok || slices.Contains(status.AllowedVariants, value) {
 		return
 	}
 	diags.Add(diagnostics.Errorf(expr,
 		"%q is not a valid status variant: [%s]",
-		value, strings.Join(allowedVariants, ", "),
+		value, strings.Join(status.AllowedVariants, ", "),
 	))
 }

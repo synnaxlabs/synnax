@@ -281,6 +281,15 @@ load(const Config &cfg, errors::Handler error_handler = errors::noop_handler) {
         std::make_shared<stl::selector::Module>(),
     };
 
+    // External factories that are also stl::Modules need their host fns bound
+    // to the WASM linker. Inject str_state first so they can use string handles.
+    for (const auto &f: cfg.factories) {
+        if (auto m = std::dynamic_pointer_cast<stl::Module>(f)) {
+            m->set_str_state(str_st);
+            stl_modules.push_back(m);
+        }
+    }
+
     wasm::ModuleConfig module_cfg{
         .program = cfg.program,
         .modules = stl_modules,
