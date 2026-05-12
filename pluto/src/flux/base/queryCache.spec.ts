@@ -108,6 +108,19 @@ describe("QueryCache", () => {
       expect(entry?.variant).toEqual("error");
     });
 
+    it("transitions to error when the promise rejects with a non-Error value", async () => {
+      const cache = new QueryCache();
+      let reject: (reason: unknown) => void = () => {};
+      const promise = new Promise<number>((_, r) => {
+        reject = r;
+      });
+      cache.set("k", pendingResult<number>("Number", promise));
+      reject("oops");
+      await flush();
+      const entry = cache.get<number>("k");
+      expect(entry?.variant).toEqual("error");
+    });
+
     it("notifies subscribers on the settle transition", async () => {
       const cache = new QueryCache();
       const listener = vi.fn();

@@ -76,8 +76,10 @@ export class QueryCache {
           successResult(`retrieved ${name}`, value),
           equal,
         ),
-      (reason: unknown) =>
-        this.replaceIfStill<T>(hash, result, errorResult(`retrieve ${name}`, reason)),
+      (reason: unknown) => {
+        const err = reason instanceof Error ? reason : new Error(String(reason));
+        this.replaceIfStill<T>(hash, result, errorResult(`retrieve ${name}`, err));
+      },
     );
   }
 
