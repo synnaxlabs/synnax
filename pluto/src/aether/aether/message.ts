@@ -104,8 +104,7 @@ export const wrapWorker = (worker: Worker): MainComms => ({
  * The worker-side parallel of {@link wrapWorker}; must be called from inside
  * a dedicated worker. */
 export const wrapWorkerScope = (): WorkerComms => ({
-  // @ts-expect-error - postMessage's transfer type is awkward in worker scope
-  send: (value, transfer = []) => postMessage(value, transfer),
+  send: (value, transfer = []) => postMessage(value, { transfer }),
   handle: (handler) => {
     onmessage = (e: MessageEvent<MainMessage>) => handler(e.data);
   },
