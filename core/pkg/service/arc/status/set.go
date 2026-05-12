@@ -31,6 +31,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 	"github.com/tetratelabs/wazero"
 	"github.com/tetratelabs/wazero/api"
 	"go.uber.org/zap"
@@ -41,12 +42,12 @@ const (
 	moduleName    = "status"
 )
 
-// setParams is the shared parameter list for the ExecBoth form. Inputs and
-// Config reference it directly to satisfy the dual-shape mirror contract.
+// setParams is the shared Inputs/Config list. Empty-string defaults mark the
+// inputs optional so flow-form usage (Config-fulfilled, no edges) analyzes.
 var setParams = types.Params{
-	{Name: "key_or_name", Type: types.String()},
-	{Name: "message", Type: types.String()},
-	{Name: "variant", Type: types.String()},
+	{Name: "key_or_name", Type: types.String(), Value: ""},
+	{Name: "message", Type: types.String(), Value: ""},
+	{Name: "variant", Type: types.String(), Value: ""},
 }
 
 var setSymbolProps = types.Function(types.FunctionProperties{
@@ -96,14 +97,24 @@ func NewModule(
 	builder := rat.NewHostModuleBuilder(moduleName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyOrNameH, msgH, variantH uint32) uint32 {
-			keyOrName, _ := m.strings.Get(keyOrNameH)
-			msg, _ := m.strings.Get(msgH)
-			variant, _ := m.strings.Get(variantH)
+			keyOrName, kOK := m.strings.Get(keyOrNameH)
+			msg, mOK := m.strings.Get(msgH)
+			variant, vOK := m.strings.Get(variantH)
+			if !kOK || !mOK || !vOK {
+				m.report(ctx, xstatus.VariantWarning,
+					"status.set: invalid string handle from WASM runtime")
+				return 0
+			}
 			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, m.report, keyOrName, msg, variant))
 		}).Export(setMemberName)
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(ctx context.Context, keyOrNameH uint32) uint32 {
-			keyOrName, _ := m.strings.Get(keyOrNameH)
+			keyOrName, ok := m.strings.Get(keyOrNameH)
+			if !ok {
+				m.report(ctx, xstatus.VariantWarning,
+					"status.delete: invalid string handle from WASM runtime")
+				return 0
+			}
 			if dispatchDelete(ctx, m.stat, m.ins, m.report, keyOrName) {
 				return 1
 			}
@@ -128,29 +139,47 @@ func (m *Module) ModuleName() string { return moduleName }
 func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error) {
 	switch cfg.Node.Type {
 	case setMemberName:
-		vm := cfg.Node.Config.ValueMap()
+		var sc setConfig
+		if err := setConfigSchema.Parse(cfg.Node.Config.ValueMap(), &sc); err != nil {
+			return nil, errors.Wrap(err, "status.set config")
+		}
 		return &setNode{
 			State:     cfg.State,
 			stat:      m.stat,
 			ins:       cfg.Instrumentation,
 			report:    m.report,
-			keyOrName: vm["key_or_name"].(string),
-			message:   vm["message"].(string),
-			variant:   vm["variant"].(string),
+			keyOrName: sc.KeyOrName,
+			message:   sc.Message,
+			variant:   sc.Variant,
 		}, nil
 	case deleteMemberName:
-		vm := cfg.Node.Config.ValueMap()
+		var dc deleteConfig
+		if err := deleteConfigSchema.Parse(cfg.Node.Config.ValueMap(), &dc); err != nil {
+			return nil, errors.Wrap(err, "status.delete config")
+		}
 		return &deleteNode{
 			State:     cfg.State,
 			stat:      m.stat,
 			ins:       cfg.Instrumentation,
 			report:    m.report,
-			keyOrName: vm["key_or_name"].(string),
+			keyOrName: dc.KeyOrName,
 		}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
 }
+
+type setConfig struct {
+	KeyOrName string `json:"key_or_name"`
+	Message   string `json:"message"`
+	Variant   string `json:"variant"`
+}
+
+var setConfigSchema = zyn.Object(map[string]zyn.Schema{
+	"key_or_name": zyn.String(),
+	"message":     zyn.String(),
+	"variant":     zyn.String(),
+})
 
 type setNode struct {
 	*node.State

@@ -11,13 +11,18 @@ package status_test
 
 import (
 	"context"
+	"regexp"
+	"sync"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
 	"github.com/synnaxlabs/arc/symbol"
+	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
@@ -27,39 +32,128 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
+type reportCall struct {
+	variant xstatus.Variant
+	message string
+}
+
+type recordingReporter struct {
+	mu    sync.Mutex
+	calls []reportCall
+}
+
+func (r *recordingReporter) report(_ context.Context, v xstatus.Variant, m string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.calls = append(r.calls, reportCall{variant: v, message: m})
+}
+
+func (r *recordingReporter) get() []reportCall {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]reportCall, len(r.calls))
+	copy(out, r.calls)
+	return out
+}
+
+// newModule builds a Module without WASM wiring (covered C++-side).
+func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Module {
+	mod, err := arcstatus.NewModule(ctx, statSvc, nil, nil, nil, alamos.Instrumentation{}, reporter.report)
+	Expect(err).ToNot(HaveOccurred())
+	return mod
+}
+
+// buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze,
+// which rejects unwired ExecBoth nodes) so node.Output(0) is usable.
+func buildState(_ context.Context, bareType string, config types.Params) (*node.ProgramState, ir.Node) {
+	outputs := setOutputs
+	if bareType == "delete" {
+		outputs = deleteOutputs
+	}
+	irNode := ir.Node{Key: "n", Type: bareType, Config: config, Outputs: outputs}
+	prog := ir.IR{Nodes: ir.Nodes{irNode}}
+	return node.New(prog), irNode
+}
+
+var setOutputs = types.Params{
+	{Name: ir.DefaultOutputParam, Type: types.String()},
+}
+
+var deleteOutputs = types.Params{
+	{Name: ir.DefaultOutputParam, Type: types.U8()},
+}
+
+func setConfig(keyOrName, message, variant string) types.Params {
+	return types.Params{
+		{Name: "key_or_name", Type: types.String(), Value: keyOrName},
+		{Name: "message", Type: types.String(), Value: message},
+		{Name: "variant", Type: types.String(), Value: variant},
+	}
+}
+
+func deleteConfig(keyOrName string) types.Params {
+	return types.Params{
+		{Name: "key_or_name", Type: types.String(), Value: keyOrName},
+	}
+}
+
 var _ = Describe("SymbolResolver", func() {
 	Describe("Resolve", func() {
-		It("Should resolve set_status by name", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
-			Expect(sym.Name).To(Equal("set_status"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
-		})
-
 		It("Should resolve status.set by qualified name", func(ctx SpecContext) {
 			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.set"))
 			Expect(sym.Name).To(Equal("set"))
 			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.Exec).To(Equal(symbol.ExecBoth))
 		})
 
-		It("Should return an error for an unknown name", func(ctx SpecContext) {
+		It("Should resolve status.delete by qualified name", func(ctx SpecContext) {
+			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.delete"))
+			Expect(sym.Name).To(Equal("delete"))
+			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+			Expect(sym.Exec).To(Equal(symbol.ExecBoth))
+		})
+
+		It("Should not resolve the deprecated bare set_status", func(ctx SpecContext) {
+			Expect(arcstatus.SymbolResolver.Resolve(ctx, "set_status")).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should not resolve the bare member name without the module prefix", func(ctx SpecContext) {
+			Expect(arcstatus.SymbolResolver.Resolve(ctx, "set")).
+				Error().To(MatchError(query.ErrNotFound))
+		})
+
+		It("Should return ErrNotFound for an unknown name", func(ctx SpecContext) {
 			Expect(arcstatus.SymbolResolver.Resolve(ctx, "unknown")).
 				Error().To(MatchError(query.ErrNotFound))
 		})
 	})
 
 	Describe("Search", func() {
-		It("Should return set_status when searching with a matching term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set_status"))
+		// ModuleResolver.Search strips a "status." prefix and delegates to MapResolver.
+
+		It("Should return [set] for a prefix matching 'set'", func(ctx SpecContext) {
+			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set"))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set_status"))
+			Expect(results[0].Name).To(Equal("set"))
 		})
 
-		It("Should include the qualified member when searching with a matching term", func(ctx SpecContext) {
-			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "set"))
-			Expect(results).To(HaveLen(2))
+		It("Should return [delete] for a prefix matching 'delete'", func(ctx SpecContext) {
+			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "delete"))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("delete"))
+		})
+
+		It("Should return [set] for the qualified 'status.set' term", func(ctx SpecContext) {
+			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "status.set"))
+			Expect(results).To(HaveLen(1))
+			Expect(results[0].Name).To(Equal("set"))
+		})
+
+		It("Should return both members when searching for the bare module prefix", func(ctx SpecContext) {
+			results := MustSucceed(arcstatus.SymbolResolver.Search(ctx, "status."))
 			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
-			Expect(names).To(ContainElement("set_status"))
-			Expect(names).To(ContainElement("set"))
+			Expect(names).To(ConsistOf("set", "delete"))
 		})
 
 		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
@@ -69,256 +163,473 @@ var _ = Describe("SymbolResolver", func() {
 	})
 
 	Describe("Type Signature", func() {
-		It("Should have the correct function type", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
-			Expect(sym.Type.Kind).To(Equal(types.KindFunction))
+		Describe("status.set", func() {
+			var sym symbol.Symbol
+			BeforeEach(func(ctx SpecContext) {
+				sym = MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.set"))
+			})
+
+			It("Should be a function type", func() {
+				Expect(sym.Type.Kind).To(Equal(types.KindFunction))
+			})
+
+			It("Should have three string config parameters", func() {
+				Expect(sym.Type.Config).To(HaveLen(3))
+				Expect(sym.Type.Config[0].Name).To(Equal("key_or_name"))
+				Expect(sym.Type.Config[0].Type).To(Equal(types.String()))
+				Expect(sym.Type.Config[1].Name).To(Equal("message"))
+				Expect(sym.Type.Config[1].Type).To(Equal(types.String()))
+				Expect(sym.Type.Config[2].Name).To(Equal("variant"))
+				Expect(sym.Type.Config[2].Type).To(Equal(types.String()))
+			})
+
+			It("Should mirror Config in Inputs (ExecBoth contract)", func() {
+				Expect(sym.Type.Inputs).To(Equal(sym.Type.Config))
+			})
+
+			It("Should have one string output named ir.DefaultOutputParam", func() {
+				Expect(sym.Type.Outputs).To(HaveLen(1))
+				Expect(sym.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
+				Expect(sym.Type.Outputs[0].Type).To(Equal(types.String()))
+			})
 		})
 
-		It("Should have four config parameters", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
-			Expect(sym.Type.Config).To(HaveLen(4))
-			Expect(sym.Type.Config[0].Name).To(Equal("status_key"))
-			Expect(sym.Type.Config[1].Name).To(Equal("variant"))
-			Expect(sym.Type.Config[2].Name).To(Equal("message"))
-			Expect(sym.Type.Config[3].Name).To(Equal("name"))
-		})
+		Describe("status.delete", func() {
+			var sym symbol.Symbol
+			BeforeEach(func(ctx SpecContext) {
+				sym = MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "status.delete"))
+			})
 
-		It("Should have a single u8 input parameter", func(ctx SpecContext) {
-			sym := MustSucceed(arcstatus.SymbolResolver.Resolve(ctx, "set_status"))
-			Expect(sym.Type.Inputs).To(HaveLen(1))
-			Expect(sym.Type.Inputs[0].Name).To(Equal(ir.DefaultOutputParam))
-			Expect(sym.Type.Inputs[0].Type).To(Equal(types.U8()))
+			It("Should have one string config parameter", func() {
+				Expect(sym.Type.Config).To(HaveLen(1))
+				Expect(sym.Type.Config[0].Name).To(Equal("key_or_name"))
+				Expect(sym.Type.Config[0].Type).To(Equal(types.String()))
+			})
+
+			It("Should mirror Config in Inputs (ExecBoth contract)", func() {
+				Expect(sym.Type.Inputs).To(Equal(sym.Type.Config))
+			})
+
+			It("Should have one u8 output named ir.DefaultOutputParam", func() {
+				Expect(sym.Type.Outputs).To(HaveLen(1))
+				Expect(sym.Type.Outputs[0].Name).To(Equal(ir.DefaultOutputParam))
+				Expect(sym.Type.Outputs[0].Type).To(Equal(types.U8()))
+			})
 		})
 	})
 })
 
 var _ = Describe("Module", func() {
-	var mod *arcstatus.Module
-
+	var (
+		mod *arcstatus.Module
+		rep *recordingReporter
+	)
 	BeforeEach(func(ctx SpecContext) {
-		mod = arcstatus.NewModule(statSvc)
+		rep = &recordingReporter{}
+		mod = newModule(ctx, rep)
 	})
 
-	Describe("Resolve", func() {
-		It("Should resolve set_status", func(ctx SpecContext) {
-			sym := MustSucceed(mod.Resolve(ctx, "set_status"))
-			Expect(sym.Name).To(Equal("set_status"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
+	Describe("Construction", func() {
+		It("Should construct without WASM wiring when rat is nil", func(ctx SpecContext) {
+			Expect(mod).ToNot(BeNil())
+			Expect(mod.ModuleName()).To(Equal("status"))
 		})
+	})
 
-		It("Should resolve status.set", func(ctx SpecContext) {
+	Describe("Resolve / Search", func() {
+		It("Should delegate Resolve to SymbolResolver", func(ctx SpecContext) {
 			sym := MustSucceed(mod.Resolve(ctx, "status.set"))
 			Expect(sym.Name).To(Equal("set"))
-			Expect(sym.Kind).To(Equal(symbol.KindFunction))
 		})
 
-		It("Should return an error for an unknown symbol", func(ctx SpecContext) {
-			Expect(mod.Resolve(ctx, "nonexistent")).
-				Error().To(MatchError(query.ErrNotFound))
-		})
-	})
-
-	Describe("Search", func() {
-		It("Should return set_status for a matching term", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "set_status"))
+		It("Should delegate Search to SymbolResolver", func(ctx SpecContext) {
+			results := MustSucceed(mod.Search(ctx, "delete"))
 			Expect(results).To(HaveLen(1))
-			Expect(results[0].Name).To(Equal("set_status"))
-		})
-
-		It("Should include the qualified member for a matching term", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "set"))
-			Expect(results).To(HaveLen(2))
-			names := lo.Map(results, func(s symbol.Symbol, _ int) string { return s.Name })
-			Expect(names).To(ContainElement("set_status"))
-			Expect(names).To(ContainElement("set"))
-		})
-
-		It("Should return an empty slice for a non-matching term", func(ctx SpecContext) {
-			results := MustSucceed(mod.Search(ctx, "nonexistent"))
-			Expect(results).To(BeEmpty())
+			Expect(results[0].Name).To(Equal("delete"))
 		})
 	})
 
 	Describe("Create", func() {
-		It("Should return not found for an unrecognized node type", func(ctx SpecContext) {
+		It("Should return ErrNotFound for an unrecognized type", func(ctx SpecContext) {
 			cfg := node.Config{Node: ir.Node{Type: "wrong_type"}}
 			Expect(mod.Create(ctx, cfg)).Error().To(MatchError(query.ErrNotFound))
 		})
 
-		It("Should create a node with valid config", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "status_key", Value: "test_alarm"},
-						{Name: "variant", Value: "success"},
-						{Name: "message", Value: "All systems nominal"},
-					},
-				},
-			}
-			n := MustSucceed(mod.Create(ctx, cfg))
+		It("Should construct a set node from valid config", func(ctx SpecContext) {
+			state, irNode := buildState(ctx, "set", setConfig("alarm", "msg", "info"))
+			n := MustSucceed(mod.Create(ctx, node.Config{
+				Node:  irNode,
+				State: state.Node(irNode.Key),
+			}))
+			Expect(n).ToNot(BeNil())
+			Expect(func() { n.Reset() }).ToNot(Panic())
+			// Output(0) hasn't been written yet; truthiness reads the empty cache.
+			Expect(n.IsOutputTruthy(0)).To(BeFalse())
+		})
+
+		It("Should construct a delete node from valid config", func(ctx SpecContext) {
+			state, irNode := buildState(ctx, "delete", deleteConfig("alarm"))
+			n := MustSucceed(mod.Create(ctx, node.Config{
+				Node:  irNode,
+				State: state.Node(irNode.Key),
+			}))
 			Expect(n).ToNot(BeNil())
 		})
 
-		It("Should return an error when status_key is missing from config", func(ctx SpecContext) {
+		// Missing config returns an error instead of panicking on unchecked assertion.
+		It("Should return a clean error when set config is missing key_or_name", func(ctx SpecContext) {
 			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "variant", Value: "success"},
-						{Name: "message", Value: "msg"},
-					},
-				},
+				Node: ir.Node{Type: "set", Config: types.Params{
+					{Name: "message", Type: types.String(), Value: "x"},
+					{Name: "variant", Type: types.String(), Value: "info"},
+				}},
+			}
+			_, err := mod.Create(ctx, cfg)
+			Expect(err).To(HaveOccurred())
+			Expect(err.Error()).To(ContainSubstring("status.set config"))
+		})
+
+		It("Should return a clean error when set config is missing variant", func(ctx SpecContext) {
+			cfg := node.Config{
+				Node: ir.Node{Type: "set", Config: types.Params{
+					{Name: "key_or_name", Type: types.String(), Value: "x"},
+					{Name: "message", Type: types.String(), Value: "y"},
+				}},
 			}
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
 		})
 
-		It("Should return an error when variant is missing from config", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "status_key", Value: "test_alarm"},
-						{Name: "message", Value: "msg"},
-					},
-				},
-			}
+		It("Should return a clean error when delete config is missing key_or_name", func(ctx SpecContext) {
+			cfg := node.Config{Node: ir.Node{Type: "delete", Config: types.Params{}}}
 			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
-		})
-
-		It("Should return an error when message is missing from config", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "status_key", Value: "test_alarm"},
-						{Name: "variant", Value: "success"},
-					},
-				},
-			}
-			Expect(mod.Create(ctx, cfg)).Error().To(HaveOccurred())
-		})
-
-		It("Should create a node with the qualified member type", func(ctx SpecContext) {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set",
-					Config: types.Params{
-						{Name: "status_key", Value: "test_alarm"},
-						{Name: "variant", Value: "success"},
-						{Name: "message", Value: "All systems nominal"},
-					},
-				},
-			}
-			n := MustSucceed(mod.Create(ctx, cfg))
-			Expect(n).ToNot(BeNil())
-		})
-
-		It("Should populate the status from an existing entry in the service", func(ctx SpecContext) {
-			existing := status.Status[any]{
-				Key:     "pre_existing",
-				Variant: xstatus.VariantError,
-				Message: "old message",
-				Time:    telem.Now(),
-			}
-			Expect(statSvc.NewWriter(nil).Set(ctx, &existing)).To(Succeed())
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "status_key", Value: "pre_existing"},
-						{Name: "variant", Value: "success"},
-						{Name: "message", Value: "new message"},
-					},
-				},
-			}
-			n := MustSucceed(mod.Create(ctx, cfg))
-			Expect(n).ToNot(BeNil())
 		})
 	})
+})
 
-	Describe("Node Behavior", func() {
-		var n node.Node
+var _ = Describe("setNode.Next", func() {
+	var (
+		mod *arcstatus.Module
+		rep *recordingReporter
+	)
+	BeforeEach(func(ctx SpecContext) {
+		rep = &recordingReporter{}
+		mod = newModule(ctx, rep)
+	})
 
-		createNode := func(ctx context.Context, key, variant, message string) node.Node {
-			cfg := node.Config{
-				Node: ir.Node{
-					Type: "set_status",
-					Config: types.Params{
-						{Name: "status_key", Value: key},
-						{Name: "variant", Value: variant},
-						{Name: "message", Value: message},
-					},
-				},
+	build := func(ctx context.Context, keyOrName, message, variant string) (node.Node, *node.State) {
+		state, irNode := buildState(ctx, "set", setConfig(keyOrName, message, variant))
+		s := state.Node(irNode.Key)
+		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
+		return n, s
+	}
+
+	nodeCtx := func(ctx context.Context) node.Context {
+		return node.Context{Context: ctx, MarkChanged: func(int) {}}
+	}
+
+	It("Should upsert a new row by name when none exists", func(ctx SpecContext) {
+		name := "next_new_" + uuid.NewString()
+		n, state := build(ctx, name, "All good", "success")
+		n.Next(nodeCtx(ctx))
+
+		var s status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchNames[any](name)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		Expect(s.Variant).To(Equal(xstatus.VariantSuccess))
+		Expect(s.Message).To(Equal("All good"))
+		Expect(s.Time).ToNot(BeZero())
+
+		out := *state.Output(0)
+		Expect(telem.UnmarshalSeries[string](out)).To(Equal([]string{s.Key}))
+
+		outTime := *state.OutputTime(0)
+		Expect(outTime.Len()).To(Equal(int64(1)))
+	})
+
+	It("Should update an existing row by name (single match)", func(ctx SpecContext) {
+		name := "next_single_" + uuid.NewString()
+		existingKey := uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: existingKey, Name: name, Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, _ := build(ctx, name, "updated", "warning")
+		n.Next(nodeCtx(ctx))
+
+		var s status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](existingKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		Expect(s.Variant).To(Equal(xstatus.VariantWarning))
+		Expect(s.Message).To(Equal("updated"))
+	})
+
+	It("Should update an existing row by UUID key", func(ctx SpecContext) {
+		key := uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: key, Name: "by_uuid", Variant: xstatus.VariantInfo, Message: "orig", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, state := build(ctx, key, "via uuid", "error")
+		n.Next(nodeCtx(ctx))
+
+		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{key}))
+
+		var s status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&s).Exec(ctx, nil)).To(Succeed())
+		Expect(s.Variant).To(Equal(xstatus.VariantError))
+		Expect(s.Message).To(Equal("via uuid"))
+	})
+
+	It("Should produce non-decreasing timestamps on successive Next calls", func(ctx SpecContext) {
+		name := "next_time_" + uuid.NewString()
+		n, state := build(ctx, name, "msg", "info")
+		nctx := nodeCtx(ctx)
+		n.Next(nctx)
+		first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+		n.Next(nctx)
+		second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+		Expect(second).To(BeNumerically(">=", first))
+	})
+
+	It("Should warn and not write when the variant is unknown", func(ctx SpecContext) {
+		name := "next_iv_" + uuid.NewString()
+		n, state := build(ctx, name, "msg", "not_a_real_variant")
+		n.Next(nodeCtx(ctx))
+
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].message).To(ContainSubstring("not a valid variant"))
+		Expect(calls[0].message).To(ContainSubstring(`"not_a_real_variant"`))
+
+		var rows []status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchNames[any](name)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
+		Expect(rows).To(BeEmpty())
+
+		// On invalid variant, Output(0) carries a single empty-string sample.
+		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+	})
+
+	It("Should reject upper-cased variants as case-sensitive", func(ctx SpecContext) {
+		name := "next_iv_case_" + uuid.NewString()
+		n, _ := build(ctx, name, "msg", "SUCCESS")
+		n.Next(nodeCtx(ctx))
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].message).To(ContainSubstring("not a valid variant"))
+	})
+
+	It("Should warn on multi-match, update the first match, and report the resolved key", func(ctx SpecContext) {
+		name := "next_multi_" + uuid.NewString()
+		k1, k2 := uuid.NewString(), uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: k1, Name: name, Variant: xstatus.VariantInfo, Message: "first", Time: telem.Now(),
+		})).To(Succeed())
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: k2, Name: name, Variant: xstatus.VariantInfo, Message: "second", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, state := build(ctx, name, "now updated", "warning")
+		n.Next(nodeCtx(ctx))
+
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		// Exact format: `status.set: multiple statuses named "name"; updated first match (<uuid>)`.
+		re := regexp.MustCompile(`^status\.set: multiple statuses named "[^"]+"; updated first match \([0-9a-f-]+\)$`)
+		Expect(re.MatchString(calls[0].message)).To(BeTrue(), "got: %q", calls[0].message)
+
+		resolvedRows := telem.UnmarshalSeries[string](*state.Output(0))
+		Expect(resolvedRows).To(HaveLen(1))
+		Expect(resolvedRows[0]).To(SatisfyAny(Equal(k1), Equal(k2)))
+
+		// Only one row picked up the new variant.
+		var rows []status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](k1, k2)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
+		warning, info := 0, 0
+		for _, r := range rows {
+			switch r.Variant {
+			case xstatus.VariantWarning:
+				warning++
+			case xstatus.VariantInfo:
+				info++
 			}
-			return MustSucceed(mod.Create(ctx, cfg))
 		}
+		Expect(warning).To(Equal(1))
+		Expect(info).To(Equal(1))
+	})
 
-		Describe("IsOutputTruthy", func() {
-			BeforeEach(func(ctx SpecContext) {
-				n = createNode(ctx, "truthy_test", "info", "msg")
-			})
+	It("Should warn with a 'status.set:' prefix when the service returns an error", func(ctx SpecContext) {
+		// Force the by-key path against an unknown UUID, which propagates query.ErrNotFound from Update.
+		missing := uuid.NewString()
+		n, state := build(ctx, missing, "msg", "info")
+		n.Next(nodeCtx(ctx))
 
-			It("Should return false for any output index", func(ctx SpecContext) {
-				Expect(n.IsOutputTruthy(0)).To(BeFalse())
-				Expect(n.IsOutputTruthy(1)).To(BeFalse())
-				Expect(n.IsOutputTruthy(-1)).To(BeFalse())
-			})
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].message).To(HavePrefix("status.set:"))
+
+		// Output(0) carries an empty string on error.
+		Expect(telem.UnmarshalSeries[string](*state.Output(0))).To(Equal([]string{""}))
+	})
+})
+
+var _ = Describe("deleteNode.Next", func() {
+	var (
+		mod *arcstatus.Module
+		rep *recordingReporter
+	)
+	BeforeEach(func(ctx SpecContext) {
+		rep = &recordingReporter{}
+		mod = newModule(ctx, rep)
+	})
+
+	build := func(ctx context.Context, keyOrName string) (node.Node, *node.State) {
+		state, irNode := buildState(ctx, "delete", deleteConfig(keyOrName))
+		s := state.Node(irNode.Key)
+		n := MustSucceed(mod.Create(ctx, node.Config{Node: irNode, State: s}))
+		return n, s
+	}
+
+	nodeCtx := func(ctx context.Context) node.Context {
+		return node.Context{Context: ctx, MarkChanged: func(int) {}}
+	}
+
+	It("Should delete by UUID and emit 1", func(ctx SpecContext) {
+		key := uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: key, Name: "del_uuid", Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, state := build(ctx, key)
+		n.Next(nodeCtx(ctx))
+
+		Expect(statSvc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
+			To(MatchError(query.ErrNotFound))
+		out := *state.Output(0)
+		Expect(out.Len()).To(Equal(int64(1)))
+		Expect(telem.ValueAt[uint8](out, 0)).To(Equal(uint8(1)))
+	})
+
+	It("Should delete by name (single match) and emit 1", func(ctx SpecContext) {
+		name := "del_name_" + uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, state := build(ctx, name)
+		n.Next(nodeCtx(ctx))
+
+		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(1)))
+		var rows []status.Status[any]
+		Expect(statSvc.NewRetrieve().Where(status.MatchNames[any](name)).Entries(&rows).Exec(ctx, nil)).To(Succeed())
+		Expect(rows).To(BeEmpty())
+	})
+
+	It("Should warn on multi-match and emit 1", func(ctx SpecContext) {
+		name := "del_multi_" + uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "a", Time: telem.Now(),
+		})).To(Succeed())
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
+		})).To(Succeed())
+
+		n, state := build(ctx, name)
+		n.Next(nodeCtx(ctx))
+
+		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(1)))
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].message).To(ContainSubstring(`multiple statuses named`))
+		Expect(calls[0].message).To(ContainSubstring("(2)"))
+	})
+
+	It("Should emit 0 and warn when no status is found", func(ctx SpecContext) {
+		n, state := build(ctx, "del_missing_"+uuid.NewString())
+		n.Next(nodeCtx(ctx))
+
+		Expect(telem.ValueAt[uint8](*state.Output(0), 0)).To(Equal(uint8(0)))
+		calls := rep.get()
+		Expect(calls).To(HaveLen(1))
+		Expect(calls[0].variant).To(Equal(xstatus.VariantWarning))
+		Expect(calls[0].message).To(ContainSubstring("no status found"))
+	})
+
+	It("Should produce non-decreasing timestamps on successive Next calls", func(ctx SpecContext) {
+		name := "del_time_" + uuid.NewString()
+		Expect(statSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
+			Key: uuid.NewString(), Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
+		})).To(Succeed())
+		n, state := build(ctx, name)
+		nctx := nodeCtx(ctx)
+		n.Next(nctx)
+		first := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+		n.Next(nctx)
+		second := telem.ValueAt[telem.TimeStamp](*state.OutputTime(0), 0)
+		Expect(second).To(BeNumerically(">=", first))
+	})
+})
+
+var _ = Describe("Analyzer hooks", func() {
+	// Exercise compile-time variant validation through text.Analyze.
+	channelResolver := symbol.MapResolver{
+		"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.U8()), ID: 1},
+		"output": {Name: "output", Kind: symbol.KindChannel, Type: types.WriteChan(types.U8()), ID: 2},
+	}
+	resolver := symbol.CompoundResolver{arcstatus.SymbolResolver, channelResolver}
+
+	analyzeOK := func(ctx context.Context, src string) bool {
+		parsed, err := text.Parse(text.Text{Raw: src})
+		Expect(err).ToNot(HaveOccurred())
+		_, diags := text.Analyze(ctx, parsed, resolver)
+		return diags.Ok()
+	}
+
+	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
+		parsed, err := text.Parse(text.Text{Raw: src})
+		Expect(err).ToNot(HaveOccurred())
+		_, diags := text.Analyze(ctx, parsed, resolver)
+		Expect(diags.Ok()).To(BeFalse())
+		errs := diags.Errors()
+		Expect(errs).ToNot(BeEmpty())
+		found := false
+		for _, e := range errs {
+			if regexp.MustCompile(regexp.QuoteMeta(badVariant) + `.*not a valid status variant`).MatchString(e.Message) {
+				found = true
+				break
+			}
+		}
+		Expect(found).To(BeTrue(), "expected an invalid-variant diagnostic mentioning %q, got: %+v", badVariant, errs)
+	}
+
+	Describe("flow form (analyzeStatusSetFlowConfig)", func() {
+		It("Should flag an invalid variant in named config", func(ctx SpecContext) {
+			expectInvalidVariantError(ctx,
+				`sensor -> status.set{key_or_name="alarm", message="bad", variant="bogus"}`,
+				"bogus")
 		})
 
-		Describe("Reset", func() {
-			It("Should not panic", func(ctx SpecContext) {
-				n = createNode(ctx, "reset_test", "info", "msg")
-				Expect(func() { n.Reset() }).ToNot(Panic())
-			})
+		It("Should reject upper-cased variants (case-sensitive)", func(ctx SpecContext) {
+			expectInvalidVariantError(ctx,
+				`sensor -> status.set{key_or_name="alarm", message="bad", variant="SUCCESS"}`,
+				"SUCCESS")
 		})
 
-		Describe("Next", func() {
-			It("Should set the status in the service", func(ctx SpecContext) {
-				n = createNode(ctx, "next_test", "success", "All good")
-				nodeCtx := node.Context{Context: ctx}
-				n.Next(nodeCtx)
-				var retrieved status.Status[any]
-				Expect(statSvc.NewRetrieve().
-					Where(status.MatchKeys[any]("next_test")).
-					Entry(&retrieved).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(retrieved.Key).To(Equal("next_test"))
-				Expect(retrieved.Variant).To(Equal(xstatus.VariantSuccess))
-				Expect(retrieved.Message).To(Equal("All good"))
-				Expect(retrieved.Time).ToNot(BeZero())
-			})
+		It("Should accept a valid variant", func(ctx SpecContext) {
+			Expect(analyzeOK(ctx,
+				`sensor -> status.set{key_or_name="alarm", message="ok", variant="success"}`,
+			)).To(BeTrue())
+		})
 
-			It("Should update an existing status with a new timestamp", func(ctx SpecContext) {
-				n = createNode(ctx, "timestamp_test", "warning", "Check this")
-				nodeCtx := node.Context{Context: ctx}
-				n.Next(nodeCtx)
-				var first status.Status[any]
-				Expect(statSvc.NewRetrieve().
-					Where(status.MatchKeys[any]("timestamp_test")).
-					Entry(&first).
-					Exec(ctx, nil)).To(Succeed())
-
-				n.Next(nodeCtx)
-				var second status.Status[any]
-				Expect(statSvc.NewRetrieve().
-					Where(status.MatchKeys[any]("timestamp_test")).
-					Entry(&second).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(second.Time).To(BeNumerically(">=", first.Time))
-			})
-
-			It("Should preserve the variant set at creation time", func(ctx SpecContext) {
-				n = createNode(ctx, "variant_test", "error", "Something broke")
-				nodeCtx := node.Context{Context: ctx}
-				n.Next(nodeCtx)
-				var retrieved status.Status[any]
-				Expect(statSvc.NewRetrieve().
-					Where(status.MatchKeys[any]("variant_test")).
-					Entry(&retrieved).
-					Exec(ctx, nil)).To(Succeed())
-				Expect(retrieved.Variant).To(Equal(xstatus.VariantError))
-			})
+		It("Should not flag a missing variant entry", func(ctx SpecContext) {
+			// No variant key set; analyzer skips silently. We only assert that no
+			// "not a valid variant" diagnostic fires.
+			parsed, err := text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b"}`})
+			Expect(err).ToNot(HaveOccurred())
+			_, diags := text.Analyze(ctx, parsed, resolver)
+			for _, e := range diags.Errors() {
+				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
+			}
 		})
 	})
 })

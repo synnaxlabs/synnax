@@ -2791,19 +2791,17 @@ TEST(ArcTests, testReadOnlyNoWriteChannels) {
         "    stage on {\n"
         "        " +
         input_name +
-        " > 305 => set_status{\n"
-        "            status_key = \"tstill_status\",\n"
-        "            name = \"TStill Monitor\",\n"
-        "            variant = \"error\",\n"
-        "            message = \"TStill too warm\"\n"
+        " > 305 => status.set{\n"
+        "            key_or_name = \"tstill_status\",\n"
+        "            message = \"TStill too warm\",\n"
+        "            variant = \"error\"\n"
         "        }\n"
         "        " +
         input_name +
-        " < 305 => set_status{\n"
-        "            status_key = \"tstill_status\",\n"
-        "            name = \"TStill Monitor\",\n"
-        "            variant = \"success\",\n"
-        "            message = \"TStill nominal\"\n"
+        " < 305 => status.set{\n"
+        "            key_or_name = \"tstill_status\",\n"
+        "            message = \"TStill nominal\",\n"
+        "            variant = \"success\"\n"
         "        }\n"
         "    }\n"
         "}\n"

@@ -180,7 +180,7 @@ var _ = Describe("Hover", func() {
 		})
 
 		It("should provide hover for 'status.set' function", func(ctx SpecContext) {
-			content := `sensor -> status.set{status_key="alarm", variant="error", message="Bad"}`
+			content := `sensor -> status.set{key_or_name="alarm", message="Bad", variant="error"}`
 			OpenArcDocument(server, ctx, uri, content)
 
 			hover := MustSucceed(server.Hover(ctx, &protocol.HoverParams{

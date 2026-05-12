@@ -24,10 +24,17 @@ import (
 )
 
 var _ = Describe("NewResolver", func() {
-	It("Should resolve an STL symbol", func(ctx SpecContext) {
+	It("Should resolve a status-module symbol", func(ctx SpecContext) {
 		resolver := symbol.NewResolver(dist.Channel, nil)
-		sym := MustSucceed(resolver.Resolve(ctx, "set_status"))
-		Expect(sym.Name).To(Equal("set_status"))
+		sym := MustSucceed(resolver.Resolve(ctx, "status.set"))
+		Expect(sym.Name).To(Equal("set"))
+		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
+	})
+
+	It("Should resolve a still-current STL symbol", func(ctx SpecContext) {
+		resolver := symbol.NewResolver(dist.Channel, nil)
+		sym := MustSucceed(resolver.Resolve(ctx, "time.now"))
+		Expect(sym.Name).To(Equal("now"))
 		Expect(sym.Kind).To(Equal(arcsymbol.KindFunction))
 	})
 

@@ -22,13 +22,14 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	"github.com/synnaxlabs/x/zyn"
 	"go.uber.org/zap"
 )
 
 const deleteMemberName = "delete"
 
 var deleteParams = types.Params{
-	{Name: "key_or_name", Type: types.String()},
+	{Name: "key_or_name", Type: types.String(), Value: ""},
 }
 
 var deleteSymbolProps = types.Function(types.FunctionProperties{
@@ -43,6 +44,14 @@ var deleteResolverEntry = symbol.Symbol{
 	Exec: symbol.ExecBoth,
 	Type: deleteSymbolProps,
 }
+
+type deleteConfig struct {
+	KeyOrName string `json:"key_or_name"`
+}
+
+var deleteConfigSchema = zyn.Object(map[string]zyn.Schema{
+	"key_or_name": zyn.String(),
+})
 
 type deleteNode struct {
 	*node.State
@@ -88,4 +97,3 @@ func dispatchDelete(
 	}
 	return true
 }
-

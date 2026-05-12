@@ -63,9 +63,12 @@ func (s *ProgramState) CreateConfig(str string) uint32 {
 	return handle
 }
 
-// Get retrieves a string by its handle.
-// Checks transient strings first, then persistent config strings.
+// Get retrieves a string by its handle. Handle 0 is the empty string (per
+// Create), so it returns ("", true) without a lookup.
 func (s *ProgramState) Get(handle uint32) (string, bool) {
+	if handle == 0 {
+		return "", true
+	}
 	if str, ok := s.strings[handle]; ok {
 		return str, true
 	}

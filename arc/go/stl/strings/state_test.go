@@ -128,9 +128,10 @@ var _ = Describe("ProgramState", func() {
 			Expect(ok).To(BeFalse())
 		})
 
-		It("Should return false for handle zero", func() {
-			_, ok := s.Get(0)
-			Expect(ok).To(BeFalse())
+		It("Should return empty string with ok=true for handle zero", func() {
+			str, ok := s.Get(0)
+			Expect(ok).To(BeTrue())
+			Expect(str).To(Equal(""))
 		})
 
 		It("Should return false for max uint32 handle", func() {

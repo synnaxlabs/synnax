@@ -570,20 +570,20 @@ var _ = Describe("Graph", func() {
 						},
 						{
 							Key:  "status_success",
-							Type: "set_status",
+							Type: "status.set",
 							Config: map[string]any{
-								"key":     "ox_alarm",
-								"variant": "success",
-								"message": "OX Pressure Nominal",
+								"key_or_name": "ox_alarm",
+								"message":     "OX Pressure Nominal",
+								"variant":     "success",
 							},
 						},
 						{
 							Key:  "status_error",
-							Type: "set_status",
+							Type: "status.set",
 							Config: map[string]any{
-								"key":     "ox_alarm",
-								"variant": "error",
-								"message": "OX Pressure Alarm",
+								"key_or_name": "ox_alarm",
+								"message":     "OX Pressure Alarm",
+								"variant":     "error",
 							},
 						},
 					},
@@ -604,14 +604,7 @@ var _ = Describe("Graph", func() {
 							Source: arc.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 							Target: arc.Handle{Node: "select", Param: ir.DefaultInputParam},
 						},
-						{
-							Source: arc.Handle{Node: "select", Param: "false"},
-							Target: arc.Handle{Node: "status_success", Param: ir.DefaultInputParam},
-						},
-						{
-							Source: arc.Handle{Node: "select", Param: "true"},
-							Target: arc.Handle{Node: "status_error", Param: ir.DefaultInputParam},
-						},
+						// status_success/error fulfilled by config; no edges needed.
 					},
 				}
 
@@ -672,14 +665,20 @@ var _ = Describe("Graph", func() {
 						},
 					},
 					{
-						Key: "set_status",
+						Key: "status.set",
 						Config: types.Params{
-							{Name: "key", Type: types.String()},
-							{Name: "variant", Type: types.String()},
+							{Name: "key_or_name", Type: types.String()},
 							{Name: "message", Type: types.String()},
+							{Name: "variant", Type: types.String()},
 						},
+						// Default values mark inputs optional for ExecBoth flow-form.
 						Inputs: types.Params{
-							{Name: ir.DefaultInputParam, Type: types.U8()},
+							{Name: "key_or_name", Type: types.String(), Value: ""},
+							{Name: "message", Type: types.String(), Value: ""},
+							{Name: "variant", Type: types.String(), Value: ""},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.String()},
 						},
 					},
 				}
@@ -696,7 +695,7 @@ var _ = Describe("Graph", func() {
 
 				// The graph should have been parsed successfully
 				Expect(parsed.Nodes).To(HaveLen(7))
-				Expect(parsed.Edges).To(HaveLen(6))
+				Expect(parsed.Edges).To(HaveLen(4))
 
 				// Analyze the graph
 				inter, diagnostics := graph.Analyze(ctx, parsed, nil)
@@ -715,9 +714,8 @@ var _ = Describe("Graph", func() {
 				// on -> ge.a, constant -> ge.b
 				// ge -> stable_for
 				// stable_for -> select
-				// select.false -> status_success
-				// select.true -> status_error
-				Expect(inter.Edges).To(HaveLen(6))
+				// status_success and status_error are fulfilled by config, not edges.
+				Expect(inter.Edges).To(HaveLen(4))
 
 				// Verify configuration was parsed correctly
 				constantNode := lo.Filter(parsed.Nodes, func(n graph.Node, _ int) bool {
@@ -1252,9 +1250,9 @@ var _ = Describe("Graph", func() {
 						Key:  "ss",
 						Type: "status.set",
 						Config: map[string]any{
-							"status_key": "ox_alarm",
-							"variant":    "error",
-							"message":    "Overpressure",
+							"key_or_name": "ox_alarm",
+							"message":     "Overpressure",
+							"variant":     "error",
 						},
 					},
 				},
@@ -1266,37 +1264,96 @@ var _ = Describe("Graph", func() {
 				},
 			}
 			statusResolver := symbol.CompoundResolver{
-				symbol.MapResolver{
-					"set_status": {
-						Name: "set_status",
-						Kind: symbol.KindFunction,
-						Exec: symbol.ExecFlow,
-						Type: types.Function(types.FunctionProperties{
-							Config: types.Params{
-								{Name: "status_key", Type: types.String()},
-								{Name: "variant", Type: types.String()},
-								{Name: "message", Type: types.String()},
-							},
-							Inputs: types.Params{
-								{Name: ir.DefaultOutputParam, Type: types.U8()},
-							},
-						}),
-					},
-				},
 				&symbol.ModuleResolver{
 					Name: "status",
 					Members: symbol.MapResolver{
 						"set": {
 							Name: "set",
 							Kind: symbol.KindFunction,
-							Exec: symbol.ExecFlow,
+							Exec: symbol.ExecBoth,
 							Type: types.Function(types.FunctionProperties{
 								Config: types.Params{
-									{Name: "status_key", Type: types.String()},
-									{Name: "variant", Type: types.String()},
+									{Name: "key_or_name", Type: types.String()},
 									{Name: "message", Type: types.String()},
+									{Name: "variant", Type: types.String()},
 								},
 								Inputs: types.Params{
+									{Name: "key_or_name", Type: types.String(), Value: ""},
+									{Name: "message", Type: types.String(), Value: ""},
+									{Name: "variant", Type: types.String(), Value: ""},
+								},
+								Outputs: types.Params{
+									{Name: ir.DefaultOutputParam, Type: types.String()},
+								},
+							}),
+						},
+					},
+				},
+				symbol.MapResolver{
+					"100": symbol.Symbol{
+						Name: "sensor",
+						Type: types.Chan(types.U8()),
+						Kind: symbol.KindChannel,
+						ID:   100,
+					},
+				},
+			}
+			g = MustSucceed(graph.Parse(g))
+			inter, diagnostics := graph.Analyze(ctx, g, statusResolver)
+			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+			Expect(inter.Nodes).To(HaveLen(2))
+		})
+
+		It("Should analyze status.delete with qualified name", func(ctx SpecContext) {
+			g := arc.Graph{
+				Functions: []ir.Function{
+					{
+						Key: "on",
+						Config: types.Params{
+							{Name: "channel", Type: types.Chan(types.U8())},
+						},
+						Outputs: types.Params{
+							{Name: ir.DefaultOutputParam, Type: types.U8()},
+						},
+					},
+				},
+				Nodes: []graph.Node{
+					{
+						Key:    "on",
+						Type:   "on",
+						Config: map[string]any{"channel": 100},
+					},
+					{
+						Key:  "sd",
+						Type: "status.delete",
+						Config: map[string]any{
+							"key_or_name": "ox_alarm",
+						},
+					},
+				},
+				Edges: []ir.Edge{
+					{
+						Source: ir.Handle{Node: "on", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "sd", Param: ir.DefaultOutputParam},
+					},
+				},
+			}
+			statusResolver := symbol.CompoundResolver{
+				&symbol.ModuleResolver{
+					Name: "status",
+					Members: symbol.MapResolver{
+						"delete": {
+							Name: "delete",
+							Kind: symbol.KindFunction,
+							Exec: symbol.ExecBoth,
+							Type: types.Function(types.FunctionProperties{
+								Config: types.Params{
+									{Name: "key_or_name", Type: types.String()},
+								},
+								Inputs: types.Params{
+									{Name: "key_or_name", Type: types.String(), Value: ""},
+								},
+								Outputs: types.Params{
 									{Name: ir.DefaultOutputParam, Type: types.U8()},
 								},
 							}),

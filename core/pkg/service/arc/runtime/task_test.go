@@ -448,11 +448,11 @@ var _ = Describe("Task", Ordered, func() {
 					{Key: "ge", Type: "ge"},
 					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
 					{Key: "select", Type: "select"},
-					{Key: "status_success", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "success", "name": "OX Alarm", "message": "OX Pressure Nominal",
+					{Key: "status_success", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Nominal", "variant": "success",
 					}},
-					{Key: "status_error", Type: "set_status", Config: map[string]any{
-						"status_key": "ox_alarm", "variant": "error", "name": "OX Alarm", "message": "OX Pressure Exceed",
+					{Key: "status_error", Type: "status.set", Config: map[string]any{
+						"key_or_name": "ox_alarm", "message": "OX Pressure Exceed", "variant": "error",
 					}},
 				},
 				Edges: []graph.Edge{
@@ -472,6 +472,7 @@ var _ = Describe("Task", Ordered, func() {
 						Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam},
 						Target: graph.Handle{Node: "select", Param: ir.DefaultOutputParam},
 					},
+					// status_success/error fire on select outputs (edges below).
 					{
 						Source: graph.Handle{Node: "select", Param: "false"},
 						Target: graph.Handle{Node: "status_success", Param: ir.DefaultOutputParam},
@@ -500,8 +501,56 @@ var _ = Describe("Task", Ordered, func() {
 			Eventually(func(g Gomega) {
 				var stat status.Status[svcarc.StatusDetails]
 				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
-					Where(status.MatchKeys[svcarc.StatusDetails]("ox_alarm")).Entry(&stat).Exec(ctx, nil)).To(Succeed())
+					Where(status.MatchNames[svcarc.StatusDetails]("ox_alarm")).Entry(&stat).Exec(ctx, nil)).To(Succeed())
 				g.Expect(stat.Variant).To(BeEquivalentTo("error"))
+			}).Should(Succeed())
+		})
+
+		It("Should delete a status via status.delete node", func(ctx SpecContext) {
+			ch := &channel.Channel{Name: "delete_trigger_ch", Virtual: true, DataType: telem.Uint8T}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+			// Pre-create a status that the Arc graph will then delete.
+			_, _, err := statusSvc.SetByKeyOrName(ctx, "delete_target", "alive", "info")
+			Expect(err).ToNot(HaveOccurred())
+
+			deleteGraph := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "on", Type: "on", Config: map[string]any{"channel": ch.Key()}},
+					{Key: "constant", Type: "constant", Config: map[string]any{"value": 0}},
+					{Key: "gt", Type: "gt"},
+					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
+					{Key: "delete_status", Type: "status.delete", Config: map[string]any{
+						"key_or_name": "delete_target",
+					}},
+				},
+				Edges: []graph.Edge{
+					{Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "gt", Param: ir.LHSInputParam}},
+					{Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "gt", Param: ir.RHSInputParam}},
+					{Source: graph.Handle{Node: "gt", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam}},
+					{Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "delete_status", Param: ir.DefaultOutputParam}},
+				},
+			}
+
+			t := newTask(ctx, newGraphFactory(deleteGraph))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var rows []status.Status[svcarc.StatusDetails]
+				g.Expect(status.NewRetrieve[svcarc.StatusDetails](statusSvc).
+					Where(status.MatchNames[svcarc.StatusDetails]("delete_target")).
+					Entries(&rows).Exec(ctx, nil)).To(Succeed())
+				g.Expect(rows).To(BeEmpty())
 			}).Should(Succeed())
 		})
 	})

@@ -307,4 +307,197 @@ TEST(StatusTest, CustomDetailsEmptyFields) {
     EXPECT_EQ(retrieved.details.critical, false);
 }
 
+// Unique suffix per test to avoid cross-run contamination on a shared cluster.
+static std::string unique_name(const std::string &prefix) {
+    return prefix + std::to_string(
+                        static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+                    );
+}
+
+/// @brief set_by_key_or_name upserts a fresh row by name.
+TEST(StatusTest, SetByKeyOrNameCreatesNewByName) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_create_");
+    std::string out_key;
+    bool out_multi = false;
+    ASSERT_NIL(
+        client.statuses.set_by_key_or_name(name, "hello", "info", out_key, out_multi)
+    );
+    EXPECT_FALSE(out_key.empty());
+    EXPECT_FALSE(out_multi);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    EXPECT_EQ(retrieved.name, name);
+    EXPECT_EQ(retrieved.message, "hello");
+    EXPECT_EQ(retrieved.variant, "info");
+}
+
+/// @brief set_by_key_or_name updates an existing row by name.
+TEST(StatusTest, SetByKeyOrNameUpdatesByName) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_update_name_");
+
+    std::string preset_key;
+    bool _multi = false;
+    ASSERT_NIL(
+        client.statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
+    );
+
+    std::string out_key;
+    bool out_multi = false;
+    ASSERT_NIL(client.statuses
+                   .set_by_key_or_name(name, "updated", "warning", out_key, out_multi));
+    EXPECT_EQ(out_key, preset_key);
+    EXPECT_FALSE(out_multi);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    EXPECT_EQ(retrieved.message, "updated");
+    EXPECT_EQ(retrieved.variant, "warning");
+}
+
+/// @brief set_by_key_or_name updates an existing row when passed a UUID.
+TEST(StatusTest, SetByKeyOrNameUpdatesByUUID) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_update_uuid_");
+
+    std::string preset_key;
+    bool _multi = false;
+    ASSERT_NIL(
+        client.statuses.set_by_key_or_name(name, "initial", "info", preset_key, _multi)
+    );
+
+    std::string out_key;
+    bool out_multi = false;
+    ASSERT_NIL(
+        client.statuses
+            .set_by_key_or_name(preset_key, "via uuid", "error", out_key, out_multi)
+    );
+    EXPECT_EQ(out_key, preset_key);
+    EXPECT_FALSE(out_multi);
+
+    const auto retrieved = ASSERT_NIL_P(client.statuses.retrieve(out_key));
+    EXPECT_EQ(retrieved.message, "via uuid");
+    EXPECT_EQ(retrieved.variant, "error");
+}
+
+/// @brief set_by_key_or_name reports multipleMatches on by-name multi-match.
+TEST(StatusTest, SetByKeyOrNameMultiMatch) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_multi_");
+
+    // Use the lower-level set() API to create two distinct rows that share a name.
+    Status a, b;
+    a.key = "by_kon_multi_a_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+            );
+    a.name = name;
+    a.variant = "info";
+    a.message = "first";
+    a.time = x::telem::TimeStamp::now();
+    b.key = "by_kon_multi_b_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds()) + 1
+            );
+    b.name = name;
+    b.variant = "info";
+    b.message = "second";
+    b.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(a));
+    ASSERT_NIL(client.statuses.set(b));
+
+    std::string out_key;
+    bool out_multi = false;
+    ASSERT_NIL(client.statuses
+                   .set_by_key_or_name(name, "updated", "warning", out_key, out_multi));
+    EXPECT_TRUE(out_multi);
+    EXPECT_TRUE(out_key == a.key || out_key == b.key);
+}
+
+/// @brief set_by_key_or_name returns an error when the variant is invalid.
+TEST(StatusTest, SetByKeyOrNameInvalidVariant) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_iv_");
+    std::string out_key;
+    bool out_multi = false;
+    const auto err = client.statuses
+                         .set_by_key_or_name(name, "x", "bogus", out_key, out_multi);
+    EXPECT_FALSE(err.ok());
+    EXPECT_TRUE(out_key.empty());
+}
+
+/// @brief delete_by_key_or_name removes a single row by UUID.
+TEST(StatusTest, DeleteByKeyOrNameByUUID) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_del_uuid_");
+
+    std::string preset_key;
+    bool _multi = false;
+    ASSERT_NIL(
+        client.statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
+    );
+
+    int count = -1;
+    ASSERT_NIL(client.statuses.delete_by_key_or_name(preset_key, count));
+    EXPECT_EQ(count, 1);
+
+    ASSERT_OCCURRED_AS_P(client.statuses.retrieve(preset_key), x::errors::NOT_FOUND);
+}
+
+/// @brief delete_by_key_or_name removes a single row by name.
+TEST(StatusTest, DeleteByKeyOrNameByName) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_del_name_");
+
+    std::string preset_key;
+    bool _multi = false;
+    ASSERT_NIL(
+        client.statuses.set_by_key_or_name(name, "x", "info", preset_key, _multi)
+    );
+
+    int count = -1;
+    ASSERT_NIL(client.statuses.delete_by_key_or_name(name, count));
+    EXPECT_EQ(count, 1);
+}
+
+/// @brief delete_by_key_or_name removes all matches on by-name multi-match.
+TEST(StatusTest, DeleteByKeyOrNameMultiMatch) {
+    const auto client = new_test_client();
+    const auto name = unique_name("by_kon_del_multi_");
+
+    Status a, b;
+    a.key = "by_kon_del_multi_a_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds())
+            );
+    a.name = name;
+    a.variant = "info";
+    a.message = "first";
+    a.time = x::telem::TimeStamp::now();
+    b.key = "by_kon_del_multi_b_" +
+            std::to_string(
+                static_cast<unsigned>(x::telem::TimeStamp::now().nanoseconds()) + 1
+            );
+    b.name = name;
+    b.variant = "info";
+    b.message = "second";
+    b.time = x::telem::TimeStamp::now();
+    ASSERT_NIL(client.statuses.set(a));
+    ASSERT_NIL(client.statuses.set(b));
+
+    int count = -1;
+    ASSERT_NIL(client.statuses.delete_by_key_or_name(name, count));
+    EXPECT_EQ(count, 2);
+}
+
+/// @brief delete_by_key_or_name returns count=0 when no row matches.
+TEST(StatusTest, DeleteByKeyOrNameNotFound) {
+    const auto client = new_test_client();
+    int count = -1;
+    ASSERT_NIL(
+        client.statuses.delete_by_key_or_name(unique_name("by_kon_del_missing_"), count)
+    );
+    EXPECT_EQ(count, 0);
+}
+
 }
