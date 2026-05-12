@@ -18,6 +18,7 @@ import {
   type StoreConfig,
 } from "@/flux/base/store";
 import { openStreamer as fluxOpenStreamer } from "@/flux/base/streamer";
+import { QueryCache } from "@/flux/queryCache";
 import { type status } from "@/status/aether";
 
 interface ClientArgs<ScopedStore extends Store> {
@@ -32,6 +33,7 @@ export class Client<ScopedStore extends Store = Store> {
   private readonly store: InternalStore;
   private readonly streamCloser: Promise<destructor.Async> | null = null;
   readonly client: Synnax | null;
+  readonly queryCache: QueryCache;
 
   constructor({
     client,
@@ -41,6 +43,7 @@ export class Client<ScopedStore extends Store = Store> {
     handleAsyncError,
   }: ClientArgs<ScopedStore>) {
     this.store = createStore(storeConfig, handleError);
+    this.queryCache = new QueryCache();
     this.client = client;
     if (client == null) return;
     openStreamer ??= client?.openStreamer.bind(client);

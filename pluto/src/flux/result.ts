@@ -67,6 +67,13 @@ export type LoadingResult<
   variant: "loading";
   status: status.Status<StatusDetails, z.ZodLiteral<"loading">>;
   data: Data | undefined;
+  /// In-flight promise for the loading operation. Suspending reads attach this
+  /// so the cache can auto-transition to success or error when the promise
+  /// settles. Mutations and observable reads leave it undefined.
+  promise?: Promise<Data>;
+  /// Bare resource name (e.g., "range", "schematic"). Used by the query cache
+  /// to format the success / error status message when the promise settles.
+  name?: string;
 };
 
 export type DisabledResult<
@@ -112,6 +119,24 @@ export const loadingResult = (<
   }),
   data,
 })) as ResultCreator;
+
+/// Builds a loading result with an attached promise and the bare resource name.
+/// Used by suspending reads so the cache can auto-transition to success or
+/// error when the promise settles, using `name` to format the next status
+/// message.
+export const pendingResult = <Data extends state.State>(
+  name: string,
+  promise: Promise<Data>,
+): LoadingResult<Data> => ({
+  variant: "loading",
+  status: status.create<z.ZodNever, "loading">({
+    variant: "loading",
+    message: caseconv.capitalize(`retrieving ${name}`),
+  }),
+  data: undefined,
+  promise,
+  name,
+});
 
 export const successResult = (<
   Data extends state.State,

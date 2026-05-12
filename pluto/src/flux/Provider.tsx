@@ -14,6 +14,7 @@ import { Aether } from "@/aether";
 import { context } from "@/context";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
+import { type QueryCache } from "@/flux/queryCache";
 import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { Status } from "@/status/base";
@@ -30,6 +31,11 @@ export const useStore = <ScopedStore extends flux.Store>(
   const client = useContext("Flux.useStore");
   const uniqueKey = useUniqueKey(scope);
   return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
+};
+
+export const useQueryCache = (): QueryCache => {
+  const client = useContext("Flux.useQueryCache");
+  return client.queryCache;
 };
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
