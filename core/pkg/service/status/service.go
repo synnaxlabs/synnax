@@ -150,6 +150,11 @@ func (s *Service) Observe() observe.Observable[gorp.TxReader[string, Status[any]
 // execute all operations directly against the underlying gorp.DB.
 func (s *Service) NewWriter(tx gorp.Tx) Writer[any] { return NewWriter[any](s, tx) }
 
+// WithTx runs fn inside a new transaction; commits on nil, aborts otherwise.
+func (s *Service) WithTx(ctx context.Context, fn func(tx gorp.Tx) error) error {
+	return s.cfg.DB.WithTx(ctx, fn)
+}
+
 // NewRetrieve opens a new Retrieve query to fetch statuses from the database.
 func (s *Service) NewRetrieve() Retrieve[any] { return NewRetrieve[any](s) }
 

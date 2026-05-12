@@ -12,6 +12,7 @@ package status
 import (
 	"context"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/errors"
@@ -20,6 +21,10 @@ import (
 	"github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/validate"
 )
+
+// errMultipleMatches is returned by UpsertByName when more than one status
+// shares the supplied name.
+var errMultipleMatches = errors.New("multiple statuses match name")
 
 // Writer is used to create and update statuses within the DB.
 type Writer[D any] struct {
@@ -120,6 +125,57 @@ func (w Writer[D]) SetManyWithParent(
 		(*statuses)[i] = s
 	}
 	return nil
+}
+
+// Update applies the change function to the status with the given key and persists
+// the result. Returns query.ErrNotFound if no status exists for the supplied key.
+func (w Writer[D]) Update(
+	ctx context.Context,
+	key string,
+	change func(*Status[D]) error,
+) error {
+	var s Status[D]
+	if err := gorp.NewRetrieve[string, status.Status[D]]().
+		Where(gorp.MatchKeys[string, status.Status[D]](key)).
+		Entry(&s).
+		Exec(ctx, w.tx); err != nil {
+		return err
+	}
+	if err := change(&s); err != nil {
+		return err
+	}
+	return w.Set(ctx, &s)
+}
+
+// UpsertByName updates the status with this name, or creates one if none exists.
+// Returns errMultipleMatches if more than one row shares the name.
+func (w Writer[D]) UpsertByName(
+	ctx context.Context,
+	name string,
+	change func(*Status[D]) error,
+) (string, error) {
+	var matches []Status[D]
+	if err := gorp.NewRetrieve[string, status.Status[D]]().
+		Where(gorp.Match(func(_ gorp.Context, s *status.Status[D]) (bool, error) {
+			return s.Name == name, nil
+		})).
+		Entries(&matches).
+		Exec(ctx, w.tx); errors.Skip(err, query.ErrNotFound) != nil {
+		return "", err
+	}
+	if len(matches) > 1 {
+		return "", errMultipleMatches
+	}
+	var s Status[D]
+	if len(matches) == 1 {
+		s = matches[0]
+	} else {
+		s = Status[D]{Key: uuid.NewString(), Name: name, Variant: status.VariantInfo}
+	}
+	if err := change(&s); err != nil {
+		return "", err
+	}
+	return s.Key, w.Set(ctx, &s)
 }
 
 // Delete deletes the status with the given key. Delete is idempotent.

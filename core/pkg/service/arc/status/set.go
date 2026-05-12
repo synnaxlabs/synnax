@@ -14,6 +14,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/ir"
@@ -26,6 +27,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
+	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
@@ -64,8 +66,9 @@ var qualifiedParams = types.Params{
 }
 
 var qualifiedSymbolProps = types.Function(types.FunctionProperties{
-	Inputs: qualifiedParams,
-	Config: qualifiedParams,
+	Inputs:  qualifiedParams,
+	Config:  qualifiedParams,
+	Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 })
 
 var (
@@ -98,6 +101,7 @@ type Module struct {
 	stat    *status.Service
 	strings *stlstrings.ProgramState
 	memory  api.Memory
+	ins     alamos.Instrumentation
 }
 
 func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
@@ -108,17 +112,19 @@ func NewModule(
 	strings *stlstrings.ProgramState,
 	rat wazero.Runtime,
 	memory api.Memory,
+	ins alamos.Instrumentation,
 ) (*Module, error) {
-	m := &Module{stat: stat, strings: strings, memory: memory}
+	m := &Module{stat: stat, strings: strings, memory: memory, ins: ins}
 	if rat == nil {
 		return m, nil
 	}
 	builder := rat.NewHostModuleBuilder(moduleName)
 	builder = builder.NewFunctionBuilder().
-		WithFunc(func(_ context.Context, keyOrName, msg, variant uint32) {
-			_ = keyOrName
-			_ = msg
-			_ = variant
+		WithFunc(func(ctx context.Context, keyOrNameH, msgH, variantH uint32) uint32 {
+			keyOrName, _ := m.strings.Get(keyOrNameH)
+			msg, _ := m.strings.Get(msgH)
+			variant, _ := m.strings.Get(variantH)
+			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, keyOrName, msg, variant))
 		}).Export(qualifiedMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -156,7 +162,15 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 		stat.Variant = xstatus.Variant(nodeCfg.Variant)
 		return &setNode{ins: cfg.Instrumentation, stat: stat, statusSvc: m.stat}, nil
 	case qualifiedMemberName:
-		return &setStubNode{}, nil
+		vm := cfg.Node.Config.ValueMap()
+		return &qualifiedSetNode{
+			State:     cfg.State,
+			stat:      m.stat,
+			ins:       cfg.Instrumentation,
+			keyOrName: vm["key_or_name"].(string),
+			message:   vm["message"].(string),
+			variant:   vm["variant"].(string),
+		}, nil
 	default:
 		return nil, query.ErrNotFound
 	}
@@ -195,13 +209,63 @@ func (s *setNode) Next(ctx node.Context) {
 	}
 }
 
-type setStubNode struct{}
+type qualifiedSetNode struct {
+	*node.State
+	stat      *status.Service
+	ins       alamos.Instrumentation
+	keyOrName string
+	message   string
+	variant   string
+}
 
-func (s *setStubNode) Reset() {}
+func (s *qualifiedSetNode) Next(ctx node.Context) {
+	key := dispatchSet(ctx, s.stat, s.ins, s.keyOrName, s.message, s.variant)
+	*s.Output(0) = telem.NewSeriesV[string](key)
+	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
+	ctx.MarkChanged(0)
+}
 
-func (s *setStubNode) IsOutputTruthy(int) bool { return false }
-
-func (s *setStubNode) Next(node.Context) {}
+// dispatchSet upserts a status by key (UUID) or by name. Returns the resulting
+// key, or "" after logging via ins on failure.
+func dispatchSet(
+	ctx context.Context,
+	stat *status.Service,
+	ins alamos.Instrumentation,
+	keyOrName, message, variantStr string,
+) string {
+	if !slices.Contains(allowedVariants, variantStr) {
+		ins.L.Error("invalid status variant",
+			zap.String("variant", variantStr),
+			zap.Strings("allowed", allowedVariants))
+		return ""
+	}
+	overlay := func(s *status.Status[any]) error {
+		s.Message = message
+		s.Variant = xstatus.Variant(variantStr)
+		s.Time = telem.Now()
+		return nil
+	}
+	var (
+		key string
+		err error
+	)
+	if _, perr := uuid.Parse(keyOrName); perr == nil {
+		key = keyOrName
+		err = stat.NewWriter(nil).Update(ctx, keyOrName, overlay)
+	} else {
+		err = stat.WithTx(ctx, func(tx gorp.Tx) error {
+			var ierr error
+			key, ierr = stat.NewWriter(tx).UpsertByName(ctx, keyOrName, overlay)
+			return ierr
+		})
+	}
+	if err != nil {
+		ins.L.Error("status.set failed",
+			zap.String("key_or_name", keyOrName), zap.Error(err))
+		return ""
+	}
+	return key
+}
 
 var allowedVariants = []string{
 	string(xstatus.VariantSuccess),

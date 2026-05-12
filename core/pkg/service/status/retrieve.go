@@ -121,6 +121,16 @@ func MatchKeys[D any](keys ...string) Filter[D] {
 	}
 }
 
+// MatchNames returns a filter for statuses whose Name matches any of the
+// provided values.
+func MatchNames[D any](names ...string) Filter[D] {
+	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
+		return gorp.Match(func(_ gorp.Context, s *Status[D]) (bool, error) {
+			return slices.Contains(names, s.Name), nil
+		})
+	}
+}
+
 // MatchKeyPrefix returns a filter for statuses whose key starts with the provided prefix.
 func MatchKeyPrefix[D any](prefix string) Filter[D] {
 	return func(_ Retrieve[D]) gorp.Filter[string, Status[D]] {
