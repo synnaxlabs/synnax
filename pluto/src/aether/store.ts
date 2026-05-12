@@ -11,29 +11,10 @@ import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
 import { type errors, TimeSpan, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
-import {
-  type CallersFromSchema,
-  type EmptyMethodsSchema,
-  isFireAndForget,
-  type MethodsSchema,
-} from "@/aether/aether/aether";
-import {
-  type MainComms,
-  type MainMessage,
-  type WorkerMessage,
-  wrapWorker,
-} from "@/aether/aether/message";
+import { aether } from "@/aether/aether";
 import { type state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
-
-/** Sentinel used when `workerEnabled: false`. Lets the store stay non-null
- * without runtime null checks; any other missing-worker configuration is a
- * constructor-time error. */
-const NOOP_WORKER: MainComms = {
-  send: () => {},
-  handle: () => {},
-};
 
 const reconstructError = (payload: errors.NativePayload): Error => {
   const err = new Error(payload.message);
@@ -117,7 +98,7 @@ interface Entry<State extends z.ZodType<state.State> = z.ZodType<state.State>> {
 /** Arguments accepted by {@link Store.register}. */
 export interface RegisterParams<
   State extends z.ZodType<state.State>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   /** Stable, unique key identifying the component for the lifetime of the
    * registration. */
@@ -141,11 +122,11 @@ export interface RegisterParams<
  * setState, delete, and method callers. */
 export interface Handle<
   State extends z.ZodType<state.State>,
-  Methods extends MethodsSchema = EmptyMethodsSchema,
+  Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   key: string;
   path: readonly string[];
-  methods: CallersFromSchema<Methods>;
+  methods: aether.CallersFromSchema<Methods>;
   setState: (state: RawSetArg<State>, transfer?: Transferable[]) => void;
   delete: () => void;
 }
@@ -155,7 +136,7 @@ export interface Handle<
  * spawn its own. Set `workerEnabled: false` to explicitly opt out — any
  * other missing-worker configuration throws at construction. */
 export interface StoreConfig {
-  worker?: MainComms;
+  worker?: aether.MainComms;
   workerURL?: string | URL;
   workerEnabled?: boolean;
   /** Default timeout for async method invocations. Defaults to 5s. */
@@ -182,7 +163,7 @@ export class Store {
   private snapshotsByKey: Map<string, state.State> = new Map();
   /** Active worker comms. {@link NOOP_WORKER} when `workerEnabled: false`
    * or between {@link dispose} and the next send (lazy re-attach). */
-  private worker: MainComms = NOOP_WORKER;
+  private worker: aether.MainComms = aether.NOOP_MAIN_COMMS;
   private invokeTracker = new InvokeTracker();
   /** Most recent worker-reported error. Buffered so it survives the gap
    * between a synchronous worker push and the Provider's subscription. */
@@ -208,13 +189,13 @@ export class Store {
   }
 
   private ensureAttached(): void {
-    if (this.worker !== NOOP_WORKER) return;
+    if (this.worker !== aether.NOOP_MAIN_COMMS) return;
     const { worker, workerURL, workerEnabled = true } = this.config;
     if (!workerEnabled) return;
     if (worker != null) this.worker = worker;
     else if (workerURL != null) {
       this.ownedWorker = new Worker(workerURL, { type: "module" });
-      this.worker = wrapWorker(this.ownedWorker);
+      this.worker = aether.wrapWorker(this.ownedWorker);
     }
     this.worker.handle((msg) => this.handleWorkerMessage(msg));
   }
@@ -223,10 +204,10 @@ export class Store {
    * in-flight invokes. The store remains usable: a subsequent send lazily
    * re-attaches via a fresh `Worker`. Idempotent. */
   dispose(): void {
-    if (this.worker === NOOP_WORKER) return;
+    if (this.worker === aether.NOOP_MAIN_COMMS) return;
     this.invokeTracker.abort(new Error("aether store disposed"));
     this.worker.handle(() => {});
-    this.worker = NOOP_WORKER;
+    this.worker = aether.NOOP_MAIN_COMMS;
     this.ownedWorker?.terminate();
     this.ownedWorker = null;
   }
@@ -301,7 +282,7 @@ export class Store {
    * state to the worker. If a component with the same key already exists, the
    * prior worker component is deleted and the entry is replaced; subscribers
    * keep their subscriptions. */
-  register<State extends z.ZodType<state.State>, Methods extends MethodsSchema>(
+  register<State extends z.ZodType<state.State>, Methods extends aether.MethodsSchema>(
     params: RegisterParams<State, Methods>,
   ): Handle<State, Methods> {
     const {
@@ -361,12 +342,12 @@ export class Store {
     if (!this.listenersByKey.has(key)) this.snapshotsByKey.delete(key);
   }
 
-  private send(msg: MainMessage, transfer: Transferable[] = []): void {
+  private send(msg: aether.MainMessage, transfer: Transferable[] = []): void {
     this.ensureAttached();
     this.worker.send(msg, transfer);
   }
 
-  private handleWorkerMessage(msg: WorkerMessage): void {
+  private handleWorkerMessage(msg: aether.WorkerMessage): void {
     const { variant } = msg;
     if (variant === "error") {
       const err = reconstructError(msg.error);
@@ -398,7 +379,7 @@ export class Store {
 
   private buildHandle<
     State extends z.ZodType<state.State>,
-    Methods extends MethodsSchema,
+    Methods extends aether.MethodsSchema,
   >(key: string, methodsSchema?: Methods): Handle<State, Methods> {
     const entry = this.getEntry<State>(key);
     if (entry == null)
@@ -463,16 +444,16 @@ export class Store {
   }
 }
 
-const buildMethods = <Methods extends MethodsSchema>(
+const buildMethods = <Methods extends aether.MethodsSchema>(
   invokeMethod: (method: string, args: unknown[]) => void,
   invokeMethodAsync: (method: string, args: unknown[]) => Promise<unknown>,
   methodsSchema?: Methods,
-): CallersFromSchema<Methods> => {
+): aether.CallersFromSchema<Methods> => {
   const callers: Record<string, (...args: unknown[]) => unknown> = {};
   if (methodsSchema != null)
     for (const [method, schema] of Object.entries(methodsSchema)) {
-      const base = isFireAndForget(schema) ? invokeMethod : invokeMethodAsync;
+      const base = aether.isFireAndForget(schema) ? invokeMethod : invokeMethodAsync;
       callers[method] = (...args: unknown[]) => base(method, args);
     }
-  return callers as CallersFromSchema<Methods>;
+  return callers as aether.CallersFromSchema<Methods>;
 };

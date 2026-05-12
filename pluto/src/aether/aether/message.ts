@@ -87,6 +87,11 @@ export interface MainComms {
   handle: (handler: (value: WorkerMessage) => void) => void;
 }
 
+/** Sentinel used when `workerEnabled: false`. Lets the store stay non-null
+ * without runtime null checks; any other missing-worker configuration is a
+ * constructor-time error. */
+export const NOOP_MAIN_COMMS: MainComms = { send: () => {}, handle: () => {} };
+
 /** Adapts a `Worker` to {@link MainComms} for main-thread use. */
 export const wrapWorker = (worker: Worker): MainComms => ({
   send: (value, transfer = []) => worker.postMessage(value, transfer),
