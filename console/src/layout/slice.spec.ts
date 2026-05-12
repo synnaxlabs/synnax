@@ -7,20 +7,39 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { configureStore } from "@reduxjs/toolkit";
-import { MAIN_WINDOW } from "@synnaxlabs/drift";
+import { combineReducers, configureStore } from "@reduxjs/toolkit";
+import { Drift, MAIN_WINDOW } from "@synnaxlabs/drift";
 import { Color, type Haul, Mosaic } from "@synnaxlabs/pluto";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import {
+  select,
+  selectActiveMosaicTabState,
+  selectActiveThemeKey,
+  selectAltKey,
+  selectArgs,
+  selectColorContext,
+  selectFocused,
+  selectHauling,
+  selectMosaic,
+  selectNavDrawer,
+  selectSliceState,
+} from "@/layout/selectors";
 import {
   actions,
   reducer,
   setArgs,
   SLICE_NAME,
   type State,
-  type StoreState,
   ZERO_SLICE_STATE,
 } from "@/layout/slice";
+
+const rootReducer = combineReducers({
+  [SLICE_NAME]: reducer,
+  drift: Drift.reducer,
+});
+
+type TestState = ReturnType<typeof rootReducer>;
 
 const mosaicLayout = (key: string, overrides: Partial<State> = {}): State => ({
   key,
@@ -41,28 +60,30 @@ const windowLayout = (key: string, overrides: Partial<State> = {}): State => ({
 });
 
 describe("Layout Slice", () => {
-  let store: ReturnType<typeof configureStore<StoreState>>;
+  let store: ReturnType<typeof configureStore<TestState>>;
 
   beforeEach(() => {
     store = configureStore({
-      reducer: { [SLICE_NAME]: reducer },
-      preloadedState: { [SLICE_NAME]: ZERO_SLICE_STATE },
+      reducer: rootReducer,
+      preloadedState: {
+        [SLICE_NAME]: ZERO_SLICE_STATE,
+      },
     });
   });
 
-  const slice = () => store.getState()[SLICE_NAME];
+  const state = () => store.getState();
 
   describe("place", () => {
     it("should insert a mosaic tab and select it", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
-      expect(slice().layouts["plot-1"]).toBeDefined();
-      expect(slice().mosaics[MAIN_WINDOW].activeTab).toBe("plot-1");
+      expect(select(state(), "plot-1")).toBeDefined();
+      expect(selectActiveMosaicTabState(state()).layoutKey).toBe("plot-1");
     });
 
     it("should add a window-located layout without touching the mosaic", () => {
       store.dispatch(actions.place(windowLayout("popup-1")));
-      expect(slice().layouts["popup-1"].location).toBe("window");
-      expect(slice().mosaics[MAIN_WINDOW].activeTab).toBeNull();
+      expect(select(state(), "popup-1")?.location).toBe("window");
+      expect(selectActiveMosaicTabState(state()).layoutKey).toBeNull();
     });
   });
 
@@ -70,21 +91,21 @@ describe("Layout Slice", () => {
     it("should remove a mosaic layout and clear it from the mosaic", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.remove({ keys: ["plot-1"] }));
-      expect(slice().layouts["plot-1"]).toBeUndefined();
-      expect(slice().mosaics[MAIN_WINDOW].activeTab).toBeNull();
+      expect(select(state(), "plot-1")).toBeUndefined();
+      expect(selectActiveMosaicTabState(state()).layoutKey).toBeNull();
     });
 
     it("should ignore the main layout", () => {
       store.dispatch(actions.remove({ keys: ["main"] }));
-      expect(slice().layouts.main).toBeDefined();
+      expect(select(state(), "main")).toBeDefined();
     });
 
     it("should remove multiple layouts in one dispatch", () => {
       store.dispatch(actions.place(mosaicLayout("a")));
       store.dispatch(actions.place(mosaicLayout("b")));
       store.dispatch(actions.remove({ keys: ["a", "b"] }));
-      expect(slice().layouts.a).toBeUndefined();
-      expect(slice().layouts.b).toBeUndefined();
+      expect(select(state(), "a")).toBeUndefined();
+      expect(select(state(), "b")).toBeUndefined();
     });
   });
 
@@ -92,29 +113,31 @@ describe("Layout Slice", () => {
     it("should rename a mosaic layout and its tab", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.rename({ key: "plot-1", name: "Renamed" }));
-      expect(slice().layouts["plot-1"].name).toBe("Renamed");
-      const node = Mosaic.findTabNode(slice().mosaics[MAIN_WINDOW].root, "plot-1");
-      expect(node?.tabs?.find((t) => t.tabKey === "plot-1")?.name).toBe("Renamed");
+      expect(select(state(), "plot-1")?.name).toBe("Renamed");
+      const [, root] = selectMosaic(state());
+      const tab = Mosaic.findTabNode(root!, "plot-1")?.tabs?.find(
+        (t) => t.tabKey === "plot-1",
+      );
+      expect(tab?.name).toBe("Renamed");
     });
 
     it("should ignore an unknown key", () => {
       store.dispatch(actions.rename({ key: "nope", name: "x" }));
-      expect(slice().layouts.nope).toBeUndefined();
+      expect(select(state(), "nope")).toBeUndefined();
     });
   });
 
   describe("setAltKey", () => {
-    it("should map a key to its alt key in both directions", () => {
+    it("should set an alt key for a layout", () => {
       store.dispatch(actions.setAltKey({ key: "real", altKey: "alt" }));
-      expect(slice().keyToAltKey.real).toBe("alt");
-      expect(slice().altKeyToKey.alt).toBe("real");
+      expect(selectAltKey(state(), "real")).toBe("alt");
     });
 
     it("should resolve a layout via its alt key", () => {
       store.dispatch(actions.place(mosaicLayout("real")));
       store.dispatch(actions.setAltKey({ key: "real", altKey: "alt" }));
       store.dispatch(actions.rename({ key: "alt", name: "Resolved" }));
-      expect(slice().layouts.real.name).toBe("Resolved");
+      expect(select(state(), "real")?.name).toBe("Resolved");
     });
   });
 
@@ -122,7 +145,7 @@ describe("Layout Slice", () => {
     it("should set args on an existing layout", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(setArgs({ key: "plot-1", args: { foo: 42 } }));
-      expect(slice().layouts["plot-1"].args).toEqual({ foo: 42 });
+      expect(selectArgs(state(), "plot-1")).toEqual({ foo: 42 });
     });
   });
 
@@ -130,14 +153,14 @@ describe("Layout Slice", () => {
     it("should focus a layout in its window's mosaic", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.setFocus({ key: "plot-1", windowKey: MAIN_WINDOW }));
-      expect(slice().mosaics[MAIN_WINDOW].focused).toBe("plot-1");
+      expect(selectFocused(state()).focused).toBe("plot-1");
     });
 
     it("should clear focus when key is null", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.setFocus({ key: "plot-1", windowKey: MAIN_WINDOW }));
       store.dispatch(actions.setFocus({ key: null, windowKey: MAIN_WINDOW }));
-      expect(slice().mosaics[MAIN_WINDOW].focused).toBeNull();
+      expect(selectFocused(state()).focused).toBeNull();
     });
   });
 
@@ -147,9 +170,12 @@ describe("Layout Slice", () => {
       store.dispatch(
         actions.setUnsavedChanges({ key: "plot-1", unsavedChanges: true }),
       );
-      expect(slice().layouts["plot-1"].unsavedChanges).toBe(true);
-      const node = Mosaic.findTabNode(slice().mosaics[MAIN_WINDOW].root, "plot-1");
-      expect(node?.tabs?.find((t) => t.tabKey === "plot-1")?.unsavedChanges).toBe(true);
+      expect(select(state(), "plot-1")?.unsavedChanges).toBe(true);
+      const [, root] = selectMosaic(state());
+      const tab = Mosaic.findTabNode(root!, "plot-1")?.tabs?.find(
+        (t) => t.tabKey === "plot-1",
+      );
+      expect(tab?.unsavedChanges).toBe(true);
     });
   });
 
@@ -160,7 +186,7 @@ describe("Layout Slice", () => {
         items: [{ key: "item-1", type: "drag" }],
       };
       store.dispatch(actions.setHauled(haul));
-      expect(slice().hauling).toEqual(haul);
+      expect(selectHauling(state())).toEqual(haul);
     });
   });
 
@@ -171,37 +197,37 @@ describe("Layout Slice", () => {
         frequent: { "#ff0000": { lastUsed: 1, count: 1, relevance: 1 } },
       };
       store.dispatch(actions.setColorContext({ state: ctx }));
-      expect(slice().colorContext).toEqual(ctx);
+      expect(selectColorContext(state())).toEqual(ctx);
     });
   });
 
   describe("setActiveTheme", () => {
     it("should set the named theme", () => {
       store.dispatch(actions.setActiveTheme("synnaxLight"));
-      expect(slice().activeTheme).toBe("synnaxLight");
+      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
     });
 
     it("should cycle to the next theme when payload is undefined", () => {
       store.dispatch(actions.setActiveTheme(undefined));
-      expect(slice().activeTheme).toBe("synnaxLight");
+      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
       store.dispatch(actions.setActiveTheme(undefined));
-      expect(slice().activeTheme).toBe("synnaxDark");
+      expect(selectActiveThemeKey(state())).toBe("synnaxDark");
     });
   });
 
   describe("toggleActiveTheme", () => {
     it("should cycle to the next theme", () => {
       store.dispatch(actions.toggleActiveTheme());
-      expect(slice().activeTheme).toBe("synnaxLight");
+      expect(selectActiveThemeKey(state())).toBe("synnaxLight");
     });
   });
 
   describe("moveMosaicTab", () => {
     it("should be a no-op when key is omitted within the same window", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
-      const before = slice().mosaics[MAIN_WINDOW].root;
+      const [, before] = selectMosaic(state());
       store.dispatch(actions.moveMosaicTab({ tabKey: "plot-1", loc: "center" }));
-      expect(slice().mosaics[MAIN_WINDOW].root).toEqual(before);
+      expect(selectMosaic(state())[1]).toEqual(before);
     });
 
     it("should move a tab to a different window's mosaic", () => {
@@ -214,10 +240,9 @@ describe("Layout Slice", () => {
           loc: "center",
         }),
       );
-      expect(slice().layouts["plot-1"].windowKey).toBe(MAIN_WINDOW);
-      expect(
-        Mosaic.findTabNode(slice().mosaics[MAIN_WINDOW].root, "plot-1"),
-      ).toBeDefined();
+      expect(select(state(), "plot-1")?.windowKey).toBe(MAIN_WINDOW);
+      const [, root] = selectMosaic(state());
+      expect(Mosaic.findTabNode(root!, "plot-1")).toBeDefined();
     });
   });
 
@@ -226,7 +251,7 @@ describe("Layout Slice", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.place(mosaicLayout("plot-2")));
       store.dispatch(actions.selectMosaicTab({ tabKey: "plot-1" }));
-      expect(slice().mosaics[MAIN_WINDOW].activeTab).toBe("plot-1");
+      expect(selectActiveMosaicTabState(state()).layoutKey).toBe("plot-1");
     });
   });
 
@@ -241,9 +266,9 @@ describe("Layout Slice", () => {
           direction: "x",
         }),
       );
-      const root = slice().mosaics[MAIN_WINDOW].root;
-      expect(root.first).toBeDefined();
-      expect(root.last).toBeDefined();
+      const [, root] = selectMosaic(state());
+      expect(root?.first).toBeDefined();
+      expect(root?.last).toBeDefined();
     });
   });
 
@@ -258,11 +283,15 @@ describe("Layout Slice", () => {
           direction: "x",
         }),
       );
-      const rootKey = slice().mosaics[MAIN_WINDOW].root.key;
+      const [, root] = selectMosaic(state());
       store.dispatch(
-        actions.resizeMosaicTab({ windowKey: MAIN_WINDOW, key: rootKey, size: 0.25 }),
+        actions.resizeMosaicTab({
+          windowKey: MAIN_WINDOW,
+          key: root!.key,
+          size: 0.25,
+        }),
       );
-      expect(slice().mosaics[MAIN_WINDOW].root.size).toBe(0.25);
+      expect(selectMosaic(state())[1]?.size).toBe(0.25);
     });
   });
 
@@ -277,7 +306,7 @@ describe("Layout Slice", () => {
           size: 320,
         }),
       );
-      expect(slice().nav.main.drawers.left).toEqual({
+      expect(selectNavDrawer(state(), "left")).toEqual({
         activeItem: "channel",
         menuItems: ["channel"],
         size: 320,
@@ -293,7 +322,9 @@ describe("Layout Slice", () => {
           menuItems: ["x"],
         }),
       );
-      expect(slice().nav.popup.drawers.right?.menuItems).toEqual(["x"]);
+      expect(selectSliceState(state()).nav.popup.drawers.right?.menuItems).toEqual([
+        "x",
+      ]);
     });
   });
 
@@ -306,14 +337,14 @@ describe("Layout Slice", () => {
           size: 480,
         }),
       );
-      expect(slice().nav.main.drawers.left.size).toBe(480);
+      expect(selectNavDrawer(state(), "left")?.size).toBe(480);
     });
 
     it("should ignore a window or location without a drawer", () => {
       store.dispatch(
         actions.resizeNavDrawer({ windowKey: "absent", location: "left", size: 100 }),
       );
-      expect(slice().nav.absent).toBeUndefined();
+      expect(selectSliceState(state()).nav.absent).toBeUndefined();
     });
   });
 
@@ -334,7 +365,7 @@ describe("Layout Slice", () => {
       store.dispatch(
         actions.setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
       );
-      expect(slice().nav.main.drawers.bottom?.activeItem).toBe("visualization");
+      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBe("visualization");
     });
 
     it("should clear the active item when the same key is dispatched again", () => {
@@ -344,7 +375,7 @@ describe("Layout Slice", () => {
       store.dispatch(
         actions.setNavDrawerVisible({ windowKey: MAIN_WINDOW, key: "visualization" }),
       );
-      expect(slice().nav.main.drawers.bottom?.activeItem).toBeNull();
+      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
     });
 
     it("should respect an explicit value=false", () => {
@@ -358,7 +389,7 @@ describe("Layout Slice", () => {
           value: false,
         }),
       );
-      expect(slice().nav.main.drawers.bottom?.activeItem).toBeNull();
+      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
     });
 
     it("should activate the first menu item when location is provided with value=true", () => {
@@ -369,7 +400,7 @@ describe("Layout Slice", () => {
           value: true,
         }),
       );
-      expect(slice().nav.main.drawers.left.activeItem).toBe("channel");
+      expect(selectNavDrawer(state(), "left")?.activeItem).toBe("channel");
     });
   });
 
@@ -382,7 +413,7 @@ describe("Layout Slice", () => {
           key: "channel",
         }),
       );
-      expect(slice().nav.main.drawers.left).toMatchObject({
+      expect(selectNavDrawer(state(), "left")).toMatchObject({
         hover: true,
         activeItem: "channel",
       });
@@ -399,8 +430,8 @@ describe("Layout Slice", () => {
           key: "channel",
         }),
       );
-      expect(slice().nav.main.drawers.bottom?.activeItem).toBe("visualization");
-      expect(slice().nav.main.drawers.bottom?.hover).toBeFalsy();
+      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBe("visualization");
+      expect(selectNavDrawer(state(), "bottom")?.hover).toBeFalsy();
     });
   });
 
@@ -409,7 +440,7 @@ describe("Layout Slice", () => {
       store.dispatch(
         actions.toggleNavHover({ windowKey: MAIN_WINDOW, key: "channel" }),
       );
-      expect(slice().nav.main.drawers.left).toMatchObject({
+      expect(selectNavDrawer(state(), "left")).toMatchObject({
         hover: true,
         activeItem: "channel",
       });
@@ -428,7 +459,7 @@ describe("Layout Slice", () => {
       store.dispatch(
         actions.stopNavHover({ windowKey: MAIN_WINDOW, location: "left" }),
       );
-      expect(slice().nav.main.drawers.left).toMatchObject({
+      expect(selectNavDrawer(state(), "left")).toMatchObject({
         hover: false,
         activeItem: null,
       });
@@ -448,9 +479,9 @@ describe("Layout Slice", () => {
         }),
       );
       store.dispatch(actions.hideAllNavDrawers());
-      expect(slice().nav.main.drawers.bottom?.activeItem).toBeNull();
-      expect(slice().nav.main.drawers.left.activeItem).toBeNull();
-      expect(slice().nav.main.drawers.left.hover).toBe(false);
+      expect(selectNavDrawer(state(), "bottom")?.activeItem).toBeNull();
+      expect(selectNavDrawer(state(), "left")?.activeItem).toBeNull();
+      expect(selectNavDrawer(state(), "left")?.hover).toBe(false);
     });
   });
 
@@ -462,9 +493,9 @@ describe("Layout Slice", () => {
         layouts: { ...ZERO_SLICE_STATE.layouts, "ws-plot": mosaicLayout("ws-plot") },
       };
       store.dispatch(actions.setWorkspace({ slice: ws }));
-      expect(slice().layouts["popup-1"]).toBeDefined();
-      expect(slice().layouts["ws-plot"]).toBeDefined();
-      expect(slice().layouts.main).toBeDefined();
+      expect(select(state(), "popup-1")).toBeDefined();
+      expect(select(state(), "ws-plot")).toBeDefined();
+      expect(select(state(), "main")).toBeDefined();
     });
 
     it("should adopt the workspace's nav state when keepNav is false", () => {
@@ -484,7 +515,7 @@ describe("Layout Slice", () => {
         },
       };
       store.dispatch(actions.setWorkspace({ slice: ws, keepNav: false }));
-      expect(slice().nav.main.drawers.left.activeItem).toBe("task");
+      expect(selectNavDrawer(state(), "left")?.activeItem).toBe("task");
     });
   });
 
@@ -493,9 +524,9 @@ describe("Layout Slice", () => {
       store.dispatch(actions.place(mosaicLayout("plot-1")));
       store.dispatch(actions.place(windowLayout("popup-1")));
       store.dispatch(actions.clearWorkspace());
-      expect(slice().layouts["plot-1"]).toBeUndefined();
-      expect(slice().layouts["popup-1"]).toBeDefined();
-      expect(slice().layouts.main).toBeDefined();
+      expect(select(state(), "plot-1")).toBeUndefined();
+      expect(select(state(), "popup-1")).toBeDefined();
+      expect(select(state(), "main")).toBeDefined();
     });
   });
 });
