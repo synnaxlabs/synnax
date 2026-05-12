@@ -38,6 +38,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer/writer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcstatus "github.com/synnaxlabs/synnax/pkg/service/arc/status"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/driver"
 	svcstatus "github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/synnax/pkg/service/task"
@@ -152,7 +153,7 @@ func (t *taskImpl) start(ctx context.Context) (err error) {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
 	}
-	statusMod, err := arcstatus.NewModule(ctx, t.factoryCfg.Status, drt.state.strings, wasmRT, nil, t.factoryCfg.Instrumentation)
+	statusMod, err := arcstatus.NewModule(ctx, t.factoryCfg.Status, drt.state.strings, wasmRT, nil, t.factoryCfg.Instrumentation, t.reporter())
 	if err != nil {
 		t.setStatus(ctx, status.VariantError, false, err.Error())
 		return err
@@ -334,6 +335,12 @@ func (t *taskImpl) Stop() error {
 	}
 	t.setStatus(ctx, status.VariantSuccess, false, "Task stopped successfully")
 	return nil
+}
+
+func (t *taskImpl) reporter() taskreporter.Reporter {
+	return func(ctx context.Context, variant status.Variant, message string) {
+		t.setStatus(ctx, variant, t.isRunning(), fmt.Sprintf("[%s] %s", t.task.Name, message))
+	}
 }
 
 func (t *taskImpl) setStatus(ctx context.Context, variant status.Variant, running bool, message string) {

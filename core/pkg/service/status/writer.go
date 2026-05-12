@@ -22,9 +22,10 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// errMultipleMatches is returned by UpsertByName when more than one status
-// shares the supplied name.
-var errMultipleMatches = errors.New("multiple statuses match name")
+// ErrMultipleMatches signals duplicate-name ambiguity. Reserved for a future
+// strict-mode by-name upsert (e.g., ranges) that prefers erroring over the
+// lenient write-to-first-match path UpsertByName takes today.
+var ErrMultipleMatches = errors.New("multiple matches by name")
 
 // Writer is used to create and update statuses within the DB.
 type Writer[D any] struct {
@@ -148,34 +149,33 @@ func (w Writer[D]) Update(
 }
 
 // UpsertByName updates the status with this name, or creates one if none exists.
-// Returns errMultipleMatches if more than one row shares the name.
+// When multiple rows share the name, writes to the first by key order and returns
+// multipleMatches=true so callers can surface the ambiguity.
 func (w Writer[D]) UpsertByName(
 	ctx context.Context,
 	name string,
 	change func(*Status[D]) error,
-) (string, error) {
+) (key string, multipleMatches bool, err error) {
 	var matches []Status[D]
-	if err := gorp.NewRetrieve[string, status.Status[D]]().
+	if err = gorp.NewRetrieve[string, status.Status[D]]().
 		Where(gorp.Match(func(_ gorp.Context, s *status.Status[D]) (bool, error) {
 			return s.Name == name, nil
 		})).
 		Entries(&matches).
 		Exec(ctx, w.tx); errors.Skip(err, query.ErrNotFound) != nil {
-		return "", err
-	}
-	if len(matches) > 1 {
-		return "", errMultipleMatches
+		return "", false, err
 	}
 	var s Status[D]
-	if len(matches) == 1 {
+	if len(matches) >= 1 {
 		s = matches[0]
+		multipleMatches = len(matches) > 1
 	} else {
 		s = Status[D]{Key: uuid.NewString(), Name: name, Variant: status.VariantInfo}
 	}
-	if err := change(&s); err != nil {
-		return "", err
+	if err = change(&s); err != nil {
+		return "", false, err
 	}
-	return s.Key, w.Set(ctx, &s)
+	return s.Key, multipleMatches, w.Set(ctx, &s)
 }
 
 // Delete deletes the status with the given key. Delete is idempotent.

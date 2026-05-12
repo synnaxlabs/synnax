@@ -11,6 +11,7 @@ package status
 
 import (
 	"context"
+	"fmt"
 	"slices"
 	"strings"
 
@@ -24,6 +25,7 @@ import (
 	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
+	"github.com/synnaxlabs/synnax/pkg/service/arc/internal/taskreporter"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
@@ -102,6 +104,7 @@ type Module struct {
 	strings *stlstrings.ProgramState
 	memory  api.Memory
 	ins     alamos.Instrumentation
+	report  taskreporter.Reporter
 }
 
 func (m *Module) SetMemory(memory api.Memory) { m.memory = memory }
@@ -113,8 +116,9 @@ func NewModule(
 	rat wazero.Runtime,
 	memory api.Memory,
 	ins alamos.Instrumentation,
+	report taskreporter.Reporter,
 ) (*Module, error) {
-	m := &Module{stat: stat, strings: strings, memory: memory, ins: ins}
+	m := &Module{stat: stat, strings: strings, memory: memory, ins: ins, report: report}
 	if rat == nil {
 		return m, nil
 	}
@@ -124,7 +128,7 @@ func NewModule(
 			keyOrName, _ := m.strings.Get(keyOrNameH)
 			msg, _ := m.strings.Get(msgH)
 			variant, _ := m.strings.Get(variantH)
-			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, keyOrName, msg, variant))
+			return m.strings.Create(dispatchSet(ctx, m.stat, m.ins, m.report, keyOrName, msg, variant))
 		}).Export(qualifiedMemberName)
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
@@ -167,6 +171,7 @@ func (m *Module) Create(ctx context.Context, cfg node.Config) (node.Node, error)
 			State:     cfg.State,
 			stat:      m.stat,
 			ins:       cfg.Instrumentation,
+			report:    m.report,
 			keyOrName: vm["key_or_name"].(string),
 			message:   vm["message"].(string),
 			variant:   vm["variant"].(string),
@@ -213,30 +218,36 @@ type qualifiedSetNode struct {
 	*node.State
 	stat      *status.Service
 	ins       alamos.Instrumentation
+	report    taskreporter.Reporter
 	keyOrName string
 	message   string
 	variant   string
 }
 
 func (s *qualifiedSetNode) Next(ctx node.Context) {
-	key := dispatchSet(ctx, s.stat, s.ins, s.keyOrName, s.message, s.variant)
+	key := dispatchSet(ctx, s.stat, s.ins, s.report, s.keyOrName, s.message, s.variant)
 	*s.Output(0) = telem.NewSeriesV[string](key)
 	*s.OutputTime(0) = telem.NewSeriesV[telem.TimeStamp](telem.Now())
 	ctx.MarkChanged(0)
 }
 
 // dispatchSet upserts a status by key (UUID) or by name. Returns the resulting
-// key, or "" after logging via ins on failure.
+// key, or "" after logging via ins and surfacing the failure as a task status
+// via report.
 func dispatchSet(
 	ctx context.Context,
 	stat *status.Service,
 	ins alamos.Instrumentation,
+	report taskreporter.Reporter,
 	keyOrName, message, variantStr string,
 ) string {
+	// Failure paths use VariantWarning and task continues runnin.
 	if !slices.Contains(allowedVariants, variantStr) {
 		ins.L.Error("invalid status variant",
 			zap.String("variant", variantStr),
 			zap.Strings("allowed", allowedVariants))
+		report(ctx, xstatus.VariantWarning,
+			fmt.Sprintf("status.set: %q is not a valid variant", variantStr))
 		return ""
 	}
 	overlay := func(s *status.Status[any]) error {
@@ -249,22 +260,29 @@ func dispatchSet(
 		key string
 		err error
 	)
+	var multi bool
 	if _, perr := uuid.Parse(keyOrName); perr == nil {
 		key = keyOrName
 		err = stat.NewWriter(nil).Update(ctx, keyOrName, overlay)
 	} else {
 		err = stat.WithTx(ctx, func(tx gorp.Tx) error {
 			var ierr error
-			key, ierr = stat.NewWriter(tx).UpsertByName(ctx, keyOrName, overlay)
+			key, multi, ierr = stat.NewWriter(tx).UpsertByName(ctx, keyOrName, overlay)
 			return ierr
 		})
 	}
-	if err != nil {
-		ins.L.Error("status.set failed",
-			zap.String("key_or_name", keyOrName), zap.Error(err))
-		return ""
+	if err == nil {
+		if multi {
+			report(ctx, xstatus.VariantWarning,
+				fmt.Sprintf("status.set: multiple statuses named %q; updated first match (%s)", keyOrName, key))
+		}
+		return key
 	}
-	return key
+	ins.L.Error("status.set failed",
+		zap.String("key_or_name", keyOrName), zap.Error(err))
+	report(ctx, xstatus.VariantWarning,
+		fmt.Sprintf("status.set: %v", err))
+	return ""
 }
 
 var allowedVariants = []string{
