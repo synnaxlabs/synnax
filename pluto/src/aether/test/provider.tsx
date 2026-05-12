@@ -11,17 +11,13 @@ import { type FC, type PropsWithChildren, useMemo } from "react";
 
 import { aether } from "@/aether/aether";
 import { Provider } from "@/aether/main";
-import { type AetherMessage, type MainMessage } from "@/aether/message";
 
 export const createProvider = (
   registry: aether.ComponentRegistry,
 ): FC<PropsWithChildren> => {
   const TestProvider: FC<PropsWithChildren> = ({ children }) => {
     const worker = useMemo(() => {
-      const [workerSide, mainSide] = aether.createMockPair<
-        AetherMessage,
-        MainMessage
-      >();
+      const [workerSide, mainSide] = aether.createMockPair();
       aether.render({ comms: workerSide, registry });
       return mainSide;
     }, []);

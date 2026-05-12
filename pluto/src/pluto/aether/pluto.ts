@@ -11,11 +11,6 @@ import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos"
 
 import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
-import {
-  type AetherMessage,
-  type MainMessage,
-  type SenderHandler,
-} from "@/aether/message";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
@@ -61,14 +56,6 @@ const STORE_CONFIG: flux.StoreConfig<{
 };
 
 export const render = (): void => {
-  const comms: SenderHandler<AetherMessage, MainMessage> = {
-    // @ts-expect-error - postMessage's transfer type is awkward in worker scope
-    send: (data, transfer = []) => postMessage(data, transfer),
-    handle: (handler) => {
-      onmessage = (e: MessageEvent<MainMessage>) => handler(e.data);
-    },
-  };
-
   const REGISTRY: aether.ComponentRegistry = {
     ...alamos.REGISTRY,
     ...button.REGISTRY,
@@ -99,7 +86,7 @@ export const render = (): void => {
   };
 
   void aether.render({
-    comms,
+    comms: aether.wrapWorkerScope(),
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

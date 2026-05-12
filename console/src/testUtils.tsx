@@ -57,10 +57,7 @@ const AETHER_REGISTRY: aether.ComponentRegistry = {
 
 const AetherTestProvider = ({ children }: PropsWithChildren): ReactElement => {
   const worker = useMemo(() => {
-    const [workerSide, mainSide] = aether.createMockPair<
-      aether.AetherMessage,
-      aether.MainMessage
-    >();
+    const [workerSide, mainSide] = aether.createMockPair();
     aether.render({ comms: workerSide, registry: AETHER_REGISTRY });
     return mainSide;
   }, []);

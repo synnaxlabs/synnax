@@ -25,11 +25,7 @@ import {
   type EmptyMethodsSchema,
   type MethodsSchema,
 } from "@/aether/aether/aether";
-import {
-  type AetherMessage,
-  type MainMessage,
-  type SenderHandler,
-} from "@/aether/message";
+import { type MainComms } from "@/aether/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
@@ -40,11 +36,12 @@ import { type state } from "@/state";
 export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
 export { Store } from "@/aether/store";
 
-/** Value provided by the Aether context to descendant components. */
+/** Value supplied by the Aether context to descendants of {@link Provider}. */
 export interface ContextValue {
-  /** The current path in the Aether component tree. */
+  /** Path of the nearest enclosing {@link Composite}, or `["root"]` at the
+   * top level. Components append their key to derive their own path. */
   path: readonly string[];
-  /** The single store shared across this provider's tree. */
+  /** Store shared by every component below the {@link Provider}. */
   store: Store;
 }
 
@@ -56,21 +53,24 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 
 export interface ProviderProps extends PropsWithChildren {
-  /** URL of the worker script to spawn. Ignored when {@link worker} is
-   * provided. */
+  /** URL of the worker script to spawn. Ignored when {@link worker} is set. */
   workerURL?: string | URL;
-  /** When false, the Aether tree mounts but no worker is spawned and all
-   * worker-bound operations become no-ops. */
+  /** Opt out of spawning a worker. Aether mounts, but all worker-bound
+   * operations no-op. */
   workerEnabled?: boolean;
-  /** Override the worker entirely. Primarily for tests that supply a mock
-   * via {@link aether.createMockPair}. Bypasses workerURL/workerEnabled. */
-  worker?: SenderHandler<MainMessage, AetherMessage>;
-  /** Timeout for async invoke calls. Defaults to 5s. */
+  /** Pre-built comms (e.g. from {@link aether.createMockPair} in tests).
+   * Takes precedence over {@link workerURL} and {@link workerEnabled}. */
+  worker?: MainComms;
+  /** Default timeout for async method invocations. Defaults to 5s. */
   invokeTimeout?: TimeSpan;
 }
 
 const ROOT_PATH = ["root"] as const;
 
+/** Roots an Aether tree: owns a {@link Store}, spawns or wraps the worker,
+ * and supplies the context that descendant {@link use} / {@link useLifecycle}
+ * / {@link Composite} calls read. Re-throws worker-reported errors so the
+ * nearest React error boundary can catch them. */
 export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
   const storeRef = useRef<Store | null>(null);
   storeRef.current ??= new Store(config);
@@ -94,6 +94,9 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
   return <Context value={value}>{children}</Context>;
 };
 
+/** Output of {@link useLifecycle}: the component's path, a typed setState, the
+ * methods registry, and the subscribe / getSnapshot pair consumed by
+ * `useSyncExternalStore`. */
 export interface UseLifecycleReturn<
   State extends z.ZodType<state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -105,21 +108,32 @@ export interface UseLifecycleReturn<
   getSnapshot: () => z.infer<State>;
 }
 
-type StateHandler<S = unknown> = (state: S) => void;
+type StateHandler<T = unknown> = (state: T) => void;
 
 interface UseLifecycleProps<
-  S extends z.ZodType,
-  M extends MethodsSchema = EmptyMethodsSchema,
+  State extends z.ZodType,
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
+  /** Component type, matched against the worker-side registry. */
   type: string;
-  schema: S;
+  /** Zod schema validating both `initialState` and worker-pushed state. */
+  schema: State;
+  /** Stable key for the component. Generated if omitted. Identity-stable
+   * for the component's lifetime — changing it mid-life unregisters and
+   * re-registers under the new key. */
   aetherKey?: string;
-  initialState: z.input<S>;
+  initialState: z.input<State>;
+  /** Optional `Transferable`s included with the initial update message. */
   initialTransfer?: Transferable[];
-  onAetherChange?: StateHandler<z.infer<S>>;
-  methods?: M;
+  /** Fired on worker-pushed state changes only (not on local setState). */
+  onAetherChange?: StateHandler<z.infer<State>>;
+  methods?: Methods;
 }
 
+/** Registers a component with the enclosing {@link Provider}'s {@link Store}
+ * and returns the operations needed to drive it. Lower-level than
+ * {@link use} — does not subscribe React to state changes. Most callers
+ * want {@link use} or {@link useUnidirectional} instead. */
 export const useLifecycle = <
   State extends z.ZodType<state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -137,6 +151,9 @@ export const useLifecycle = <
   const path = useMemoPrimitiveArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);
   const handleRef = useRef<Handle<State, Methods> | null>(null);
+  // Render-phase register: preserves parent-before-child ordering on the
+  // worker. Concurrent Mode may discard a render before commit, leaking the
+  // entry — harmless: it reclaims with the Provider's Store on unmount.
   handleRef.current ??= ctx.store.register({
     key,
     type,
@@ -179,7 +196,10 @@ export const useLifecycle = <
   );
 };
 
+/** Mixin for React props of components that participate in the Aether tree. */
 export interface ComponentProps {
+  /** Optional override for the component's aether key. Stable for the
+   * component's lifetime; usually omitted to auto-generate. */
   aetherKey?: string;
 }
 
@@ -194,14 +214,15 @@ interface ComponentContext {
   path: readonly string[];
 }
 
+/** Tuple returned by {@link use}: `[ctx, state, setState, methods]`. */
 export type UseReturn<
-  S extends z.ZodType<state.State>,
-  M extends MethodsSchema = EmptyMethodsSchema,
+  State extends z.ZodType<state.State>,
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > = [
   ComponentContext,
-  z.infer<S>,
-  (state: RawSetArg<S>, transfer?: Transferable[]) => void,
-  CallersFromSchema<M>,
+  z.infer<State>,
+  (state: RawSetArg<State>, transfer?: Transferable[]) => void,
+  CallersFromSchema<Methods>,
 ];
 
 export interface UseUnidirectionalProps<
@@ -209,6 +230,8 @@ export interface UseUnidirectionalProps<
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > extends Pick<UseLifecycleProps<State, Methods>, "schema" | "aetherKey" | "methods"> {
   type: string;
+  /** Source-of-truth state owned by the caller. Push-only: changes here
+   * propagate to the worker, but worker pushes do not flow back. */
   state: z.input<State>;
 }
 
@@ -218,6 +241,9 @@ export interface UseUnidirectionalReturn<
   methods: CallersFromSchema<Methods>;
 }
 
+/** One-way binding for components whose state lives in React. Pushes `state`
+ * to the worker on every change (compared with `deep.equal`); worker-side
+ * updates do not propagate back. Use {@link use} for bidirectional state. */
 export const useUnidirectional = <
   State extends z.ZodType<state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -237,6 +263,9 @@ export const useUnidirectional = <
   return { path, methods };
 };
 
+/** Bidirectional binding: registers the component, subscribes React to its
+ * state via `useSyncExternalStore`, and returns the current state, a
+ * setter, and the methods registry. */
 export const use = <
   State extends z.ZodType<state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -255,6 +284,8 @@ export interface CompositeProps extends PropsWithChildren {
   path: readonly string[];
 }
 
+/** Pushes a new aether path into the context so descendants register as
+ * children of the composite component identified by `path`. */
 export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);

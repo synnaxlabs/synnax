@@ -23,7 +23,6 @@ import { z } from "zod";
 
 import { Aether } from "@/aether";
 import { aether } from "@/aether/aether";
-import { type AetherMessage, type MainMessage } from "@/aether/message";
 
 export const exampleProps = z.object({
   x: z.number(),
@@ -136,10 +135,11 @@ class EchoOnUpdateLeaf extends aether.Leaf<typeof exampleProps> {
   afterUpdate(): void {
     if (this.echoed) return;
     this.echoed = true;
-    // Push back asynchronously to simulate a real Web Worker's postMessage,
-    // which is processed on a separate macrotask. The synchronous mock-worker
-    // path stays inside React's RenderContext and would not exercise the
-    // pre-mount state-update path that real Workers do.
+    // Defer the push so it lands outside the synchronous mock-worker round-
+    // trip — the property the pre-mount state-update path needs to test. A
+    // real Worker.postMessage delivers on a macrotask; queueMicrotask is a
+    // microtask, but either satisfies "outside the current render" which is
+    // what this fixture exists to exercise.
     queueMicrotask(() => this.setState({ x: this.state.x + 1 }));
   }
   afterDelete(): void {}
@@ -168,7 +168,7 @@ type TestProviderProps = PropsWithChildren<
 >;
 
 const newProvider = async (): Promise<[FC<TestProviderProps>, aether.Root]> => {
-  const [workerSide, mainSide] = aether.createMockPair<AetherMessage, MainMessage>();
+  const [workerSide, mainSide] = aether.createMockPair();
   const root = aether.render({ comms: workerSide, registry: REGISTRY });
   return [
     (props: TestProviderProps) => <Aether.Provider worker={mainSide} {...props} />,
@@ -1639,6 +1639,32 @@ describe("Aether Main", () => {
       });
       expect(hasMountWarning).toBe(false);
       errorSpy.mockRestore();
+    });
+    it("should return a cached snapshot while a subscriber outlives the entry", () => {
+      // Pin: useSyncExternalStore may call getSnapshot for tearing detection
+      // after the entry has been unregistered (e.g. StrictMode's pseudo-
+      // unmount/remount window). The store should fall back to the last
+      // known snapshot for that key rather than throw.
+      const [workerSide, mainSide] = aether.createMockPair();
+      aether.render({ comms: workerSide, registry: REGISTRY });
+      const store = new Aether.Store({ worker: mainSide });
+      const key = "pinned";
+      const snapshot = () => store.getSnapshot<typeof exampleProps>(key);
+      const unsubscribe = store.subscribe(key, () => {});
+      store.register({
+        key,
+        type: ExampleLeaf.TYPE,
+        path: ["root", key],
+        schema: exampleProps,
+        initialState: { x: 7 },
+      });
+      expect(snapshot()).toEqual({ x: 7 });
+      store.unregister(key);
+      // Subscriber still attached: cached snapshot remains readable.
+      expect(snapshot()).toEqual({ x: 7 });
+      unsubscribe();
+      // No subscribers and no entry: cache is cleared.
+      expect(snapshot).toThrow(/missing entry/);
     });
   });
 });
