@@ -7,7 +7,6 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createMockWorkers } from "@synnaxlabs/x";
 import { type FC, type PropsWithChildren, useMemo } from "react";
 
 import { aether } from "@/aether/aether";
@@ -19,16 +18,15 @@ export const createProvider = (
 ): FC<PropsWithChildren> => {
   const TestProvider: FC<PropsWithChildren> = ({ children }) => {
     const worker = useMemo(() => {
-      const [worker, main] = createMockWorkers();
-      aether.render({ comms: worker.route("test"), registry });
-      return main.route<MainMessage, AetherMessage>("test");
+      const [workerSide, mainSide] = aether.createMockPair<
+        AetherMessage,
+        MainMessage
+      >();
+      aether.render({ comms: workerSide, registry });
+      return mainSide;
     }, []);
 
-    return (
-      <Provider worker={worker} workerKey="test">
-        {children}
-      </Provider>
-    );
+    return <Provider worker={worker}>{children}</Provider>;
   };
 
   return TestProvider;

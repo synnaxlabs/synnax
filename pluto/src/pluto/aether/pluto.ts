@@ -8,10 +8,14 @@
 // included in the file licenses/APL.txt.
 
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
-import { RoutedWorker } from "@synnaxlabs/x";
 
 import { access } from "@/access/aether";
 import { aether } from "@/aether/aether";
+import {
+  type AetherMessage,
+  type MainMessage,
+  type SenderHandler,
+} from "@/aether/message";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
@@ -57,9 +61,13 @@ const STORE_CONFIG: flux.StoreConfig<{
 };
 
 export const render = (): void => {
-  // @ts-expect-error - for some reason post-message can't type transfer correctly
-  const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
-  onmessage = w.handle.bind(w);
+  const comms: SenderHandler<AetherMessage, MainMessage> = {
+    // @ts-expect-error - postMessage's transfer type is awkward in worker scope
+    send: (data, transfer = []) => postMessage(data, transfer),
+    handle: (handler) => {
+      onmessage = (e: MessageEvent<MainMessage>) => handler(e.data);
+    },
+  };
 
   const REGISTRY: aether.ComponentRegistry = {
     ...alamos.REGISTRY,
@@ -91,7 +99,7 @@ export const render = (): void => {
   };
 
   void aether.render({
-    comms: w.route("vis"),
+    comms,
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

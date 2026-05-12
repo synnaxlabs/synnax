@@ -15,7 +15,7 @@ import { type state } from "@/state";
 export interface MainUpdateRequest {
   variant: "update";
   /** The path of the component to update. */
-  path: string[];
+  path: readonly string[];
   /** The type of the component to update. */
   type: string;
   /** The state of the component to update. */
@@ -28,7 +28,7 @@ export interface MainDeleteRequest {
   /** The type of the component to delete. */
   type: string;
   /** The path of the component to delete. */
-  path: string[];
+  path: readonly string[];
 }
 
 /** A message from the aether thread to update an aether component. */
@@ -55,7 +55,7 @@ export interface MainInvokeRequest {
    */
   key?: string;
   /** The path of the component to invoke the method on. */
-  path: string[];
+  path: readonly string[];
   /** The method name to invoke. */
   method: string;
   /** The arguments to pass to the method (spread when calling handler). */
@@ -81,3 +81,43 @@ export type AetherMessage =
 
 /** A message from the main thread to the aether thread. */
 export type MainMessage = MainUpdateRequest | MainDeleteRequest | MainInvokeRequest;
+
+export interface Sender<T> {
+  send: (value: T, transfer?: Transferable[]) => void;
+}
+
+export interface Handler<T> {
+  handle: (handler: (value: T) => void) => void;
+}
+
+/** Bidirectional message channel between main and worker threads. */
+export interface SenderHandler<I, O> extends Sender<I>, Handler<O> {}
+
+/** Adapts a `Worker` to the {@link SenderHandler} interface for main-thread use. */
+export const wrapWorker = <I, O>(worker: Worker): SenderHandler<I, O> => ({
+  send: (value, transfer = []) => worker.postMessage(value, transfer),
+  handle: (handler) => {
+    worker.onmessage = (e: MessageEvent<O>) => handler(e.data);
+  },
+});
+
+/** Creates a pair of {@link SenderHandler}s that route to each other. Each
+ * sends what the other receives. Used in tests in place of a real Worker. */
+export const createMockPair = <I, O>(): [SenderHandler<I, O>, SenderHandler<O, I>] => {
+  let aHandler: ((value: O) => void) | null = null;
+  let bHandler: ((value: I) => void) | null = null;
+  return [
+    {
+      send: (value) => bHandler?.(value),
+      handle: (handler) => {
+        aHandler = handler;
+      },
+    },
+    {
+      send: (value) => aHandler?.(value),
+      handle: (handler) => {
+        bHandler = handler;
+      },
+    },
+  ];
+};

@@ -9,15 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import {
-  deep,
-  type errors,
-  type record,
-  type Sender,
-  type SenderHandler,
-  shallow,
-  zod,
-} from "@synnaxlabs/x";
+import { deep, type errors, type record, shallow, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -25,6 +17,15 @@ import {
   type MainInvokeRequest,
   type MainMessage,
   type MainUpdateRequest,
+  type Sender,
+  type SenderHandler,
+} from "@/aether/message";
+
+export {
+  type AetherMessage,
+  createMockPair,
+  type MainMessage,
+  type SenderHandler,
 } from "@/aether/message";
 import { state } from "@/state";
 
@@ -95,7 +96,7 @@ export interface Component {
    *
    * @param path - The path of the component to delete.
    */
-  _delete: (path: string[]) => void;
+  _delete: (path: readonly string[]) => void;
   /**
    * Invokes a method on this component. This is called by the Root when
    * a MainInvokeRequest is received.
@@ -426,7 +427,7 @@ export abstract class Leaf<
    * @implements AetherComponent, and should NOT be called by a subclass other than
    * AetherComposite.
    */
-  _delete(path: string[]): void {
+  _delete(path: readonly string[]): void {
     try {
       const endSpan = this.instrumentation.T.debug(`${this.toString()}:delete`);
       this.validatePath(path);
@@ -454,7 +455,7 @@ export abstract class Leaf<
    */
   afterDelete(_: Context): void {}
 
-  private validatePath(path: string[]): void {
+  private validatePath(path: readonly string[]): void {
     if (path.length === 0)
       throw new UnexpectedError(
         `[Leaf.setState] - ${this.toString()} received an empty path`,
@@ -628,7 +629,7 @@ export abstract class Composite<
     this.children.forEach((c) => c._updateContext(childCtx));
   }
 
-  _delete(path: string[]): void {
+  _delete(path: readonly string[]): void {
     const subPath = this.parsePath(path);
     if (subPath.length === 0) {
       for (const c of this.children) c._delete([c.key]);
@@ -659,7 +660,7 @@ export abstract class Composite<
     return null;
   }
 
-  private parsePath(path: string[], type?: string): string[] {
+  private parsePath(path: readonly string[], type?: string): readonly string[] {
     const [key, ...subPath] = path;
     if (key == null)
       throw new Error(

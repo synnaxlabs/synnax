@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type errors, type SenderHandler, zod } from "@synnaxlabs/x";
+import { type errors, TimeSpan, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import {
@@ -17,10 +17,24 @@ import {
   isFireAndForget,
   type MethodsSchema,
 } from "@/aether/aether/aether";
-import { type AetherMessage, type MainMessage } from "@/aether/message";
+import {
+  type AetherMessage,
+  type MainMessage,
+  type SenderHandler,
+  wrapWorker,
+} from "@/aether/message";
 import { type state } from "@/state";
 
-const DEFAULT_INVOKE_TIMEOUT = 5000;
+const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
+
+/** Sentinel used when `workerEnabled: false` — the explicit "no worker" mode.
+ * All sends and handlers are silently dropped, so the {@link Store} stays
+ * usable without a runtime null check on every method. Any other missing-
+ * worker configuration is a constructor-time error, not a runtime fallback. */
+const NOOP_WORKER: SenderHandler<MainMessage, AetherMessage> = {
+  send: () => {},
+  handle: () => {},
+};
 
 const reconstructError = (payload: errors.NativePayload): Error => {
   const err = new Error(payload.message);
@@ -87,51 +101,63 @@ export type RawSetArg<S extends z.ZodType<state.State>> =
   | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
 
 type Listener = () => void;
-type WorkerPushListener = (state: unknown) => void;
-type OnReceiveRef = { current: ((state: unknown) => void) | undefined };
 
 /**
  * An Entry describes a live worker component. It is created on register and
  * destroyed on unregister. Listeners are stored separately so they survive
  * across the unregister-then-register cycle React StrictMode introduces.
+ *
+ * Entry is generic over its schema so reads through {@link Store.getEntry}
+ * recover the entry's specific state and callback types in one cast,
+ * rather than re-asserting at every field access.
  */
-interface Entry {
+interface Entry<S extends z.ZodType<state.State> = z.ZodType<state.State>> {
   type: string;
-  path: string[];
-  schema: z.ZodType<state.State>;
-  state: state.State;
-  onReceiveRef: OnReceiveRef | null;
+  path: readonly string[];
+  schema: S;
+  state: z.infer<S>;
+  onReceiveRef: { current: ((state: z.infer<S>) => void) | undefined } | null;
   controller: AbortController;
 }
 
 /** Params for registering a component with the store. */
 export interface RegisterParams<
-  S extends z.ZodType<state.State>,
-  M extends MethodsSchema = EmptyMethodsSchema,
+  State extends z.ZodType<state.State>,
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
   key: string;
   type: string;
   path: readonly string[];
-  schema: S;
-  initialState: z.input<S>;
+  schema: State;
+  initialState: z.input<State>;
   initialTransfer?: Transferable[];
-  methodsSchema?: M;
+  methodsSchema?: Methods;
   /** Ref to a callback fired only on worker-pushed state changes. Wired at
    * register time so synchronous worker pushes are not missed. */
-  onReceiveRef?: { current: ((state: z.infer<S>) => void) | undefined };
+  onReceiveRef?: { current: ((state: z.infer<State>) => void) | undefined };
 }
 
 /** Handle returned from {@link Store.register}. Bundles the per-component
  * operations: state mutation, deletion, and method callers. */
 export interface Handle<
-  S extends z.ZodType<state.State>,
-  M extends MethodsSchema = EmptyMethodsSchema,
+  State extends z.ZodType<state.State>,
+  Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
   key: string;
-  path: string[];
-  methods: CallersFromSchema<M>;
-  setState: (state: RawSetArg<S>, transfer?: Transferable[]) => void;
+  path: readonly string[];
+  methods: CallersFromSchema<Methods>;
+  setState: (state: RawSetArg<State>, transfer?: Transferable[]) => void;
   delete: () => void;
+}
+
+/** Config for {@link Store}: pass either a ready-made `worker` (tests), or a
+ * `workerURL` for the store to spawn its own worker. With neither, the store
+ * has no worker and all sends are no-ops. */
+export interface StoreConfig {
+  worker?: SenderHandler<MainMessage, AetherMessage>;
+  workerURL?: string | URL;
+  workerEnabled?: boolean;
+  invokeTimeout?: TimeSpan;
 }
 
 /**
@@ -148,22 +174,68 @@ export class Store {
   // React StrictMode: the subscription is wired during a commit that may
   // straddle an unregister-then-register cycle.
   private listenersByKey: Map<string, Set<Listener>> = new Map();
-  private workerListenersByKey: Map<string, Set<WorkerPushListener>> = new Map();
-  private worker: SenderHandler<MainMessage, AetherMessage> | null = null;
+  private worker: SenderHandler<MainMessage, AetherMessage> = NOOP_WORKER;
   private invokeTracker = new InvokeTracker();
-  private errorListeners: Set<(err: Error) => void> = new Set();
+  // Errors are buffered on the store so they survive the gap between a
+  // synchronous worker push and the Provider's subscription. The Provider
+  // reads via getError() in render and re-renders via subscribeError().
+  private currentError: Error | null = null;
+  private errorListeners: Set<Listener> = new Set();
+  // The raw Worker instance the store spawned, if any. Stored so dispose()
+  // can terminate it. Externally-injected senders (tests) are owned by the
+  // caller and not terminated here.
+  private ownedWorker: Worker | null = null;
+  // Config retained so the store can lazily re-attach after dispose. This
+  // makes the store reusable across React StrictMode's pseudo-unmount /
+  // pseudo-remount cycle, where the same fiber is reused and useRef
+  // persists across the cycle.
+  private config: StoreConfig;
 
-  /** Wires the store to a worker for message exchange. Passing null detaches. */
-  setWorker(worker: SenderHandler<MainMessage, AetherMessage> | null): void {
-    if (this.worker === worker) return;
-    if (this.worker != null) this.invokeTracker.abort(new Error("aether worker reset"));
-    this.worker = worker;
-    if (worker == null) return;
-    worker.handle((msg) => this.handleWorkerMessage(msg));
+  constructor(config: StoreConfig = {}) {
+    const { worker, workerURL, workerEnabled = true } = config;
+    if (workerEnabled && worker == null && workerURL == null)
+      throw new ValidationError(
+        "[aether.store] worker is enabled but neither `worker` nor `workerURL` was provided. Pass `workerEnabled: false` to opt out explicitly.",
+      );
+    this.config = config;
+    this.ensureAttached();
   }
 
-  /** Subscribes to worker-side errors. Returns an unsubscribe function. */
-  onError(listener: (err: Error) => void): () => void {
+  private ensureAttached(): void {
+    if (this.worker !== NOOP_WORKER) return;
+    const { worker, workerURL, workerEnabled = true } = this.config;
+    if (!workerEnabled) return;
+    if (worker != null) this.worker = worker;
+    else if (workerURL != null) {
+      this.ownedWorker = new Worker(workerURL, { type: "module" });
+      this.worker = wrapWorker<MainMessage, AetherMessage>(this.ownedWorker);
+    }
+    this.worker.handle((msg) => this.handleWorkerMessage(msg));
+  }
+
+  /** Tears down the current worker connection: detaches the handler,
+   * terminates any owned Worker, and aborts in-flight invokes. The store
+   * itself remains usable — a subsequent send will lazily re-attach via a
+   * fresh Worker. This is what makes the store survive React StrictMode's
+   * pseudo-unmount/remount cycle, where the same fiber is reused. */
+  dispose(): void {
+    if (this.worker === NOOP_WORKER) return;
+    this.invokeTracker.abort(new Error("aether store disposed"));
+    this.worker.handle(() => {});
+    this.worker = NOOP_WORKER;
+    this.ownedWorker?.terminate();
+    this.ownedWorker = null;
+  }
+
+  /** Reads the latest buffered worker error. Returns null if none has been
+   * reported since the store was created. Suitable for useSyncExternalStore. */
+  getError(): Error | null {
+    return this.currentError;
+  }
+
+  /** Subscribes to worker error notifications. Listeners are invoked whenever
+   * a new error is buffered; consumers re-read via getError(). */
+  subscribeError(listener: Listener): () => void {
     this.errorListeners.add(listener);
     return () => {
       this.errorListeners.delete(listener);
@@ -190,29 +262,30 @@ export class Store {
     };
   }
 
-  /** Subscribes to worker-pushed state changes only. Local setState calls do
-   * not trigger this listener. Used to wire onAetherChange-style callbacks. */
-  subscribeWorkerPush(key: string, listener: WorkerPushListener): () => void {
-    let set = this.workerListenersByKey.get(key);
-    if (set == null) {
-      set = new Set();
-      this.workerListenersByKey.set(key, set);
-    }
-    set.add(listener);
-    return () => {
-      const s = this.workerListenersByKey.get(key);
-      if (s == null) return;
-      s.delete(listener);
-      if (s.size === 0) this.workerListenersByKey.delete(key);
-    };
+  /** Reads the latest known state for the component identified by key. */
+  getSnapshot<S extends z.ZodType<state.State>>(key: string): z.infer<S> {
+    const entry = this.getEntry<S>(key);
+    if (entry == null)
+      throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
+    return entry.state;
   }
 
-  /** Reads the latest known state for the component identified by key. */
-  getSnapshot<S>(key: string): S {
-    const entry = this.entries.get(key);
-    if (entry == null)
-      throw new UnexpectedError(`[Aether.Store] - missing entry for key ${key}`);
-    return entry.state as S;
+  /** Centralized typed read of an entry. The single cast here recovers the
+   * schema-specific types of `state` and `onReceiveRef` from the erased
+   * storage map, so call sites can read those fields without further casts. */
+  private getEntry<S extends z.ZodType<state.State>>(
+    key: string,
+  ): Entry<S> | undefined {
+    return this.entries.get(key) as Entry<S> | undefined;
+  }
+
+  /** Centralized typed write. The single cast here erases the schema-specific
+   * types of the Entry's fields so it can live in the uniform storage map. */
+  private setEntry<S extends z.ZodType<state.State>>(
+    key: string,
+    entry: Entry<S>,
+  ): void {
+    this.entries.set(key, entry as Entry);
   }
 
   /**
@@ -236,42 +309,36 @@ export class Store {
     } = params;
     if (key.length === 0)
       throw new ValidationError(
-        `[Aether.Store] - received zero length key when registering component of type ${type}`,
+        `[aether.store] received zero length key when registering component of type ${type}`,
       );
     if (type.length === 0)
       console.warn(
-        `[Aether.Store] - received zero length type when registering component at ${path.join(".")}. This is probably a bad idea.`,
+        `[aether.store] received zero length type when registering component at ${path.join(".")}. This is probably a bad idea.`,
       );
 
     const parsed = zod.parse(schema, initialState, { label: type });
     const existing = this.entries.get(key);
     if (existing != null) {
-      this.send({
-        variant: "delete",
-        path: existing.path,
-        type: existing.type,
-      });
+      this.send({ variant: "delete", path: existing.path, type: existing.type });
       existing.controller.abort(new Error("Component re-registered"));
-      existing.type = type;
-      existing.path = path;
-      existing.schema = schema;
-      existing.state = parsed;
-      existing.controller = new AbortController();
-      if (params.onReceiveRef != null)
-        existing.onReceiveRef = params.onReceiveRef as OnReceiveRef;
-    } else
-      this.entries.set(key, {
-        type,
-        path,
-        schema,
-        state: parsed,
-        onReceiveRef: (params.onReceiveRef ?? null) as OnReceiveRef | null,
-        controller: new AbortController(),
-      });
-    // Notify any listeners that subscribed before the entry was (re-)created
-    // — under StrictMode, useSyncExternalStore can subscribe during a
-    // pseudo-remount window where the entry has not yet been created.
-    this.listenersByKey.get(key)?.forEach((l) => l());
+    }
+    this.setEntry<S>(key, {
+      type,
+      path,
+      schema,
+      state: parsed,
+      onReceiveRef: params.onReceiveRef ?? null,
+      controller: new AbortController(),
+    });
+    // Notify any listeners that subscribed before the entry was (re-)created.
+    // Deferred to a microtask so the notification cannot fire inside the
+    // current React render — register is called during the render phase of
+    // useLifecycle, and uSES listeners are setStates that React refuses to
+    // accept mid-render. Under StrictMode the pseudo-remount triggers this
+    // path with a persisted listener still attached.
+    const listeners = this.listenersByKey.get(key);
+    if (listeners != null && listeners.size > 0)
+      queueMicrotask(() => listeners.forEach((l) => l()));
     this.send({ variant: "update", path, state: parsed, type }, initialTransfer);
 
     return this.buildHandle(key, methodsSchema);
@@ -289,10 +356,7 @@ export class Store {
   }
 
   private send(msg: MainMessage, transfer: Transferable[] = []): void {
-    if (this.worker == null) {
-      console.warn("aether - no worker");
-      return;
-    }
+    this.ensureAttached();
     this.worker.send(msg, transfer);
   }
 
@@ -300,7 +364,14 @@ export class Store {
     const { variant } = msg;
     if (variant === "error") {
       const err = reconstructError(msg.error);
-      this.errorListeners.forEach((l) => l(err));
+      if (this.currentError != null) {
+        console.error(
+          "[aether] received new error after error was already set, but before previous error was thrown.",
+        );
+        console.error(err);
+      }
+      this.currentError = err;
+      this.errorListeners.forEach((l) => l());
       return;
     }
     if (variant === "invoke_response") {
@@ -316,7 +387,6 @@ export class Store {
     const parsed = zod.parse(entry.schema, state, { label: entry.type });
     entry.state = parsed;
     this.listenersByKey.get(key)?.forEach((l) => l());
-    this.workerListenersByKey.get(key)?.forEach((l) => l(parsed));
     entry.onReceiveRef?.current?.(parsed);
   }
 
@@ -324,18 +394,14 @@ export class Store {
     key: string,
     methodsSchema?: M,
   ): Handle<S, M> {
-    const entry = this.entries.get(key);
+    const entry = this.getEntry<S>(key);
     if (entry == null)
-      throw new UnexpectedError(`[Aether.Store] - missing entry for key ${key}`);
+      throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
 
     const setState = (next: RawSetArg<S>, transfer: Transferable[] = []): void => {
-      const e = this.entries.get(key);
+      const e = this.getEntry<S>(key);
       if (e == null) return;
-      const prev = e.state as z.infer<S>;
-      const raw =
-        typeof next === "function"
-          ? (next as (p: z.infer<S>) => z.input<S> | z.infer<S>)(prev)
-          : next;
+      const raw = typeof next === "function" ? next(e.state) : next;
       const parsed = zod.parse(e.schema, raw, { label: e.type });
       e.state = parsed;
       this.send(
@@ -353,24 +419,25 @@ export class Store {
       this.send({ variant: "invoke_request", path: e.path, method, args });
     };
 
-    const invokeMethodAsync = <R>(
+    const invokeMethodAsync = (
       method: string,
       args: unknown[],
-      signal: AbortSignal = AbortSignal.timeout(DEFAULT_INVOKE_TIMEOUT),
-    ): Promise<R> =>
-      new Promise<R>((resolve, reject) => {
+      signal: AbortSignal = AbortSignal.timeout(
+        (this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+      ),
+    ): Promise<unknown> =>
+      new Promise((resolve, reject) => {
         const e = this.entries.get(key);
-        if (e == null) return reject(new Error("Component deleted"));
-        if (e.controller.signal.aborted) return reject(new Error("Component deleted"));
-        if (this.worker == null) return reject(new Error("aether - no worker"));
+        if (e == null || e.controller.signal.aborted)
+          return reject(new Error("Component deleted"));
         const invokeKey = this.invokeTracker.nextKey(key);
         this.invokeTracker.track(
           invokeKey,
-          resolve as (v: unknown) => void,
+          resolve,
           reject,
           AbortSignal.any([signal, e.controller.signal]),
         );
-        this.worker.send({
+        this.send({
           variant: "invoke_request",
           key: invokeKey,
           path: e.path,
@@ -381,26 +448,20 @@ export class Store {
 
     const methods = buildMethods<M>(invokeMethod, invokeMethodAsync, methodsSchema);
 
-    return {
-      key,
-      path: entry.path,
-      methods,
-      setState,
-      delete: handleDelete,
-    };
+    return { key, path: entry.path, methods, setState, delete: handleDelete };
   }
 }
 
-const buildMethods = <M extends MethodsSchema>(
+const buildMethods = <Methods extends MethodsSchema>(
   invokeMethod: (method: string, args: unknown[]) => void,
   invokeMethodAsync: (method: string, args: unknown[]) => Promise<unknown>,
-  methodsSchema?: M,
-): CallersFromSchema<M> => {
-  if (methodsSchema == null) return {} as CallersFromSchema<M>;
+  methodsSchema?: Methods,
+): CallersFromSchema<Methods> => {
   const callers: Record<string, (...args: unknown[]) => unknown> = {};
-  for (const method of Object.keys(methodsSchema))
-    callers[method] = isFireAndForget(methodsSchema[method])
-      ? (...args: unknown[]) => invokeMethod(method, args)
-      : (...args: unknown[]) => invokeMethodAsync(method, args);
-  return callers as CallersFromSchema<M>;
+  if (methodsSchema != null)
+    for (const [method, schema] of Object.entries(methodsSchema)) {
+      const base = isFireAndForget(schema) ? invokeMethod : invokeMethodAsync;
+      callers[method] = (...args: unknown[]) => base(method, args);
+    }
+  return callers as CallersFromSchema<Methods>;
 };

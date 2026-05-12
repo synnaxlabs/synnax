@@ -7,17 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep, type SenderHandler } from "@synnaxlabs/x";
+import { deep, type destructor, type TimeSpan } from "@synnaxlabs/x";
 import {
   memo,
   type PropsWithChildren,
   type ReactElement,
   useCallback,
-  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
-  useState,
   useSyncExternalStore,
 } from "react";
 import { type z } from "zod";
@@ -27,14 +25,17 @@ import {
   type EmptyMethodsSchema,
   type MethodsSchema,
 } from "@/aether/aether/aether";
-import { type AetherMessage, type MainMessage } from "@/aether/message";
+import {
+  type AetherMessage,
+  type MainMessage,
+  type SenderHandler,
+} from "@/aether/message";
 import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
 import { useMemoPrimitiveArray } from "@/memo";
 import { type state } from "@/state";
-import { Worker } from "@/worker";
 
 export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
 export { Store } from "@/aether/store";
@@ -47,7 +48,7 @@ export interface ContextValue {
   store: Store;
 }
 
-const DEFAULT_STORE = new Store();
+const DEFAULT_STORE = new Store({ workerEnabled: false });
 
 const [Context, useContext] = context.create<ContextValue>({
   defaultValue: { store: DEFAULT_STORE, path: ["root"] },
@@ -55,50 +56,42 @@ const [Context, useContext] = context.create<ContextValue>({
 });
 
 export interface ProviderProps extends PropsWithChildren {
-  workerKey: string;
+  /** URL of the worker script to spawn. Ignored when {@link worker} is
+   * provided. */
+  workerURL?: string | URL;
+  /** When false, the Aether tree mounts but no worker is spawned and all
+   * worker-bound operations become no-ops. */
+  workerEnabled?: boolean;
+  /** Override the worker entirely. Primarily for tests that supply a mock
+   * via {@link aether.createMockPair}. Bypasses workerURL/workerEnabled. */
   worker?: SenderHandler<MainMessage, AetherMessage>;
+  /** Timeout for async invoke calls. Defaults to 5s. */
+  invokeTimeout?: TimeSpan;
 }
 
-export const Provider = ({
-  workerKey,
-  worker: propsWorker,
-  children,
-}: ProviderProps): ReactElement => {
-  const contextWorker = Worker.use<MainMessage, AetherMessage>(workerKey);
-  const worker = propsWorker ?? contextWorker;
+const ROOT_PATH = ["root"] as const;
 
+export const Provider = ({ children, ...config }: ProviderProps): ReactElement => {
   const storeRef = useRef<Store | null>(null);
-  storeRef.current ??= new Store();
+  storeRef.current ??= new Store(config);
   const store = storeRef.current;
-
-  const [error, setError] = useState<Error | null>(null);
+  const subscribeError = useCallback(
+    (listener: () => void) => {
+      const unsubscribe = store.subscribeError(listener);
+      return () => {
+        unsubscribe();
+        store.dispose();
+      };
+    },
+    [store],
+  );
+  const getError = useCallback(() => store.getError(), [store]);
+  const error = useSyncExternalStore(subscribeError, getError);
   if (error != null) throw error;
 
-  const [ready, setReady] = useState(false);
+  const value = useMemo<ContextValue>(() => ({ store, path: ROOT_PATH }), [store]);
 
-  useEffect(() => {
-    store.setWorker(worker ?? null);
-    const unsubscribe = store.onError((err) => {
-      setError((prev) => {
-        if (prev != null) {
-          console.error(
-            "[aether] - received new error after error was already set, but before previous error was thrown.",
-          );
-          console.error(err);
-        }
-        return err;
-      });
-    });
-    setReady(true);
-    return () => {
-      unsubscribe();
-      store.setWorker(null);
-    };
-  }, [worker, store]);
-
-  const value = useMemo<ContextValue>(() => ({ store, path: ["root"] }), [store]);
-
-  return <Context value={value}>{ready && children}</Context>;
+  return <Context value={value}>{children}</Context>;
 };
 
 export interface UseLifecycleReturn<
@@ -108,7 +101,7 @@ export interface UseLifecycleReturn<
   path: readonly string[];
   setState: (state: RawSetArg<State>, transfer?: Transferable[]) => void;
   methods: CallersFromSchema<Methods>;
-  subscribe: (listener: () => void) => () => void;
+  subscribe: (listener: () => void) => destructor.Destructor;
   getSnapshot: () => z.infer<State>;
 }
 
@@ -123,7 +116,7 @@ interface UseLifecycleProps<
   aetherKey?: string;
   initialState: z.input<S>;
   initialTransfer?: Transferable[];
-  onReceive?: StateHandler<z.infer<S>>;
+  onAetherChange?: StateHandler<z.infer<S>>;
   methods?: M;
 }
 
@@ -136,16 +129,13 @@ export const useLifecycle = <
   initialState,
   schema,
   initialTransfer = [],
-  onReceive,
+  onAetherChange,
   methods: methodsSchema,
 }: UseLifecycleProps<State, Methods>): UseLifecycleReturn<State, Methods> => {
   const key = useUniqueKey(aetherKey);
   const ctx = useContext();
   const path = useMemoPrimitiveArray([...ctx.path, key]);
-  const onReceiveRef = useSyncedRef(onReceive);
-  // Register synchronously on first render so parent components are created
-  // before their children. Identity inputs (key, type, schema) are treated as
-  // immutable per component lifetime; later renders reuse the same handle.
+  const onReceiveRef = useSyncedRef(onAetherChange);
   const handleRef = useRef<Handle<State, Methods> | null>(null);
   handleRef.current ??= ctx.store.register({
     key,
@@ -157,6 +147,7 @@ export const useLifecycle = <
     methodsSchema,
     onReceiveRef,
   });
+  const { methods } = handleRef.current;
 
   useLayoutEffect(
     () => () => {
@@ -178,11 +169,9 @@ export const useLifecycle = <
   );
 
   const getSnapshot = useCallback(
-    () => ctx.store.getSnapshot<z.infer<State>>(key),
+    () => ctx.store.getSnapshot<State>(key),
     [ctx.store, key],
   );
-
-  const methods = handleRef.current?.methods ?? ({} as CallersFromSchema<Methods>);
 
   return useMemo(
     () => ({ setState, path, methods, subscribe, getSnapshot }),
@@ -205,7 +194,6 @@ interface ComponentContext {
   path: readonly string[];
 }
 
-/** Return tuple from {@link use}: context, current state, setter, methods. */
 export type UseReturn<
   S extends z.ZodType<state.State>,
   M extends MethodsSchema = EmptyMethodsSchema,
@@ -216,7 +204,6 @@ export type UseReturn<
   CallersFromSchema<M>,
 ];
 
-/** Props for {@link useUnidirectional}. */
 export interface UseUnidirectionalProps<
   State extends z.ZodType,
   Methods extends MethodsSchema = EmptyMethodsSchema,
@@ -256,31 +243,21 @@ export const use = <
 >(
   props: UseProps<State, Methods>,
 ): UseReturn<State, Methods> => {
-  const { onAetherChange, ...rest } = props;
   const { path, setState, methods, subscribe, getSnapshot } = useLifecycle<
     State,
     Methods
-  >({
-    ...rest,
-    onReceive: onAetherChange,
-  });
+  >(props);
   const state = useSyncExternalStore(subscribe, getSnapshot);
   return [{ path }, state, setState, methods];
 };
 
-/** Props for {@link Composite}: the path under which children are nested in
- * the Aether tree. */
 export interface CompositeProps extends PropsWithChildren {
   path: readonly string[];
 }
 
-/**
- * Establishes children as nested components in the Aether tree. The provided
- * path should match the path returned by {@link use}. Composites can nest.
- */
 export const Composite = memo(({ children, path }: CompositeProps): ReactElement => {
   const ctx = useContext();
   const value = useMemo<ContextValue>(() => ({ ...ctx, path }), [ctx, path]);
   return <Context value={value}>{children}</Context>;
 });
-Composite.displayName = "AetherComposite";
+Composite.displayName = "Aether.Composite";

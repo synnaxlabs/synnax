@@ -7,8 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createMockWorkers } from "@synnaxlabs/x";
-import { render } from "@testing-library/react";
+import { TimeSpan } from "@synnaxlabs/x";
+import { render, waitFor } from "@testing-library/react";
 import {
   Component,
   type FC,
@@ -163,14 +163,15 @@ const REGISTRY: aether.ComponentRegistry = {
   [ErrorOnUpdateLeaf.TYPE]: ErrorOnUpdateLeaf,
 };
 
-const newProvider = async (): Promise<[FC<PropsWithChildren>, aether.Root]> => {
-  const [a, b] = createMockWorkers();
-  const root = aether.render({ comms: a.route("vis"), registry: REGISTRY });
-  const worker = b.route<MainMessage, AetherMessage>("vis");
+type TestProviderProps = PropsWithChildren<
+  Partial<Omit<Aether.ProviderProps, "worker">>
+>;
+
+const newProvider = async (): Promise<[FC<TestProviderProps>, aether.Root]> => {
+  const [workerSide, mainSide] = aether.createMockPair<AetherMessage, MainMessage>();
+  const root = aether.render({ comms: workerSide, registry: REGISTRY });
   return [
-    (props: PropsWithChildren) => (
-      <Aether.Provider worker={worker} workerKey="vis" {...props} />
-    ),
+    (props: TestProviderProps) => <Aether.Provider worker={mainSide} {...props} />,
     root,
   ];
 };
@@ -367,15 +368,15 @@ describe("Aether Main", () => {
         return null;
       };
       render(
-        <Provider>
+        <Provider invokeTimeout={TimeSpan.milliseconds(50)}>
           <InvokeLeafC />
         </Provider>,
       );
       await expect.poll(() => root.children.length === 1).toBe(true);
       expect(captured.error).toBeNull();
-      await expect.poll(() => captured.error !== null, { timeout: 6000 }).toBe(true);
+      await waitFor(() => expect(captured.error).not.toBeNull());
       expect(captured.error?.name).toBe("TimeoutError");
-    }, 10000);
+    });
     it("should abort pending invoke on component unmount", async () => {
       const [Provider, root] = await newProvider();
       const captured: { error: Error | null } = { error: null };
@@ -418,7 +419,7 @@ describe("Aether Main", () => {
         });
         useEffect(() => {
           void methods.echo(7, "hello").then((r) => {
-            captured.result = r as [number, string];
+            captured.result = r;
           });
         }, [methods]);
         return null;
@@ -446,9 +447,9 @@ describe("Aether Main", () => {
           methods: invokeMethodsSchema,
         });
         useEffect(() => {
-          void methods.slowEcho(1).then((r) => results.push(r as number));
-          void methods.slowEcho(2).then((r) => results.push(r as number));
-          void methods.slowEcho(3).then((r) => results.push(r as number));
+          void methods.slowEcho(1).then((r) => results.push(r));
+          void methods.slowEcho(2).then((r) => results.push(r));
+          void methods.slowEcho(3).then((r) => results.push(r));
         }, [methods]);
         return null;
       };
@@ -962,7 +963,7 @@ describe("Aether Main", () => {
     });
     it("should return a path that ends with the component's generated key", async () => {
       const [Provider, root] = await newProvider();
-      const captured: { path: string[] | null } = { path: null };
+      const captured: { path: readonly string[] | null } = { path: null };
       const C = () => {
         const { path } = Aether.useUnidirectional({
           type: ExampleLeaf.TYPE,
@@ -1126,7 +1127,7 @@ describe("Aether Main", () => {
     });
     it("should return a path of [...parentPath, generatedKey]", async () => {
       const [Provider, root] = await newProvider();
-      const captured: { path: string[] | null } = { path: null };
+      const captured: { path: readonly string[] | null } = { path: null };
       const C = () => {
         const { path } = Aether.useLifecycle({
           type: ExampleLeaf.TYPE,
@@ -1493,9 +1494,8 @@ describe("Aether Main", () => {
       await expect.poll(() => leafA.deletef.mock.calls.length > 0).toBe(true);
       await expect.poll(() => leafB.deletef.mock.calls.length > 0).toBe(true);
     });
-    it("should not crash when the worker is unavailable", async () => {
+    it("should no-op when workerEnabled is false", async () => {
       const captured: CapturedError = { current: null };
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
       let renderedFine = false;
       const C = () => {
         const [, , setState] = Aether.use({
@@ -1513,14 +1513,16 @@ describe("Aether Main", () => {
       };
       render(
         <ErrorBoundary captured={captured}>
-          <Aether.Provider workerKey="missing">
+          <Aether.Provider workerEnabled={false}>
             <C />
           </Aether.Provider>
         </ErrorBoundary>,
       );
       await expect.poll(() => renderedFine).toBe(true);
       expect(captured.current).toBeNull();
-      warnSpy.mockRestore();
+    });
+    it("should throw when constructed without a worker source", () => {
+      expect(() => new Aether.Store()).toThrow(/neither `worker` nor `workerURL`/);
     });
   });
   describe("regression pins", () => {
@@ -1601,8 +1603,10 @@ describe("Aether Main", () => {
           <C />
         </Provider>,
       );
-      await expect.poll(() => root.children.length === 1).toBe(true);
-      await expect.poll(() => observedX === 1).toBe(true);
+      await waitFor(() => {
+        expect(root.children.length).toBe(1);
+        expect(observedX).toBe(1);
+      });
       expect((root.children[0] as EchoOnUpdateLeaf).state.x).toBe(1);
     });
     it("should not fire the 'hasn't mounted yet' warning when worker pushes state during the mount window", async () => {
