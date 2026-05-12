@@ -96,9 +96,9 @@ class InvokeTracker {
 }
 
 /** Setter argument accepted by {@link Handle.setState}. */
-export type RawSetArg<S extends z.ZodType<state.State>> =
-  | (z.input<S> | z.infer<S>)
-  | ((prev: z.infer<S>) => z.input<S> | z.infer<S>);
+export type RawSetArg<State extends z.ZodType<state.State>> =
+  | (z.input<State> | z.infer<State>)
+  | ((prev: z.infer<State>) => z.input<State> | z.infer<State>);
 
 type Listener = () => void;
 
@@ -295,9 +295,9 @@ export class Store {
    * updated in place. React listeners are preserved across re-registration
    * so subscribed consumers keep their subscription.
    */
-  register<S extends z.ZodType<state.State>, M extends MethodsSchema>(
-    params: RegisterParams<S, M>,
-  ): Handle<S, M> {
+  register<State extends z.ZodType<state.State>, Methods extends MethodsSchema>(
+    params: RegisterParams<State, Methods>,
+  ): Handle<State, Methods> {
     const {
       key,
       type,
@@ -322,7 +322,7 @@ export class Store {
       this.send({ variant: "delete", path: existing.path, type: existing.type });
       existing.controller.abort(new Error("Component re-registered"));
     }
-    this.setEntry<S>(key, {
+    this.setEntry<State>(key, {
       type,
       path,
       schema,
@@ -390,16 +390,16 @@ export class Store {
     entry.onReceiveRef?.current?.(parsed);
   }
 
-  private buildHandle<S extends z.ZodType<state.State>, M extends MethodsSchema>(
-    key: string,
-    methodsSchema?: M,
-  ): Handle<S, M> {
-    const entry = this.getEntry<S>(key);
+  private buildHandle<
+    State extends z.ZodType<state.State>,
+    Methods extends MethodsSchema,
+  >(key: string, methodsSchema?: Methods): Handle<State, Methods> {
+    const entry = this.getEntry<State>(key);
     if (entry == null)
       throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
 
-    const setState = (next: RawSetArg<S>, transfer: Transferable[] = []): void => {
-      const e = this.getEntry<S>(key);
+    const setState = (next: RawSetArg<State>, transfer: Transferable[] = []): void => {
+      const e = this.getEntry<State>(key);
       if (e == null) return;
       const raw = typeof next === "function" ? next(e.state) : next;
       const parsed = zod.parse(e.schema, raw, { label: e.type });
@@ -446,7 +446,11 @@ export class Store {
         });
       });
 
-    const methods = buildMethods<M>(invokeMethod, invokeMethodAsync, methodsSchema);
+    const methods = buildMethods<Methods>(
+      invokeMethod,
+      invokeMethodAsync,
+      methodsSchema,
+    );
 
     return { key, path: entry.path, methods, setState, delete: handleDelete };
   }
