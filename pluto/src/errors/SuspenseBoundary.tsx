@@ -7,12 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import {
-  type ComponentType,
-  type ReactElement,
-  type ReactNode,
-  Suspense as ReactSuspense,
-} from "react";
+import { type ComponentType, type ReactElement, type ReactNode, Suspense } from "react";
 
 import { Boundary } from "@/errors/Boundary";
 import { type FallbackProps } from "@/errors/Fallback";
@@ -39,6 +34,6 @@ export const SuspenseBoundary = ({
   children,
 }: SuspenseBoundaryProps): ReactElement => (
   <Boundary FallbackComponent={FallbackComponent}>
-    <ReactSuspense fallback={loading}>{children}</ReactSuspense>
+    <Suspense fallback={loading}>{children}</Suspense>
   </Boundary>
 );
