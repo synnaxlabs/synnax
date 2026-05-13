@@ -10,7 +10,6 @@
 import "@/table/Table.css";
 
 import { table } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Button,
@@ -203,13 +202,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     syncDispatch(resizeCol({ key: layoutKey, index, size: clamp(size, 32) }));
   }, []);
 
-  const windowKey = useSelectWindowKey() as string;
-
   const handleDoubleClick = useCallback(() => {
     if (!canEdit) return;
-    syncDispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-    );
+    syncDispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
   }, [canEdit]);
 
   const colSizes = layout.columns.map((col) => col.size);

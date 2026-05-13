@@ -13,6 +13,7 @@ import {
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
 import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
 import { type deep, type direction, id, type location } from "@synnaxlabs/x";
@@ -125,8 +126,8 @@ export interface SetWorkspacePayload {
   slice: SliceState;
 }
 
-interface SetNavDrawerVisiblePayload {
-  windowKey: string;
+export interface SetNavDrawerVisiblePayload {
+  windowKey?: string;
   key?: string;
   location?: NavDrawerLocation;
   value?: boolean;
@@ -385,6 +386,11 @@ export const { actions, reducer } = createSlice({
         payload: { windowKey, key, location, value },
       }: PayloadAction<SetNavDrawerVisiblePayload>,
     ) => {
+      if (windowKey == null)
+        throw new UnexpectedError(
+          "setNavDrawerVisible requires a windowKey; the layout middleware should " +
+            "have injected one from drift state",
+        );
       let navState = state.nav[windowKey];
       if (navState == null) {
         navState = { drawers: {} };
