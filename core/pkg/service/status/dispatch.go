@@ -25,8 +25,8 @@ import (
 var ErrInvalidVariant = errors.New("invalid status variant")
 
 // SetByKeyOrName upserts by name or updates by UUID key (returns query.ErrNotFound
-// on miss). On by-name multi-match, writes to the first by key order and returns
-// multipleMatches=true.
+// on miss). Both paths wrap retrieve + write in WithTx so a concurrent delete
+// can't turn the write into a silent revive.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
@@ -41,7 +41,9 @@ func (s *Service) SetByKeyOrName(
 		return nil
 	}
 	if identifier.IsKey(keyOrName) {
-		return keyOrName, false, s.NewWriter(nil).Update(ctx, keyOrName, overlay)
+		return keyOrName, false, s.WithTx(ctx, func(tx gorp.Tx) error {
+			return s.NewWriter(tx).Update(ctx, keyOrName, overlay)
+		})
 	}
 	err = s.WithTx(ctx, func(tx gorp.Tx) error {
 		var ierr error
