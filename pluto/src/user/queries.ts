@@ -18,7 +18,6 @@ import { array, uuid } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { Flux } from "@/flux";
-import { type RetrieveParams } from "@/flux/retrieve";
 import { Ontology } from "@/ontology";
 import { state } from "@/state";
 
@@ -65,7 +64,7 @@ export const retrieveSingle = async ({
   client,
   query,
   store,
-}: RetrieveParams<RetrieveQuery, FluxSubStore>) => {
+}: Flux.RetrieveParams<RetrieveQuery, FluxSubStore>) => {
   const { key } = query;
   const cached = store.users.get(key);
   if (cached != null) return cached;

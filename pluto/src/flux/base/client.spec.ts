@@ -9,13 +9,13 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { Client } from "@/flux/base/client";
+import { base } from "@/flux/base";
 import { successResult } from "@/flux/result";
 
 const noop = vi.fn();
 
 const makeClient = () =>
-  new Client({
+  new base.Client({
     client: null,
     storeConfig: {},
     handleError: noop,
