@@ -9,11 +9,16 @@
 
 from __future__ import annotations
 
-from typing import Protocol
+import os
+from typing import Protocol, TypeAlias
 
 from freighter.transport import RQ, RS, AsyncTransport, Transport
 
-from _typeshed import FileDescriptorOrPath
+FilePath: TypeAlias = str | os.PathLike[str]
+"""A filesystem path accepted by the streaming-body transport Protocols.
+
+Equivalent to ``str | os.PathLike[str]`` — the same shape ``open()`` accepts for paths.
+"""
 
 
 class UnaryClient(Transport, Protocol):
@@ -49,45 +54,44 @@ def send_required(client: UnaryClient, target: str, req: RQ, res_t: type[RS]) ->
     return res[0]
 
 
-class Upload(Transport, Protocol):
+class UploadClient(Transport, Protocol):
     """
-    Protocol for streaming a file or open file descriptor as the request body and
-    decoding a typed response. Use when the body could be too large to buffer in memory;
-    callers with an already-typed payload use UnaryClient.send.
+    Protocol for streaming a file as the request body and decoding a typed response. Use
+    when the body could be too large to buffer in memory; callers with an already-typed
+    payload use UnaryClient.send.
     """
 
     def upload(
         self,
         target: str,
-        req: FileDescriptorOrPath,
+        req: FilePath,
         res_t: type[RS],
     ) -> tuple[RS, None] | tuple[None, Exception]:
         """
         Streams req to target and decodes the response into res_t. The transport infers
-        any wire-format metadata from req (e.g., from a path extension); file
-        descriptors fall back to a transport-default format.
+        any wire-format metadata from the path (e.g., from its extension).
 
         :param target: the target address of the server.
-        :param req: a file path or open file descriptor to stream as the body.
+        :param req: file path whose contents are streamed as the request body.
         :param res_t: the expected response payload type.
         :raises Unreachable: when the target cannot be reached.
         """
         ...
 
 
-class Download(Transport, Protocol):
+class DownloadClient(Transport, Protocol):
     """
     Protocol for sending a typed request RQ and streaming the response directly into a
-    destination file or file descriptor. Used when the response can be too large to
-    buffer in memory. The transport infers any wire-format metadata from the destination
-    (e.g., from a path extension).
+    destination file. Used when the response can be too large to buffer in memory. The
+    transport infers any wire-format metadata from the destination (e.g., from its
+    extension).
     """
 
     def download(
         self,
         target: str,
         req: RQ,
-        dest: FileDescriptorOrPath,
+        dest: FilePath,
     ) -> Exception | None:
         """
         Sends req to target and streams the response body into dest. Returns None on
@@ -95,7 +99,7 @@ class Download(Transport, Protocol):
 
         :param target: the target address of the server.
         :param req: the typed request payload.
-        :param dest: file path or file descriptor to stream the response into.
+        :param dest: file path to stream the response body into.
         :raises Unreachable: when the target cannot be reached.
         """
         ...
