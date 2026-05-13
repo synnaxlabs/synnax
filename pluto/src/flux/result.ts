@@ -94,13 +94,28 @@ export type Result<
   | LoadingResult<Data, StatusDetails>
   | DisabledResult<Data, StatusDetails>;
 
-interface ResultCreator {
-  <Data extends state.State>(op: string, data?: Data | undefined): Result<Data, never>;
+interface LoadingResultCreator {
+  <Data extends state.State>(
+    op: string,
+    data?: Data | undefined,
+  ): LoadingResult<Data, never>;
   <Data extends state.State, StatusDetails extends z.ZodType = z.ZodNever>(
     op: string,
     data: Data | undefined,
     statusDetails: z.output<StatusDetails>,
-  ): Result<Data, StatusDetails>;
+  ): LoadingResult<Data, StatusDetails>;
+}
+
+interface SuccessResultCreator {
+  <Data extends state.State>(
+    op: string,
+    data?: Data | undefined,
+  ): SuccessResult<Data, never>;
+  <Data extends state.State, StatusDetails extends z.ZodType = z.ZodNever>(
+    op: string,
+    data: Data | undefined,
+    statusDetails: z.output<StatusDetails>,
+  ): SuccessResult<Data, StatusDetails>;
 }
 
 export const loadingResult = (<
@@ -118,7 +133,7 @@ export const loadingResult = (<
     details: statusDetails as z.output<StatusDetails>,
   }),
   data,
-})) as ResultCreator;
+})) as LoadingResultCreator;
 
 /// Builds a loading result with an attached promise and the bare resource name.
 /// Used by suspending reads so the cache can auto-transition to success or
@@ -128,7 +143,7 @@ export const pendingResult = <Data extends state.State>(
   name: string,
   promise: Promise<Data>,
 ): LoadingResult<Data> => ({
-  ...(loadingResult<Data>(`retrieving ${name}`) as LoadingResult<Data>),
+  ...loadingResult<Data>(`retrieving ${name}`),
   promise,
   name,
 });
@@ -148,7 +163,7 @@ export const successResult = (<
     details: statusDetails,
   }),
   data,
-})) as ResultCreator;
+})) as SuccessResultCreator;
 
 export const errorResult = (op: string, error: unknown): ErrorResult => ({
   variant: "error",
