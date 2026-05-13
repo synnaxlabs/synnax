@@ -9,7 +9,7 @@
 
 import { alamos } from "@synnaxlabs/alamos";
 import { NotFoundError, UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { deep, type errors, type record, shallow, zod } from "@synnaxlabs/x";
+import { deep, errors, type record, shallow, zod } from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -404,15 +404,16 @@ export abstract class Leaf<
       );
 
     const err = error instanceof Error ? error : new Error(String(error));
+    const wrapped = new Error(
+      `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
+    );
+    wrapped.name = err.name;
+    wrapped.stack = err.stack;
     this.sender.send({
       variant: "invoke_response",
       key,
       result: undefined,
-      error: {
-        name: err.name,
-        message: `Failed to execute ${method}(${key}) with args ${JSON.stringify(args)} on ${this.toString()}: ${err.message}`,
-        stack: err.stack ?? "",
-      },
+      error: errors.encode(wrapped),
     });
   }
 
@@ -650,17 +651,7 @@ export class Root extends Composite<typeof aetherRootState> {
       try {
         root.handle(msg);
       } catch (e) {
-        const errorObj: errors.NativePayload = {
-          name: "unknown",
-          message: JSON.stringify(e),
-          stack: "unknown",
-        };
-        if (e instanceof Error) {
-          errorObj.name = e.name;
-          errorObj.message = e.message;
-          errorObj.stack = e.stack;
-        }
-        root.comms.send({ variant: "error", error: errorObj });
+        root.comms.send({ variant: "error", error: errors.encode(e) });
       }
     });
     return root;
@@ -674,13 +665,12 @@ export class Root extends Composite<typeof aetherRootState> {
       return;
     }
 
-    const { path, type } = msg;
     if (variant === "delete") {
-      this._delete(path);
+      this._delete(msg.path);
       return;
     }
 
-    const { state } = msg;
+    const { path, type, state } = msg;
     this._updateState({
       path,
       type,

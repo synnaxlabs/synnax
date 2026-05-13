@@ -30,11 +30,8 @@ import { type Handle, type RawSetArg, Store } from "@/aether/store";
 import { context } from "@/context";
 import { useSyncedRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
-import { useMemoPrimitiveArray } from "@/memo";
+import { useMemoArray } from "@/memo";
 import { type state } from "@/state";
-
-export type { CallersFromSchema, EmptyMethodsSchema, MethodsSchema };
-export { Store } from "@/aether/store";
 
 /** Value supplied by the Aether context to descendants of {@link Provider}. */
 export interface ContextValue {
@@ -97,35 +94,35 @@ export const Provider = ({ children, ...config }: ProviderProps): ReactElement =
 /** Output of {@link useLifecycle}: the component's path, a typed setState, the methods
  * registry, and the subscribe / getSnapshot pair consumed by `useSyncExternalStore`. */
 export interface UseLifecycleReturn<
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
   path: readonly string[];
-  setState: (state: RawSetArg<State>, transfer?: Transferable[]) => void;
+  setState: (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void;
   methods: CallersFromSchema<Methods>;
   subscribe: (listener: () => void) => destructor.Destructor;
-  getSnapshot: () => z.infer<State>;
+  getSnapshot: () => z.infer<StateSchema>;
 }
 
 type StateHandler<T = unknown> = (state: T) => void;
 
 interface UseLifecycleProps<
-  State extends z.ZodType,
+  StateSchema extends z.ZodType,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > {
   /** Component type, matched against the worker-side registry. */
   type: string;
   /** Zod schema validating both `initialState` and worker-pushed state. */
-  schema: State;
+  schema: StateSchema;
   /** Stable key for the component. Generated if omitted. Identity-stable for the
    * component's lifetime — changing it mid-life unregisters and re-registers under the
    * new key. */
   aetherKey?: string;
-  initialState: z.input<State>;
+  initialState: z.input<StateSchema>;
   /** Optional `Transferable`s included with the initial update message. */
   initialTransfer?: Transferable[];
   /** Fired on worker-pushed state changes only (not on local setState). */
-  onAetherChange?: StateHandler<z.infer<State>>;
+  onAetherChange?: StateHandler<z.infer<StateSchema>>;
   methods?: Methods;
 }
 
@@ -134,7 +131,7 @@ interface UseLifecycleProps<
  * subscribe React to state changes. Most callers want {@link use} or
  * {@link useUnidirectional} instead. */
 export const useLifecycle = <
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >({
   type,
@@ -144,12 +141,15 @@ export const useLifecycle = <
   initialTransfer = [],
   onAetherChange,
   methods: methodsSchema,
-}: UseLifecycleProps<State, Methods>): UseLifecycleReturn<State, Methods> => {
+}: UseLifecycleProps<StateSchema, Methods>): UseLifecycleReturn<
+  StateSchema,
+  Methods
+> => {
   const key = useUniqueKey(aetherKey);
   const ctx = useContext();
-  const path = useMemoPrimitiveArray([...ctx.path, key]);
+  const path = useMemoArray([...ctx.path, key]);
   const onReceiveRef = useSyncedRef(onAetherChange);
-  const handleRef = useRef<Handle<State, Methods> | null>(null);
+  const handleRef = useRef<Handle<StateSchema, Methods> | null>(null);
   // Render-phase register: preserves parent-before-child ordering on the worker.
   // Concurrent Mode may discard a render before commit, leaking the entry — harmless:
   // it reclaims with the Provider's Store on unmount.
@@ -174,7 +174,7 @@ export const useLifecycle = <
   );
 
   const setState = useCallback(
-    (next: RawSetArg<State>, transfer: Transferable[] = []) =>
+    (next: RawSetArg<StateSchema>, transfer: Transferable[] = []) =>
       handleRef.current?.setState(next, transfer),
     [],
   );
@@ -185,7 +185,7 @@ export const useLifecycle = <
   );
 
   const getSnapshot = useCallback(
-    () => ctx.store.getSnapshot<State>(key),
+    () => ctx.store.getSnapshot<StateSchema>(key),
     [ctx.store, key],
   );
 
@@ -203,10 +203,10 @@ export interface ComponentProps {
 }
 
 export interface UseProps<
-  State extends z.ZodType,
+  StateSchema extends z.ZodType,
   Methods extends MethodsSchema = EmptyMethodsSchema,
-> extends Omit<UseLifecycleProps<State, Methods>, "onReceive"> {
-  onAetherChange?: (state: z.infer<State>) => void;
+> extends Omit<UseLifecycleProps<StateSchema, Methods>, "onReceive"> {
+  onAetherChange?: (state: z.infer<StateSchema>) => void;
 }
 
 interface ComponentContext {
@@ -215,23 +215,26 @@ interface ComponentContext {
 
 /** Tuple returned by {@link use}: `[ctx, state, setState, methods]`. */
 export type UseReturn<
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 > = [
   ComponentContext,
-  z.infer<State>,
-  (state: RawSetArg<State>, transfer?: Transferable[]) => void,
+  z.infer<StateSchema>,
+  (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void,
   CallersFromSchema<Methods>,
 ];
 
 export interface UseUnidirectionalProps<
-  State extends z.ZodType,
+  StateSchema extends z.ZodType,
   Methods extends MethodsSchema = EmptyMethodsSchema,
-> extends Pick<UseLifecycleProps<State, Methods>, "schema" | "aetherKey" | "methods"> {
+> extends Pick<
+  UseLifecycleProps<StateSchema, Methods>,
+  "schema" | "aetherKey" | "methods"
+> {
   type: string;
   /** Source-of-truth state owned by the caller. Push-only: changes here propagate to
    * the worker, but worker pushes do not flow back. */
-  state: z.input<State>;
+  state: z.input<StateSchema>;
 }
 
 export interface UseUnidirectionalReturn<
@@ -244,17 +247,17 @@ export interface UseUnidirectionalReturn<
  * worker on every change (compared with `deep.equal`); worker-side updates do not
  * propagate back. Use {@link use} for bidirectional state. */
 export const useUnidirectional = <
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >({
   state,
   ...rest
-}: UseUnidirectionalProps<State, Methods>): UseUnidirectionalReturn<Methods> => {
-  const { path, setState, methods } = useLifecycle<State, Methods>({
+}: UseUnidirectionalProps<StateSchema, Methods>): UseUnidirectionalReturn<Methods> => {
+  const { path, setState, methods } = useLifecycle<StateSchema, Methods>({
     ...rest,
     initialState: state,
   });
-  const ref = useRef<z.input<State> | z.infer<State> | null>(null);
+  const ref = useRef<z.input<StateSchema> | z.infer<StateSchema> | null>(null);
   if (!deep.equal(ref.current, state)) {
     ref.current = state;
     setState(state);
@@ -266,13 +269,13 @@ export const useUnidirectional = <
  * `useSyncExternalStore`, and returns the current state, a setter, and the methods
  * registry. */
 export const use = <
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends MethodsSchema = EmptyMethodsSchema,
 >(
-  props: UseProps<State, Methods>,
-): UseReturn<State, Methods> => {
+  props: UseProps<StateSchema, Methods>,
+): UseReturn<StateSchema, Methods> => {
   const { path, setState, methods, subscribe, getSnapshot } = useLifecycle<
-    State,
+    StateSchema,
     Methods
   >(props);
   const state = useSyncExternalStore(subscribe, getSnapshot);

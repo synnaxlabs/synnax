@@ -8,20 +8,13 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { type errors, TimeSpan, zod } from "@synnaxlabs/x";
+import { errors, TimeSpan, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
-import { type state } from "@/state";
+import { state } from "@/state";
 
 const DEFAULT_INVOKE_TIMEOUT = TimeSpan.seconds(5);
-
-const reconstructError = (payload: errors.NativePayload): Error => {
-  const err = new Error(payload.message);
-  err.name = payload.name;
-  err.stack = payload.stack;
-  return err;
-};
 
 interface PendingRequest {
   resolve: (value: unknown) => void;
@@ -56,11 +49,17 @@ class InvokeTracker {
     this.pending.set(key, { resolve, reject, controller });
   }
 
-  resolve(key: string, result: unknown, error?: errors.NativePayload): boolean {
+  resolve(key: string, result: unknown, error?: errors.Payload): boolean {
     const pending = this.pending.get(key);
     if (pending == null) return false;
     this.pending.delete(key);
-    if (error != null) pending.reject(reconstructError(error));
+    if (error != null)
+      pending.reject(
+        errors.decode(error) ??
+          new UnexpectedError(
+            "[aether.store] worker reported an invoke error but the payload decoded to null",
+          ),
+      );
     else pending.resolve(result);
     return true;
   }
@@ -76,28 +75,33 @@ class InvokeTracker {
 }
 
 /** Setter argument accepted by {@link Handle.setState}: a new state value or a function
- * that derives one from the previous value. */
-export type RawSetArg<State extends z.ZodType<state.State>> =
-  | (z.input<State> | z.infer<State>)
-  | ((prev: z.infer<State>) => z.input<State> | z.infer<State>);
+ * that derives one from the previous value. Always the schema's input type — the value
+ * is parsed before being stored, so post-transform output types shouldn't be passed. */
+export type RawSetArg<StateSchema extends z.ZodType<state.State, state.State>> =
+  state.SetArg<z.input<StateSchema>, z.infer<StateSchema>>;
 
 type Listener = () => void;
 
 /** Live worker component tracked by the store. Generic over its schema so reads through
  * {@link Store.getEntry} recover the per-entry state and callback types without
  * re-asserting at every field access. */
-interface Entry<State extends z.ZodType<state.State> = z.ZodType<state.State>> {
+interface Entry<
+  StateSchema extends z.ZodType<state.State, state.State> = z.ZodType<
+    state.State,
+    state.State
+  >,
+> {
   type: string;
   path: readonly string[];
-  schema: State;
-  state: z.infer<State>;
-  onReceiveRef: { current: ((state: z.infer<State>) => void) | undefined } | null;
+  schema: StateSchema;
+  state: z.infer<StateSchema>;
+  onReceiveRef: { current: ((state: z.infer<StateSchema>) => void) | undefined } | null;
   controller: AbortController;
 }
 
 /** Arguments accepted by {@link Store.register}. */
 export interface RegisterParams<
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   /** Stable, unique key identifying the component for the lifetime of the registration.
@@ -108,26 +112,26 @@ export interface RegisterParams<
   /** Component path in the aether tree. */
   path: readonly string[];
   /** Zod schema validating both `initialState` and worker-pushed state. */
-  schema: State;
-  initialState: z.input<State>;
+  schema: StateSchema;
+  initialState: z.input<StateSchema>;
   /** Optional `Transferable`s included with the initial update message. */
   initialTransfer?: Transferable[];
   /** Optional method-call schema; powers `methods` on the returned handle. */
   methodsSchema?: Methods;
   /** Ref to a callback fired on worker-pushed state changes only. */
-  onReceiveRef?: { current: ((state: z.infer<State>) => void) | undefined };
+  onReceiveRef?: { current: ((state: z.infer<StateSchema>) => void) | undefined };
 }
 
 /** Per-component operations returned by {@link Store.register}: typed setState, delete,
  * and method callers. */
 export interface Handle<
-  State extends z.ZodType<state.State>,
+  StateSchema extends z.ZodType<state.State, state.State>,
   Methods extends aether.MethodsSchema = aether.EmptyMethodsSchema,
 > {
   key: string;
   path: readonly string[];
   methods: aether.CallersFromSchema<Methods>;
-  setState: (state: RawSetArg<State>, transfer?: Transferable[]) => void;
+  setState: (state: RawSetArg<StateSchema>, transfer?: Transferable[]) => void;
   delete: () => void;
 }
 
@@ -216,12 +220,11 @@ export class Store {
   }
 
   private setError(err: Error): void {
-    if (this.currentError != null) {
+    if (this.currentError != null)
       console.error(
         "[aether] received new error after error was already set, but before previous error was thrown.",
+        err,
       );
-      console.error(err);
-    }
     this.currentError = err;
     this.errorListeners.forEach((l) => l());
   }
@@ -277,27 +280,29 @@ export class Store {
    * cached last-known snapshot when the entry has been unregistered but subscribers
    * remain (e.g. StrictMode's unregister-then-register window). Throws
    * {@link UnexpectedError} only when neither is available. */
-  getSnapshot<State extends z.ZodType<state.State>>(key: string): z.infer<State> {
-    const entry = this.getEntry<State>(key);
+  getSnapshot<StateSchema extends z.ZodType<state.State, state.State>>(
+    key: string,
+  ): z.infer<StateSchema> {
+    const entry = this.getEntry<StateSchema>(key);
     if (entry != null) return entry.state;
     const cached = this.snapshotsByKey.get(key);
-    if (cached != null) return cached as z.infer<State>;
+    if (cached != null) return cached as z.infer<StateSchema>;
     throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
   }
 
   /** Single seam where the schema-specific types of `state` and `onReceiveRef` are
    * recovered from the erased storage map. */
-  private getEntry<State extends z.ZodType<state.State>>(
+  private getEntry<StateSchema extends z.ZodType<state.State, state.State>>(
     key: string,
-  ): Entry<State> | undefined {
-    return this.entries.get(key) as Entry<State> | undefined;
+  ): Entry<StateSchema> | undefined {
+    return this.entries.get(key) as Entry<StateSchema> | undefined;
   }
 
   /** Single seam where an Entry's schema-specific types are erased on insert into the
    * uniform storage map. */
-  private setEntry<State extends z.ZodType<state.State>>(
+  private setEntry<StateSchema extends z.ZodType<state.State, state.State>>(
     key: string,
-    entry: Entry<State>,
+    entry: Entry<StateSchema>,
   ): void {
     this.entries.set(key, entry);
   }
@@ -305,9 +310,10 @@ export class Store {
   /** Registers the component described by `params` and sends its initial state to the
    * worker. If a component with the same key already exists, the prior worker component
    * is deleted and the entry is replaced; subscribers keep their subscriptions. */
-  register<State extends z.ZodType<state.State>, Methods extends aether.MethodsSchema>(
-    params: RegisterParams<State, Methods>,
-  ): Handle<State, Methods> {
+  register<
+    StateSchema extends z.ZodType<state.State, state.State>,
+    Methods extends aether.MethodsSchema,
+  >(params: RegisterParams<StateSchema, Methods>): Handle<StateSchema, Methods> {
     const {
       key,
       type,
@@ -329,10 +335,10 @@ export class Store {
     const parsed = zod.parse(schema, initialState, { label: type });
     const existing = this.entries.get(key);
     if (existing != null) {
-      this.send({ variant: "delete", path: existing.path, type: existing.type });
+      this.send({ variant: "delete", path: existing.path });
       existing.controller.abort(new Error("Component re-registered"));
     }
-    this.setEntry<State>(key, {
+    this.setEntry<StateSchema>(key, {
       type,
       path,
       schema,
@@ -357,7 +363,7 @@ export class Store {
   unregister(key: string): void {
     const entry = this.entries.get(key);
     if (entry == null) return;
-    this.send({ variant: "delete", path: entry.path, type: entry.type });
+    this.send({ variant: "delete", path: entry.path });
     entry.controller.abort(new Error("Component deleted"));
     this.invokeTracker.clearCounter(key);
     this.entries.delete(key);
@@ -372,7 +378,12 @@ export class Store {
   private handleWorkerMessage(msg: aether.WorkerMessage): void {
     const { variant } = msg;
     if (variant === "error") {
-      this.setError(reconstructError(msg.error));
+      this.setError(
+        errors.decode(msg.error) ??
+          new UnexpectedError(
+            "[aether.store] worker error message decoded to null; the error payload contract requires a non-nil payload",
+          ),
+      );
       return;
     }
     if (variant === "invoke_response") {
@@ -392,17 +403,23 @@ export class Store {
   }
 
   private buildHandle<
-    State extends z.ZodType<state.State>,
+    StateSchema extends z.ZodType<state.State, state.State>,
     Methods extends aether.MethodsSchema,
-  >(key: string, methodsSchema?: Methods): Handle<State, Methods> {
-    const entry = this.getEntry<State>(key);
+  >(key: string, methodsSchema?: Methods): Handle<StateSchema, Methods> {
+    const entry = this.getEntry<StateSchema>(key);
     if (entry == null)
       throw new UnexpectedError(`[aether.store] missing entry for key ${key}`);
 
-    const setState = (next: RawSetArg<State>, transfer: Transferable[] = []): void => {
-      const e = this.getEntry<State>(key);
+    const setState = (
+      next: RawSetArg<StateSchema>,
+      transfer: Transferable[] = [],
+    ): void => {
+      const e = this.getEntry<StateSchema>(key);
       if (e == null) return;
-      const raw = typeof next === "function" ? next(e.state) : next;
+      const raw = state.executeSetter<z.input<StateSchema>, z.infer<StateSchema>>(
+        next,
+        e.state,
+      );
       const parsed = zod.parse(e.schema, raw, { label: e.type });
       e.state = parsed;
       this.snapshotsByKey.set(key, parsed);

@@ -22,7 +22,6 @@ export interface MainUpdateRequest {
 /** Main → worker: delete the component at `path`. */
 export interface MainDeleteRequest {
   variant: "delete";
-  type: string;
   path: readonly string[];
 }
 
@@ -46,7 +45,7 @@ export interface WorkerUpdateRequest {
 /** Worker → main: a worker-side error to surface on the main thread. */
 export interface WorkerNotifyErrorRequest {
   variant: "error";
-  error: errors.NativePayload;
+  error: errors.Payload;
 }
 
 /** Worker → main: response to a {@link MainInvokeRequest}. `error` is set when the
@@ -55,7 +54,7 @@ export interface WorkerInvokeResponse {
   variant: "invoke_response";
   key: string;
   result: unknown;
-  error?: errors.NativePayload;
+  error?: errors.Payload;
 }
 
 /** Any message sent from the worker thread to the main thread. */

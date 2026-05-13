@@ -7,18 +7,17 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type primitive } from "@synnaxlabs/x";
 import { renderHook } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { useMemoPrimitiveArray } from "@/memo/useMemoCompare";
+import { useMemoArray } from "@/memo/useMemoCompare";
 
-const setup = <T extends primitive.Value>(initial: T[]) =>
-  renderHook(({ value }) => useMemoPrimitiveArray(value), {
+const setup = <T>(initial: T[]) =>
+  renderHook(({ value }) => useMemoArray(value), {
     initialProps: { value: initial },
   });
 
-describe("useMemoPrimitiveArray", () => {
+describe("useMemoArray", () => {
   it("returns the initial array on first render", () => {
     const initial = [1, 2, 3];
     const { result } = setup<number>(initial);
@@ -71,5 +70,23 @@ describe("useMemoPrimitiveArray", () => {
     arr.push(4);
     rerender({ value: arr });
     expect(result.current).toEqual([1, 2, 3, 4]);
+  });
+
+  it("treats NaN as equal to NaN (Object.is semantics)", () => {
+    const { result, rerender } = setup<number>([NaN, 1]);
+    const first = result.current;
+    rerender({ value: [NaN, 1] });
+    expect(result.current).toBe(first);
+  });
+
+  it("compares object references by identity", () => {
+    const a = { id: 1 };
+    const b = { id: 2 };
+    const { result, rerender } = setup<{ id: number }>([a, b]);
+    const first = result.current;
+    rerender({ value: [a, b] });
+    expect(result.current).toBe(first);
+    rerender({ value: [a, { id: 2 }] });
+    expect(result.current).not.toBe(first);
   });
 });
