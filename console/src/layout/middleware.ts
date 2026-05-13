@@ -23,7 +23,6 @@ import {
   remove,
   type RemovePayload,
   setNavDrawerVisible,
-  type SetNavDrawerVisiblePayload,
   setWorkspace,
   type SetWorkspacePayload,
   type StoreState,
@@ -152,17 +151,11 @@ const deleteLayoutsOnMosaicCloseEffect: MiddlewareEffect<
  */
 const injectNavDrawerWindowKey: Middleware<{}, StoreState & Drift.StoreState> =
   (store) => (next) => (action) => {
-    if (
-      typeof action !== "object" ||
-      action == null ||
-      (action as { type?: unknown }).type !== setNavDrawerVisible.type
-    )
+    if (!setNavDrawerVisible.match(action) || action.payload.windowKey != null)
       return next(action);
-    const payload = (action as { payload: SetNavDrawerVisiblePayload }).payload;
-    if (payload.windowKey != null) return next(action);
     const windowKey = selectWindowKey(store.getState());
     if (windowKey == null) return next(action);
-    return next(setNavDrawerVisible({ ...payload, windowKey }));
+    return next(setNavDrawerVisible({ ...action.payload, windowKey }));
   };
 
 export const MIDDLEWARE = [
