@@ -283,13 +283,6 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unmatched"))
 		})
 
-		It("should report unmatched closing brace in raw string body", func(bCtx SpecContext) {
-			expr := MustSucceed(parser.ParseExpression("`}`"))
-			ctx := context.CreateRoot(bCtx, expr, testResolver)
-			flow.AnalyzeSingleExpression(ctx)
-			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
-			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unmatched"))
-		})
 	})
 
 	Describe("Error Cases", func() {

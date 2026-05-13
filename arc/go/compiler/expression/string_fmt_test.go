@@ -70,8 +70,8 @@ var _ = Describe("Backtick Format String Compilation", func() {
 			expectExpression,
 
 			Entry(
-				"i32 with %05d",
-				"`{i32(7)%05d}`",
+				"i32 with :05d",
+				"`{i32(7):05d}`",
 				types.String(),
 				OpI32Const, int32(7),
 				OpI32Const, int32(0),
@@ -79,8 +79,8 @@ var _ = Describe("Backtick Format String Compilation", func() {
 				OpCall, uint32(0),
 			),
 			Entry(
-				"f64 with %.2f",
-				"`{f64(3.14)%.2f}`",
+				"f64 with :.2f",
+				"`{f64(3.14):.2f}`",
 				types.String(),
 				OpF64Const, float64(3.14),
 				OpI32Const, int32(0),
@@ -88,8 +88,8 @@ var _ = Describe("Backtick Format String Compilation", func() {
 				OpCall, uint32(0),
 			),
 			Entry(
-				"u8 with %x",
-				"`{u8(255)%x}`",
+				"u8 with :x",
+				"`{u8(255):x}`",
 				types.String(),
 				OpI32Const, int32(255),
 				OpI32Const, int32(0),
@@ -109,7 +109,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 		})
 
 		It("compiles string variable placeholder with spec via format_string", func(bCtx SpecContext) {
-			bytecode, exprType := compileWithAnalyzer(bCtx, "`{name%s}`", symbol.MapResolver{
+			bytecode, exprType := compileWithAnalyzer(bCtx, "`{name:s}`", symbol.MapResolver{
 				"name": scalarSymbol("name", types.String(), 0),
 			})
 			Expect(exprType).To(Equal(types.String()))
@@ -137,7 +137,7 @@ var _ = Describe("Backtick Format String Compilation", func() {
 		})
 
 		It("compiles three placeholders with mixed specs", func(bCtx SpecContext) {
-			bytecode, exprType := compileExpression(bCtx, "`{1}, {i32(2)%05d}, {f64(3.14)%.2f}`")
+			bytecode, exprType := compileExpression(bCtx, "`{1}, {i32(2):05d}, {f64(3.14):.2f}`")
 			Expect(exprType).To(Equal(types.String()))
 			Expect(bytecode).ToNot(BeEmpty())
 		})

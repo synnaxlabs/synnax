@@ -106,9 +106,9 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			Entry("single space", "` `", " "),
 			Entry("multi-word with punctuation", "`hello, world!`", "hello, world!"),
 			Entry("escaped open brace", "`\\{`", "{"),
-			Entry("escaped close brace", "`\\}`", "}"),
-			Entry("both braces escaped around literal", "`\\{x\\}`", "{x}"),
-			Entry("escape mixed with text", "`pre \\{ mid \\} post`", "pre { mid } post"),
+			Entry("bare close brace is literal", "`}`", "}"),
+			Entry("open escaped, close bare around literal", "`\\{x}`", "{x}"),
+			Entry("escape mixed with text", "`pre \\{ mid } post`", "pre { mid } post"),
 			Entry("embedded double quotes", "`he said \"hi\"`", `he said "hi"`),
 			Entry("escaped backtick", "`a\\`b`", "a`b"),
 		)
@@ -191,16 +191,16 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
-			Entry("decimal", "`{i32(42)%d}`", "42"),
-			Entry("decimal with width", "`{i32(42)%5d}`", "   42"),
-			Entry("decimal zero-padded", "`{i32(7)%05d}`", "00007"),
-			Entry("decimal with sign", "`{i32(42)%+d}`", "+42"),
-			Entry("hex lower", "`{i32(255)%x}`", "ff"),
-			Entry("hex upper", "`{i32(255)%X}`", "FF"),
-			Entry("hex zero-padded", "`{i32(255)%04x}`", "00ff"),
-			Entry("octal", "`{i32(8)%o}`", "10"),
-			Entry("binary", "`{i32(5)%b}`", "101"),
-			Entry("negative decimal", "`{i32(-42)%d}`", "-42"),
+			Entry("decimal", "`{i32(42):d}`", "42"),
+			Entry("decimal with width", "`{i32(42):5d}`", "   42"),
+			Entry("decimal zero-padded", "`{i32(7):05d}`", "00007"),
+			Entry("decimal with sign", "`{i32(42):+d}`", "+42"),
+			Entry("hex lower", "`{i32(255):x}`", "ff"),
+			Entry("hex upper", "`{i32(255):X}`", "FF"),
+			Entry("hex zero-padded", "`{i32(255):04x}`", "00ff"),
+			Entry("octal", "`{i32(8):o}`", "10"),
+			Entry("binary", "`{i32(5):b}`", "101"),
+			Entry("negative decimal", "`{i32(-42):d}`", "-42"),
 		)
 
 		DescribeTable("integer channel values format with valid specs (i8/i16/i32/i64 promotion)",
@@ -215,13 +215,13 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("i32 channel %05d", "`{val%05d}`", "i32", types.I32(), telem.Int32T,
+			Entry("i32 channel :05d", "`{val:05d}`", "i32", types.I32(), telem.Int32T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](7)) }, "00007"),
-			Entry("i32 channel %+d", "`{val%+d}`", "i32", types.I32(), telem.Int32T,
+			Entry("i32 channel :+d", "`{val:+d}`", "i32", types.I32(), telem.Int32T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int32](42)) }, "+42"),
-			Entry("i64 channel %d", "`{val%d}`", "i64", types.I64(), telem.Int64T,
+			Entry("i64 channel :d", "`{val:d}`", "i64", types.I64(), telem.Int64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](1700000000)) }, "1700000000"),
-			Entry("i64 channel %x", "`{val%x}`", "i64", types.I64(), telem.Int64T,
+			Entry("i64 channel :x", "`{val:x}`", "i64", types.I64(), telem.Int64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[int64](255)) }, "ff"),
 		)
 
@@ -229,14 +229,14 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
-			Entry("u8 decimal", "`{u8(255)%d}`", "255"),
-			Entry("u8 hex", "`{u8(255)%x}`", "ff"),
-			Entry("u8 binary", "`{u8(255)%b}`", "11111111"),
-			Entry("u32 decimal", "`{u32(4000000000)%d}`", "4000000000"),
-			Entry("u32 hex zero-padded", "`{u32(255)%08x}`", "000000ff"),
-			Entry("u32 octal", "`{u32(8)%o}`", "10"),
-			Entry("u64 decimal", "`{u64(12345)%d}`", "12345"),
-			Entry("u64 hex", "`{u64(255)%x}`", "ff"),
+			Entry("u8 decimal", "`{u8(255):d}`", "255"),
+			Entry("u8 hex", "`{u8(255):x}`", "ff"),
+			Entry("u8 binary", "`{u8(255):b}`", "11111111"),
+			Entry("u32 decimal", "`{u32(4000000000):d}`", "4000000000"),
+			Entry("u32 hex zero-padded", "`{u32(255):08x}`", "000000ff"),
+			Entry("u32 octal", "`{u32(8):o}`", "10"),
+			Entry("u64 decimal", "`{u64(12345):d}`", "12345"),
+			Entry("u64 hex", "`{u64(255):x}`", "ff"),
 		)
 
 		DescribeTable("unsigned integer channel values format with valid specs (u8/u16/u32/u64 promotion)",
@@ -251,15 +251,15 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("u8 channel %d", "`{val%d}`", "u8", types.U8(), telem.Uint8T,
+			Entry("u8 channel :d", "`{val:d}`", "u8", types.U8(), telem.Uint8T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) }, "255"),
-			Entry("u8 channel %x (promoted to u32)", "`{val%x}`", "u8", types.U8(), telem.Uint8T,
+			Entry("u8 channel :x (promoted to u32)", "`{val:x}`", "u8", types.U8(), telem.Uint8T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint8](255)) }, "ff"),
-			Entry("u16 channel %d", "`{val%d}`", "u16", types.U16(), telem.Uint16T,
+			Entry("u16 channel :d", "`{val:d}`", "u16", types.U16(), telem.Uint16T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint16](65000)) }, "65000"),
-			Entry("u32 channel %X", "`{val%X}`", "u32", types.U32(), telem.Uint32T,
+			Entry("u32 channel :X", "`{val:X}`", "u32", types.U32(), telem.Uint32T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint32](255)) }, "FF"),
-			Entry("u64 channel %x", "`{val%x}`", "u64", types.U64(), telem.Uint64T,
+			Entry("u64 channel :x", "`{val:x}`", "u64", types.U64(), telem.Uint64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[uint64](255)) }, "ff"),
 		)
 
@@ -267,16 +267,16 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			func(ctx SpecContext, source, expected string) {
 				Expect(runFmtTrigger(ctx, source)).To(Equal(expected))
 			},
-			Entry("f64 fixed default", "`{f64(3.14159)%f}`", "3.141590"),
-			Entry("f64 fixed 2 decimals", "`{f64(3.14159)%.2f}`", "3.14"),
-			Entry("f64 fixed 4 decimals", "`{f64(3.14159)%.4f}`", "3.1416"),
-			Entry("f64 fixed width.precision", "`{f64(3.14)%8.3f}`", "   3.140"),
-			Entry("f64 fixed 0 decimals", "`{f64(3.7)%.0f}`", "4"),
-			Entry("f64 scientific lower", "`{f64(12345.678)%e}`", "1.234568e+04"),
-			Entry("f64 scientific upper", "`{f64(12345.678)%E}`", "1.234568E+04"),
-			Entry("f64 general lower", "`{f64(0.000123)%g}`", "0.000123"),
-			Entry("f64 general upper", "`{f64(0.000123)%G}`", "0.000123"),
-			Entry("f32 fixed 2 decimals", "`{f32(3.14159)%.2f}`", "3.14"),
+			Entry("f64 fixed default", "`{f64(3.14159):f}`", "3.141590"),
+			Entry("f64 fixed 2 decimals", "`{f64(3.14159):.2f}`", "3.14"),
+			Entry("f64 fixed 4 decimals", "`{f64(3.14159):.4f}`", "3.1416"),
+			Entry("f64 fixed width.precision", "`{f64(3.14):8.3f}`", "   3.140"),
+			Entry("f64 fixed 0 decimals", "`{f64(3.7):.0f}`", "4"),
+			Entry("f64 scientific lower", "`{f64(12345.678):e}`", "1.234568e+04"),
+			Entry("f64 scientific upper", "`{f64(12345.678):E}`", "1.234568E+04"),
+			Entry("f64 general lower", "`{f64(0.000123):g}`", "0.000123"),
+			Entry("f64 general upper", "`{f64(0.000123):G}`", "0.000123"),
+			Entry("f32 fixed 2 decimals", "`{f32(3.14159):.2f}`", "3.14"),
 		)
 
 		DescribeTable("float channel values format with valid specs",
@@ -291,13 +291,13 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(runFmtChannel(ctx, source, arcType, valueType, valueDT, ingest)).
 					To(Equal(expected))
 			},
-			Entry("f32 channel %.2f", "`{val%.2f}`", "f32", types.F32(), telem.Float32T,
+			Entry("f32 channel :.2f", "`{val:.2f}`", "f32", types.F32(), telem.Float32T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](3.14159)) }, "3.14"),
-			Entry("f32 channel %e", "`{val%e}`", "f32", types.F32(), telem.Float32T,
+			Entry("f32 channel :e", "`{val:e}`", "f32", types.F32(), telem.Float32T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float32](12345.678)) }, "1.234568e+04"),
-			Entry("f64 channel %.4f", "`{val%.4f}`", "f64", types.F64(), telem.Float64T,
+			Entry("f64 channel :.4f", "`{val:.4f}`", "f64", types.F64(), telem.Float64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](3.14159)) }, "3.1416"),
-			Entry("f64 channel %g", "`{val%g}`", "f64", types.F64(), telem.Float64T,
+			Entry("f64 channel :g", "`{val:g}`", "f64", types.F64(), telem.Float64T,
 				func(h *runtimeHarness) { h.Ingest(100, telem.NewSeriesV[float64](0.000123)) }, "0.000123"),
 		)
 	})
@@ -316,11 +316,11 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 			Entry("placeholder at end",
 				"`leading {42}`", "leading 42"),
 			Entry("escapes interleaved with placeholders",
-				"`\\{ {7} \\}`", "{ 7 }"),
+				"`\\{ {7} }`", "{ 7 }"),
 			Entry("three placeholders with mixed specs",
-				"`{1}, {i32(2)%05d}, {f64(3.14)%.2f}`", "1, 00002, 3.14"),
-			Entry("escaped braces around placeholder no spaces",
-				"`\\{{42}\\}`", "{42}"),
+				"`{1}, {i32(2):05d}, {f64(3.14):.2f}`", "1, 00002, 3.14"),
+			Entry("escaped open and bare close around placeholder",
+				"`\\{{42}}`", "{42}"),
 		)
 	})
 
@@ -351,7 +351,7 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				"log":    {types.String(), 101},
 			})
 			h := newRuntimeHarness(ctx,
-				"sensor -> `v={sensor%.2f}` -> log", resolver,
+				"sensor -> `v={sensor:.2f}` -> log", resolver,
 				channel.Digest{Key: 100, DataType: telem.Float64T},
 				channel.Digest{Key: 101, DataType: telem.StringT},
 			)
@@ -420,8 +420,8 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
 					Error().To(MatchError(ContainSubstring(errSubstr)))
 			},
-			Entry("string with %d spec", "`{name%d}`", "invalid format spec"),
-			Entry("string with %.2f spec", "`{name%.2f}`", "invalid format spec"),
+			Entry("string with :d spec", "`{name:d}`", "invalid format spec"),
+			Entry("string with :.2f spec", "`{name:.2f}`", "invalid format spec"),
 		)
 
 		DescribeTable("rejects float-only specs on integer-typed placeholders",
@@ -433,10 +433,10 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
 					Error().To(MatchError(ContainSubstring(errSubstr)))
 			},
-			Entry("i32 with %f", "`{val%f}`", "invalid format spec"),
-			Entry("i32 with %.2f", "`{val%.2f}`", "invalid format spec"),
-			Entry("i32 with %e", "`{val%e}`", "invalid format spec"),
-			Entry("i32 with %g", "`{val%g}`", "invalid format spec"),
+			Entry("i32 with :f", "`{val:f}`", "invalid format spec"),
+			Entry("i32 with :.2f", "`{val:.2f}`", "invalid format spec"),
+			Entry("i32 with :e", "`{val:e}`", "invalid format spec"),
+			Entry("i32 with :g", "`{val:g}`", "invalid format spec"),
 		)
 
 		DescribeTable("rejects integer-only specs on float-typed placeholders",
@@ -448,8 +448,8 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
 					Error().To(MatchError(ContainSubstring(errSubstr)))
 			},
-			Entry("f32 with %d", "`{val%d}`", "invalid format spec"),
-			Entry("f32 with %o", "`{val%o}`", "invalid format spec"),
+			Entry("f32 with :d", "`{val:d}`", "invalid format spec"),
+			Entry("f32 with :o", "`{val:o}`", "invalid format spec"),
 		)
 
 		DescribeTable("rejects unsupported placeholder types",
@@ -473,10 +473,9 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
 					Error().To(MatchError(ContainSubstring(errSubstr)))
 			},
-			Entry("unmatched closing brace", "`}`", "unmatched"),
 			Entry("unterminated placeholder", "`{x`", "unmatched"),
 			Entry("empty placeholder body", "`{}`", "must contain"),
-			Entry("empty spec after percent", "`{x%}`", "format spec"),
+			Entry("empty spec after percent", "`{x:}`", "format spec"),
 		)
 	})
 })
