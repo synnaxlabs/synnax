@@ -802,8 +802,7 @@ func (p *flowChainProcessor) injectImplicitTriggers(expr parser.IExpressionConte
 
 func (p *flowChainProcessor) processFlowNode(flowNode parser.IFlowNodeContext) bool {
 	p.currentIndex++
-	isLast := p.currentIndex == p.totalFlowNodes
-	isSink := isLast && flowNode.Identifier() != nil
+	isSink := flowNode.Identifier() != nil && p.prevNode != nil
 
 	// Inject implicit triggers for expression as first node
 	if p.currentIndex == 1 && p.prevNode == nil {
@@ -1081,7 +1080,7 @@ func analyzeOutputRoutingTable(
 		prevOutputHandle := sourceOutput
 		for i, flowNode := range flowNodes {
 			isLast := i == len(flowNodes)-1
-			isSink := isLast && flowNode.Identifier() != nil
+			isSink := flowNode.Identifier() != nil
 
 			result, ok := analyzeFlowNode(acontext.Child(ctx, flowNode), kg, shell, isSink)
 			if !ok {

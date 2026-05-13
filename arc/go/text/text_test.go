@@ -1496,6 +1496,79 @@ var _ = Describe("Text", func() {
 					}
 				}
 			})
+
+			It("Should create write node for channel mid-chain followed by ExecBoth consumer", func(ctx SpecContext) {
+				// Mirrors the actual bug pattern: status.set -> log_b -> status.delete.
+				// Downstream consumer is ExecBoth+config so its input type-check is suppressed.
+				producerProps := types.Function(types.FunctionProperties{
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+					Config:  types.Params{{Name: "key", Type: types.String(), Value: ""}},
+				})
+				consumerProps := types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "key_or_name", Type: types.String()}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+					Config:  types.Params{{Name: "key_or_name", Type: types.String(), Value: ""}},
+				})
+				resolver := symbol.MapResolver{
+					"tick":    {Name: "tick", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10051},
+					"log_b":   {Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10052},
+					"emitKey": {Name: "emitKey", Kind: symbol.KindFunction, Exec: symbol.ExecBoth, Type: producerProps},
+					"finish":  {Name: "finish", Kind: symbol.KindFunction, Exec: symbol.ExecBoth, Type: consumerProps},
+				}
+				source := `tick -> emitKey{key="flow"} -> log_b -> finish{key_or_name="flow"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				logNode := findNodeByKey(inter.Nodes, "write_log_b_0")
+				Expect(logNode.Type).To(Equal("write"), "log_b mid-chain must be a write sink, not a read passthrough")
+				Expect(logNode.Channels.Write).To(HaveKey(uint32(10052)))
+				Expect(logNode.Inputs).To(HaveLen(1))
+				Expect(logNode.Inputs[0].Type).To(Equal(types.String()))
+				Expect(logNode.Outputs).To(HaveLen(1))
+				Expect(logNode.Outputs[0].Type).To(Equal(types.U8()))
+
+				Expect(logNode.Channels.Read).To(BeEmpty(), "log_b must not appear in Read channels when used as a sink")
+			})
+
+			It("Should wire edges from upstream producer into mid-chain channel write", func(ctx SpecContext) {
+				producerProps := types.Function(types.FunctionProperties{
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+					Config:  types.Params{{Name: "key", Type: types.String(), Value: ""}},
+				})
+				consumerProps := types.Function(types.FunctionProperties{
+					Inputs:  types.Params{{Name: "key_or_name", Type: types.String()}},
+					Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+					Config:  types.Params{{Name: "key_or_name", Type: types.String(), Value: ""}},
+				})
+				resolver := symbol.MapResolver{
+					"tick":    {Name: "tick", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 10061},
+					"log_b":   {Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 10062},
+					"emitKey": {Name: "emitKey", Kind: symbol.KindFunction, Exec: symbol.ExecBoth, Type: producerProps},
+					"finish":  {Name: "finish", Kind: symbol.KindFunction, Exec: symbol.ExecBoth, Type: consumerProps},
+				}
+				source := `tick -> emitKey{key="flow"} -> log_b -> finish{key_or_name="flow"}`
+				parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+				inter, diagnostics := text.Analyze(ctx, parsedText, resolver)
+				Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
+
+				logNode := findNodeByKey(inter.Nodes, "write_log_b_0")
+				finishNode := findNodeByType(inter.Nodes, "finish")
+
+				var edgeIntoLog, edgeOutOfLog *ir.Edge
+				for i := range inter.Edges {
+					e := &inter.Edges[i]
+					if e.Target.Node == logNode.Key {
+						edgeIntoLog = e
+					}
+					if e.Source.Node == logNode.Key && e.Target.Node == finishNode.Key {
+						edgeOutOfLog = e
+					}
+				}
+				Expect(edgeIntoLog).ToNot(BeNil(), "expected an edge feeding log_b")
+				Expect(edgeIntoLog.Target.Param).To(Equal(ir.DefaultInputParam))
+				Expect(edgeOutOfLog).ToNot(BeNil(), "expected an edge from log_b's u8 trigger to finish")
+			})
 		})
 
 		Context("Single Node Flow Validation", func() {

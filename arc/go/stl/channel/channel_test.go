@@ -806,4 +806,77 @@ var _ = Describe("Channel", func() {
 			}).ToNot(Panic())
 		})
 	})
+
+	Describe("Mid-chain sink", func() {
+		It("Should write to channel and emit u8 trigger when wired mid-chain", func(ctx SpecContext) {
+			g := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "upstream", Type: "producer"},
+					{Key: "log_b", Type: "write"},
+					{Key: "downstream", Type: "consumer"},
+				},
+				Edges: []graph.Edge{
+					{
+						Source: ir.Handle{Node: "upstream", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "log_b", Param: ir.DefaultInputParam},
+					},
+					{
+						Source: ir.Handle{Node: "log_b", Param: ir.DefaultOutputParam},
+						Target: ir.Handle{Node: "downstream", Param: ir.DefaultInputParam},
+					},
+				},
+				Functions: []graph.Function{
+					{
+						Key:     "producer",
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.F32()}},
+					},
+					{
+						Key:     "write",
+						Inputs:  types.Params{{Name: ir.DefaultInputParam, Type: types.F32()}},
+						Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.U8()}},
+					},
+					{
+						Key:    "consumer",
+						Inputs: types.Params{{Name: ir.DefaultInputParam, Type: types.U8()}},
+					},
+				},
+			}
+			channelState := channel.NewProgramState([]channel.Digest{
+				{Key: 100, DataType: telem.Float32T, Index: 101},
+			})
+			mod := MustSucceed(channel.NewModule(ctx, channelState, nil, nil))
+			analyzed, diagnostics := graph.Analyze(ctx, g, channel.SymbolResolver)
+			Expect(diagnostics.Ok()).To(BeTrue())
+			progState := rnode.New(analyzed)
+
+			sinkState := progState.Node("log_b")
+			sink := MustSucceed(mod.Create(ctx, rnode.Config{
+				Node: ir.Node{
+					Type:   "write",
+					Config: types.Params{{Name: "channel", Type: types.U32(), Value: uint32(100)}},
+				},
+				State: sinkState,
+			}))
+
+			upstream := progState.Node("upstream")
+			payload := telem.NewSeriesV[float32](42.0, 99.0)
+			payload.Alignment = 7
+			payload.TimeRange = telem.TimeRange{Start: 1 * telem.SecondTS, End: 2 * telem.SecondTS}
+			*upstream.Output(0) = payload
+			*upstream.OutputTime(0) = telem.NewSeriesSecondsTSV(1, 2)
+
+			changed := false
+			sink.Next(rnode.Context{Context: ctx, MarkChanged: func(int) { changed = true }})
+			Expect(changed).To(BeTrue(), "sink must mark its u8 output changed so downstream consumer fires")
+
+			out := *sinkState.Output(0)
+			Expect(out.Len()).To(Equal(int64(1)))
+			Expect(telem.ValueAt[uint8](out, 0)).To(Equal(uint8(1)), "u8 trigger must be set to 1")
+
+			fr, flushed := channelState.Flush(telem.Frame[uint32]{})
+			Expect(flushed).To(BeTrue())
+			Expect(fr.Get(100).Series).To(HaveLen(1))
+			Expect(fr.Get(100).Series[0]).To(telem.MatchSeriesDataV[float32](42.0, 99.0), "channel must receive the upstream value, not be silently dropped")
+		})
+	})
 })

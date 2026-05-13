@@ -215,4 +215,27 @@ var _ = Describe("upstreamIsTrigger Suppression", func() {
 			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
 		})
 	})
+
+	Describe("Mid-chain channel sinks", func() {
+		It("Should accept producer -> channel -> ExecBoth+config consumer", func(bCtx SpecContext) {
+			r := symbol.MapResolver{
+				"tick":  {Name: "tick", Kind: symbol.KindChannel, Type: types.Chan(types.TimeStamp()), ID: 1},
+				"log_b": {Name: "log_b", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 2},
+				"emitKey": execBothFn(
+					"emitKey",
+					types.Params{{Name: "key", Type: types.String()}},
+					types.String(),
+				),
+				"finish": execBothFn(
+					"finish",
+					types.Params{{Name: "key_or_name", Type: types.String()}},
+					types.U8(),
+				),
+			}
+			ast := MustSucceed(parser.Parse(`tick -> emitKey{key="flow"} -> log_b -> finish{key_or_name="flow"}`))
+			ctx := context.CreateRoot(bCtx, ast, r)
+			analyzer.AnalyzeProgram(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeTrue(), ctx.Diagnostics.String())
+		})
+	})
 })
