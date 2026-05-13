@@ -10,6 +10,8 @@
 package password_test
 
 import (
+	"strings"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
@@ -20,18 +22,26 @@ var _ = Describe("Password", func() {
 	Describe("Hash", func() {
 		It("Should hash a password without error", func() {
 			raw := password.Raw("password")
-			MustSucceed(raw.Hash())
+			Expect(raw.Hash()).ToNot(BeEmpty())
+		})
+		It("Should return a password.ErrInvalid error for a password that is too long", func() {
+			raw := password.Raw(strings.Repeat("a", 73))
+			Expect(raw.Hash()).Error().To(MatchError(password.ErrInvalidHash))
 		})
 	})
 	Describe("Compare", func() {
+		var (
+			raw    password.Raw
+			hashed password.Hashed
+		)
+		BeforeEach(func() {
+			raw = password.Raw("password")
+			hashed = MustSucceed(raw.Hash())
+		})
 		It("Should return a nil error for a valid password", func() {
-			raw := password.Raw("password")
-			hashed := MustSucceed(raw.Hash())
 			Expect(hashed.Validate(raw)).To(Succeed())
 		})
-		It("Should return a password.Invalid error for an invalid password", func() {
-			raw := password.Raw("password")
-			hashed := MustSucceed(raw.Hash())
+		It("Should return a password.ErrInvalid for an invalid password", func() {
 			Expect(hashed.Validate("wrong")).To(MatchError(password.ErrInvalid))
 		})
 	})

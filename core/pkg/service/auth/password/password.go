@@ -12,6 +12,7 @@ package password
 import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth/base"
 	"github.com/synnaxlabs/x/errors"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var (
@@ -23,28 +24,24 @@ var (
 // The password should be hashed by calling Hash before saving it.
 type Raw string
 
-// Hash hashes the raw password using the first working Hasher in hashers.
-func (r Raw) Hash() (h Hashed, err error) {
-	for _, hasher := range hashers {
-		h, err = hasher.Hash(r)
-		if err == nil {
-			return h, nil
-		}
+// Hash hashes the raw password using bcrypt at the default cost.
+func (r Raw) Hash() (Hashed, error) {
+	h, err := bcrypt.GenerateFromPassword([]byte(r), bcrypt.DefaultCost)
+	if err != nil {
+		return nil, errors.Combine(ErrInvalidHash, err)
 	}
-	return h, errors.Combine(ErrInvalidHash, err)
+	return h, nil
 }
 
 // Hashed represents an encrypted hash of a password. It is safe to store the hash on disk.
 // The hash can be compared against a raw password by calling Validate.
 type Hashed []byte
 
-// Validate validates the hashed password against the raw password.
-func (h Hashed) Validate(r Raw) (err error) {
-	for _, hasher := range hashers {
-		err = hasher.Compare(r, h)
-		if err == nil {
-			return nil
-		}
+// Validate validates the hashed password against the raw password. Returns ErrInvalid
+// if the password does not match the hash.
+func (h Hashed) Validate(r Raw) error {
+	if err := bcrypt.CompareHashAndPassword(h, []byte(r)); err != nil {
+		return errors.Combine(ErrInvalid, err)
 	}
-	return errors.Combine(ErrInvalid, err)
+	return nil
 }
