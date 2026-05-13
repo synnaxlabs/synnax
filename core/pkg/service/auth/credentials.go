@@ -10,7 +10,7 @@
 package auth
 
 import (
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/validate"
 )
 
@@ -18,31 +18,36 @@ import (
 // authenticate an entity (user, client, etc.). These credentials are NOT safe to store
 // on disk.
 type InsecureCredentials struct {
-	Username string       `json:"username"  msgpack:"username"`
-	Password password.Raw `json:"password"  msgpack:"password"`
+	// Username is the username of the credential entry.
+	Username string `json:"username"  msgpack:"username" validate:"required"`
+	// Password is the password of the credential entry.
+	Password RawPassword `json:"password"  msgpack:"password"`
 }
 
-func (i InsecureCredentials) IsZero() bool {
-	return len(i.Username) == 0 && len(i.Password) == 0
-}
+var _ override.Zeroable = InsecureCredentials{}
+
+// IsZero implements the override.Zeroable interface.
+func (i InsecureCredentials) IsZero() bool { return i == InsecureCredentials{} }
 
 // Validate validates the InsecureCredentials.
 func (i InsecureCredentials) Validate() error {
 	v := validate.New("auth.insecure_credentials")
 	validate.NotEmptyString(v, "username", i.Username)
-	validate.NotEmptyString(v, "password", string(i.Password))
+	validate.NotEmptyString(v, "password", i.Password)
 	return v.Error()
 }
 
 // SecureCredentials is a set of encrypted credentials. These are used for persisting
 // the credentials to disk.
 type SecureCredentials struct {
+	// Username is the username of the credential entry.
 	Username string
-	Password password.Hashed
+	// Password is the password of the credential entry.
+	Password HashedPassword
 }
 
 // GorpKey implements the gorp.Entry interface.
 func (s SecureCredentials) GorpKey() string { return s.Username }
 
 // SetOptions implements the gorp.Entry interface.
-func (s SecureCredentials) SetOptions() []any { return nil }
+func (SecureCredentials) SetOptions() []any { return nil }
