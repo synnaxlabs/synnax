@@ -20,6 +20,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/runtime/node"
+	stlstrings "github.com/synnaxlabs/arc/stl/strings"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/text"
 	"github.com/synnaxlabs/arc/types"
@@ -29,6 +30,7 @@ import (
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
 	. "github.com/synnaxlabs/x/testutil"
+	"github.com/tetratelabs/wazero"
 )
 
 type reportCall struct {
@@ -233,6 +235,41 @@ var _ = Describe("Module", func() {
 		It("Should construct without WASM wiring when rat is nil", func(ctx SpecContext) {
 			Expect(mod).ToNot(BeNil())
 			Expect(mod.ModuleName()).To(Equal("status"))
+		})
+
+		It("Should wire host functions when a wazero runtime is provided", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+			defer func() { Expect(rt.Close(ctx)).To(Succeed()) }()
+			wired := MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+				Status:   statSvc,
+				Strings:  stlstrings.NewProgramState(),
+				Runtime:  rt,
+				Reporter: rep.report,
+			}))
+			Expect(wired).ToNot(BeNil())
+			Expect(wired.ModuleName()).To(Equal("status"))
+		})
+
+		It("Should error when the runtime can't instantiate the host module", func(ctx SpecContext) {
+			rt := wazero.NewRuntimeWithConfig(ctx, wazero.NewRuntimeConfigCompiler())
+			defer func() { Expect(rt.Close(ctx)).To(Succeed()) }()
+			MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+				Status:   statSvc,
+				Strings:  stlstrings.NewProgramState(),
+				Runtime:  rt,
+				Reporter: rep.report,
+			}))
+			_, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+				Status:   statSvc,
+				Strings:  stlstrings.NewProgramState(),
+				Runtime:  rt,
+				Reporter: rep.report,
+			})
+			Expect(err).To(HaveOccurred())
+		})
+
+		It("Should accept SetMemory without panicking", func() {
+			Expect(func() { mod.SetMemory(nil) }).ToNot(Panic())
 		})
 	})
 
@@ -623,6 +660,58 @@ var _ = Describe("Analyzer hooks", func() {
 			// No variant key set; analyzer skips silently. We only assert that no
 			// "not a valid variant" diagnostic fires.
 			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b"}`}))
+			_, diags := text.Analyze(ctx, parsed, resolver)
+			for _, e := range diags.Errors() {
+				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
+			}
+		})
+
+		It("Should flag an invalid variant in anonymous (positional) config", func(ctx SpecContext) {
+			expectInvalidVariantError(ctx,
+				`sensor -> status.set{"alarm", "bad", "bogus"}`,
+				"bogus")
+		})
+
+		It("Should accept a valid variant in anonymous (positional) config", func(ctx SpecContext) {
+			Expect(analyzeOK(ctx,
+				`sensor -> status.set{"alarm", "ok", "success"}`,
+			)).To(BeTrue())
+		})
+
+		It("Should not flag positional config that omits the variant slot", func(ctx SpecContext) {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{"a", "b"}`}))
+			_, diags := text.Analyze(ctx, parsed, resolver)
+			for _, e := range diags.Errors() {
+				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
+			}
+		})
+	})
+
+	Describe("func form (analyzeStatusSetCall)", func() {
+		It("Should flag an invalid variant in a call", func(ctx SpecContext) {
+			expectInvalidVariantError(ctx,
+				`func body() { status.set("alarm", "bad", "bogus") }`,
+				"bogus")
+		})
+
+		It("Should accept a valid variant in a call", func(ctx SpecContext) {
+			Expect(analyzeOK(ctx,
+				`func body() { status.set("alarm", "ok", "success") }`,
+			)).To(BeTrue())
+		})
+
+		It("Should not flag a call with fewer than 3 args", func(ctx SpecContext) {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: `func body() { status.set("a", "b") }`}))
+			_, diags := text.Analyze(ctx, parsed, resolver)
+			for _, e := range diags.Errors() {
+				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
+			}
+		})
+	})
+
+	Describe("checkVariantLiteral (non-literal variant expressions)", func() {
+		It("Should not flag a non-string-literal variant", func(ctx SpecContext) {
+			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b", variant=42}`}))
 			_, diags := text.Analyze(ctx, parsed, resolver)
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))

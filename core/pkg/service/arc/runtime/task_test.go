@@ -506,6 +506,51 @@ var _ = Describe("Task", Ordered, func() {
 			}).Should(Succeed())
 		})
 
+		It("Should report a warning via the task reporter when status.delete targets a missing row", func(ctx SpecContext) {
+			ch := &channel.Channel{Name: "delete_missing_trigger_ch_" + uuid.NewString()[:8], Virtual: true, DataType: telem.Uint8T}
+			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
+
+			deleteGraph := graph.Graph{
+				Nodes: []graph.Node{
+					{Key: "on", Type: "on", Config: map[string]any{"channel": ch.Key()}},
+					{Key: "constant", Type: "constant", Config: map[string]any{"value": 0}},
+					{Key: "gt", Type: "gt"},
+					{Key: "stable_for", Type: "stable_for", Config: map[string]any{"duration": 0}},
+					{Key: "delete_status", Type: "status.delete", Config: map[string]any{
+						"key_or_name": "no_such_status_" + uuid.NewString(),
+					}},
+				},
+				Edges: []graph.Edge{
+					{Source: graph.Handle{Node: "on", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "gt", Param: ir.LHSInputParam}},
+					{Source: graph.Handle{Node: "constant", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "gt", Param: ir.RHSInputParam}},
+					{Source: graph.Handle{Node: "gt", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "stable_for", Param: ir.DefaultInputParam}},
+					{Source: graph.Handle{Node: "stable_for", Param: ir.DefaultOutputParam}, Target: graph.Handle{Node: "delete_status", Param: ir.DefaultOutputParam}},
+				},
+			}
+
+			t := newTask(ctx, newGraphFactory(deleteGraph))
+			Expect(t.Exec(ctx, task.Command{Type: "start"})).To(Succeed())
+			defer func() { Expect(t.Stop()).To(Succeed()) }()
+
+			time.Sleep(20 * time.Millisecond)
+
+			w := MustSucceed(dist.Framer.OpenWriter(ctx, framer.WriterConfig{
+				Keys:  []channel.Key{ch.Key()},
+				Start: telem.Now(),
+			}))
+			Expect(w.Write(frame.NewUnary(ch.Key(), telem.NewSeriesV[uint8](1)))).To(BeTrue())
+			Expect(w.Close()).To(Succeed())
+
+			Eventually(func(g Gomega) {
+				var taskStat status.Status[task.StatusDetails]
+				g.Expect(status.NewRetrieve[task.StatusDetails](statusSvc).
+					Where(status.MatchKeys[task.StatusDetails](task.OntologyID(task.NewKey(rack.NewKey(1, 1), 1)).String())).
+					Entry(&taskStat).Exec(ctx, nil)).To(Succeed())
+				g.Expect(taskStat.Variant).To(BeEquivalentTo("warning"))
+				g.Expect(taskStat.Message).To(ContainSubstring("no status found"))
+			}).Should(Succeed())
+		})
+
 		It("Should delete a status via status.delete node", func(ctx SpecContext) {
 			ch := &channel.Channel{Name: "delete_trigger_ch", Virtual: true, DataType: telem.Uint8T}
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())

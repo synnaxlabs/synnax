@@ -420,6 +420,56 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(copiedStatus.Message).To(Equal("Copied Task status unknown"))
 			Expect(copiedStatus.Details.Task).To(Equal(copied.Key))
 		})
+
+		Describe("SetDefaultStatus", func() {
+			It("Should write an unknown-variant status row keyed on the task", func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Default Status Task",
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+
+				fresh := MustSucceed(w.SetDefaultStatus(ctx, m))
+				Expect(fresh).ToNot(BeNil())
+				Expect(fresh.Variant).To(Equal(xstatus.VariantWarning))
+				Expect(fresh.Message).To(Equal("Default Status Task status unknown"))
+				Expect(fresh.Key).To(Equal(task.OntologyID(m.Key).String()))
+				Expect(fresh.Name).To(Equal(m.Name))
+				Expect(fresh.Details.Task).To(Equal(m.Key))
+
+				var persisted task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](fresh.Key)).
+					Entry(&persisted).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(persisted.Variant).To(Equal(xstatus.VariantWarning))
+				Expect(persisted.Message).To(Equal(fresh.Message))
+			})
+
+			It("Should overwrite an existing status with the default unknown one", func(ctx SpecContext) {
+				m := &task.Task{
+					Key:  task.NewKey(testRack.Key, 0),
+					Name: "Overwrite Task",
+					Status: &task.Status{
+						Variant: xstatus.VariantSuccess,
+						Message: "running",
+						Time:    telem.Now(),
+					},
+				}
+				Expect(w.Create(ctx, m)).To(Succeed())
+
+				fresh := MustSucceed(w.SetDefaultStatus(ctx, m))
+				Expect(fresh.Variant).To(Equal(xstatus.VariantWarning))
+
+				var persisted task.Status
+				Expect(status.NewRetrieve[task.StatusDetails](stat).
+					Where(status.MatchKeys[task.StatusDetails](fresh.Key)).
+					Entry(&persisted).
+					Exec(ctx, tx)).To(Succeed())
+				Expect(persisted.Variant).To(Equal(xstatus.VariantWarning))
+				Expect(persisted.Message).To(Equal("Overwrite Task status unknown"))
+			})
+		})
 	})
 
 	Describe("Suspect Rack", func() {

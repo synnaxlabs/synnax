@@ -12,6 +12,7 @@ package status_test
 import (
 	"context"
 
+	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
@@ -19,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
 	"github.com/synnaxlabs/synnax/pkg/service/status"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
 	xlabel "github.com/synnaxlabs/x/label"
@@ -176,6 +178,110 @@ var _ = Describe("Status", Ordered, func() {
 			})
 		})
 
+		Describe("Update", func() {
+			It("Should apply change and persist", func(ctx SpecContext) {
+				key := uuid.NewString()
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: key, Name: "upd_target", Variant: "info",
+					Message: "orig", Time: telem.Now(),
+				})).To(Succeed())
+				Expect(w.Update(ctx, key, func(s *status.Status[any]) error {
+					s.Message = "changed"
+					s.Variant = "warning"
+					s.Time = telem.Now()
+					return nil
+				})).To(Succeed())
+				var got status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&got).Exec(ctx, tx)).To(Succeed())
+				Expect(got.Message).To(Equal("changed"))
+				Expect(got.Variant).To(Equal(xstatus.VariantWarning))
+			})
+			It("Should propagate query.ErrNotFound for unknown key", func(ctx SpecContext) {
+				err := w.Update(ctx, uuid.NewString(), func(*status.Status[any]) error { return nil })
+				Expect(err).To(MatchError(query.ErrNotFound))
+			})
+			It("Should propagate change-callback errors", func(ctx SpecContext) {
+				key := uuid.NewString()
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: key, Name: "upd_cb_err", Variant: "info",
+					Message: "x", Time: telem.Now(),
+				})).To(Succeed())
+				boom := errors.New("boom")
+				err := w.Update(ctx, key, func(*status.Status[any]) error { return boom })
+				Expect(err).To(MatchError(boom))
+			})
+		})
+
+		Describe("UpsertByName", func() {
+			It("Should create a new row when no match exists", func(ctx SpecContext) {
+				key, multi := MustSucceed2(w.UpsertByName(ctx, "upsert_fresh", func(s *status.Status[any]) error {
+					s.Message = "hi"
+					s.Variant = "info"
+					s.Time = telem.Now()
+					return nil
+				}))
+				Expect(multi).To(BeFalse())
+				MustSucceed(uuid.Parse(key))
+			})
+			It("Should update in place and return multipleMatches when N>1 rows share a name", func(ctx SpecContext) {
+				name := "upsert_multi"
+				k1, k2 := uuid.NewString(), uuid.NewString()
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: k1, Name: name, Variant: "info", Message: "a", Time: telem.Now(),
+				})).To(Succeed())
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: k2, Name: name, Variant: "info", Message: "b", Time: telem.Now(),
+				})).To(Succeed())
+				key, multi := MustSucceed2(w.UpsertByName(ctx, name, func(s *status.Status[any]) error {
+					s.Message = "updated"
+					s.Variant = "warning"
+					s.Time = telem.Now()
+					return nil
+				}))
+				Expect(multi).To(BeTrue())
+				Expect(key).To(SatisfyAny(Equal(k1), Equal(k2)))
+			})
+			It("Should propagate change-callback errors", func(ctx SpecContext) {
+				boom := errors.New("upsert boom")
+				_, _, err := w.UpsertByName(ctx, "upsert_cb_err", func(*status.Status[any]) error { return boom })
+				Expect(err).To(MatchError(boom))
+			})
+		})
+
+		Describe("DeleteByName", func() {
+			It("Should return count=0 with no error when nothing matches", func(ctx SpecContext) {
+				count := MustSucceed(w.DeleteByName(ctx, "delbyname_missing"))
+				Expect(count).To(Equal(0))
+			})
+			It("Should delete all matches and return their count", func(ctx SpecContext) {
+				name := "delbyname_multi"
+				k1, k2 := uuid.NewString(), uuid.NewString()
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: k1, Name: name, Variant: "info", Message: "a", Time: telem.Now(),
+				})).To(Succeed())
+				Expect(w.Set(ctx, &status.Status[any]{
+					Key: k2, Name: name, Variant: "info", Message: "b", Time: telem.Now(),
+				})).To(Succeed())
+				count := MustSucceed(w.DeleteByName(ctx, name))
+				Expect(count).To(Equal(2))
+				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](k1, k2)).Entry(&status.Status[any]{}).Exec(ctx, tx)).
+					To(MatchError(query.ErrNotFound))
+			})
+		})
+
+		Describe("SetManyWithParent", func() {
+			It("Should return nil immediately for a nil slice pointer", func(ctx SpecContext) {
+				Expect(w.SetManyWithParent(ctx, nil, ontology.ID{})).To(Succeed())
+			})
+			It("Should propagate the first SetWithParent error", func(ctx SpecContext) {
+				bad := []status.Status[any]{
+					{Key: "", Name: "no_key", Variant: "info", Message: "x", Time: telem.Now()},
+				}
+				err := w.SetManyWithParent(ctx, &bad, ontology.ID{})
+				Expect(err).To(HaveOccurred())
+			})
+		})
+
 		Describe("DeleteMany", func() {
 			It("Should delete multiple statuses", func(ctx SpecContext) {
 				statuses := []status.Status[any]{
@@ -317,6 +423,35 @@ var _ = Describe("Status", Ordered, func() {
 				var statuses []status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeyPrefix[any]("retrieve-")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
 				Expect(statuses).To(HaveLen(3))
+			})
+		})
+
+		Describe("MatchNames", func() {
+			It("Should retrieve a single status by name", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Status A")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(1))
+				Expect(statuses[0].Key).To(Equal("retrieve-a"))
+			})
+
+			It("Should retrieve multiple statuses for multiple names", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Status A", "Status C")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(HaveLen(2))
+				names := []string{statuses[0].Name, statuses[1].Name}
+				Expect(names).To(ConsistOf("Status A", "Status C"))
+			})
+
+			It("Should return empty when no names match", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]("Nonexistent Name")).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(BeEmpty())
+			})
+
+			It("Should return empty for an empty names list", func(ctx SpecContext) {
+				var statuses []status.Status[any]
+				Expect(svc.NewRetrieve().Where(status.MatchNames[any]()).Entries(&statuses).Exec(ctx, tx)).To(Succeed())
+				Expect(statuses).To(BeEmpty())
 			})
 		})
 

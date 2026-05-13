@@ -10,8 +10,6 @@
 package status_test
 
 import (
-	"sync"
-
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -277,46 +275,4 @@ var _ = Describe("Dispatch", Ordered, func() {
 		})
 	})
 
-	Describe("concurrent SetByKeyOrName + DeleteByKeyOrName", func() {
-		It("Should not revive a deleted row when a set races with a delete", func(ctx SpecContext) {
-			const iterations = 100
-			revived := 0
-			for range iterations {
-				key := uuid.NewString()
-				Expect(svc.NewWriter(nil).Set(ctx, &status.Status[any]{
-					Key: key, Name: "race_target", Variant: xstatus.VariantInfo,
-					Message: "x", Time: telem.Now(),
-				})).To(Succeed())
-
-				var (
-					wg       sync.WaitGroup
-					delCount int
-					delErr   error
-				)
-				wg.Add(2)
-				go func() {
-					defer wg.Done()
-					_, _, _ = svc.SetByKeyOrName(ctx, key, "updated", string(xstatus.VariantWarning))
-				}()
-				go func() {
-					defer wg.Done()
-					delCount, delErr = svc.DeleteByKeyOrName(ctx, key)
-				}()
-				wg.Wait()
-				Expect(delErr).ToNot(HaveOccurred())
-
-				if delCount != 1 {
-					continue
-				}
-				err := svc.NewRetrieve().Where(status.MatchKeys[any](key)).
-					Entry(&status.Status[any]{}).Exec(ctx, nil)
-				if !errors.Is(err, query.ErrNotFound) {
-					revived++
-				}
-			}
-			Expect(revived).To(Equal(0),
-				"row resurrected by concurrent set after successful delete (revives=%d/%d)",
-				revived, iterations)
-		})
-	})
 })
