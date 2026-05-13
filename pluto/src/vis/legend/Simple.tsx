@@ -31,7 +31,7 @@ export const Simple = ({
   onEntryChange,
   position,
   onPositionChange,
-  allowEntryVisibleChange: allowVisibleChange = true,
+  allowEntryVisibleChange = true,
   background = 1,
   ...rest
 }: SimpleProps): ReactElement | null => {
@@ -51,7 +51,7 @@ export const Simple = ({
         onEntryChange={onEntryChange}
         colorPickerVisible={pickerVisible}
         onColorPickerVisibleChange={setPickerVisible}
-        allowVisibleChange={allowVisibleChange}
+        allowVisibleChange={allowEntryVisibleChange}
         background={background}
         entryProps={entryProps}
       />

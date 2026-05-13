@@ -146,14 +146,15 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
           hasUpdatePermission={hasUpdatePermission}
         />
       </Base.Schematic>
-      <Control.Legend
-        visible={legend.visible}
-        position={legend.position}
-        onPositionChange={handleLegendPositionChange}
-        colors={legend.colors}
-        onColorsChange={handleLegendColorsChange}
-        allowEntryVisibleChange={false}
-      />
+      {legend.visible && (
+        <Control.Legend
+          position={legend.position}
+          onPositionChange={handleLegendPositionChange}
+          colors={legend.colors}
+          onColorsChange={handleLegendColorsChange}
+          allowEntryVisibleChange={false}
+        />
+      )}
     </Controller>
   );
 };
