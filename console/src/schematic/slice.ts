@@ -108,21 +108,8 @@ export const { actions, reducer } = createSlice({
   initialState: ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      // eslint-disable-next-line no-console
-      console.log(
-        "[schematic/create] payload.key=",
-        payload.key,
-        "data?",
-        payload.data != null,
-      );
-      if (state.schematics[payload.key] != null) {
-        // eslint-disable-next-line no-console
-        console.log(
-          "[schematic/create] skipping: already exists for key=",
-          payload.key,
-        );
-        return;
-      }
+      if (state.schematics[payload.key] != null) return;
+
       let migrated: State | undefined;
       if (payload.data != null) {
         const adjusted =
@@ -131,15 +118,6 @@ export const { actions, reducer } = createSlice({
             : payload.data;
         const parsed = anyStateZ.safeParse(adjusted);
         if (parsed.success) migrated = parsed.data;
-        // eslint-disable-next-line no-console
-        console.log(
-          "[schematic/create] parsed?",
-          parsed.success,
-          "migrated.pendingUpload?",
-          migrated?.pendingUpload != null,
-          "pendingKey=",
-          migrated?.pendingUpload?.key,
-        );
       }
       state.schematics[payload.key] = {
         ...ZERO_STATE,

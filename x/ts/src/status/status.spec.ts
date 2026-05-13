@@ -481,14 +481,13 @@ describe("status", () => {
       expect(err.stack).toBe("Error: raw\n    at someFn (file.ts:1:1)");
     });
 
-    it("should fall back to the synthesized stack when the inner stack is missing", () => {
+    it("should not leak the toError call-site stack when inner stack is missing", () => {
       const inner = new Error("raw");
       inner.stack = undefined;
       const s = status.fromException(inner, "Failed to fetch");
       const err = status.toError(s);
 
-      expect(err.stack).toBeDefined();
-      expect(err.stack).not.toBe("");
+      expect(err.stack).toBeUndefined();
     });
 
     it("should set cause to the original status", () => {

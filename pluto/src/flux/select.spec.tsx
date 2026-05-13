@@ -15,9 +15,7 @@ import { describe, expect, it, vi } from "vitest";
 import { aetherTest } from "@/aether/test";
 import { Flux } from "@/flux";
 import { flux } from "@/flux/aether";
-import { type base } from "@/flux/base";
-import { Client } from "@/flux/base/client";
-import { createSelector } from "@/flux/select";
+import { base } from "@/flux/base";
 import { status } from "@/status/aether";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
@@ -46,11 +44,11 @@ const AetherProvider = aetherTest.createProvider({
 
 const createTestWrapper = (): {
   wrapper: React.FC<PropsWithChildren>;
-  fluxClient: Client<TestStore>;
+  fluxClient: base.Client<TestStore>;
 } => {
   const handleError = status.createErrorHandler(console.error);
   const handleAsyncError = status.createAsyncErrorHandler(console.error);
-  const fluxClient = new Client<TestStore>({
+  const fluxClient = new base.Client<TestStore>({
     client: null,
     storeConfig: STORE_CONFIG,
     handleError,
@@ -68,7 +66,7 @@ const createTestWrapper = (): {
   return { wrapper: Wrapper, fluxClient };
 };
 
-const setDoc = (fluxClient: Client<TestStore>, doc: Doc): void => {
+const setDoc = (fluxClient: base.Client<TestStore>, doc: Doc): void => {
   const store = fluxClient.scopedStore<TestStore>("test-writer");
   store.docs.set(doc.key, doc);
 };
@@ -84,7 +82,7 @@ describe("createSelector", () => {
         nested: { x: 0, y: 0 },
       });
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
         select: (store, { key }) => store.docs.get(key)?.name ?? "",
       });
@@ -98,7 +96,11 @@ describe("createSelector", () => {
     it("should return a default when document is not in store", () => {
       const { wrapper } = createTestWrapper();
 
-      const useSelectDoc = createSelector<TestStore, { key: string }, Doc | undefined>({
+      const useSelectDoc = Flux.createSelector<
+        TestStore,
+        { key: string },
+        Doc | undefined
+      >({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
         select: (store, { key }) => store.docs.get(key),
       });
@@ -114,7 +116,7 @@ describe("createSelector", () => {
     it("should update when the subscribed key changes in the store", () => {
       const { wrapper, fluxClient } = createTestWrapper();
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
         select: (store, { key }) => store.docs.get(key)?.name ?? "",
       });
@@ -140,7 +142,7 @@ describe("createSelector", () => {
       const { wrapper, fluxClient } = createTestWrapper();
       let renderCount = 0;
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
         select: (store, { key }) => {
           renderCount++;
@@ -180,7 +182,7 @@ describe("createSelector", () => {
         b: { x: number; y: number },
       ): boolean => a.x === b.x && a.y === b.y;
 
-      const useSelectNested = createSelector<
+      const useSelectNested = Flux.createSelector<
         TestStore,
         { key: string },
         { x: number; y: number }
@@ -228,7 +230,7 @@ describe("createSelector", () => {
         b: { x: number; y: number },
       ): boolean => a.x === b.x && a.y === b.y;
 
-      const useSelectNested = createSelector<
+      const useSelectNested = Flux.createSelector<
         TestStore,
         { key: string },
         { x: number; y: number }
@@ -266,7 +268,7 @@ describe("createSelector", () => {
 
       let renderCount = 0;
 
-      const useSelectCount = createSelector<TestStore, { key: string }, number>({
+      const useSelectCount = Flux.createSelector<TestStore, { key: string }, number>({
         subscribe: (store, { key }, notify) => store.docs.onSet(notify, key),
         select: (store, { key }) => store.docs.get(key)?.count ?? 0,
       });
@@ -319,7 +321,7 @@ describe("createSelector", () => {
 
       let renderCount = 0;
 
-      const useSelectDerived = createSelector<
+      const useSelectDerived = Flux.createSelector<
         TestStore,
         { key: string },
         { name: string; count: number }
@@ -352,7 +354,7 @@ describe("createSelector", () => {
         nested: { x: 0, y: 0 },
       });
 
-      const useSelectDerived = createSelector<
+      const useSelectDerived = Flux.createSelector<
         TestStore,
         { key: string },
         { name: string; count: number }
@@ -391,7 +393,7 @@ describe("createSelector", () => {
           store.docs.onSet(notify, key),
       );
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: subscribeSpy,
         select: (store, { key }) => store.docs.get(key)?.name ?? "",
       });
@@ -415,7 +417,7 @@ describe("createSelector", () => {
           store.docs.onSet(notify, key),
       );
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: subscribeSpy,
         select: (store, { key }) => store.docs.get(key)?.name ?? "",
       });
@@ -438,7 +440,7 @@ describe("createSelector", () => {
       const { wrapper } = createTestWrapper();
       const unsubscribe = vi.fn();
 
-      const useSelectName = createSelector<TestStore, { key: string }, string>({
+      const useSelectName = Flux.createSelector<TestStore, { key: string }, string>({
         subscribe: (_store, _args, _notify) => unsubscribe,
         select: () => "",
       });

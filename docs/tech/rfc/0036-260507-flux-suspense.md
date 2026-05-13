@@ -1,437 +1,280 @@
 # 36 - Flux Suspense Architecture
 
-**Feature Name**: Suspense-First Flux Substrate <br /> **Status**: Proposed <br />
+**Feature Name**: Suspense-Shaped Flux Substrate <br /> **Status**: Implemented <br />
 **Start Date**: 2026-05-07 <br /> **Authors**: Emiliano Bonilla <br />
 
 # 0 - Summary
 
-Pluto's Flux substrate is restructured around React 19's Suspense primitive. The two
-existing read APIs (`useRetrieve` async and `useSelect*` sync) collapse into a single
-suspending read. Consumers receive the data directly with no `{data, status, error}`
-wrapper, no null guards, and no inline loading state. A single `<Flux.Boundary>`
-component wraps Suspense and an error boundary, producing a default fallback that plugs
-into the existing `xstatus.Status` display pipeline. Real-time channel listeners
-continue to mutate cache values in place; once a record is hydrated it is never returned
-to a pending state. Mutations keep the cache-write-through optimistic pattern that
-powers Drift multi-window sync. The migration is atomic: all consumer call sites move in
-a single PR, with most call site changes mechanical.
+This RFC describes the Suspense-shaped read path added to Pluto's Flux substrate.
+Consumers can now call `useRetrieveSuspended(query)` and receive the resolved value
+directly: the hook either returns `T` or suspends on the in-flight promise. Concurrent
+reads of the same query share a single fetch through a per-client `QueryCache` keyed by
+a deterministic hash of the query input. Channel-listener updates push new values into
+the cache without re-suspending mounted consumers. The substrate ships alongside the
+existing observable hooks (`useRetrieve`, `useRetrieveStateful`,
+`useRetrieveObservable`, selectors) rather than replacing them; consumers opt into the
+suspended API per call site.
 
 # 1 - Vocabulary
 
-- **Read** - A hook call that returns store data (`useRetrieve`, `useSelect*`,
-  `useList`).
-- **Hydration** - Moving a cache entry from the `pending` state (in-flight promise) to
-  the `hydrated` state (resolved value).
-- **One-way hydration** - Once an entry is hydrated, it never returns to `pending`.
-  Updates mutate the value in place. Deletion is surfaced as a thrown status, not a
-  state transition back to pending.
-- **Boundary** - The `<Flux.Boundary>` component, which bundles a Suspense boundary and
-  an error boundary into one consumer-facing primitive.
-- **Status** - `xstatus.Status` from `x/ts/src/status`, the canonical app-wide shape for
-  errors, successes, and notifications.
-- **Listener** - A `Flux.ChannelListener` registered on a Synnax signal channel (e.g.,
-  `sy_schematic_set`). Listeners are configured at provider mount and run for the life
-  of the app.
+- **Suspended read**: A hook that returns `T` synchronously or throws a promise that
+  React unwraps via `<Suspense>`. Implemented with React 19's `use()`.
+- **QueryCache**: The per-client `Map<string, Result<T>>` that holds in-flight and
+  resolved queries. One cache per `flux.Client`, addressable via `useQueryCache()`.
+- **Query hash**: A deterministic string built from the `{name, query}` pair by
+  recursively sorting object keys. Two calls with structurally equal queries collide on
+  the same cache entry.
+- **`mountListeners`**: The per-retrieve callback that wires channel-listener
+  subscriptions. Suspended reads pass the cache plus a setter-style `onChange` so
+  listeners can update the cached value without re-suspending.
+- **`SuspenseBoundary`**: The consumer-facing wrapper that bundles React's `<Suspense>`
+  with `Errors.Boundary`. Lives at `pluto/src/errors/SuspenseBoundary.tsx`.
 
 # 2 - Motivation
 
-## 2.0 - The Two-API Split Forces Loading-State Plumbing on Every Consumer
+The existing read path returns a `Result<T> = {variant, status, data, ...}` wrapper that
+consumers must inspect at every call site:
 
-The current substrate exposes two read shapes. `useRetrieve({key})` is async and returns
-`Result<T> = {data: T | null, status: xstatus.Status, error?: Error}`. Selectors built
-with `createSelector` are synchronous reads against the same flux store, returning the
-selected slice directly.
-
-The async/sync split means every consumer of `useRetrieve` writes a null guard:
-
-```ts
-const { data } = useRetrieve({ key });
+```tsx
+const { data, variant } = Ranger.useRetrieve({ key });
+if (variant === "loading") return <Spinner />;
+if (variant === "error") return <ErrorView status={status} />;
 if (data == null) return null;
-return <UI data={data} />;
+return <RangeDetails range={data} />;
 ```
 
-And every consumer that wants to render loading or error UI inline writes:
+Three problems recur. First, every consumer writes the same null guard, often without
+the loading branch (rendering nothing instead of a spinner). Second, selectors
+(`createSelector` against the same store) read synchronously and have no lifecycle
+awareness: a selector on a record that has not yet been fetched returns `undefined` or
+throws, with no path to the "in flight" state. Third, concurrent reads of the same query
+each issue their own fetch, because dedup is owned per-hook rather than at the
+substrate.
+
+React 19's `use()` plus `<Suspense>` solves all three structurally. A consumer either
+gets the value or suspends; lifecycle plumbing moves out of the call site and into a
+boundary. Adding the substrate is additive. Observable hooks stay for cases that
+genuinely need inline loading/error rendering (mutation pending states, indicators in
+toolbars), and consumers migrate per call site.
+
+# 3 - Design
+
+## 3.0 - Cache State Machine
+
+A `QueryCache` entry is a `Result<T>` in one of three variants:
+
+| Variant   | Holds                         | Read behavior                  |
+| --------- | ----------------------------- | ------------------------------ |
+| `loading` | `Promise<T>` (via `.promise`) | `use(promise)` → suspend       |
+| `success` | `T` (via `.data`)             | Return `data`                  |
+| `error`   | `Status` (via `.status`)      | `throw status.toError(status)` |
+
+A read against an absent hash kicks off the configured `retrieve` function, wraps the
+returned promise in `pendingResult(name, promise)`, and writes it to the cache via
+`cache.set(hash, ...)`. `set` inspects the result: when it is `loading` with a promise,
+the cache wires `.then` / `.catch` handlers that auto-transition the entry to `success`
+or `error` when the promise settles.
+
+The settle-time replacement is **identity-gated** by `replaceIfStill`. If a channel
+listener pushes a new value into the cache between the read and the settle, the
+listener's `success` result replaces the original `loading` entry. When the original
+promise eventually resolves, `replaceIfStill` sees that the current entry is no longer
+the `loading` result it captured and refuses to overwrite. Late resolutions cannot
+clobber fresher listener-driven state.
+
+`cache.set` accepts an optional value-equality function. On a `success` → `success`
+transition where the new and previous data are equal, the entry is left in place and
+subscribers are not notified. Derived selectors built on the suspended retrieve use this
+to skip re-renders when the slice they care about did not change despite the parent
+record having changed.
+
+## 3.1 - Suspended Read API
+
+`createRetrieve` returns two new hooks alongside the existing four:
 
 ```ts
-const { data, status, error } = useRetrieve({ key });
-if (status.variant === "loading") return <Spinner />;
-if (error != null) return <ErrorView error={error} />;
-return <UI data={data} />;
+// Returns T, or suspends/throws via React 19's use().
+const data = Ranger.useRetrieveSuspended({ key });
+
+// Gates rendering on data being present without subscribing the caller to
+// subsequent cache updates. Use in parents whose children read fresh values
+// via their own selectors.
+Ranger.useEnsureRetrieved({ key });
 ```
 
-The plumbing repeats across hundreds of call sites. Worse, selectors that read fields
-from a record (e.g., `useSelectSnapshot({key})`) have no lifecycle awareness: they
-synchronously read the store, find no entry, and either return `undefined` or throw
-`NotFoundError` depending on the selector's choice. The "loading" and "doesn't exist"
-cases are indistinguishable at the selector layer, because the selector has no idea
-whether a fetch is in flight.
+`useRetrieveSuspended` is the primary entry point. On mount it:
 
-## 2.1 - The Toolbar Bug from PR #2291
+1. Hashes the `{name, query}` pair via `hashQuery`.
+2. Subscribes to the cache hash via `useSyncExternalStore`, so listener-driven `set`
+   calls re-render the consumer without re-suspending.
+3. Looks up the entry. On `success` returns `data`. On `error` throws
+   `status.toError(status)`. On `loading` calls `use(promise)`.
+4. On a cache miss, invokes `retrieve(...)`, writes a `pendingResult` to the cache, and
+   calls `use(promise)`. Concurrent consumers of the same hash on the same render pass
+   land on step 3 and share the promise.
 
-The selector contract drift surfaced concretely in the schematic toolbar. The toolbar
-lives in Console, mounted by the layout system on the active layout key. It reads
-element-level state via `useSelectElementConfig({ key, elKey })` from
-`pluto/src/schematic/queries.ts`, which throws `NotFoundError` when the parent schematic
-is not in the cache. The toolbar is not a child of Pluto's `<Schematic>` and never sees
-the `data == null` gate that the canvas uses; nothing in the toolbar tree calls
-`useRetrieve`. On first navigation into a schematic, the toolbar renders in the same
-frame as the Pluto canvas. The canvas waits for retrieve and returns null. The toolbar
-does not, throws on the selector, and crashes the panel render.
+`useEnsureRetrieved` follows the same flow but does **not** call `cache.subscribe`. It
+suspends or throws while the cache entry settles, then returns `void`. Parents that want
+to gate their subtree on data presence without re-rendering when the data changes use
+it; their children re-read via their own selectors.
 
-The selector is the visible failure, but the root cause is structural: the cache has no
-way to model a key that exists on the server but has not yet been fetched into the local
-store. Throwing, returning undefined, or returning a sentinel are all guesses about
-which state we are in.
+Both hooks throw a synchronous `Error` if the Synnax client is null and
+`allowDisconnected` is not set, matching the contract of the existing `useRetrieve`.
 
-## 2.2 - Suspense Models the Lifecycle Once, at the Right Layer
+## 3.2 - Listener Integration
 
-React's Suspense primitive exists to express exactly this boundary. A read returns the
-value if it is available and suspends if it is not, with a parent boundary deciding what
-to render in the meantime. A consumer never has to ask "is this loaded yet" because the
-consumer never executes with un-loaded data.
-
-Adopting Suspense lets us delete loading-state plumbing from every read site, collapse
-the two-API split into a single shape, and resolve the toolbar bug structurally rather
-than by patching one selector at a time.
-
-# 3 - Principles
-
-- **One read API.** Reads either return the value or suspend. There is no escape hatch
-  hook that returns `T | undefined`. Cases that need to render before data is loaded use
-  the boundary's `loading` fallback.
-- **Hydration is one-way.** Once a record is in the cache, it stays in the cache.
-  Real-time updates mutate the value field of the entry; they never move the entry back
-  to `pending`. Re-suspending mid-session is forbidden.
-- **The substrate does not invent error types.** Reads can throw any `Error` (typically
-  the typed errors from `@synnaxlabs/client`) or a `Status` directly. The boundary
-  normalizes both to `xstatus.Status` using the existing `errorToStatus` machinery and
-  renders via the existing `Status.Summary` component.
-- **Mutations write through the cache.** The optimistic write + rollback pattern used
-  today by `createUpdate` continues unchanged. Mutations only mutate the `value` field
-  of a hydrated entry. Drift multi-window sync depends on the shared cache surface and
-  is unaffected.
-- **One boundary primitive, consumer-placed.** The substrate exports `<Flux.Boundary>`.
-  Where to place it is a UX decision the consumer makes per-panel, not a topology the
-  substrate prescribes.
-- **Atomic migration.** All consumer call sites move in one PR. There is no coexistence
-  period with both APIs alive.
-
-# 4 - Design
-
-## 4.0 - Cache State Machine
-
-A cache entry is in exactly one of two states.
-
-| State      | Holds        | Read behavior             |
-| ---------- | ------------ | ------------------------- |
-| `pending`  | `Promise<T>` | `use(promise)` -> suspend |
-| `hydrated` | `T`          | return `T`                |
-
-There is no `deleted` state and no `error` state. A delete event causes the next read to
-throw a `DeletedStatus` (or equivalent), which the error boundary catches. A failed
-initial fetch causes the pending entry's promise to reject, which Suspense unwraps into
-a thrown error caught by the boundary.
-
-There is no `stale` state. Real-time channel listeners are the freshness mechanism; the
-cache trusts that listeners will deliver updates. Stale-while-revalidate adds no value
-when the live tail is reliable.
-
-## 4.1 - Read API
-
-The public hook names are preserved. Their return shapes change.
+`RetrieveParams` gained an optional `cache?: QueryCache` field. `retrieve` and
+`mountListeners` implementations receive it and can read or update entries directly. The
+suspended hook passes a setter-style `onChange` to `mountListeners`:
 
 ```ts
-// Single-record read
-const data = useRetrieve({ key });
-//    ^ T. Suspends if entry is pending. Throws if the entry's promise rejected
-//      or if a real-time delete event flagged the key.
-
-// Selector read
-const snapshot = useSelectSnapshot({ key });
-//    ^ boolean. Same suspension semantics as useRetrieve.
-//      Selectors no longer throw NotFoundError.
-```
-
-`useRetrieve` is implemented in terms of `use()` (React 19). On entry, the hook looks up
-the cache by key. If the entry is `hydrated`, it returns the value. If the entry is
-`pending`, it calls `use(promise)`, which suspends. If the entry is absent, the hook
-constructs the promise (via the configured `retrieve` implementation), writes a
-`pending` entry, and calls `use(promise)`. Concurrent reads of the same key share the
-in-flight promise via the cache lookup.
-
-Selectors are implemented in terms of `useRetrieve` plus a synchronous slice function.
-The selector first ensures the parent record is hydrated (suspending if not), then
-derives and returns the slice. The selector subscribes to store mutations using
-`useSyncExternalStoreWithSelector` for the steady-state case; once hydrated, the
-selector never re-suspends.
-
-## 4.2 - List API
-
-`useList` suspends on the first page only. Subsequent pages are async-but-non-
-suspending.
-
-```ts
-const channels = useList({ workspace });
-//    ^ ListHandle<Channel>:
-//      { items: Channel[]; hasMore: boolean; loadMore: () => Promise<void>;
-//        isLoadingMore: boolean }
-```
-
-`loadMore()` returns a promise that resolves when the next page lands. Consumers render
-an inline "loading more..." indicator using `isLoadingMore` rather than suspending the
-whole list.
-
-A list read populates the per-key cache as a side effect. A `useChannels()` call that
-fetches a page of 20 channels writes 20 entries into the channel cache. A subsequent
-`useChannel({key})` for an item already in the list hits the cache and returns
-immediately without suspending. List handles and per-key entries share one underlying
-store; real-time creates and deletes fan out to both layers.
-
-## 4.3 - Real-Time Updates
-
-The streamer remains always-on at provider mount, with all configured channel listeners
-subscribed for the life of the app. The current `streamer.ts` wiring (open
-`HardenedStreamer` on the union of listener channels, parse frames with the listener's
-Zod schema, dispatch to `onChange`) is unchanged.
-
-Listener `onChange` handlers mutate the `value` field of hydrated entries:
-
-```ts
-onChange: ({ changed, store }) => {
-  const current = store.schematics.get(changed.key);
-  if (current == null) return; // entry not loaded; ignore
-  const next = applyChange(current, changed);
-  store.schematics.set(changed.key, next); // value swap, status stays hydrated
+const onChange = (value: state.SetArg<Data | undefined>) => {
+  const current = cache.get<Data>(hash);
+  const prev = current?.variant === "success" ? current.data : undefined;
+  const next = state.executeSetter(value, prev);
+  if (next == null) return;
+  cache.set(hash, successResult(name, next));
 };
 ```
 
-If a listener fires for a key that is not in the cache, it is ignored. The next read of
-that key will trigger a fresh fetch; the listener's payload is not used to hydrate,
-because the listener payload is typically a delta rather than the full record.
+A listener firing for a hash whose entry is in `success` state replaces the value in
+place. Subscribers re-render via the `useSyncExternalStore` path. A listener firing for
+a hash that is still `loading` triggers the identity-gated replacement described in
+§3.0: the listener's `success` result wins, and the eventual promise resolution is
+discarded.
 
-A delete event is the one case that transitions an entry out of the hydrated state
+The cache and the store remain separate concerns. Per-record stores
+(`flux.UnaryStore<K, V>`) hold canonical values keyed by record ID; the query cache
+holds query lifecycles keyed by query shape. A single-record retrieve with shape
+`{key: X}` and a list retrieve with shape `{workspace, filter}` both live in the cache,
+addressed by their respective hashes, while the underlying records also live in the
+per-record store.
 
-- and only out of it. The listener marks the entry as deleted (or removes it and records
-  a tombstone), which causes the next read to throw a deletion status. The error
-  boundary catches it and renders the deleted-state UI.
+## 3.3 - Errors and the Boundary
 
-## 4.4 - Mutations
+The substrate's contract with a consumer's error boundary is: a thrown value is always a
+`Error` (with the original `xstatus.Status` on `cause`). `x/ts/src/status/status.ts`
+gains `status.toError(status)`, which builds an `Error` whose `message` is the wrapped
+status message, copies `name` and `stack` from the inner error preserved on
+`details.error`, and stashes the full status on `cause`. The suspended hooks call it
+when an entry is in the `error` variant; custom fallbacks recover the rich shape via
+`(error.cause as Status)`.
 
-`createUpdate` is unchanged in shape. Mutations write optimistically into the store,
-perform the server roundtrip, and roll back on failure using the existing destructor
-stack.
+`Errors.SuspenseBoundary` bundles `Errors.Boundary` (the existing error boundary) with
+React's `<Suspense>`:
 
-The single new constraint: a mutation must never move a cache entry from `hydrated` to
-`pending`. Optimistic updates and rollbacks operate on the `value` field only.
-Subscribers re-render via the existing `onSet` notification path. Mutations never
-re-suspend.
-
-`useOptimistic` from React 19 is not used. Its scope is component-local React state;
-Synnax's optimistic values must be visible across windows via Drift, which requires the
-optimistic value to live in the shared cache.
-
-## 4.5 - Errors and the Boundary
-
-The substrate's contract with the boundary is: any thrown value other than a promise
-lands at the boundary as an `xstatus.Status`. The boundary normalizes the thrown value:
-
-```ts
-const status = isStatus(thrown) ? thrown : errorToStatus(thrown as Error);
+```tsx
+<Errors.SuspenseBoundary loading={<Skeleton />}>
+  <Display />
+</Errors.SuspenseBoundary>
 ```
 
-`errorToStatus` (from `x/ts/src/status/status.ts`) already handles errors that implement
-`toStatus()` and falls back to a generic `error` variant for those that do not. No new
-error types are introduced.
+Both `loading` and `FallbackComponent` are optional. `loading` defaults to nothing;
+`FallbackComponent` defaults to the diagnostic `Errors.Fallback` page that
+`Errors.Boundary` ships with today. Placement is a consumer-level UX decision: one
+boundary per panel, per page, per card, or whatever the surface requires.
 
-The boundary is exposed as:
+## 3.4 - Hash Determinism
 
-```ts
-<Flux.Boundary
-  loading={<Skeleton />}
-  error={(status) => <CustomErrorView status={status} />}
->
-  <Toolbar />
-  <Canvas />
-</Flux.Boundary>
-```
-
-Both `loading` and `error` are optional. `loading` defaults to a sensible empty
-fallback. `error` defaults to `<Status.Summary status={status} />`, which already
-renders deletion, permission denial, network failure, and generic errors with the
-correct variant styling.
-
-Internally, `<Flux.Boundary>` is
-`<ErrorBoundary><Suspense>...</Suspense></ ErrorBoundary>` with the error boundary
-normalizing thrown values to a Status before invoking the consumer's `error` prop.
-
-## 4.6 - Boundary Placement
-
-Placement is a UX decision left to the consumer. The substrate ships only the
-`<Flux.Boundary>` component; it does not impose a topology.
-
-For the schematic surface, the expected placement is one boundary per panel (toolbar,
-canvas, properties drawer) so each panel resolves independently. The shell layout paints
-instantly and pieces fill in as their data arrives. Where panels read truly independent
-data, this is a strict UX improvement over the current behavior of "everything blocks
-until the canvas is ready."
-
-For surfaces with a single dominant resource (e.g., a settings dialog that reads one
-record), a single outer boundary is appropriate. For lists of cards where each card
-reads independent data, a boundary per card is appropriate.
-
-# 5 - Migration
-
-The migration is atomic. All ~300 consumer call sites of `useRetrieve` and `useSelect*`
-move in a single PR alongside the substrate change. The old API is deleted in the same
-commit.
-
-## 5.0 - Mechanical Pass
-
-Most call sites are mechanical conversions. A jscodeshift transform handles the common
-shapes:
+`hashQuery` recursively walks the query input and emits a canonical string:
 
 ```ts
-// Before
-const { data } = useRetrieve({ key });
-if (data == null) return null;
-
-// After
-const data = useRetrieve({ key });
+hashQuery({ a: 1, b: 2 }) === hashQuery({ b: 2, a: 1 }); // true
+hashQuery([1, { c: 3 }]) === '[1,{"c":3}]';
+hashQuery({ key: "x" }) === '{"key":"x"}';
 ```
 
-```ts
-// Before
-const { data, status } = useRetrieve({ key });
-if (status.variant === "loading") return <Spinner />;
-if (data == null) return null;
+Object keys are sorted at every level. Arrays preserve order. Primitives are
+`JSON.stringify`d. The hash is structural: two calls with deep-equal queries collide
+regardless of object identity, which is what makes dedup work across renders and across
+components.
 
-// After (loading hoisted to parent <Flux.Boundary loading={<Spinner/>}>)
-const data = useRetrieve({ key });
-```
+Functions, `Map`, `Set`, `Date`, and other non-plain types are not supported as query
+inputs. Callers pass primitives, plain objects, and arrays. This matches what
+`useMemoDeepEqual` already enforces upstream of the cache lookup.
 
-The codemod handles destructure stripping and null-guard deletion. Loading and error UI
-hoisting is detected by the codemod and flagged for human review.
+# 4 - What This RFC Does Not Cover
 
-## 5.1 - Architectural Pass
+- **Atomic migration of existing call sites.** The substrate is additive. Consumers
+  migrate per call site as the suspense-shaped read becomes a clear improvement;
+  observable hooks remain available for mutation pending states and inline loading
+  indicators.
+- **List API.** `createList` was not modified. A list-shaped suspended hook is a
+  follow-up; the current `QueryCache` accommodates arbitrary query shapes, so it can be
+  added without changing the cache contract.
+- **Mutations.** `createUpdate` is unchanged. Mutations continue to write through the
+  per-record store with the existing optimistic-update + rollback pattern. The suspended
+  read path observes whatever the store currently holds via its `mountListeners` wiring.
+- **Cache eviction.** Entries live for the life of the client. No LRU, no TTL. If
+  long-session memory growth becomes a problem, an eviction policy can be added behind
+  the existing `cache.invalidate(hash)` method without touching the read API.
+- **Dev-mode boundary detection.** A consumer that calls `useRetrieveSuspended` without
+  a `<Suspense>` ancestor produces React's default suspended-without-boundary warning. A
+  Synnax-specific dev warning that points at the `SuspenseBoundary` primitive is a
+  follow-up.
 
-Call sites that consumed `status` or `error` to render UI inline need judgment. For most
-of them, the right move is to delete the inline UI and add a `<Flux.Boundary>` at the
-appropriate panel boundary with the loading or error UI moved into the boundary's
-fallback prop.
+# 5 - Implementation Status
 
-A small number of sites use the lifecycle for genuinely inline UI - a "Saving..."
-indicator on a button, a refresh spinner that should not unmount the surrounding panel.
-These cases survive on the mutation side (`useUpdate` still exposes `Result`) and do not
-need a Suspense rewrite. Reads do not have this case in the existing codebase.
+The substrate has shipped on `sy-4158-refactor-flux-to-support-react-suspense`. The
+implementation lives in:
 
-## 5.2 - The Result Pattern
+- `pluto/src/flux/base/queryCache.ts` holds the `QueryCache` class and `hashQuery`.
+- `pluto/src/flux/retrieve.ts` appends `useRetrieveSuspended` and `useEnsureRetrieved`
+  to `createRetrieve`'s return, and adds an optional `cache` field to `RetrieveParams`.
+- `pluto/src/flux/result.ts` extends `LoadingResult` with optional `promise` and `name`
+  fields and adds the `pendingResult(name, promise)` constructor.
+- `pluto/src/flux/Provider.tsx` and `base/client.ts` give `Client` a `queryCache` field
+  and expose it via `useQueryCache()`.
+- `pluto/src/errors/SuspenseBoundary.tsx` is the bundled Suspense + error boundary
+  component.
+- `x/ts/src/status/status.ts` adds the `status.toError` bridge.
 
-`Result<T>` is retired for reads. Mutations still use it, because mutation consumers
-legitimately need to render save state inline (a button's "Saving..." label, a form's
-success toast). The `Result` type stays in the substrate; only its read-side use is
-removed.
+Coverage on the substrate:
 
-# 6 - Alternatives Considered
+- `pluto/src/flux/retrieve.spec.tsx`: suspension, dedup of concurrent reads, error
+  routing to the fallback.
+- `pluto/src/errors/SuspenseBoundary.spec.tsx`: loading, error fallback, custom fallback
+  component.
+- `pluto/src/flux/select.spec.tsx`: derived selectors over the cache (12 cases).
 
-## 6.0 - Two Read APIs (Suspending + Snapshot)
+# 6 - Resolved Decisions
 
-Considered exposing both a suspending read and a non-suspending "snapshot" read that
-returns `T | undefined`. The snapshot variant would cover cases like hover previews
-(peek without fetching) and inline status indicators (need the lifecycle flag without
-unmounting).
+1. **Substrate is additive.** The original RFC proposed an atomic migration of all read
+   sites onto a single suspended API. The shipped implementation keeps the observable
+   hooks (`useRetrieve`, `useRetrieveStateful`, `useRetrieveObservable`) and adds the
+   suspended pair (`useRetrieveSuspended`, `useEnsureRetrieved`) on the same
+   `createRetrieve` factory. Per-call-site migration is cheaper than a flag-day move,
+   and the observable hooks have legitimate uses (mutation pending states, indicators)
+   that suspension does not serve.
 
-Rejected. The peek-without-fetching case is rare and can be served by the boundary's
-`loading` fallback rendering placeholder UI. The inline-lifecycle case does not exist
-for reads in the current codebase. Two APIs would force consumers to pick correctly at
-every call site, and the wrong pick reintroduces the two-shapes problem we are
-eliminating.
+2. **Three cache states, not two.** The original RFC proposed a two-state machine
+   (`pending` and `hydrated`) with errors surfacing only via thrown deletion statuses.
+   The shipped cache holds the full `Result<T>` discriminated union (`loading`,
+   `success`, `error`), which lets a failed initial fetch persist as an `error` entry
+   until something invalidates it. This matches how `Result` already works elsewhere in
+   Flux and avoids forcing every suspension miss to re-fetch.
 
-## 6.1 - Substrate-Imposed Boundary Topology
+3. **Identity-gated settle.** When `cache.set` wires up the promise's `.then`, it
+   captures the loading-result object identity. At settle time, `replaceIfStill` checks
+   that the current entry is still that exact object before overwriting. This resolves
+   the race between listener pushes (which can replace a `loading` entry with a
+   `success` mid-flight) and the original promise eventually resolving. Listener-driven
+   freshness always wins.
 
-Considered shipping a per-resource wrapper component (e.g.,
-`<Schematic.Boundary resourceKey={key}>`) that hardcodes Suspense placement around each
-resource. Consumers would not pick where boundaries live; the substrate would.
+4. **Optional value equality for derived selectors.** `cache.set` accepts an
+   `equal(a, b)` callback. Selectors built on `useRetrieveSuspended` plus a slice
+   function pass this to skip re-renders when the slice did not change despite the
+   parent record having changed. The cache itself does not opine on equality; it just
+   honors the hook's choice.
 
-Rejected. Where to place a boundary is a UX call (per-panel for partial loading,
-per-page for atomic loading) that varies across surfaces. The substrate ships the
-building block; placement is consumer judgment.
+5. **`Errors.SuspenseBoundary` lives in `errors/`, not `flux/`.** The boundary is not
+   Flux-specific. It bundles React's `<Suspense>` with the existing `Errors.Boundary`,
+   both of which already live in `pluto/src/errors/`. Placing the wrapper there keeps
+   the Flux module focused on read substrate and lets non-Flux suspended consumers reuse
+   the boundary.
 
-## 6.2 - useOptimistic for Mutations
-
-Considered migrating optimistic updates to React 19's `useOptimistic` hook.
-
-Rejected. `useOptimistic`'s scope is component-local React state. Synnax's optimistic
-values must propagate across Drift windows, which requires writing to the shared flux
-cache. The current write-through pattern is already correct for this case; switching to
-`useOptimistic` would break multi-window sync.
-
-## 6.3 - New Error Class Hierarchy
-
-Considered introducing substrate-specific error classes (`DeletedError`,
-`PermissionError`, `NetworkError`, `ValidationError`) that consumers pattern-match on in
-the boundary fallback.
-
-Rejected. The existing `xstatus.Status` system already discriminates errors by
-`variant`, exposes `toStatus()` for typed errors, and ships display components
-(`Status.Summary`, `Status.Indicator`) that consumers already know. Reinventing the
-taxonomy adds types without adding capability.
-
-## 6.4 - Selector Throw to Undefined
-
-Considered the smaller fix: change `useSelectElementConfig` and similar selectors to
-return `undefined` for missing parent records instead of throwing `NotFoundError`.
-Consumers would handle the undefined case.
-
-Rejected as a long-term solution, though it remains the right minimal patch for PR #2291
-if the Suspense migration is delayed. The fundamental problem - that the selector cannot
-distinguish "loading" from "not found" - is unsolved by silencing the throw. It only
-laundered into nullable returns scattered through every consumer.
-
-## 6.5 - Substrate-Only Migration with Coexistence
-
-Considered shipping the new substrate alongside the old one, migrating one resource per
-PR over a longer rollout.
-
-Rejected. The two patterns interact poorly: the cache invariants (one-way hydration, no
-re-suspend) only hold if every consumer participates. A half- migrated resource leaves
-the toolbar bug class alive in unmigrated code and forces every reviewer to remember
-which API a given file uses. Atomic flip is the cleaner outcome.
-
-# 7 - Open Questions
-
-## 7.0 - Cache Eviction
-
-Out of scope. The current substrate keeps every entry forever and Suspense is neutral on
-that. If long-session memory growth becomes a problem, an LRU cap can be added without
-touching the read API.
-
-## 7.1 - Dev-Time Boundary Detection
-
-Consumers that read without a `<Flux.Boundary>` ancestor produce confusing behavior: the
-thrown promise propagates to whatever Suspense ancestor exists (or unhandled). A
-dev-mode warning that detects unwrapped reads is desirable but not blocking.
-
-## 7.2 - Codemod Coverage
-
-The mechanical pass covers most call sites but not all. A budget of ~10% of sites
-requiring human conversion is realistic. The architectural pass (loading/error hoisting)
-is fully manual.
-
-# 8 - Implementation Plan
-
-The work breaks into substrate, codemod, and consumer migration. All three land in one
-PR.
-
-1. Implement the new `createRetrieve`, `createSelector`, and `createList` primitives.
-   Cache state machine, promise dedup, suspension via `use()`.
-2. Implement `<Flux.Boundary>`. Suspense + ErrorBoundary composition with status
-   normalization.
-3. Update channel listener handlers to enforce one-way hydration. Audit every listener
-   for the "fire on missing entry" behavior; either ignore or trigger delete-state
-   transition.
-4. Update `createUpdate` to enforce the no-re-suspend invariant. Audit rollback paths.
-5. Write the jscodeshift transform.
-6. Run the codemod across all consumers. Resolve the architectural pass call sites by
-   hand. Add `<Flux.Boundary>` placements panel by panel.
-7. Delete `Result<T>` from read paths. Keep on mutation paths.
-8. Verify the schematic toolbar bug from PR #2291 is structurally resolved.
+6. **`hashQuery` sorts keys recursively, supports plain shapes only.** The hash is
+   structural over plain objects, arrays, and primitives. `Map`, `Set`, `Date`, and
+   class instances are not supported. This matches the assumption already enforced by
+   `useMemoDeepEqual` at the hook boundary, so callers that pass valid input to the
+   existing hooks pass valid input here too.

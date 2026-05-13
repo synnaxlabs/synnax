@@ -608,9 +608,9 @@ describe("list", () => {
     });
 
     it("should handle params correctly with cached retrieval", () => {
-      interface TestParams {
+      type TestParams = {
         searchTerm?: string;
-      }
+      };
       const cachedItems = [{ key: 1 }, { key: 2 }];
       const retrieveCached = vi.fn().mockReturnValue(cachedItems);
 
@@ -928,9 +928,9 @@ describe("list", () => {
     });
 
     it("should pass correct params to mountListeners", async () => {
-      interface TestParams {
+      type TestParams = {
         filter?: string;
-      }
+      };
       const mountListeners = vi.fn();
       const retrieve = vi.fn().mockResolvedValue([{ key: 1 }]);
 

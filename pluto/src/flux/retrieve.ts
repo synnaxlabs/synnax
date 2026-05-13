@@ -8,12 +8,11 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, status } from "@synnaxlabs/x";
+import { type destructor, id, status } from "@synnaxlabs/x";
 import { use, useCallback, useRef, useState, useSyncExternalStore } from "react";
 
 import { type base } from "@/flux/base";
 import { useQueryCache, useStore } from "@/flux/Provider";
-import { hashQuery, type QueryCache } from "@/flux/queryCache";
 import {
   errorResult,
   loadingResult,
@@ -30,24 +29,18 @@ import { useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface RetrieveParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > {
   client: AllowDisconnected extends true ? Client | null : Client;
   query: Query;
   store: Store;
-  /// Per-client query cache. Suspended retrieves (`useRetrieveSuspended` /
-  /// `useEnsureRetrieved`) share entries through this cache so concurrent
-  /// reads of the same query dedupe to a single fetch. Optional because the
-  /// non-suspending hooks don't read it; suspended retrieves always populate
-  /// it.
-  cache?: QueryCache;
 }
 
 export interface RetrieveMountListenersParams<
-  Query extends base.Shape,
-  Data extends base.Shape,
+  Query extends base.Query,
+  Data extends base.Data,
   Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > extends RetrieveParams<Query, Store, AllowDisconnected> {
@@ -55,8 +48,8 @@ export interface RetrieveMountListenersParams<
 }
 
 export interface CreateRetrieveParams<
-  Query extends base.Shape,
-  Data extends base.Shape,
+  Query extends base.Query,
+  Data extends base.Data,
   Store extends base.Store,
   AllowDisconnected extends boolean = false,
 > {
@@ -68,12 +61,12 @@ export interface CreateRetrieveParams<
   allowDisconnected?: AllowDisconnected;
 }
 
-export interface BeforeRetrieveParams<Query extends base.Shape> {
+export interface BeforeRetrieveParams<Query extends base.Query> {
   query: Query;
 }
 
 export interface UseObservableBaseRetrieveParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   addStatusOnFailure?: boolean;
@@ -83,13 +76,13 @@ export interface UseObservableBaseRetrieveParams<
 }
 
 export interface UseRetrieveObservableParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > extends Omit<UseObservableBaseRetrieveParams<Query, Data>, "onChange"> {
   onChange: (result: Result<Data>, query: Query) => void;
 }
 
-export interface UseRetrieveObservableReturn<Query extends base.Shape> {
+export interface UseRetrieveObservableReturn<Query extends base.Query> {
   retrieve: (
     query: state.SetArg<Query, Partial<Query>>,
     options?: base.FetchOptions,
@@ -101,12 +94,12 @@ export interface UseRetrieveObservableReturn<Query extends base.Shape> {
 }
 
 export type UseRetrieveStatefulReturn<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > = Result<Data> & UseRetrieveObservableReturn<Query>;
 
 export interface UseDirectRetrieveParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > extends Pick<
   UseObservableBaseRetrieveParams<Query, Data>,
@@ -118,7 +111,7 @@ export interface UseDirectRetrieveParams<
 export type UseDirectRetrieveReturn<Data extends state.State> = Result<Data>;
 
 export interface UseRetrieveEffectParams<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   scope?: string;
@@ -126,26 +119,26 @@ export interface UseRetrieveEffectParams<
   query?: Query;
 }
 
-export interface UseRetrieve<Query extends base.Shape, Data extends state.State> {
+export interface UseRetrieve<Query extends base.Query, Data extends state.State> {
   (
     params: Query,
     opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
   ): UseDirectRetrieveReturn<Data>;
 }
 
-export interface UseRetrieveEffect<Query extends base.Shape, Data extends state.State> {
+export interface UseRetrieveEffect<Query extends base.Query, Data extends state.State> {
   (params: UseRetrieveEffectParams<Query, Data>): void;
 }
 
 export interface UseRetrieveStateful<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   (): UseRetrieveStatefulReturn<Query, Data>;
 }
 
 export interface UseRetrieveObservable<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   (
@@ -159,24 +152,35 @@ export interface UseRetrieveObservable<
 /// query cache. Channel-listener-driven updates push new values into the
 /// cache, which notifies subscribed consumers without re-suspending.
 export interface UseSuspendedRetrieve<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   (query: Query): Data;
 }
 
 /// A Suspense-shaped hook that ensures a query has been retrieved into the
-/// cache (and any listener-driven side effects have been mounted) but does
-/// NOT subscribe the calling component to subsequent cache updates. Use this
-/// in components that only need to gate rendering on data being present, e.g.,
-/// a parent that wants children to read fresh values via their own selectors
-/// without itself re-rendering when the data changes.
-export interface UseEnsureRetrieved<Query extends base.Shape> {
+/// cache, then forgets about it: no cache subscription, no listener mounting.
+/// Returns nothing; the data lives in the cache for children to read.
+///
+/// This is a narrow tool. Prefer letting children suspend independently inside
+/// their own Suspense boundaries (the Twitter-shell pattern: parent renders
+/// immediately, each child shows its own loading state). Reach for this hook
+/// only when one of:
+///
+///   1. The parent must branch on the data before deciding which subtree to
+///      render (e.g. resource-type dispatch).
+///   2. Multiple children would otherwise issue the same query and each
+///      suspend independently; pre-warming the cache here collapses them into
+///      a single fetch.
+///
+/// Reach for `useRetrieveSuspended` instead if the caller itself needs the
+/// data or needs to re-render when it changes.
+export interface UseEnsureRetrieved<Query extends base.Query> {
   (query: Query): void;
 }
 
 export interface CreateRetrieveReturn<
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
 > {
   useRetrieve: UseRetrieve<Query, Data>;
@@ -191,7 +195,7 @@ const initialResult = <Data extends state.State>(name: string): Result<Data> =>
   loadingResult<Data>(`Retrieving ${name}`, undefined);
 
 const useStateful = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
@@ -208,7 +212,7 @@ const useStateful = <
 };
 
 const useObservableBase = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
@@ -231,7 +235,6 @@ const useObservableBase = <
   const client = Synnax.use();
   const queryRef = useRef<Query | null>(null);
   const store = useStore<ScopedStore>(scope);
-  const cache = useQueryCache();
   const listeners = useDestructors();
   const addStatus = useAdder();
   const handleListenerChange = useCallback(
@@ -273,7 +276,6 @@ const useObservableBase = <
           client: client as AllowDisconnected extends true ? Client | null : Client,
           query,
           store,
-          cache,
         };
         listeners.cleanup();
         listeners.set(mountListeners?.({ ...params, onChange: handleListenerChange }));
@@ -301,7 +303,7 @@ const useObservableBase = <
 };
 
 const useDirect = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
@@ -325,7 +327,7 @@ const useDirect = <
 };
 
 const useEffect = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
@@ -361,7 +363,7 @@ const useEffect = <
 };
 
 export const useObservableRetrieve = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
@@ -389,17 +391,19 @@ export const useObservableRetrieve = <
   });
 };
 
-interface UseSuspendedParams<Query extends base.Shape> {
+interface UseSuspendedParams<Query extends base.Query> {
   query: Query;
+  cacheKey: string;
 }
 
 const useSuspended = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   query,
+  cacheKey,
   name,
   retrieve,
   mountListeners,
@@ -409,30 +413,31 @@ const useSuspended = <
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
   const store = useStore<ScopedStore>();
-  const cache = useQueryCache();
-  const hash = hashQuery({ name, query: memoQuery });
+  const cache = useQueryCache<Query, Data>(cacheKey);
 
   if (client == null && !allowDisconnected)
     throw new Error(
       `Cannot retrieve ${name}: no Synnax client connected. Pass allowDisconnected to opt out.`,
     );
 
-  useSyncExternalStore(
+  const entry = useSyncExternalStore(
     useCallback(
       (notify) => {
-        const cacheSub = cache.subscribe(hash, notify);
+        const cacheSub = cache.subscribe(memoQuery, notify);
         if (mountListeners == null || client == null) return cacheSub;
         const onChange = (value: state.SetArg<Data | undefined>) => {
-          const current = cache.get<Data>(hash);
+          const current = cache.get(memoQuery);
           const prev = current?.variant === "success" ? current.data : undefined;
           const next = state.executeSetter(value, prev);
-          if (next == null) return;
-          cache.set(hash, successResult(name, next));
+          if (next == null) {
+            cache.invalidate(memoQuery);
+            return;
+          }
+          cache.set(memoQuery, successResult(name, next));
         };
         const result = mountListeners({
           client: client as AllowDisconnected extends true ? Client | null : Client,
           store,
-          cache,
           query: memoQuery,
           onChange,
         });
@@ -442,12 +447,11 @@ const useSuspended = <
           listeners.forEach((d) => d?.());
         };
       },
-      [cache, hash, client, store, memoQuery],
+      [cache, client, store, memoQuery],
     ),
-    useCallback(() => cache.get(hash), [cache, hash]),
+    useCallback(() => cache.get(memoQuery), [cache, memoQuery]),
   );
 
-  const entry = cache.get<Data>(hash);
   if (entry?.variant === "success") return entry.data;
   if (entry?.variant === "error") throw status.toError(entry.status);
   if (entry?.variant === "loading" && entry.promise != null) return use(entry.promise);
@@ -456,19 +460,19 @@ const useSuspended = <
     client: client as AllowDisconnected extends true ? Client | null : Client,
     query: memoQuery,
     store,
-    cache,
   });
-  cache.set(hash, pendingResult(name, promise));
+  cache.set(memoQuery, pendingResult(name, promise));
   return use(promise);
 };
 
 const useEnsure = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store,
   AllowDisconnected extends boolean = false,
 >({
   query,
+  cacheKey,
   name,
   retrieve,
   allowDisconnected = false as AllowDisconnected,
@@ -477,15 +481,14 @@ const useEnsure = <
   const memoQuery = useMemoDeepEqual(query);
   const client = Synnax.use();
   const store = useStore<ScopedStore>();
-  const cache = useQueryCache();
-  const hash = hashQuery({ name, query: memoQuery });
+  const cache = useQueryCache<Query, Data>(cacheKey);
 
   if (client == null && !allowDisconnected)
     throw new Error(
       `Cannot retrieve ${name}: no Synnax client connected. Pass allowDisconnected to opt out.`,
     );
 
-  const entry = cache.get<Data>(hash);
+  const entry = cache.get(memoQuery);
   if (entry?.variant === "success") return;
   if (entry?.variant === "error") throw status.toError(entry.status);
   if (entry?.variant === "loading" && entry.promise != null) {
@@ -497,29 +500,36 @@ const useEnsure = <
     client: client as AllowDisconnected extends true ? Client | null : Client,
     query: memoQuery,
     store,
-    cache,
   });
-  cache.set(hash, pendingResult(name, promise));
+  cache.set(memoQuery, pendingResult(name, promise));
   use(promise);
 };
 
 export const createRetrieve = <
-  Query extends base.Shape,
+  Query extends base.Query,
   Data extends state.State,
   ScopedStore extends base.Store = {},
   AllowDisconnected extends boolean = false,
 >(
   createParams: CreateRetrieveParams<Query, Data, ScopedStore, AllowDisconnected>,
-): CreateRetrieveReturn<Query, Data> => ({
-  useRetrieve: (
-    query: Query,
-    opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
-  ) => useDirect({ ...createParams, query, ...opts }),
-  useRetrieveStateful: () => useStateful(createParams),
-  useRetrieveEffect: (params: UseRetrieveEffectParams<Query, Data>) =>
-    useEffect({ ...createParams, ...params }),
-  useRetrieveObservable: (params: UseRetrieveObservableParams<Query, Data>) =>
-    useObservableRetrieve({ ...params, ...createParams }),
-  useRetrieveSuspended: (query: Query) => useSuspended({ ...createParams, query }),
-  useEnsureRetrieved: (query: Query) => useEnsure({ ...createParams, query }),
-});
+): CreateRetrieveReturn<Query, Data> => {
+  // Unique per-createRetrieve cache key. Combines the user-supplied name
+  // (for debugging) with a generated UUID so two createRetrieve calls that
+  // share a name cannot collide on the client-level cache registry.
+  const cacheKey = `${createParams.name}.${id.create()}`;
+  return {
+    useRetrieve: (
+      query: Query,
+      opts?: Omit<UseDirectRetrieveParams<Query, Data>, "query">,
+    ) => useDirect({ ...createParams, query, ...opts }),
+    useRetrieveStateful: () => useStateful(createParams),
+    useRetrieveEffect: (params: UseRetrieveEffectParams<Query, Data>) =>
+      useEffect({ ...createParams, ...params }),
+    useRetrieveObservable: (params: UseRetrieveObservableParams<Query, Data>) =>
+      useObservableRetrieve({ ...params, ...createParams }),
+    useRetrieveSuspended: (query: Query) =>
+      useSuspended({ ...createParams, query, cacheKey }),
+    useEnsureRetrieved: (query: Query) =>
+      useEnsure({ ...createParams, query, cacheKey }),
+  };
+};
