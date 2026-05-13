@@ -18,7 +18,8 @@ import { type state } from "@/state";
 /// Class instances implementing {@link primitive.Hashable} delegate to their
 /// `hash()` method; plain objects and arrays recurse structurally.
 export const hashQuery = (query: Query): string => {
-  if (query == null) return "null";
+  if (query === null) return "null";
+  if (query === undefined) return "undefined";
   if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
