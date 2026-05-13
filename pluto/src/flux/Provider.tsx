@@ -15,8 +15,10 @@ import { context } from "@/context";
 import { flux } from "@/flux/aether";
 import { base } from "@/flux/base";
 import { type QueryCache } from "@/flux/base/queryCache";
+import { type Query } from "@/flux/base/types";
 import { useInitializerRef } from "@/hooks";
 import { useUniqueKey } from "@/hooks/useUniqueKey";
+import { type state } from "@/state";
 import { Status } from "@/status/base";
 import { Synnax } from "@/synnax";
 
@@ -33,8 +35,12 @@ export const useStore = <ScopedStore extends flux.Store>(
   return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
 };
 
-export const useQueryCache = (): QueryCache =>
-  useContext("Flux.useQueryCache").queryCache;
+/// Returns the typed query cache for the given key, creating it on first use.
+/// Each `createRetrieve` operation owns a unique key; the returned cache has
+/// concrete `Q` and `D` types and requires no per-call generics or casts.
+export const useQueryCache = <Q extends Query, D extends state.State>(
+  key: string,
+): QueryCache<Q, D> => useContext("Flux.useQueryCache").getCache<Q, D>(key);
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
   | { client: base.Client<ScopedStore> }

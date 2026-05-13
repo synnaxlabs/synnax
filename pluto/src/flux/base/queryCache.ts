@@ -28,32 +28,33 @@ export const hashQuery = (query: Query): string => {
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hashQuery(v)}`).join(",")}}`;
 };
 
-/// Per-client cache of in-flight and resolved queries, keyed by a deterministic
-/// hash of the query input. Holds `Result<T>` directly: loading results carry
-/// an in-flight promise, success results carry the value, error results carry
-/// the failure status. The cache auto-transitions a loading result with a
-/// promise to a success or error result when the promise settles, gated by
-/// identity so that listener-driven mid-flight updates are not clobbered by
-/// a late resolution. Decouples the suspension state machine from the
-/// per-record value store: per-record stores hold canonical values keyed by
-/// record ID, while the query cache holds query lifecycles keyed by query
-/// shape. A single-record retrieve with shape `{key: X}` and a list retrieve
-/// with shape `{workspace, filter}` both live here, addressed by their
-/// respective hashes.
-export class QueryCache {
-  private readonly entries: Map<string, Result<state.State>> = new Map();
-  private readonly subscribers: Map<string, Set<() => void>> = new Map();
+/// Typed cache of in-flight and resolved queries for a single `createRetrieve`
+/// operation. Holds `Result<D>` directly: loading results carry an in-flight
+/// promise, success results carry the value, error results carry the failure
+/// status. The cache auto-transitions a loading result with a promise to a
+/// success or error result when the promise settles, gated by identity so
+/// that listener-driven mid-flight updates are not clobbered by a late
+/// resolution. Decouples the suspension state machine from the per-record
+/// value store: per-record stores hold canonical values keyed by record ID,
+/// while the query cache holds query lifecycles keyed by query shape.
+///
+/// One instance per `createRetrieve` per client, retrieved via
+/// `Client.getCache`. Methods accept the query value directly; hashing is
+/// internal.
+export class QueryCache<Q extends Query, D extends state.State> {
+  private readonly entries = new Map<string, Result<D>>();
+  private readonly subscribers = new Map<string, Set<() => void>>();
 
-  /// Returns the result for the given query hash, or undefined if absent.
-  get<T extends state.State>(hash: string): Result<T> | undefined {
-    return this.entries.get(hash) as Result<T> | undefined;
+  /// Returns the result for the given query, or undefined if absent.
+  get(query: Q): Result<D> | undefined {
+    return this.entries.get(hashQuery(query));
   }
 
-  /// Stores a result for the given query hash. If the result is a loading
-  /// variant with an attached promise, the cache wires up `.then` handlers
-  /// that auto-transition the entry to success or error when the promise
-  /// settles.
-  set<T extends state.State>(hash: string, result: Result<T>): void {
+  /// Stores a result for the given query. If the result is a loading variant
+  /// with an attached promise, the cache wires up `.then` handlers that
+  /// auto-transition the entry to success or error when the promise settles.
+  set(query: Q, result: Result<D>): void {
+    const hash = hashQuery(query);
     this.entries.set(hash, result);
     this.notify(hash);
     if (result.variant !== "loading" || result.promise == null) return;
@@ -61,25 +62,26 @@ export class QueryCache {
     const promise = result.promise;
     promise.then(
       (value) =>
-        this.replaceIfStill<T>(hash, result, successResult(`retrieved ${name}`, value)),
+        this.replaceIfStill(hash, result, successResult(`retrieved ${name}`, value)),
       (reason: unknown) => {
         const err = reason instanceof Error ? reason : new Error(String(reason));
-        this.replaceIfStill<T>(hash, result, errorResult(`retrieve ${name}`, err));
+        this.replaceIfStill(hash, result, errorResult(`retrieve ${name}`, err));
       },
     );
   }
 
-  /// Removes the entry for the given hash. The next read kicks off a fresh
+  /// Removes the entry for the given query. The next read kicks off a fresh
   /// fetch.
-  invalidate(hash: string): void {
+  invalidate(query: Q): void {
+    const hash = hashQuery(query);
     if (!this.entries.delete(hash)) return;
     this.notify(hash);
   }
 
-  /// Subscribes to changes for the given query hash. The callback fires on
-  /// every state transition for that hash. Returns a destructor that
-  /// unsubscribes.
-  subscribe(hash: string, callback: () => void): destructor.Destructor {
+  /// Subscribes to changes for the given query. The callback fires on every
+  /// state transition for that query. Returns a destructor that unsubscribes.
+  subscribe(query: Q, callback: () => void): destructor.Destructor {
+    const hash = hashQuery(query);
     let set = this.subscribers.get(hash);
     if (set == null) {
       set = new Set();
@@ -98,11 +100,7 @@ export class QueryCache {
   /// expects. Guards against a channel listener (or another caller) replacing
   /// the entry mid-flight: a late promise resolution must not clobber a
   /// listener's update.
-  private replaceIfStill<T extends state.State>(
-    hash: string,
-    expected: Result<T>,
-    next: Result<T>,
-  ): void {
+  private replaceIfStill(hash: string, expected: Result<D>, next: Result<D>): void {
     if (this.entries.get(hash) !== expected) return;
     this.entries.set(hash, next);
     this.notify(hash);
