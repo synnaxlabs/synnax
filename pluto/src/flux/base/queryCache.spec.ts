@@ -35,9 +35,22 @@ describe("hashQuery", () => {
 
   it("hashes null and primitives", () => {
     expect(base.hashQuery(null)).toEqual("null");
-    expect(base.hashQuery(undefined)).toEqual("null");
+    expect(base.hashQuery(undefined)).toEqual("undefined");
     expect(base.hashQuery(42)).toEqual("42");
     expect(base.hashQuery("x")).toEqual('"x"');
+  });
+
+  it("disambiguates null, undefined, and absent fields", () => {
+    const hNull = base.hashQuery(null);
+    const hUndef = base.hashQuery(undefined);
+    expect(hNull).not.toEqual(hUndef);
+
+    const nestedNull = base.hashQuery({ a: null });
+    const nestedUndef = base.hashQuery({ a: undefined });
+    const absent = base.hashQuery({});
+    expect(nestedNull).not.toEqual(nestedUndef);
+    expect(nestedNull).not.toEqual(absent);
+    expect(nestedUndef).not.toEqual(absent);
   });
 
   it("hashes bigints without throwing and disambiguates from same-valued numbers", () => {
