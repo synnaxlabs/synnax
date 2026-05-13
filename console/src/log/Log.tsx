@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { log } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
 import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
 import { useCallback } from "react";
@@ -59,7 +58,6 @@ const PRELOAD = TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
 
@@ -73,14 +71,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     keepFor: DEFAULT_RETENTION,
   });
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey: winKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [winKey, dispatch]);
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "channels" }));
