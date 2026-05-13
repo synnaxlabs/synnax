@@ -125,22 +125,13 @@ interface MultiElementPropertiesProps {
 const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement => {
   const handleError = Status.useErrorHandler();
   const selected = useSelectSelected(layoutKey);
-  const selectedConfigs = Schematic.useSelectConfigs({
+  const configByKey = Schematic.useSelectConfigs({
     key: layoutKey,
     keys: selected,
   });
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
   const { update: dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
-
-  const configByKey = useMemo(() => {
-    const m = new Map<string, Schematic.ElementConfig>();
-    selected.forEach((k, i) => {
-      const cfg = selectedConfigs[i];
-      if (cfg != null) m.set(k, cfg);
-    });
-    return m;
-  }, [selected, selectedConfigs]);
 
   const nodesByKey = useMemo(() => {
     const m = new Map<string, schematic.Node>();
@@ -160,23 +151,22 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
   };
 
   let firstNodeLabel: Schematic.Node.Label.Config | undefined;
-  selectedConfigs.find((cfg) => {
-    if (!("label" in cfg)) return false;
+  for (const cfg of configByKey.values()) {
+    if (!("label" in cfg)) continue;
     firstNodeLabel = cfg.label as Schematic.Node.Label.Config | undefined;
-    return firstNodeLabel != null;
-  });
+    if (firstNodeLabel != null) break;
+  }
 
   const colorGroups = useMemo(() => {
     const groups: Record<color.Hex, string[]> = {};
-    selected.forEach((key, i) => {
-      const cfg = selectedConfigs[i];
-      if (cfg == null || cfg.color == null) return;
-      const hex = color.hex(cfg.color as color.Crude);
+    configByKey.forEach((cfg, key) => {
+      if (cfg.color == null) return;
+      const hex = color.hex(cfg.color);
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(key);
     });
     return groups;
-  }, [selected, selectedConfigs]);
+  }, [configByKey]);
 
   const handleLayouts = (
     nodeEl: Element,
@@ -312,9 +302,9 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
   };
 
   const handleRotateIndividual = (dir: direction.Angular): void => {
-    selectedConfigs.forEach((cfg, i) => {
+    configByKey.forEach((cfg, key) => {
       if (!("orientation" in cfg) || cfg.orientation == null) return;
-      onChange(selected[i], {
+      onChange(key, {
         orientation: location.rotate(cfg.orientation, dir),
       } as Partial<Schematic.ElementConfig>);
     });
@@ -329,9 +319,9 @@ const MultiConfig = ({ layoutKey }: MultiElementPropertiesProps): ReactElement =
     key: K,
     value: Schematic.Node.Label.Config[K],
   ): void => {
-    selectedConfigs.forEach((cfg, i) => {
+    configByKey.forEach((cfg, elKey) => {
       if (!("label" in cfg) || cfg.label == null) return;
-      onChange(selected[i], {
+      onChange(elKey, {
         label: { ...(cfg.label as Schematic.Node.Label.Config), [key]: value },
       } as Partial<Schematic.ElementConfig>);
     });

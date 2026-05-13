@@ -148,6 +148,114 @@ describe("schematic queries", () => {
       );
       expect((result.current as { variant: string }).variant).toBe("tank");
     });
+
+    it("useSelectEdge returns the edge for a known key", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "e1" }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current?.key).toBe("e1");
+    });
+
+    it("useSelectEdge returns undefined for an unknown edge key", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "missing" }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBeUndefined();
+    });
+
+    it("useSelectNodes returns nodes for the requested keys", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectNodes({ key: schem.key, keys: ["n1", "n2"] }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
+    });
+
+    it("useSelectNodes omits missing keys without throwing", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectNodes({
+            key: schem.key,
+            keys: ["n1", "missing", "n2"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
+    });
+
+    it("useSelectNodes returns an empty array when keys is empty", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectNodes({ key: schem.key, keys: [] }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toEqual([]);
+    });
+
+    it("useSelectConfigs returns a map keyed by element key", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectConfigs({ key: schem.key, keys: ["n1", "n2"] }),
+        { wrapper: Wrapper },
+      );
+      expect(Array.from(result.current.keys())).toEqual(["n1", "n2"]);
+      expect((result.current.get("n1") as { variant: string }).variant).toBe("tank");
+      expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
+    });
+
+    it("useSelectConfigs omits missing keys instead of shifting positions", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectConfigs({
+            key: schem.key,
+            keys: ["n1", "missing", "n2"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(Array.from(result.current.keys())).toEqual(["n1", "n2"]);
+      expect(result.current.has("missing")).toBe(false);
+      expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
+    });
+
+    it("useSelectConfigs returns an empty map when keys is empty", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => Schematic.useSelectConfigs({ key: schem.key, keys: [] }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current.size).toBe(0);
+    });
   });
 
   describe("useCreate", () => {
