@@ -32,16 +32,15 @@ namespace driver::arc::status {
 using Reporter = std::function<
     void(const std::string &variant, const std::string &message)>;
 
-// Reporter message templates. Keep in sync with core/pkg/service/arc/status/{set,delete}.go.
+// Reporter message templates. Keep in sync with
+// core/pkg/service/arc/status/{set,delete}.go.
 inline std::string set_failure_msg(const std::string &err) {
     return "status.set: " + err;
 }
-inline std::string set_multi_match_msg(
-    const std::string &key_or_name,
-    const std::string &resolved_key
-) {
+inline std::string
+set_multi_match_msg(const std::string &key_or_name, const std::string &resolved_key) {
     return "status.set: multiple statuses named \"" + key_or_name +
-        "\"; updated first match (" + resolved_key + ")";
+           "\"; updated first match (" + resolved_key + ")";
 }
 inline std::string delete_failure_msg(const std::string &err) {
     return "status.delete: " + err;
@@ -49,12 +48,9 @@ inline std::string delete_failure_msg(const std::string &err) {
 inline std::string delete_not_found_msg(const std::string &key_or_name) {
     return "status.delete: no status found \"" + key_or_name + "\"";
 }
-inline std::string delete_multi_match_msg(
-    const std::string &key_or_name,
-    int count
-) {
+inline std::string delete_multi_match_msg(const std::string &key_or_name, int count) {
     return "status.delete: multiple statuses named \"" + key_or_name +
-        "\"; deleted all (" + std::to_string(count) + ")";
+           "\"; deleted all (" + std::to_string(count) + ")";
 }
 
 /// @brief Upserts a status via the cluster API and surfaces failures via report.
@@ -105,10 +101,7 @@ inline bool dispatch_delete(
         return false;
     }
     if (count > 1)
-        report(
-            x::status::VARIANT_WARNING,
-            delete_multi_match_msg(key_or_name, count)
-        );
+        report(x::status::VARIANT_WARNING, delete_multi_match_msg(key_or_name, count));
     return true;
 }
 

@@ -127,9 +127,9 @@ type SetByKeyOrNameResponse struct {
 	MultipleMatches bool   `json:"multiple_matches" msgpack:"multiple_matches"`
 }
 
-// SetByKeyOrName upserts a status in the cluster by UUID key or by name. On
-// by-name multi-match, writes to the first match by key order and returns
-// multiple_matches=true so the caller can surface the ambiguity.
+// SetByKeyOrName updates a status by UUID or upserts a status by name. UUID-based
+// requests return an error if the row does not exist. On by-name multi-match,
+// writes to the first by key order and returns multiple_matches=true.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	req SetByKeyOrNameRequest,

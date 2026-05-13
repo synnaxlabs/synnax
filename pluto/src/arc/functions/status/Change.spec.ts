@@ -26,11 +26,10 @@ describe("Change config schema", () => {
       "error",
       "loading",
       "disabled",
-    ]) 
+    ])
       expect(() =>
         config.parse({ key_or_name: "k", variant, message: "m" }),
       ).not.toThrow();
-    
   });
 
   it("Should reject an unknown variant", () => {

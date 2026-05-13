@@ -22,11 +22,6 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
-// ErrMultipleMatches signals duplicate-name ambiguity. Reserved for a future
-// strict-mode by-name upsert (e.g., ranges) that prefers erroring over the
-// lenient write-to-first-match path UpsertByName takes today.
-var ErrMultipleMatches = errors.New("multiple matches by name")
-
 // Writer is used to create and update statuses within the DB.
 type Writer[D any] struct {
 	tx        gorp.Tx

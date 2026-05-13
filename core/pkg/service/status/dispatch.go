@@ -24,8 +24,9 @@ import (
 // ErrInvalidVariant signals a variant string outside xstatus.AllowedVariants.
 var ErrInvalidVariant = errors.New("invalid status variant")
 
-// SetByKeyOrName upserts a status by UUID key or by name. On by-name multi-match,
-// writes to the first by key order and returns multipleMatches=true.
+// SetByKeyOrName upserts by name or updates by UUID key (returns query.ErrNotFound
+// on miss). On by-name multi-match, writes to the first by key order and returns
+// multipleMatches=true.
 func (s *Service) SetByKeyOrName(
 	ctx context.Context,
 	keyOrName, message, variant string,
@@ -51,21 +52,27 @@ func (s *Service) SetByKeyOrName(
 }
 
 // DeleteByKeyOrName deletes a status by UUID key (count 0 or 1) or by name
-// (count = matches; deletes all on multi-match).
+// (count = matches; deletes all on multi-match). Both paths run their
+// retrieve + delete in a single transaction so concurrent deletes can't
+// produce a stale count.
 func (s *Service) DeleteByKeyOrName(ctx context.Context, keyOrName string) (int, error) {
-	if identifier.IsKey(keyOrName) {
-		var st Status[any]
-		err := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, nil)
-		if errors.Is(err, query.ErrNotFound) {
-			return 0, nil
-		}
-		if err != nil {
-			return 0, err
-		}
-		return 1, s.NewWriter(nil).Delete(ctx, keyOrName)
-	}
 	var count int
 	err := s.WithTx(ctx, func(tx gorp.Tx) error {
+		if identifier.IsKey(keyOrName) {
+			var st Status[any]
+			rerr := s.NewRetrieve().Where(MatchKeys[any](keyOrName)).Entry(&st).Exec(ctx, tx)
+			if errors.Is(rerr, query.ErrNotFound) {
+				return nil
+			}
+			if rerr != nil {
+				return rerr
+			}
+			if derr := s.NewWriter(tx).Delete(ctx, keyOrName); derr != nil {
+				return derr
+			}
+			count = 1
+			return nil
+		}
 		var ierr error
 		count, ierr = s.NewWriter(tx).DeleteByName(ctx, keyOrName)
 		return ierr
