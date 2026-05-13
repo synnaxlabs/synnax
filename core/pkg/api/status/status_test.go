@@ -21,6 +21,7 @@ import (
 	"github.com/synnaxlabs/x/query"
 	xstatus "github.com/synnaxlabs/x/status"
 	"github.com/synnaxlabs/x/telem"
+	. "github.com/synnaxlabs/x/testutil"
 )
 
 // statusTypeOnly is the type-level ontology ID for granting access across all
@@ -35,12 +36,11 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "hello",
 				Variant:   string(xstatus.VariantInfo),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.Key).ToNot(BeEmpty())
 			Expect(res.MultipleMatches).To(BeFalse())
 
@@ -59,12 +59,11 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(key))
 
-			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: key,
 				Message:   "updated",
 				Variant:   string(xstatus.VariantWarning),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.Key).To(Equal(key))
 			Expect(res.MultipleMatches).To(BeFalse())
 		})
@@ -81,12 +80,11 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 				[]access.Action{access.ActionCreate},
 				statusTypeOnly)
 
-			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "updated",
 				Variant:   string(xstatus.VariantWarning),
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.MultipleMatches).To(BeTrue())
 		})
 	})

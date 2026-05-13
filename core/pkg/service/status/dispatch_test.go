@@ -98,8 +98,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Message: "old", Time: telem.Now(),
 				})).To(Succeed())
 
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, key, "new", string(xstatus.VariantWarning))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, key, "new", string(xstatus.VariantWarning)))
 				Expect(gotKey).To(Equal(key))
 				Expect(multi).To(BeFalse())
 
@@ -125,11 +124,9 @@ var _ = Describe("Dispatch", Ordered, func() {
 		Describe("By-name path", func() {
 			It("Should create a fresh row when no match exists", func(ctx SpecContext) {
 				name := "by_name_fresh_a"
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, name, "hello", string(xstatus.VariantInfo))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "hello", string(xstatus.VariantInfo)))
 				Expect(gotKey).ToNot(BeEmpty())
-				_, parseErr := uuid.Parse(gotKey)
-				Expect(parseErr).ToNot(HaveOccurred())
+				MustSucceed(uuid.Parse(gotKey))
 				Expect(multi).To(BeFalse())
 
 				var s status.Status[any]

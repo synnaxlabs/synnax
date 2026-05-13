@@ -511,8 +511,7 @@ var _ = Describe("Task", Ordered, func() {
 			Expect(dist.Channel.Create(ctx, ch)).To(Succeed())
 
 			// Pre-create a status that the Arc graph will then delete.
-			_, _, err := statusSvc.SetByKeyOrName(ctx, "delete_target", "alive", "info")
-			Expect(err).ToNot(HaveOccurred())
+			MustSucceed2(statusSvc.SetByKeyOrName(ctx, "delete_target", "alive", "info"))
 
 			deleteGraph := graph.Graph{
 				Nodes: []graph.Node{

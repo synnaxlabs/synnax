@@ -481,9 +481,10 @@ func analyzeFunctionNode(
 		Config:   slices.Clone(freshType.Config),
 		Outputs:  slices.Clone(freshType.Outputs),
 	}
-	// ExecBoth inputs mirror config for the WASM shape. In flow form the
-	// upstream is a trigger, so omit them to avoid spurious edge type checks.
-	if sym.Exec != symbol.ExecBoth {
+	// STL ExecBoth inputs mirror config; in flow form the upstream is a
+	// trigger, so omit Inputs. User-defined funcs (AST != nil) keep them.
+	upstreamIsTrigger := sym.Exec == symbol.ExecBoth && sym.AST == nil
+	if !upstreamIsTrigger {
 		n.Inputs = slices.Clone(freshType.Inputs)
 	}
 	var ok bool
