@@ -19,6 +19,7 @@ import { type state } from "@/state";
 /// `hash()` method; plain objects and arrays recurse structurally.
 export const hashQuery = (query: Query): string => {
   if (query == null) return "null";
+  if (typeof query === "bigint") return `${query.toString()}n`;
   if (typeof query !== "object") return JSON.stringify(query);
   if (primitive.isHashable(query)) return query.hash();
   if (Array.isArray(query)) return `[${query.map(hashQuery).join(",")}]`;

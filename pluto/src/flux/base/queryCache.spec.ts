@@ -38,6 +38,13 @@ describe("hashQuery", () => {
     expect(hashQuery("x")).toEqual('"x"');
   });
 
+  it("hashes bigints without throwing and disambiguates from same-valued numbers", () => {
+    expect(hashQuery(42n)).toEqual("42n");
+    expect(hashQuery(42n)).not.toEqual(hashQuery(42));
+    expect(hashQuery({ k: 42n })).toEqual('{"k":42n}');
+    expect(() => hashQuery({ k: 9007199254740993n })).not.toThrow();
+  });
+
   it("delegates to primitive.Hashable.hash() for class instances", () => {
     class TaggedID {
       constructor(private readonly v: string) {}
@@ -76,10 +83,29 @@ describe("QueryCache", () => {
 
     it("treats equivalent queries with key reorderings as the same entry", () => {
       const cache = new QueryCache<Record<string, number>, number>();
-      cache.set({ a: 1, b: 2 }, successResult("retrieved", 7));
-      expect(
-        cache.get({ b: 2, a: 1 })?.variant === "success" && cache.get({ b: 2, a: 1 }),
-      ).toBeTruthy();
+      const result = successResult<number>("retrieved", 7);
+      cache.set({ a: 1, b: 2 }, result);
+      expect(cache.get({ b: 2, a: 1 })).toBe(result);
+    });
+
+    it("treats distinct Hashable instances of the same value as the same entry", () => {
+      class Wrapper {
+        constructor(private readonly v: number) {}
+        hash(): string {
+          return this.v.toString();
+        }
+      }
+      const cache = new QueryCache<{ k: Wrapper }, number>();
+      const result = successResult<number>("retrieved", 7);
+      cache.set({ k: new Wrapper(42) }, result);
+      expect(cache.get({ k: new Wrapper(42) })).toBe(result);
+    });
+
+    it("isolates entries across separate QueryCache instances", () => {
+      const a = new QueryCache<Q, number>();
+      const b = new QueryCache<Q, number>();
+      a.set(qA, successResult<number>("retrieved", 1));
+      expect(b.get(qA)).toBeUndefined();
     });
   });
 
