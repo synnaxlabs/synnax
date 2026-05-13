@@ -10,7 +10,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import { hashQuery, QueryCache } from "@/flux/base/queryCache";
-import { errorResult, pendingResult, successResult } from "@/flux/result";
+import { pendingResult, successResult } from "@/flux/result";
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 
@@ -32,6 +32,27 @@ describe("hashQuery", () => {
     expect(hashQuery(undefined)).toEqual("null");
     expect(hashQuery(42)).toEqual("42");
     expect(hashQuery("x")).toEqual('"x"');
+  });
+
+  it("delegates to primitive.Hashable.hash() for class instances", () => {
+    class TaggedID {
+      constructor(private readonly v: string) {}
+      hash(): string {
+        return `tag:${this.v}`;
+      }
+    }
+    expect(hashQuery({ id: new TaggedID("abc") })).toEqual('{"id":tag:abc}');
+    expect(hashQuery(new TaggedID("xyz"))).toEqual("tag:xyz");
+  });
+
+  it("produces stable hashes across instances representing the same value", () => {
+    class Wrapper {
+      constructor(private readonly v: number) {}
+      hash(): string {
+        return this.v.toString();
+      }
+    }
+    expect(hashQuery({ k: new Wrapper(7) })).toEqual(hashQuery({ k: new Wrapper(7) }));
   });
 });
 
@@ -164,36 +185,6 @@ describe("QueryCache", () => {
       await flush();
       const entry = cache.get<number>("k");
       expect(entry?.variant).toEqual("success");
-    });
-  });
-
-  describe("equal callback", () => {
-    it("skips notification on success-to-success when data is equal", () => {
-      const cache = new QueryCache();
-      const equal = (a: { v: number }, b: { v: number }) => a.v === b.v;
-      cache.set("k", successResult("retrieved", { v: 1 }), equal);
-      const listener = vi.fn();
-      cache.subscribe("k", listener);
-      cache.set("k", successResult("retrieved", { v: 1 }), equal);
-      expect(listener).not.toHaveBeenCalled();
-    });
-
-    it("notifies on success-to-success when data differs", () => {
-      const cache = new QueryCache();
-      const equal = (a: { v: number }, b: { v: number }) => a.v === b.v;
-      cache.set("k", successResult("retrieved", { v: 1 }), equal);
-      const listener = vi.fn();
-      cache.subscribe("k", listener);
-      cache.set("k", successResult("retrieved", { v: 2 }), equal);
-      expect(listener).toHaveBeenCalledTimes(1);
-    });
-
-    it("ignores the equal callback for non-success transitions", () => {
-      const cache = new QueryCache();
-      const equal = vi.fn(() => true);
-      cache.set("k", successResult("retrieved", 1));
-      cache.set("k", errorResult("retrieve", new Error("x")), equal as any);
-      expect(cache.get("k")?.variant).toEqual("error");
     });
   });
 

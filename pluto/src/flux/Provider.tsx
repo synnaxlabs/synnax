@@ -33,10 +33,8 @@ export const useStore = <ScopedStore extends flux.Store>(
   return useMemo(() => client.scopedStore<ScopedStore>(uniqueKey), [client, uniqueKey]);
 };
 
-export const useQueryCache = (): QueryCache => {
-  const client = useContext("Flux.useQueryCache");
-  return client.queryCache;
-};
+export const useQueryCache = (): QueryCache =>
+  useContext("Flux.useQueryCache").queryCache;
 
 export type ProviderProps<ScopedStore extends flux.Store> = (
   | { client: base.Client<ScopedStore> }

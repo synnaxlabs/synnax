@@ -26,9 +26,9 @@ export const formSchema = z.object({
   actions: access.actionZ.array(),
 });
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: access.policy.Key;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -54,7 +54,7 @@ export const { useRetrieve } = Flux.createRetrieve<
   ],
 });
 
-export interface ListParams extends List.PagerParams {}
+export type ListParams = List.PagerParams;
 
 export const useList = Flux.createList<
   ListParams,

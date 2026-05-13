@@ -113,7 +113,7 @@ export const toError = (
   const inner = s.details.error;
   const err = new Error(s.message, { cause: s });
   err.name = inner.name;
-  if (inner.stack != null) err.stack = inner.stack;
+  err.stack = inner.stack;
   return err;
 };
 

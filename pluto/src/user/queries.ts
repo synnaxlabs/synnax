@@ -57,9 +57,9 @@ export const { useUpdate: useDelete } = Flux.createUpdate<UseDeleteArgs, FluxSub
   },
 });
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: user.Key;
-}
+};
 
 export const retrieveSingle = async ({
   client,
@@ -96,7 +96,7 @@ export const { useUpdate: useRename } = Flux.createUpdate<
   },
 });
 
-export interface UseRetrieveGroupArgs {}
+export type UseRetrieveGroupArgs = Record<string, never>;
 
 export const { useRetrieve: useRetrieveGroupID } = Flux.createRetrieve<
   UseRetrieveGroupArgs,
@@ -127,9 +127,9 @@ export const formSchema = user.newZ.extend({
   role: access.role.keyZ,
 });
 
-export interface UseFormParams {
+export type UseFormParams = {
   key?: user.Key;
-}
+};
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   username: "",

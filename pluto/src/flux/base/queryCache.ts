@@ -7,20 +7,22 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { type destructor } from "@synnaxlabs/x";
+import { type destructor, primitive } from "@synnaxlabs/x";
 
+import { type Query } from "@/flux/base/types";
 import { errorResult, type Result, successResult } from "@/flux/result";
 import { type state } from "@/state";
 
 /// Deterministically serializes a query to a stable string. Keys are sorted
 /// recursively so `{a: 1, b: 2}` and `{b: 2, a: 1}` collapse to the same key.
-/// Works for plain objects, arrays, and primitives. Functions, Maps, Sets, and
-/// other complex types are not supported as query inputs.
-export const hashQuery = (query: unknown): string => {
+/// Class instances implementing {@link primitive.Hashable} delegate to their
+/// `hash()` method; plain objects and arrays recurse structurally.
+export const hashQuery = (query: Query): string => {
   if (query == null) return "null";
   if (typeof query !== "object") return JSON.stringify(query);
+  if (primitive.isHashable(query)) return query.hash();
   if (Array.isArray(query)) return `[${query.map(hashQuery).join(",")}]`;
-  const entries = Object.entries(query as Record<string, unknown>).sort(([a], [b]) =>
+  const entries = Object.entries(query as Record<string, Query>).sort(([a], [b]) =>
     a < b ? -1 : a > b ? 1 : 0,
   );
   return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${hashQuery(v)}`).join(",")}}`;
@@ -51,18 +53,7 @@ export class QueryCache {
   /// variant with an attached promise, the cache wires up `.then` handlers
   /// that auto-transition the entry to success or error when the promise
   /// settles.
-  ///
-  /// `equal` is an optional value-equality check applied on success-to-success
-  /// transitions. When the new and previous data are equal under it, the entry
-  /// is left in place and no notification fires - subscribers don't re-render.
-  /// Selectors use this to skip re-renders when a derived slice didn't change
-  /// despite the parent record changing.
-  set<T extends state.State>(
-    hash: string,
-    result: Result<T>,
-    equal?: (a: T, b: T) => boolean,
-  ): void {
-    if (this.skipBecauseEqual(hash, result, equal)) return;
+  set<T extends state.State>(hash: string, result: Result<T>): void {
     this.entries.set(hash, result);
     this.notify(hash);
     if (result.variant !== "loading" || result.promise == null) return;
@@ -70,27 +61,12 @@ export class QueryCache {
     const promise = result.promise;
     promise.then(
       (value) =>
-        this.replaceIfStill<T>(
-          hash,
-          result,
-          successResult(`retrieved ${name}`, value),
-          equal,
-        ),
+        this.replaceIfStill<T>(hash, result, successResult(`retrieved ${name}`, value)),
       (reason: unknown) => {
         const err = reason instanceof Error ? reason : new Error(String(reason));
         this.replaceIfStill<T>(hash, result, errorResult(`retrieve ${name}`, err));
       },
     );
-  }
-
-  private skipBecauseEqual<T extends state.State>(
-    hash: string,
-    next: Result<T>,
-    equal?: (a: T, b: T) => boolean,
-  ): boolean {
-    if (equal == null || next.variant !== "success") return false;
-    const prev = this.entries.get(hash) as Result<T> | undefined;
-    return prev?.variant === "success" && equal(prev.data, next.data);
   }
 
   /// Removes the entry for the given hash. The next read kicks off a fresh
@@ -126,10 +102,8 @@ export class QueryCache {
     hash: string,
     expected: Result<T>,
     next: Result<T>,
-    equal?: (a: T, b: T) => boolean,
   ): void {
     if (this.entries.get(hash) !== expected) return;
-    if (this.skipBecauseEqual(hash, next, equal)) return;
     this.entries.set(hash, next);
     this.notify(hash);
   }
