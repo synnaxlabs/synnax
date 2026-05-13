@@ -46,6 +46,7 @@ var (
 	labelSvc  *label.Service
 	apiSvc    *Service
 	author    user.User
+	userSvc   *user.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
@@ -55,7 +56,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	g := MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB: db, Ontology: otg, Search: searchIdx,
 	}))
-	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
+	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB: db, Ontology: otg, Group: g, Search: searchIdx,
 	}))
 	labelSvc = MustOpen(label.OpenService(ctx, label.ServiceConfig{
@@ -81,6 +82,14 @@ func authedCtx(ctx SpecContext, u user.User) freighter.Context {
 	fctx := freighter.Context{Context: ctx, Params: freighter.Params{}}
 	fctx.Set("Subject", user.OntologyID(u.Key))
 	return fctx
+}
+
+// freshUser creates a user with no role assignments. Use this for "unauthorized"
+// specs so accumulated grants on the shared author don't leak in.
+func freshUser(ctx SpecContext) user.User {
+	u := user.User{Username: "anon-" + uuid.New().String()}
+	Expect(userSvc.NewWriter(nil).Create(ctx, &u)).To(Succeed())
+	return u
 }
 
 // grantOn assigns a role granting the given actions on the given objects to the

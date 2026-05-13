@@ -107,8 +107,9 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 
 		It("Should refuse unauthorized requests without touching the store", func(ctx SpecContext) {
 			name := "api_unauth_" + uuid.New().String()
+			anon := freshUser(ctx)
 
-			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			res, err := apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "noop",
 				Variant:   string(xstatus.VariantInfo),
@@ -122,11 +123,12 @@ var _ = Describe("api/status SetByKeyOrName", func() {
 
 		It("Should deny by-name when the caller only has a row-level grant", func(ctx SpecContext) {
 			name := "api_rowlevel_" + uuid.New().String()
-			grantOn(ctx, user.OntologyID(author.Key),
+			anon := freshUser(ctx)
+			grantOn(ctx, user.OntologyID(anon.Key),
 				[]access.Action{access.ActionCreate},
 				status.OntologyID(uuid.NewString()))
 
-			_, err := apiSvc.SetByKeyOrName(authedCtx(ctx, author), SetByKeyOrNameRequest{
+			_, err := apiSvc.SetByKeyOrName(authedCtx(ctx, anon), SetByKeyOrNameRequest{
 				KeyOrName: name,
 				Message:   "x",
 				Variant:   string(xstatus.VariantInfo),
@@ -147,10 +149,9 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.Count).To(Equal(1))
 
 			Expect(statusSvc.NewRetrieve().Where(status.MatchNames[any](name)).
@@ -169,10 +170,9 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.Count).To(Equal(2))
 		})
 
@@ -182,10 +182,9 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 				[]access.Action{access.ActionDelete},
 				statusTypeOnly)
 
-			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res := MustSucceed(apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
-			})
-			Expect(err).ToNot(HaveOccurred())
+			}))
 			Expect(res.Count).To(Equal(0))
 		})
 	})
@@ -197,8 +196,9 @@ var _ = Describe("api/status DeleteByKeyOrName", func() {
 			Expect(statusSvc.NewWriter(nil).Set(ctx, &status.Status[any]{
 				Key: preKey, Name: name, Variant: xstatus.VariantInfo, Message: "x", Time: telem.Now(),
 			})).To(Succeed())
+			anon := freshUser(ctx)
 
-			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, author), DeleteByKeyOrNameRequest{
+			res, err := apiSvc.DeleteByKeyOrName(authedCtx(ctx, anon), DeleteByKeyOrNameRequest{
 				KeyOrName: name,
 			})
 			Expect(err).To(MatchError(access.ErrDenied))

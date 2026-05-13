@@ -361,8 +361,9 @@ x::errors::Error WriteTaskSink::write(x::telem::Frame &frame) {
             x::errors::Error err = x::errors::NIL;
             if (req_err)
                 err = req_err;
-            else if (auto status_err = errors::from_status(resp.status_code);
-                     status_err)
+            else if (
+                auto status_err = errors::from_status(resp.status_code); status_err
+            )
                 err = status_err;
 
             if (!err) {

@@ -144,8 +144,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Message: "ok", Time: telem.Now(),
 				})).To(Succeed())
 
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, name, "now bad", string(xstatus.VariantError))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "now bad", string(xstatus.VariantError)))
 				Expect(gotKey).To(Equal(existingKey))
 				Expect(multi).To(BeFalse())
 
@@ -170,8 +169,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Message: "second", Time: telem.Now(),
 				})).To(Succeed())
 
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, name, "updated", string(xstatus.VariantWarning))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, name, "updated", string(xstatus.VariantWarning)))
 				Expect(multi).To(BeTrue())
 				Expect(gotKey).To(SatisfyAny(Equal(firstKey), Equal(secondKey)))
 
@@ -195,8 +193,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			// Empty keyOrName routes to by-name path; writer.validate only
 			// forbids empty Key, so name="" is accepted today.
 			It("Should create a row with empty name when keyOrName is empty", func(ctx SpecContext) {
-				gotKey, multi, err := svc.SetByKeyOrName(ctx, "", "x", string(xstatus.VariantInfo))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, multi := MustSucceed2(svc.SetByKeyOrName(ctx, "", "x", string(xstatus.VariantInfo)))
 				Expect(gotKey).ToNot(BeEmpty())
 				Expect(multi).To(BeFalse())
 				var s status.Status[any]
@@ -208,8 +205,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			// so a future tighten-up trips this spec.
 			It("Should accept an empty message", func(ctx SpecContext) {
 				name := "by_name_empty_msg"
-				gotKey, _, err := svc.SetByKeyOrName(ctx, name, "", string(xstatus.VariantInfo))
-				Expect(err).ToNot(HaveOccurred())
+				gotKey, _ := MustSucceed2(svc.SetByKeyOrName(ctx, name, "", string(xstatus.VariantInfo)))
 				var s status.Status[any]
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](gotKey)).Entry(&s).Exec(ctx, nil)).To(Succeed())
 				Expect(s.Message).To(BeEmpty())
@@ -226,8 +222,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Message: "x", Time: telem.Now(),
 				})).To(Succeed())
 
-				count, err := svc.DeleteByKeyOrName(ctx, key)
-				Expect(err).ToNot(HaveOccurred())
+				count := MustSucceed(svc.DeleteByKeyOrName(ctx, key))
 				Expect(count).To(Equal(1))
 
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
@@ -235,8 +230,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			})
 
 			It("Should return count=0 with no error when the UUID is unknown", func(ctx SpecContext) {
-				count, err := svc.DeleteByKeyOrName(ctx, uuid.NewString())
-				Expect(err).ToNot(HaveOccurred())
+				count := MustSucceed(svc.DeleteByKeyOrName(ctx, uuid.NewString()))
 				Expect(count).To(Equal(0))
 			})
 		})
@@ -250,8 +244,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Message: "x", Time: telem.Now(),
 				})).To(Succeed())
 
-				count, err := svc.DeleteByKeyOrName(ctx, name)
-				Expect(err).ToNot(HaveOccurred())
+				count := MustSucceed(svc.DeleteByKeyOrName(ctx, name))
 				Expect(count).To(Equal(1))
 
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](key)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
@@ -268,8 +261,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 					Key: k2, Name: name, Variant: xstatus.VariantInfo, Message: "b", Time: telem.Now(),
 				})).To(Succeed())
 
-				count, err := svc.DeleteByKeyOrName(ctx, name)
-				Expect(err).ToNot(HaveOccurred())
+				count := MustSucceed(svc.DeleteByKeyOrName(ctx, name))
 				Expect(count).To(Equal(2))
 
 				Expect(svc.NewRetrieve().Where(status.MatchKeys[any](k1, k2)).Entry(&status.Status[any]{}).Exec(ctx, nil)).
@@ -277,8 +269,7 @@ var _ = Describe("Dispatch", Ordered, func() {
 			})
 
 			It("Should return count=0 with no error when no row matches", func(ctx SpecContext) {
-				count, err := svc.DeleteByKeyOrName(ctx, "del_by_name_missing")
-				Expect(err).ToNot(HaveOccurred())
+				count := MustSucceed(svc.DeleteByKeyOrName(ctx, "del_by_name_missing"))
 				Expect(count).To(Equal(0))
 			})
 		})

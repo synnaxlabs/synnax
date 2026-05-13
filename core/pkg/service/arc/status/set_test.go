@@ -57,12 +57,10 @@ func (r *recordingReporter) get() []reportCall {
 
 // newModule builds a Module without WASM wiring (covered C++-side).
 func newModule(ctx context.Context, reporter *recordingReporter) *arcstatus.Module {
-	mod, err := arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
+	return MustSucceed(arcstatus.NewModule(ctx, arcstatus.ModuleConfig{
 		Status:   statSvc,
 		Reporter: reporter.report,
-	})
-	Expect(err).ToNot(HaveOccurred())
-	return mod
+	}))
 }
 
 // buildState builds an ir.IR + ProgramState directly (skipping graph.Analyze,
@@ -581,15 +579,13 @@ var _ = Describe("Analyzer hooks", func() {
 	resolver := symbol.CompoundResolver{arcstatus.SymbolResolver, channelResolver}
 
 	analyzeOK := func(ctx context.Context, src string) bool {
-		parsed, err := text.Parse(text.Text{Raw: src})
-		Expect(err).ToNot(HaveOccurred())
+		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, resolver)
 		return diags.Ok()
 	}
 
 	expectInvalidVariantError := func(ctx context.Context, src, badVariant string) {
-		parsed, err := text.Parse(text.Text{Raw: src})
-		Expect(err).ToNot(HaveOccurred())
+		parsed := MustSucceed(text.Parse(text.Text{Raw: src}))
 		_, diags := text.Analyze(ctx, parsed, resolver)
 		Expect(diags.Ok()).To(BeFalse())
 		errs := diags.Errors()
@@ -626,8 +622,7 @@ var _ = Describe("Analyzer hooks", func() {
 		It("Should not flag a missing variant entry", func(ctx SpecContext) {
 			// No variant key set; analyzer skips silently. We only assert that no
 			// "not a valid variant" diagnostic fires.
-			parsed, err := text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b"}`})
-			Expect(err).ToNot(HaveOccurred())
+			parsed := MustSucceed(text.Parse(text.Text{Raw: `sensor -> status.set{key_or_name="a", message="b"}`}))
 			_, diags := text.Analyze(ctx, parsed, resolver)
 			for _, e := range diags.Errors() {
 				Expect(e.Message).ToNot(ContainSubstring("not a valid status variant"))
