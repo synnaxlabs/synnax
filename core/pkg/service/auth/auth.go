@@ -7,11 +7,21 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+// Package auth provides the credential primitives used to authenticate entities in
+// Synnax. It defines the [Authenticator] interface (and its KV-backed implementation in
+// [KV]), the password types ([RawPassword], [HashedPassword]) and the credential
+// payloads ([InsecureCredentials], [SecureCredentials]) that flow through them.
+//
+// Higher-level packages compose these primitives: the user service owns credential
+// lifecycle alongside user records, and the rbac service drives startup-time root-user
+// reconciliation. Direct callers of this package are expected to be
+// infrastructure-level — most application code should reach for the user service
+// instead.
 package auth
 
 import (
 	"context"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/password"
+
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -19,28 +29,28 @@ import (
 // say they are).
 type Authenticator interface {
 	// Authenticate validates the identity of the entity with the given credentials. If
-	// the credentials are invalid, an InvalidCredentials error is returned.
-	Authenticate(ctx context.Context, creds InsecureCredentials) error
+	// the credentials are invalid, [ErrInvalidCredentials] is returned.
+	Authenticate(context.Context, InsecureCredentials) error
 	// NewWriter opens a new Writer using the provided write context.
-	NewWriter(tx gorp.Tx) Writer
+	NewWriter(gorp.Tx) Writer
 }
 
-// Writer registers new sets of credentials within an authentication service.
+// Writer registers and mutates credentials within an authentication service. Every
+// Writer method is a primitive: it performs no identity check itself and writes
+// directly within the writer's transaction. Verification flows (e.g. "user proves they
+// know the old password before rotating it") are composed by higher-level packages by
+// combining [Authenticator.Authenticate] with these primitives.
 type Writer interface {
-	// Register registers the given credentials in the authenticator.
-	Register(ctx context.Context, creds InsecureCredentials) error
-	// UpdateUsername updates the username of the given credentials. If the
-	// Authenticator uses the Node's local storage, they can use the provided tx to
-	// perform the update.
-	UpdateUsername(ctx context.Context, creds InsecureCredentials, newUser string) error
-	// UpdatePassword updates the password of the given credentials. If the
-	// Authenticator uses the Node's local storage, they can use the provided tx to
-	// perform the update.
-	UpdatePassword(ctx context.Context, creds InsecureCredentials, newPass password.Raw) error
-	// InsecureUpdateUsername changes the name of one user to another name. This method does not
-	// validate the credentials of the user.
-	InsecureUpdateUsername(ctx context.Context, oldUsername string, newUsername string) error
-	// InsecureDeactivate deletes the given credentials in the authenticator. This method does not
-	// validate the credentials of the person calling it.
-	InsecureDeactivate(ctx context.Context, usernames ...string) error
+	// Register stores new credentials. Returns [ErrRepeatedUsername] if the username
+	// is already taken.
+	Register(context.Context, InsecureCredentials) error
+	// UpdateUsername renames the credential entry from oldUsername to newUsername. No
+	// identity check; caller is responsible for authorization.
+	UpdateUsername(_ context.Context, oldUsername, newUsername string) error
+	// UpdatePassword replaces the password for the given username. No identity check;
+	// caller is responsible for authorization.
+	UpdatePassword(_ context.Context, username string, _ RawPassword) error
+	// Deactivate removes credentials for the given usernames. No identity check;
+	// caller is responsible for authorization.
+	Deactivate(_ context.Context, usernames ...string) error
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic/symbol"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -55,11 +56,13 @@ var (
 				Group:    g,
 				Search:   searchIdx,
 			}))
+			authKV  = MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
 			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
 				Search:   searchIdx,
+				Auth:     authKV,
 			}))
 		)
 		svc = MustOpen(symbol.OpenService(ctx, symbol.ServiceConfig{
@@ -68,8 +71,9 @@ var (
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		author := user.User{Username: "test"}
-		Expect(userSvc.NewWriter(nil).Create(ctx, &author)).To(Succeed())
+		author := MustSucceed(userSvc.NewWriter(nil).Register(ctx, user.NewUser{
+			Credentials: user.Credentials{Username: "test", Password: "p"},
+		}))
 		ws.Author = author.Key
 		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 	})
