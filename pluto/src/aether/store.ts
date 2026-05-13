@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { UnexpectedError, ValidationError } from "@synnaxlabs/client";
-import { errors, TimeSpan, zod } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, errors, TimeSpan, zod } from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { aether } from "@/aether/aether";
@@ -144,7 +144,7 @@ export interface StoreConfig {
   workerURL?: string | URL;
   workerEnabled?: boolean;
   /** Default timeout for async method invocations. Defaults to 5s. */
-  invokeTimeout?: TimeSpan;
+  invokeTimeout?: CrudeTimeSpan;
 }
 
 /**
@@ -442,7 +442,7 @@ export class Store {
       method: string,
       args: unknown[],
       signal: AbortSignal = AbortSignal.timeout(
-        (this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
+        new TimeSpan(this.config.invokeTimeout ?? DEFAULT_INVOKE_TIMEOUT).milliseconds,
       ),
     ): Promise<unknown> =>
       new Promise((resolve, reject) => {
