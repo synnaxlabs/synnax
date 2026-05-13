@@ -388,6 +388,33 @@ describe("Series", () => {
       expect(result).toEqual('{"a_b":1,"c_d":"apple"}');
     });
 
+    it("should preserve raw snake_case keys while at() converts them to camelCase", () => {
+      const series = new Series({
+        data: [{ user_id: 1, first_name: "alice" }],
+        dataType: DataType.JSON,
+      });
+      expect(series.asString(0, true)).toEqual('{"user_id":1,"first_name":"alice"}');
+      expect(series.at(0, true)).toEqual({ userId: 1, firstName: "alice" });
+    });
+
+    it("should decode UTF-8 bytes for a BYTES series", () => {
+      const payload = new TextEncoder().encode("hello world");
+      const buf = new ArrayBuffer(4 + payload.byteLength);
+      new DataView(buf).setUint32(0, payload.byteLength, true);
+      new Uint8Array(buf).set(payload, 4);
+      const series = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(series.asString(0, true)).toEqual("hello world");
+    });
+
+    it("should emit the U+FFFD replacement character for invalid UTF-8 in a BYTES series", () => {
+      const payload = new Uint8Array([0xff, 0xfe]);
+      const buf = new ArrayBuffer(4 + payload.byteLength);
+      new DataView(buf).setUint32(0, payload.byteLength, true);
+      new Uint8Array(buf).set(payload, 4);
+      const series = new Series({ data: buf, dataType: DataType.BYTES });
+      expect(series.asString(0, true)).toEqual("��");
+    });
+
     it("should return a string representation for a numeric series", () => {
       const series = new Series({
         data: new Float32Array([3.5, 7]),
