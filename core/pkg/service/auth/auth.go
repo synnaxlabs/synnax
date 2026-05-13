@@ -47,9 +47,10 @@ type Writer interface {
 	// UpdateUsername renames the credential entry from oldUsername to newUsername. No
 	// identity check; caller is responsible for authorization.
 	UpdateUsername(_ context.Context, oldUsername, newUsername string) error
-	// UpdatePassword replaces the password for the given username. No identity check;
-	// caller is responsible for authorization.
-	UpdatePassword(_ context.Context, username string, _ RawPassword) error
+	// ChangePassword verifies the supplied credentials and, on success, replaces the
+	// password for the matching entry. Returns [ErrInvalidCredentials] when the
+	// supplied credentials are not valid.
+	ChangePassword(context.Context, InsecureCredentials, RawPassword) error
 	// Deactivate removes credentials for the given usernames. No identity check;
 	// caller is responsible for authorization.
 	Deactivate(_ context.Context, usernames ...string) error
