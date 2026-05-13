@@ -7,11 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { createTestClient, NotFoundError, schematic } from "@synnaxlabs/client";
+import {
+  createTestClient,
+  NotFoundError,
+  schematic,
+  type workspace,
+} from "@synnaxlabs/client";
 import { uuid } from "@synnaxlabs/x";
 import { act, render, renderHook, waitFor } from "@testing-library/react";
 import { type FC, type PropsWithChildren, type ReactElement } from "react";
-import { describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
@@ -19,12 +24,8 @@ import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
 
-const createTestSchematic = async (): Promise<schematic.Schematic> => {
-  const ws = await client.workspaces.create({
-    name: `ws_${uuid.create()}`,
-    layout: {},
-  });
-  return await client.schematics.create(ws.key, {
+const createTestSchematic = async (wsKey: string): Promise<schematic.Schematic> =>
+  await client.schematics.create(wsKey, {
     ...schematic.ZERO_NEW,
     name: "test_schematic",
     nodes: [
@@ -40,7 +41,6 @@ const createTestSchematic = async (): Promise<schematic.Schematic> => {
     ],
     configs: { n1: { variant: "tank" }, n2: { variant: "tank" } },
   });
-};
 
 // Populates the flux store with the schematic at `key`. Uses a single-hook
 // bootstrap component so the suspending `useEnsureRetrieved` is not followed by
@@ -67,10 +67,18 @@ const loadSchematic = async (
 };
 
 describe("schematic queries", () => {
+  let Wrapper: FC<PropsWithChildren>;
+  let ws: workspace.Workspace;
+  beforeAll(async () => {
+    [Wrapper, ws] = await Promise.all([
+      createAsyncSynnaxWrapper({ client }),
+      client.workspaces.create({ name: `ws_${uuid.create()}`, layout: {} }),
+    ]);
+  });
+
   describe("useRetrieveSuspended", () => {
     it("suspends until the schematic loads, then returns it", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+      const schem = await createTestSchematic(ws.key);
 
       const Display = (): ReactElement => {
         const s = Schematic.useRetrieveSuspended({ key: schem.key });
@@ -96,8 +104,7 @@ describe("schematic queries", () => {
 
   describe("useEnsureRetrieved", () => {
     it("populates the store so downstream selectors resolve", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+      const schem = await createTestSchematic(ws.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result } = renderHook(
@@ -109,11 +116,13 @@ describe("schematic queries", () => {
   });
 
   describe("selectors", () => {
-    it("useSelectAllEdges returns the schematic's edges", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+    let schem: schematic.Schematic;
+    beforeAll(async () => {
+      schem = await createTestSchematic(ws.key);
       await loadSchematic(Wrapper, schem.key);
+    });
 
+    it("useSelectAllEdges returns the schematic's edges", () => {
       const { result } = renderHook(
         () => Schematic.useSelectAllEdges({ key: schem.key }),
         { wrapper: Wrapper },
@@ -121,11 +130,7 @@ describe("schematic queries", () => {
       expect(result.current.map((e) => e.key)).toEqual(["e1"]);
     });
 
-    it("useSelectSnapshot returns the snapshot flag", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectSnapshot returns the snapshot flag", () => {
       const { result } = renderHook(
         () => Schematic.useSelectSnapshot({ key: schem.key }),
         { wrapper: Wrapper },
@@ -133,11 +138,7 @@ describe("schematic queries", () => {
       expect(result.current).toBe(false);
     });
 
-    it("useSelectElementConfig returns a config by element key", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectElementConfig returns a config by element key", () => {
       const { result } = renderHook(
         () =>
           Schematic.useSelectElementConfig({
@@ -149,11 +150,7 @@ describe("schematic queries", () => {
       expect((result.current as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectEdge returns the edge for a known key", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectEdge returns the edge for a known key", () => {
       const { result } = renderHook(
         () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "e1" }),
         { wrapper: Wrapper },
@@ -161,11 +158,7 @@ describe("schematic queries", () => {
       expect(result.current?.key).toBe("e1");
     });
 
-    it("useSelectEdge returns undefined for an unknown edge key", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectEdge returns undefined for an unknown edge key", () => {
       const { result } = renderHook(
         () => Schematic.useSelectEdge({ key: schem.key, edgeKey: "missing" }),
         { wrapper: Wrapper },
@@ -173,11 +166,7 @@ describe("schematic queries", () => {
       expect(result.current).toBeUndefined();
     });
 
-    it("useSelectNodes returns nodes for the requested keys", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectNodes returns nodes for the requested keys", () => {
       const { result } = renderHook(
         () => Schematic.useSelectNodes({ key: schem.key, keys: ["n1", "n2"] }),
         { wrapper: Wrapper },
@@ -185,11 +174,7 @@ describe("schematic queries", () => {
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
 
-    it("useSelectNodes omits missing keys without throwing", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectNodes omits missing keys without throwing", () => {
       const { result } = renderHook(
         () =>
           Schematic.useSelectNodes({
@@ -201,11 +186,7 @@ describe("schematic queries", () => {
       expect(result.current.map((n) => n.key)).toEqual(["n1", "n2"]);
     });
 
-    it("useSelectNodes returns an empty array when keys is empty", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectNodes returns an empty array when keys is empty", () => {
       const { result } = renderHook(
         () => Schematic.useSelectNodes({ key: schem.key, keys: [] }),
         { wrapper: Wrapper },
@@ -213,11 +194,7 @@ describe("schematic queries", () => {
       expect(result.current).toEqual([]);
     });
 
-    it("useSelectConfigs returns a map keyed by element key", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectConfigs returns a map keyed by element key", () => {
       const { result } = renderHook(
         () => Schematic.useSelectConfigs({ key: schem.key, keys: ["n1", "n2"] }),
         { wrapper: Wrapper },
@@ -227,11 +204,7 @@ describe("schematic queries", () => {
       expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectConfigs omits missing keys instead of shifting positions", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectConfigs omits missing keys instead of shifting positions", () => {
       const { result } = renderHook(
         () =>
           Schematic.useSelectConfigs({
@@ -245,11 +218,7 @@ describe("schematic queries", () => {
       expect((result.current.get("n2") as { variant: string }).variant).toBe("tank");
     });
 
-    it("useSelectConfigs returns an empty map when keys is empty", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
-      await loadSchematic(Wrapper, schem.key);
-
+    it("useSelectConfigs returns an empty map when keys is empty", () => {
       const { result } = renderHook(
         () => Schematic.useSelectConfigs({ key: schem.key, keys: [] }),
         { wrapper: Wrapper },
@@ -260,12 +229,6 @@ describe("schematic queries", () => {
 
   describe("useCreate", () => {
     it("creates a schematic and stores it in the flux store", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const ws = await client.workspaces.create({
-        name: `ws_${uuid.create()}`,
-        layout: {},
-      });
-
       const { result } = renderHook(() => Schematic.useCreate(), {
         wrapper: Wrapper,
       });
@@ -293,8 +256,7 @@ describe("schematic queries", () => {
 
   describe("useRename", () => {
     it("renames a schematic on the server", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+      const schem = await createTestSchematic(ws.key);
 
       const { result } = renderHook(() => Schematic.useRename(), {
         wrapper: Wrapper,
@@ -318,8 +280,7 @@ describe("schematic queries", () => {
 
   describe("useDelete", () => {
     it("deletes a schematic from the server", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+      const schem = await createTestSchematic(ws.key);
 
       const { result } = renderHook(() => Schematic.useDelete(), {
         wrapper: Wrapper,
@@ -338,8 +299,7 @@ describe("schematic queries", () => {
 
   describe("useDispatch", () => {
     it("applies actions to the schematic and updates the store", async () => {
-      const Wrapper = await createAsyncSynnaxWrapper({ client });
-      const schem = await createTestSchematic();
+      const schem = await createTestSchematic(ws.key);
       await loadSchematic(Wrapper, schem.key);
 
       const { result: nodes } = renderHook(
