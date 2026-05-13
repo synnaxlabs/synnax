@@ -11,6 +11,7 @@ package strings
 
 import (
 	"context"
+	"strconv"
 
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/symbol"
@@ -60,6 +61,66 @@ var SymbolResolver = &symbol.ModuleResolver{
 			Type: types.Function(types.FunctionProperties{
 				Inputs:  types.Params{{Name: "handle", Type: types.String()}},
 				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.I64()}},
+			}),
+		},
+		"from_i32": {
+			Name:     "from_i32",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.I32()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
+		"from_u32": {
+			Name:     "from_u32",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.U32()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
+		"from_i64": {
+			Name:     "from_i64",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.I64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
+		"from_u64": {
+			Name:     "from_u64",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.U64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
+		"from_f32": {
+			Name:     "from_f32",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.F32()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
+			}),
+		},
+		"from_f64": {
+			Name:     "from_f64",
+			Kind:     symbol.KindFunction,
+			Exec:     symbol.ExecWASM,
+			Internal: true,
+			Type: types.Function(types.FunctionProperties{
+				Inputs:  types.Params{{Name: "value", Type: types.F64()}},
+				Outputs: types.Params{{Name: ir.DefaultOutputParam, Type: types.String()}},
 			}),
 		},
 	},
@@ -119,6 +180,30 @@ func NewModule(
 			}
 			return 0
 		}).Export("len")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v int32) uint32 {
+			return s.Create(strconv.FormatInt(int64(v), 10))
+		}).Export("from_i32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v uint32) uint32 {
+			return s.Create(strconv.FormatUint(uint64(v), 10))
+		}).Export("from_u32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v int64) uint32 {
+			return s.Create(strconv.FormatInt(v, 10))
+		}).Export("from_i64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v uint64) uint32 {
+			return s.Create(strconv.FormatUint(v, 10))
+		}).Export("from_u64")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v float32) uint32 {
+			return s.Create(strconv.FormatFloat(float64(v), 'g', -1, 32))
+		}).Export("from_f32")
+	builder = builder.NewFunctionBuilder().
+		WithFunc(func(_ context.Context, v float64) uint32 {
+			return s.Create(strconv.FormatFloat(v, 'g', -1, 64))
+		}).Export("from_f64")
 	if _, err := builder.Instantiate(ctx); err != nil {
 		return nil, err
 	}

@@ -198,7 +198,6 @@ export const sliceStateZ = z.object({
   hauling: Haul.draggingStateZ,
   mosaics: z.record(z.string(), mosaicStateZ),
   nav: navStateZ,
-  alreadyCheckedGetStarted: z.boolean(),
 });
 
 export type SliceState = z.infer<typeof sliceStateZ>;
@@ -210,7 +209,6 @@ export const ZERO_SLICE_STATE: SliceState = sliceStateZ.parse({
     [Theming.SYNNAX_DARK.key]: Theming.SYNNAX_THEMES.synnaxDark,
     [Theming.SYNNAX_LIGHT.key]: Theming.SYNNAX_THEMES.synnaxLight,
   },
-  alreadyCheckedGetStarted: false,
   layouts: { main: MAIN_LAYOUT },
   mosaics: { main: ZERO_MOSAIC_STATE },
   hauling: Haul.ZERO_DRAGGING_STATE,

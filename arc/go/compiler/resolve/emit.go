@@ -10,6 +10,8 @@
 package resolve
 
 import (
+	"context"
+
 	"github.com/synnaxlabs/arc/compiler/wasm"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -27,6 +29,25 @@ func (r *Resolver) EmitCall(
 	handle := r.Resolve(name, concreteType)
 	offset := w.WriteCallPlaceholder(handle)
 	r.RecordPlaceholder(writerID, handle, offset)
+}
+
+// EmitFixedCall emits a call to a host function with a fixed signature
+// looked up from the SymbolResolver, so callers do not redeclare it. Use
+// for monomorphic host functions like string.from_i32; for polymorphic
+// ones (channel.read, state.load), use EmitCall with the concrete type.
+func (r *Resolver) EmitFixedCall(w *wasm.Writer, writerID int, name string) error {
+	if r.symbols == nil {
+		return errors.Newf("cannot resolve %s: no symbol resolver", name)
+	}
+	sym, err := r.symbols.Resolve(context.Background(), name)
+	if err != nil {
+		return errors.Wrapf(err, "resolve %s", name)
+	}
+	if sym.Type.Kind != types.KindFunction {
+		return errors.Newf("symbol %s is not a function", name)
+	}
+	r.EmitCall(w, writerID, name, sym.Type)
+	return nil
 }
 
 // emitCallWithSuffix resolves the qualified name with a WASM function type and
@@ -299,6 +320,29 @@ func (r *Resolver) EmitStringLen(w *wasm.Writer, wID int) {
 		Outputs: types.Params{{Type: types.I64()}},
 	})
 	r.EmitCall(w, wID, "string.len", ct)
+}
+
+// EmitNumericToString emits a call to the string.from_* host fn matching
+// the source numeric type. Shared by the str() typecast and f-strings.
+func (r *Resolver) EmitNumericToString(w *wasm.Writer, wID int, from types.Type) error {
+	var suffix string
+	switch from.Kind {
+	case types.KindI8, types.KindI16, types.KindI32:
+		suffix = "i32"
+	case types.KindU8, types.KindU16, types.KindU32:
+		suffix = "u32"
+	case types.KindI64:
+		suffix = "i64"
+	case types.KindU64:
+		suffix = "u64"
+	case types.KindF32:
+		suffix = "f32"
+	case types.KindF64:
+		suffix = "f64"
+	default:
+		return errors.Newf("cannot convert %s to str", from)
+	}
+	return r.EmitFixedCall(w, wID, "string.from_"+suffix)
 }
 
 // EmitMathPow emits a call to math.pow for the given type.

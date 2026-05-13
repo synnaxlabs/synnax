@@ -73,6 +73,9 @@ var _ = Describe("Codec", func() {
 		Expect(stack.String()).ToNot(BeEmpty())
 		Expect(stack.String()).To(ContainSubstring(".go"))
 	})
+	It("Should have the correct content type", func() {
+		Expect(json.Codec.ContentType()).To(Equal("application/json"))
+	})
 	Describe("String Number Unmarshaling", func() {
 		DescribeTable("UnmarshalStringInt64", func(input string, expected int64, shouldError bool) {
 			b := []byte(input)

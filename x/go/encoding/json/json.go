@@ -16,14 +16,14 @@ import (
 	"strconv"
 
 	"github.com/synnaxlabs/x/encoding"
+	"github.com/synnaxlabs/x/http"
 )
 
-// Codec is a JSON implementation of encoding.Codec.
-var Codec = &codec{}
+// Codec is a JSON implementation of encoding.Codec and http.Codec.
+var Codec http.Codec = &codec{}
 
 type codec struct{}
 
-// ContentType implements http.Codec to return the http content type for the codec.
 func (c *codec) ContentType() string { return "application/json" }
 
 // Encode implements the encoding.Encoder interface.
@@ -114,11 +114,11 @@ func UnmarshalStringUint32(b []byte) (uint32, error) {
 }
 
 // MarshalStringInt64 marshals the int64 value to a UTF-8 string.
-func MarshalStringInt64(n int64) ([]byte, error) {
-	return []byte(`"` + strconv.Itoa(int(n)) + `"`), nil
+func MarshalStringInt64(n int64) []byte {
+	return []byte(`"` + strconv.FormatInt(n, 10) + `"`)
 }
 
 // MarshalStringUint64 marshals the uint64 value to a UTF-8 string.
-func MarshalStringUint64(n uint64) ([]byte, error) {
-	return []byte(`"` + strconv.FormatUint(n, 10) + `"`), nil
+func MarshalStringUint64(n uint64) []byte {
+	return []byte(`"` + strconv.FormatUint(n, 10) + `"`)
 }

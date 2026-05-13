@@ -18,42 +18,47 @@ import (
 	"github.com/synnaxlabs/x/gorp"
 )
 
-// Writer is used to create, update, and delete logs within Synnax. The writer
-// executes all operations within the transaction provided to the Service.NewWriter
-// method. If no transaction is provided, the writer will execute operations directly
-// on the database.
+// Writer is used to create, update, and delete logs within Synnax. The writer executes
+// all operations within the transaction provided to the Service.NewWriter method. If no
+// transaction is provided, the writer will execute operations directly on the database.
 type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Log]
+	table     *gorp.Table[Key, Log]
 }
 
-// Create creates the given log within the workspace provided. If the log does not
-// have a key, a new key will be generated.
-func (w Writer) Create(
-	ctx context.Context,
-	ws uuid.UUID,
-	s *Log,
-) (err error) {
-	var exists bool
-	if s.Key == uuid.Nil {
-		s.Key = uuid.New()
+// Create creates the given log within the workspace provided. If the log does not have
+// a key, a new key will be generated. If ws is uuid.Nil, the log is created without a
+// workspace ParentOf relationship; this is used by the import path, which does not yet
+// wire workspace relationships.
+func (w Writer) Create(ctx context.Context, ws workspace.Key, l *Log) error {
+	var (
+		exists bool
+		err    error
+	)
+	if l.Key == uuid.Nil {
+		l.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Log](s.Key)).Exists(ctx, w.tx)
-		if err != nil {
-			return
+		if exists, err = w.
+			table.
+			NewRetrieve().
+			Where(gorp.MatchKeys[Key, Log](l.Key)).Exists(ctx, w.tx); err != nil {
+			return err
 		}
 	}
-	if err = w.table.NewCreate().Entry(s).Exec(ctx, w.tx); err != nil {
-		return
+	if err = w.table.NewCreate().Entry(l).Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	if exists {
-		return
+		return nil
 	}
-	otgID := OntologyID(s.Key)
+	otgID := OntologyID(l.Key)
 	if err = w.otgWriter.DefineResource(ctx, otgID); err != nil {
-		return
+		return err
+	}
+	if ws == uuid.Nil {
+		return nil
 	}
 	return w.otgWriter.DefineRelationship(
 		ctx,
@@ -64,13 +69,9 @@ func (w Writer) Create(
 }
 
 // Rename renames the log with the given key to the provided name.
-func (w Writer) Rename(
-	ctx context.Context,
-	key uuid.UUID,
-	name string,
-) error {
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
+		Where(gorp.MatchKeys[Key, Log](key)).
 		Change(func(_ gorp.Context, l Log) Log {
 			l.Name = name
 			return l
@@ -78,31 +79,28 @@ func (w Writer) Rename(
 }
 
 // SetData sets the data of the log with the given key to the provided data.
-func (w Writer) SetData(
-	ctx context.Context,
-	key uuid.UUID,
-	data map[string]any,
-) error {
+func (w Writer) SetData(ctx context.Context, key Key, data map[string]any) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Log](key)).
-		Change(func(ctx gorp.Context, l Log) Log {
+		Where(gorp.MatchKeys[Key, Log](key)).
+		Change(func(_ gorp.Context, l Log) Log {
 			l.Data = data
 			return l
 		}).Exec(ctx, w.tx)
 }
 
 // Delete deletes the logs with the given keys.
-func (w Writer) Delete(
-	ctx context.Context,
-	keys ...uuid.UUID,
-) (err error) {
-	if err = w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Log](keys...)).Exec(ctx, w.tx); err != nil {
-		return
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	if err := w.
+		table.
+		NewDelete().
+		Where(gorp.MatchKeys[Key, Log](keys...)).
+		Exec(ctx, w.tx); err != nil {
+		return err
 	}
 	for _, key := range keys {
-		if err = w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
-			return
+		if err := w.otgWriter.DeleteResource(ctx, OntologyID(key)); err != nil {
+			return err
 		}
 	}
-	return
+	return nil
 }

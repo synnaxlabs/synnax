@@ -31,7 +31,7 @@ type Writer struct {
 	// between users and a user group.
 	otg ontology.Writer
 	// table is the gorp table for user entries.
-	table *gorp.Table[uuid.UUID, User]
+	table *gorp.Table[Key, User]
 }
 
 // Create makes a new user in the key-value store. If the username of u already exists,
@@ -56,7 +56,7 @@ func (w Writer) Create(ctx context.Context, u *User) error {
 
 // ChangeUsername updates the username of the user with the given key. If a User with
 // the username newUsername already exists, an error is thrown.
-func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername string) error {
+func (w Writer) ChangeUsername(ctx context.Context, key Key, newUsername string) error {
 	usernameExists, err := w.svc.UsernameExists(ctx, newUsername)
 	if err != nil {
 		return err
@@ -64,7 +64,7 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 	if usernameExists {
 		return auth.RepeatedUsername
 	}
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, User](key)).Change(func(_ gorp.Context, u User) User {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).Change(func(_ gorp.Context, u User) User {
 		u.Username = newUsername
 		return u
 	}).Exec(ctx, w.tx)
@@ -72,8 +72,8 @@ func (w Writer) ChangeUsername(ctx context.Context, key uuid.UUID, newUsername s
 
 // ChangeName updates the first and last name of the user with the given key. If either
 // first or last is an empty string, the corresponding field will not be updated.
-func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, last string) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, User](key)).Change(func(_ gorp.Context, u User) User {
+func (w Writer) ChangeName(ctx context.Context, key Key, first string, last string) error {
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, User](key)).Change(func(_ gorp.Context, u User) User {
 		if first != "" {
 			u.FirstName = first
 		}
@@ -87,9 +87,9 @@ func (w Writer) ChangeName(ctx context.Context, key uuid.UUID, first string, las
 // Delete removes the users with the given keys from the key-value store.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	if err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, User](keys...)).Guard(func(_ gorp.Context, u User) error {
+	if err := w.table.NewDelete().Where(gorp.MatchKeys[Key, User](keys...)).Guard(func(_ gorp.Context, u User) error {
 		if u.RootUser {
 			return errors.New("cannot delete root user")
 		}

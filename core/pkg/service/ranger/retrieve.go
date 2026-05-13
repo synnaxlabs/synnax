@@ -10,7 +10,6 @@
 package ranger
 
 import (
-	"github.com/google/uuid"
 	"github.com/samber/lo"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/label"
@@ -21,7 +20,7 @@ import (
 // Retrieve is used to retrieve ranges from the cluster using a builder pattern.
 type Retrieve struct {
 	baseTX     gorp.Tx
-	gorp       gorp.Retrieve[uuid.UUID, Range]
+	gorp       gorp.Retrieve[Key, Range]
 	search     *search.Index
 	label      *label.Service
 	searchTerm string
@@ -30,7 +29,7 @@ type Retrieve struct {
 // MatchOverlap returns a filter that matches ranges whose TimeRange overlaps
 // with the provided range.
 func MatchOverlap(tr telem.TimeRange) Filter {
-	return func(_ Retrieve) gorp.Filter[uuid.UUID, Range] {
+	return func(_ Retrieve) gorp.Filter[Key, Range] {
 		return gorp.Match(func(_ gorp.Context, rng *Range) (bool, error) {
 			return rng.TimeRange.OverlapsWith(tr), nil
 		})

@@ -61,7 +61,7 @@ func (c ServiceConfig) Validate() error {
 type Service struct {
 	cfg     ServiceConfig
 	signals io.Closer
-	table   *gorp.Table[uuid.UUID, Group]
+	table   *gorp.Table[Key, Group]
 }
 
 func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error) {
@@ -69,9 +69,9 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (*Service, error
 	if err != nil {
 		return nil, err
 	}
-	table, err := gorp.OpenTable[uuid.UUID, Group](ctx, gorp.TableConfig[Group]{
+	table, err := gorp.OpenTable[Key, Group](ctx, gorp.TableConfig[Group]{
 		DB:              cfg.DB,
-		Migrations:      []migrate.Migration{gorp.CodecMigration[uuid.UUID, Group]("msgpack_to_orc")},
+		Migrations:      []migrate.Migration{gorp.CodecMigration[Key, Group]("msgpack_to_orc")},
 		Instrumentation: cfg.Instrumentation,
 	})
 	if err != nil {
@@ -97,7 +97,7 @@ func (s *Service) CreateOrRetrieve(ctx context.Context, groupName string, parent
 }
 
 // Observe returns an observable that notifies callers of changes to group entries.
-func (s *Service) Observe() observe.Observable[gorp.TxReader[uuid.UUID, Group]] {
+func (s *Service) Observe() observe.Observable[gorp.TxReader[Key, Group]] {
 	return s.table.Observe()
 }
 
@@ -119,7 +119,7 @@ func (s *Service) Close() error {
 type Writer struct {
 	tx    gorp.Tx
 	otg   ontology.Writer
-	table *gorp.Table[uuid.UUID, Group]
+	table *gorp.Table[Key, Group]
 }
 
 // Create creates a new Group with the given name and parent.
@@ -145,7 +145,7 @@ func (w Writer) Create(
 
 func (w Writer) CreateWithKey(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 	parent ontology.ID,
 ) (g Group, err error) {
@@ -168,8 +168,8 @@ func (w Writer) CreateWithKey(
 }
 
 // Delete deletes the Groups with the given keys.
-func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
-	keyStrings := lo.Map(keys, func(item uuid.UUID, _ int) string {
+func (w Writer) Delete(ctx context.Context, keys ...Key) error {
+	keyStrings := lo.Map(keys, func(item Key, _ int) string {
 		return item.String()
 	})
 	for _, key := range keys {
@@ -192,13 +192,13 @@ func (w Writer) Delete(ctx context.Context, keys ...uuid.UUID) error {
 			return err
 		}
 	}
-	return w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Group](keys...)).Exec(ctx, w.tx)
+	return w.table.NewDelete().Where(gorp.MatchKeys[Key, Group](keys...)).Exec(ctx, w.tx)
 }
 
 // Rename renames the Group with the given key.
-func (w Writer) Rename(ctx context.Context, key uuid.UUID, name string) error {
+func (w Writer) Rename(ctx context.Context, key Key, name string) error {
 	return w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Group](key)).
+		Where(gorp.MatchKeys[Key, Group](key)).
 		Change(func(_ gorp.Context, g Group) Group {
 			g.Name = name
 			return g

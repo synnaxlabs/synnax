@@ -17,11 +17,15 @@ import "schemas/ontology"
 @cpp output "client/cpp/device"
 @pb
 
+Key = string {
+    @doc value "is a unique identifier for the device"
+}
+
 StatusDetails struct {
     rack   rack.Key {
         @doc value "is the key of the rack this device belongs to."
     }
-    device string   {
+    device Key      {
         @doc value "is the device identifier."
     }
 
@@ -33,10 +37,6 @@ Status = status.Status<StatusDetails> {
         is device-specific status information including operational state and
         device identification.
     """
-}
-
-Key = string {
-    @doc value "is the device's serial number, used as its unique identifier."
 }
 
 Device struct<

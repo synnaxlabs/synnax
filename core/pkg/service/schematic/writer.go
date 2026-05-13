@@ -29,7 +29,7 @@ type Writer struct {
 	tx        gorp.Tx
 	otgWriter ontology.Writer
 	otg       *ontology.Ontology
-	table     *gorp.Table[uuid.UUID, Schematic]
+	table     *gorp.Table[Key, Schematic]
 	// actionObserver is notified after a successful Dispatch so the cluster
 	// signals subsystem can broadcast the action sequence on the schematic
 	// channels. Nil when the service is opened without a Signals provider.
@@ -40,14 +40,14 @@ type Writer struct {
 // schematic does not have a key, a new key will be generated.
 func (w Writer) Create(
 	ctx context.Context,
-	ws uuid.UUID,
+	ws workspace.Key,
 	s *Schematic,
 ) (err error) {
 	var exists bool
 	if s.Key == uuid.Nil {
 		s.Key = uuid.New()
 	} else {
-		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[uuid.UUID, Schematic](s.Key)).Exists(ctx, w.tx)
+		exists, err = w.table.NewRetrieve().Where(gorp.MatchKeys[Key, Schematic](s.Key)).Exists(ctx, w.tx)
 		if err != nil {
 			return
 		}
@@ -70,7 +70,7 @@ func (w Writer) Create(
 	)
 }
 
-func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UUID, bool, error) {
+func (w Writer) findParentWorkspace(ctx context.Context, key Key) (workspace.Key, bool, error) {
 	var res []ontology.Resource
 	if err := w.otg.NewRetrieve().
 		WhereIDs(OntologyID(key)).
@@ -90,10 +90,10 @@ func (w Writer) findParentWorkspace(ctx context.Context, key uuid.UUID) (uuid.UU
 // Rename renames the schematic with the given key to the provided name.
 func (w Writer) Rename(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 ) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Name = name
 			return s
@@ -106,14 +106,14 @@ func (w Writer) Rename(
 // parameter.
 func (w Writer) Copy(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	name string,
 	snapshot bool,
 	result *Schematic,
 ) error {
 	newKey := uuid.New()
 	if err := w.table.NewUpdate().
-		Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+		Where(gorp.MatchKeys[Key, Schematic](key)).
 		Change(func(_ gorp.Context, s Schematic) Schematic {
 			s.Key = newKey
 			s.Name = name
@@ -149,10 +149,10 @@ func (w Writer) Copy(
 // since snapshots are immutable.
 func (w Writer) SetData(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	data Schematic,
 ) error {
-	return w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+	return w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(validate.ErrValidation, "[Schematic] - cannot set data on snapshot %s:%s", key, s.Name)
@@ -172,11 +172,11 @@ func (w Writer) SetData(
 // snapshots are immutable.
 func (w Writer) Dispatch(
 	ctx context.Context,
-	key uuid.UUID,
+	key Key,
 	sessionKey string,
 	actions []Action,
 ) error {
-	if err := w.table.NewUpdate().Where(gorp.MatchKeys[uuid.UUID, Schematic](key)).
+	if err := w.table.NewUpdate().Where(gorp.MatchKeys[Key, Schematic](key)).
 		ChangeErr(func(_ gorp.Context, s Schematic) (Schematic, error) {
 			if s.Snapshot {
 				return s, errors.Wrapf(
@@ -203,9 +203,9 @@ func (w Writer) Dispatch(
 // Delete deletes the schematics with the given keys.
 func (w Writer) Delete(
 	ctx context.Context,
-	keys ...uuid.UUID,
+	keys ...Key,
 ) error {
-	err := w.table.NewDelete().Where(gorp.MatchKeys[uuid.UUID, Schematic](keys...)).Exec(ctx, w.tx)
+	err := w.table.NewDelete().Where(gorp.MatchKeys[Key, Schematic](keys...)).Exec(ctx, w.tx)
 	if err != nil {
 		return err
 	}

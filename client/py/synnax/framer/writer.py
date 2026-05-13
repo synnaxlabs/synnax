@@ -189,13 +189,11 @@ class Writer:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
-        use_experimental_codec: bool = True,
         group: int = 0,
     ) -> None:
         self.start = start
         self._adapter = adapter
-        if use_experimental_codec:
-            client = client.with_codec(WSWriterCodec(adapter.codec))
+        client = client.with_codec(WSWriterCodec(adapter.codec))
         self._stream = client.stream("/frame/write", WriterRequest, WriterResponse)
         config = WriterConfig(
             control_subject=Subject(name=name, key=str(uuid4()), group=group),

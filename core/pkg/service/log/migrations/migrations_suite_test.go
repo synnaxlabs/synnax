@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package http_test
+package migrations_test
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestHTTP(t *testing.T) {
+func TestMigrations(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "HTTP Suite")
+	RunSpecs(t, "Log Migrations Suite")
 }

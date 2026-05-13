@@ -10,15 +10,14 @@
 package role
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Role{}
+var _ gorp.Entry[Key] = Role{}
 
 // GorpKey implements the gorp.Entry interface.
-func (r Role) GorpKey() uuid.UUID { return r.Key }
+func (r Role) GorpKey() Key { return r.Key }
 
 // SetOptions implements the gorp.Entry interface.
 func (r Role) SetOptions() []any { return nil }

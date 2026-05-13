@@ -10,7 +10,6 @@
 package schematic
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -19,9 +18,9 @@ import (
 // compare SessionKey against their own client key to skip self-originated
 // updates (optimistic-UI dedup).
 type ScopedAction struct {
-	Key        uuid.UUID `json:"key" msgpack:"key"`
-	SessionKey string    `json:"session_key" msgpack:"session_key"`
-	Actions    []Action  `json:"actions" msgpack:"actions"`
+	Key        Key      `json:"key" msgpack:"key"`
+	SessionKey string   `json:"session_key" msgpack:"session_key"`
+	Actions    []Action `json:"actions" msgpack:"actions"`
 }
 
 // Handle moves the named node to the given position. No-op if no node matches.

@@ -28,21 +28,21 @@ import (
 )
 
 // OntologyID returns the unique ID to identify the range within the Synnax ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeRange, Key: k.String()}
 }
 
 // OntologyIDs converts a slice of keys to a slice of ontology IDs.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
-func KeyFromOntologyID(id ontology.ID) (uuid.UUID, error) { return uuid.Parse(id.Key) }
+func KeyFromOntologyID(id ontology.ID) (Key, error) { return uuid.Parse(id.Key) }
 
 // KeysFromOntologyIDs converts a slice of ontology IDs to a slice of keys, returning an
 // error if any of the IDs are invalid.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		keys[i], err = KeyFromOntologyID(id)
@@ -69,7 +69,7 @@ var (
 	_ search.Service   = (*Service)(nil)
 )
 
-type change = xchange.Change[uuid.UUID, Range]
+type change = xchange.Change[Key, Range]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypeRange }
 
@@ -105,7 +105,7 @@ func translateChange(c change) ontology.Change {
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Range]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Range]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

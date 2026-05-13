@@ -7,12 +7,12 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { Flex, Input } from "@synnaxlabs/pluto";
-import { type ReactElement } from "react";
+import { Flex, Input, LinePlot as Base } from "@synnaxlabs/pluto";
+import { type ReactElement, useCallback } from "react";
 import { useDispatch } from "react-redux";
 
 import { Layout } from "@/layout";
-import { useSelect } from "@/lineplot/selectors";
+import { useSelect, useSelectIsRemoteCreated } from "@/lineplot/selectors";
 import { setLegend, setTitle } from "@/lineplot/slice";
 
 export interface PropertiesProps {
@@ -23,9 +23,14 @@ export const Properties = ({ layoutKey }: PropertiesProps): ReactElement => {
   const plot = useSelect(layoutKey);
   const { name } = Layout.useSelectRequired(layoutKey);
   const dispatch = useDispatch();
+  const isRemote = useSelectIsRemoteCreated(layoutKey);
+  const { update: renameRemote } = Base.useRename({
+    beforeUpdate: useCallback(() => isRemote === true, [isRemote]),
+  });
 
   const handleTitleRename = (value: string): void => {
     dispatch(Layout.rename({ key: layoutKey, name: value }));
+    renameRemote({ key: layoutKey, name: value });
   };
 
   const handleTitleVisibilityChange = (value: boolean): void => {
