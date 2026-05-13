@@ -146,9 +146,8 @@ export interface UndoableUnaryStore<
     kindOverride?: string,
   ): destructor.Destructor;
   /**
-   * Drop stale entries from the tail and return the topmost applicable undo
-   * (its inverse actions plus a commit closure that pops the entry and
-   * pushes the matching redo entry).
+   * Return the top live undo, dropping stale entries from the tail as it
+   * walks past them. Null when no live entry exists.
    */
   prepareUndo(key: Key): Reversal<Action> | null;
   /** Mirror of prepareUndo for the redo stack. */

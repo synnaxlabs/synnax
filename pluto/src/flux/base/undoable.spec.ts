@@ -39,11 +39,10 @@ const reducer: DispatchReducer<Doc, Action> = (state, actions) => {
       next = { values: { ...next.values, [a.key]: a.value } };
       inverse.unshift({ type: "set", key: a.key, value: prev });
       targets.add(a.key);
-    } else if (a.type === "tag") {
+    } else if (a.type === "tag")
       // Touches a target but contributes no inverse — covers the "marks
       // targets without producing reversible work" branch.
       targets.add(a.key);
-    }
   return { next, inverse, targets: [...targets] };
 };
 

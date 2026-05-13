@@ -18,7 +18,9 @@ import {
   type UndoableUnaryStore,
 } from "@/flux/base/undoable";
 import { useStore } from "@/flux/Provider";
+import { errorResult } from "@/flux/result";
 import { createSelector } from "@/flux/select";
+import { type Adder, useAdder } from "@/status/base/Aggregator";
 import { Synnax } from "@/synnax";
 
 export interface DispatchInput<Key extends record.Key, Action> {
@@ -65,6 +67,8 @@ export const createDispatch = <
     key: Key,
     actions: Action[],
     record: (r: ReplayResult<Action>) => destructor.Destructor,
+    addStatus: Adder,
+    op: string,
     skipPreprocess = false,
   ): Promise<boolean> => {
     const r = store[storeKey].replay(key, actions, { skipPreprocess });
@@ -73,9 +77,10 @@ export const createDispatch = <
     try {
       await send({ client, key, actions: r.processed, sessionKey: client.key });
       return true;
-    } catch {
+    } catch (e) {
       stackRollback();
       r.rollback();
+      addStatus(errorResult(op, e).status);
       return false;
     }
   };
@@ -93,6 +98,7 @@ export const createDispatch = <
   const useDispatch = () => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
+    const addStatus = useAdder();
 
     const dispatchAsync = useCallback(
       async (input: DispatchInput<Key, Action>): Promise<boolean> => {
@@ -105,9 +111,11 @@ export const createDispatch = <
           actions,
           ({ processed, inverse, targets }) =>
             store[storeKey].recordEntry(input.key, processed, inverse, targets),
+          addStatus,
+          "dispatch action",
         );
       },
-      [store, client],
+      [store, client, addStatus],
     );
 
     const dispatch = useCallback(
@@ -118,14 +126,19 @@ export const createDispatch = <
     const beginTransaction = useCallback(
       (input: { key: Key; kind?: string }): Transaction<Action> => {
         if (client == null) return INERT_TX as Transaction<Action>;
-        return store[storeKey].beginTransaction(
-          input.key,
-          (actions) =>
-            send({ client, key: input.key, actions, sessionKey: client.key }),
-          input.kind,
-        );
+        // Wrap `send` so the substrate's rollback runs as before, but the
+        // error also surfaces to the user via the status aggregator.
+        const wrappedSend = async (actions: Action[]) => {
+          try {
+            await send({ client, key: input.key, actions, sessionKey: client.key });
+          } catch (e) {
+            addStatus(errorResult("commit transaction", e).status);
+            throw e;
+          }
+        };
+        return store[storeKey].beginTransaction(input.key, wrappedSend, input.kind);
       },
-      [store, client],
+      [store, client, addStatus],
     );
 
     return { dispatch, dispatchAsync, beginTransaction };
@@ -134,26 +147,46 @@ export const createDispatch = <
   const useUndo = ({ key }: { key: Key }) => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
+    const addStatus = useAdder();
     const canUndo = useCanReverse({ key, side: "undo" });
     const undo = useCallback(() => {
       if (client == null) return;
       const prepared = store[storeKey].prepareUndo(key);
       if (prepared == null) return;
-      void apply(store, client, key, prepared.actions, () => prepared.commit(), true);
-    }, [store, client, key]);
+      void apply(
+        store,
+        client,
+        key,
+        prepared.actions,
+        () => prepared.commit(),
+        addStatus,
+        "undo action",
+        true,
+      );
+    }, [store, client, key, addStatus]);
     return { undo, canUndo };
   };
 
   const useRedo = ({ key }: { key: Key }) => {
     const store = useStore<ScopedStore>();
     const client = Synnax.use();
+    const addStatus = useAdder();
     const canRedo = useCanReverse({ key, side: "redo" });
     const redo = useCallback(() => {
       if (client == null) return;
       const prepared = store[storeKey].prepareRedo(key);
       if (prepared == null) return;
-      void apply(store, client, key, prepared.actions, () => prepared.commit(), true);
-    }, [store, client, key]);
+      void apply(
+        store,
+        client,
+        key,
+        prepared.actions,
+        () => prepared.commit(),
+        addStatus,
+        "redo action",
+        true,
+      );
+    }, [store, client, key, addStatus]);
     return { redo, canRedo };
   };
 
