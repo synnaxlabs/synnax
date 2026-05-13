@@ -62,6 +62,28 @@ export const isStringer = (value: unknown): boolean =>
   value != null && typeof value === "object" && "toString" in value;
 
 /**
+ * Hashable is a duck-typed protocol for class instances that can produce a stable,
+ * canonical string representation of themselves. Implementers commit to: (1) the
+ * returned string uniquely identifies the value's logical content, and (2) two
+ * instances representing the same logical value return equal strings.
+ *
+ * Used by cache-key derivation paths (e.g. flux queryCache) so non-primitive query
+ * fields hash to a stable identifier rather than relying on enumerable own-property
+ * iteration, which is fragile for class instances.
+ */
+export interface Hashable {
+  /** @returns a stable, canonical string representation of the value. */
+  hash: () => string;
+}
+
+/** @returns true if the value implements primitive.Hashable, otherwise returns false. */
+export const isHashable = (value: unknown): value is Hashable =>
+  value != null &&
+  typeof value === "object" &&
+  "hash" in value &&
+  typeof (value as Hashable).hash === "function";
+
+/**
  * Type representing zero values for each primitive type
  */
 export type ZeroValue = "" | 0 | 0n | false | null | undefined;

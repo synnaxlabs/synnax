@@ -307,4 +307,45 @@ describe("useRetrieveSuspended", () => {
 
     expect(utils.queryByTestId("error")?.textContent).toBe("Failed to retrieve Number");
   });
+
+  it("invalidates the cache entry when a listener pushes undefined", async () => {
+    let capturedOnChange: ((v: number | undefined) => void) | null = null;
+    const retrieve = vi
+      .fn<() => Promise<number>>()
+      .mockResolvedValueOnce(1)
+      .mockResolvedValueOnce(2);
+    const { useRetrieveSuspended } = Flux.createRetrieve<{ key: string }, number>({
+      name: "Number",
+      retrieve,
+      mountListeners: ({ onChange }) => {
+        capturedOnChange = onChange as (v: number | undefined) => void;
+        return () => {};
+      },
+    });
+
+    const Display = (): ReactElement => {
+      const value = useRetrieveSuspended({ key: "invalidate-test" });
+      return <div data-testid="value">{value}</div>;
+    };
+
+    let utils!: ReturnType<typeof render>;
+    await act(async () => {
+      utils = render(
+        <Wrapper>
+          <Errors.SuspenseBoundary loading={<div>loading</div>}>
+            <Display />
+          </Errors.SuspenseBoundary>
+        </Wrapper>,
+      );
+    });
+
+    await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("1"));
+
+    await act(async () => {
+      capturedOnChange!(undefined);
+    });
+
+    await waitFor(() => expect(utils.queryByTestId("value")?.textContent).toBe("2"));
+    expect(retrieve).toHaveBeenCalledTimes(2);
+  });
 });

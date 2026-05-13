@@ -21,11 +21,11 @@ import { Flux } from "@/flux";
 
 const PERMISSION_PLURAL_RESOURCE_NAME = "Permissions";
 
-export interface PermissionsQuery {
+export type PermissionsQuery = {
   subject?: ontology.ID;
   objects: ontology.ID | ontology.ID[];
   action: access.Action;
-}
+};
 
 export interface FluxSubStore extends role.FluxSubStore, policy.FluxSubStore {}
 
@@ -128,9 +128,9 @@ export const deleteGranted = ({ id, ...rest }: GrantedParams): boolean =>
 export const createGranted = ({ id, ...rest }: GrantedParams): boolean =>
   isGranted({ ...rest, query: { objects: id, action: "create" } });
 
-export interface LoadPermissionsQuery {
+export type LoadPermissionsQuery = {
   subject?: ontology.ID;
-}
+};
 
 export const { useRetrieve: useLoadPermissions } = Flux.createRetrieve<
   LoadPermissionsQuery,

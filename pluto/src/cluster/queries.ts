@@ -16,7 +16,7 @@ import {
 
 import { Flux } from "@/flux";
 
-export interface UseConnectionStateQuery extends CheckConnectionParams {}
+export type UseConnectionStateQuery = CheckConnectionParams;
 
 export const { useRetrieve: useConnectionState } = Flux.createRetrieve<
   UseConnectionStateQuery,
