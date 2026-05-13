@@ -25,12 +25,12 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeWorkspace, Key: k.String()}
 }
 
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 func OntologyIDsFromWorkspaces(workspaces []Workspace) []ontology.ID {
@@ -39,8 +39,8 @@ func OntologyIDsFromWorkspaces(workspaces []Workspace) []ontology.ID {
 	})
 }
 
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		if keys[i], err = uuid.Parse(id.Key); err != nil {
@@ -59,7 +59,7 @@ func newResource(ws Workspace) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(ws.Key), ws.Name, ws)
 }
 
-type change = xchange.Change[uuid.UUID, Workspace]
+type change = xchange.Change[Key, Workspace]
 
 var (
 	_ ontology.Service = (*Service)(nil)
@@ -94,7 +94,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Workspace]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Workspace]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

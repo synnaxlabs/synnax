@@ -165,11 +165,11 @@ func (s *mapLookupStorage[K, V]) flush(d *delta[K, V]) {
 // entirely; reverse remains a K-keyed map so we can locate the old
 // bucket when an entry's value flips.
 type boolLookupStorage[K IndexKey] struct {
-	commitMu   *sync.RWMutex
-	trueKeys   []K
-	falseKeys  []K
-	reverse    map[K]bool
-	overlay    deltaOverlay[K, bool]
+	commitMu  *sync.RWMutex
+	trueKeys  []K
+	falseKeys []K
+	reverse   map[K]bool
+	overlay   deltaOverlay[K, bool]
 }
 
 func newBoolLookupStorage[K IndexKey](

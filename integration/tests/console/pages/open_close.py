@@ -67,11 +67,6 @@ class OpenClose(ConsoleCase):
         for _, page_name in all_pages:
             console.workspace.close_page(page_name)
 
-        # Close "Get Started" if it's still open (may have been closed by workspace selection)
-        get_started_tab = console.layout.get_tab("Get Started")
-        if get_started_tab.count() > 0:
-            console.workspace.close_page("Get Started")
-
         # Should see "New Component" if all pages closed successfully
         pass_condition = self.page.get_by_text("New Component").count() > 0
         assert pass_condition, (

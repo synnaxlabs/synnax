@@ -24,7 +24,10 @@ func compileLiteral(
 		return compileNumericLiteral(context.Child(ctx, num))
 	}
 	if str := ctx.AST.STR_LITERAL(); str != nil {
-		return compileStringLiteral(ctx, str.GetText())
+		return compileStringLiteral(ctx, literal.ParseString, str.GetText())
+	}
+	if str := ctx.AST.STR_LITERAL_RAW(); str != nil {
+		return compileStringLiteral(ctx, literal.ParseRawString, str.GetText())
 	}
 	if series := ctx.AST.SeriesLiteral(); series != nil {
 		return compileSeriesLiteral(context.Child(ctx, series))
@@ -34,9 +37,10 @@ func compileLiteral(
 
 func compileStringLiteral(
 	ctx context.Context[parser.ILiteralContext],
+	parse func(string, types.Type) (literal.ParsedValue, error),
 	text string,
 ) (types.Type, error) {
-	parsed, err := literal.ParseString(text, types.String())
+	parsed, err := parse(text, types.String())
 	if err != nil {
 		return types.Type{}, err
 	}

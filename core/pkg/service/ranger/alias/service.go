@@ -14,12 +14,12 @@ import (
 	"io"
 	"iter"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
+	"github.com/synnaxlabs/synnax/pkg/service/ranger"
 	xchange "github.com/synnaxlabs/x/change"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -34,9 +34,9 @@ import (
 
 // ParentRetriever is an interface for retrieving the parent range key for a
 // given range. This allows the alias service to implement inheritance without
-// a direct dependency on the ranger service.
+// a direct dependency on the ranger service implementation.
 type ParentRetriever interface {
-	RetrieveParentKey(ctx context.Context, key uuid.UUID, tx gorp.Tx) (uuid.UUID, error)
+	RetrieveParentKey(ctx context.Context, key ranger.Key, tx gorp.Tx) (ranger.Key, error)
 }
 
 // ServiceConfig is the configuration for opening the alias.Service.

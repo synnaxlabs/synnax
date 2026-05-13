@@ -12,7 +12,6 @@ package runtime
 import (
 	"context"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/synnax/pkg/distribution/framer"
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
@@ -35,7 +34,7 @@ const TaskType = "arc"
 type TaskConfig struct {
 	alamos.Instrumentation
 	// ArcKey is the UUID of the Arc program to execute.
-	ArcKey uuid.UUID `json:"arc_key"`
+	ArcKey arc.Key `json:"arc_key"`
 	// AutoStart sets whether the taskImpl should start automatically when configured.
 	AutoStart bool `json:"auto_start"`
 }

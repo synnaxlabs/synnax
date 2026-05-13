@@ -21,10 +21,10 @@ var schema = zyn.Object(map[string]zyn.Schema{
 	"name": zyn.String(),
 })
 
-var _ gorp.Entry[uuid.UUID] = Group{}
+var _ gorp.Entry[Key] = Group{}
 
 // GorpKey implements gorp.Entry.
-func (g Group) GorpKey() uuid.UUID { return g.Key }
+func (g Group) GorpKey() Key { return g.Key }
 
 // SetOptions implements gorp.Entry.
 func (g Group) SetOptions() []any { return nil }

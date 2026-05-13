@@ -13,7 +13,6 @@ import (
 	"context"
 	"io"
 
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/alamos"
 	"github.com/synnaxlabs/arc"
 	"github.com/synnaxlabs/arc/lsp"
@@ -95,7 +94,7 @@ func (c ServiceConfig) Validate() error {
 
 // Service is the primary service for retrieving and modifying arcs from Synnax.
 type Service struct {
-	table  *gorp.Table[uuid.UUID, Arc]
+	table  *gorp.Table[Key, Arc]
 	closer xio.MultiCloser
 	cfg    ServiceConfig
 }
@@ -124,7 +123,7 @@ func (s *Service) Close() error { return s.closer.Close() }
 
 // CompileProgram retrieves an Arc program by key and compiles its Module.
 // The returned Arc has its Module field populated with the compiled module.
-func (s *Service) CompileProgram(ctx context.Context, key uuid.UUID) (Arc, error) {
+func (s *Service) CompileProgram(ctx context.Context, key Key) (Arc, error) {
 	var entry Arc
 	err := s.NewRetrieve().Where(MatchKeys(key)).Entry(&entry).Exec(ctx, nil)
 	if err != nil {
@@ -155,12 +154,12 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	s = &Service{cfg: cfg}
 	cleanup, ok := service.NewOpener(ctx, &s.closer)
 	defer func() { err = cleanup(err) }()
-	if s.table, err = gorp.OpenTable[uuid.UUID, Arc](ctx, gorp.TableConfig[Key, Arc]{
+	if s.table, err = gorp.OpenTable[Key, Arc](ctx, gorp.TableConfig[Key, Arc]{
 		DB: cfg.DB,
 		Migrations: []migrate.Migration{
-			gorp.CodecMigration[uuid.UUID, arcv54.Arc]("msgpack_to_orc"),
+			gorp.CodecMigration[Key, arcv54.Arc]("msgpack_to_orc"),
 			migrate.WithAddedDeps(
-				gorp.NewEntryMigration[uuid.UUID, uuid.UUID, arcv54.Arc, Arc](
+				gorp.NewEntryMigration[Key, Key, arcv54.Arc, Arc](
 					"v54_drop_program_status",
 					MigrateArc,
 				),

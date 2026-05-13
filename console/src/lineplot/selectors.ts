@@ -40,6 +40,14 @@ export const selectMultiple = (state: StoreState, keys: string[]): State[] =>
 export const useSelect = (key: string): State =>
   useMemoSelect((state: StoreState) => select(state, key), [key]);
 
+export const selectIsRemoteCreated = (
+  state: StoreState,
+  key: string,
+): boolean | undefined => selectOptional(state, key)?.remoteCreated;
+
+export const useSelectIsRemoteCreated = (key: string): boolean | undefined =>
+  useMemoSelect((state: StoreState) => selectIsRemoteCreated(state, key), [key]);
+
 export const selectRanges = (
   state: StoreState & Range.StoreState,
   key: string,

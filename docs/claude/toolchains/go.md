@@ -76,14 +76,6 @@ cd core && ginkgo -r
 - **Imports**: Group standard library, external, and internal packages
 - **Error handling**: Explicit error returns, wrapped with context
 
-### Go Patterns
-
-- **Interfaces for abstraction**: Define small, focused interfaces
-- **Dependency injection**: Pass dependencies as parameters, not globals
-- **Context propagation**: Use `context.Context` for cancellation and values
-- **Structured concurrency**: Use goroutines with proper synchronization
-- **Table-driven tests**: Parameterize tests with test cases
-
 ## General Rules
 
 ### Rule 1: Never ignore errors
@@ -257,23 +249,14 @@ var ErrChannelMissing = errors.New("channel not found")
 
 ### Rule 4: Never write throwaway debug scripts — write a real test
 
-Do **not** create ad-hoc Go files (e.g. `temp_debug.go`, `scratch.go`, `main_test.go` in
-an unrelated package, a `main` package under `/tmp`) to explore behavior, reproduce a
-bug, or "just run something quickly". These files are brittle, bypass the module's build
-graph, don't get committed or reviewed, and tend to be forgotten until they break CI or
-leak secrets.
+Do **not** create ad-hoc Go files (`temp_debug.go`, `scratch.go`, a `main` package under
+`/tmp`) to explore behavior or reproduce a bug. They bypass the module's build graph,
+don't get reviewed, and tend to be forgotten until they break CI or leak secrets.
 
-Instead:
-
-- **Write a proper Ginkgo test** in the package being investigated. A focused
-  `It("reproduces ...", ...)` is just as fast to write as a `main` function, runs under
-  the same build flags as production code, and lives where the next person debugging the
-  same area will find it.
-- **Run it with `ginkgo --focus`** to iterate (see the Testing section).
-- **Add `fmt.Println` / `fmt.Printf`** inside the test or the code under test for
-  temporary visibility, and remove them before committing. For anything that should
-  survive the commit, use the package's configured instrumentation (`alamos` / `zap`) at
-  the appropriate level, not `fmt`.
+Instead, write a focused Ginkgo `It("reproduces ...", ...)` in the package under
+investigation and iterate with `ginkgo --focus`. Use temporary `fmt.Println` inside the
+test for visibility (remove before committing). For anything that should survive, use
+the package's instrumentation (`alamos` / `zap`), not `fmt`.
 
 **Incorrect — never do this:**
 
@@ -304,34 +287,18 @@ Run: `ginkgo --focus "repros the duplicate-name bug"` in the package directory.
 
 ### Rule 5: Never edit generated code
 
-Generated files are identified by a `Code generated ... DO NOT EDIT.` header (Go's
-standard convention) and, for Oracle output, by the `.gen.` suffix in the filename
-(e.g., `types.gen.ts`, `types_gen.py`, `*_gen.go`). Do **not** edit these files. Any
-edit will be silently overwritten on the next `oracle sync`, and the real source of
-truth will still be wrong.
+Generated files are identified by a `Code generated ... DO NOT EDIT.` header and, for
+Oracle output, by the `.gen.` suffix (`types.gen.ts`, `types_gen.py`, `*_gen.go`). Any
+edit is silently overwritten on the next `oracle sync`.
 
-**When the generated file needs to change, follow this flow:**
+**When the generated file needs to change:** find the source `.oracle` schema in
+`/schemas/`, edit it there, then prompt the user to run `oracle sync` (the user runs
+oracle, not Claude — see user memory).
 
-1. **Identify the generator.** Oracle-generated files come from `.oracle` schema
-   definitions in `/schemas/` at the repo root (e.g., `/schemas/status.oracle`,
-   `/schemas/channel.oracle`). Find the schema whose output maps to the file you would
-   have edited.
-2. **Edit the schema.** Make the change in the `.oracle` source file, not the generated
-   output.
-3. **Prompt the user to run `oracle sync`.** Do not run it yourself — per project
-   convention, the user runs oracle (see user memory). Ask them to run the sync and
-   report the result.
-
-**If the change cannot be expressed in the current schema language,** the generator
-itself in `/oracle/` may need to change. In that case:
-
-1. **Investigate first.** Read the relevant parts of `/oracle/` (`analyzer/`,
-   `formatter/`, `resolution/`, `exec/`) to confirm what the generator currently
-   supports and where the gap is.
-2. **Prompt the user before making generator changes.** Describe what's missing, what
-   you propose to change in the generator, and the blast radius (what other generated
-   files would shift). Wait for approval — generator changes often touch every
-   language's output and are easy to regress.
+**If the change cannot be expressed in the current schema language**, the generator in
+`/oracle/` (`analyzer/`, `formatter/`, `resolution/`, `exec/`) may need to change.
+Investigate first, then prompt the user before touching the generator — describe what's
+missing and the blast radius across other languages' output. Wait for approval.
 
 **Incorrect — never do this:**
 
@@ -377,35 +344,29 @@ func As[T interface{}](v interface{}) (T, bool) { /* ... */ }                   
 
 ### Rule 7: Use `any` with extreme caution — justify every occurrence
 
-Rule 6 is about spelling: when you _must_ use the empty interface, it's `any`, not
-`interface{}`. This rule is about whether to reach for it at all. In Synnax, the default
-answer is **no**. `any` erases the type system, forcing runtime type assertions,
-defeating the compiler, and pushing errors from compile time to production. Every `any`
-in new code must have a clear, written justification.
+Rule 6 is about spelling. This rule is about whether to reach for `any` at all. The
+default answer is **no**: `any` erases the type system, forces runtime assertions, and
+pushes errors from compile time to production. Every `any` in new code must have a clear
+justification.
 
 **Prefer, in order:**
 
-1. **A concrete type.** If you know the type, name it.
-2. **A focused interface.** `Reader`, `Writer`, `Closer`, a domain interface with two or
-   three methods — describes what the value _does_, not that it exists.
-3. **A generic type parameter.** `func F[T Encodable](v T)` preserves type identity at
-   the call site and still lets the function be reused.
-4. **A sum-like interface with a sealed set of implementers**, used together with a type
-   switch in one well-documented place.
-5. **`any` — only when none of the above are possible.**
+1. **A concrete type** — if you know the type, name it.
+2. **A focused interface** — describes what the value _does_, not that it exists.
+3. **A generic type parameter** — `func F[T Encodable](v T)` preserves type identity at
+   the call site.
+4. **A sum-like interface** with a sealed set of implementers, used with a type switch
+   in one well-documented place.
+5. **`any`** — only when none of the above fit.
 
-**Legitimate uses of `any`** (these are the exceptions, not the pattern):
-
-- Variadic formatting / logging arguments (`fmt.Sprintf`-shaped APIs).
-- Reflective serialization boundaries (`json.Marshal`, generic encoders).
-- Truly heterogeneous containers at a framework edge (e.g., a DI registry) where the
-  type diversity is the feature.
+**Legitimate uses of `any`** (exceptions, not the pattern): variadic formatting/logging
+(`fmt.Sprintf`-shaped APIs), reflective serialization boundaries (`json.Marshal`), truly
+heterogeneous containers at a framework edge (e.g., a DI registry).
 
 When you do use `any`, explain to the user in conversation why a typed alternative
-doesn't work — why a concrete type, focused interface, generic parameter, or sealed sum
-won't fit. Do **not** bury the justification in an inline comment; inline comments about
-"why `any`" are noise (see Comments Rule 1). The justification is a conversation the
-user can push back on, not a tag in the file.
+doesn't fit. Do **not** bury the justification in an inline comment (see Comments Rule
+
+1. — it's a conversation the user can push back on, not a tag in the file.
 
 **Incorrect — `any` used because typing would take a moment of thought:**
 
@@ -419,7 +380,7 @@ type Cache struct {
 func Retry(fn func() (any, error)) (any, error) { /* ❌ use generics */ }
 ```
 
-**Correct — typed alternatives:**
+**Correct — typed alternatives, plus `any` in a legitimate place:**
 
 ```go
 func Handle(event channel.Event) { /* ... */ }                     // concrete
@@ -429,15 +390,9 @@ type Cache[V any] struct {                                          // generic
 }
 
 func Retry[T any](fn func() (T, error)) (T, error) { /* ... */ }    // generic
+
+func (l *Logger) Infof(format string, args ...any) { /* ... */ }    // legitimate
 ```
-
-**Correct — `any` in a legitimate place:**
-
-```go
-func (l *Logger) Infof(format string, args ...any) { /* ... */ }
-```
-
-(Justification lives in the conversation with the user, not in the file.)
 
 ### Rule 8: Use `set.Set` for set membership — never `map[T]struct{}` or `map[T]bool`
 
@@ -536,53 +491,35 @@ _in-body_ comments. See Rule 2.
 
 ### Rule 2: Document identifiers from the caller's perspective
 
-Comments explaining functions, methods, constants, variables, or types are
-**encouraged** for both exported and unexported identifiers. A good doc comment tells
-the reader what they need to know to use the identifier correctly: what it does, what
-the arguments mean, what is returned, what errors can occur, and any preconditions or
-side effects.
+Comments on functions, methods, constants, variables, and types are **encouraged** for
+both exported and unexported identifiers. A good doc comment tells the reader what they
+need to know to use the identifier correctly: what it does, what the arguments mean,
+what is returned, what errors can occur, and any preconditions or side effects. The same
+standard applies to unexported identifiers — the "caller" is the rest of the package.
 
 **Doc comments describe behavior, not implementation.** Do not narrate which
-collaborators are called, what underlying systems back the call, what data structures
-are used internally, the order of internal steps, or any other detail the reader could
-not observe by using the API. These details belong in the code itself, where they can
-change without leaving stale comments behind. The only implementation facts that earn a
-place in a doc comment are ones the caller's correctness depends on — concurrency
-safety, complexity, blocking behavior, ordering guarantees, lock discipline the caller
-must follow, or similar contracts. If you find yourself writing "calls X", "uses Y",
-"stores in Z", "then does W", stop: that information is not for the doc comment.
+collaborators are called, what data structures are used internally, the order of
+internal steps, or any other detail the reader could not observe by using the API. The
+only implementation facts that earn a place in a doc comment are ones the caller's
+correctness depends on — concurrency safety, complexity, blocking behavior, ordering
+guarantees, lock discipline the caller must follow. If you find yourself writing "calls
+X", "uses Y", "stores in Z", "then does W", stop.
 
-**Narrow exception for extreme cases.** A brief note about an implementation choice is
-acceptable when the choice is genuinely **unintuitive or unconventional** and a reader
-would otherwise be confused, assume a bug, or "fix" it in a follow-up — a workaround for
-a known upstream issue, a deliberately non-standard algorithm chosen for a specific
-reason, an ordering that contradicts what a careful reader would expect. The bar is
-high: this is for choices the next reader will stop and question, not for ordinary
-judgment calls or for any implementation detail you happen to find interesting. Keep the
-note to a sentence or two and explain the _why_, not the mechanics. When in doubt, leave
-it out — the default is silence.
+**Narrow exception:** a brief note about a genuinely unintuitive or unconventional
+implementation choice is acceptable when a reader would otherwise assume a bug — a
+workaround for an upstream issue, a deliberately non-standard algorithm, an ordering
+that contradicts what a careful reader would expect. Keep it to a sentence or two and
+explain the _why_, not the mechanics. When in doubt, leave it out.
 
-This applies the same way to **unexported** identifiers. The "caller" of an unexported
-function or type is the rest of the package, and the doc comment exists for the next
-person who will read or use it — not as a transcript of the body. Internal narration is
-no more useful on unexported code than on exported code.
+Keep doc comments **short, tight, and focused** — one or two sentences is usually
+enough. Follow standard Go doc conventions:
 
-Keep doc comments **short, tight, and focused**. One or two sentences is usually enough.
-Prefer adding a second paragraph or a bulleted list only when the API has real nuance
-the reader must understand.
-
-Follow standard Go doc conventions:
-
-- **Start with the identifier's name.** `// Create ...`, `// Service ...`,
-  `// ErrNotFound ...`.
-- **Write complete sentences** with a period at the end.
-- **Use a single `//` block** directly above the declaration, no blank line between the
-  comment and the declaration.
-- **Use `//` for all doc comments**, not `/* ... */`.
-- **Do not indent code samples inside doc comments** except by a single tab (gofmt
-  handles this); `go doc` renders indented blocks as code.
-- **Reference other identifiers by unqualified name** when they are in the same package
-  (`See Reader.Read.`), or with the package prefix otherwise.
+- **Start with the identifier's name** (`// Create ...`, `// ErrNotFound ...`).
+- **Write complete sentences** ending with a period.
+- **Use a single `//` block** directly above the declaration, no blank line between.
+- **Use `//`**, not `/* ... */`.
+- **Reference other identifiers** by unqualified name in the same package, or with the
+  package prefix otherwise.
 
 **Correct:**
 
@@ -624,24 +561,11 @@ func (s *Service) Create(ctx context.Context, name string) (Channel, error) { /*
 func (s *Service) Apply(u Update) error { /* ... */ }
 ```
 
-The caller doesn't see the journal, the lock, or the gossip signal. They see a function
-that applies an update. If the locking is something the caller must coordinate with, say
-_that_ — not the internal sequence.
+If the locking is something the caller must coordinate with, say _that_ — not the
+internal sequence. The same standard applies to unexported helpers: the doc comment is
+for the next reader, not a transcript of the body.
 
-**Incorrect — same standard applied to an unexported helper:**
-
-```go
-// resolveKey looks up the channel in s.cache, falls back to s.db.Get on miss,
-// and stores the result back in the cache before returning.
-func (s *Service) resolveKey(ctx context.Context, name string) (Key, error) { /* ... */ }
-```
-
-The caller of `resolveKey` (somewhere else in the package) needs to know it returns the
-key for a channel name and that it returns `ErrNotFound` if the name is unknown. The
-cache, the fallback, and the write-back are implementation choices that may change
-tomorrow.
-
-**Incorrect — doesn't start with the identifier name, uses the wrong comment style:**
+**Incorrect — wrong comment style and missing identifier name:**
 
 ```go
 /* Creates a new channel. */
@@ -650,26 +574,18 @@ func (s *Service) Create(ctx context.Context, name string) (Channel, error) { /*
 
 ### Rule 3: Document struct fields, including unexported ones
 
-Comments on struct fields and member variables are **strongly encouraged**, even when
-the field is unexported. Struct layouts are where a reader builds their mental model of
-a type, and an unexplained field is almost always a source of confusion later.
+Comments on struct fields are **strongly encouraged**, even when the field is
+unexported. Struct layouts are where a reader builds their mental model of a type, and
+an unexplained field is almost always a source of confusion later.
 
-Keep field comments **tight, short, and focused** — usually a single line. Follow the
-same Go doc conventions as Rule 2: `//` style, start with the field's name, complete
-sentence ending in a period, placed directly above the field with no blank line between.
+Keep field comments **tight** — usually a single line. Use `//` blocks above the field
+(not trailing inline), start with the field's name, end with a period.
 
-The same implementation-detail rule from Rule 2 applies here. A field comment should
-describe **what the field represents** — its semantic role, units, valid range, or
-invariants the rest of the package must uphold. Do **not** narrate when or how the field
-is mutated, which methods touch it, or what the methods do. Method bodies are the source
-of truth for that; a comment that restates them only goes stale.
-
-The exceptions are the same kinds of contracts Rule 2 calls out: lock discipline ("must
-hold `mu` to read or write"), invariants other fields depend on, or units and ranges
-that the type's name does not already convey. The same narrow extreme-case exception
-applies — a brief note on a genuinely unintuitive choice (e.g., a field intentionally
-typed wider than it needs to be to work around an upstream library bug) is acceptable,
-but the bar is high.
+The same implementation-detail rule from Rule 2 applies: describe **what the field
+represents** — its semantic role, units, valid range, or invariants — not when it is
+mutated or which methods touch it. Lock discipline ("must hold `mu` to read or write")
+and other contracts the rest of the package must uphold are legitimate. The same narrow
+extreme-case exception applies for genuinely unintuitive choices.
 
 **Correct:**
 
@@ -702,43 +618,26 @@ type Writer struct {
     // pending buffers frames that have not yet been flushed; appended to in
     // Write, drained in flush, cleared after a successful Put.
     pending []Frame
-    // closed is set to true on the first call to Close; subsequent Close calls
-    // see it as true and return nil immediately without touching db.
-    closed bool
 }
 ```
 
-The names already say what these fields are. The behavior of `Close`, `Write`, and
-`flush` lives in those methods, not in the struct definition.
-
-**Incorrect — trailing inline comments instead of `//` blocks above the field:**
+**Incorrect — trailing inline comments, missing comments on non-trivial state, or
+restating the type:**
 
 ```go
 type Date struct {
-    Year  uint16 // calendar year.
+    Year  uint16 // calendar year.            // ❌ trailing inline
     Month uint8  // month of year [1, 12].
-    Day   uint8  // day of month [1, 31].
 }
-```
 
-**Incorrect — no field comments at all on non-trivial state:**
-
-```go
-type Writer struct {
+type Writer struct {                           // ❌ no comments at all
     Channels []ChannelKey
-    Start    telem.TimeStamp
     db       *pebble.DB
     mu       sync.Mutex
-    pending  []Frame
-    closed   bool
 }
-```
 
-**Incorrect — field comment restates the type without adding meaning:**
-
-```go
 type Writer struct {
-    // Channels is a slice of ChannelKey.
+    // Channels is a slice of ChannelKey.      // ❌ restates the type
     Channels []ChannelKey
 }
 ```
@@ -1196,81 +1095,6 @@ Expect(err).To(HaveOccurred())                                // ❌ also violat
 Expect(err).ToNot(BeNil())                                    // ❌ same
 ```
 
-## 4-Layer Architecture (Server)
-
-The Synnax server (`/core/`) follows strict layering:
-
-```
-Interface Layer (HTTP/gRPC APIs)
-         ↓
-Service Layer (Business logic)
-         ↓
-Distribution Layer (Aspen clustering)
-         ↓
-Storage Layer (Cesium + Pebble)
-```
-
-**Rules:**
-
-- Dependencies only flow downward
-- Each layer exposes interfaces, not implementations
-- Services use dependency injection for testability
-
-## Common Patterns
-
-### Dependency Injection
-
-```go
-type Service struct {
-    db     *DB
-    client *Client
-}
-
-func New(db *DB, client *Client) *Service {
-    return &Service{db: db, client: client}
-}
-```
-
-### Interface Segregation
-
-```go
-// Small, focused interfaces
-type Reader interface {
-    Read(ctx context.Context) (Frame, error)
-}
-
-type Writer interface {
-    Write(ctx context.Context, frame Frame) error
-}
-```
-
-### Error Wrapping
-
-```go
-import "github.com/cockroachdb/errors"
-
-if err != nil {
-    return errors.Wrap(err, "failed to process frame")
-}
-```
-
-## Common Gotchas
-
-- **Aspen**: Eventual consistency means metadata updates may take up to 1 second to
-  propagate
-- **Cesium**: Requires careful handling of overlapping time ranges to prevent write
-  conflicts
-- **Context**: Always pass `context.Context` as first parameter to functions
-- **Goroutines**: Use `sync.WaitGroup` or `errgroup.Group` for proper cleanup
-- **Testing**: Ensure tests don't leak goroutines using `ShouldNotLeakGoroutines()`
-
-## Development Best Practices
-
-- **Interfaces over concrete types**: Define interfaces for dependencies
-- **Dependency injection**: Pass dependencies explicitly, avoid global state
-- **Context propagation**: Use `context.Context` for cancellation and request-scoped
-  values
-- **Error wrapping**: Add context to errors using `errors.Wrap`
-- **Table-driven tests**: Parameterize tests with slices of test cases
-- **Goroutine safety**: Use mutexes or channels for shared state
-- **Clean shutdown**: Implement graceful shutdown with context cancellation
+See @docs/claude/architecture.md for server layering, common patterns (DI, interface
+segregation), and cross-cutting gotchas (Aspen eventual consistency, Cesium overlapping
+ranges, context propagation, goroutine cleanup).

@@ -25,14 +25,14 @@ import (
 )
 
 // OntologyID constructs a unique ontology.ID for the Policy with the given key.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypePolicy, Key: k.String()}
 }
 
 // OntologyIDs constructs a slice of unique ontology.IDs for the Policys with the given
 // keys.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 // OntologyIDsFromPolicies constructs a slice of unique ontology.IDs for the given Policys.
@@ -41,8 +41,8 @@ func OntologyIDsFromPolicies(policies []Policy) []ontology.ID {
 }
 
 // KeysFromOntologyIDs extracts the Policy keys from the given ontology.IDs.
-func KeysFromOntologyIDs(ids []ontology.ID) ([]uuid.UUID, error) {
-	keys := make([]uuid.UUID, len(ids))
+func KeysFromOntologyIDs(ids []ontology.ID) ([]Key, error) {
+	keys := make([]Key, len(ids))
 	var err error
 	for i, id := range ids {
 		keys[i], err = uuid.Parse(id.Key)
@@ -63,7 +63,7 @@ func newResource(p Policy) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(p.Key), p.Name, p)
 }
 
-type change = xchange.Change[uuid.UUID, Policy]
+type change = xchange.Change[Key, Policy]
 
 func (s *Service) Type() ontology.ResourceType { return ontology.ResourceTypePolicy }
 
@@ -97,7 +97,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Policy]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Policy]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

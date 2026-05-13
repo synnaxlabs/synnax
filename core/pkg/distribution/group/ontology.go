@@ -25,19 +25,19 @@ import (
 	"github.com/synnaxlabs/x/zyn"
 )
 
-func OntologyID(key uuid.UUID) ontology.ID {
+func OntologyID(key Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeGroup, Key: key.String()}
 }
 
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(k uuid.UUID, _ int) ontology.ID { return OntologyID(k) })
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(k Key, _ int) ontology.ID { return OntologyID(k) })
 }
 
 func newResource(g Group) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(g.Key), g.Name, g)
 }
 
-type change = xchange.Change[uuid.UUID, Group]
+type change = xchange.Change[Key, Group]
 
 var (
 	_ ontology.Service = (*Service)(nil)
@@ -75,7 +75,7 @@ func translateChange(c change) ontology.Change {
 func (s *Service) OnChange(
 	f func(context.Context, iter.Seq[ontology.Change]),
 ) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Group]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Group]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)
