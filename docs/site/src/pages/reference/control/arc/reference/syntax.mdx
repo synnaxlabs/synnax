@@ -126,11 +126,11 @@ Strings are enclosed in double quotes. Escape sequences are supported.
 ### Format String Literals
 
 Format strings are enclosed in backticks. They embed expressions inside `{...}`
-placeholders, with an optional format spec after `%`:
+placeholders, with an optional format spec after `:`:
 
 ```arc
-`Data: {pressure%.1f} psi` // "Data: 523.7 psi"
-`Code: {pump_err_code%#x}` // "0xFF00"
+`Data: {pressure:.1f} psi` // "Data: 523.7 psi"
+`Code: {pump_err_code:#x}` // "0xFF00"
 `Math: {(2.0 + 4.0)/2.0}`  // "3"
 
 ```
@@ -139,55 +139,111 @@ Each placeholder is a regular Arc expression. Numeric values are converted to th
 default string form unless a format spec is given. Format specs follow printf-style
 conventions and are validated against the placeholder type at compile time.
 
-| Form          | Meaning                                                |
-| ------------- | ------------------------------------------------------ |
-| `{expr}`      | Insert `expr` using its default string form            |
-| `{expr%spec}` | Format `expr` using a printf-style spec (e.g., `%.2f`) |
+| Form          | Meaning                                               |
+| ------------- | ----------------------------------------------------- |
+| `{expr}`      | Insert `expr` using its default string form           |
+| `{expr:spec}` | Format `expr` using a printf-style spec (e.g., `.2f`) |
 
 <Details>
 <Text.Text slot="summary" level="p"><Icon.Reference /> Format spec reference</Text.Text>
 
-| Spec    | Types    | Use               | Example                 |
-| ------- | -------- | ----------------- | ----------------------- |
-| `%d`    | int      | Decimal           | `42` → `42`             |
-| `%b`    | int      | Binary            | `5` → `101`             |
-| `%#b`   | int      | Binary, prefix    | `5` → `0b101`           |
-| `%o`    | int      | Octal             | `8` → `10`              |
-| `%#o`   | int      | Octal, prefix     | `8` → `010`             |
-| `%x`    | int, str | Hex               | `255` → `ff`            |
-| `%#x`   | int      | Hex, prefix       | `255` → `0xff`          |
-| `%X`    | int, str | Hex, uppercase    | `255` → `FF`            |
-| `%c`    | int      | Unicode character | `65` → `A`              |
-| `%U`    | int      | Unicode escape    | `65` → `U+0041`         |
-| `%f`    | float    | Decimal           | `3.14` → `3.140000`     |
-| `%e`    | float    | Scientific        | `3.14` → `3.140000e+00` |
-| `%E`    | float    | Scientific, upper | `3.14` → `3.140000E+00` |
-| `%g`    | float    | Compact           | `3.14` → `3.14`         |
-| `%G`    | float    | Compact, upper    | `3.14` → `3.14`         |
-| `%s`    | str      | String            | `"ok"` → `ok`           |
-| `%q`    | str      | Quoted            | `"ok"` → `"ok"`         |
-| `%v`    | any      | Default form      | `3.14` → `3.14`         |
-| `%5d`   | int      | Width 5           | `42` → `␣␣␣42`          |
-| `%-5d`  | int      | Width 5, left     | `42` → `42␣␣␣`          |
-| `%05d`  | int      | Width 5, zero-pad | `42` → `00042`          |
-| `%+d`   | int      | Force sign        | `42` → `+42`            |
-| `% d`   | int      | Space for `+`     | `42` → `␣42`            |
-| `%.2f`  | float    | Precision 2       | `3.14159` → `3.14`      |
-| `%+f`   | float    | Force sign        | `3.14` → `+3.140000`    |
-| `%6.2f` | float    | Width 6, prec 2   | `3.14` → `␣␣3.14`       |
-| `%5s`   | str      | Width 5           | `"ok"` → `␣␣␣ok`        |
-| `%-5s`  | str      | Width 5, left     | `"ok"` → `ok␣␣␣`        |
+A format spec has the form:
+
+```
+[flags][width].[precision][verb]
+```
+
+Only the verb is required. Each bracketed part is described below.
+
+#### Verb
+
+The verb selects the conversion. Each verb accepts specific placeholder types.
+
+| Verb | Types | Use               | Example                 |
+| ---- | ----- | ----------------- | ----------------------- |
+| `d`  | int   | Decimal           | `42` → `42`             |
+| `b`  | int   | Binary            | `5` → `101`             |
+| `o`  | int   | Octal             | `8` → `10`              |
+| `x`  | int   | Hex               | `255` → `ff`            |
+| `c`  | int   | Unicode character | `65` → `A`              |
+| `f`  | float | Decimal           | `3.14` → `3.140000`     |
+| `e`  | float | Scientific        | `3.14` → `3.140000e+00` |
+| `g`  | float | Compact           | `3.14` → `3.14`         |
+| `s`  | str   | String            | `hello` → `hello`       |
+| `q`  | str   | Quoted string     | `hello` → `"hello"`     |
+
+Verbs `x`, `e`, and `g` have uppercase variants `X`, `E`, and `G` that uppercase their
+output (e.g., `X` of `255` → `FF`).
+
+`s` outputs the string as-is, identical to the default `{name}` form. Its practical use
+is as the anchor verb when applying width or padding modifiers to a string: `{name:5s}`
+pads to width 5, `{name:-10s}` left-aligns within width 10. See the Examples section
+below.
+
+`q` wraps the string in double quotes and escapes special characters so the result is a
+valid string literal: an embedded `"` becomes `\"`, a newline becomes `\n`, and so on.
+For example, `q` of `say "hi"` produces `"say \"hi\""`.
+
+#### Flags
+
+Flags are zero or more of the following characters, in any order, placed at the start of
+the spec.
+
+| Flag | Use                                                               |
+| ---- | ----------------------------------------------------------------- |
+| `#`  | Alternate form: adds `0b` / `0` / `0x` prefix for `b` / `o` / `x` |
+| `+`  | Force sign on positive numbers                                    |
+| ` `  | Leading space for positive numbers                                |
+| `-`  | Left-align within width                                           |
+| `0`  | Zero-pad to width                                                 |
+
+#### Width
+
+A digit count specifying the minimum output width. The value is padded with spaces (or
+zeros, with the `0` flag) up to this width. For example, `5d` of `42` → `␣␣␣42`.
+
+#### Precision
+
+A `.` followed by a digit count specifying digits after the decimal point. For example,
+`.2f` of `3.14159` → `3.14`.
+
+#### Examples
+
+Flags, width, and precision compose in spec order:
+
+| Spec     | Value     | Output         |
+| -------- | --------- | -------------- |
+| `#b`     | `5`       | `0b101`        |
+| `#o`     | `8`       | `010`          |
+| `#x`     | `255`     | `0xff`         |
+| `X`      | `255`     | `FF`           |
+| `E`      | `3.14`    | `3.140000E+00` |
+| `G`      | `3.14`    | `3.14`         |
+| `+d`     | `42`      | `+42`          |
+| ` d`     | `42`      | `␣42`          |
+| `5d`     | `42`      | `␣␣␣42`        |
+| `-5d`    | `42`      | `42␣␣␣`        |
+| `05d`    | `42`      | `00042`        |
+| `5s`     | `"ok"`    | `␣␣␣ok`        |
+| `-5s`    | `"ok"`    | `ok␣␣␣`        |
+| `.2f`    | `3.14159` | `3.14`         |
+| `+f`     | `3.14`    | `+3.140000`    |
+| `6.2f`   | `3.14`    | `␣␣3.14`       |
+| `+08.2f` | `3.14`    | `+0003.14`     |
+| `#06x`   | `255`     | `0x00ff`       |
 
 </Details>
+
+Only `{` and `` ` `` have syntactic weight inside a body, so they are the only
+characters that need escaping. A bare `}` is always a literal character.
 
 | Escape   | Meaning          |
 | -------- | ---------------- |
 | `` \` `` | Literal backtick |
 | `\{`     | Literal `{`      |
-| `\}`     | Literal `}`      |
 
 ```arc
-msg := `progress: \{50%\}` // "progress: {50%}"
+msg := `progress: \{50}` // "progress: {50}"
 ```
 
 ### Series Literals

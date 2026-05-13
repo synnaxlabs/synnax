@@ -92,13 +92,12 @@ trig -> f{}`
 			func(specCtx SpecContext, body, errSubstr string) {
 				expectError(specCtx, wrap(`    log = `+body), errSubstr)
 			},
-			Entry("unmatched closing brace", "`}`", "unmatched '}'"),
 			Entry("unmatched opening brace at end", "`{x`", "unmatched '{'"),
 			Entry("unmatched opening brace mid-text", "`pre {x more`", "unmatched '{'"),
 			Entry("nested unmatched open inside placeholder", "`{x{y}`", "unmatched"),
 			Entry("empty placeholder body", "`{}`", "must contain an expression"),
-			Entry("empty spec after percent", "`{chI32%}`", "format spec after '%' is empty"),
-			Entry("empty expression before percent", "`{%d}`", "must contain an expression before '%'"),
+			Entry("empty spec after colon", "`{chI32:}`", "format spec after ':' is empty"),
+			Entry("empty expression before colon", "`{:d}`", "must contain an expression before ':'"),
 		)
 	})
 
@@ -154,47 +153,60 @@ trig -> f{}`
 			func(specCtx SpecContext, body string) {
 				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
 			},
-			Entry("i32 channel %f", "`{chI32%f}`"),
-			Entry("i32 channel %.2f", "`{chI32%.2f}`"),
-			Entry("i32 channel %e", "`{chI32%e}`"),
-			Entry("i32 channel %g", "`{chI32%g}`"),
+			Entry("i32 channel :f", "`{chI32:f}`"),
+			Entry("i32 channel :.2f", "`{chI32:.2f}`"),
+			Entry("i32 channel :e", "`{chI32:e}`"),
+			Entry("i32 channel :g", "`{chI32:g}`"),
 		)
 
 		DescribeTable("rejects integer-only specs on float placeholders",
 			func(specCtx SpecContext, body string) {
 				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
 			},
-			Entry("f64 channel %d", "`{chF64%d}`"),
-			Entry("f64 channel %o", "`{chF64%o}`"),
+			Entry("f64 channel :d", "`{chF64:d}`"),
+			Entry("f64 channel :o", "`{chF64:o}`"),
 		)
 
 		DescribeTable("rejects invalid verbs on string placeholders",
 			func(specCtx SpecContext, body string) {
 				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
 			},
-			Entry("string channel %d", "`{chStr%d}`"),
-			Entry("string channel %.2f", "`{chStr%.2f}`"),
+			Entry("string channel :d", "`{chStr:d}`"),
+			Entry("string channel :.2f", "`{chStr:.2f}`"),
+		)
+
+		DescribeTable("rejects blacklisted verbs across placeholder types",
+			func(specCtx SpecContext, body string) {
+				expectError(specCtx, wrap(`    log = `+body), "invalid format spec")
+			},
+			Entry("i32 channel :T", "`{chI32:T}`"),
+			Entry("f64 channel :T", "`{chF64:T}`"),
+			Entry("string channel :T", "`{chStr:T}`"),
+			Entry("i32 channel :v", "`{chI32:v}`"),
+			Entry("f64 channel :v", "`{chF64:v}`"),
+			Entry("string channel :v", "`{chStr:v}`"),
+			Entry("integer literal :T", "`{42:T}`"),
+			Entry("i32 channel :U", "`{chI32:U}`"),
+			Entry("u8 channel :U", "`{chU8:U}`"),
+			Entry("integer literal :U", "`{42:U}`"),
+			Entry("string channel :x", "`{chStr:x}`"),
+			Entry("string channel :X", "`{chStr:X}`"),
 		)
 
 		DescribeTable("accepts valid specs",
 			func(specCtx SpecContext, body string) {
 				expectSuccess(specCtx, wrap(`    log = `+body))
 			},
-			Entry("i32 channel %d", "`{chI32%d}`"),
-			Entry("i32 channel %05d", "`{chI32%05d}`"),
-			Entry("i32 channel %x", "`{chI32%x}`"),
-			Entry("i32 channel %T", "`{chI32%T}`"),
-			Entry("f64 channel %.2f", "`{chF64%.2f}`"),
-			Entry("f64 channel %e", "`{chF64%e}`"),
-			Entry("f64 channel %T", "`{chF64%T}`"),
-			Entry("u8 channel %d", "`{chU8%d}`"),
-			Entry("string channel %s", "`{chStr%s}`"),
-			Entry("string channel %q", "`{chStr%q}`"),
-			Entry("string channel %T", "`{chStr%T}`"),
-			Entry("string channel %v", "`{chStr%v}`"),
-			Entry("integer literal %d", "`{123%d}`"),
-			Entry("integer literal %T", "`{42%T}`"),
-			Entry("float literal %.2f", "`{3.14%.2f}`"),
+			Entry("i32 channel :d", "`{chI32:d}`"),
+			Entry("i32 channel :05d", "`{chI32:05d}`"),
+			Entry("i32 channel :x", "`{chI32:x}`"),
+			Entry("f64 channel :.2f", "`{chF64:.2f}`"),
+			Entry("f64 channel :e", "`{chF64:e}`"),
+			Entry("u8 channel :d", "`{chU8:d}`"),
+			Entry("string channel :s", "`{chStr:s}`"),
+			Entry("string channel :q", "`{chStr:q}`"),
+			Entry("integer literal :d", "`{123:d}`"),
+			Entry("float literal :.2f", "`{3.14:.2f}`"),
 		)
 
 		// Go's fmt accepts %x and %b on float64; pin so a future validator change cannot regress.
@@ -202,71 +214,47 @@ trig -> f{}`
 			func(specCtx SpecContext, body string) {
 				expectSuccess(specCtx, wrap(`    log = `+body))
 			},
-			Entry("f64 channel %x (hex float form)", "`{chF64%x}`"),
-			Entry("f64 channel %b (binary scientific form)", "`{chF64%b}`"),
+			Entry("f64 channel :x (hex float form)", "`{chF64:x}`"),
+			Entry("f64 channel :b (binary scientific form)", "`{chF64:b}`"),
 		)
 	})
 
-	Describe("Multiple '%' in placeholder (last '%' is the spec separator)", func() {
-		It("treats the rightmost '%' in `{x%y%d}` as the spec separator (i32)", func(specCtx SpecContext) {
+	Describe("Multiple ':' in placeholder (last ':' is the spec separator)", func() {
+		It("treats the rightmost ':' in `{x:y:d}` as the spec separator (i32)", func(specCtx SpecContext) {
 			expectSuccess(specCtx, wrap(`    x i32 := 10
     y i32 := 3
-    log = `+"`{x%y%d}`"))
+    log = `+"`{x:y:d}`"))
 		})
 
-		It("treats the rightmost '%' in `{x%y%.2f}` as the spec separator (f64)", func(specCtx SpecContext) {
+		It("treats the rightmost ':' in `{x:y:.2f}` as the spec separator (f64)", func(specCtx SpecContext) {
 			expectSuccess(specCtx, wrap(`    x f64 := 1.0
     y f64 := 0.5
-    log = `+"`{x%y%.2f}`"))
+    log = `+"`{x:y:.2f}`"))
 		})
 
-		It("treats the rightmost '%' in three-'%' bodies as the spec separator", func(specCtx SpecContext) {
+		It("treats the rightmost ':' in three-':' bodies as the spec separator", func(specCtx SpecContext) {
 			expectSuccess(specCtx, wrap(`    a i32 := 7
     b i32 := 3
     c i32 := 2
-    log = `+"`{a%b%c%d}`"))
+    log = `+"`{a:b:c:d}`"))
 		})
 
-		It("rejects when the rightmost '%' produces an invalid spec, regardless of earlier '%'", func(specCtx SpecContext) {
+		It("rejects when the rightmost ':' produces an invalid spec, regardless of earlier ':'", func(specCtx SpecContext) {
 			expectError(specCtx, wrap(`    x i32 := 10
     y i32 := 3
-    log = `+"`{x%y%z}`"), "invalid format spec")
+    log = `+"`{x:y:z}`"), "invalid format spec")
 		})
 
-		It("rejects when the rightmost '%' splits a spec invalid for the resulting expression type", func(specCtx SpecContext) {
+		It("rejects when the rightmost ':' splits a spec invalid for the resulting expression type", func(specCtx SpecContext) {
 			expectError(specCtx, wrap(`    x i32 := 10
     y i32 := 3
-    log = `+"`{x%y%f}`"), "invalid format spec")
+    log = `+"`{x:y:f}`"), "invalid format spec")
 		})
 
-		It("with `{x%y}` (single '%' between two i32 vars) splits y as the spec, not as a modulo operand", func(specCtx SpecContext) {
+		It("with `{x:y}` (single ':' between two i32 vars) splits y as the spec", func(specCtx SpecContext) {
 			expectError(specCtx, wrap(`    x i32 := 10
     y i32 := 3
-    log = `+"`{x%y}`"), `invalid format spec "y"`)
-		})
-	})
-
-	Describe("Whitespace flanking '%' (modulo expression vs spec)", func() {
-		It("treats `{x % y}` (both spaces) as a modulo expression on i32", func(specCtx SpecContext) {
-			expectSuccess(specCtx, wrap(`    x i32 := 10
-    y i32 := 3
-    log = `+"`{x % y}`"))
-		})
-
-		It("accepts `{chF64 % .2f}` because the body parses as an f64 modulo expression", func(specCtx SpecContext) {
-			expectSuccess(specCtx, wrap(`    log = `+"`{chF64 % .2f}`"))
-		})
-
-		It("rejects `{chI32% .2f}` (right-space only) with a type mismatch", func(specCtx SpecContext) {
-			expectError(specCtx, wrap(`    log = `+"`{chI32% .2f}`"), "type mismatch")
-		})
-
-		It("rejects `{chI32 %.2f}` (left-space only) with a type mismatch", func(specCtx SpecContext) {
-			expectError(specCtx, wrap(`    log = `+"`{chI32 %.2f}`"), "type mismatch")
-		})
-
-		It("accepts `{chF64%.2f}` (no spaces) as a valid float spec", func(specCtx SpecContext) {
-			expectSuccess(specCtx, wrap(`    log = `+"`{chF64%.2f}`"))
+    log = `+"`{x:y}`"), `invalid format spec "y"`)
 		})
 	})
 
@@ -279,14 +267,14 @@ trig -> f{}`
 			expectSuccess(specCtx, wrap(`    log = `+"`hello world`"))
 		})
 
-		It("accepts escaped braces with no placeholder", func(specCtx SpecContext) {
-			expectSuccess(specCtx, wrap(`    log = `+"`\\{ \\}`"))
+		It("accepts an escaped open brace and bare close with no placeholder", func(specCtx SpecContext) {
+			expectSuccess(specCtx, wrap(`    log = `+"`\\{ }`"))
 		})
 	})
 
 	Describe("Diagnostic position anchoring", func() {
 		It("anchors a placeholder spec error on the same line as the literal", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `{chStr%d}`\n}\ntrig -> f{}"
+			code := "func f() {\n    log = `{chStr:d}`\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(2),
 				"expected diagnostic on line 2, got line %d (col %d)", d.Start.Line, d.Start.Col)
@@ -298,7 +286,7 @@ trig -> f{}`
 		})
 
 		It("anchors a placeholder spec error on a later line for a multi-line raw string", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `line1\nline2\n{chStr%d}`\n}\ntrig -> f{}"
+			code := "func f() {\n    log = `line1\nline2\n{chStr:d}`\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(4),
 				"expected diagnostic on line 4 (third line of literal), got line %d col %d",
@@ -306,7 +294,7 @@ trig -> f{}`
 		})
 
 		It("anchors a placeholder error past the opening backtick on a single-line literal", func(specCtx SpecContext) {
-			code := "func f() {\n    log = `pre {chStr%d} post`\n}\ntrig -> f{}"
+			code := "func f() {\n    log = `pre {chStr:d} post`\n}\ntrig -> f{}"
 			d := expectError(specCtx, code, "invalid format spec")
 			Expect(d.Start.Line).To(Equal(2))
 			Expect(d.Start.Col).To(BeNumerically(">", 11),
@@ -349,7 +337,7 @@ trig -> f{}`
 
 	Describe("Multiple errors in one literal", func() {
 		It("emits one diagnostic per offending placeholder", func(specCtx SpecContext) {
-			code := wrap(`    log = ` + "`{chStr%d} {chF64%d}`")
+			code := wrap(`    log = ` + "`{chStr:d} {chF64:d}`")
 			diags := analyze(specCtx, code)
 			Expect(diags.Ok()).To(BeFalse())
 			Expect(countErrors(diags, "invalid format spec")).To(Equal(2),
@@ -357,7 +345,7 @@ trig -> f{}`
 		})
 
 		It("continues analyzing later placeholders after an earlier spec error", func(specCtx SpecContext) {
-			code := wrap(`    log = ` + "`{chStr%d} and {chF64%d}`")
+			code := wrap(`    log = ` + "`{chStr:d} and {chF64:d}`")
 			diags := analyze(specCtx, code)
 			Expect(diags.Ok()).To(BeFalse())
 			Expect(countErrors(diags, "invalid format spec")).To(Equal(2),

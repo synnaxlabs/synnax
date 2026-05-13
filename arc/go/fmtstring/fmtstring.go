@@ -11,6 +11,7 @@ package fmtstring
 
 import (
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -45,39 +46,28 @@ func StripDelimiters(text string) (body string, ok bool) {
 }
 
 // Parse splits a format-string body into ordered segments at `{...}` placeholders.
-// `\{` and `\}` in literal text escape to `{` and `}`.
+// `\{` escapes to a literal `{`; a bare `}` outside a placeholder is plain text.
 func Parse(body string) ([]Segment, error) {
 	var segments []Segment
 	pos := 0
 	for pos < len(body) {
-		rel := indexUnescapedBrace(body[pos:])
-		if rel == -1 {
+		open, text := scanText(body, pos)
+		if text != "" {
 			segments = append(segments, Segment{
-				Text:       braceUnescaper.Replace(body[pos:]),
+				Text:       text,
 				Start:      pos,
-				End:        len(body),
+				End:        open,
 				SpecOffset: -1,
 			})
+		}
+		if open == len(body) {
 			return segments, nil
 		}
-		i := pos + rel
-		if body[i] == '}' {
-			return nil, errors.New("unmatched '}'")
+		close, err := findPlaceholderClose(body, open)
+		if err != nil {
+			return nil, err
 		}
-		if i > pos {
-			segments = append(segments, Segment{
-				Text:       braceUnescaper.Replace(body[pos:i]),
-				Start:      pos,
-				End:        i,
-				SpecOffset: -1,
-			})
-		}
-		relR := strings.IndexAny(body[i+1:], "{}")
-		if relR == -1 || body[i+1+relR] == '{' {
-			return nil, errors.New("unmatched '{'")
-		}
-		rb := i + 1 + relR
-		expr := body[i+1 : rb]
+		expr := body[open+1 : close]
 		if expr == "" {
 			return nil, errors.New("placeholder '{}' must contain an expression")
 		}
@@ -87,70 +77,90 @@ func Parse(body string) ([]Segment, error) {
 		}
 		specOffset := -1
 		if spec != "" {
-			specOffset = i + 1 + len(exprPart)
+			specOffset = open + 1 + len(exprPart)
 		}
 		segments = append(segments, Segment{
 			Text:          exprPart,
 			Spec:          spec,
 			IsPlaceholder: true,
-			Start:         i,
-			End:           rb + 1,
+			Start:         open,
+			End:           close + 1,
 			SpecOffset:    specOffset,
 		})
-		pos = rb + 1
+		pos = close + 1
 	}
 	return segments, nil
 }
 
-func indexUnescapedBrace(s string) int {
-	for i := 0; i < len(s); i++ {
-		if s[i] == '\\' && i+1 < len(s) {
+func scanText(body string, pos int) (int, string) {
+	var b strings.Builder
+	for i := pos; i < len(body); i++ {
+		if body[i] == '\\' && i+1 < len(body) && body[i+1] == '{' {
+			b.WriteByte('{')
 			i++
 			continue
 		}
-		if s[i] == '{' || s[i] == '}' {
-			return i
+		if body[i] == '{' {
+			return i, b.String()
 		}
+		b.WriteByte(body[i])
 	}
-	return -1
+	return len(body), b.String()
 }
 
-var braceUnescaper = strings.NewReplacer(`\{`, `{`, `\}`, `}`)
-
-// SplitSpec splits a placeholder body on the last `%` not flanked by
-// whitespace, leaving `a % b` as modulo and `x%.2f` as (x, .2f).
-func SplitSpec(body string) (expr, spec string, err error) {
-	idx := -1
-	for i := len(body) - 1; i >= 0; i-- {
-		if body[i] != '%' {
-			continue
+func findPlaceholderClose(body string, open int) (int, error) {
+	for i := open + 1; i < len(body); i++ {
+		switch body[i] {
+		case '{':
+			return 0, errors.New("unmatched '{'")
+		case '}':
+			return i, nil
 		}
-		if i > 0 && isSpace(body[i-1]) {
-			continue
-		}
-		if i+1 < len(body) && isSpace(body[i+1]) {
-			continue
-		}
-		idx = i
-		break
 	}
+	return 0, errors.New("unmatched '{'")
+}
+
+// SplitSpec splits a placeholder body on the last `:`, yielding (expr, spec).
+func SplitSpec(body string) (expr, spec string, err error) {
+	idx := strings.LastIndexByte(body, ':')
 	if idx < 0 {
 		return body, "", nil
 	}
 	expr = body[:idx]
 	spec = body[idx+1:]
 	if expr == "" {
-		return "", "", errors.New("placeholder must contain an expression before '%'")
+		return "", "", errors.New("placeholder must contain an expression before ':'")
 	}
 	if spec == "" {
-		return "", "", errors.New("placeholder format spec after '%' is empty")
+		return "", "", errors.New("placeholder format spec after ':' is empty")
 	}
 	return expr, spec, nil
 }
 
-func isSpace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\n' || c == '\r'
-}
+// blacklistedVerbs lists fmt verbs that Go's fmt accepts for our scalar types
+// but that we reject so they surface as invalid specs to the user. Reasons:
+//
+//	v: produces byte-identical output to the bare `{x}` form for every scalar
+//	   type Arc allows in a placeholder, so it is a redundant alias.
+//	T: leaks Go-runtime type names and duplicates type info already shown
+//	   on hover in the Arc editor.
+//	U: lacks a lowercase counterpart in Arc and has no current use case,
+//	   so we reserve it until a concrete need appears.
+const blacklistedVerbs = "vTU"
+
+// stringBlockedVerbs lists verbs Go accepts on string values that Arc rejects.
+// x/X dump bytes as hex and have no current use case on strings.
+const stringBlockedVerbs = "xX"
+
+// intBlockedVerbs lists verbs Go accepts on integer values that Arc rejects.
+// q renders an integer as a quoted Unicode character, which is unrelated to
+// the quoted-string meaning of q and has no current use case on integers.
+const intBlockedVerbs = "q"
+
+// specShape enforces the canonical anatomy [flags][width][.precision][verb].
+// Anything trailing the verb (e.g., "f.2") fails this check; Go's fmt would
+// otherwise treat it as literal text and silently accept the malformed spec.
+var specShape = regexp.MustCompile(`^[#+\- 0]*\d*(\.\d+)?[a-zA-Z]$`)
 
 // ValidateSpec probes fmt.Sprintf with a typed dummy and reports an error if
 // the spec is not a valid Go fmt verb for the given type.
@@ -165,14 +175,17 @@ func ValidateSpec(spec string, t types.Type) error {
 		return ValidateSpec(spec, *t.Constraint)
 	}
 	var dummy any
+	var isInt bool
 	switch t.Kind {
 	case types.KindString:
 		dummy = ""
 	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
 		types.KindIntegerConstant:
 		dummy = int64(0)
+		isInt = true
 	case types.KindU8, types.KindU16, types.KindU32, types.KindU64:
 		dummy = uint64(0)
+		isInt = true
 	case types.KindF32, types.KindF64,
 		types.KindFloatConstant, types.KindNumericConstant,
 		types.KindExactIntegerFloatConstant:
@@ -180,7 +193,11 @@ func ValidateSpec(spec string, t types.Type) error {
 	default:
 		return errors.Newf("cannot format type %s", t)
 	}
-	if strings.Contains(fmt.Sprintf("%"+spec, dummy), "%!") {
+	if !specShape.MatchString(spec) ||
+		strings.ContainsAny(spec, blacklistedVerbs) ||
+		(t.Kind == types.KindString && strings.ContainsAny(spec, stringBlockedVerbs)) ||
+		(isInt && strings.ContainsAny(spec, intBlockedVerbs)) ||
+		strings.Contains(fmt.Sprintf("%"+spec, dummy), "%!") {
 		return errors.Newf("invalid format spec %q for type %s", spec, t)
 	}
 	return nil

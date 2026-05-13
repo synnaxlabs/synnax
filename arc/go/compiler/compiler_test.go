@@ -3170,7 +3170,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `v={f64(3.14159)%.2f}` -> log",
+				"trig -> `v={f64(3.14159):.2f}` -> log",
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
@@ -3191,7 +3191,7 @@ var _ = Describe("Compiler", func() {
 			})
 			output := MustSucceed(compileWithHostImports(
 				ctx,
-				"trig -> `a={1} b={i32(2)%05d} c={f64(3.14)%.2f}` -> log",
+				"trig -> `a={1} b={i32(2):05d} c={f64(3.14):.2f}` -> log",
 				resolver,
 			))
 			mod := MustSucceed(r.Instantiate(ctx, output.WASM))
