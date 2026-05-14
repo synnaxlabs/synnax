@@ -18,11 +18,13 @@ import (
 
 // Update is a query that updates Entries in the DB.
 type Update[K Key, E Entry[K]] struct {
+	// retrieve is the underlying scan used to resolve entries to update.
 	retrieve Retrieve[K, E]
-	changes  changes[K, E]
-	// indexes is the set of secondary indexes that the executed query
-	// stages writes against. Nil means writes are not staged to any
-	// per-tx index delta.
+	// changes is the chain of transformations applied to each matched
+	// entry before it is written back.
+	changes changes[K, E]
+	// indexes is the set of secondary indexes the query stages writes
+	// against. Nil means writes are not staged.
 	indexes []Index[K, E]
 }
 

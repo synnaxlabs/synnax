@@ -26,8 +26,10 @@ import (
 // entries from the DB. Reader only accesses entries that match its type arguments.
 // Reader is NOT safe for concurrent use.
 type Reader[K Key, E Entry[K]] struct {
+	// keyCodec encodes K to prefixed pebble keys and decodes the reverse.
 	keyCodec keyCodec[K, E]
-	tx       Tx
+	// tx is the underlying transaction this Reader reads through.
+	tx Tx
 }
 
 // WrapReader wraps the given Tx to provide a strongly typed Reader.
@@ -93,7 +95,11 @@ func (r *Reader[K, E]) GetMany(ctx context.Context, keys []K) ([]E, error) {
 	return entries, nil
 }
 
+// IterOptions configures a Reader iterator.
 type IterOptions struct {
+	// prefix narrows the scan to keys starting with this byte prefix
+	// (appended to the entry-type prefix). Nil scans all entries of
+	// type E.
 	prefix []byte
 }
 
@@ -127,9 +133,15 @@ func (r Reader[K, E]) OpenNexter(ctx context.Context) (iter.Seq[E], io.Closer, e
 // Iterator provides a simple wrapper around a kv.Iterator that decodes a byte-value
 // before returning it to the caller. To create a new Iterator, call OpenIterator.
 type Iterator[E any] struct {
+	// Iterator is the underlying byte-level iterator.
 	kv.Iterator
-	err   error
+	// err is the last decode error encountered by Value. Surfaced via
+	// Error().
+	err error
+	// value is the reusable decode buffer; Value returns a pointer to
+	// this and overwrites it on each call.
 	value *E
+	// codec decodes the iterator's raw bytes into E.
 	codec encoding.Codec
 }
 

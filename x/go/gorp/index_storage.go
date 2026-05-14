@@ -49,10 +49,15 @@ type lookupStorage[K Key, V comparable] interface {
 // comparable. The forward map is keyed by V, the reverse map is keyed
 // by K directly, and the staging overlay's storable key is also K.
 type mapLookupStorage[K ComparableKey, V comparable] struct {
+	// commitMu guards committed state; owned by the parent LookupIndex.
 	commitMu *sync.RWMutex
-	forward  map[V][]K
-	reverse  map[K]V
-	overlay  deltaOverlay[K, V]
+	// forward is the value-to-keys map.
+	forward map[V][]K
+	// reverse is the key-to-value map; used to locate the old bucket
+	// when an entry's value changes.
+	reverse map[K]V
+	// overlay tracks per-tx staging deltas.
+	overlay deltaOverlay[K, V]
 }
 
 func newMapLookupStorage[K ComparableKey, V comparable](
@@ -160,10 +165,16 @@ func (s *mapLookupStorage[K, V]) flush(d *delta[K, V]) {
 // forward map stores cloned []byte entries so callers can retain the
 // returned slices.
 type bytesLookupStorage[V comparable] struct {
+	// commitMu guards committed state; owned by the parent LookupIndex.
 	commitMu *sync.RWMutex
-	forward  map[V][][]byte
-	reverse  map[string]V
-	overlay  deltaOverlay[string, V]
+	// forward maps each value to its cloned []byte keys; clones let
+	// callers retain the returned slices.
+	forward map[V][][]byte
+	// reverse maps the string-converted key to its current value.
+	reverse map[string]V
+	// overlay tracks per-tx staging deltas, keyed by string-converted
+	// []byte.
+	overlay deltaOverlay[string, V]
 }
 
 func newBytesLookupStorage[V comparable](
@@ -280,7 +291,9 @@ func (s *bytesLookupStorage[V]) flush(d *delta[string, V]) {
 
 // sortedEntry is a single (value, key) pair inside a SortedIndex index slice.
 type sortedEntry[K ComparableKey, V cmp.Ordered] struct {
-	key   K
+	// key is the entry's primary key.
+	key K
+	// value is the indexed field value that orders this entry.
 	value V
 }
 
@@ -292,6 +305,8 @@ type sortedEntry[K ComparableKey, V cmp.Ordered] struct {
 // the outer API. Within equal values, entries are kept in insertion
 // order; removal scans that sub-range for an exact key match.
 type sortedStorage[K ComparableKey, V cmp.Ordered] struct {
+	// entries is the index contents in ascending V order. Within equal
+	// values, entries are kept in insertion order.
 	entries []sortedEntry[K, V]
 }
 

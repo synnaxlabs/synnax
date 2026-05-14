@@ -19,11 +19,13 @@ import (
 
 // Delete is a query that deletes Entries from the DB.
 type Delete[K Key, E Entry[K]] struct {
+	// retrieve is the underlying scan used to resolve entries to delete.
 	retrieve Retrieve[K, E]
-	guards   guards[K, E]
-	// indexes is the set of secondary indexes that the executed query
-	// stages deletions against. Nil means deletions are not staged to
-	// any per-tx index delta.
+	// guards is the chain of GuardFuncs checked against each matched
+	// entry; any non-nil error aborts the delete.
+	guards guards[K, E]
+	// indexes is the set of secondary indexes the query stages
+	// deletions against. Nil means deletions are not staged.
 	indexes []Index[K, E]
 }
 

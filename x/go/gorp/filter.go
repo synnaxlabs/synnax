@@ -81,9 +81,13 @@ type keyMembership[K Key] interface {
 // the underlying keyMembership is materialized on first probe. Safe
 // for concurrent use.
 type lazyMembership[K Key] struct {
-	once  sync.Once
-	set   keyMembership[K]
-	keys  []K
+	// once guards a single build call across concurrent probes.
+	once sync.Once
+	// set is the materialized membership predicate; nil until once fires.
+	set keyMembership[K]
+	// keys is the candidate set passed to build.
+	keys []K
+	// build constructs the keyMembership from keys on first probe.
 	build func([]K) keyMembership[K]
 }
 

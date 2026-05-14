@@ -34,8 +34,14 @@ func WithIndexObservable(obs observe.Observable[kv.TxReader]) Option {
 	return func(opts *options) { opts.IndexObservable = obs }
 }
 
+// options holds the configuration applied to a DB and inherited by
+// every Tx opened from it.
 type options struct {
+	// Codec encodes and decodes entries to and from the underlying KV.
 	encoding.Codec
+	// IndexObservable is the default change source for index observers
+	// on tables opened against the DB. Per-table TableConfig.Observable
+	// takes precedence; when neither is set, the DB itself is used.
 	IndexObservable observe.Observable[kv.TxReader]
 }
 

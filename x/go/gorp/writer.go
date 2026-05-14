@@ -14,7 +14,9 @@ import "context"
 // Writer wraps a key-value writer to provide a strongly typed interface for writing
 // entries to the DB. Writer is NOT safe for concurrent use.
 type Writer[K Key, E Entry[K]] struct {
-	tx       Tx
+	// tx is the underlying transaction this Writer writes through.
+	tx Tx
+	// keyCodec encodes K to prefixed pebble keys.
 	keyCodec keyCodec[K, E]
 	// indexes is the set of secondary indexes that receive staged
 	// mutations for each Set / Delete call. Nil means no per-write index

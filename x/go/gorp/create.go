@@ -18,12 +18,16 @@ import (
 
 // Create is a query that creates Entries in the DB.
 type Create[K Key, E Entry[K]] struct {
-	entries   Entries[K, E]
-	onUpdate  onUpdate[K, E]
+	// entries is the set of entries the query will write.
+	entries Entries[K, E]
+	// onUpdate is the chain of MergeExisting filters applied when an
+	// entry with a matching key already exists. Empty disables the
+	// existing-entry check.
+	onUpdate onUpdate[K, E]
+	// keyPrefix is the gorp key prefix for entry type E.
 	keyPrefix []byte
-	// indexes is the set of secondary indexes that the executed query
-	// stages writes against. Nil means writes are not staged to any
-	// per-tx index delta.
+	// indexes is the set of secondary indexes the query stages writes
+	// against. Nil means writes are not staged.
 	indexes []Index[K, E]
 }
 

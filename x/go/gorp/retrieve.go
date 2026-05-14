@@ -33,14 +33,25 @@ type Validator[K Key, E Entry[K]] func(ctx Context, entries []E) error
 
 // Retrieve is a query that retrieves Entries from the DB.
 type Retrieve[K Key, E Entry[K]] struct {
-	entries    Entries[K, E]
-	limit      int
-	offset     int
-	prefix     []byte
-	filter     Filter[K, E]
-	orderBy    OrderQuery[K, E]
+	// entries is the destination binding for matched entries.
+	entries Entries[K, E]
+	// limit caps the number of returned entries; 0 means unbounded.
+	limit int
+	// offset is the number of matched entries to skip before collecting.
+	offset int
+	// prefix narrows the underlying scan to keys starting with this
+	// byte prefix; nil scans the whole table.
+	prefix []byte
+	// filter is the composed predicate applied to each candidate entry.
+	filter Filter[K, E]
+	// orderBy drives ordered iteration via a SortedIndex. Nil means
+	// keyspace order.
+	orderBy OrderQuery[K, E]
+	// validators run after entries are collected; a non-nil return
+	// aborts Exec with that error.
 	validators []Validator[K, E]
-	keyPrefix  []byte
+	// keyPrefix is the gorp key prefix for entry type E.
+	keyPrefix []byte
 }
 
 // NewRetrieve opens a new Retrieve query.

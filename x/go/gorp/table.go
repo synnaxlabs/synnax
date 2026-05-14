@@ -34,21 +34,31 @@ import (
 
 // TableConfig configures a Table opened via OpenTable.
 type TableConfig[K Key, E Entry[K]] struct {
-	DB         *DB
+	// DB is the gorp DB the Table is backed by.
+	DB *DB
+	// Migrations is the ordered set of versioned migrations to run
+	// before the Table is usable. Already-applied migrations are
+	// skipped.
 	Migrations []migrate.Migration
 	// Indexes is the set of secondary indexes to register on this table. Each
 	// index is populated at open time from the current table contents, then
 	// kept in sync via the table's observer pipeline for the lifetime of the
 	// table. See NewLookupIndex and NewSortedIndex for constructing index values.
 	Indexes []Index[K, E]
+	// Instrumentation is used for migration and populate logging.
 	alamos.Instrumentation
 }
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB                 *DB
-	keyPrefix          []byte
-	indexes            []Index[K, E]
+	// DB is the gorp DB the Table reads and writes through.
+	DB *DB
+	// keyPrefix is the gorp key prefix for entry type E.
+	keyPrefix []byte
+	// indexes is the set of secondary indexes registered on the Table.
+	indexes []Index[K, E]
+	// disconnectObserver releases the index observer subscription. Nil
+	// when no observer was installed.
 	disconnectObserver func()
 	// populateCtx hosts the background populate routine. Nil when the
 	// table has no indexes.

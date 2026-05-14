@@ -69,10 +69,21 @@ type Index[K Key, E Entry[K]] interface {
 // baseIndex holds the scaffolding shared by every concrete index
 // implementation. Concrete types embed it as a value.
 type baseIndex[K Key, E Entry[K]] struct {
-	name         string
-	mu           sync.RWMutex
+	// name is the human-readable index name, used in diagnostics and
+	// in the ErrIndexInvalid wrap.
+	name string
+	// mu guards the concrete index's committed state. Held for writing
+	// during populate and flush; held for reading during Get.
+	mu sync.RWMutex
+	// populateDone is closed by populate's finish closure once the
+	// index has been populated (or has settled with an error). Filter
+	// waits on this so reads issued before the index is ready block
+	// instead of returning empty results.
 	populateDone chan struct{}
-	populateErr  atomic.Pointer[error]
+	// populateErr captures the populate scan error, if any. Checked
+	// after populateDone closes to decide whether the index is usable
+	// or queries must fall back to a sequential scan.
+	populateErr atomic.Pointer[error]
 }
 
 func (b *baseIndex[K, E]) Name() string { return b.name }
@@ -113,8 +124,11 @@ func (b *baseIndex[K, E]) populateErrWrapped() error {
 // (forward / reverse maps, per-tx staging deltas, commit-time flush) lives
 // on the storage backend selected by the constructor.
 type LookupIndex[K Key, E Entry[K], V comparable] struct {
+	// baseIndex carries the populate lifecycle, mutex, and name.
 	baseIndex[K, E]
+	// extract reads the indexed field from an entry.
 	extract func(e *E) V
+	// storage holds the forward/reverse maps and per-tx staging overlay.
 	storage lookupStorage[K, V]
 	// buildMembership constructs an O(1) membership predicate over a
 	// resolved key set. Supplied by the constructor with the right shape
@@ -288,10 +302,17 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 // writes; an open write tx that staged inserts or deletes will not
 // see those changes during ordered iteration.
 type SortedIndex[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
+	// baseIndex carries the populate lifecycle, mutex, and name.
 	baseIndex[K, E]
+	// extract reads the indexed field from an entry.
 	extract func(e *E) V
+	// storage holds entries in ascending V order.
 	storage *sortedStorage[K, V]
+	// reverse maps each primary key to its current indexed value; used
+	// to locate the old slot when an entry's value changes.
 	reverse map[K]V
+	// overlay tracks per-tx staging deltas for read-your-own-writes
+	// equality lookups.
 	overlay deltaOverlay[K, V]
 }
 

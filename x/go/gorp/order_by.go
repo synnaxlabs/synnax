@@ -32,9 +32,14 @@ type OrderQuery[K Key, E Entry[K]] interface {
 // Retrieve.OrderBy to drive an ordered walk; chain After to set a
 // resume cursor for pagination.
 type SortedQuery[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
-	sorted    *SortedIndex[K, E, V]
-	dir       Direction
-	cursor    V
+	// sorted is the index being walked.
+	sorted *SortedIndex[K, E, V]
+	// dir is the walk direction.
+	dir Direction
+	// cursor is the resume value for paginated walks; meaningful only
+	// when hasCursor is true.
+	cursor V
+	// hasCursor reports whether After was called to set a resume cursor.
 	hasCursor bool
 }
 

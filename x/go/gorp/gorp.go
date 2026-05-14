@@ -27,7 +27,10 @@ func Wrap(kv kv.DB, opts ...Option) *DB { return &DB{DB: kv, options: newOptions
 // directly against the underlying key-value store, outside the isolated context of
 // a transaction.
 type DB struct {
+	// DB is the underlying key-value store.
 	kv.DB
+	// options carries the encoding/instrumentation configuration applied
+	// to every Tx opened from this DB.
 	options
 }
 
@@ -97,6 +100,7 @@ type Tx interface {
 // Context is an extension of the built-in context.Context type that adds additional
 // fields useful in gorp callbacks.
 type Context struct {
+	// Context is the underlying request-scoped context.
 	context.Context
 	// Tx is the transaction the query is operating under.
 	Tx Tx
@@ -108,7 +112,10 @@ type Context struct {
 // receive committed=true if Commit succeeded and committed=false
 // otherwise; they fire after the underlying commit attempt completes.
 type txState struct {
-	mu       sync.Mutex
+	// mu guards cleanups.
+	mu sync.Mutex
+	// cleanups is the list of hooks to invoke when the owning tx
+	// commits or closes, in registration order.
 	cleanups []func(committed bool)
 }
 
@@ -138,9 +145,15 @@ func (s *txState) runCleanups(committed bool) {
 	}
 }
 
+// tx is the concrete Tx returned by DB.OpenTx.
 type tx struct {
+	// Tx is the underlying key-value transaction.
 	kv.Tx
+	// options carries the encoding/instrumentation configuration
+	// inherited from the parent DB.
 	options
+	// state is the per-tx ephemeral state used to register and run
+	// cleanups (e.g. index delta flushes).
 	state txState
 }
 

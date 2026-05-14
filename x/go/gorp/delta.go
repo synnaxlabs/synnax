@@ -16,10 +16,12 @@ import (
 )
 
 // deltaEntry is the per-key staged state of an index under an open
-// transaction. value is the indexed field's current staged value for
-// the key; deleted indicates the key was staged for deletion.
+// transaction.
 type deltaEntry[V comparable] struct {
-	value   V
+	// value is the indexed field's staged value for the key. Zero when
+	// deleted is true.
+	value V
+	// deleted reports whether the key was staged for deletion.
 	deleted bool
 }
 
@@ -28,12 +30,12 @@ type deltaEntry[V comparable] struct {
 // key). For comparable-keyed indexes SK is the entry's primary key
 // type directly; for byte-keyed indexes SK is string (because []byte
 // is not comparable), and the storage backend converts at the boundary.
-//
-// state is authoritative: if a key is in state, the committed index's
-// view of that key is not trusted during resolve. forward is the
-// value-to-key inverse for fast resolve.
 type delta[SK comparable, V comparable] struct {
-	state   map[SK]deltaEntry[V]
+	// state is the authoritative per-tx view: if a key is in state,
+	// the committed index's view of that key is ignored during resolve.
+	state map[SK]deltaEntry[V]
+	// forward is the value-to-keys inverse, mirroring non-deleted
+	// entries in state for O(1) resolve.
 	forward map[V]set.Set[SK]
 }
 
@@ -119,11 +121,19 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 // commitDelete. flush runs after a successful commit with the final
 // delta state; no flush runs on rollback.
 type deltaOverlay[SK comparable, V comparable] struct {
-	deltaMu      sync.Mutex
-	txDeltas     map[*txState]*delta[SK, V]
-	commitSet    func(key SK, value V)
+	// deltaMu guards txDeltas.
+	deltaMu sync.Mutex
+	// txDeltas holds the per-tx staging buffer, keyed by tx identity.
+	txDeltas map[*txState]*delta[SK, V]
+	// commitSet applies a set directly to committed state. Invoked for
+	// writes against a tx with no per-tx identity.
+	commitSet func(key SK, value V)
+	// commitDelete applies a delete directly to committed state.
+	// Invoked for writes against a tx with no per-tx identity.
 	commitDelete func(key SK)
-	flush        func(*delta[SK, V])
+	// flush promotes a committed tx's delta into committed state.
+	// Must apply every entry atomically; no flush runs on rollback.
+	flush func(*delta[SK, V])
 }
 
 //nolint:unused
