@@ -28,11 +28,16 @@ import { Node } from "@/schematic/node";
 import {
   useAddNode,
   useDispatch,
+  useGroup,
   useRedo,
   useSelectAllEdges,
   useSelectAllNodes,
+  useSelectCanGroup,
+  useSelectCanUngroup,
   useUndo,
+  useUngroup,
 } from "@/schematic/queries";
+import { Triggers } from "@/triggers";
 import { Diagram as BaseDiagram } from "@/vis/diagram";
 
 export interface SchematicProps extends Omit<
@@ -124,7 +129,7 @@ export const Schematic = ({
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
-  const { onCopy, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste } = useClipboard({
     key,
     selected,
     onPaste: onSelectionChange,
@@ -136,6 +141,34 @@ export const Schematic = ({
     onUndo: undo,
     onRedo: redo,
     enabled: enableTriggers,
+  });
+
+  const handleGroup = useGroup(key);
+  const handleUngroup = useUngroup(key);
+  const canGroup = useSelectCanGroup({ key, selected: selected ?? [] });
+  const canUngroup = useSelectCanUngroup({ key, selected: selected ?? [] });
+  const selectedRef = useSyncedRef(selected ?? []);
+  Triggers.use({
+    triggers: [
+      ["Control", "G"],
+      ["Control", "U"],
+    ],
+    region: ref,
+    loose: true,
+    callback: useCallback(
+      ({ triggers, stage }: Triggers.UseEvent) => {
+        if (stage !== "start") return;
+        if (enableTriggers === false) return;
+        if (typeof enableTriggers === "function" && !enableTriggers()) return;
+        if (triggers.flat().includes("U")) {
+          if (canUngroup) {
+            const groupKey = selectedRef.current[0];
+            if (groupKey != null) handleUngroup(groupKey);
+          }
+        } else if (canGroup) handleGroup(selectedRef.current);
+      },
+      [enableTriggers, canGroup, canUngroup, handleGroup, handleUngroup],
+    ),
   });
 
   return (
@@ -151,6 +184,7 @@ export const Schematic = ({
         onSelectionChange={onSelectionChange}
         onDoubleClick={onDoubleClick}
         onCopy={onCopy}
+        onCut={onCut}
         onPaste={onPaste}
         nodes={nodes}
         edges={edges}

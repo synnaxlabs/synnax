@@ -122,7 +122,7 @@ export type DiagramClipboardHandler = (
 
 export interface DiagramProps
   extends
-    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onPaste">,
+    Omit<ComponentPropsWithRef<"div">, "onError" | "onCopy" | "onCut" | "onPaste">,
     Pick<z.infer<typeof diagram.Diagram.stateZ>, "visible" | "autoRenderInterval">,
     Aether.ComponentProps,
     Pick<
@@ -157,6 +157,12 @@ export interface DiagramProps
    * the most recent mousemove over the diagram.
    */
   onCopy?: DiagramClipboardHandler;
+  /**
+   * Called when a cut event fires on the diagram. The second argument is the
+   * cursor position in diagram space at the moment of the cut, derived from
+   * the most recent mousemove over the diagram.
+   */
+  onCut?: DiagramClipboardHandler;
   /**
    * Called when a paste event fires on the diagram. The second argument is the
    * cursor position in diagram space at the moment of the paste, derived from
@@ -264,6 +270,7 @@ export const create = ({
     autoRenderInterval,
     onDoubleClick,
     onCopy,
+    onCut,
     onPaste,
     onMouseMove,
     ...rest
@@ -492,6 +499,13 @@ export const create = ({
       [onCopy, cursorInDiagramSpace],
     );
 
+    const handleCut = useCallback(
+      (e: ReactClipboardEvent<HTMLDivElement>): void => {
+        onCut?.(e, cursorInDiagramSpace(e.currentTarget));
+      },
+      [onCut, cursorInDiagramSpace],
+    );
+
     const handlePaste = useCallback(
       (e: ReactClipboardEvent<HTMLDivElement>): void => {
         onPaste?.(e, cursorInDiagramSpace(e.currentTarget));
@@ -505,6 +519,7 @@ export const create = ({
         ref={ref}
         onDoubleClick={onDoubleClick}
         onCopy={handleCopy}
+        onCut={handleCut}
         onPaste={handlePaste}
         onMouseMove={handleMouseMove}
         tabIndex={-1}
