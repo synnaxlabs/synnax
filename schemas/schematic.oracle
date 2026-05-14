@@ -38,6 +38,13 @@ Node struct {
             measurements consistent across re-renders.
         """
     }
+    group_id string? {
+        @doc value """
+            is the key of the group container node this node belongs to, if
+            any. Group containers themselves use the groupBox variant and
+            have group_id unset. Cleared on ungroup.
+        """
+    }
 
     @doc value "is a diagram node representing a symbol in the schematic."
 }
