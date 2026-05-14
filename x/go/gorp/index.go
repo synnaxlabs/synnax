@@ -66,32 +66,20 @@ type Index[K Key, E Entry[K]] interface {
 	stageDelete(tx Tx, key K)
 }
 
-// baseIndex holds the scaffolding shared by every concrete secondary
-// index implementation: the populate-lifecycle channel, the populate
-// error slot, the read/write mutex protecting committed state, and the
-// human-readable name. Concrete index types embed it as a value; method
-// promotion exposes Name and waitPopulated. Storage backends receive
-// &b.mu so committed-state operations and per-tx flush share one lock.
+// baseIndex holds the scaffolding shared by every concrete index
+// implementation. Concrete types embed it as a value.
 type baseIndex[K Key, E Entry[K]] struct {
-	name string
-	mu   sync.RWMutex
-	// populateDone is closed by populate's finish closure once the index
-	// has been populated from the table (or once the populate scan has
-	// failed). Filter waits on this so reads issued before the index is
-	// ready block instead of returning empty results.
+	name         string
+	mu           sync.RWMutex
 	populateDone chan struct{}
-	// populateErr captures the populate scan error, if any. Filter checks
-	// it after populateDone closes to decide whether to use the index or
-	// fall back to a sequential scan via eval.
-	populateErr atomic.Pointer[error]
+	populateErr  atomic.Pointer[error]
 }
 
-// Name implements Index.
 func (b *baseIndex[K, E]) Name() string { return b.name }
 
-// waitPopulated blocks until populate finishes or ctx is canceled. It
-// returns ctx.Err() if ctx is canceled before populate completes and
-// ErrIndexInvalid (wrapped with the index name) if populate failed.
+// waitPopulated blocks until populate finishes or ctx is canceled,
+// returning ErrIndexInvalid (wrapped with the index name) if populate
+// failed.
 func (b *baseIndex[K, E]) waitPopulated(ctx context.Context) error {
 	select {
 	case <-b.populateDone:
@@ -105,9 +93,8 @@ func (b *baseIndex[K, E]) waitPopulated(ctx context.Context) error {
 }
 
 // populateErrWrapped returns ErrIndexInvalid wrapped with the index
-// name when populate failed, or nil otherwise. Callers that have
-// already synchronized with populateDone (e.g. RLock acquires after
-// populate's Unlock) can call this without blocking.
+// name when populate failed. Callers must have already synchronized
+// with populateDone.
 func (b *baseIndex[K, E]) populateErrWrapped() error {
 	if b.populateErr.Load() != nil {
 		return errors.Wrapf(ErrIndexInvalid, "%q", b.name)
@@ -359,8 +346,7 @@ func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	return insert, finish
 }
 
-// setCommitted applies a (key, value) write to committed state. Caller
-// must hold s.mu for writing.
+// setCommitted applies a write to committed state. Caller must hold s.mu.
 func (s *SortedIndex[K, E, V]) setCommitted(key K, value V) {
 	if oldValue, existed := s.reverse[key]; existed {
 		if cmp.Compare(oldValue, value) == 0 {
@@ -372,8 +358,7 @@ func (s *SortedIndex[K, E, V]) setCommitted(key K, value V) {
 	s.reverse[key] = value
 }
 
-// deleteCommitted removes a key from committed state. Caller must hold
-// s.mu for writing.
+// deleteCommitted removes a key from committed state. Caller must hold s.mu.
 func (s *SortedIndex[K, E, V]) deleteCommitted(key K) {
 	oldValue, existed := s.reverse[key]
 	if !existed {

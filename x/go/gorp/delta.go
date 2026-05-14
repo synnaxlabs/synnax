@@ -113,17 +113,11 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 	return result.Slice()
 }
 
-// deltaOverlay tracks per-tx delta state for a single secondary index.
-// stage / unstage record pending mutations against the open
-// transaction; resolve merges the staged state into a committed result
-// set under read-your-own-writes semantics.
-//
-// commitSet, commitDelete, and flush are storage-supplied callbacks.
-// commitSet and commitDelete are invoked by stage / unstage when tx has
-// no per-tx identity (a DB used directly); the storage is responsible
-// for acquiring its own commit-state lock inside the callback. flush
-// runs after a successful commit with the final delta state and must
-// apply every entry atomically; no flush runs on rollback.
+// deltaOverlay tracks per-tx delta state for a single secondary index
+// and routes mutations either to the per-tx buffer or, when tx has no
+// per-tx identity, directly to committed state via commitSet /
+// commitDelete. flush runs after a successful commit with the final
+// delta state; no flush runs on rollback.
 type deltaOverlay[SK comparable, V comparable] struct {
 	deltaMu      sync.Mutex
 	txDeltas     map[*txState]*delta[SK, V]

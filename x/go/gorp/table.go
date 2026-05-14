@@ -27,6 +27,7 @@ import (
 	"github.com/synnaxlabs/x/override"
 	"github.com/synnaxlabs/x/query"
 	"github.com/synnaxlabs/x/set"
+	"github.com/synnaxlabs/x/signal"
 	"github.com/synnaxlabs/x/types"
 	"go.uber.org/zap"
 )
@@ -45,24 +46,18 @@ type TableConfig[K Key, E Entry[K]] struct {
 
 // Table provides a strongly typed interface for a specific entry type within a gorp DB.
 type Table[K Key, E Entry[K]] struct {
-	DB *DB
-	// keyPrefix is the gorp key prefix for entry type E.
-	keyPrefix []byte
-	// indexes is the set of secondary indexes registered on this Table.
-	indexes []Index[K, E]
-	// disconnectObserver releases the index observer subscription, or
-	// nil if no observer was installed.
+	DB                 *DB
+	keyPrefix          []byte
+	indexes            []Index[K, E]
 	disconnectObserver func()
-	// populateCancel cancels the background populate goroutine on Close.
-	// Nil when the table has no indexes.
-	populateCancel context.CancelFunc
-	// populateGoroutineDone closes when the background populate
-	// goroutine returns. Nil when the table has no indexes. Used by
-	// WaitForIndexes and Close to synchronize.
-	populateGoroutineDone chan struct{}
-	// populateErr is the terminal error from the populate scan, if any.
-	// Mirrors the error stored on each index for convenient
-	// table-level access via WaitForIndexes.
+	// populateCtx hosts the background populate routine. Nil when the
+	// table has no indexes.
+	populateCtx signal.Context
+	// populateShutdown cancels populateCtx and waits for the populate
+	// routine to exit. Nil when the table has no indexes.
+	populateShutdown io.Closer
+	// populateErr is the terminal scan error, set by runPopulate before
+	// it returns. Read by WaitForIndexes after populateCtx.Stopped().
 	populateErr atomic.Pointer[error]
 }
 
@@ -70,16 +65,16 @@ type Table[K Key, E Entry[K]] struct {
 // populate goroutine, waits for it to exit, and releases related
 // resources.
 func (t *Table[K, E]) Close() error {
-	if t.populateCancel != nil {
-		t.populateCancel()
-		<-t.populateGoroutineDone
-		t.populateCancel = nil
+	var err error
+	if t.populateShutdown != nil {
+		err = t.populateShutdown.Close()
+		t.populateShutdown = nil
 	}
 	if t.disconnectObserver != nil {
 		t.disconnectObserver()
 		t.disconnectObserver = nil
 	}
-	return nil
+	return err
 }
 
 // WaitForIndexes blocks until the table's secondary indexes finish
@@ -93,11 +88,11 @@ func (t *Table[K, E]) Close() error {
 // that observe indexed state directly via Get / GetTx, and for service
 // startup paths that want to fail fast on populate failure.
 func (t *Table[K, E]) WaitForIndexes(ctx context.Context) error {
-	if t.populateGoroutineDone == nil {
+	if t.populateCtx == nil {
 		return nil
 	}
 	select {
-	case <-t.populateGoroutineDone:
+	case <-t.populateCtx.Stopped():
 		if e := t.populateErr.Load(); e != nil {
 			return *e
 		}
@@ -162,25 +157,33 @@ func OpenTable[K Key, E Entry[K]](
 		cfg.DB,
 		cfg.Indexes,
 	)
-	populateCtx, cancel := context.WithCancel(context.Background())
-	t.populateCancel = cancel
-	t.populateGoroutineDone = make(chan struct{})
-	go t.runPopulate(populateCtx, cfg.Instrumentation, inserts, finishes)
+	// Populate runs on an isolated signal context: the caller's ctx is the
+	// open-operation ctx (may be short-lived, e.g. an open timeout), but
+	// populate must run for the Table's full lifetime. Termination flows
+	// through Table.Close().
+	sCtx, cancel := signal.Isolated(signal.WithInstrumentation(cfg.Instrumentation))
+	t.populateCtx = sCtx
+	t.populateShutdown = signal.NewHardShutdown(sCtx, cancel)
+	sCtx.Go(
+		func(ctx context.Context) error {
+			return t.runPopulate(ctx, cfg.Instrumentation, inserts, finishes)
+		},
+		signal.WithKey("gorp_index_populate"),
+	)
 	return t, nil
 }
 
-// runPopulate executes the bulk index scan in the background. It is
-// invoked exactly once per Table that has registered indexes, with the
-// inserts and finishes closures already obtained from each index's
-// populate() under their write locks. runPopulate guarantees that
-// every finish closure runs exactly once with the terminal scan error,
-// regardless of how the goroutine exits.
+// runPopulate scans the table once and feeds every registered index
+// from the same scan. It always returns nil: populate failures are
+// recoverable (queries fall back to sequential scan) and must not be
+// treated as routine failures by signal. The terminal scan error is
+// stored on t.populateErr and passed to each index's finish closure.
 func (t *Table[K, E]) runPopulate(
 	ctx context.Context,
 	ins alamos.Instrumentation,
 	inserts []func(E),
 	finishes []func(error),
-) {
+) error {
 	var scanErr error
 	defer func() {
 		if scanErr != nil {
@@ -193,24 +196,24 @@ func (t *Table[K, E]) runPopulate(
 		for _, f := range finishes {
 			f(scanErr)
 		}
-		close(t.populateGoroutineDone)
 	}()
 	reader := wrapReader[K, E](t.DB, t.keyPrefix)
 	nexter, closer, openErr := reader.OpenNexter(ctx)
 	if openErr != nil {
 		scanErr = openErr
-		return
+		return nil
 	}
 	defer func() { scanErr = errors.Combine(scanErr, closer.Close()) }()
 	for e := range nexter {
 		if ctx.Err() != nil {
 			scanErr = ctx.Err()
-			return
+			return nil
 		}
 		for _, insert := range inserts {
 			insert(e)
 		}
 	}
+	return nil
 }
 
 // attachIndexObserver subscribes to src and propagates every set and
