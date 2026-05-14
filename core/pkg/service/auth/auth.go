@@ -8,9 +8,9 @@
 // included in the file licenses/APL.txt.
 
 // Package auth provides the credential primitives used to authenticate entities in
-// Synnax. It defines the [Authenticator] interface (and its KV-backed implementation in
-// [KV]), the password types ([RawPassword], [HashedPassword]) and the credential
-// payloads ([InsecureCredentials], [SecureCredentials]) that flow through them.
+// Synnax. It defines the [Authenticator] interface and the plaintext credential payload
+// [Credentials] that flows through it. Password hashing and persistent storage are the
+// responsibility of [Authenticator] implementations.
 //
 // Higher-level packages compose these primitives: the user service owns credential
 // lifecycle alongside user records, and the rbac service drives startup-time root-user
@@ -23,14 +23,41 @@ import (
 	"context"
 
 	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/override"
+	"github.com/synnaxlabs/x/validate"
 )
+
+// Credentials is a set of unencrypted username/password credentials used to
+// authenticate an entity (user, client, etc.). These are NOT safe to store on disk;
+// persistent storage of credentials is the responsibility of the [Authenticator]
+// implementation.
+type Credentials struct {
+	// Username is the username of the credential entry.
+	Username string `json:"username"  msgpack:"username" validate:"required"`
+	// Password is the plaintext password of the credential entry. Hashing and
+	// validation are the responsibility of the [Authenticator] implementation.
+	Password string `json:"password"  msgpack:"password"`
+}
+
+var _ override.Zeroable = Credentials{}
+
+// IsZero implements the override.Zeroable interface.
+func (c Credentials) IsZero() bool { return c == Credentials{} }
+
+// Validate validates the Credentials.
+func (c Credentials) Validate() error {
+	v := validate.New("auth.credentials")
+	validate.NotEmptyString(v, "username", c.Username)
+	validate.NotEmptyString(v, "password", c.Password)
+	return v.Error()
+}
 
 // Authenticator validates the identity of a particular entity (i.e. they are who they
 // say they are).
 type Authenticator interface {
 	// Authenticate validates the identity of the entity with the given credentials. If
 	// the credentials are invalid, [ErrInvalidCredentials] is returned.
-	Authenticate(context.Context, InsecureCredentials) error
+	Authenticate(context.Context, Credentials) error
 	// NewWriter opens a new Writer using the provided write context.
 	NewWriter(gorp.Tx) Writer
 }
@@ -43,13 +70,13 @@ type Authenticator interface {
 type Writer interface {
 	// Register stores new credentials. Returns [ErrRepeatedUsername] if the username is
 	// already taken.
-	Register(context.Context, InsecureCredentials) error
+	Register(context.Context, Credentials) error
 	// UpdateUsername renames the credential entry from oldUsername to newUsername. No
 	// identity check; caller is responsible for authorization.
 	UpdateUsername(_ context.Context, oldUsername, newUsername string) error
-	// ChangePassword replaces the password for the given username. No identity check;
-	// caller is responsible for authorization.
-	ChangePassword(_ context.Context, username string, _ RawPassword) error
+	// ChangePassword replaces the stored password for creds.Username with
+	// creds.Password. No identity check; caller is responsible for authorization.
+	ChangePassword(_ context.Context, _ Credentials) error
 	// Deactivate removes credentials for the given usernames. No identity check; caller
 	// is responsible for authorization.
 	Deactivate(_ context.Context, usernames ...string) error

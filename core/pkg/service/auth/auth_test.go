@@ -15,19 +15,19 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
 )
 
-var _ = Describe("InsecureCredentials", func() {
+var _ = Describe("Credentials", func() {
 	Describe("IsZero", func() {
 		It("Should return true for empty credentials", func() {
-			Expect(auth.InsecureCredentials{}.IsZero()).To(BeTrue())
+			Expect(auth.Credentials{}.IsZero()).To(BeTrue())
 		})
 		It("Should return false when username is set", func() {
-			Expect(auth.InsecureCredentials{Username: "synnax"}.IsZero()).To(BeFalse())
+			Expect(auth.Credentials{Username: "synnax"}.IsZero()).To(BeFalse())
 		})
 		It("Should return false when password is set", func() {
-			Expect(auth.InsecureCredentials{Password: "seldon"}.IsZero()).To(BeFalse())
+			Expect(auth.Credentials{Password: "seldon"}.IsZero()).To(BeFalse())
 		})
 		It("Should return false when both are set", func() {
-			Expect(auth.InsecureCredentials{
+			Expect(auth.Credentials{
 				Username: "synnax",
 				Password: "seldon",
 			}.IsZero()).To(BeFalse())
@@ -35,31 +35,18 @@ var _ = Describe("InsecureCredentials", func() {
 	})
 	Describe("Validate", func() {
 		It("Should return an error when the username is empty", func() {
-			Expect(auth.InsecureCredentials{Password: "p"}.Validate()).To(
+			Expect(auth.Credentials{Password: "p"}.Validate()).To(
 				MatchError(ContainSubstring("username: required")),
 			)
 		})
 		It("Should return an error when the password is empty", func() {
-			Expect(auth.InsecureCredentials{Username: "u"}.Validate()).To(
+			Expect(auth.Credentials{Username: "u"}.Validate()).To(
 				MatchError(ContainSubstring("password: required")),
 			)
 		})
 		It("Should succeed when both fields are set", func() {
-			Expect(auth.InsecureCredentials{Username: "u", Password: "p"}.Validate()).
+			Expect(auth.Credentials{Username: "u", Password: "p"}.Validate()).
 				To(Succeed())
-		})
-	})
-})
-
-var _ = Describe("SecureCredentials", func() {
-	Describe("GorpKey", func() {
-		It("Should return the username", func() {
-			Expect(auth.SecureCredentials{Username: "synnax"}.GorpKey()).To(Equal("synnax"))
-		})
-	})
-	Describe("SetOptions", func() {
-		It("Should return an empty slice", func() {
-			Expect(auth.SecureCredentials{Username: "synnax"}.SetOptions()).To(BeEmpty())
 		})
 	})
 })
