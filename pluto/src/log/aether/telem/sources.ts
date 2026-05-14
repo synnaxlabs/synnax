@@ -14,7 +14,6 @@ import {
   type destructor,
   type Series,
   status as xstatus,
-  stringifyFloat32,
   TimeSpan,
   TimeStamp,
 } from "@synnaxlabs/x";
@@ -58,6 +57,7 @@ export class StreamMultiChannelLog
   private readonly client: client.Client;
   private readonly onStatusChange?: status.Adder;
   private readonly now: () => TimeStamp;
+  private readonly maxEntries: number;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
@@ -75,11 +75,13 @@ export class StreamMultiChannelLog
     props: unknown,
     options?: CreateOptions,
     now: () => TimeStamp = () => TimeStamp.now(),
+    maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
+    this.maxEntries = maxEntries;
     this._channels = this.props.channels.filter(
       (ch): ch is number => typeof ch === "number",
     );
@@ -146,22 +148,24 @@ export class StreamMultiChannelLog
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
           const allocated = res.get(key);
-          const isJSON = chMeta.dataType.equals(DataType.JSON);
-          const isF32 = chMeta.dataType.equals(DataType.FLOAT32);
-          // TODO: Replace with buf.asString(i, true) once #2300 merges.
+          const isString = chMeta.dataType.equals(DataType.STRING);
           const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
-              const raw = buf.at(i, true);
-              this.entries.push({
-                channelKey: chMeta.key,
-                timestamp: now,
-                value: isJSON
-                  ? JSON.stringify(raw)
-                  : isF32
-                    ? stringifyFloat32(raw as number)
-                    : String(raw),
-              });
-              pushed++;
+              const value = buf.asString(i, true);
+              if (!isString || !value.includes("\n")) {
+                this.entries.push({ channelKey: chMeta.key, timestamp: now, value });
+                pushed++;
+                continue;
+              }
+              const lines = value.split(/\r?\n/);
+              for (let j = 0; j < lines.length; j++)
+                this.entries.push({
+                  channelKey: chMeta.key,
+                  timestamp: now,
+                  value: lines[j],
+                  continuation: j > 0,
+                });
+              pushed += lines.length;
             }
           };
           if (allocated != null && allocated.series.length > 0) {
@@ -218,8 +222,11 @@ export class StreamMultiChannelLog
       this.entries.splice(0, cutoff);
       evicted += cutoff;
     }
-    if (this.entries.length > MAX_ENTRIES) {
-      const excess = this.entries.length - MAX_ENTRIES;
+    if (this.entries.length > this.maxEntries) {
+      let excess = this.entries.length - this.maxEntries;
+      // Skip leading continuations so the new head isn't an orphan.
+      while (excess < this.entries.length && this.entries[excess].continuation)
+        excess++;
       this.entries.splice(0, excess);
       evicted += excess;
     }
