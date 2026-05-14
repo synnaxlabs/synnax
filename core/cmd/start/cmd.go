@@ -113,9 +113,9 @@ func GetCoreConfigFromViper(ins alamos.Instrumentation) CoreConfig {
 		peers:               peers,
 		dataPath:            viper.GetString(FlagData),
 		slowConsumerTimeout: viper.GetDuration(FlagSlowConsumerTimeout),
-		rootCredentials: auth.InsecureCredentials{
+		rootCredentials: auth.Credentials{
 			Username: viper.GetString(FlagUsername),
-			Password: auth.RawPassword(viper.GetString(FlagPassword)),
+			Password: viper.GetString(FlagPassword),
 		},
 		noDriver:             new(viper.GetBool(FlagNoDriver)),
 		taskOpTimeout:        viper.GetDuration(FlagTaskOpTimeout),

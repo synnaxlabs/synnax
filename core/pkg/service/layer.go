@@ -20,6 +20,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	authkv "github.com/synnaxlabs/synnax/pkg/service/auth/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -69,7 +70,7 @@ type LayerConfig struct {
 	// user will be provisioned during service layer initialization.
 	//
 	// [OPTIONAL]
-	RootCredentials auth.InsecureCredentials
+	RootCredentials auth.Credentials
 	// Instrumentation is for logging, tracing, metrics, etc.
 	//
 	// [OPTIONAL] - Defaults to noop instrumentation.
@@ -113,8 +114,6 @@ type Layer struct {
 	RBAC *rbac.Service
 	// Token is for creating and validating authentication tokens.
 	Token *token.Service
-	// Auth is for authenticating users with credentials.
-	Auth auth.Authenticator
 	// Ranger is for working with ranges.
 	Ranger *ranger.Service
 	// Alias is for working with channel aliases on ranges.
@@ -176,14 +175,13 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
-	var authKV *auth.KV
-	if authKV, err = auth.OpenKV(ctx, auth.KVConfig{
+	var authKV *authkv.Authenticator
+	if authKV, err = authkv.OpenAuthenticator(ctx, authkv.AuthenticatorConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
 	}); !ok(err, authKV) {
 		return nil, err
 	}
-	l.Auth = authKV
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
 		Instrumentation: cfg.Child("user"),
 		DB:              cfg.Distribution.DB,
@@ -191,7 +189,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
 		Auth:            authKV,
-		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, l.User) {
 		return nil, err
 	}
@@ -203,6 +200,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           cfg.Distribution.Group,
 		Search:          cfg.Distribution.Search,
 		User:            l.User,
+		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, l.RBAC) {
 		return nil, err
 	}

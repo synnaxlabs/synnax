@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
+	"github.com/synnaxlabs/synnax/pkg/service/auth/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
 	"github.com/synnaxlabs/x/gorp"
@@ -50,7 +50,9 @@ var (
 				Ontology: otg,
 				Search:   searchIdx,
 			}))
-			authKV  = MustOpen(auth.OpenKV(ctx, auth.KVConfig{DB: db}))
+			authKV = MustOpen(kv.OpenAuthenticator(ctx, kv.AuthenticatorConfig{
+				DB: db,
+			}))
 			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
