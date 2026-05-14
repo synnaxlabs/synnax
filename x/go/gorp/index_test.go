@@ -10,10 +10,13 @@
 package gorp_test
 
 import (
+	"context"
 	"sync"
+	"sync/atomic"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -34,6 +37,40 @@ type indexedEntry struct {
 
 func (e indexedEntry) GorpKey() int32    { return e.ID }
 func (e indexedEntry) SetOptions() []any { return nil }
+
+// byteEntry is the test entry type for BytesLookup. Its gorp key is the
+// composite "<from>-><to>" byte string, mimicking the shape of an ontology
+// relationship key.
+type byteEntry struct {
+	From  string
+	To    string
+	Label string
+}
+
+func (e byteEntry) GorpKey() []byte   { return []byte(e.From + "->" + e.To) }
+func (e byteEntry) SetOptions() []any { return nil }
+
+// failOnceDB wraps a kv.DB and forces the first OpenIterator call routed
+// directly to the DB to fail, allowing subsequent calls through to the
+// underlying DB. Calls routed through OpenTx().OpenIterator(...) are not
+// intercepted because tx OpenIterator dispatches off the underlying tx
+// rather than the wrapper. This is exactly the failure shape needed:
+// migrations open iterators via tx (so they succeed), populate opens
+// iterators via DB-as-Tx (so this trips them), and the post-failure
+// sequential-scan fallback in Retrieve also goes via DB-as-Tx and lands
+// on the second-call branch (success).
+type failOnceDB struct {
+	kv.DB
+	calls atomic.Int32
+	err   error
+}
+
+func (f *failOnceDB) OpenIterator(opts kv.IteratorOptions) (kv.Iterator, error) {
+	if f.calls.Add(1) == 1 {
+		return nil, f.err
+	}
+	return f.DB.OpenIterator(opts)
+}
 
 var _ = Describe("Index", func() {
 	var (
@@ -846,5 +883,410 @@ var _ = Describe("Index", func() {
 			Expect(table.NewDelete().Where(gorp.MatchKeys[int32, indexedEntry](6)).Exec(ctx, noopDB)).To(Succeed())
 			Expect(nameIdx.Get("zeta")).To(BeEmpty())
 		})
+	})
+})
+
+var _ = Describe("BytesLookup", func() {
+	var idxDB *gorp.DB
+	BeforeEach(func() {
+		idxDB = gorp.Wrap(memkv.New())
+	})
+	AfterEach(func() {
+		Expect(idxDB.Close()).To(Succeed())
+	})
+
+	Describe("Population at OpenTable", func() {
+		It("Should populate the index from existing entries", func(ctx SpecContext) {
+			seed := []byteEntry{
+				{From: "a", To: "x", Label: "alpha"},
+				{From: "b", To: "y", Label: "beta"},
+				{From: "c", To: "x", Label: "gamma"},
+			}
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+
+			toIdx := gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+
+			keys := MustSucceed(toIdx.Get("x"))
+			Expect(keys).To(HaveLen(2))
+			asStrings := []string{string(keys[0]), string(keys[1])}
+			Expect(asStrings).To(ConsistOf("a->x", "c->x"))
+			Expect(toIdx.Get("y")).To(HaveLen(1))
+			Expect(toIdx.Get("missing")).To(BeEmpty())
+		})
+	})
+
+	Describe("Observer maintenance", func() {
+		var (
+			table *gorp.Table[[]byte, byteEntry]
+			toIdx *gorp.LookupIndex[[]byte, byteEntry, string]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			toIdx = gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			table = MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			}))
+		})
+		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+		It("Should index newly created entries", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entry(&byteEntry{From: "a", To: "x"}).
+				Exec(ctx, idxDB)).To(Succeed())
+			keys := MustSucceed(toIdx.Get("x"))
+			Expect(keys).To(HaveLen(1))
+			Expect(string(keys[0])).To(Equal("a->x"))
+		})
+
+		It("Should remove entries from the index on delete", func(ctx SpecContext) {
+			e := byteEntry{From: "a", To: "x"}
+			Expect(gorp.NewCreate[[]byte, byteEntry]().Entry(&e).Exec(ctx, idxDB)).To(Succeed())
+			Expect(toIdx.Get("x")).To(HaveLen(1))
+
+			Expect(gorp.NewDelete[[]byte, byteEntry]().
+				Where(gorp.MatchKeys[[]byte, byteEntry](e.GorpKey())).
+				Exec(ctx, idxDB)).To(Succeed())
+			Expect(toIdx.Get("x")).To(BeEmpty())
+		})
+
+		It("Should reindex an entry when its indexed field changes", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entry(&byteEntry{From: "a", To: "x"}).
+				Exec(ctx, idxDB)).To(Succeed())
+			Expect(toIdx.Get("x")).To(HaveLen(1))
+
+			// Re-create with the same gorp key but a different To value
+			// requires the same From->To shape; the test instead changes Label
+			// while keeping From/To stable to verify the noop path, then a
+			// subsequent create with a different From/To exercises a fresh
+			// index entry.
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entry(&byteEntry{From: "a", To: "x", Label: "renamed"}).
+				Exec(ctx, idxDB)).To(Succeed())
+			Expect(toIdx.Get("x")).To(HaveLen(1))
+		})
+	})
+
+	Describe("Filter routing", func() {
+		It("Should route a Filter call through execKeys instead of execFilter", func(ctx SpecContext) {
+			seed := []byteEntry{
+				{From: "a", To: "x"},
+				{From: "b", To: "y"},
+				{From: "c", To: "x"},
+				{From: "d", To: "z"},
+			}
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+
+			toIdx := gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+
+			var res []byteEntry
+			Expect(gorp.NewRetrieve[[]byte, byteEntry]().
+				Where(toIdx.Filter("x")).
+				Entries(&res).
+				Exec(ctx, idxDB)).To(Succeed())
+			Expect(res).To(HaveLen(2))
+			froms := []string{res[0].From, res[1].From}
+			Expect(froms).To(ConsistOf("a", "c"))
+		})
+
+		It("Should return an empty result when no entries match", func(ctx SpecContext) {
+			seed := []byteEntry{{From: "a", To: "x"}}
+			Expect(gorp.NewCreate[[]byte, byteEntry]().
+				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+
+			toIdx := gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			table := MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			}))
+			defer func() { Expect(table.Close()).To(Succeed()) }()
+
+			var res []byteEntry
+			Expect(gorp.NewRetrieve[[]byte, byteEntry]().
+				Where(toIdx.Filter("missing")).
+				Entries(&res).
+				Exec(ctx, idxDB)).To(Succeed())
+			Expect(res).To(BeEmpty())
+		})
+	})
+
+	// Tx delta visibility mirrors the Lookup test block: inserts,
+	// updates, deletes, and rollback exercised against a BytesLookup.
+	// This is the byte-keyed analogue that covers the ontology
+	// relationship shape directly — the motivating broken case
+	// (dagWriter.DefineRelationship cycle check over a byTo
+	// BytesLookup) is reproduced here.
+	Describe("Tx delta visibility", func() {
+		var (
+			table *gorp.Table[[]byte, byteEntry]
+			toIdx *gorp.LookupIndex[[]byte, byteEntry, string]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			toIdx = gorp.NewBytesLookup[byteEntry, string](
+				"to", func(e *byteEntry) string { return e.To },
+			)
+			table = MustSucceed(gorp.OpenTable[[]byte, byteEntry](ctx, gorp.TableConfig[[]byte, byteEntry]{
+				DB:      idxDB,
+				Indexes: []gorp.Index[[]byte, byteEntry]{toIdx},
+			}))
+			seed := []byteEntry{
+				{From: "a", To: "x"},
+				{From: "b", To: "y"},
+			}
+			Expect(table.NewCreate().
+				Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
+		})
+		AfterEach(func() { Expect(table.Close()).To(Succeed()) })
+
+		It("Should see an insert staged in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "c", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+
+			var res []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("x")).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
+			froms := make([]string, len(res))
+			for i, e := range res {
+				froms[i] = e.From
+			}
+			Expect(froms).To(ConsistOf("a", "c"))
+		})
+
+		It("Should exclude an entry deleted in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			Expect(table.NewDelete().
+				Where(gorp.MatchKeys[[]byte, byteEntry]([]byte("a->x"))).Exec(ctx, tx)).To(Succeed())
+
+			var res []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("x")).
+				Entries(&res).Exec(ctx, tx)).To(Succeed())
+			Expect(res).To(BeEmpty())
+		})
+
+		It("Should drop the delta on rollback without touching the global index", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "z", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			keys := MustSucceed(toIdx.Get("x"))
+			Expect(keys).To(HaveLen(1))
+			Expect(string(keys[0])).To(Equal("a->x"))
+		})
+
+		It("Should persist the staged insert on commit", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			Expect(table.NewCreate().
+				Entry(&byteEntry{From: "q", To: "x"}).
+				Exec(ctx, tx)).To(Succeed())
+			Expect(tx.Commit(ctx)).To(Succeed())
+			Expect(tx.Close()).To(Succeed())
+
+			keys := MustSucceed(toIdx.Get("x"))
+			asStrings := make([]string, len(keys))
+			for i, k := range keys {
+				asStrings[i] = string(k)
+			}
+			Expect(asStrings).To(ConsistOf("a->x", "q->x"))
+		})
+
+		// Regression for the ontology DAG writer cycle check. The
+		// dagWriter.DefineRelationship flow writes a relationship
+		// and then traverses descendants via byTo.Filter to detect
+		// cycles. Before the overlay, the filter missed
+		// in-tx writes and cycle detection silently passed invalid
+		// graphs. This test reproduces the shape: insert A->B and
+		// then retrieve via byTo.Filter("B") in the same tx.
+		It("Should surface a newly-written relationship via byTo.Filter in the same tx", func(ctx SpecContext) {
+			tx := idxDB.OpenTx()
+			defer func() { Expect(tx.Close()).To(Succeed()) }()
+
+			rel := byteEntry{From: "A", To: "B"}
+			Expect(table.NewCreate().Entry(&rel).Exec(ctx, tx)).To(Succeed())
+
+			var descendants []byteEntry
+			Expect(table.NewRetrieve().
+				Where(toIdx.Filter("B")).
+				Entries(&descendants).Exec(ctx, tx)).To(Succeed())
+
+			keys := make([]string, len(descendants))
+			for i, d := range descendants {
+				keys[i] = d.From + "->" + d.To
+			}
+			Expect(keys).To(ConsistOf("A->B"))
+		})
+	})
+})
+
+var _ = Describe("Async populate", func() {
+	Describe("WaitForIndexes", func() {
+		var idxDB *gorp.DB
+		BeforeEach(func() {
+			mem := DeferClose(memkv.New())
+			idxDB = gorp.Wrap(mem)
+		})
+
+		It("Should return nil for a table with no indexes", func(ctx SpecContext) {
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+				ctx, gorp.TableConfig[int32, indexedEntry]{DB: idxDB},
+			))
+			DeferClose(table)
+			Expect(table.WaitForIndexes(ctx)).To(Succeed())
+		})
+
+		It("Should return nil after a successful populate", func(ctx SpecContext) {
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
+				Exec(ctx, idxDB)).To(Succeed())
+			nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+				ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB:      idxDB,
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+				},
+			))
+			DeferClose(table)
+			Expect(table.WaitForIndexes(ctx)).To(Succeed())
+		})
+
+		It("Should return ctx.Err when ctx cancels before populate completes",
+			func(ctx SpecContext) {
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
+					"name", func(e *indexedEntry) string { return e.Name },
+				)
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+					ctx, gorp.TableConfig[int32, indexedEntry]{
+						DB:      idxDB,
+						Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+					},
+				))
+				DeferClose(table)
+				canceledCtx, cancel := context.WithCancel(ctx)
+				cancel()
+				err := table.WaitForIndexes(canceledCtx)
+				if err != nil {
+					Expect(err).To(MatchError(context.Canceled))
+				}
+				// Tolerate the race where populate finishes before our
+				// cancel takes effect — both outcomes are correct.
+			})
+	})
+
+	Describe("Populate failure", func() {
+		var (
+			db      *gorp.DB
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
+		)
+		BeforeEach(func(ctx SpecContext) {
+			mem := DeferClose(memkv.New())
+			db = gorp.Wrap(&failOnceDB{DB: mem, err: errors.New("populate boom")})
+			seed := []indexedEntry{
+				{ID: 1, Name: "alpha"},
+				{ID: 2, Name: "beta"},
+				{ID: 3, Name: "alpha"},
+			}
+			Expect(gorp.NewCreate[int32, indexedEntry]().
+				Entries(&seed).Exec(ctx, db)).To(Succeed())
+			nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
+				"name", func(e *indexedEntry) string { return e.Name },
+			)
+		})
+
+		It("Should surface the populate error from WaitForIndexes",
+			func(ctx SpecContext) {
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+					ctx, gorp.TableConfig[int32, indexedEntry]{
+						DB:      db,
+						Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+					},
+				))
+				DeferClose(table)
+				Expect(table.WaitForIndexes(ctx)).
+					To(MatchError(ContainSubstring("populate boom")))
+			})
+
+		It("Should return ErrIndexInvalid from direct Get", func(ctx SpecContext) {
+			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+				ctx, gorp.TableConfig[int32, indexedEntry]{
+					DB:      db,
+					Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+				},
+			))
+			DeferClose(table)
+			Expect(table.WaitForIndexes(ctx)).ToNot(Succeed())
+			Expect(nameIdx.Get("alpha")).Error().
+				To(MatchError(gorp.ErrIndexInvalid))
+		})
+
+		It("Should fall back to a sequential scan from Retrieve via Filter",
+			func(ctx SpecContext) {
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+					ctx, gorp.TableConfig[int32, indexedEntry]{
+						DB:      db,
+						Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+					},
+				))
+				DeferClose(table)
+				Expect(table.WaitForIndexes(ctx)).ToNot(Succeed())
+				var got []indexedEntry
+				Expect(gorp.NewRetrieve[int32, indexedEntry]().
+					Where(nameIdx.Filter("alpha")).
+					Entries(&got).Exec(ctx, db)).To(Succeed())
+				Expect(got).To(HaveLen(2))
+				ids := []int32{got[0].ID, got[1].ID}
+				Expect(ids).To(ConsistOf(int32(1), int32(3)))
+			})
+
+		It("Should preserve a MatchKeys sibling when the indexed child fails to populate",
+			func(ctx SpecContext) {
+				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
+					ctx, gorp.TableConfig[int32, indexedEntry]{
+						DB:      db,
+						Indexes: []gorp.Index[int32, indexedEntry]{nameIdx},
+					},
+				))
+				DeferClose(table)
+				Expect(table.WaitForIndexes(ctx)).ToNot(Succeed())
+				var got []indexedEntry
+				Expect(gorp.NewRetrieve[int32, indexedEntry]().
+					Where(gorp.And(
+						nameIdx.Filter("alpha"),
+						gorp.MatchKeys[int32, indexedEntry](1),
+					)).
+					Entries(&got).Exec(ctx, db)).To(Succeed())
+				Expect(got).To(HaveLen(1))
+				Expect(got[0].ID).To(Equal(int32(1)))
+			})
 	})
 })

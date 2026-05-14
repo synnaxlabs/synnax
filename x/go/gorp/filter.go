@@ -226,7 +226,11 @@ func And[K Key, E Entry[K]](filters ...Filter[K, E]) Filter[K, E] {
 	}
 	if hasAnyEval {
 		f.eval = func(ctx Context, e *E, key, value []byte) (bool, error) {
+			entryKey := (*e).GorpKey()
 			for _, child := range filters {
+				if child.keys != nil && !child.containsKey(entryKey) {
+					return false, nil
+				}
 				if child.eval == nil {
 					continue
 				}
