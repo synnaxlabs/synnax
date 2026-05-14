@@ -29,5 +29,6 @@ export const GROUP: Group = {
     "polygon",
     "circle",
     "box",
+    "groupBox",
   ],
 };

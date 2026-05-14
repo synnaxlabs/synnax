@@ -29,6 +29,7 @@ import { Circle } from "@/schematic/node/general/circle";
 import { CustomActuator } from "@/schematic/node/general/customActuator";
 import { CustomStatic } from "@/schematic/node/general/customStatic";
 import { Gauge } from "@/schematic/node/general/gauge";
+import { GroupBox } from "@/schematic/node/general/groupBox";
 import { Input } from "@/schematic/node/general/input";
 import { Light } from "@/schematic/node/general/light";
 import { OffPageReference } from "@/schematic/node/general/offPageReference";
@@ -164,6 +165,7 @@ export const REGISTRY = {
   fourWayValve: FourWay.spec,
   gateValve: Gate.spec,
   gauge: Gauge.spec,
+  groupBox: GroupBox.spec,
   heatExchangerGeneral: HeatExchangerGeneral.spec,
   heatExchangerM: HeatExchangerM.spec,
   heatExchangerStraightTube: HeatExchangerStraightTube.spec,
@@ -271,6 +273,7 @@ export const configZ = z.discriminatedUnion("variant", [
   FourWay.configZ,
   Gate.configZ,
   Gauge.configZ,
+  GroupBox.configZ,
   HeatExchangerGeneral.configZ,
   HeatExchangerM.configZ,
   HeatExchangerStraightTube.configZ,
