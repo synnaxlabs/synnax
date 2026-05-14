@@ -141,7 +141,7 @@ var _ = Describe("Index", func() {
 				Expect(nameIdx.Get("missing")).To(BeEmpty())
 			})
 
-			It("Should populate a bool-typed Lookup via the bool-bucket backing", func(ctx SpecContext) {
+			It("Should populate a bool-typed Lookup", func(ctx SpecContext) {
 				seed := []indexedEntry{
 					{ID: 1, Flag: true},
 					{ID: 2, Flag: false},

@@ -47,7 +47,7 @@ type Index[K Key, E Entry[K]] interface {
 	// implementations hold a write lock across the populate phase and
 	// signal readiness to readers blocked in Filter; skipping finish leaks
 	// the lock and deadlocks every blocked reader.
-	populate() (func(entry E), func(error), error)
+	populate() (func(entry E), func(error))
 	// set records entry in committed index state, keyed by entry.GorpKey(),
 	// replacing any prior mapping for the same key.
 	set(entry E)
@@ -66,25 +66,15 @@ type Index[K Key, E Entry[K]] interface {
 	stageDelete(tx Tx, key K)
 }
 
-// LookupIndex is an in-memory exact-match secondary index on a field of type V
-// extracted from entries of type E. Construct comparable-keyed indexes via
-// NewLookupIndex and byte-keyed indexes via NewBytesLookup; both produce a
-// *LookupIndex, parameterized by the appropriate K. Register on a Table through
-// TableConfig.Indexes.
-//
-// LookupIndex itself is data-type-agnostic: it owns the populate state machine,
-// the E → V extraction, and Filter construction. Per-key bookkeeping
-// (forward / reverse maps, per-tx staging deltas, commit-time flush) lives
-// on the storage backend selected by the constructor.
-type LookupIndex[K Key, E Entry[K], V comparable] struct {
-	name    string
-	extract func(e *E) V
-	mu      sync.RWMutex
-	storage lookupStorage[K, V]
-	// buildMembership constructs an O(1) membership predicate over a
-	// resolved key set. Supplied by the constructor with the right shape
-	// for K (typed map for comparable K, string-keyed map for []byte).
-	buildMembership func([]K) keyMembership[K]
+// baseIndex holds the scaffolding shared by every concrete secondary
+// index implementation: the populate-lifecycle channel, the populate
+// error slot, the read/write mutex protecting committed state, and the
+// human-readable name. Concrete index types embed it as a value; method
+// promotion exposes Name and waitPopulated. Storage backends receive
+// &b.mu so committed-state operations and per-tx flush share one lock.
+type baseIndex[K Key, E Entry[K]] struct {
+	name string
+	mu   sync.RWMutex
 	// populateDone is closed by populate's finish closure once the index
 	// has been populated from the table (or once the populate scan has
 	// failed). Filter waits on this so reads issued before the index is
@@ -96,27 +86,69 @@ type LookupIndex[K Key, E Entry[K], V comparable] struct {
 	populateErr atomic.Pointer[error]
 }
 
-// NewLookupIndex constructs a LookupIndex over a comparable primary key K. The bool
-// specialization is selected automatically when V is bool. The returned
-// index is empty; register it on a Table through TableConfig.Indexes to
-// populate it from the existing table contents and keep it in sync with
+// Name implements Index.
+func (b *baseIndex[K, E]) Name() string { return b.name }
+
+// waitPopulated blocks until populate finishes or ctx is canceled. It
+// returns ctx.Err() if ctx is canceled before populate completes and
+// ErrIndexInvalid (wrapped with the index name) if populate failed.
+func (b *baseIndex[K, E]) waitPopulated(ctx context.Context) error {
+	select {
+	case <-b.populateDone:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	if b.populateErr.Load() != nil {
+		return errors.Wrapf(ErrIndexInvalid, "%q", b.name)
+	}
+	return nil
+}
+
+// populateErrWrapped returns ErrIndexInvalid wrapped with the index
+// name when populate failed, or nil otherwise. Callers that have
+// already synchronized with populateDone (e.g. RLock acquires after
+// populate's Unlock) can call this without blocking.
+func (b *baseIndex[K, E]) populateErrWrapped() error {
+	if b.populateErr.Load() != nil {
+		return errors.Wrapf(ErrIndexInvalid, "%q", b.name)
+	}
+	return nil
+}
+
+// LookupIndex is an in-memory exact-match secondary index on a field of type V
+// extracted from entries of type E. Construct comparable-keyed indexes via
+// NewLookupIndex and byte-keyed indexes via NewBytesLookup; both produce a
+// *LookupIndex, parameterized by the appropriate K. Register on a Table through
+// TableConfig.Indexes.
+//
+// LookupIndex itself is data-type-agnostic: it owns the populate state machine,
+// the E → V extraction, and Filter construction. Per-key bookkeeping
+// (forward / reverse maps, per-tx staging deltas, commit-time flush) lives
+// on the storage backend selected by the constructor.
+type LookupIndex[K Key, E Entry[K], V comparable] struct {
+	baseIndex[K, E]
+	extract func(e *E) V
+	storage lookupStorage[K, V]
+	// buildMembership constructs an O(1) membership predicate over a
+	// resolved key set. Supplied by the constructor with the right shape
+	// for K (typed map for comparable K, string-keyed map for []byte).
+	buildMembership func([]K) keyMembership[K]
+}
+
+// NewLookupIndex constructs a LookupIndex over a comparable primary key K. The
+// returned index is empty; register it on a Table through TableConfig.Indexes
+// to populate it from the existing table contents and keep it in sync with
 // future writes.
 func NewLookupIndex[K ComparableKey, E Entry[K], V comparable](
 	name string,
 	extract func(e *E) V,
 ) *LookupIndex[K, E, V] {
 	l := &LookupIndex[K, E, V]{
-		name:            name,
+		baseIndex:       baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
 		extract:         extract,
 		buildMembership: indexedKeyMembership[K],
-		populateDone:    make(chan struct{}),
 	}
-	var zeroV V
-	if _, ok := any(zeroV).(bool); ok {
-		l.storage = any(newBoolLookupStorage[K](&l.mu)).(lookupStorage[K, V])
-	} else {
-		l.storage = newMapLookupStorage[K, V](&l.mu)
-	}
+	l.storage = newMapLookupStorage[K, V](&l.mu)
 	return l
 }
 
@@ -130,20 +162,16 @@ func NewBytesLookup[E Entry[[]byte], V comparable](
 	extract func(e *E) V,
 ) *LookupIndex[[]byte, E, V] {
 	l := &LookupIndex[[]byte, E, V]{
-		name:            name,
+		baseIndex:       baseIndex[[]byte, E]{name: name, populateDone: make(chan struct{})},
 		extract:         extract,
 		buildMembership: bytesIndexedKeyMembership,
-		populateDone:    make(chan struct{}),
 	}
 	l.storage = newBytesLookupStorage[V](&l.mu)
 	return l
 }
 
-// Name implements Index.
-func (l *LookupIndex[K, E, V]) Name() string { return l.name }
-
 //nolint:unused
-func (l *LookupIndex[K, E, V]) populate() (func(E), func(error), error) {
+func (l *LookupIndex[K, E, V]) populate() (func(E), func(error)) {
 	l.mu.Lock()
 	insert := func(entry E) {
 		l.storage.put(entry.GorpKey(), l.extract(&entry))
@@ -155,7 +183,7 @@ func (l *LookupIndex[K, E, V]) populate() (func(E), func(error), error) {
 		close(l.populateDone)
 		l.mu.Unlock()
 	}
-	return insert, finish, nil
+	return insert, finish
 }
 
 //nolint:unused
@@ -198,8 +226,8 @@ func (l *LookupIndex[K, E, V]) Get(values ...V) ([]K, error) {
 	<-l.populateDone
 	l.mu.RLock()
 	defer l.mu.RUnlock()
-	if l.populateErr.Load() != nil {
-		return nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
+	if err := l.populateErrWrapped(); err != nil {
+		return nil, err
 	}
 	if len(values) == 1 {
 		return l.storage.get(values[0]), nil
@@ -247,13 +275,8 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			select {
-			case <-l.populateDone:
-			case <-ctx.Done():
-				return nil, nil, ctx.Err()
-			}
-			if l.populateErr.Load() != nil {
-				return nil, nil, errors.Wrapf(ErrIndexInvalid, "lookup %q", l.name)
+			if err := l.waitPopulated(ctx); err != nil {
+				return nil, nil, err
 			}
 			committed, err := l.Get(captured...)
 			if err != nil {
@@ -278,18 +301,11 @@ func (l *LookupIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 // writes; an open write tx that staged inserts or deletes will not
 // see those changes during ordered iteration.
 type SortedIndex[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
-	name    string
+	baseIndex[K, E]
 	extract func(e *E) V
-	mu      sync.RWMutex
 	storage *sortedStorage[K, V]
 	reverse map[K]V
 	overlay deltaOverlay[K, V]
-	// populateDone mirrors LookupIndex.populateDone: closed by populate's
-	// finish closure once the index is ready (or has settled with an
-	// error).
-	populateDone chan struct{}
-	// populateErr mirrors LookupIndex.populateErr.
-	populateErr atomic.Pointer[error]
 }
 
 // NewSortedIndex constructs a SortedIndex index over the provided extract function.
@@ -300,21 +316,27 @@ func NewSortedIndex[K ComparableKey, E Entry[K], V cmp.Ordered](
 	extract func(e *E) V,
 ) *SortedIndex[K, E, V] {
 	s := &SortedIndex[K, E, V]{
-		name:         name,
-		extract:      extract,
-		storage:      newSortedStorage[K, V](),
-		reverse:      make(map[K]V),
-		populateDone: make(chan struct{}),
+		baseIndex: baseIndex[K, E]{name: name, populateDone: make(chan struct{})},
+		extract:   extract,
+		storage:   newSortedStorage[K, V](),
+		reverse:   make(map[K]V),
+	}
+	s.overlay.commitSet = func(key K, value V) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.setCommitted(key, value)
+	}
+	s.overlay.commitDelete = func(key K) {
+		s.mu.Lock()
+		defer s.mu.Unlock()
+		s.deleteCommitted(key)
 	}
 	s.overlay.flush = s.flushTx
 	return s
 }
 
-// Name implements Index.
-func (s *SortedIndex[K, E, V]) Name() string { return s.name }
-
 //nolint:unused
-func (s *SortedIndex[K, E, V]) populate() (func(E), func(error), error) {
+func (s *SortedIndex[K, E, V]) populate() (func(E), func(error)) {
 	s.mu.Lock()
 	insert := func(entry E) {
 		key := entry.GorpKey()
@@ -334,29 +356,25 @@ func (s *SortedIndex[K, E, V]) populate() (func(E), func(error), error) {
 		close(s.populateDone)
 		s.mu.Unlock()
 	}
-	return insert, finish, nil
+	return insert, finish
 }
 
-//nolint:unused
-func (s *SortedIndex[K, E, V]) set(entry E) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	key := entry.GorpKey()
-	newValue := s.extract(&entry)
+// setCommitted applies a (key, value) write to committed state. Caller
+// must hold s.mu for writing.
+func (s *SortedIndex[K, E, V]) setCommitted(key K, value V) {
 	if oldValue, existed := s.reverse[key]; existed {
-		if cmp.Compare(oldValue, newValue) == 0 {
+		if cmp.Compare(oldValue, value) == 0 {
 			return
 		}
 		s.storage.remove(key, oldValue)
 	}
-	s.storage.put(key, newValue)
-	s.reverse[key] = newValue
+	s.storage.put(key, value)
+	s.reverse[key] = value
 }
 
-//nolint:unused
-func (s *SortedIndex[K, E, V]) delete(key K) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+// deleteCommitted removes a key from committed state. Caller must hold
+// s.mu for writing.
+func (s *SortedIndex[K, E, V]) deleteCommitted(key K) {
 	oldValue, existed := s.reverse[key]
 	if !existed {
 		return
@@ -366,20 +384,26 @@ func (s *SortedIndex[K, E, V]) delete(key K) {
 }
 
 //nolint:unused
+func (s *SortedIndex[K, E, V]) set(entry E) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.setCommitted(entry.GorpKey(), s.extract(&entry))
+}
+
+//nolint:unused
+func (s *SortedIndex[K, E, V]) delete(key K) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deleteCommitted(key)
+}
+
+//nolint:unused
 func (s *SortedIndex[K, E, V]) stageSet(tx Tx, entry E) {
-	if tx.txIdentity() == nil {
-		s.set(entry)
-		return
-	}
 	s.overlay.stage(tx, entry.GorpKey(), s.extract(&entry))
 }
 
 //nolint:unused
 func (s *SortedIndex[K, E, V]) stageDelete(tx Tx, key K) {
-	if tx.txIdentity() == nil {
-		s.delete(key)
-		return
-	}
 	s.overlay.unstage(tx, key)
 }
 
@@ -388,22 +412,11 @@ func (s *SortedIndex[K, E, V]) flushTx(d *delta[K, V]) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for k, entry := range d.state {
-		oldValue, existed := s.reverse[k]
 		if entry.deleted {
-			if existed {
-				s.storage.remove(k, oldValue)
-				delete(s.reverse, k)
-			}
+			s.deleteCommitted(k)
 			continue
 		}
-		if existed {
-			if cmp.Compare(oldValue, entry.value) == 0 {
-				continue
-			}
-			s.storage.remove(k, oldValue)
-		}
-		s.storage.put(k, entry.value)
-		s.reverse[k] = entry.value
+		s.setCommitted(k, entry.value)
 	}
 }
 
@@ -422,8 +435,8 @@ func (s *SortedIndex[K, E, V]) Get(values ...V) ([]K, error) {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	if s.populateErr.Load() != nil {
-		return nil, errors.Wrapf(ErrIndexInvalid, "sorted %q", s.name)
+	if err := s.populateErrWrapped(); err != nil {
+		return nil, err
 	}
 	if len(values) == 1 {
 		src := s.storage.get(values[0])
@@ -450,13 +463,8 @@ func (s *SortedIndex[K, E, V]) Filter(values ...V) Filter[K, E] {
 	captured := append([]V(nil), values...)
 	return Filter[K, E]{
 		resolve: func(ctx context.Context, tx Tx) ([]K, func([]K) keyMembership[K], error) {
-			select {
-			case <-s.populateDone:
-			case <-ctx.Done():
-				return nil, nil, ctx.Err()
-			}
-			if s.populateErr.Load() != nil {
-				return nil, nil, errors.Wrapf(ErrIndexInvalid, "sorted %q", s.name)
+			if err := s.waitPopulated(ctx); err != nil {
+				return nil, nil, err
 			}
 			return s.resolveTx(tx, captured), indexedKeyMembership[K], nil
 		},

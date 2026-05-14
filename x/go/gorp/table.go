@@ -139,11 +139,7 @@ func OpenTable[K Key, E Entry[K]](
 	}); err != nil {
 		return nil, err
 	}
-	t := &Table[K, E]{
-		DB:        cfg.DB,
-		keyPrefix: newKeyPrefix[E](),
-		indexes:   cfg.Indexes,
-	}
+	t := &Table[K, E]{DB: cfg.DB, keyPrefix: newKeyPrefix[E](), indexes: cfg.Indexes}
 	if len(cfg.Indexes) == 0 {
 		return t, nil
 	}
@@ -152,16 +148,12 @@ func OpenTable[K Key, E Entry[K]](
 	// replicated through aspen could race the goroutine and apply via
 	// idx.set() before populate locks mu, leaving the bulk-load path to
 	// double-insert when the iterator later sees the same row.
-	inserts := make([]func(E), 0, len(cfg.Indexes))
-	finishes := make([]func(error), 0, len(cfg.Indexes))
+	var (
+		inserts  = make([]func(E), 0, len(cfg.Indexes))
+		finishes = make([]func(error), 0, len(cfg.Indexes))
+	)
 	for _, idx := range cfg.Indexes {
-		insert, finish, startErr := idx.populate()
-		if startErr != nil {
-			for _, f := range finishes {
-				f(startErr)
-			}
-			return nil, startErr
-		}
+		insert, finish := idx.populate()
 		inserts = append(inserts, insert)
 		finishes = append(finishes, finish)
 	}

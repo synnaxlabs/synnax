@@ -118,19 +118,25 @@ func (d *delta[SK, V]) merge(committedKeys []SK, values []V) []SK {
 // transaction; resolve merges the staged state into a committed result
 // set under read-your-own-writes semantics.
 //
-// flush, when non-nil, runs after a successful commit with the final
-// delta state. Owners can use it to promote staged mutations into
-// committed storage; no flush runs on rollback.
+// commitSet, commitDelete, and flush are storage-supplied callbacks.
+// commitSet and commitDelete are invoked by stage / unstage when tx has
+// no per-tx identity (a DB used directly); the storage is responsible
+// for acquiring its own commit-state lock inside the callback. flush
+// runs after a successful commit with the final delta state and must
+// apply every entry atomically; no flush runs on rollback.
 type deltaOverlay[SK comparable, V comparable] struct {
-	deltaMu  sync.Mutex
-	txDeltas map[*txState]*delta[SK, V]
-	flush    func(*delta[SK, V])
+	deltaMu      sync.Mutex
+	txDeltas     map[*txState]*delta[SK, V]
+	commitSet    func(key SK, value V)
+	commitDelete func(key SK)
+	flush        func(*delta[SK, V])
 }
 
 //nolint:unused
 func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 	state := tx.txIdentity()
 	if state == nil {
+		o.commitSet(key, value)
 		return
 	}
 	o.loadOrCreate(state).stageSet(key, value)
@@ -140,6 +146,7 @@ func (o *deltaOverlay[SK, V]) stage(tx Tx, key SK, value V) {
 func (o *deltaOverlay[SK, V]) unstage(tx Tx, key SK) {
 	state := tx.txIdentity()
 	if state == nil {
+		o.commitDelete(key)
 		return
 	}
 	o.loadOrCreate(state).stageDelete(key)

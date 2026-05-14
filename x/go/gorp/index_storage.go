@@ -63,6 +63,16 @@ func newMapLookupStorage[K ComparableKey, V comparable](
 		forward:  make(map[V][]K),
 		reverse:  make(map[K]V),
 	}
+	s.overlay.commitSet = func(key K, value V) {
+		s.commitMu.Lock()
+		defer s.commitMu.Unlock()
+		s.put(key, value)
+	}
+	s.overlay.commitDelete = func(key K) {
+		s.commitMu.Lock()
+		defer s.commitMu.Unlock()
+		s.delete(key)
+	}
 	s.overlay.flush = s.flush
 	return s
 }
@@ -115,23 +125,11 @@ func (s *mapLookupStorage[K, V]) get(value V) []K {
 
 //nolint:unused
 func (s *mapLookupStorage[K, V]) stageSet(tx Tx, key K, value V) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.put(key, value)
-		return
-	}
 	s.overlay.stage(tx, key, value)
 }
 
 //nolint:unused
 func (s *mapLookupStorage[K, V]) stageDelete(tx Tx, key K) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.delete(key)
-		return
-	}
 	s.overlay.unstage(tx, key)
 }
 
@@ -144,119 +142,6 @@ func (s *mapLookupStorage[K, V]) resolve(tx Tx, committed []K, values []V) []K {
 // is wired into overlay.flush at construction and runs without any
 // gorp-side lock held; it acquires commitMu before mutating.
 func (s *mapLookupStorage[K, V]) flush(d *delta[K, V]) {
-	s.commitMu.Lock()
-	defer s.commitMu.Unlock()
-	for k, entry := range d.state {
-		if entry.deleted {
-			s.delete(k)
-			continue
-		}
-		s.put(k, entry.value)
-	}
-}
-
-// boolLookupStorage backs a LookupIndex whose indexed value type V is bool.
-// The two-bucket forward representation avoids hashing the bool key
-// entirely; reverse remains a K-keyed map so we can locate the old
-// bucket when an entry's value flips.
-type boolLookupStorage[K ComparableKey] struct {
-	commitMu  *sync.RWMutex
-	trueKeys  []K
-	falseKeys []K
-	reverse   map[K]bool
-	overlay   deltaOverlay[K, bool]
-}
-
-func newBoolLookupStorage[K ComparableKey](
-	commitMu *sync.RWMutex,
-) *boolLookupStorage[K] {
-	s := &boolLookupStorage[K]{
-		commitMu: commitMu,
-		reverse:  make(map[K]bool),
-	}
-	s.overlay.flush = s.flush
-	return s
-}
-
-func (s *boolLookupStorage[K]) put(key K, value bool) {
-	if oldValue, existed := s.reverse[key]; existed {
-		if oldValue == value {
-			return
-		}
-		s.removeFromBucket(key, oldValue)
-	}
-	if value {
-		s.trueKeys = append(s.trueKeys, key)
-	} else {
-		s.falseKeys = append(s.falseKeys, key)
-	}
-	s.reverse[key] = value
-}
-
-func (s *boolLookupStorage[K]) delete(key K) {
-	oldValue, existed := s.reverse[key]
-	if !existed {
-		return
-	}
-	s.removeFromBucket(key, oldValue)
-	delete(s.reverse, key)
-}
-
-func (s *boolLookupStorage[K]) removeFromBucket(key K, value bool) {
-	bucket := &s.falseKeys
-	if value {
-		bucket = &s.trueKeys
-	}
-	for i, k := range *bucket {
-		if k == key {
-			*bucket = slices.Delete(*bucket, i, i+1)
-			return
-		}
-	}
-}
-
-//nolint:unused
-func (s *boolLookupStorage[K]) get(value bool) []K {
-	src := s.falseKeys
-	if value {
-		src = s.trueKeys
-	}
-	if len(src) == 0 {
-		return nil
-	}
-	out := make([]K, len(src))
-	copy(out, src)
-	return out
-}
-
-//nolint:unused
-func (s *boolLookupStorage[K]) stageSet(tx Tx, key K, value bool) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.put(key, value)
-		return
-	}
-	s.overlay.stage(tx, key, value)
-}
-
-//nolint:unused
-func (s *boolLookupStorage[K]) stageDelete(tx Tx, key K) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.delete(key)
-		return
-	}
-	s.overlay.unstage(tx, key)
-}
-
-//nolint:unused
-func (s *boolLookupStorage[K]) resolve(tx Tx, committed []K, values []bool) []K {
-	return s.overlay.resolve(tx, committed, values)
-}
-
-func (s *boolLookupStorage[K]) flush(d *delta[K, bool]) {
 	s.commitMu.Lock()
 	defer s.commitMu.Unlock()
 	for k, entry := range d.state {
@@ -288,6 +173,16 @@ func newBytesLookupStorage[V comparable](
 		commitMu: commitMu,
 		forward:  make(map[V][][]byte),
 		reverse:  make(map[string]V),
+	}
+	s.overlay.commitSet = func(skey string, value V) {
+		s.commitMu.Lock()
+		defer s.commitMu.Unlock()
+		s.put([]byte(skey), value)
+	}
+	s.overlay.commitDelete = func(skey string) {
+		s.commitMu.Lock()
+		defer s.commitMu.Unlock()
+		s.delete([]byte(skey))
 	}
 	s.overlay.flush = s.flush
 	return s
@@ -345,23 +240,11 @@ func (s *bytesLookupStorage[V]) get(value V) [][]byte {
 
 //nolint:unused
 func (s *bytesLookupStorage[V]) stageSet(tx Tx, key []byte, value V) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.put(key, value)
-		return
-	}
 	s.overlay.stage(tx, string(key), value)
 }
 
 //nolint:unused
 func (s *bytesLookupStorage[V]) stageDelete(tx Tx, key []byte) {
-	if tx.txIdentity() == nil {
-		s.commitMu.Lock()
-		defer s.commitMu.Unlock()
-		s.delete(key)
-		return
-	}
 	s.overlay.unstage(tx, string(key))
 }
 
