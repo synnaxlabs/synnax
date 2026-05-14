@@ -169,6 +169,18 @@ interface Provider {
   decode: Decoder;
 }
 
+const withNative = (payload: Payload, error: Error): Payload => ({
+  ...payload,
+  name: error.name,
+  stack: error.stack,
+});
+
+const applyNative = (error: Error, payload: Payload): Error => {
+  if (payload.name != null) error.name = payload.name;
+  if (payload.stack != null) error.stack = payload.stack;
+  return error;
+};
+
 class Registry {
   private readonly providers: Provider[] = [];
 
@@ -181,9 +193,10 @@ class Registry {
     if (isTyped(error))
       for (const provider of this.providers) {
         const payload = provider.encode(error);
-        if (payload != null) return payload;
+        if (payload != null) return withNative(payload, error);
       }
-    if (error instanceof Error) return { type: UNKNOWN, data: error.message };
+    if (error instanceof Error)
+      return withNative({ type: UNKNOWN, data: error.message }, error);
     if (typeof error === "string") return { type: UNKNOWN, data: error };
     try {
       return { type: UNKNOWN, data: JSON.stringify(error) };
@@ -194,12 +207,13 @@ class Registry {
 
   decode(payload?: Payload | null): Error | null {
     if (payload == null || payload.type === NONE) return null;
-    if (payload.type === UNKNOWN) return new Unknown(payload.data);
+    if (payload.type === UNKNOWN)
+      return applyNative(new Unknown(payload.data), payload);
     for (const provider of this.providers) {
       const error = provider.decode(payload);
-      if (error != null) return error;
+      if (error != null) return applyNative(error, payload);
     }
-    return new Unknown(payload.data);
+    return applyNative(new Unknown(payload.data), payload);
   }
 }
 
@@ -242,24 +256,22 @@ export const decode = (payload?: Payload | null): Error | null => {
  */
 export class Unknown extends createTyped("unknown") {}
 
-/** Zod schema for validating error payloads */
-export const payloadZ = z.object({ type: z.string(), data: z.string() });
+/** Zod schema for validating error payloads. `name` and `stack` are TypeScript-only
+ * fields; Go and Python don't populate them. They're carried opaquely across the wire
+ * and re-applied to the reconstructed error on decode, which keeps the original error
+ * name (e.g. "TypeError") and stack trace alive across worker / network boundaries. */
+export const payloadZ = z.object({
+  type: z.string(),
+  data: z.string(),
+  name: z.string().optional(),
+  stack: z.string().optional(),
+});
 
 /** Network-portable representation of an error */
 export type Payload = z.infer<typeof payloadZ>;
 
 /** Error for representing the cancellation of an operation */
 export class Canceled extends createTyped("canceled") {}
-
-/** A payload representing a native JavaScript Error */
-export interface NativePayload {
-  /** The name of the error */
-  name: string;
-  /** The message of the error */
-  message: string;
-  /** The stack trace of the error */
-  stack?: string;
-}
 
 /** Error for representing a method that is not implemented */
 export class NotImplemented extends createTyped("not_implemented") {}
