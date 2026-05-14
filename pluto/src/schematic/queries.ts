@@ -424,7 +424,15 @@ export interface SelectCanGroupArgs {
   selected: readonly string[];
 }
 
-/** True when ≥2 nodes are selected and none are groups (nesting disallowed). */
+const isGroupVariant = (
+  configs: Record<string, unknown>,
+  k: string,
+): boolean =>
+  (configs[k] as { variant?: string } | undefined)?.variant === Groups.GROUP_VARIANT;
+
+/** True when ≥2 non-group nodes would end up in the new group. Selecting groups
+ * counts their members; selecting groups + loose nodes merges them into a new
+ * super-group. */
 export const useSelectCanGroup = Flux.createSelector<
   FluxSubStore,
   SelectCanGroupArgs,
@@ -432,18 +440,20 @@ export const useSelectCanGroup = Flux.createSelector<
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, selected }) => {
-    if (selected.length < 2) return false;
     const s = store.schematics.get(key);
     if (s == null) return false;
+    let count = 0;
     for (const k of selected) {
-      const cfg = s.configs?.[k] as { variant?: string } | undefined;
-      if (cfg?.variant === Groups.GROUP_VARIANT) return false;
+      if (isGroupVariant(s.configs, k)) continue;
+      count++;
+      if (count >= 2) return true;
     }
-    return true;
+    return false;
   },
 });
 
-/** True when exactly one selected node is a group container. */
+/** True when any selected node is a group container or a group member. Selecting
+ * a single member dissolves its whole group. */
 export const useSelectCanUngroup = Flux.createSelector<
   FluxSubStore,
   SelectCanGroupArgs,
@@ -453,36 +463,35 @@ export const useSelectCanUngroup = Flux.createSelector<
   select: (store, { key, selected }) => {
     const s = store.schematics.get(key);
     if (s == null) return false;
-    let groupCount = 0;
     for (const k of selected) {
-      const cfg = s.configs?.[k] as { variant?: string } | undefined;
-      if (cfg?.variant === Groups.GROUP_VARIANT) groupCount++;
-      if (groupCount > 1) return false;
+      if (isGroupVariant(s.configs, k)) return true;
+      const node = s.nodes.find((n) => n.key === k);
+      if (node?.groupId != null) return true;
     }
-    return groupCount === 1;
+    return false;
   },
 });
 
-/** Wraps memberKeys in a new group container. Dispatched atomically so the
- * whole group operation is one undo entry. */
+/** Groups the selection. Existing group containers among the selection are
+ * dissolved and their members re-grouped into a single new super-group. */
 export const useGroup = (resourceKey: schematic.Key) => {
   const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
 
   return useCallback(
-    (memberKeys: readonly string[]) => {
-      if (memberKeys.length < 2) return;
+    (selectedKeys: readonly string[]) => {
       const s = store.schematics.get(resourceKey);
       if (s == null) return;
-      const memberSet = new Set(memberKeys);
-      const members = s.nodes.filter((n) => memberSet.has(n.key));
-      if (members.length < 2) return;
-      // Skip if any selected node is already a group container.
-      for (const m of members) {
-        const cfg = s.configs?.[m.key] as { variant?: string } | undefined;
-        if (cfg?.variant === Groups.GROUP_VARIANT) return;
-      }
-      const { position, dimensions } = Groups.computeGroupBoundingBox(members);
+      const selectedSet = new Set(selectedKeys);
+      const dissolvedGroupKeys = new Set<string>();
+      for (const k of selectedKeys)
+        if (isGroupVariant(s.configs, k)) dissolvedGroupKeys.add(k);
+      const memberNodes = s.nodes.filter((n) => {
+        if (selectedSet.has(n.key)) return !isGroupVariant(s.configs, n.key);
+        return n.groupId != null && dissolvedGroupKeys.has(n.groupId);
+      });
+      if (memberNodes.length < 2) return;
+      const { position, dimensions } = Groups.computeGroupBoundingBox(memberNodes);
       const groupKey = uuid.create();
       const groupConfig = GroupBox.defaultConfig();
       const actions: schematic.Action[] = [
@@ -491,39 +500,46 @@ export const useGroup = (resourceKey: schematic.Key) => {
           config: { ...groupConfig, dimensions },
         }),
       ];
-      for (const m of members)
+      for (const m of memberNodes)
         actions.push(
           schematic.setNode({
             node: { ...m, groupId: groupKey },
             config: undefined,
           }),
         );
+      for (const k of dissolvedGroupKeys)
+        actions.push(schematic.removeNode({ key: k }));
       dispatch({ key: resourceKey, actions });
     },
     [dispatch, resourceKey, store],
   );
 };
 
-/** Clears groupId on every member then removes the container, atomically. */
+/** Ungroups every group touched by the selection: selected containers and the
+ * containers of selected members. All affected members lose their groupId. */
 export const useUngroup = (resourceKey: schematic.Key) => {
   const store = Flux.useStore<FluxSubStore>();
   const { dispatch } = useDispatch();
 
   return useCallback(
-    (groupContainerKey: string) => {
+    (selectedKeys: readonly string[]) => {
       const s = store.schematics.get(resourceKey);
       if (s == null) return;
-      const containerCfg = s.configs?.[groupContainerKey] as
-        | { variant?: string }
-        | undefined;
-      if (containerCfg?.variant !== Groups.GROUP_VARIANT) return;
-      const members = s.nodes.filter((n) => n.groupId === groupContainerKey);
-      const actions: schematic.Action[] = [];
-      for (const m of members) {
-        const { groupId: _drop, ...rest } = m;
-        actions.push(schematic.setNode({ node: rest, config: undefined }));
+      const groupsToRemove = new Set<string>();
+      for (const k of selectedKeys) {
+        if (isGroupVariant(s.configs, k)) groupsToRemove.add(k);
+        const node = s.nodes.find((n) => n.key === k);
+        if (node?.groupId != null) groupsToRemove.add(node.groupId);
       }
-      actions.push(schematic.removeNode({ key: groupContainerKey }));
+      if (groupsToRemove.size === 0) return;
+      const actions: schematic.Action[] = [];
+      for (const n of s.nodes)
+        if (n.groupId != null && groupsToRemove.has(n.groupId)) {
+          const { groupId: _drop, ...rest } = n;
+          actions.push(schematic.setNode({ node: rest, config: undefined }));
+        }
+      for (const k of groupsToRemove)
+        actions.push(schematic.removeNode({ key: k }));
       dispatch({ key: resourceKey, actions });
     },
     [dispatch, resourceKey, store],

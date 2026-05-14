@@ -14,6 +14,7 @@ import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
+import { Flux } from "@/flux";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
 import { Icon } from "@/icon";
@@ -25,9 +26,11 @@ import {
   edgeChangesToActions,
   nodeChangesToActions,
 } from "@/schematic/Diagram";
+import * as Groups from "@/schematic/groups";
 import { canDropHaulItem, filterHaulItems } from "@/schematic/haul";
 import { Node } from "@/schematic/node";
 import {
+  type FluxSubStore,
   useAddNode,
   useDispatch,
   useGroup,
@@ -74,12 +77,35 @@ export const Schematic = ({
   const edges = useSelectAllEdges({ key });
   const edgesRef = useSyncedRef(edges);
   const { dispatch } = useDispatch();
+  const store = Flux.useStore<FluxSubStore>();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
-      const actions = nodeChangesToActions(changes);
+      const positionChanges = changes.filter((c) => c.type === "position");
+      const otherChanges = changes.filter((c) => c.type !== "position");
+      let allPositionChanges: BaseDiagram.NodeChange[] = positionChanges;
+      if (positionChanges.length > 0) {
+        const schem = store.schematics.get(key);
+        if (schem != null) {
+          const draggingByKey = new Map(
+            positionChanges.map((c) => [c.key, c.dragging]),
+          );
+          const propagated = Groups.propagateGroupDrag(
+            positionChanges.map((c) => ({ key: c.key, position: c.position })),
+            schem.nodes,
+            schem.configs,
+          );
+          allPositionChanges = propagated.map((p) => ({
+            type: "position" as const,
+            key: p.key,
+            position: p.position,
+            dragging: draggingByKey.get(p.key) ?? false,
+          }));
+        }
+      }
+      const actions = nodeChangesToActions([...otherChanges, ...allPositionChanges]);
       if (actions.length > 0) dispatch({ key, actions });
     },
-    [key, dispatch],
+    [key, dispatch, store],
   );
 
   const handleEdgesChange = useCallback(
@@ -165,10 +191,7 @@ export const Schematic = ({
         if (enableTriggers === false) return;
         if (typeof enableTriggers === "function" && !enableTriggers()) return;
         if (triggers.flat().includes("U")) {
-          if (canUngroup) {
-            const groupKey = selectedRef.current[0];
-            if (groupKey != null) handleUngroup(groupKey);
-          }
+          if (canUngroup) handleUngroup(selectedRef.current);
         } else if (canGroup) handleGroup(selectedRef.current);
       },
       [enableTriggers, canGroup, canUngroup, handleGroup, handleUngroup],
@@ -237,10 +260,7 @@ export const Schematic = ({
             itemKey="ungroup"
             trigger={["Control", "U"]}
             triggerIndicator
-            onClick={() => {
-              const groupKey = selectedRef.current[0];
-              if (groupKey != null) handleUngroup(groupKey);
-            }}
+            onClick={() => handleUngroup(selectedRef.current)}
           >
             Ungroup
           </Menu.Item>
