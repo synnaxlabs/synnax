@@ -54,5 +54,4 @@ export * from "@/types";
 export * from "@/unique";
 export * from "@/url";
 export * from "@/uuid";
-export * from "@/worker";
 export * from "@/zod";

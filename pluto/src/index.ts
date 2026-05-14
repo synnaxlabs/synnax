@@ -89,7 +89,6 @@ export { Line } from "@/vis/line";
 export { Measure } from "@/vis/measure";
 export { Rule } from "@/vis/rule";
 export { Value } from "@/vis/value";
-export { Worker } from "@/worker";
 export { Workspace } from "@/workspace";
 export {
   type CrudeDataType,

@@ -8,7 +8,6 @@
 // included in the file licenses/APL.txt.
 
 import { schematic } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
 import {
   Access,
   Control,
@@ -173,7 +172,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
@@ -277,14 +275,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.editable) return;
-    syncDispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [windowKey, state.editable, syncDispatch]);
+    syncDispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [state.editable, syncDispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
 
