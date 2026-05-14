@@ -12,6 +12,8 @@ package http
 import (
 	"context"
 	"go/types"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,7 +25,63 @@ import (
 	"go.uber.org/zap"
 )
 
-func BindTo(f *fiber.App) error {
+// Message is the payload exchanged by the integration server's echo and stream
+// fixtures.
+type Message struct {
+	// Message is the message to echo back.
+	Message string `json:"message" msgpack:"message"`
+	// ID is the ID of the message.
+	ID int `json:"id" msgpack:"id"`
+}
+
+// ServerStream is the stream server for the integration test that allows exchanging
+// messages between a client and a server.
+type ServerStream = freighter.ServerStream[Message, Message]
+
+// TestError is the error type exchanged across freighter for testing custom error
+// encoding/decoding. Its wire representation is registered with freighter's error
+// registry via the package init.
+type TestError struct {
+	Message string
+	Code    int
+}
+
+var _ error = TestError{}
+
+func (t TestError) Error() string { return t.Message }
+
+const testErrorType = "integration.error"
+
+func encodeTestError(_ context.Context, err error) (errors.Payload, bool) {
+	var t TestError
+	if !errors.As(err, &t) {
+		return errors.Payload{}, false
+	}
+	return errors.Payload{
+		Type: testErrorType,
+		Data: strconv.Itoa(t.Code) + "," + t.Message,
+	}, true
+}
+
+func decodeTestError(_ context.Context, pld errors.Payload) (error, bool) {
+	if pld.Type != testErrorType {
+		return nil, false
+	}
+	parts := strings.Split(pld.Data, ",")
+	if len(parts) != 2 {
+		return errors.New("unexpected error format"), true
+	}
+	code, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return err, true
+	}
+	return TestError{Code: code, Message: parts[1]}, true
+}
+
+func init() { errors.Register(encodeTestError, decodeTestError) }
+
+// BindTo registers all integration test endpoints on the given fiber app.
+func BindTo(a *fiber.App) error {
 	router, err := http.NewRouter(http.RouterConfig{
 		Instrumentation:     testutil.Instrumentation("freighter-integration"),
 		StreamWriteDeadline: 50 * time.Millisecond,
@@ -31,44 +89,71 @@ func BindTo(f *fiber.App) error {
 	if err != nil {
 		return err
 	}
+
 	echoServer := http.NewStreamServer[Message, Message](router, "/stream/echo")
 	echoServer.BindHandler(streamEcho)
 
-	streamSendMessageAfterClientCloseServer := http.NewStreamServer[Message, Message](router, "/stream/sendMessageAfterClientClose")
-	streamSendMessageAfterClientCloseServer.BindHandler(streamSendMessageAfterClientClose)
+	streamSendMessageAfterClientCloseServer := http.NewStreamServer[Message, Message](
+		router, "/stream/sendMessageAfterClientClose",
+	)
+	streamSendMessageAfterClientCloseServer.BindHandler(
+		streamSendMessageAfterClientClose,
+	)
 
-	streamReceiveAndExitWithErrServer := http.NewStreamServer[Message, Message](router, "/stream/receiveAndExitWithErr")
+	streamReceiveAndExitWithErrServer := http.NewStreamServer[Message, Message](
+		router, "/stream/receiveAndExitWithErr",
+	)
 	streamReceiveAndExitWithErrServer.BindHandler(streamReceiveAndExitWithErr)
 
-	streamImmediatelyExitWithErrServer := http.NewStreamServer[Message, Message](router, "/stream/immediatelyExitWithErr")
+	streamImmediatelyExitWithErrServer := http.NewStreamServer[Message, Message](
+		router, "/stream/immediatelyExitWithErr",
+	)
 	streamImmediatelyExitWithErrServer.BindHandler(streamImmediatelyExitWithErr)
 
-	streamImmediatelyExitNominallyServer := http.NewStreamServer[Message, Message](router, "/stream/immediatelyExitNominally")
+	streamImmediatelyExitNominallyServer := http.NewStreamServer[Message, Message](
+		router, "/stream/immediatelyExitNominally",
+	)
 	streamImmediatelyExitNominallyServer.BindHandler(streamImmediatelyExitNominally)
 
-	streamRespondWithTenMessagesServer := http.NewStreamServer[Message, Message](router, "/stream/respondWithTenMessages")
+	streamRespondWithTenMessagesServer := http.NewStreamServer[Message, Message](
+		router, "/stream/respondWithTenMessages",
+	)
 	streamRespondWithTenMessagesServer.BindHandler(streamRespondWithTenMessages)
 
-	unaryGetEchoServer := http.NewUnaryServer[Message, Message](router, "/unary/echo")
+	unaryGetEchoServer := http.NewUnaryServer[Message, Message](
+		router, "/unary/echo",
+	)
 	unaryGetEchoServer.BindHandler(unaryEcho)
 
-	unaryMiddlewareCheckServer := http.NewUnaryServer[Message, Message](router, "/unary/middlewareCheck")
+	unaryMiddlewareCheckServer := http.NewUnaryServer[Message, Message](
+		router, "/unary/middlewareCheck",
+	)
 	unaryMiddlewareCheckServer.BindHandler(unaryEcho)
 	unaryMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamMiddlewareCheckServer := http.NewStreamServer[Message, Message](router, "/stream/middlewareCheck")
+	streamMiddlewareCheckServer := http.NewStreamServer[Message, Message](
+		router, "/stream/middlewareCheck",
+	)
 	streamMiddlewareCheckServer.BindHandler(streamEcho)
 	streamMiddlewareCheckServer.Use(freighter.MiddlewareFunc(checkMiddleware))
 
-	streamSlamMessagesServer := http.NewStreamServer[Message, Message](router, "/stream/slamMessages")
+	streamSlamMessagesServer := http.NewStreamServer[Message, Message](
+		router, "/stream/slamMessages",
+	)
 	streamSlamMessagesServer.BindHandler(streamSlamMessages)
-	slamMessagesTimeoutCheck := http.NewUnaryServer[Message, Message](router, "/unary/slamMessagesTimeoutCheck")
+	slamMessagesTimeoutCheck := http.NewUnaryServer[Message, Message](
+		router, "/unary/slamMessagesTimeoutCheck",
+	)
 	slamMessagesTimeoutCheck.BindHandler(slamMessagesTimeoutCheckHandler)
 
-	streamEventuallyResponseWithMessageServer := http.NewStreamServer[Message, Message](router, "/stream/eventuallyResponseWithMessage")
-	streamEventuallyResponseWithMessageServer.BindHandler(streamEventuallyResponseWithMessage)
+	streamEventuallyResponseWithMessageServer := http.NewStreamServer[Message, Message](
+		router, "/stream/eventuallyResponseWithMessage",
+	)
+	streamEventuallyResponseWithMessageServer.BindHandler(
+		streamEventuallyResponseWithMessage,
+	)
 
-	router.BindTo(f)
+	router.BindTo(a)
 	return nil
 }
 
