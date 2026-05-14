@@ -21,7 +21,9 @@ import { useSyncedRef } from "@/hooks/ref";
 import { Ontology } from "@/ontology";
 import { Edge } from "@/schematic/edge";
 import { type ElementConfig } from "@/schematic/element";
+import * as Groups from "@/schematic/groups";
 import { Node } from "@/schematic/node";
+import { GroupBox } from "@/schematic/node/general/groupBox";
 import { type Symbol } from "@/schematic/symbol";
 import { Theming } from "@/theming";
 
@@ -414,5 +416,116 @@ export const useAddNode = (resourceKey: string) => {
       });
     },
     [dispatch, resourceKey, theme, store],
+  );
+};
+
+export interface SelectCanGroupArgs {
+  key: schematic.Key;
+  selected: readonly string[];
+}
+
+/** True when ≥2 nodes are selected and none are groups (nesting disallowed). */
+export const useSelectCanGroup = Flux.createSelector<
+  FluxSubStore,
+  SelectCanGroupArgs,
+  boolean
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, selected }) => {
+    if (selected.length < 2) return false;
+    const s = store.schematics.get(key);
+    if (s == null) return false;
+    for (const k of selected) {
+      const cfg = s.configs?.[k] as { variant?: string } | undefined;
+      if (cfg?.variant === Groups.GROUP_VARIANT) return false;
+    }
+    return true;
+  },
+});
+
+/** True when exactly one selected node is a group container. */
+export const useSelectCanUngroup = Flux.createSelector<
+  FluxSubStore,
+  SelectCanGroupArgs,
+  boolean
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key, selected }) => {
+    const s = store.schematics.get(key);
+    if (s == null) return false;
+    let groupCount = 0;
+    for (const k of selected) {
+      const cfg = s.configs?.[k] as { variant?: string } | undefined;
+      if (cfg?.variant === Groups.GROUP_VARIANT) groupCount++;
+      if (groupCount > 1) return false;
+    }
+    return groupCount === 1;
+  },
+});
+
+/** Wraps memberKeys in a new group container. Dispatched atomically so the
+ * whole group operation is one undo entry. */
+export const useGroup = (resourceKey: schematic.Key) => {
+  const store = Flux.useStore<FluxSubStore>();
+  const { dispatch } = useDispatch();
+
+  return useCallback(
+    (memberKeys: readonly string[]) => {
+      if (memberKeys.length < 2) return;
+      const s = store.schematics.get(resourceKey);
+      if (s == null) return;
+      const memberSet = new Set(memberKeys);
+      const members = s.nodes.filter((n) => memberSet.has(n.key));
+      if (members.length < 2) return;
+      // Skip if any selected node is already a group container.
+      for (const m of members) {
+        const cfg = s.configs?.[m.key] as { variant?: string } | undefined;
+        if (cfg?.variant === Groups.GROUP_VARIANT) return;
+      }
+      const { position, dimensions } = Groups.computeGroupBoundingBox(members);
+      const groupKey = uuid.create();
+      const groupConfig = GroupBox.defaultConfig();
+      const actions: schematic.Action[] = [
+        schematic.setNode({
+          node: { key: groupKey, position },
+          config: { ...groupConfig, dimensions },
+        }),
+      ];
+      for (const m of members)
+        actions.push(
+          schematic.setNode({
+            node: { ...m, groupId: groupKey },
+            config: undefined,
+          }),
+        );
+      dispatch({ key: resourceKey, actions });
+    },
+    [dispatch, resourceKey, store],
+  );
+};
+
+/** Clears groupId on every member then removes the container, atomically. */
+export const useUngroup = (resourceKey: schematic.Key) => {
+  const store = Flux.useStore<FluxSubStore>();
+  const { dispatch } = useDispatch();
+
+  return useCallback(
+    (groupContainerKey: string) => {
+      const s = store.schematics.get(resourceKey);
+      if (s == null) return;
+      const containerCfg = s.configs?.[groupContainerKey] as
+        | { variant?: string }
+        | undefined;
+      if (containerCfg?.variant !== Groups.GROUP_VARIANT) return;
+      const members = s.nodes.filter((n) => n.groupId === groupContainerKey);
+      const actions: schematic.Action[] = [];
+      for (const m of members) {
+        const { groupId: _drop, ...rest } = m;
+        actions.push(schematic.setNode({ node: rest, config: undefined }));
+      }
+      actions.push(schematic.removeNode({ key: groupContainerKey }));
+      dispatch({ key: resourceKey, actions });
+    },
+    [dispatch, resourceKey, store],
   );
 };
