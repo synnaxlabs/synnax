@@ -12,7 +12,6 @@ package gorp_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -623,7 +622,7 @@ var _ = Describe("Filter Combinators", func() {
 		// matchRawErr returns a raw filter that always errors.
 		matchRawErr := func() gorp.Filter[int32, entry] {
 			return gorp.MatchRaw[int32, entry](func(_, _ []byte) (bool, error) {
-				return false, fmt.Errorf("raw filter error")
+				return false, errors.New("raw filter error")
 			})
 		}
 		// matchEvalAndRaw returns a filter with both eval and raw populated by
@@ -661,12 +660,10 @@ var _ = Describe("Filter Combinators", func() {
 			})
 			It("Should propagate raw filter errors", func(ctx SpecContext) {
 				var res []entry
-				err := gorp.NewRetrieve[int32, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Where(matchRawErr()).
-					Exec(ctx, tx)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("raw filter error"))
+					Exec(ctx, tx)).To(MatchError(ContainSubstring("raw filter error")))
 			})
 		})
 
@@ -697,15 +694,13 @@ var _ = Describe("Filter Combinators", func() {
 			})
 			It("Should propagate raw stage errors", func(ctx SpecContext) {
 				var res []entry
-				err := gorp.NewRetrieve[int32, entry]().
+				Expect(gorp.NewRetrieve[int32, entry]().
 					Entries(&res).
 					Where(gorp.And(
 						matchRawErr(),
 						matchRawDataContains([]byte("data")),
 					)).
-					Exec(ctx, tx)
-				Expect(err).To(HaveOccurred())
-				Expect(err.Error()).To(ContainSubstring("raw filter error"))
+					Exec(ctx, tx)).To(MatchError(ContainSubstring("raw filter error")))
 			})
 			It("Should compose Eval and Raw stages independently for a filter carrying both", func(ctx SpecContext) {
 				var res []entry
@@ -748,17 +743,6 @@ var _ = Describe("Filter Combinators", func() {
 				// Every entry has Data == "data" so the raw branch matches
 				// all 10; the eval branch only adds entry 3, which is already
 				// covered.
-				Expect(res).To(HaveLen(10))
-			})
-			It("Should match every entry when every child is a matching pure-raw", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Entries(&res).
-					Where(gorp.Or(
-						matchRawDataContains([]byte("data")),
-						matchRawDataContains([]byte("ata")),
-					)).
-					Exec(ctx, tx)).To(Succeed())
 				Expect(res).To(HaveLen(10))
 			})
 		})

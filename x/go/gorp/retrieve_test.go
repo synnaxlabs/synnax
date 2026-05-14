@@ -156,33 +156,33 @@ var _ = Describe("Retrieve", func() {
 			// MatchKeys(nextIDs) on top of WhereTypes / WherePrefix, and a
 			// transient miss (orphaned relationship, freshly-deleted
 			// resource) must not blow up the whole traversal.
-			It("Should NOT return ErrNotFound when MatchKeys is combined with a Match filter and some keys are missing", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
-					Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return true, nil })).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(Equal(entries[:2]))
-			})
-			It("Should NOT return ErrNotFound when MatchKeys is combined with a Match filter that further narrows the result", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
-					Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil })).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(Equal(entries[1:2]))
-			})
-			It("Should NOT return ErrNotFound when MatchKeys is combined with a MatchRaw filter and some keys are missing", func(ctx SpecContext) {
-				var res []entry
-				Expect(gorp.NewRetrieve[int32, entry]().
-					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
-					WhereRaw(func(_, _ []byte) (bool, error) { return true, nil }).
-					Entries(&res).
-					Exec(ctx, tx)).To(Succeed())
-				Expect(res).To(Equal(entries[0:1]))
-			})
+			DescribeTable("Should NOT return ErrNotFound when MatchKeys is combined with a filter and some keys are missing",
+				func(ctx SpecContext, build func() gorp.Retrieve[int32, entry], wantIndices []int) {
+					var res []entry
+					Expect(build().Entries(&res).Exec(ctx, tx)).To(Succeed())
+					want := make([]entry, len(wantIndices))
+					for i, idx := range wantIndices {
+						want[i] = entries[idx]
+					}
+					Expect(res).To(Equal(want))
+				},
+				Entry("Match filter passes every key", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+						Where(gorp.Match(func(_ gorp.Context, _ *entry) (bool, error) { return true, nil }))
+				}, []int{0, 1}),
+				Entry("Match filter further narrows the bound", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), entries[1].GorpKey(), 444444)).
+						Where(gorp.Match(func(_ gorp.Context, e *entry) (bool, error) { return e.ID == entries[1].ID, nil }))
+				}, []int{1}),
+				Entry("MatchRaw filter passes every key", func() gorp.Retrieve[int32, entry] {
+					return gorp.NewRetrieve[int32, entry]().
+						Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
+						WhereRaw(func(_, _ []byte) (bool, error) { return true, nil })
+				}, []int{0}),
+			)
+
 			It("Should still return ErrNotFound when a single-entry bound query has no matches", func(ctx SpecContext) {
 				Expect(gorp.NewRetrieve[int32, entry]().
 					Where(gorp.MatchKeys[int32, entry](entries[0].GorpKey(), 444444)).
