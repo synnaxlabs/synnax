@@ -174,7 +174,7 @@ const MultiConfig = ({
     const groups: Record<color.Hex, string[]> = {};
     selected.forEach((key, i) => {
       const cfg = selectedConfigs[i];
-      if (cfg == null || cfg.color == null) return;
+      if (cfg == null || !("color" in cfg) || cfg.color == null) return;
       const hex = color.hex(cfg.color as color.Crude);
       if (!(hex in groups)) groups[hex] = [];
       groups[hex].push(key);

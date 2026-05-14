@@ -85,6 +85,76 @@ const buildPayload = (
   };
 };
 
+const tryParsePayload = (raw: string): Payload | null => {
+  if (raw === "") return null;
+  let payload: Payload;
+  try {
+    payload = JSON.parse(raw) as Payload;
+  } catch {
+    return null;
+  }
+  if (payload.version !== VERSION) return null;
+  return payload;
+};
+
+/** Builds the dispatch actions for pasting payload at cursor. Pure: no clipboard
+ * I/O. Returns the new keys for caller-side selection sync. */
+const buildPasteActions = (
+  payload: Payload,
+  cursor: xy.XY,
+): { actions: schematic.Action[]; newKeys: string[] } => {
+  const offset = xy.translation(payload.anchor, cursor);
+  const remap: Record<string, string> = {};
+  const actions: schematic.Action[] = [];
+  for (const node of payload.nodes) {
+    const newKey = uuid.create();
+    remap[node.key] = newKey;
+  }
+  for (const node of payload.nodes) {
+    const remapped = Groups.remapGroupId(node, remap);
+    actions.push(
+      schematic.setNode({
+        node: {
+          ...remapped,
+          key: remap[node.key],
+          position: xy.translate(node.position, offset),
+        },
+        config: payload.configs[node.key],
+      }),
+    );
+  }
+  for (const edge of payload.edges) {
+    const src = remap[edge.source.node];
+    const tgt = remap[edge.target.node];
+    if (src == null || tgt == null) continue;
+    const newKey = uuid.create();
+    actions.push(
+      schematic.addEdge({
+        edge: {
+          ...edge,
+          key: newKey,
+          source: { ...edge.source, node: src },
+          target: { ...edge.target, node: tgt },
+        },
+      }),
+    );
+    const cfg = payload.configs[edge.key];
+    if (cfg != null)
+      actions.push(schematic.setConfig({ key: newKey, config: cfg }));
+  }
+  return { actions, newKeys: Object.values(remap) };
+};
+
+/** Builds the dispatch actions for cutting (deleting) the built payload. */
+const buildCutActions = (built: BuiltPayload): schematic.Action[] => {
+  const actions: schematic.Action[] = [];
+  for (const edge of built.payload.edges)
+    actions.push(schematic.removeEdge({ key: edge.key }));
+  for (const k of built.expandedKeys)
+    actions.push(schematic.removeNode({ key: k }));
+  return actions;
+};
+
 export interface UseClipboardArgs {
   key: schematic.Key;
   selected?: string[];
@@ -95,6 +165,9 @@ export interface UseClipboardReturn {
   onCopy: DiagramClipboardHandler;
   onCut: DiagramClipboardHandler;
   onPaste: DiagramClipboardHandler;
+  copy: () => void;
+  cut: () => void;
+  paste: (cursor: xy.XY) => void;
 }
 
 export const useClipboard = ({
@@ -133,11 +206,7 @@ export const useClipboard = ({
       e.preventDefault();
       e.clipboardData.setData(MIME, JSON.stringify(built.payload));
       e.clipboardData.setData("text/plain", describe(built.payload));
-      const actions: schematic.Action[] = [];
-      for (const edge of built.payload.edges)
-        actions.push(schematic.removeEdge({ key: edge.key }));
-      for (const k of built.expandedKeys)
-        actions.push(schematic.removeNode({ key: k }));
+      const actions = buildCutActions(built);
       if (actions.length > 0) dispatch({ key, actions });
     },
     [key, store, dispatch],
@@ -145,61 +214,56 @@ export const useClipboard = ({
 
   const handlePaste = useCallback<DiagramClipboardHandler>(
     (e, cursor) => {
-      const raw = e.clipboardData.getData(MIME);
-      if (raw === "") return;
-      let payload: Payload;
-      try {
-        payload = JSON.parse(raw) as Payload;
-      } catch {
-        return;
-      }
-      if (payload.version !== VERSION) return;
+      const payload = tryParsePayload(e.clipboardData.getData(MIME));
+      if (payload == null) return;
       e.preventDefault();
-      const offset = xy.translation(payload.anchor, cursor);
-      const remap: Record<string, string> = {};
-      const actions: schematic.Action[] = [];
-      for (const node of payload.nodes) {
-        const newKey = uuid.create();
-        remap[node.key] = newKey;
-      }
-      for (const node of payload.nodes) {
-        const remapped = Groups.remapGroupId(node, remap);
-        actions.push(
-          schematic.setNode({
-            node: {
-              ...remapped,
-              key: remap[node.key],
-              position: xy.translate(node.position, offset),
-            },
-            config: payload.configs[node.key],
-          }),
-        );
-      }
-      for (const edge of payload.edges) {
-        const src = remap[edge.source.node];
-        const tgt = remap[edge.target.node];
-        if (src == null || tgt == null) continue;
-        const newKey = uuid.create();
-        actions.push(
-          schematic.addEdge({
-            edge: {
-              ...edge,
-              key: newKey,
-              source: { ...edge.source, node: src },
-              target: { ...edge.target, node: tgt },
-            },
-          }),
-        );
-        const cfg = payload.configs[edge.key];
-        if (cfg != null)
-          actions.push(schematic.setConfig({ key: newKey, config: cfg }));
-      }
+      const { actions, newKeys } = buildPasteActions(payload, cursor);
       if (actions.length === 0) return;
       dispatch({ key, actions });
-      onPaste?.(Object.values(remap));
+      onPaste?.(newKeys);
     },
     [key, dispatch, onPaste],
   );
 
-  return { onCopy: handleCopy, onCut: handleCut, onPaste: handlePaste };
+  const copy = useCallback(() => {
+    const schem = store.schematics.get(key);
+    if (schem == null) return;
+    const built = buildPayload(schem, selectedRef.current);
+    if (built == null) return;
+    void navigator.clipboard.writeText(JSON.stringify(built.payload));
+  }, [key, store]);
+
+  const cut = useCallback(() => {
+    const schem = store.schematics.get(key);
+    if (schem == null) return;
+    const built = buildPayload(schem, selectedRef.current);
+    if (built == null) return;
+    void navigator.clipboard.writeText(JSON.stringify(built.payload));
+    const actions = buildCutActions(built);
+    if (actions.length > 0) dispatch({ key, actions });
+  }, [key, store, dispatch]);
+
+  const paste = useCallback(
+    (cursor: xy.XY) => {
+      void (async () => {
+        const raw = await navigator.clipboard.readText();
+        const payload = tryParsePayload(raw);
+        if (payload == null) return;
+        const { actions, newKeys } = buildPasteActions(payload, cursor);
+        if (actions.length === 0) return;
+        dispatch({ key, actions });
+        onPaste?.(newKeys);
+      })();
+    },
+    [key, dispatch, onPaste],
+  );
+
+  return {
+    onCopy: handleCopy,
+    onCut: handleCut,
+    onPaste: handlePaste,
+    copy,
+    cut,
+    paste,
+  };
 };

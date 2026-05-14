@@ -19,6 +19,7 @@ import { type color, type sticky } from "@synnaxlabs/x";
 import { useCallback, useMemo } from "react";
 import { useDispatch, useStore } from "react-redux";
 
+import { ContextMenu as CContextMenu } from "@/components";
 import { Layout } from "@/layout";
 import { Controller } from "@/schematic/Controller";
 import { Controls } from "@/schematic/Controls";
@@ -138,6 +139,7 @@ const Internal: Layout.Renderer = ({ layoutKey: key, visible }) => {
         onNodeClick={handleNodeClick}
         onNodeDoubleClick={handleNodeDoubleClick}
         visible={visible}
+        extraContextMenuItems={<CContextMenu.ReloadConsoleItem />}
       >
         <Diagram.Background />
         <Controls

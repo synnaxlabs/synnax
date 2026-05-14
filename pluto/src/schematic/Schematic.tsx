@@ -11,12 +11,14 @@ import "@/schematic/Schematic.css";
 
 import { type schematic } from "@synnaxlabs/client";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
-import { type ReactElement, useCallback, useRef } from "react";
+import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
 import { CSS } from "@/css";
 import { Haul } from "@/haul";
 import { useSyncedRef } from "@/hooks";
+import { Icon } from "@/icon";
 import { Key } from "@/key";
+import { Menu } from "@/menu";
 import { useClipboard } from "@/schematic/clipboard";
 import {
   Diagram,
@@ -51,6 +53,7 @@ export interface SchematicProps extends Omit<
 > {
   enableTriggers?: boolean | (() => boolean);
   resourceKey: schematic.Key;
+  extraContextMenuItems?: ReactNode;
 }
 const AUTO_RENDER_INTERVAL = TimeSpan.seconds(1).milliseconds;
 const DRAG_HANDLE_SELECTOR = `.${Node.DRAG_HANDLE_CLASS}`;
@@ -63,6 +66,7 @@ export const Schematic = ({
   onSelectionChange,
   selected,
   enableTriggers,
+  extraContextMenuItems,
   ...props
 }: SchematicProps): ReactElement => {
   const nodes = useSelectAllNodes({ key });
@@ -129,7 +133,7 @@ export const Schematic = ({
   const { undo } = useUndo({ key });
   const { redo } = useRedo({ key });
 
-  const { onCopy, onCut, onPaste } = useClipboard({
+  const { onCopy, onCut, onPaste, copy, cut, paste } = useClipboard({
     key,
     selected,
     onPaste: onSelectionChange,
@@ -171,27 +175,121 @@ export const Schematic = ({
     ),
   });
 
+  const menuProps = Menu.useContextMenu();
+  // React Flow doesn't select nodes on right-click, so context menu actions like
+  // Copy would operate on an empty selection without this.
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const nodeEl = target.closest<HTMLElement>("[data-id]");
+      if (nodeEl != null) {
+        const nodeKey = nodeEl.dataset.id;
+        if (nodeKey != null && !selectedRef.current.includes(nodeKey))
+          onSelectionChange?.([nodeKey]);
+      }
+      menuProps.open(e);
+    },
+    [menuProps, onSelectionChange],
+  );
+  const canvasMenu = useCallback(
+    () => (
+      <Menu.Menu level="small" gap="small">
+        <Menu.Item
+          itemKey="cut"
+          trigger={["Control", "X"]}
+          triggerIndicator
+          onClick={cut}
+        >
+          <Icon.Cut />
+          Cut
+        </Menu.Item>
+        <Menu.Item
+          itemKey="copy"
+          trigger={["Control", "C"]}
+          triggerIndicator
+          onClick={copy}
+        >
+          <Icon.Copy />
+          Copy
+        </Menu.Item>
+        <Menu.Item
+          itemKey="paste"
+          trigger={["Control", "V"]}
+          triggerIndicator
+          onClick={() => paste(menuProps.cursor)}
+        >
+          <Icon.Paste />
+          Paste
+        </Menu.Item>
+        {(canGroup || canUngroup) && <Menu.Divider />}
+        {canGroup && (
+          <Menu.Item
+            itemKey="group"
+            trigger={["Control", "G"]}
+            triggerIndicator
+            onClick={() => handleGroup(selectedRef.current)}
+          >
+            Group
+          </Menu.Item>
+        )}
+        {canUngroup && (
+          <Menu.Item
+            itemKey="ungroup"
+            trigger={["Control", "U"]}
+            triggerIndicator
+            onClick={() => {
+              const groupKey = selectedRef.current[0];
+              if (groupKey != null) handleUngroup(groupKey);
+            }}
+          >
+            Ungroup
+          </Menu.Item>
+        )}
+        {extraContextMenuItems != null && (
+          <>
+            <Menu.Divider />
+            {extraContextMenuItems}
+          </>
+        )}
+      </Menu.Menu>
+    ),
+    [
+      cut,
+      copy,
+      paste,
+      menuProps.cursor,
+      canGroup,
+      canUngroup,
+      handleGroup,
+      handleUngroup,
+      extraContextMenuItems,
+    ],
+  );
+
   return (
     <Key.Provider value={key}>
-      <Diagram
-        ref={ref}
-        className={CSS(CSS.B("schematic"), className)}
-        dragHandleSelector={DRAG_HANDLE_SELECTOR}
-        autoRenderInterval={AUTO_RENDER_INTERVAL}
-        onNodesChange={handleNodesChange}
-        onEdgesChange={handleEdgesChange}
-        viewport={viewport}
-        onSelectionChange={onSelectionChange}
-        onDoubleClick={onDoubleClick}
-        onCopy={onCopy}
-        onCut={onCut}
-        onPaste={onPaste}
-        nodes={nodes}
-        edges={edges}
-        selected={selected}
-        {...dropProps}
-        {...props}
-      />
+      <Menu.ContextMenu {...menuProps} menu={canvasMenu}>
+        <Diagram
+          ref={ref}
+          className={CSS(CSS.B("schematic"), className, menuProps.className)}
+          dragHandleSelector={DRAG_HANDLE_SELECTOR}
+          autoRenderInterval={AUTO_RENDER_INTERVAL}
+          onNodesChange={handleNodesChange}
+          onEdgesChange={handleEdgesChange}
+          viewport={viewport}
+          onSelectionChange={onSelectionChange}
+          onDoubleClick={onDoubleClick}
+          onContextMenu={handleContextMenu}
+          onCopy={onCopy}
+          onCut={onCut}
+          onPaste={onPaste}
+          nodes={nodes}
+          edges={edges}
+          selected={selected}
+          {...dropProps}
+          {...props}
+        />
+      </Menu.ContextMenu>
     </Key.Provider>
   );
 };
