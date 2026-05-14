@@ -36,7 +36,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	name *gorp.Lookup[Key, Channel, Name]
+	name *gorp.LookupIndex[Key, Channel, Name]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one index instance
@@ -44,7 +44,7 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
-		name: gorp.NewLookup[Key, Channel, Name](
+		name: gorp.NewLookupIndex[Key, Channel, Name](
 			"name",
 			func(e *Channel) Name { return e.Name },
 		),

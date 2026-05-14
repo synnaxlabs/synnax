@@ -69,7 +69,7 @@ var _ = Describe("BytesLookup", func() {
 	Describe("Observer maintenance", func() {
 		var (
 			table *gorp.Table[[]byte, byteEntry]
-			toIdx *gorp.Lookup[[]byte, byteEntry, string]
+			toIdx *gorp.LookupIndex[[]byte, byteEntry, string]
 		)
 		BeforeEach(func(ctx SpecContext) {
 			toIdx = gorp.NewBytesLookup[byteEntry, string](
@@ -182,7 +182,7 @@ var _ = Describe("BytesLookup", func() {
 	Describe("Tx delta visibility", func() {
 		var (
 			table *gorp.Table[[]byte, byteEntry]
-			toIdx *gorp.Lookup[[]byte, byteEntry, string]
+			toIdx *gorp.LookupIndex[[]byte, byteEntry, string]
 		)
 		BeforeEach(func(ctx SpecContext) {
 			toIdx = gorp.NewBytesLookup[byteEntry, string](

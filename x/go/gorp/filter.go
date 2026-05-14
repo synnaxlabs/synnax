@@ -41,7 +41,7 @@ type Filter[K Key, E Entry[K]] struct {
 	// drops keys because inverting a key set requires the universe.
 	keys []K
 	// membership is a lazy O(1) mirror of keys. Nil when the filter has
-	// no keys or was constructed without an IndexKey-constrained
+	// no keys or was constructed without an ComparableKey-constrained
 	// builder; containsKey gates on it being non-nil.
 	//
 	// Lazy materialization avoids allocating an N-entry hashmap for a
@@ -107,7 +107,7 @@ func newLazyMembership[K Key](
 // of comparable keys. Defined as a package-level generic (rather than
 // a closure literal) so resolvers can return it without forcing a
 // per-construction heap allocation.
-func indexedKeyMembership[K IndexKey](keys []K) keyMembership[K] {
+func indexedKeyMembership[K ComparableKey](keys []K) keyMembership[K] {
 	return set.New(keys...)
 }
 

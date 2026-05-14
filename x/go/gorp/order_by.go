@@ -11,7 +11,7 @@ package gorp
 
 import "cmp"
 
-// Direction is the iteration direction used by a Sorted index when it is
+// Direction is the iteration direction used by a SortedIndex index when it is
 // consumed via Retrieve.OrderBy.
 type Direction uint8
 
@@ -22,17 +22,17 @@ const (
 	Desc
 )
 
-// OrderQuery is an opaque ordering handle produced by Sorted.Ordered and
+// OrderQuery is an opaque ordering handle produced by SortedIndex.Ordered and
 // consumed by Retrieve.OrderBy.
 type OrderQuery[K Key, E Entry[K]] interface {
 	walkOrder(limit int) []K
 }
 
-// SortedQuery is the handle returned by Sorted.Ordered. Pass it to
+// SortedQuery is the handle returned by SortedIndex.Ordered. Pass it to
 // Retrieve.OrderBy to drive an ordered walk; chain After to set a
 // resume cursor for pagination.
-type SortedQuery[K IndexKey, E Entry[K], V cmp.Ordered] struct {
-	sorted    *Sorted[K, E, V]
+type SortedQuery[K ComparableKey, E Entry[K], V cmp.Ordered] struct {
+	sorted    *SortedIndex[K, E, V]
 	dir       Direction
 	cursor    V
 	hasCursor bool
@@ -40,7 +40,7 @@ type SortedQuery[K IndexKey, E Entry[K], V cmp.Ordered] struct {
 
 // Ordered constructs a SortedQuery for an ordered walk of the index in the
 // given direction. The returned handle is passed to Retrieve.OrderBy.
-func (s *Sorted[K, E, V]) Ordered(dir Direction) SortedQuery[K, E, V] {
+func (s *SortedIndex[K, E, V]) Ordered(dir Direction) SortedQuery[K, E, V] {
 	return SortedQuery[K, E, V]{sorted: s, dir: dir}
 }
 
@@ -61,7 +61,7 @@ func (q SortedQuery[K, E, V]) After(cursor V) SortedQuery[K, E, V] {
 //
 // walkOrder does not see uncommitted tx writes. Entries staged via a
 // write tx (stageSet / stageDelete) are invisible to ordered iteration;
-// only Sorted.Filter merges the per-tx delta. A Where filter combined
+// only SortedIndex.Filter merges the per-tx delta. A Where filter combined
 // with OrderBy is applied as a post-filter against the committed
 // entries, so the same caveat extends to the combined query.
 //
@@ -95,7 +95,7 @@ func (q SortedQuery[K, E, V]) walkOrder(limit int) []K {
 // emitting up to limit keys. A limit of 0 means unbounded.
 //
 //nolint:unused
-func walkSorted[K IndexKey, V cmp.Ordered](
+func walkSorted[K ComparableKey, V cmp.Ordered](
 	entries []sortedEntry[K, V],
 	start int,
 	dir Direction,
@@ -112,7 +112,7 @@ func walkSorted[K IndexKey, V cmp.Ordered](
 			if limit > 0 && emitted >= limit {
 				break
 			}
-			keys = append(keys, entries[i].Key)
+			keys = append(keys, entries[i].key)
 			emitted++
 		}
 	case Desc:
@@ -120,7 +120,7 @@ func walkSorted[K IndexKey, V cmp.Ordered](
 			if limit > 0 && emitted >= limit {
 				break
 			}
-			keys = append(keys, entries[i].Key)
+			keys = append(keys, entries[i].key)
 			emitted++
 		}
 	}

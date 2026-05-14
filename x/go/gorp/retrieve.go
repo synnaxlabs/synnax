@@ -84,7 +84,7 @@ func (r Retrieve[K, E]) HasNonKeyFilters() bool {
 
 // HasFilterKeys returns true if the resolved filter is bounded by a primary
 // key set — either set directly via Where(MatchKeys(...)) or carried by an
-// indexed filter (Lookup.Filter / Sorted.Filter / BytesLookup.Filter) whose
+// indexed filter (LookupIndex.Filter / SortedIndex.Filter / BytesLookup.Filter) whose
 // keys have already been resolved. Note that for filters carrying a deferred
 // resolver, this returns false until resolveFilter has populated keys.
 func (r Retrieve[K, E]) HasFilterKeys() bool {
@@ -126,7 +126,7 @@ func (r Retrieve[K, E]) WhereRaw(filter RawFilter) Retrieve[K, E] {
 }
 
 // OrderBy walks the results in the order defined by the given OrderQuery,
-// typically obtained from Sorted.Ordered(dir) (optionally with .After(cursor)
+// typically obtained from SortedIndex.Ordered(dir) (optionally with .After(cursor)
 // chained for cursor-based pagination). Combine with Limit for paged walks.
 func (r Retrieve[K, E]) OrderBy(o OrderQuery[K, E]) Retrieve[K, E] {
 	r.orderBy = o

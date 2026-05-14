@@ -59,7 +59,7 @@ var indexSizes = []int{100, 1_000, 10_000, 100_000}
 
 // --- Lookup index ---
 
-// BenchmarkLookupSetup measures the cost of opening a Table with a Lookup
+// BenchmarkLookupSetup measures the cost of opening a Table with a LookupIndex
 // index registered, populating it from N pre-existing entries, and tearing
 // it down. This is the cold-start path for every Service that owns a lookup
 // index.
@@ -77,7 +77,7 @@ func BenchmarkLookupSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				nameIdx := gorp.NewLookup[int32, indexBenchEntry, string](
+				nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
 					"name", func(e *indexBenchEntry) string { return e.Name },
 				)
 				table, err := gorp.OpenTable[int32, indexBenchEntry](
@@ -110,7 +110,7 @@ func BenchmarkLookupQueryViaIndex(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookup[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
 			table, err := gorp.OpenTable[int32, indexBenchEntry](
@@ -185,7 +185,7 @@ func BenchmarkLookupQueryViaScan(b *testing.B) {
 }
 
 // BenchmarkLookupObserverUpdate measures the per-update cost paid by the
-// observer when an entry is created in a table whose Lookup index is
+// observer when an entry is created in a table whose LookupIndex index is
 // already populated with N rows. This is the hot path for every channel
 // rename / user update / etc.
 func BenchmarkLookupObserverUpdate(b *testing.B) {
@@ -199,7 +199,7 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			nameIdx := gorp.NewLookup[int32, indexBenchEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
 				"name", func(e *indexBenchEntry) string { return e.Name },
 			)
 			table, err := gorp.OpenTable[int32, indexBenchEntry](
@@ -232,7 +232,7 @@ func BenchmarkLookupObserverUpdate(b *testing.B) {
 
 // --- Sorted index ---
 
-// BenchmarkSortedSetup is the cold-start path for a Sorted index. Asserts
+// BenchmarkSortedSetup is the cold-start path for a SortedIndex index. Asserts
 // that bulk-load + sort-once is O(N log N), not O(N²) per insert. Without
 // the bulk-load optimization, n=100000 would take many seconds.
 func BenchmarkSortedSetup(b *testing.B) {
@@ -249,7 +249,7 @@ func BenchmarkSortedSetup(b *testing.B) {
 			b.ReportAllocs()
 			b.ResetTimer()
 			for i := 0; i < b.N; i++ {
-				scoreIdx := gorp.NewSorted[int32, indexBenchEntry, int64](
+				scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
 					"score", func(e *indexBenchEntry) int64 { return e.Score },
 				)
 				table, err := gorp.OpenTable[int32, indexBenchEntry](
@@ -269,7 +269,7 @@ func BenchmarkSortedSetup(b *testing.B) {
 }
 
 // BenchmarkSortedObserverUpdate measures the per-update cost paid by the
-// observer when an entry is created in a table whose Sorted index is
+// observer when an entry is created in a table whose SortedIndex index is
 // already populated with N rows. The new entries land in the middle of the
 // score range to force the worst-case slice-shift cost in sortedStorage.put,
 // which is the operation a B-tree replacement would speed up.
@@ -284,7 +284,7 @@ func BenchmarkSortedObserverUpdate(b *testing.B) {
 				Entries(&entries).Exec(ctx, db); err != nil {
 				b.Fatal(err)
 			}
-			scoreIdx := gorp.NewSorted[int32, indexBenchEntry, int64](
+			scoreIdx := gorp.NewSortedIndex[int32, indexBenchEntry, int64](
 				"score", func(e *indexBenchEntry) int64 { return e.Score },
 			)
 			table, err := gorp.OpenTable[int32, indexBenchEntry](
@@ -318,14 +318,14 @@ func BenchmarkSortedObserverUpdate(b *testing.B) {
 
 // --- Composition (And / Or) ---
 
-// compositionFixture spins up a Table with two Lookup indexes (name +
+// compositionFixture spins up a Table with two LookupIndex indexes (name +
 // category) populated from N entries and returns the table plus the indexes
 // for use by composition benchmarks. Caller must defer table.Close().
 func compositionFixture(b *testing.B, size int) (
 	*gorp.DB,
 	*gorp.Table[int32, indexBenchEntry],
-	*gorp.Lookup[int32, indexBenchEntry, string],
-	*gorp.Lookup[int32, indexBenchEntry, string],
+	*gorp.LookupIndex[int32, indexBenchEntry, string],
+	*gorp.LookupIndex[int32, indexBenchEntry, string],
 ) {
 	b.Helper()
 	db := gorp.Wrap(memkv.New())
@@ -335,10 +335,10 @@ func compositionFixture(b *testing.B, size int) (
 		Entries(&entries).Exec(ctx, db); err != nil {
 		b.Fatal(err)
 	}
-	nameIdx := gorp.NewLookup[int32, indexBenchEntry, string](
+	nameIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
 		"name", func(e *indexBenchEntry) string { return e.Name },
 	)
-	categoryIdx := gorp.NewLookup[int32, indexBenchEntry, string](
+	categoryIdx := gorp.NewLookupIndex[int32, indexBenchEntry, string](
 		"category", func(e *indexBenchEntry) string { return e.Category },
 	)
 	table, err := gorp.OpenTable[int32, indexBenchEntry](

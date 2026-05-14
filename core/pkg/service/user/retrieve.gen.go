@@ -29,7 +29,7 @@ type Retrieve struct {
 // onto the Retrieve so filter functions can resolve them off r.indexes
 // instead of relying on package-level state.
 type indexes struct {
-	username *gorp.Lookup[Key, User, string]
+	username *gorp.LookupIndex[Key, User, string]
 }
 
 // newIndexes constructs a fresh indexes value, allocating one index instance
@@ -37,7 +37,7 @@ type indexes struct {
 // result on the Service struct.
 func newIndexes() indexes {
 	return indexes{
-		username: gorp.NewLookup[Key, User, string](
+		username: gorp.NewLookupIndex[Key, User, string](
 			"username",
 			func(e *User) string { return e.Username },
 		),

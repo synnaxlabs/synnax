@@ -16,23 +16,21 @@ import (
 	"sync"
 )
 
-// IndexKey is the subset of Key that supports secondary indexes whose
-// primary key type is strictly comparable. Tables whose primary key is
-// ~[]byte use a byte-storage backing instead.
-type IndexKey interface {
+// ComparableKey is the subset of Key that is also comparable.
+type ComparableKey interface {
 	Key
 	comparable
 }
 
-// lookupStorage is the contract every Lookup backing implements. The
-// interface keeps Lookup data-type-agnostic; each implementation owns its
+// lookupStorage is the contract every LookupIndex backing implements. The
+// interface keeps LookupIndex data-type-agnostic; each implementation owns its
 // own forward map (V → []K), reverse map (K → V), and per-tx staging
 // overlay, choosing the keying strategy that fits its data type.
 //
 // Methods divide into two groups:
 //
 //   - Committed-state ops (put / delete / get): the caller holds the
-//     owning Lookup's mu (write for put / delete, read for get). The
+//     owning LookupIndex's mu (write for put / delete, read for get). The
 //     storage performs no extra locking on these calls.
 //   - Per-tx staging ops (stageSet / stageDelete / resolve): internally
 //     synchronized via the embedded deltaOverlay. stage* with a
@@ -47,17 +45,17 @@ type lookupStorage[K Key, V comparable] interface {
 	resolve(tx Tx, committed []K, values []V) []K
 }
 
-// mapLookupStorage backs a Lookup whose primary key type is strictly
+// mapLookupStorage backs a LookupIndex whose primary key type is strictly
 // comparable. The forward map is keyed by V, the reverse map is keyed
 // by K directly, and the staging overlay's storable key is also K.
-type mapLookupStorage[K IndexKey, V comparable] struct {
+type mapLookupStorage[K ComparableKey, V comparable] struct {
 	commitMu *sync.RWMutex
 	forward  map[V][]K
 	reverse  map[K]V
 	overlay  deltaOverlay[K, V]
 }
 
-func newMapLookupStorage[K IndexKey, V comparable](
+func newMapLookupStorage[K ComparableKey, V comparable](
 	commitMu *sync.RWMutex,
 ) *mapLookupStorage[K, V] {
 	s := &mapLookupStorage[K, V]{
@@ -69,7 +67,6 @@ func newMapLookupStorage[K IndexKey, V comparable](
 	return s
 }
 
-//nolint:unused
 func (s *mapLookupStorage[K, V]) put(key K, value V) {
 	if oldValue, existed := s.reverse[key]; existed {
 		if oldValue == value {
@@ -81,7 +78,6 @@ func (s *mapLookupStorage[K, V]) put(key K, value V) {
 	s.reverse[key] = value
 }
 
-//nolint:unused
 func (s *mapLookupStorage[K, V]) delete(key K) {
 	oldValue, existed := s.reverse[key]
 	if !existed {
@@ -91,7 +87,6 @@ func (s *mapLookupStorage[K, V]) delete(key K) {
 	delete(s.reverse, key)
 }
 
-//nolint:unused
 func (s *mapLookupStorage[K, V]) removeFromForward(key K, value V) {
 	keys := s.forward[value]
 	for i, k := range keys {
@@ -160,11 +155,11 @@ func (s *mapLookupStorage[K, V]) flush(d *delta[K, V]) {
 	}
 }
 
-// boolLookupStorage backs a Lookup whose indexed value type V is bool.
+// boolLookupStorage backs a LookupIndex whose indexed value type V is bool.
 // The two-bucket forward representation avoids hashing the bool key
 // entirely; reverse remains a K-keyed map so we can locate the old
 // bucket when an entry's value flips.
-type boolLookupStorage[K IndexKey] struct {
+type boolLookupStorage[K ComparableKey] struct {
 	commitMu  *sync.RWMutex
 	trueKeys  []K
 	falseKeys []K
@@ -172,7 +167,7 @@ type boolLookupStorage[K IndexKey] struct {
 	overlay   deltaOverlay[K, bool]
 }
 
-func newBoolLookupStorage[K IndexKey](
+func newBoolLookupStorage[K ComparableKey](
 	commitMu *sync.RWMutex,
 ) *boolLookupStorage[K] {
 	s := &boolLookupStorage[K]{
@@ -183,7 +178,6 @@ func newBoolLookupStorage[K IndexKey](
 	return s
 }
 
-//nolint:unused
 func (s *boolLookupStorage[K]) put(key K, value bool) {
 	if oldValue, existed := s.reverse[key]; existed {
 		if oldValue == value {
@@ -199,7 +193,6 @@ func (s *boolLookupStorage[K]) put(key K, value bool) {
 	s.reverse[key] = value
 }
 
-//nolint:unused
 func (s *boolLookupStorage[K]) delete(key K) {
 	oldValue, existed := s.reverse[key]
 	if !existed {
@@ -209,7 +202,6 @@ func (s *boolLookupStorage[K]) delete(key K) {
 	delete(s.reverse, key)
 }
 
-//nolint:unused
 func (s *boolLookupStorage[K]) removeFromBucket(key K, value bool) {
 	bucket := &s.falseKeys
 	if value {
@@ -276,7 +268,7 @@ func (s *boolLookupStorage[K]) flush(d *delta[K, bool]) {
 	}
 }
 
-// bytesLookupStorage backs a Lookup whose primary key type is []byte.
+// bytesLookupStorage backs a LookupIndex whose primary key type is []byte.
 // Because []byte is not comparable it cannot key Go maps directly; the
 // reverse map and staging overlay use string-conversions at the boundary
 // (string([]byte) is no-alloc when used as a map key in modern Go). The
@@ -301,7 +293,6 @@ func newBytesLookupStorage[V comparable](
 	return s
 }
 
-//nolint:unused
 func (s *bytesLookupStorage[V]) put(key []byte, value V) {
 	skey := string(key)
 	if oldValue, existed := s.reverse[skey]; existed {
@@ -314,7 +305,6 @@ func (s *bytesLookupStorage[V]) put(key []byte, value V) {
 	s.reverse[skey] = value
 }
 
-//nolint:unused
 func (s *bytesLookupStorage[V]) delete(key []byte) {
 	skey := string(key)
 	oldValue, existed := s.reverse[skey]
@@ -325,7 +315,6 @@ func (s *bytesLookupStorage[V]) delete(key []byte) {
 	delete(s.reverse, skey)
 }
 
-//nolint:unused
 func (s *bytesLookupStorage[V]) removeFromForward(key []byte, value V) {
 	keys := s.forward[value]
 	for i, k := range keys {
@@ -406,53 +395,51 @@ func (s *bytesLookupStorage[V]) flush(d *delta[string, V]) {
 	}
 }
 
-// sortedEntry is a single (value, key) pair inside a Sorted index slice.
-type sortedEntry[K IndexKey, V cmp.Ordered] struct {
-	Value V
-	Key   K
+// sortedEntry is a single (value, key) pair inside a SortedIndex index slice.
+type sortedEntry[K ComparableKey, V cmp.Ordered] struct {
+	key   K
+	value V
 }
 
-// sortedStorage backs a Sorted index. It keeps entries in ascending order
+// sortedStorage backs a SortedIndex index. It keeps entries in ascending order
 // of V using the native `<` operator (V is constrained to cmp.Ordered).
 // Insertion is O(log n) binary search plus O(n) slice shift. At the
 // target scale (<100k entries) this is acceptable; if profiling shows
 // the shift cost matters, swap the backing for a B-tree without changing
 // the outer API. Within equal values, entries are kept in insertion
 // order; removal scans that sub-range for an exact key match.
-type sortedStorage[K IndexKey, V cmp.Ordered] struct {
+type sortedStorage[K ComparableKey, V cmp.Ordered] struct {
 	entries []sortedEntry[K, V]
 }
 
-func newSortedStorage[K IndexKey, V cmp.Ordered]() *sortedStorage[K, V] {
+func newSortedStorage[K ComparableKey, V cmp.Ordered]() *sortedStorage[K, V] {
 	return &sortedStorage[K, V]{}
 }
 
 // lowerBound returns the first index i such that entries[i].Value >= value.
 func (s *sortedStorage[K, V]) lowerBound(value V) int {
 	return sort.Search(len(s.entries), func(i int) bool {
-		return s.entries[i].Value >= value
+		return s.entries[i].value >= value
 	})
 }
 
 // upperBound returns the first index i such that entries[i].Value > value.
 func (s *sortedStorage[K, V]) upperBound(value V) int {
 	return sort.Search(len(s.entries), func(i int) bool {
-		return s.entries[i].Value > value
+		return s.entries[i].value > value
 	})
 }
 
-//nolint:unused
 func (s *sortedStorage[K, V]) put(key K, value V) {
 	i := s.upperBound(value)
-	s.entries = slices.Insert(s.entries, i, sortedEntry[K, V]{Value: value, Key: key})
+	s.entries = slices.Insert(s.entries, i, sortedEntry[K, V]{value: value, key: key})
 }
 
-//nolint:unused
 func (s *sortedStorage[K, V]) remove(key K, value V) {
 	lo := s.lowerBound(value)
 	hi := s.upperBound(value)
 	for i := lo; i < hi; i++ {
-		if s.entries[i].Key == key {
+		if s.entries[i].key == key {
 			s.entries = slices.Delete(s.entries, i, i+1)
 			return
 		}
@@ -467,18 +454,18 @@ func (s *sortedStorage[K, V]) get(value V) []K {
 	}
 	out := make([]K, hi-lo)
 	for i := lo; i < hi; i++ {
-		out[i-lo] = s.entries[i].Key
+		out[i-lo] = s.entries[i].key
 	}
 	return out
 }
 
-// sortBulk sorts the entries slice by Value. Used by Sorted.populate to
+// sortBulk sorts the entries slice by Value. Used by SortedIndex.populate to
 // finalize a bulk-loaded index in O(N log N) instead of inserting one
 // entry at a time at O(N²).
 //
 //nolint:unused
 func (s *sortedStorage[K, V]) sortBulk() {
 	slices.SortFunc(s.entries, func(a, b sortedEntry[K, V]) int {
-		return cmp.Compare(a.Value, b.Value)
+		return cmp.Compare(a.value, b.value)
 	})
 }

@@ -64,7 +64,7 @@ var _ = Describe("Async populate", func() {
 			Expect(gorp.NewCreate[int32, indexedEntry]().
 				Entry(&indexedEntry{ID: 1, Name: "alpha"}).
 				Exec(ctx, idxDB)).To(Succeed())
-			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
@@ -79,7 +79,7 @@ var _ = Describe("Async populate", func() {
 
 		It("Should return ctx.Err when ctx cancels before populate completes",
 			func(ctx SpecContext) {
-				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](
@@ -103,7 +103,7 @@ var _ = Describe("Async populate", func() {
 	Describe("Populate failure", func() {
 		var (
 			db      *gorp.DB
-			nameIdx *gorp.Lookup[int32, indexedEntry, string]
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 		)
 		BeforeEach(func(ctx SpecContext) {
 			mem := DeferClose(memkv.New())
@@ -115,7 +115,7 @@ var _ = Describe("Async populate", func() {
 			}
 			Expect(gorp.NewCreate[int32, indexedEntry]().
 				Entries(&seed).Exec(ctx, db)).To(Succeed())
-			nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 		})

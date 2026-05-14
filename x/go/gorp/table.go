@@ -38,7 +38,7 @@ type TableConfig[K Key, E Entry[K]] struct {
 	// Indexes is the set of secondary indexes to register on this table. Each
 	// index is populated at open time from the current table contents, then
 	// kept in sync via the table's observer pipeline for the lifetime of the
-	// table. See NewLookup and NewSorted for constructing index values.
+	// table. See NewLookupIndex and NewSortedIndex for constructing index values.
 	Indexes []Index[K, E]
 	alamos.Instrumentation
 }

@@ -23,7 +23,7 @@ import (
 
 // indexedEntry is the test entry type used by the index suite. It carries two
 // indexable fields (Name, Category) and one orderable field (Score) so the
-// suite can exercise Lookup, Sorted, and OrderBy against realistic data shapes.
+// suite can exercise LookupIndex, SortedIndex, and OrderBy against realistic data shapes.
 type indexedEntry struct {
 	ID       int32
 	Name     string
@@ -57,7 +57,7 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 
-				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -82,7 +82,7 @@ var _ = Describe("Index", func() {
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
 
-				flagIdx := gorp.NewLookup[int32, indexedEntry, bool](
+				flagIdx := gorp.NewLookupIndex[int32, indexedEntry, bool](
 					"flag", func(e *indexedEntry) bool { return e.Flag },
 				)
 				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -99,10 +99,10 @@ var _ = Describe("Index", func() {
 		Describe("Observer maintenance", func() {
 			var (
 				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.Lookup[int32, indexedEntry, string]
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
 			BeforeEach(func(ctx SpecContext) {
-				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -159,10 +159,10 @@ var _ = Describe("Index", func() {
 		Describe("Filter integration with Retrieve", func() {
 			var (
 				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.Lookup[int32, indexedEntry, string]
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
 			BeforeEach(func(ctx SpecContext) {
-				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -217,14 +217,14 @@ var _ = Describe("Index", func() {
 		Describe("Composition with And/Or", func() {
 			var (
 				table       *gorp.Table[int32, indexedEntry]
-				nameIdx     *gorp.Lookup[int32, indexedEntry, string]
-				categoryIdx *gorp.Lookup[int32, indexedEntry, string]
+				nameIdx     *gorp.LookupIndex[int32, indexedEntry, string]
+				categoryIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
 			BeforeEach(func(ctx SpecContext) {
-				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
-				categoryIdx = gorp.NewLookup[int32, indexedEntry, string](
+				categoryIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 					"category", func(e *indexedEntry) string { return e.Category },
 				)
 				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -304,7 +304,7 @@ var _ = Describe("Index", func() {
 
 		Describe("Concurrency", func() {
 			It("Should permit concurrent Filter calls while the observer processes writes", func(ctx SpecContext) {
-				nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -353,10 +353,10 @@ var _ = Describe("Index", func() {
 		Describe("Tx delta visibility", func() {
 			var (
 				table   *gorp.Table[int32, indexedEntry]
-				nameIdx *gorp.Lookup[int32, indexedEntry, string]
+				nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			)
 			BeforeEach(func(ctx SpecContext) {
-				nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+				nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 					"name", func(e *indexedEntry) string { return e.Name },
 				)
 				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -536,7 +536,7 @@ var _ = Describe("Index", func() {
 				}
 				Expect(gorp.NewCreate[int32, indexedEntry]().
 					Entries(&seed).Exec(ctx, idxDB)).To(Succeed())
-				scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
+				scoreIdx := gorp.NewSortedIndex[int32, indexedEntry, int64](
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
 				table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -554,10 +554,10 @@ var _ = Describe("Index", func() {
 		Describe("OrderBy pagination", func() {
 			var (
 				table    *gorp.Table[int32, indexedEntry]
-				scoreIdx *gorp.Sorted[int32, indexedEntry, int64]
+				scoreIdx *gorp.SortedIndex[int32, indexedEntry, int64]
 			)
 			BeforeEach(func(ctx SpecContext) {
-				scoreIdx = gorp.NewSorted[int32, indexedEntry, int64](
+				scoreIdx = gorp.NewSortedIndex[int32, indexedEntry, int64](
 					"score", func(e *indexedEntry) int64 { return e.Score },
 				)
 				table = MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -650,7 +650,7 @@ var _ = Describe("Index", func() {
 		It("Should negate an index-backed filter", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			defer func() { Expect(db.Close()).To(Succeed()) }()
-			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -681,7 +681,7 @@ var _ = Describe("Index", func() {
 		It("Should negate And(indexed, eval) without dropping the index constraint", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			defer func() { Expect(db.Close()).To(Succeed()) }()
-			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -720,10 +720,10 @@ var _ = Describe("Index", func() {
 		It("Should apply an index-backed Where filter with OrderBy", func(ctx SpecContext) {
 			db := gorp.Wrap(memkv.New())
 			defer func() { Expect(db.Close()).To(Succeed()) }()
-			nameIdx := gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx := gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
-			scoreIdx := gorp.NewSorted[int32, indexedEntry, int64](
+			scoreIdx := gorp.NewSortedIndex[int32, indexedEntry, int64](
 				"score", func(e *indexedEntry) int64 { return e.Score },
 			)
 			table := MustSucceed(gorp.OpenTable[int32, indexedEntry](ctx, gorp.TableConfig[int32, indexedEntry]{
@@ -761,7 +761,7 @@ var _ = Describe("Index", func() {
 		// the per-tx delta flush (real tx) or the inline path (DB-as-tx).
 		var (
 			noopDB  *gorp.DB
-			nameIdx *gorp.Lookup[int32, indexedEntry, string]
+			nameIdx *gorp.LookupIndex[int32, indexedEntry, string]
 			table   *gorp.Table[int32, indexedEntry]
 		)
 		BeforeEach(func(ctx SpecContext) {
@@ -769,7 +769,7 @@ var _ = Describe("Index", func() {
 				memkv.New(),
 				gorp.WithIndexObservable(observe.Noop[kv.TxReader]{}),
 			)
-			nameIdx = gorp.NewLookup[int32, indexedEntry, string](
+			nameIdx = gorp.NewLookupIndex[int32, indexedEntry, string](
 				"name", func(e *indexedEntry) string { return e.Name },
 			)
 			table = MustSucceed(gorp.OpenTable(ctx, gorp.TableConfig[int32, indexedEntry]{
