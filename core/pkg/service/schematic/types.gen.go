@@ -32,6 +32,10 @@ type Node struct {
 	// Measured is the rendered pixel size of the node. Populated by the renderer after the
 	// node is mounted and used to keep diagram measurements consistent across re-renders.
 	Measured spatial.Dimensions `json:"measured" msgpack:"measured"`
+	// GroupID is the key of the group container node this node belongs to, if any. Group
+	// containers themselves use the groupBox variant and have group_id unset. Cleared on
+	// ungroup.
+	GroupID string `json:"group_id" msgpack:"group_id"`
 }
 
 // Handle is a reference to a specific connection point on a specific node. For

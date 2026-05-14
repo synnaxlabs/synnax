@@ -46,7 +46,11 @@ type Node struct {
 	ZIndex int32 `protobuf:"varint,3,opt,name=z_index,json=zIndex,proto3" json:"z_index,omitempty"`
 	// measured is the rendered pixel size of the node. Populated by the renderer after the
 	// node is mounted and used to keep diagram measurements consistent across re-renders.
-	Measured      *pb.Dimensions `protobuf:"bytes,4,opt,name=measured,proto3" json:"measured,omitempty"`
+	Measured *pb.Dimensions `protobuf:"bytes,4,opt,name=measured,proto3" json:"measured,omitempty"`
+	// group_id is the key of the group container node this node belongs to, if any. Group
+	// containers themselves use the groupBox variant and have group_id unset. Cleared on
+	// ungroup.
+	GroupId       string `protobuf:"bytes,5,opt,name=group_id,json=groupId,proto3" json:"group_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -107,6 +111,13 @@ func (x *Node) GetMeasured() *pb.Dimensions {
 		return x.Measured
 	}
 	return nil
+}
+
+func (x *Node) GetGroupId() string {
+	if x != nil {
+		return x.GroupId
+	}
+	return ""
 }
 
 // Handle is a reference to a specific connection point on a specific node. For
@@ -328,12 +339,13 @@ var File_core_pkg_service_schematic_pb_schematic_proto protoreflect.FileDescript
 
 const file_core_pkg_service_schematic_pb_schematic_proto_rawDesc = "" +
 	"\n" +
-	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\x95\x01\n" +
+	"-core/pkg/service/schematic/pb/schematic.proto\x12\x14service.schematic.pb\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dx/go/spatial/pb/spatial.proto\"\xb0\x01\n" +
 	"\x04Node\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12,\n" +
 	"\bposition\x18\x02 \x01(\v2\x10.x.spatial.pb.XYR\bposition\x12\x17\n" +
 	"\az_index\x18\x03 \x01(\x05R\x06zIndex\x124\n" +
-	"\bmeasured\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\"2\n" +
+	"\bmeasured\x18\x04 \x01(\v2\x18.x.spatial.pb.DimensionsR\bmeasured\x12\x19\n" +
+	"\bgroup_id\x18\x05 \x01(\tR\agroupId\"2\n" +
 	"\x06Handle\x12\x12\n" +
 	"\x04node\x18\x01 \x01(\tR\x04node\x12\x14\n" +
 	"\x05param\x18\x02 \x01(\tR\x05param\"\x84\x01\n" +

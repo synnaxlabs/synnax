@@ -38,7 +38,7 @@ Node struct {
             measurements consistent across re-renders.
         """
     }
-    group_id string? {
+    group_id string?             {
         @doc value """
             is the key of the group container node this node belongs to, if
             any. Group containers themselves use the groupBox variant and

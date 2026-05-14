@@ -30,6 +30,10 @@ message Node {
   // measured is the rendered pixel size of the node. Populated by the renderer after the
   // node is mounted and used to keep diagram measurements consistent across re-renders.
   .x.spatial.pb.Dimensions measured = 4;
+  // group_id is the key of the group container node this node belongs to, if any. Group
+  // containers themselves use the groupBox variant and have group_id unset. Cleared on
+  // ungroup.
+  string group_id = 5;
 }
 
 // Handle is a reference to a specific connection point on a specific node. For

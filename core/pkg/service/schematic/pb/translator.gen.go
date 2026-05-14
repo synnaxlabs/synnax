@@ -32,6 +32,7 @@ func NodeToPB(r schematic.Node) (*Node, error) {
 	pb := &Node{
 		Key:      r.Key,
 		ZIndex:   int32(r.ZIndex),
+		GroupId:  r.GroupID,
 		Position: positionVal,
 		Measured: measuredVal,
 	}
@@ -55,6 +56,7 @@ func NodeFromPB(pb *Node) (schematic.Node, error) {
 	}
 	r.Key = pb.Key
 	r.ZIndex = int16(pb.ZIndex)
+	r.GroupID = pb.GroupId
 	return r, nil
 }
 

@@ -69,6 +69,7 @@ func (nv Node) EncodeOrc(w *orc.Writer) error {
 	if err := nv.Measured.EncodeOrc(w); err != nil {
 		return err
 	}
+	w.String(nv.GroupID)
 	return nil
 }
 
@@ -84,6 +85,9 @@ func (nv *Node) DecodeOrc(r *orc.Reader) error {
 		return err
 	}
 	if err = nv.Measured.DecodeOrc(r); err != nil {
+		return err
+	}
+	if nv.GroupID, err = r.String(); err != nil {
 		return err
 	}
 	return nil

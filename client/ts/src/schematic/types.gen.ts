@@ -32,6 +32,12 @@ export const nodeZ = z.object({
    * measurements consistent across re-renders.
    */
   measured: spatial.dimensionsZ.optional(),
+  /**
+   * groupId is the key of the group container node this node belongs to, if
+   * any. Group containers themselves use the groupBox variant and
+   * have group_id unset. Cleared on ungroup.
+   */
+  groupId: z.string().optional(),
 });
 export interface Node extends z.infer<typeof nodeZ> {}
 
