@@ -41,17 +41,16 @@ type Authenticator interface {
 // know the old password before rotating it") are composed by higher-level packages by
 // combining [Authenticator.Authenticate] with these primitives.
 type Writer interface {
-	// Register stores new credentials. Returns [ErrRepeatedUsername] if the username
-	// is already taken.
+	// Register stores new credentials. Returns [ErrRepeatedUsername] if the username is
+	// already taken.
 	Register(context.Context, InsecureCredentials) error
 	// UpdateUsername renames the credential entry from oldUsername to newUsername. No
 	// identity check; caller is responsible for authorization.
 	UpdateUsername(_ context.Context, oldUsername, newUsername string) error
-	// ChangePassword verifies the supplied credentials and, on success, replaces the
-	// password for the matching entry. Returns [ErrInvalidCredentials] when the
-	// supplied credentials are not valid.
-	ChangePassword(context.Context, InsecureCredentials, RawPassword) error
-	// Deactivate removes credentials for the given usernames. No identity check;
+	// ChangePassword replaces the password for the given username. No identity check;
 	// caller is responsible for authorization.
+	ChangePassword(_ context.Context, username string, _ RawPassword) error
+	// Deactivate removes credentials for the given usernames. No identity check; caller
+	// is responsible for authorization.
 	Deactivate(_ context.Context, usernames ...string) error
 }
