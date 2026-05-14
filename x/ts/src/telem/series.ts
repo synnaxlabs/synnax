@@ -28,6 +28,7 @@ import {
   DataType,
   isTelemValue,
   Size,
+  stringifyFloat32,
   type TelemValue,
   TimeRange,
   TimeSpan,
@@ -823,6 +824,7 @@ export class Series<T extends TelemValue = TelemValue>
     if (this.dataType.equals(DataType.UUID)) return this.atUUID(index, required);
     const v = this.at(index, required as true);
     if (v == null) return undefined;
+    if (this.dataType.equals(DataType.FLOAT32)) return stringifyFloat32(v as number);
     return String(v);
   }
 

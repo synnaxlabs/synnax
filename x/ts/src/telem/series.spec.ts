@@ -424,6 +424,14 @@ describe("Series", () => {
       expect(series.asString(1, true)).toEqual("7");
     });
 
+    it("should return the shortest f32-roundtrippable decimal for a FLOAT32 series", () => {
+      const series = new Series({
+        data: new Float32Array([1.234]),
+        dataType: DataType.FLOAT32,
+      });
+      expect(series.asString(0, true)).toEqual("1.234");
+    });
+
     it("should return undefined when index is out of bounds", () => {
       const series = new Series({
         data: ["apple"],

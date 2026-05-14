@@ -164,7 +164,7 @@ describe("StreamMultiChannelLog", () => {
     expect(entries[0].value).toBe("1.234");
   });
 
-  it("should stringify non-FLOAT32 numeric values via String()", async () => {
+  it("should stringify INT64 bigint values", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelInt.key],
       timeSpan: TimeSpan.seconds(30),
@@ -179,7 +179,7 @@ describe("StreamMultiChannelLog", () => {
     expect(entries[1].value).toBe("-7");
   });
 
-  it("should stringify JSON values via JSON.stringify", async () => {
+  it("should stringify JSON values as their serialized form", async () => {
     const props: StreamMultiChannelLogProps = {
       channels: [c.channelJSON.key],
       timeSpan: TimeSpan.seconds(30),
