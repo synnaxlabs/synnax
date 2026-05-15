@@ -34,5 +34,5 @@ export const spec: Spec<typeof VARIANT, Config> = {
   Node: Symbol,
   Preview,
   defaultConfig,
-  zIndex: 2,
+  zIndex: 0,
 };

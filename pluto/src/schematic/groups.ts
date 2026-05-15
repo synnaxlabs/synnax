@@ -183,6 +183,66 @@ export const resolveAlignmentKey = (
   return { key: elKey, position: elPosition };
 };
 
+/** Expands a removal set across full groups. Deleting any member or container
+ * deletes the entire group (treats groups as atomic units for delete / cut). */
+export const cascadeRemovedKeys = (
+  removedKeys: readonly string[],
+  allNodes: readonly schematic.Node[],
+  configs: Record<string, record.Unknown>,
+): string[] => expandSelectionToGroups(removedKeys, allNodes, configs);
+
+/** After a mutation, returns a follow-up audit: groups with <2 surviving members
+ * are removed, and any single survivor loses its groupId. Surviving multi-member
+ * groups get a recomputed bounding box so the container shrinks/grows to fit. */
+export interface AuditResult {
+  removeGroupKeys: string[];
+  clearGroupIdNodes: schematic.Node[];
+  resizeGroups: Array<{
+    key: string;
+    position: xy.XY;
+    dimensions: { width: number; height: number };
+  }>;
+}
+export const auditGroups = (
+  allNodes: readonly schematic.Node[],
+  configs: Record<string, record.Unknown>,
+): AuditResult => {
+  const members = new Map<string, schematic.Node[]>();
+  for (const n of allNodes) {
+    if (n.groupId == null) continue;
+    const list = members.get(n.groupId);
+    if (list != null) list.push(n);
+    else members.set(n.groupId, [n]);
+  }
+  const removeGroupKeys: string[] = [];
+  const clearGroupIdNodes: schematic.Node[] = [];
+  const resizeGroups: AuditResult["resizeGroups"] = [];
+  for (const n of allNodes) {
+    if (!isGroupContainer(n.key, configs)) continue;
+    const groupMembers = members.get(n.key) ?? [];
+    if (groupMembers.length <= 1) {
+      removeGroupKeys.push(n.key);
+      if (groupMembers.length === 1) {
+        const { groupId: _drop, ...rest } = groupMembers[0];
+        clearGroupIdNodes.push(rest);
+      }
+      continue;
+    }
+    const { position, dimensions } = computeGroupBoundingBox(groupMembers);
+    if (
+      position.x !== n.position.x ||
+      position.y !== n.position.y ||
+      dimensions.width !== (configs[n.key] as { dimensions?: { width: number } } | undefined)
+        ?.dimensions?.width ||
+      dimensions.height !==
+        (configs[n.key] as { dimensions?: { height: number } } | undefined)?.dimensions
+          ?.height
+    )
+      resizeGroups.push({ key: n.key, position, dimensions });
+  }
+  return { removeGroupKeys, clearGroupIdNodes, resizeGroups };
+};
+
 /** Expands a list of computed positions so that any group container's new
  * position also moves its members by the same delta. */
 export const expandGroupPositions = (
@@ -191,7 +251,7 @@ export const expandGroupPositions = (
   configs: Record<string, record.Unknown>,
 ): [string, xy.XY][] => {
   const result: [string, xy.XY][] = [];
-  for (const [key, newPos] of positions) {
+  for (const [key, newPos] of positions) 
     if (isGroupContainer(key, configs)) {
       const groupNode = allNodes.find((n) => n.key === key);
       if (groupNode == null) continue;
@@ -207,6 +267,6 @@ export const expandGroupPositions = (
             { x: n.position.x + delta.x, y: n.position.y + delta.y },
           ]);
     } else result.push([key, newPos]);
-  }
+  
   return result;
 };

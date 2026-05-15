@@ -506,7 +506,7 @@ export const useGroup = (resourceKey: schematic.Key) => {
       const groupConfig = GroupBox.defaultConfig();
       const actions: schematic.Action[] = [
         schematic.setNode({
-          node: { key: groupKey, position },
+          node: { key: groupKey, position, zIndex: -1 },
           config: { ...groupConfig, dimensions },
         }),
       ];

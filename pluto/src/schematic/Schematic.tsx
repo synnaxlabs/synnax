@@ -9,7 +9,7 @@
 
 import "@/schematic/Schematic.css";
 
-import { type schematic } from "@synnaxlabs/client";
+import { schematic } from "@synnaxlabs/client";
 import { box, TimeSpan, xy } from "@synnaxlabs/x";
 import { type ReactElement, type ReactNode, useCallback, useRef } from "react";
 
@@ -80,30 +80,70 @@ export const Schematic = ({
   const store = Flux.useStore<FluxSubStore>();
   const handleNodesChange = useCallback(
     (changes: BaseDiagram.NodeChange[]) => {
-      const positionChanges = changes.filter((c) => c.type === "position");
-      const otherChanges = changes.filter((c) => c.type !== "position");
-      let allPositionChanges: BaseDiagram.NodeChange[] = positionChanges;
-      if (positionChanges.length > 0) {
-        const schem = store.schematics.get(key);
-        if (schem != null) {
-          const draggingByKey = new Map(
-            positionChanges.map((c) => [c.key, c.dragging]),
-          );
-          const propagated = Groups.propagateGroupDrag(
-            positionChanges.map((c) => ({ key: c.key, position: c.position })),
+      const schem = store.schematics.get(key);
+      // Cascade: removing a group container also removes its members.
+      let expandedChanges: BaseDiagram.NodeChange[] = changes;
+      if (schem != null) {
+        const removeKeys = changes
+          .filter((c) => c.type === "remove")
+          .map((c) => c.key);
+        if (removeKeys.length > 0) {
+          const cascaded = Groups.cascadeRemovedKeys(
+            removeKeys,
             schem.nodes,
             schem.configs,
           );
-          allPositionChanges = propagated.map((p) => ({
-            type: "position" as const,
-            key: p.key,
-            position: p.position,
-            dragging: draggingByKey.get(p.key) ?? false,
-          }));
+          const original = new Set(removeKeys);
+          const extraRemoves: BaseDiagram.NodeChange[] = cascaded
+            .filter((k) => !original.has(k))
+            .map((k) => ({ type: "remove" as const, key: k }));
+          expandedChanges = [...changes, ...extraRemoves];
         }
       }
+      const positionChanges = expandedChanges.filter((c) => c.type === "position");
+      const otherChanges = expandedChanges.filter((c) => c.type !== "position");
+      let allPositionChanges: BaseDiagram.NodeChange[] = positionChanges;
+      if (positionChanges.length > 0 && schem != null) {
+        const draggingByKey = new Map(
+          positionChanges.map((c) => [c.key, c.dragging]),
+        );
+        const propagated = Groups.propagateGroupDrag(
+          positionChanges.map((c) => ({ key: c.key, position: c.position })),
+          schem.nodes,
+          schem.configs,
+        );
+        allPositionChanges = propagated.map((p) => ({
+          type: "position" as const,
+          key: p.key,
+          position: p.position,
+          dragging: draggingByKey.get(p.key) ?? false,
+        }));
+      }
       const actions = nodeChangesToActions([...otherChanges, ...allPositionChanges]);
-      if (actions.length > 0) dispatch({ key, actions });
+      if (actions.length === 0) return;
+      dispatch({ key, actions });
+      // Audit: after the dispatch, drop orphan/single-member group containers
+      // and recompute bounding boxes for groups whose members moved.
+      const next = store.schematics.get(key);
+      if (next == null) return;
+      const audit = Groups.auditGroups(next.nodes, next.configs);
+      const auditActions: schematic.Action[] = [];
+      for (const node of audit.clearGroupIdNodes)
+        auditActions.push(schematic.setNode({ node, config: undefined }));
+      for (const k of audit.removeGroupKeys)
+        auditActions.push(schematic.removeNode({ key: k }));
+      for (const r of audit.resizeGroups) {
+        const node = next.nodes.find((n) => n.key === r.key);
+        if (node == null) continue;
+        const existing = next.configs[r.key] as Record<string, unknown> | undefined;
+        auditActions.push(
+          schematic.setNode({
+            node: { ...node, position: r.position },
+            config: { ...(existing ?? {}), dimensions: r.dimensions },
+          }),
+        );
+      }
+      if (auditActions.length > 0) dispatch({ key, actions: auditActions });
     },
     [key, dispatch, store],
   );
