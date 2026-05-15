@@ -129,6 +129,8 @@ func ConvertConfigValue(v any) (uint64, error) {
 		return math.Float64bits(val), nil
 	case telem.TimeStamp:
 		return uint64(val), nil
+	case telem.TimeSpan:
+		return uint64(val), nil
 	default:
 		err := errors.Newf("unsupported config value type: %T", v)
 		zap.S().DPanic(err.Error())
