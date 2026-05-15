@@ -20,9 +20,10 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/signals"
 	"github.com/synnaxlabs/synnax/pkg/service/access"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/builtin"
-	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
+	v0 "github.com/synnaxlabs/synnax/pkg/service/access/rbac/migrations/v0"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/config"
 	"github.com/synnaxlabs/x/gorp"
@@ -33,20 +34,61 @@ import (
 	"github.com/synnaxlabs/x/validate"
 )
 
+// ServiceConfig is the configuration for opening a [Service].
 type ServiceConfig struct {
+	// Instrumentation is the Alamos instrumentation used for logging, tracing, and
+	// metrics.
+	//
+	// [OPTIONAL] - Defaults to noop instrumentation.
 	alamos.Instrumentation
-	DB       *gorp.DB
+	// DB is the Gorp database used to persist roles, policies, and the legacy
+	// permission migration namespace.
+	//
+	// [REQUIRED]
+	DB *gorp.DB
+	// Ontology is the ontology used to define role and policy resources and the
+	// relationships (role -> subject, role -> policy) that drive enforcement.
+	//
+	// [REQUIRED]
 	Ontology *ontology.Ontology
-	Signals  *signals.Provider
-	Group    *group.Service
-	Search   *search.Index
-	User     *user.Service
+	// Signals propagates role and policy changes through the Synnax signals system so
+	// subscribers see RBAC updates without polling.
+	//
+	// [OPTIONAL] - Defaults to nil.
+	Signals *signals.Provider
+	// Group is the top-level group service used to create the built-in "Roles" and
+	// "Policies" groups that own the corresponding resources in the ontology.
+	//
+	// [REQUIRED]
+	Group *group.Service
+	// Search is the search index used by the role and policy sub-services for name
+	// lookups.
+	//
+	// [REQUIRED]
+	Search *search.Index
+	// User is the user service used to load existing user records during root user
+	// reconciliation and to create the configured root user when needed.
+	//
+	// [REQUIRED]
+	User *user.Service
+	// Auth is the auth service used to register and rotate credentials for the root
+	// user during reconciliation.
+	//
+	// [REQUIRED]
+	Auth *auth.Service
+	// RootCredentials is the username/password pair the cluster's root user must
+	// satisfy after startup. When non-zero, [OpenService] runs root-user
+	// reconciliation: it ensures exactly one user has RootUser=true with this username,
+	// that user holds the Owner role, and the stored credentials match this password
+	// (rotating the password if it diverges, registering it if no row exists).
+	//
+	// [OPTIONAL] - When the zero value is provided, root-user reconciliation limits
+	// itself to demoting all but one stale root user (if multiple exist) and otherwise
+	// leaves cluster state untouched.
+	RootCredentials auth.Credentials
 }
 
-var (
-	_                    config.Config[ServiceConfig] = ServiceConfig{}
-	DefaultServiceConfig                              = ServiceConfig{}
-)
+var _ config.Config[ServiceConfig] = ServiceConfig{}
 
 // Override implements [config.Config].
 func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
@@ -57,6 +99,8 @@ func (c ServiceConfig) Override(other ServiceConfig) ServiceConfig {
 	c.Group = override.Nil(c.Group, other.Group)
 	c.Search = override.Nil(c.Search, other.Search)
 	c.User = override.Nil(c.User, other.User)
+	c.Auth = override.Nil(c.Auth, other.Auth)
+	c.RootCredentials = override.Zero(c.RootCredentials, other.RootCredentials)
 	return c
 }
 
@@ -67,26 +111,35 @@ func (c ServiceConfig) Validate() error {
 	validate.NotNil(v, "ontology", c.Ontology)
 	validate.NotNil(v, "group", c.Group)
 	validate.NotNil(v, "search", c.Search)
+	validate.NotNil(v, "user", c.User)
+	validate.NotNil(v, "auth", c.Auth)
 	return v.Error()
 }
 
 type Service struct {
 	Policy *policy.Service
 	Role   *role.Service
-	closer io.MultiCloser
-	cfg    ServiceConfig
+	// builtinRoles holds the keys of the built-in roles provisioned during service
+	// initialization. Read by the v0 migration and the root-user reconciler; not part
+	// of the package's public API — external consumers look up built-in roles by name
+	// through Service.Role.
+	builtinRoles builtin.ProvisionResult
+	closer       io.MultiCloser
+	cfg          ServiceConfig
 }
 
+// Close shuts down the RBAC service and its sub-services.
 func (s *Service) Close() error { return s.closer.Close() }
 
+// Enforce checks if the request is allowed based on the policies assigned to the
+// subject.
 func (s *Service) Enforce(ctx context.Context, req access.Request) error {
 	return s.NewEnforcer(nil).Enforce(ctx, req)
 }
 
-const migrationNamespace = "RBAC"
-
 // RetrievePoliciesForSubject retrieves all policies that apply to the given subject.
-// This includes all policies from roles assigned to the subject via ontology relationships.
+// This includes all policies from roles assigned to the subject via ontology
+// relationships.
 func (s *Service) RetrievePoliciesForSubject(
 	ctx context.Context,
 	subject ontology.ID,
@@ -95,10 +148,10 @@ func (s *Service) RetrievePoliciesForSubject(
 	return s.NewEnforcer(tx).retrievePolicies(ctx, subject)
 }
 
-// OpenService creates a new RBAC service with both Policy and Role sub-services.
-// It also provisions built-in roles/policies and runs legacy permission migrations.
+// OpenService creates a new RBAC service with both Policy and Role sub-services. It
+// also provisions built-in roles/policies and runs legacy permission migrations.
 func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err error) {
-	cfg, err := config.New(DefaultServiceConfig, configs...)
+	cfg, err := config.New(ServiceConfig{}, configs...)
 	if err != nil {
 		return nil, err
 	}
@@ -124,26 +177,40 @@ func OpenService(ctx context.Context, configs ...ServiceConfig) (s *Service, err
 	}); !ok(err, s.Role) {
 		return nil, err
 	}
-	// Provision built-in roles and policies. This is idempotent and runs every
-	// startup to ensure policy definitions stay up to date.
-	var roles builtin.ProvisionResult
-	if roles, err = builtin.Provision(ctx, cfg.DB, s.Policy, s.Role); !ok(err, nil) {
+	// Provision built-in roles and policies. This is idempotent and runs every startup
+	// to ensure policy definitions stay up to date.
+	if s.builtinRoles, err = builtin.Provision(
+		ctx,
+		cfg.DB,
+		s.Policy,
+		s.Role,
+	); !ok(err, nil) {
 		return nil, err
 	}
-	// Phase 2 migration assigns users to roles based on the legacy mapping
-	// extracted by Phase 1 in the policy package. This runs after provisioning
-	// so the built-in roles exist in the ontology.
+	// Phase 2 migration assigns users to roles based on the legacy mapping extracted by
+	// Phase 1 in the policy package. This runs after provisioning so the built-in roles
+	// exist in the ontology.
 	if err = gorp.Migrate(ctx, gorp.MigrateConfig{
 		Instrumentation: cfg.Instrumentation,
 		DB:              cfg.DB,
-		Namespace:       migrationNamespace,
+		Namespace:       "RBAC",
 		Migrations: []migrate.Migration{v0.Migration(v0.MigrationConfig{
 			User:     cfg.User,
 			Ontology: cfg.Ontology,
 			Role:     s.Role,
-			Roles:    roles,
+			Roles:    s.builtinRoles,
 		})},
 	}); !ok(err, nil) {
+		return nil, err
+	}
+	// reconcileRootUser makes sure that there is exactly one root user with the
+	// provided credentials.
+	if err = reconcileRootUser(
+		ctx,
+		cfg,
+		s.Role,
+		s.builtinRoles.OwnerKey,
+	); !ok(err, nil) {
 		return nil, err
 	}
 	return s, nil
@@ -210,7 +277,8 @@ func allowRequest(req access.Request, policies []policy.Policy) bool {
 						found = true
 						break
 					}
-				} else if policyObj.Type == requestedObj.Type && policyObj.Key == requestedObj.Key {
+				} else if policyObj.Type == requestedObj.Type &&
+					policyObj.Key == requestedObj.Key {
 					found = true
 					break
 				}
