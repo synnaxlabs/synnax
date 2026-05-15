@@ -135,6 +135,39 @@ describe("Writer", () => {
       expect(f.length).toEqual(5);
     });
 
+    test("auto-indexing mixes user-provided and generated timestamps in one writer", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const userStamps = secondsLinspace(200, 2);
+      const beforeAuto = TimeStamp.now();
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(200),
+        channels: [index.key, data.key],
+        autoIndexing: true,
+      });
+      try {
+        await writer.write({
+          [index.key]: userStamps,
+          [data.key]: randomSeries(2, data.dataType),
+        });
+        await writer.write(data.key, randomSeries(3, data.dataType));
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const userF = await client.read(
+        new TimeRange(TimeStamp.seconds(200), TimeStamp.seconds(202)),
+        index.key,
+      );
+      expect(userF.data).toEqual(
+        new BigInt64Array(userStamps.map((v) => v.valueOf())),
+      );
+      const autoF = await client.read(
+        new TimeRange(beforeAuto, TimeStamp.now().add(TimeSpan.seconds(1))),
+        index.key,
+      );
+      expect(autoF.length).toEqual(3);
+    });
+
     test("auto-indexing leaves user-provided index data untouched", async () => {
       const [index, data] = await newIndexedPair(client);
       const writer = await client.openWriter({

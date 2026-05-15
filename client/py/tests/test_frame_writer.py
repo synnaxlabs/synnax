@@ -150,6 +150,40 @@ class TestWriter:
         )
         assert len(f) == 3
 
+    def test_auto_indexing_mixes_user_provided_and_generated_in_one_writer(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should let a single writer alternate between user-provided and auto-stamped
+        index series across separate write calls."""
+        idx_ch, data_ch = indexed_pair
+        user_stamps = seconds_linspace(200, 2)
+        before_auto = sy.TimeStamp.now()
+        with client.open_writer(
+            start=200 * sy.TimeSpan.SECOND,
+            channels=[idx_ch.key, data_ch.key],
+            auto_indexing=True,
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: user_stamps,
+                    data_ch.key: np.random.rand(2).astype(np.float64),
+                }
+            )
+            w.write({data_ch.key: np.random.rand(3).astype(np.float64)})
+            w.commit()
+        user_f = client.read(
+            sy.TimeRange(200 * sy.TimeSpan.SECOND, 202 * sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert list(user_f) == user_stamps
+        auto_f = client.read(
+            sy.TimeRange(before_auto, sy.TimeStamp.now() + sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert len(auto_f) == 3
+
     def test_auto_indexing_leaves_user_provided_index_untouched(
         self,
         indexed_pair: list[sy.Channel],

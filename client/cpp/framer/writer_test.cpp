@@ -185,6 +185,61 @@ TEST(WriterTests, testAutoIndexingUserProvidedIndexUntouched) {
     ASSERT_NIL(streamer.close());
 }
 
+/// @brief an auto-indexing writer should accept both user-provided and omitted index
+/// series across separate write calls in the same session.
+TEST(WriterTests, testAutoIndexingMixedUserProvidedAndGenerated) {
+    auto client = new_test_client();
+    auto [time, data] = create_indexed_pair(client);
+
+    auto streamer = ASSERT_NIL_P(client.telem.open_streamer(
+        synnax::framer::StreamerConfig{
+            std::vector{time.key},
+        }
+    ));
+
+    synnax::framer::WriterConfig cfg{
+        std::vector{time.key, data.key},
+        x::telem::TimeStamp(200 * x::telem::SECOND),
+        std::vector{x::control::AUTHORITY_ABSOLUTE, x::control::AUTHORITY_ABSOLUTE},
+        x::control::Subject{"auto_index_writer_mixed_modes"},
+    };
+    cfg.auto_indexing = true;
+    auto writer = ASSERT_NIL_P(client.telem.open_writer(cfg));
+
+    const std::vector<x::telem::TimeStamp> user_stamps{
+        x::telem::TimeStamp(200 * x::telem::SECOND),
+        x::telem::TimeStamp(201 * x::telem::SECOND),
+    };
+
+    auto user_frame = x::telem::Frame(2);
+    user_frame.emplace(time.key, x::telem::Series(user_stamps));
+    user_frame.emplace(data.key, x::telem::Series(std::vector<float>{1, 2}));
+    ASSERT_NIL(writer.write(user_frame));
+
+    auto auto_frame = x::telem::Frame(1);
+    auto_frame.emplace(data.key, x::telem::Series(std::vector<float>{3, 4, 5}));
+    ASSERT_NIL(writer.write(auto_frame));
+    ASSERT_NIL_P(writer.commit());
+
+    std::vector<x::telem::TimeStamp> received;
+    while (received.size() < user_stamps.size() + 3) {
+        auto res_frame = ASSERT_NIL_P(streamer.read());
+        for (const auto &ns : res_frame.series->at(0).values<int64_t>())
+            received.emplace_back(ns);
+    }
+    ASSERT_EQ(received.size(), user_stamps.size() + 3);
+    for (size_t i = 0; i < user_stamps.size(); i++)
+        ASSERT_EQ(received[i].nanoseconds(), user_stamps[i].nanoseconds());
+    for (size_t i = user_stamps.size(); i < received.size(); i++)
+        ASSERT_GT(
+            received[i].nanoseconds(),
+            user_stamps.back().nanoseconds()
+        );
+
+    ASSERT_NIL(writer.close());
+    ASSERT_NIL(streamer.close());
+}
+
 /// @brief it should return a validation error when attempting to write a frame with
 /// a series that does not match the data type of the channel.
 TEST(WriterTests, testWriteSeriesWithMismatchedDataType) {
