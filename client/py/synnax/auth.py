@@ -25,7 +25,7 @@ from x.deprecation import deprecated_getattr
 from x.telem import TimeStamp
 
 
-class InsecureCredentials(BaseModel):
+class Credentials(BaseModel):
     username: str
     password: str
 
@@ -72,7 +72,7 @@ class Client:
         res = send_required(
             self.client,
             "/auth/login",
-            InsecureCredentials(username=self.username, password=self.password),
+            Credentials(username=self.username, password=self.password),
             TokenResponse,
         )
         self.token = res.token
