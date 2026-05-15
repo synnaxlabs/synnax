@@ -168,46 +168,6 @@ describe("remote", () => {
       expect(v).toBe(5);
     });
 
-    it("should round float32 reads to the shortest f32-roundtrippable decimal", async () => {
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      const handleChange = vi.fn();
-      scv.onChange(handleChange);
-      scv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      const series = new Series({
-        data: new Float32Array([1.234]),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
-      expect(scv.value()).toBe(1.234);
-    });
-
-    it("should pass float64 reads through unchanged", async () => {
-      c.channel = new channel.Channel({
-        key: 65537,
-        name: "test",
-        dataType: DataType.FLOAT64,
-        isIndex: false,
-      });
-      const props: StreamChannelValueProps = {
-        channel: c.channel.key,
-      };
-      const scv = new StreamChannelValue(c, props);
-      const handleChange = vi.fn();
-      scv.onChange(handleChange);
-      scv.value();
-      await expect.poll(() => handleChange.mock.calls.length === 1).toBe(true);
-      const series = new Series({
-        data: new Float64Array([0.1]),
-      });
-      c.streamHandler?.(new Map([[c.channel.key, new MultiSeries([series])]]));
-      await expect.poll(() => handleChange.mock.calls.length === 2).toBe(true);
-      expect(scv.value()).toBe(0.1);
-    });
-
     it("should replace the leading buffer when a new one is passed through the streamer", async () => {
       const props: StreamChannelValueProps = {
         channel: c.channel.key,

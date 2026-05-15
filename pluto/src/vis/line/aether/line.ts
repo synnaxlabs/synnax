@@ -13,7 +13,6 @@ import {
   bounds,
   type box,
   clamp,
-  cleanFloat32,
   color,
   DataType,
   type destructor,
@@ -364,8 +363,7 @@ export class Line extends aether.Leaf<typeof stateZ, InternalState> {
     if (ySeries == null) return result;
 
     const alignmentDiff = Number(ySeries.alignment - xSeries.alignment);
-    const rawY = Number(ySeries.at(index - alignmentDiff));
-    result.value.y = cleanFloat32(rawY, ySeries.dataType);
+    result.value.y = Number(ySeries.at(index - alignmentDiff));
 
     result.bounds = { ...ySeries.bounds };
 
