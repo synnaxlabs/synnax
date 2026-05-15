@@ -132,7 +132,7 @@ const Internal = ({ layoutKey }: ToolbarProps): ReactElement | null => {
   return (
     <Tabs.Provider value={value}>
       <Key.Provider value={layoutKey}>
-        <Base.Content>
+        <Base.Content className={CSS.B("schematic-toolbar")}>
           <Base.Header>
             <Breadcrumb.Breadcrumb level="h5">
               <Breadcrumb.Segment weight={500} color={10} level="h5">

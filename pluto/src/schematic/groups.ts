@@ -163,3 +163,50 @@ export const remapGroupId = (
   const { groupId: _drop, ...rest } = node;
   return rest;
 };
+
+/** For alignment / distribute, returns the group container's key + position when
+ * the node is grouped (so the group is treated as a single unit), otherwise the
+ * node's own key + position. */
+export const resolveAlignmentKey = (
+  elKey: string,
+  allNodes: readonly schematic.Node[],
+  configs: Record<string, record.Unknown>,
+  elPosition: xy.XY,
+): { key: string; position: xy.XY } => {
+  const node = allNodes.find((n) => n.key === elKey);
+  if (node == null) return { key: elKey, position: elPosition };
+  const gk = groupKeyOf(node, configs);
+  if (gk != null && gk !== elKey) {
+    const groupNode = allNodes.find((n) => n.key === gk);
+    if (groupNode != null) return { key: gk, position: groupNode.position };
+  }
+  return { key: elKey, position: elPosition };
+};
+
+/** Expands a list of computed positions so that any group container's new
+ * position also moves its members by the same delta. */
+export const expandGroupPositions = (
+  positions: readonly [string, xy.XY][],
+  allNodes: readonly schematic.Node[],
+  configs: Record<string, record.Unknown>,
+): [string, xy.XY][] => {
+  const result: [string, xy.XY][] = [];
+  for (const [key, newPos] of positions) {
+    if (isGroupContainer(key, configs)) {
+      const groupNode = allNodes.find((n) => n.key === key);
+      if (groupNode == null) continue;
+      const delta = {
+        x: newPos.x - groupNode.position.x,
+        y: newPos.y - groupNode.position.y,
+      };
+      result.push([key, newPos]);
+      for (const n of allNodes)
+        if (n.groupId === key)
+          result.push([
+            n.key,
+            { x: n.position.x + delta.x, y: n.position.y + delta.y },
+          ]);
+    } else result.push([key, newPos]);
+  }
+  return result;
+};

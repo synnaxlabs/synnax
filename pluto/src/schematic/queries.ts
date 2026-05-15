@@ -116,6 +116,16 @@ export const useSelectAllEdges = Flux.createSelector<
   select: (store, { key }) => requireSchematic(store, key).edges,
 });
 
+export const useSelectAllConfigs = Flux.createSelector<
+  FluxSubStore,
+  SelectKeyArgs,
+  Record<string, record.Unknown>
+>({
+  subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
+  select: (store, { key }) =>
+    requireSchematic(store, key).configs as Record<string, record.Unknown>,
+});
+
 export interface SelectConfigArgs {
   key: schematic.Key;
   elKey: string;

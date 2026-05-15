@@ -134,8 +134,14 @@ const MultiConfig = ({
   const selected = useSelectSelected(layoutKey);
 
   const selectedNodes = Schematic.useSelectNodes({ key: layoutKey, keys: selected });
+  const allNodes = Schematic.useSelectAllNodes({ key: layoutKey });
+  const allConfigs = Schematic.useSelectAllConfigs({ key: layoutKey });
   const { dispatch } = Schematic.useDispatch();
   const store = useStore<RootState>();
+  const handleGroup = Schematic.useGroup(layoutKey);
+  const handleUngroup = Schematic.useUngroup(layoutKey);
+  const canGroup = Schematic.useSelectCanGroup({ key: layoutKey, selected });
+  const canUngroup = Schematic.useSelectCanUngroup({ key: layoutKey, selected });
 
   const configByKey = useMemo(() => {
     const m = new Map<string, Schematic.ElementConfig>();
@@ -201,21 +207,30 @@ const MultiConfig = ({
 
   const getLayoutsForAlignment = () => {
     const zoom = selectViewport(store.getState(), layoutKey)?.zoom ?? 1;
+    const seenKeys = new Set<string>();
     return selected
       .map((key) => {
         const node = nodesByKey.get(key);
         if (node == null) return null;
+        const resolved = Schematic.Groups.resolveAlignmentKey(
+          key,
+          allNodes,
+          allConfigs,
+          node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
         try {
-          const nodeEl = Diagram.selectNode(key);
+          const nodeEl = Diagram.selectNode(resolved.key);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
           const actualDims: dimensions.Dimensions = {
             width: rect.width / zoom,
             height: rect.height / zoom,
           };
-          const nodeBox = box.construct(node.position, actualDims);
+          const nodeBox = box.construct(resolved.position, actualDims);
           return new Diagram.NodeLayout(
-            key,
+            resolved.key,
             nodeBox,
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
@@ -233,12 +248,21 @@ const MultiConfig = ({
   } => {
     const zoom = selectViewport(store.getState(), layoutKey)?.zoom ?? 1;
     const topOffsets = new Map<string, number>();
+    const seenKeys = new Set<string>();
     const layouts = selected
       .map((key) => {
         const node = nodesByKey.get(key);
         if (node == null) return null;
+        const resolved = Schematic.Groups.resolveAlignmentKey(
+          key,
+          allNodes,
+          allConfigs,
+          node.position,
+        );
+        if (seenKeys.has(resolved.key)) return null;
+        seenKeys.add(resolved.key);
         try {
-          const nodeEl = Diagram.selectNode(key);
+          const nodeEl = Diagram.selectNode(resolved.key);
           const nodeElBox = box.construct(nodeEl);
           const rect = nodeEl.getBoundingClientRect();
 
@@ -257,15 +281,15 @@ const MultiConfig = ({
           };
 
           const topExtension = (rect.top - minTop) / zoom;
-          topOffsets.set(key, topExtension);
-          const adjustedPosition = xy.translate(node.position, {
+          topOffsets.set(resolved.key, topExtension);
+          const adjustedPosition = xy.translate(resolved.position, {
             x: 0,
             y: -topExtension,
           });
 
           const nodeBox = box.construct(adjustedPosition, actualDims);
           return new Diagram.NodeLayout(
-            key,
+            resolved.key,
             nodeBox,
             handleLayouts(nodeEl, nodeElBox, zoom),
           );
@@ -285,10 +309,12 @@ const MultiConfig = ({
 
   const applyNodePositions = (layouts: Diagram.NodeLayout[]): void => {
     if (layouts.length === 0) return;
+    const raw: [string, xy.XY][] = layouts.map((n) => [n.key, box.topLeft(n.box)]);
+    const positions = Schematic.Groups.expandGroupPositions(raw, allNodes, allConfigs);
     dispatch({
       key: layoutKey,
-      actions: layouts.map((n) =>
-        schematic.setNodePosition({ key: n.key, position: box.topLeft(n.box) }),
+      actions: positions.map(([key, position]) =>
+        schematic.setNodePosition({ key, position }),
       ),
     });
   };
@@ -345,6 +371,8 @@ const MultiConfig = ({
     <Flex.Box
       align="start"
       x
+      wrap
+      grow
       className={CSS.BE("schematic", "properties", "multi")}
       gap="large"
     >
@@ -366,16 +394,16 @@ const MultiConfig = ({
       <Input.Item label="Align">
         <Flex.Box x>
           <Button.Button
-            tooltip="Align symbols vertically"
-            onClick={() => handleAlignAlongDirection("x")}
-          >
-            <Icon.Align.YCenter />
-          </Button.Button>
-          <Button.Button
             tooltip="Align symbols horizontally"
             onClick={() => handleAlignAlongDirection("y")}
           >
             <Icon.Align.XCenter />
+          </Button.Button>
+          <Button.Button
+            tooltip="Align symbols vertically"
+            onClick={() => handleAlignAlongDirection("x")}
+          >
+            <Icon.Align.YCenter />
           </Button.Button>
           <Divider.Divider direction="y" />
           <Button.Button
@@ -408,16 +436,16 @@ const MultiConfig = ({
         <Input.Item label="Spacing">
           <Flex.Box x>
             <Button.Button
-              tooltip="Distribute symbol spacing horizontally"
-              onClick={() => handleDistribute("x")}
-            >
-              <Icon.Distribute.X />
-            </Button.Button>
-            <Button.Button
               tooltip="Distribute symbol spacing vertically"
               onClick={() => handleDistribute("y")}
             >
               <Icon.Distribute.Y />
+            </Button.Button>
+            <Button.Button
+              tooltip="Distribute symbol spacing horizontally"
+              onClick={() => handleDistribute("x")}
+            >
+              <Icon.Distribute.X />
             </Button.Button>
           </Flex.Box>
         </Input.Item>
@@ -438,7 +466,7 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Rotate Selection">
+      <Input.Item label="Pivot">
         <Flex.Box x>
           <Button.Button
             tooltip="Rotate selection clockwise"
@@ -454,13 +482,28 @@ const MultiConfig = ({
           </Button.Button>
         </Flex.Box>
       </Input.Item>
-      <Input.Item label="Label Wrap Width" align="start">
-        <Input.Numeric
-          value={firstNodeLabel?.maxInlineSize ?? 150}
-          onChange={(v) => handleLabelProp("maxInlineSize", v)}
-          endContent="px"
-        />
-      </Input.Item>
+      {(canGroup || canUngroup) && (
+        <Input.Item label="Grouping">
+          <Flex.Box x>
+            {canGroup && (
+              <Button.Button
+                tooltip="Group selected symbols (Ctrl+G)"
+                onClick={() => handleGroup(selected)}
+              >
+                <Icon.Group />
+              </Button.Button>
+            )}
+            {canUngroup && (
+              <Button.Button
+                tooltip="Ungroup selected symbols (Ctrl+U)"
+                onClick={() => handleUngroup(selected)}
+              >
+                <Icon.Ungroup />
+              </Button.Button>
+            )}
+          </Flex.Box>
+        </Input.Item>
+      )}
       <Input.Item label="Label Size" align="start">
         <Select.Text.Level
           value={firstNodeLabel?.level ?? "p"}
@@ -487,6 +530,13 @@ const MultiConfig = ({
             v.outer !== "center" && handleLabelProp("orientation", v.outer)
           }
           hideInner
+        />
+      </Input.Item>
+      <Input.Item label="Label Wrap Width" align="start">
+        <Input.Numeric
+          value={firstNodeLabel?.maxInlineSize ?? 150}
+          onChange={(v) => handleLabelProp("maxInlineSize", v)}
+          endContent="px"
         />
       </Input.Item>
     </Flex.Box>

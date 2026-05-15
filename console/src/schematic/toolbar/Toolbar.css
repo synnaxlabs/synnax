@@ -9,6 +9,14 @@
  * included in the file licenses/APL.txt.
  */
 
+.console-schematic-toolbar {
+    height: 100%;
+
+    .pluto-tabs-content {
+        overflow: auto;
+    }
+}
+
 .console-schematic__toolbar-actions {
     height: 100%;
     width: 66px;
