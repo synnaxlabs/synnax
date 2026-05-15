@@ -40,7 +40,7 @@ func newTestLogger() (*alamos.Logger, *bytes.Buffer) {
 func openMockDriver(ctx context.Context, logger *alamos.Logger, overrides ...driver.Config) *driver.Driver {
 	base := driver.Config{
 		Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-		BinaryPath:      mockBinaryPath,
+		FS:              mockFS,
 		Insecure:        new(true),
 		Address:         "localhost:9090",
 		ParentDirname:   GinkgoT().TempDir(),
@@ -65,7 +65,7 @@ var _ = Describe("Open", func() {
 			start := time.Now()
 			d, err := driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				BinaryPath:      mockBinaryPath,
+				FS:              mockFS,
 				Insecure:        new(true),
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),
@@ -87,7 +87,7 @@ var _ = Describe("Open", func() {
 			logger, _ := newTestLogger()
 			d, err := driver.Open(ctx, driver.Config{
 				Instrumentation: alamos.New("test", alamos.WithLogger(logger)),
-				BinaryPath:      mockBinaryPath,
+				FS:              mockFS,
 				Insecure:        new(true),
 				Address:         "localhost:9090",
 				ParentDirname:   GinkgoT().TempDir(),

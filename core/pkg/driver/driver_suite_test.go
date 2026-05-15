@@ -10,6 +10,7 @@
 package driver_test
 
 import (
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -21,7 +22,7 @@ import (
 	. "github.com/synnaxlabs/x/testutil"
 )
 
-var mockBinaryPath string
+var mockFS fs.FS
 
 func TestDriver(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -32,17 +33,19 @@ var _ = ShouldNotLeakGoroutinesPerSpec()
 
 var _ = BeforeSuite(func() {
 	tmpDir := GinkgoT().TempDir()
-	mockBinaryPath = filepath.Join(tmpDir, "mockdriver")
+	binaryName := "driver"
 	if runtime.GOOS == "windows" {
-		mockBinaryPath += ".exe"
+		binaryName = "driver.exe"
 	}
+	binaryPath := filepath.Join(tmpDir, binaryName)
 	cmd := exec.Command(
-		"go", "build", "-o", mockBinaryPath,
+		"go", "build", "-o", binaryPath,
 		"./testdata/mockdriver",
 	)
 	cmd.Dir = MustSucceed(os.Getwd())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	Expect(cmd.Run()).To(Succeed())
+	mockFS = os.DirFS(tmpDir)
 	ShouldNotLeakGoroutines()
 })
