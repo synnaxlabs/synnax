@@ -530,6 +530,9 @@ func (r *Retrieve[K, E]) execOrdered(ctx context.Context, tx Tx) error {
 		}
 	}
 	r.entries.Replace(filtered)
+	if vErr := r.runValidators(gorpCtx, r.entries.All()); vErr != nil {
+		return vErr
+	}
 	if r.entries.isMultiple || !r.entries.Bound() {
 		return nil
 	}

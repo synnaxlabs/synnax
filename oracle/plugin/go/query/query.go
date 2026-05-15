@@ -479,7 +479,7 @@ type Retrieve struct {
 // instead of relying on package-level state.
 type indexes struct {
 {{- range $idx := $ret.Indexes}}
-	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}Sorted{{else}}Lookup{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
+	{{$idx.StructField}} *gorp.{{if $idx.IsSorted}}SortedIndex{{else}}LookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}]
 {{- end}}
 }
 
@@ -489,7 +489,7 @@ type indexes struct {
 func newIndexes() indexes {
 	return indexes{
 {{- range $idx := $ret.Indexes}}
-		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSorted{{else}}NewLookup{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
+		{{$idx.StructField}}: gorp.{{if $idx.IsSorted}}NewSortedIndex{{else}}NewLookupIndex{{end}}[{{$ret.KeyType}}, {{$ret.GoName}}, {{$idx.GoType}}](
 			"{{$idx.FieldName}}",
 			func(e *{{$ret.GoName}}) {{$idx.GoType}} { return e.{{$idx.GoName}} },
 		),

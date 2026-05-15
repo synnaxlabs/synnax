@@ -694,9 +694,9 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"type indexes struct {",
-						"username *gorp.Lookup[uuid.UUID, User, string]",
+						"username *gorp.LookupIndex[uuid.UUID, User, string]",
 						"func newIndexes() indexes",
-						"username: gorp.NewLookup[uuid.UUID, User, string](",
+						"username: gorp.NewLookupIndex[uuid.UUID, User, string](",
 						"\"username\"",
 						"func(e *User) string { return e.Username }",
 						"func (i indexes) all() []gorp.Index[uuid.UUID, User]",
@@ -711,7 +711,7 @@ var _ = Describe("Go Query Plugin", func() {
 						"newUsernameIndex",
 						"ByUsername",
 						"OrderByUsername",
-						"gorp.NewSorted",
+						"gorp.NewSortedIndex",
 						"lo.Contains",
 					)
 			})
@@ -735,9 +735,9 @@ var _ = Describe("Go Query Plugin", func() {
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
 						"type indexes struct {",
-						"username *gorp.Lookup[uuid.UUID, User, string]",
+						"username *gorp.LookupIndex[uuid.UUID, User, string]",
 						"func newIndexes() indexes",
-						"username: gorp.NewLookup[uuid.UUID, User, string](",
+						"username: gorp.NewLookupIndex[uuid.UUID, User, string](",
 					).
 					ToNotContain(
 						"newUsernameIndex",
@@ -765,8 +765,8 @@ var _ = Describe("Go Query Plugin", func() {
 				resp := MustGenerate(ctx, source, "event", loader, p)
 				ExpectContent(resp, "retrieve.gen.go").
 					ToContain(
-						"createdAt *gorp.Sorted[uuid.UUID, Event, int64]",
-						"createdAt: gorp.NewSorted[uuid.UUID, Event, int64](",
+						"createdAt *gorp.SortedIndex[uuid.UUID, Event, int64]",
+						"createdAt: gorp.NewSortedIndex[uuid.UUID, Event, int64](",
 						"\"created_at\"",
 						"func(e *Event) int64 { return e.CreatedAt }",
 						"func MatchCreatedAt(v int64) Filter",

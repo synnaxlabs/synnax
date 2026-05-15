@@ -630,6 +630,35 @@ var _ = Describe("Index", func() {
 				// post-filter keeps only those with Score > 50.
 				Expect(scoresOf(res)).To(Equal([]int64{60, 70}))
 			})
+
+			It("Should run validators on the ordered result set", func(ctx SpecContext) {
+				var (
+					seen []indexedEntry
+					res  []indexedEntry
+				)
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.Asc)).
+					Limit(3).
+					Validate(func(_ gorp.Context, entries []indexedEntry) error {
+						seen = append([]indexedEntry(nil), entries...)
+						return nil
+					}).
+					Entries(&res).Exec(ctx, idxDB)).To(Succeed())
+				Expect(scoresOf(res)).To(Equal([]int64{0, 10, 20}))
+				Expect(seen).To(Equal(res))
+			})
+
+			It("Should short-circuit Exec with a validator error on the ordered path", func(ctx SpecContext) {
+				var res []indexedEntry
+				Expect(table.NewRetrieve().
+					OrderBy(scoreIdx.Ordered(gorp.Asc)).
+					Limit(3).
+					Validate(func(_ gorp.Context, _ []indexedEntry) error {
+						return errors.New("ordered validator rejected query")
+					}).
+					Entries(&res).Exec(ctx, idxDB)).
+					To(MatchError(ContainSubstring("ordered validator rejected query")))
+			})
 		})
 	})
 
