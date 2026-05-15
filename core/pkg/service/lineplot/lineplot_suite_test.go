@@ -17,7 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/group"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/lineplot"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -58,15 +58,13 @@ var (
 				Group:    g,
 				Search:   searchIdx,
 			}))
-			authKV = MustOpen(kv.OpenAuthenticator(ctx, kv.AuthenticatorConfig{
-				DB: db,
-			}))
+			authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 			userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 				DB:       db,
 				Ontology: otg,
 				Group:    g,
 				Search:   searchIdx,
-				Auth:     authKV,
+				Auth:     authSvc,
 			}))
 		)
 		svc = MustOpen(lineplot.OpenService(ctx, lineplot.ServiceConfig{
@@ -80,6 +78,5 @@ var (
 		ws.Author = author.Key
 		Expect(workspaceSvc.NewWriter(nil).Create(ctx, &ws)).To(Succeed())
 	})
-	_ = BeforeEach(func() { tx = db.OpenTx() })
-	_ = AfterEach(func() { Expect(tx.Close()).To(Succeed()) })
+	_ = BeforeEach(func() { tx = DeferClose(db.OpenTx()) })
 )

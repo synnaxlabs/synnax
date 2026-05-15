@@ -23,7 +23,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/policy"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac/role"
-	"github.com/synnaxlabs/synnax/pkg/service/auth/kv"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/schematic"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/synnax/pkg/service/workspace"
@@ -58,13 +58,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		Ontology: otg,
 		Search:   searchIdx,
 	}))
-	authKV := MustOpen(kv.OpenAuthenticator(ctx, kv.AuthenticatorConfig{DB: db}))
+	authSvc := MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
 	userSvc := MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Group:    g,
 		Search:   searchIdx,
-		Auth:     authKV,
+		Auth:     authSvc,
 	}))
 	workspaceSvc := MustOpen(workspace.OpenService(ctx, workspace.ServiceConfig{
 		DB:       db,

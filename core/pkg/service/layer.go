@@ -20,7 +20,6 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/service/arc"
 	arcruntime "github.com/synnaxlabs/synnax/pkg/service/arc/runtime"
 	"github.com/synnaxlabs/synnax/pkg/service/auth"
-	authkv "github.com/synnaxlabs/synnax/pkg/service/auth/kv"
 	"github.com/synnaxlabs/synnax/pkg/service/auth/token"
 	"github.com/synnaxlabs/synnax/pkg/service/channel"
 	"github.com/synnaxlabs/synnax/pkg/service/device"
@@ -112,6 +111,8 @@ type Layer struct {
 	User *user.Service
 	// RBAC implements role-based access control for users.
 	RBAC *rbac.Service
+	// Auth validates credentials and manages credential storage.
+	Auth *auth.Service
 	// Token is for creating and validating authentication tokens.
 	Token *token.Service
 	// Ranger is for working with ranges.
@@ -175,11 +176,10 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		err = cleanup(err)
 	}()
 
-	var authKV *authkv.Authenticator
-	if authKV, err = authkv.OpenAuthenticator(ctx, authkv.AuthenticatorConfig{
+	if l.Auth, err = auth.OpenService(ctx, auth.ServiceConfig{
 		Instrumentation: cfg.Child("auth"),
 		DB:              cfg.Distribution.DB,
-	}); !ok(err, authKV) {
+	}); !ok(err, l.Auth) {
 		return nil, err
 	}
 	if l.User, err = user.OpenService(ctx, user.ServiceConfig{
@@ -188,7 +188,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
-		Auth:            authKV,
+		Auth:            l.Auth,
 	}); !ok(err, l.User) {
 		return nil, err
 	}
