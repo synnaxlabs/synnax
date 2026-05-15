@@ -95,6 +95,27 @@ DataType string {
     @py omit
 }
 
+TimestampFormat enum {
+    preciseTime = "preciseTime"
+    preciseDate = "preciseDate"
+    iso         = "ISO"
+
+    @doc value "is the rendered form of a timestamp displayed alongside a sample."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
+Timezone enum {
+    local = "local"
+    utc   = "UTC"
+
+    @doc value "is the timezone used when rendering timestamps."
+    @py omit
+    @cpp omit
+    @pb omit
+}
+
 Alignment uint64 {
     @doc value """
         is a 64-bit index for positioning samples within multi-array structures.

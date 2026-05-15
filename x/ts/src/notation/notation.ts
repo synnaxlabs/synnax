@@ -7,18 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { z } from "zod";
-
-export const NOTATIONS = ["standard", "scientific", "engineering"] as const;
-export const notationZ = z.enum(NOTATIONS);
-export type Notation = z.infer<typeof notationZ>;
+import { type Notation } from "@/notation/types.gen";
 
 /**
  * Converts a number to a string representation with a specified precision and notation.
  *
  * @param value - The number to be converted.
- * @param precision - The number of decimal places to include in the output. Must be between 0 and 20.
- * @param notation - The notation to use for the conversion. Can be "standard", "scientific", or "engineering".
+ * @param precision - The number of decimal places to include in the output. Must be
+ * between 0 and 20.
+ * @param notation - The notation to use for the conversion. Can be "standard",
+ * "scientific", or "engineering".
  * @returns The string representation of the number.
  *
  * Edge cases:
