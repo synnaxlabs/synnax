@@ -1,0 +1,165 @@
+---
+layout: "@/layouts/Reference.astro"
+title: "Auto-Indexing"
+description: "Let Synnax generate timestamps for you when writing data."
+next: "Write Authorities"
+nextURL: "/reference/client/advanced/write-authorities"
+prev: "Auto-Commit"
+prevURL: "/reference/client/advanced/auto-commit"
+clients: ["python", "typescript"]
+---
+
+import { Divider, Note } from "@synnaxlabs/pluto";
+import { Fragment } from "react";
+import { Client } from "@/components/client";
+import { mdxOverrides } from "@/components/mdxOverrides";
+
+export const components = mdxOverrides;
+
+By default, every write to a data channel must include a matching series of timestamps
+for that channel's index. When <Client.Var client:load py="auto_indexing"
+ts="autoIndexing" /> is enabled, Synnax generates those timestamps for you. This is
+useful when the exact time of each sample doesn't matter and you'd rather have Synnax
+stamp the data when it arrives.
+
+<Divider.Divider x />
+
+## How It Works
+
+When <Client.Var client:load py="auto_indexing" ts="autoIndexing" /> is set to
+
+<Client.Var client:load py="True" ts="true" />, every write call goes through the
+following process:
+
+- For each index channel in the writer that you didn't include in the write, Synnax
+  generates a timestamp series with one timestamp per sample.
+- The first sample is stamped at the time Synnax receives the write. Subsequent samples
+  in the same write are spaced 1 nanosecond apart.
+- Generated timestamps are guaranteed to be strictly monotonic across all writes on the
+  same writer, even if you mix auto-generated and user-provided timestamps.
+
+If you open the writer with a data channel but don't include its index channel, Synnax
+adds the index channel to the writer for you so it can stamp the data.
+
+<Divider.Divider x />
+
+## Writing Without an Index Channel
+
+The simplest case is opening a writer with only a data channel and letting Synnax stamp
+every sample. No `start` timestamp is needed.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=0,
+    channels=["temperature"],
+    auto_indexing=True,
+) as writer:
+    for i in range(100):
+        writer.write({"temperature": i * 0.1})
+        sy.sleep(0.1)
+    writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  channels: ["temperature"],
+  autoIndexing: true,
+});
+try {
+  for (let i = 0; i < 100; i++) await writer.write("temperature", i * 0.1);
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## Mixing Generated and User-Provided Timestamps
+
+You can open a writer with both index and data channels and choose, per write call,
+whether to provide your own timestamps or let Synnax generate them. Any write that omits
+the index channel is auto-stamped; any write that includes the index channel uses the
+timestamps you supplied.
+
+<Client.Tabs client:load exclude={["cpp","console"]}>
+
+  <Fragment slot="python">
+
+```python
+with client.open_writer(
+    start=sy.TimeStamp.now(),
+    channels=["time", "temperature"],
+    auto_indexing=True,
+) as writer:
+    # User-provided timestamps for this write.
+    writer.write({
+        "time": sy.TimeStamp.now(),
+        "temperature": 21.5,
+    })
+    # Synnax generates the timestamp for this write.
+    writer.write({"temperature": 21.6})
+    writer.commit()
+```
+
+  </Fragment>
+
+  <Fragment slot="typescript">
+
+```typescript
+const writer = await client.openWriter({
+  start: TimeStamp.now(),
+  channels: ["time", "temperature"],
+  autoIndexing: true,
+});
+try {
+  // User-provided timestamps for this write.
+  await writer.write({ time: TimeStamp.now(), temperature: 21.5 });
+  // Synnax generates the timestamp for this write.
+  await writer.write("temperature", 21.6);
+  await writer.commit();
+} finally {
+  await writer.close();
+}
+```
+
+  </Fragment>
+</Client.Tabs>
+
+<Divider.Divider x />
+
+## When to Use Auto-Indexing
+
+Auto-indexing is a good fit when:
+
+- You're recording data where the exact sample time isn't critical — log lines, status
+  values, event-style data.
+- You want a simpler write path and don't want to manage timestamps yourself.
+- You're prototyping and don't yet have a clear story for sample timing.
+
+Auto-indexing is **not** a good fit when:
+
+- You need timestamps that reflect the actual moment a sample was taken at the source
+  (e.g., a sensor with its own clock). Generated timestamps reflect arrival time, not
+  acquisition time.
+- You need a known sample rate. Auto-generated samples are spaced 1 nanosecond apart
+  within a single write call, which doesn't represent any real sample rate.
+- You're writing historical data with a meaningful time range — supply explicit
+  timestamps instead.
+
+<Note.Note variant="warning" className="compact">
+  Auto-generated timestamps reflect when Synnax received the write, not when the data
+  was originally acquired. If preserving acquisition time matters for your use case,
+  write timestamps explicitly.
+</Note.Note>
