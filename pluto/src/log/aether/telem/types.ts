@@ -16,6 +16,8 @@ export interface LogEntry {
   channelKey: channel.Key;
   timestamp: TimeStamp;
   value: string;
+  // True when this entry was produced by splitting a sample on \n;
+  continuation?: boolean;
 }
 
 export interface LogSource extends Source<LogEntry[]> {

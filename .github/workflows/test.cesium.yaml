@@ -32,5 +32,4 @@ jobs:
     secrets: inherit
     with:
       directory: cesium
-      ginkgo_flags: -p --randomize-all
       coverage_flag: cesium

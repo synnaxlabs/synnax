@@ -55,9 +55,9 @@ var _ = Describe("FS Testutil", func() {
 		})
 
 		It("Should leave nothing on disk", func() {
-			before := matchingTempDirs("testdata-")
+			before := matchingTempDirs(TempDirPrefix())
 			OpenMem()
-			Expect(matchingTempDirs("testdata-")).To(Equal(before))
+			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
 		})
 	})
 
@@ -80,9 +80,9 @@ var _ = Describe("FS Testutil", func() {
 		})
 
 		It("Should back the FS with a real directory under os.TempDir", func() {
-			before := matchingTempDirs("testdata-")
+			before := matchingTempDirs(TempDirPrefix())
 			OpenOS()
-			after := matchingTempDirs("testdata-")
+			after := matchingTempDirs(TempDirPrefix())
 			Expect(len(after)).To(Equal(len(before) + 1))
 		})
 
@@ -92,11 +92,11 @@ var _ = Describe("FS Testutil", func() {
 				createdAt string
 			)
 			BeforeAll(func() {
-				priorDirs = matchingTempDirs("testdata-")
+				priorDirs = matchingTempDirs(TempDirPrefix())
 			})
 			It("Creates the tempdir while the spec is running", func() {
 				OpenOS()
-				current := matchingTempDirs("testdata-")
+				current := matchingTempDirs(TempDirPrefix())
 				Expect(len(current)).To(Equal(len(priorDirs) + 1))
 				for _, name := range current {
 					if !slices.Contains(priorDirs, name) {
@@ -109,7 +109,7 @@ var _ = Describe("FS Testutil", func() {
 			It("Removes the tempdir before the next spec runs", func() {
 				_, err := os.Stat(createdAt)
 				Expect(os.IsNotExist(err)).To(BeTrue())
-				Expect(matchingTempDirs("testdata-")).To(Equal(priorDirs))
+				Expect(matchingTempDirs(TempDirPrefix())).To(Equal(priorDirs))
 			})
 		})
 	})
@@ -132,12 +132,12 @@ var _ = Describe("FS Testutil", func() {
 		})
 
 		It("Should bind memFS to OpenMem and osFS to OpenOS", func() {
-			before := matchingTempDirs("testdata-")
+			before := matchingTempDirs(TempDirPrefix())
 			FileSystems["memFS"]()
-			Expect(matchingTempDirs("testdata-")).To(Equal(before))
+			Expect(matchingTempDirs(TempDirPrefix())).To(Equal(before))
 
 			FileSystems["osFS"]()
-			Expect(len(matchingTempDirs("testdata-"))).To(Equal(len(before) + 1))
+			Expect(len(matchingTempDirs(TempDirPrefix()))).To(Equal(len(before) + 1))
 		})
 	})
 
