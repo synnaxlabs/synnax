@@ -28,7 +28,7 @@ import (
 // access-control reads can observe the new ontology resource.
 func createSchematic(ctx context.Context, name string) schematic.Schematic {
 	s := schematic.Schematic{Name: name, Authority: 1}
-	Expect(schemSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
+	Expect(schematicSvc.NewWriter(nil).Create(ctx, ws.Key, &s)).To(Succeed())
 	return s
 }
 
@@ -56,7 +56,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 				})},
 			})).Error().To(Succeed())
 			var res schematic.Schematic
-			Expect(schemSvc.NewRetrieve().
+			Expect(schematicSvc.NewRetrieve().
 				Where(schematic.MatchKeys(s.Key)).
 				Entry(&res).Exec(ctx, nil)).To(Succeed())
 			Expect(res.Authority).To(BeEquivalentTo(7))
@@ -98,7 +98,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 				},
 			})).Error().To(Succeed())
 			var res schematic.Schematic
-			Expect(schemSvc.NewRetrieve().
+			Expect(schematicSvc.NewRetrieve().
 				Where(schematic.MatchKeys(s.Key)).
 				Entry(&res).Exec(ctx, nil)).To(Succeed())
 			Expect(res.Nodes).To(HaveLen(2))
@@ -108,7 +108,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 		It("Should bubble up validate.ErrValidation when dispatching to a snapshot", func(ctx SpecContext) {
 			s := createSchematic(ctx, "snap-source")
 			var snap schematic.Schematic
-			Expect(schemSvc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
+			Expect(schematicSvc.NewWriter(nil).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(snap.Key))
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        snap.Key,
@@ -137,7 +137,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			s := createSchematic(ctx, "session-propagation")
 			grantUpdateOn(ctx, user.OntologyID(author.Key), schematic.OntologyID(s.Key))
 			seen := make(chan schematic.ScopedAction, 1)
-			disconnect := schemSvc.OnAction(func(_ context.Context, sa schematic.ScopedAction) {
+			disconnect := schematicSvc.OnAction(func(_ context.Context, sa schematic.ScopedAction) {
 				seen <- sa
 			})
 			DeferCleanup(disconnect)

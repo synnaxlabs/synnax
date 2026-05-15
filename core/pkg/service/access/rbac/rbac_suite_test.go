@@ -18,6 +18,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
 	"github.com/synnaxlabs/synnax/pkg/service/access/rbac"
+	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/kv/memkv"
@@ -27,17 +28,18 @@ import (
 var (
 	db        *gorp.DB
 	otg       *ontology.Ontology
-	g         *group.Service
-	svc       *rbac.Service
+	groupSvc  *group.Service
+	rbacSvc   *rbac.Service
 	searchIdx *search.Index
 	userSvc   *user.Service
+	authSvc   *auth.Service
 )
 
 var _ = BeforeSuite(func(ctx SpecContext) {
 	db = DeferClose(gorp.Wrap(memkv.New()))
 	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
 	searchIdx = MustOpen(search.Open())
-	g = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
 		Search:   searchIdx,
@@ -45,15 +47,17 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	userSvc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 	}))
-	svc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
+	authSvc = MustOpen(auth.OpenService(ctx, auth.ServiceConfig{DB: db}))
+	rbacSvc = MustOpen(rbac.OpenService(ctx, rbac.ServiceConfig{
 		DB:       db,
 		Ontology: otg,
-		Group:    g,
+		Group:    groupSvc,
 		Search:   searchIdx,
 		User:     userSvc,
+		Auth:     authSvc,
 	}))
 })
 
