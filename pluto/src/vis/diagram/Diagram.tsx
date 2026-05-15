@@ -10,7 +10,7 @@
 import "@/vis/diagram/Diagram.css";
 import "@xyflow/react/dist/base.css";
 
-import { box, type xy } from "@synnaxlabs/x";
+import { box, TimeSpan, type xy } from "@synnaxlabs/x";
 import {
   type Connection as RFConnection,
   type ConnectionLineComponentProps as RFConnectionLineProps,
@@ -262,9 +262,11 @@ export const create = ({
     );
 
     const { fitView } = useReactFlow();
-    const debouncedFitView = useDebouncedCallback((args) => void fitView(args), 50, [
-      fitView,
-    ]);
+    const debouncedFitView = useDebouncedCallback(
+      (args: diagram.FitViewOptions) => void fitView(args),
+      TimeSpan.milliseconds(50),
+      [fitView],
+    );
 
     const resizeRef = Canvas.useRegion(
       useCallback(
