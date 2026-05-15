@@ -17,6 +17,7 @@ import (
 	"github.com/synnaxlabs/synnax/pkg/api"
 	"github.com/synnaxlabs/synnax/pkg/api/auth"
 	"github.com/synnaxlabs/synnax/pkg/distribution/node"
+	svcauth "github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -51,7 +52,7 @@ func (l loginRequestTranslator) Backward(
 	_ context.Context,
 	req *LoginRequest,
 ) (auth.LoginRequest, error) {
-	creds := user.Credentials{Username: req.Username, Password: req.Password}
+	creds := svcauth.Credentials{Username: req.Username, Password: req.Password}
 	return auth.LoginRequest{Credentials: creds}, nil
 }
 
