@@ -62,7 +62,7 @@ var (
 			Group:    g,
 			Search:   searchIdx,
 		}))
-		author = MustSucceed(userSvc.NewWriter(nil).Register(ctx, user.User{
+		author = MustSucceed(userSvc.NewWriter(nil).Create(ctx, user.User{
 			Username: "test",
 		}))
 	})
