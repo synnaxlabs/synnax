@@ -84,9 +84,7 @@ export const Schematic = ({
       // Cascade: removing a group container also removes its members.
       let expandedChanges: BaseDiagram.NodeChange[] = changes;
       if (schem != null) {
-        const removeKeys = changes
-          .filter((c) => c.type === "remove")
-          .map((c) => c.key);
+        const removeKeys = changes.filter((c) => c.type === "remove").map((c) => c.key);
         if (removeKeys.length > 0) {
           const cascaded = Groups.cascadeRemovedKeys(
             removeKeys,
@@ -104,9 +102,7 @@ export const Schematic = ({
       const otherChanges = expandedChanges.filter((c) => c.type !== "position");
       let allPositionChanges: BaseDiagram.NodeChange[] = positionChanges;
       if (positionChanges.length > 0 && schem != null) {
-        const draggingByKey = new Map(
-          positionChanges.map((c) => [c.key, c.dragging]),
-        );
+        const draggingByKey = new Map(positionChanges.map((c) => [c.key, c.dragging]));
         const propagated = Groups.propagateGroupDrag(
           positionChanges.map((c) => ({ key: c.key, position: c.position })),
           schem.nodes,

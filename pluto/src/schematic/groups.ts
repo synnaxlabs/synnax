@@ -15,9 +15,8 @@ import { type Config as GroupBoxConfig } from "@/schematic/node/general/groupBox
 export const GROUP_VARIANT = "groupBox";
 export const GROUP_PADDING = 30;
 
-const isGroupBoxConfig = (
-  c: record.Unknown | undefined,
-): c is GroupBoxConfig => c?.variant === GROUP_VARIANT;
+const isGroupBoxConfig = (c: record.Unknown | undefined): c is GroupBoxConfig =>
+  c?.variant === GROUP_VARIANT;
 
 export const isGroupContainer = (
   key: string,
@@ -254,7 +253,7 @@ export const expandGroupPositions = (
   configs: Record<string, record.Unknown>,
 ): [string, xy.XY][] => {
   const result: [string, xy.XY][] = [];
-  for (const [key, newPos] of positions) 
+  for (const [key, newPos] of positions)
     if (isGroupContainer(key, configs)) {
       const groupNode = allNodes.find((n) => n.key === key);
       if (groupNode == null) continue;
@@ -270,6 +269,6 @@ export const expandGroupPositions = (
             { x: n.position.x + delta.x, y: n.position.y + delta.y },
           ]);
     } else result.push([key, newPos]);
-  
+
   return result;
 };

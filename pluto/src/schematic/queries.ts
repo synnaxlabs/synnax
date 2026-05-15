@@ -542,8 +542,7 @@ export const useUngroup = (resourceKey: schematic.Key) => {
           const { groupId: _drop, ...rest } = n;
           actions.push(schematic.setNode({ node: rest, config: undefined }));
         }
-      for (const k of groupsToRemove)
-        actions.push(schematic.removeNode({ key: k }));
+      for (const k of groupsToRemove) actions.push(schematic.removeNode({ key: k }));
       dispatch({ key: resourceKey, actions });
     },
     [dispatch, resourceKey, store],

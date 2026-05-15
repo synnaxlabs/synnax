@@ -66,10 +66,7 @@ const buildPayload = (
   const includedEdges = schem.edges.filter((e) => expandedSet.has(e.key));
   if (ns.length === 0 && includedEdges.length === 0) return null;
   const configs: Record<string, record.Unknown> = {};
-  for (const k of [
-    ...ns.map((n) => n.key),
-    ...includedEdges.map((edge) => edge.key),
-  ]) {
+  for (const k of [...ns.map((n) => n.key), ...includedEdges.map((edge) => edge.key)]) {
     const c = schem.configs[k];
     if (c != null) configs[k] = c;
   }
@@ -139,8 +136,7 @@ const buildPasteActions = (
       }),
     );
     const cfg = payload.configs[edge.key];
-    if (cfg != null)
-      actions.push(schematic.setConfig({ key: newKey, config: cfg }));
+    if (cfg != null) actions.push(schematic.setConfig({ key: newKey, config: cfg }));
   }
   return { actions, newKeys: Object.values(remap) };
 };
@@ -150,8 +146,7 @@ const buildCutActions = (built: BuiltPayload): schematic.Action[] => {
   const actions: schematic.Action[] = [];
   for (const edge of built.payload.edges)
     actions.push(schematic.removeEdge({ key: edge.key }));
-  for (const k of built.expandedKeys)
-    actions.push(schematic.removeNode({ key: k }));
+  for (const k of built.expandedKeys) actions.push(schematic.removeNode({ key: k }));
   return actions;
 };
 

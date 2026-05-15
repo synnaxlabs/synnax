@@ -15,6 +15,7 @@ import { describe, expect, it } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
+import { GROUP_VARIANT } from "@/schematic/groups";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 const client = createTestClient();
@@ -40,6 +41,57 @@ const createTestSchematic = async (): Promise<schematic.Schematic> => {
     ],
     configs: { n1: { variant: "tank" }, n2: { variant: "tank" } },
   });
+};
+
+// Two loose nodes plus a group container (g1) holding members m1 and m2. The
+// group state is set up via dispatch so groupId is round-tripped through the
+// action pipeline (matching production), rather than relying on the initial
+// create call to persist groupId on each node.
+const createGroupedSchematic = async (
+  Wrapper: FC<PropsWithChildren>,
+): Promise<schematic.Schematic> => {
+  const ws = await client.workspaces.create({
+    name: `ws_${uuid.create()}`,
+    layout: {},
+  });
+  const schem = await client.schematics.create(ws.key, {
+    ...schematic.ZERO_NEW,
+    name: "grouped_schematic",
+    nodes: [
+      { key: "loose1", position: { x: 0, y: 0 } },
+      { key: "loose2", position: { x: 400, y: 400 } },
+    ],
+    edges: [],
+    configs: {
+      loose1: { variant: "tank" },
+      loose2: { variant: "tank" },
+    },
+  });
+  await loadSchematic(Wrapper, schem.key);
+  const setup = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
+  await act(async () => {
+    await setup.result.current.dispatchAsync({
+      key: schem.key,
+      actions: [
+        schematic.setNode({
+          node: { key: "g1", position: { x: 100, y: 100 }, zIndex: -1 },
+          config: {
+            variant: GROUP_VARIANT,
+            dimensions: { width: 200, height: 200 },
+          },
+        }),
+        schematic.setNode({
+          node: { key: "m1", position: { x: 130, y: 130 }, groupId: "g1" },
+          config: { variant: "tank", label: { label: "MemberA" } },
+        }),
+        schematic.setNode({
+          node: { key: "m2", position: { x: 200, y: 200 }, groupId: "g1" },
+          config: { variant: "tank", label: { label: "MemberB" } },
+        }),
+      ],
+    });
+  });
+  return schem;
 };
 
 // Populates the flux store with the schematic at `key`. Uses a single-hook
@@ -225,6 +277,357 @@ describe("schematic queries", () => {
       await expect(client.schematics.retrieve({ key: schem.key })).rejects.toThrow(
         NotFoundError,
       );
+    });
+  });
+
+  describe("useSelectCanGroup", () => {
+    it("should return true when ≥2 non-group nodes are selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanGroup({
+            key: schem.key,
+            selected: ["n1", "n2"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(true);
+    });
+
+    it("should return false when only 1 non-group node is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanGroup({
+            key: schem.key,
+            selected: ["n1"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+
+    it("should return false when no nodes are selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanGroup({
+            key: schem.key,
+            selected: [],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+
+    it("should exclude group containers from the non-group count", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      // g1 is a group container; loose1 is loose. Only 1 non-group → false.
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanGroup({
+            key: schem.key,
+            selected: ["g1", "loose1"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+
+    it("should return false for a schematic that has not been loaded", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanGroup({
+            key: uuid.create(),
+            selected: ["n1", "n2"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useSelectCanUngroup", () => {
+    it("should return true when a group container is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanUngroup({
+            key: schem.key,
+            selected: ["g1"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(true);
+    });
+
+    it("should return true when a node with a groupId is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanUngroup({
+            key: schem.key,
+            selected: ["m1"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(true);
+    });
+
+    it("should return false when selected nodes have no group association", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanUngroup({
+            key: schem.key,
+            selected: ["loose1", "loose2"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+
+    it("should return false when no nodes are selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanUngroup({
+            key: schem.key,
+            selected: [],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+
+    it("should return false for a schematic that has not been loaded", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const { result } = renderHook(
+        () =>
+          Schematic.useSelectCanUngroup({
+            key: uuid.create(),
+            selected: ["g1"],
+          }),
+        { wrapper: Wrapper },
+      );
+      expect(result.current).toBe(false);
+    });
+  });
+
+  describe("useGroup", () => {
+    it("should create a new group container at the bounding box of selected members", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.group(["n1", "n2"]));
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(3));
+      const newGroup = result.current.nodes.find(
+        (n) => n.key !== "n1" && n.key !== "n2",
+      );
+      expect(newGroup).toBeDefined();
+      expect(
+        (result.current.configs[newGroup!.key] as { variant: string }).variant,
+      ).toBe(GROUP_VARIANT);
+      // Members were updated with the new group's key.
+      expect(result.current.nodes.find((n) => n.key === "n1")?.groupId).toBe(
+        newGroup!.key,
+      );
+      expect(result.current.nodes.find((n) => n.key === "n2")?.groupId).toBe(
+        newGroup!.key,
+      );
+    });
+
+    it("should not act when fewer than 2 non-group members would be in the result", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const before = result.current.nodes.length;
+      act(() => result.current.group(["n1"]));
+      // No new group created; node count unchanged.
+      expect(result.current.nodes).toHaveLength(before);
+    });
+
+    it("should dissolve an existing group container and merge its members into a super-group", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      // Select existing group g1 + loose1 → expect g1 dissolved, new super-group
+      // contains m1, m2, loose1.
+      act(() => result.current.group(["g1", "loose1"]));
+
+      await waitFor(() => {
+        const newGroup = result.current.nodes.find(
+          (n) =>
+            (result.current.configs[n.key] as { variant?: string } | undefined)
+              ?.variant === GROUP_VARIANT,
+        );
+        expect(newGroup?.key).not.toBe("g1");
+      });
+
+      // g1 is gone.
+      expect(result.current.nodes.find((n) => n.key === "g1")).toBeUndefined();
+      // m1, m2, loose1 share the new group container's key.
+      const newGroup = result.current.nodes.find(
+        (n) =>
+          (result.current.configs[n.key] as { variant?: string } | undefined)
+            ?.variant === GROUP_VARIANT,
+      );
+      expect(result.current.nodes.find((n) => n.key === "m1")?.groupId).toBe(
+        newGroup!.key,
+      );
+      expect(result.current.nodes.find((n) => n.key === "m2")?.groupId).toBe(
+        newGroup!.key,
+      );
+      expect(result.current.nodes.find((n) => n.key === "loose1")?.groupId).toBe(
+        newGroup!.key,
+      );
+    });
+  });
+
+  describe("useUngroup", () => {
+    it("should remove a selected group container and clear its members' groupIds", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          ungroup: Schematic.useUngroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.ungroup(["g1"]));
+
+      await waitFor(() =>
+        expect(result.current.nodes.find((n) => n.key === "g1")).toBeUndefined(),
+      );
+      expect(result.current.nodes.find((n) => n.key === "m1")?.groupId).toBeUndefined();
+      expect(result.current.nodes.find((n) => n.key === "m2")?.groupId).toBeUndefined();
+    });
+
+    it("should ungroup the whole group when a member is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          ungroup: Schematic.useUngroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      act(() => result.current.ungroup(["m1"]));
+
+      await waitFor(() =>
+        expect(result.current.nodes.find((n) => n.key === "g1")).toBeUndefined(),
+      );
+      expect(result.current.nodes.find((n) => n.key === "m1")?.groupId).toBeUndefined();
+      expect(result.current.nodes.find((n) => n.key === "m2")?.groupId).toBeUndefined();
+    });
+
+    it("should not act when no selected node touches a group", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createGroupedSchematic(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          ungroup: Schematic.useUngroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const before = result.current.nodes.length;
+      act(() => result.current.ungroup(["loose1"]));
+      expect(result.current.nodes).toHaveLength(before);
+      expect(result.current.nodes.find((n) => n.key === "g1")).toBeDefined();
+    });
+  });
+
+  describe("group/ungroup round-trip", () => {
+    it("should return the schematic to its pre-group state after group then ungroup", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createTestSchematic();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          group: Schematic.useGroup(schem.key),
+          ungroup: Schematic.useUngroup(schem.key),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const beforeKeys = new Set(result.current.nodes.map((n) => n.key));
+      const beforeCount = result.current.nodes.length;
+
+      act(() => result.current.group(["n1", "n2"]));
+      await waitFor(() => expect(result.current.nodes).toHaveLength(beforeCount + 1));
+
+      const newGroup = result.current.nodes.find((n) => !beforeKeys.has(n.key))!;
+      act(() => result.current.ungroup([newGroup.key]));
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(beforeCount));
+      // The new group container is gone.
+      expect(result.current.nodes.find((n) => n.key === newGroup.key)).toBeUndefined();
+      // The original members no longer carry a groupId.
+      expect(result.current.nodes.find((n) => n.key === "n1")?.groupId).toBeUndefined();
+      expect(result.current.nodes.find((n) => n.key === "n2")?.groupId).toBeUndefined();
+      // The schematic now contains exactly the original keys.
+      expect(new Set(result.current.nodes.map((n) => n.key))).toEqual(beforeKeys);
     });
   });
 

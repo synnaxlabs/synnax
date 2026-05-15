@@ -20,6 +20,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { Errors } from "@/errors";
 import { Schematic } from "@/schematic";
+import { GROUP_VARIANT } from "@/schematic/groups";
 import { createAsyncSynnaxWrapper } from "@/testutil/Synnax";
 
 /* eslint-disable @typescript-eslint/unbound-method */
@@ -73,6 +74,50 @@ const createSchematicWithGraph = async (): Promise<schematic.Schematic> => {
       e1: { variant: "pipe" },
     },
   });
+};
+
+// One group container (g1) holding members m1 and m2, plus a loose node. The
+// group structure is dispatched after creation so groupId round-trips through
+// the action pipeline.
+const createSchematicWithGroup = async (
+  Wrapper: FC<PropsWithChildren>,
+): Promise<schematic.Schematic> => {
+  const ws = await client.workspaces.create({
+    name: `ws_${uuid.create()}`,
+    layout: {},
+  });
+  const schem = await client.schematics.create(ws.key, {
+    ...schematic.ZERO_NEW,
+    name: `grouped_${uuid.create()}`,
+    nodes: [{ key: "loose", position: { x: 400, y: 400 } }],
+    edges: [],
+    configs: { loose: { variant: "tank", label: { label: "Loose" } } },
+  });
+  await loadSchematic(Wrapper, schem.key);
+  const setup = renderHook(() => Schematic.useDispatch(), { wrapper: Wrapper });
+  await act(async () => {
+    await setup.result.current.dispatchAsync({
+      key: schem.key,
+      actions: [
+        schematic.setNode({
+          node: { key: "g1", position: { x: 0, y: 0 }, zIndex: -1 },
+          config: {
+            variant: GROUP_VARIANT,
+            dimensions: { width: 200, height: 200 },
+          },
+        }),
+        schematic.setNode({
+          node: { key: "m1", position: { x: 30, y: 30 }, groupId: "g1" },
+          config: { variant: "tank", label: { label: "MemberA" } },
+        }),
+        schematic.setNode({
+          node: { key: "m2", position: { x: 100, y: 100 }, groupId: "g1" },
+          config: { variant: "tank", label: { label: "MemberB" } },
+        }),
+      ],
+    });
+  });
+  return schem;
 };
 
 // Populates the flux store with the schematic at `key`. Uses a single-hook
@@ -254,6 +299,368 @@ describe("schematic clipboard", () => {
       });
       expect(result.current.nodes.map((n) => n.key)).toEqual(["n1", "n2", "n3"]);
       expect(event.preventDefault).not.toHaveBeenCalled();
+    });
+
+    it("onCut removes selected nodes and edges and fills the clipboard", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGraph();
+      await loadSchematic(Wrapper, schem.key);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({
+            key: schem.key,
+            selected: ["n1", "n2", "e1"],
+          }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          edges: Schematic.useSelectAllEdges({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      const event = createClipboardEvent(data);
+      await act(async () => {
+        result.current.clipboard.onCut(event, xy.ZERO);
+      });
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(1));
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["n3"]);
+      expect(result.current.edges).toHaveLength(0);
+
+      const raw = data.getData(MIME);
+      expect(raw).not.toBe("");
+      const payload = JSON.parse(raw);
+      expect(payload.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "n1",
+        "n2",
+      ]);
+      expect(payload.edges.map((e: schematic.Edge) => e.key)).toEqual(["e1"]);
+      expect(event.preventDefault).toHaveBeenCalled();
+    });
+  });
+
+  describe("group-aware clipboard", () => {
+    it("onCopy should pull unselected members when the group container is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () =>
+          Schematic.useClipboard({
+            key: schem.key,
+            selected: ["g1"],
+          }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      act(() => result.current.onCopy(createClipboardEvent(data), xy.ZERO));
+
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "g1",
+        "m1",
+        "m2",
+      ]);
+    });
+
+    it("onCopy should pull the group container when a single member is selected", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => Schematic.useClipboard({ key: schem.key, selected: ["m1"] }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      act(() => result.current.onCopy(createClipboardEvent(data), xy.ZERO));
+
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "g1",
+        "m1",
+        "m2",
+      ]);
+    });
+
+    it("onCopy should include configs for the group container and all members", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      act(() => result.current.onCopy(createClipboardEvent(data), xy.ZERO));
+
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.configs.g1.variant).toBe(GROUP_VARIANT);
+      expect(payload.configs.m1).toMatchObject({
+        variant: "tank",
+        label: { label: "MemberA" },
+      });
+      expect(payload.configs.m2).toMatchObject({
+        variant: "tank",
+        label: { label: "MemberB" },
+      });
+    });
+
+    it("onCopy should not pull members of unselected groups", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => Schematic.useClipboard({ key: schem.key, selected: ["loose"] }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      act(() => result.current.onCopy(createClipboardEvent(data), xy.ZERO));
+
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.nodes.map((n: schematic.Node) => n.key)).toEqual(["loose"]);
+    });
+
+    it("onCut should cascade-remove the group container and all its members", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const data = createDataTransfer();
+      await act(async () => {
+        result.current.clipboard.onCut(createClipboardEvent(data), xy.ZERO);
+      });
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(1));
+      expect(result.current.nodes.map((n) => n.key)).toEqual(["loose"]);
+      const payload = JSON.parse(data.getData(MIME));
+      expect(payload.nodes.map((n: schematic.Node) => n.key).sort()).toEqual([
+        "g1",
+        "m1",
+        "m2",
+      ]);
+    });
+
+    it("onPaste should remap groupId references so pasted members point at the new container", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+
+      const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
+      await act(async () => {
+        result.current.clipboard.onPaste(pasteEvent, { x: 500, y: 500 });
+      });
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(7));
+
+      // Find the new group container (the new node whose variant is GROUP_VARIANT
+      // and whose key isn't g1).
+      const newGroup = result.current.nodes.find(
+        (n) =>
+          n.key !== "g1" &&
+          (result.current.configs[n.key] as { variant?: string } | undefined)
+            ?.variant === GROUP_VARIANT,
+      );
+      expect(newGroup).toBeDefined();
+
+      // The new members should reference the new container's key, not "g1".
+      const newMembers = result.current.nodes.filter(
+        (n) => n.groupId === newGroup!.key,
+      );
+      expect(newMembers).toHaveLength(2);
+      // No new node should still reference the old "g1" key.
+      const stillOldGroup = result.current.nodes
+        .filter((n) => !["g1", "m1", "m2", "loose"].includes(n.key))
+        .filter((n) => n.groupId === "g1");
+      expect(stillOldGroup).toEqual([]);
+    });
+
+    it("onPaste should report only the newly-pasted keys to the caller (selection sync)", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const onPaste = vi.fn();
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({
+            key: schem.key,
+            selected: ["g1"],
+            onPaste,
+          }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+
+      await act(async () => {
+        result.current.clipboard.onPaste(
+          createClipboardEvent(createDataTransfer({ [MIME]: raw })),
+          { x: 500, y: 500 },
+        );
+      });
+
+      await waitFor(() => expect(onPaste).toHaveBeenCalledTimes(1));
+      const reported = onPaste.mock.calls[0][0] as string[];
+      const originals = new Set(["g1", "m1", "m2", "loose"]);
+      expect(reported).toHaveLength(3);
+      for (const k of reported) expect(originals.has(k)).toBe(false);
+      const allKeys = new Set(result.current.nodes.map((n) => n.key));
+      for (const k of reported) expect(allKeys.has(k)).toBe(true);
+    });
+
+    it("onPaste should generate fresh keys for every pasted node", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const onPaste = vi.fn();
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({
+            key: schem.key,
+            selected: ["g1"],
+            onPaste,
+          }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+
+      await act(async () => {
+        result.current.clipboard.onPaste(
+          createClipboardEvent(createDataTransfer({ [MIME]: raw })),
+          { x: 500, y: 500 },
+        );
+      });
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(7));
+      // onPaste callback gets the new keys; none should overlap the original.
+      expect(onPaste).toHaveBeenCalledTimes(1);
+      const newKeys = onPaste.mock.calls[0][0] as string[];
+      expect(newKeys).toHaveLength(3);
+      const originals = new Set(["g1", "m1", "m2", "loose"]);
+      for (const k of newKeys) expect(originals.has(k)).toBe(false);
+    });
+
+    it("cut then paste should preserve the group structure", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const cutData = createDataTransfer();
+      await act(async () => {
+        result.current.clipboard.onCut(createClipboardEvent(cutData), xy.ZERO);
+      });
+      await waitFor(() => expect(result.current.nodes).toHaveLength(1));
+
+      const raw = cutData.getData(MIME);
+      const pasteEvent = createClipboardEvent(createDataTransfer({ [MIME]: raw }));
+      await act(async () => {
+        result.current.clipboard.onPaste(pasteEvent, { x: 500, y: 500 });
+      });
+
+      await waitFor(() => expect(result.current.nodes).toHaveLength(4));
+      const newGroup = result.current.nodes.find(
+        (n) =>
+          (result.current.configs[n.key] as { variant?: string } | undefined)
+            ?.variant === GROUP_VARIANT,
+      );
+      expect(newGroup).toBeDefined();
+      const members = result.current.nodes.filter((n) => n.groupId === newGroup!.key);
+      expect(members).toHaveLength(2);
+    });
+
+    it("onPaste twice should produce two independent groups with their own members", async () => {
+      const Wrapper = await createAsyncSynnaxWrapper({ client });
+      const schem = await createSchematicWithGroup(Wrapper);
+
+      const { result } = renderHook(
+        () => ({
+          clipboard: Schematic.useClipboard({ key: schem.key, selected: ["g1"] }),
+          nodes: Schematic.useSelectAllNodes({ key: schem.key }),
+          configs: Schematic.useSelectAllConfigs({ key: schem.key }),
+        }),
+        { wrapper: Wrapper },
+      );
+
+      const copyData = createDataTransfer();
+      act(() =>
+        result.current.clipboard.onCopy(createClipboardEvent(copyData), xy.ZERO),
+      );
+      const raw = copyData.getData(MIME);
+
+      await act(async () => {
+        result.current.clipboard.onPaste(
+          createClipboardEvent(createDataTransfer({ [MIME]: raw })),
+          { x: 500, y: 500 },
+        );
+      });
+      await act(async () => {
+        result.current.clipboard.onPaste(
+          createClipboardEvent(createDataTransfer({ [MIME]: raw })),
+          { x: 800, y: 800 },
+        );
+      });
+
+      // Start: loose + g1 + m1 + m2 = 4. Each paste adds 3 (group + 2 members).
+      await waitFor(() => expect(result.current.nodes).toHaveLength(10));
+
+      const pastedGroups = result.current.nodes.filter(
+        (n) =>
+          n.key !== "g1" &&
+          (result.current.configs[n.key] as { variant?: string } | undefined)
+            ?.variant === GROUP_VARIANT,
+      );
+      expect(pastedGroups).toHaveLength(2);
+
+      for (const g of pastedGroups) {
+        const members = result.current.nodes.filter((n) => n.groupId === g.key);
+        expect(members).toHaveLength(2);
+      }
     });
   });
 });
