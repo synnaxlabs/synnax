@@ -58,14 +58,14 @@ var _ = Describe("Ontology", Ordered, func() {
 	})
 	Describe("retrieveResource", func() {
 		It("Should retrieve a users schema entity by its key", func(ctx SpecContext) {
-			u := user.User{Username: "test", Key: userKey}
-			w := svc.NewWriter(nil)
-			Expect(w.Create(ctx, &u)).To(Succeed())
+			u := MustSucceed(svc.NewWriter(nil).Register(ctx, user.User{
+				Username: "test",
+				Key:      userKey,
+			}))
 			resource := MustSucceed(svc.RetrieveResource(ctx, userKey.String(), nil))
 			var resU user.User
 			Expect(resource.Parse(&resU)).To(Succeed())
 			Expect(resU).To(Equal(u))
 		})
 	})
-
 })

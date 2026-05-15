@@ -14,7 +14,21 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"github.com/synnaxlabs/synnax/pkg/distribution/group"
+	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
+	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
+	"github.com/synnaxlabs/x/gorp"
+	"github.com/synnaxlabs/x/kv/memkv"
 	. "github.com/synnaxlabs/x/testutil"
+)
+
+var (
+	db        *gorp.DB
+	svc       *user.Service
+	otg       *ontology.Ontology
+	groupSvc  *group.Service
+	searchIdx *search.Index
 )
 
 func TestUser(t *testing.T) {
@@ -23,3 +37,20 @@ func TestUser(t *testing.T) {
 }
 
 var _ = ShouldNotLeakGoroutinesPerSpec()
+
+var _ = BeforeSuite(func(ctx SpecContext) {
+	db = DeferClose(gorp.Wrap(memkv.New()))
+	otg = MustOpen(ontology.Open(ctx, ontology.Config{DB: db}))
+	searchIdx = MustOpen(search.Open())
+	groupSvc = MustOpen(group.OpenService(ctx, group.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Search:   searchIdx,
+	}))
+	svc = MustOpen(user.OpenService(ctx, user.ServiceConfig{
+		DB:       db,
+		Ontology: otg,
+		Group:    groupSvc,
+		Search:   searchIdx,
+	}))
+})
