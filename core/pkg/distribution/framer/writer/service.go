@@ -7,15 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-// Package writer exposes the Synnax cluster for framed writes as a monolithic data space.
-// It provides a Writer interface that automatically handles the distribution of writes
-// across the cluster. It also provides a StreamWriter interface that enables the user to
-// optimize the concurrency of writes by passing requests and receiving responses through
-// a channel (implementing the confluence.Segment interface).
+// Package writer exposes the Synnax cluster for framed writes as a monolithic data
+// space. It provides a Writer interface that automatically handles the distribution of
+// writes across the cluster. It also provides a StreamWriter interface that enables the
+// user to optimize the concurrency of writes by passing requests and receiving
+// responses through a channel (implementing the confluence.Segment interface).
 //
-// As Synnax is in its early stages, the writer package still has a number of issues, the
-// most relevant of which is a lack of proper distributed transaction support. This means
-// that commits that succeed on one node may fail on another. Caveat emptor.
+// As Synnax is in its early stages, the writer package still has a number of issues,
+// the most relevant of which is a lack of proper distributed transaction support. This
+// means that commits that succeed on one node may fail on another. Caveat emptor.
 package writer
 
 import (
@@ -45,9 +45,10 @@ import (
 // Config is the configuration necessary for opening a Writer or StreamWriter.
 type Config struct {
 	// ErrOnUnauthorized controls whether the writer will return an error when
-	// attempting to write to a channel that it does not have authority over.
-	// In non-control scenarios, this value should be set to true. In scenarios
-	// that require control handoff, this value should be set to false.
+	// attempting to write to a channel that it does not have authority over. In
+	// non-control scenarios, this value should be set to true. In scenarios that
+	// require control handoff, this value should be set to false.
+	//
 	// [OPTIONAL] - Defaults to False
 	ErrOnUnauthorized *bool
 	// EnableAutoCommit determines whether the writer will automatically commit after
@@ -72,31 +73,49 @@ type Config struct {
 	// ControlSubject is an identifier for the writer.
 	ControlSubject control.Subject `json:"control_subject" msgpack:"control_subject"`
 	// Keys are the channel keys to write to. At least one key must be provided. All
-	// Frames written to the Writer must have a array specified for each key, and all series must be the same length (i.e.
-	// calls Frame.Even must return true).
+	// Frames written to the Writer must have a array specified for each key, and all
+	// series must be the same length (i.e. calls Frame.Even must return true).
+	//
 	// [REQUIRED]
 	Keys channel.Keys `json:"keys" msgpack:"keys"`
 	// Authorities sets the control authority the writer has on each channel for the
-	// write. This should either be a single authority for all channels or a slice
-	// of authorities with the same length as the number of channels where each
-	// authority corresponds to the channel at the same index. Defaults to
-	// absolute authority for all channels.
+	// write. This should either be a single authority for all channels or a slice of
+	// authorities with the same length as the number of channels where each authority
+	// corresponds to the channel at the same index. Defaults to absolute authority for
+	// all channels.
+	//
 	// [OPTIONAL]
 	Authorities []control.Authority `json:"authorities" msgpack:"authorities"`
 	// Start marks the starting timestamp of the first sample in the first frame. If
-	// telemetry occupying the given timestamp already exists for the provided keys,
-	// the writer will fail to open.
+	// telemetry occupying the given timestamp already exists for the provided keys, the
+	// writer will fail to open.
+
 	// [REQUIRED]
 	Start telem.TimeStamp `json:"start" msgpack:"start"`
-	// AutoIndexPersistInterval is the interval at which commits to the index will be persisted.
-	// To persist every commit to guarantee minimal loss of data, set AutoIndexPersistInterval
-	// to AlwaysAutoPersist.
+	// AutoIndexPersistInterval is the interval at which commits to the index will be
+	// persisted. To persist every commit to guarantee minimal loss of data, set
+	// AutoIndexPersistInterval to AlwaysAutoPersist.
+	//
 	// [OPTIONAL] - Defaults to 1s.
 	AutoIndexPersistInterval telem.TimeSpan `json:"auto_index_persist_interval" msgpack:"auto_index_persist_interval"`
 	// Mode sets the persistence and streaming mode for the writer. The default mode is
-	// WriterModePersistStream. See the ts.WriterMode documentation for more.
+	// WriterModePersistStream.
+	//
 	// [OPTIONAL] - Defaults to WriterModePersistStream.
 	Mode ts.WriterMode `json:"mode" msgpack:"mode"`
+	// AutoIndexing causes the gateway node to generate timestamps for any index channel
+	// in Keys whose series is omitted from a Write frame. The first sample in each
+	// Write call is stamped with telem.Now() on the gateway; remaining samples in the
+	// same call are spaced 1ns apart. A per-writer high-water mark guarantees strict
+	// monotonicity across Write calls and across user-provided timestamps for other
+	// index channels in the same writer.
+	//
+	// When AutoIndexing is true and the caller's Keys reference data channels whose
+	// index channels are not also in Keys, those index channels are implicitly added to
+	// the writer at open time so the storage layer opens them for writing.
+	//
+	// [OPTIONAL] - Defaults to false.
+	AutoIndexing *bool `json:"auto_indexing" msgpack:"auto_indexing"`
 }
 
 func (c Config) setKeyAuthorities(authorities []keyAuthority) Config {
@@ -136,6 +155,7 @@ func DefaultConfig() Config {
 		EnableAutoCommit:         new(true),
 		AutoIndexPersistInterval: 1 * telem.Second,
 		Sync:                     new(false),
+		AutoIndexing:             new(false),
 	}
 }
 
@@ -172,6 +192,7 @@ func (c Config) Validate() error {
 	validate.NotNil(v, "enable_auto_commit", c.EnableAutoCommit)
 	validate.NotNil(v, "sync", c.Sync)
 	validate.NotNil(v, "err_on_unauthorized", c.ErrOnUnauthorized)
+	validate.NotNil(v, "auto_indexing", c.AutoIndexing)
 	v.Ternaryf(
 		"authorities",
 		len(c.Authorities) != 1 && len(c.Authorities) != len(c.Keys),
@@ -193,6 +214,7 @@ func (c Config) Override(other Config) Config {
 	c.EnableAutoCommit = override.Nil(c.EnableAutoCommit, other.EnableAutoCommit)
 	c.AutoIndexPersistInterval = override.Numeric(c.AutoIndexPersistInterval, other.AutoIndexPersistInterval)
 	c.Sync = override.Nil(c.Sync, other.Sync)
+	c.AutoIndexing = override.Nil(c.AutoIndexing, other.AutoIndexing)
 	return c
 }
 
@@ -277,6 +299,7 @@ const (
 	gatewayWriterAddr      = address.Address("gateway_writer")
 	freeWriterAddr         = address.Address("free_writer")
 	peerGatewaySwitchAddr  = address.Address("peer_gateway_free_switch")
+	autoIndexerAddr        = address.Address("auto_indexer")
 	validatorAddr          = address.Address("validator")
 	validatorResponsesAddr = address.Address("validator_responses")
 )
@@ -326,6 +349,14 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		return nil, err
 	}
 
+	if cfg.AutoIndexing != nil && *cfg.AutoIndexing {
+		cfg = expandKeysForAutoIndexing(cfg, channels)
+		channels, err = s.validateChannelKeys(ctx, cfg.Keys)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	var (
 		hostKey           = s.cfg.HostResolver.HostKey()
 		batch             = proxy.BatchFactory[keyAuthority]{Host: hostKey}.Batch(cfg.keyAuthorities())
@@ -341,6 +372,12 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	for _, ch := range channels {
 		channelMap[ch.Key()] = ch
 	}
+	ai := newAutoIndexer(
+		cfg.AutoIndexing != nil && *cfg.AutoIndexing,
+		indexKeysOf(channels),
+		cfg.Start,
+	)
+	plumber.SetSegment(pipe, autoIndexerAddr, ai)
 	v := &validator{keys: cfg.Keys, channels: channelMap}
 	plumber.SetSegment(pipe, validatorAddr, v)
 	plumber.SetSource(pipe, validatorResponsesAddr, &v.responses)
@@ -403,6 +440,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 		}.MustRoute(pipe)
 	}
 
+	plumber.MustConnect[Request](pipe, autoIndexerAddr, validatorAddr, 30)
 	plumber.MustConnect[Request](pipe, validatorAddr, routeValidatorTo, 30)
 
 	plumber.MultiRouter[Response]{
@@ -413,7 +451,7 @@ func (s *Service) NewStream(ctx context.Context, cfgs ...Config) (StreamWriter, 
 	}.MustRoute(pipe)
 
 	seg := &plumber.Segment[Request, Response]{Pipeline: pipe}
-	lo.Must0(seg.RouteInletTo(validatorAddr))
+	lo.Must0(seg.RouteInletTo(autoIndexerAddr))
 	lo.Must0(seg.RouteOutletFrom(validatorResponsesAddr, synchronizerAddr))
 	return seg, nil
 }
