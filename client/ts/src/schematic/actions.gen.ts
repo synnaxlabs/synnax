@@ -167,35 +167,27 @@ export const createReducer =
   (state: Schematic, action: Action): Schematic => {
     switch (action.type) {
       case "rename":
-        if (action.rename == null) break;
         handlers.rename(state, action.rename);
         break;
       case "set_node_position":
-        if (action.setNodePosition == null) break;
         handlers.setNodePosition(state, action.setNodePosition);
         break;
       case "set_node_measured":
-        if (action.setNodeMeasured == null) break;
         handlers.setNodeMeasured(state, action.setNodeMeasured);
         break;
       case "set_node":
-        if (action.setNode == null) break;
         handlers.setNode(state, action.setNode);
         break;
       case "remove_node":
-        if (action.removeNode == null) break;
         handlers.removeNode(state, action.removeNode);
         break;
       case "add_edge":
-        if (action.addEdge == null) break;
         handlers.addEdge(state, action.addEdge);
         break;
       case "remove_edge":
-        if (action.removeEdge == null) break;
         handlers.removeEdge(state, action.removeEdge);
         break;
       case "set_config":
-        if (action.setConfig == null) break;
         handlers.setConfig(state, action.setConfig);
         break;
     }

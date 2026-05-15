@@ -131,6 +131,10 @@ func (p *Plugin) generateFile(
 		data.Actions = append(data.Actions, ad)
 	}
 
+	if len(data.Actions) > 0 {
+		mgr.AddExternal("github.com/synnaxlabs/x/union")
+	}
+
 	var buf bytes.Buffer
 	if err := fileTemplate.Execute(&buf, &data); err != nil {
 		return nil, err
@@ -246,9 +250,9 @@ type Action struct {
 
 // Reduce applies the given actions sequentially to state by dispatching on
 // each action's Type to the matching payload's Handle method. Unknown action
-// types and actions with a nil payload pointer for the named Type leave state
-// unchanged. Returns the first error encountered along with the partially-
-// reduced state.
+// types leave state unchanged. An action whose Type names a known variant but
+// carries a nil payload pointer returns an error. Returns the first error
+// encountered along with the partially-reduced state.
 func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 	var err error
 	for _, a := range actions {
@@ -256,7 +260,7 @@ func Reduce(state {{.TargetType}}, actions ...Action) ({{.TargetType}}, error) {
 {{- range .Actions}}
 		case ActionType{{.Name}}:
 			if a.{{.Name}} == nil {
-				continue
+				return state, union.MissingPayload(a.Type)
 			}
 			state, err = a.{{.Name}}.Handle(state)
 {{- end}}

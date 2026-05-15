@@ -15,8 +15,6 @@ from playwright.sync_api import (
     Browser,
     BrowserContext,
     BrowserType,
-    ConsoleMessage,
-    Error,
     Page,
     sync_playwright,
 )
@@ -59,19 +57,6 @@ class ConsoleCase(TestCase):
             permissions=["clipboard-read", "clipboard-write"],
         )
         self.page = self.context.new_page()
-
-        def _forward_console(msg: ConsoleMessage) -> None:
-            try:
-                text = msg.text
-            except Exception:
-                text = "<unprintable>"
-            self.log(f"[browser:{msg.type}] {text}")
-
-        def _forward_page_error(exc: Error) -> None:
-            self.log(f"[browser:pageerror] {exc}")
-
-        self.page.on("console", _forward_console)
-        self.page.on("pageerror", _forward_page_error)
 
         # Set timeouts
         self.page.set_default_timeout(default_timeout)  # 1s
