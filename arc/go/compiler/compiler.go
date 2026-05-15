@@ -95,8 +95,8 @@ func Compile(ctx context.Context, program ir.IR, opts ...Option) (Output, error)
 
 	var compiled []compiledFunction
 	for _, i := range program.Functions {
-		if strings.HasPrefix(i.Key, ir.StringFmtSyntheticPrefix) {
-			cf, err := compileStringFmtSynthetic(compCtx, i)
+		if strings.HasPrefix(i.Key, FmtStrSyntheticPrefix) {
+			cf, err := compileFmtStrSynthetic(compCtx, i)
 			if err != nil {
 				return Output{}, err
 			}

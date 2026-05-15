@@ -13,8 +13,8 @@ import (
 	"context"
 
 	"github.com/antlr4-go/antlr/v4"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/x/diagnostics"
@@ -276,20 +276,20 @@ func mapLexerTokenType(antlrType int) *uint32 {
 }
 
 // expandRawStringPlaceholders tokenizes a STR_LITERAL_RAW with `{...}` placeholders.
-// All parsing is delegated to fmtstring.Parse; this function only translates
+// All parsing is delegated to literal.FmtStrParse; this function only translates
 // segment offsets into LSP semantic tokens with line/column bookkeeping.
 func expandRawStringPlaceholders(ctx context.Context, t antlr.Token, docIR ir.IR) []lsp.Token {
 	text := t.GetText()
 	fallback := func() []lsp.Token { return appendTokenPerLine(nil, t, SemanticTokenTypeStringRaw) }
-	body, ok := fmtstring.StripDelimiters(text)
+	body, ok := literal.FmtStrStripDelimiters(text)
 	if !ok {
 		return fallback()
 	}
-	segs, err := fmtstring.Parse(body)
+	segs, err := literal.FmtStrParse(body)
 	if err != nil {
 		return fallback()
 	}
-	if !fmtstring.HasPlaceholder(segs) {
+	if !literal.FmtStrHasPlaceholder(segs) {
 		return fallback()
 	}
 	cursor := diagnostics.Position{Line: t.GetLine() - 1, Col: t.GetColumn()}

@@ -29,5 +29,7 @@ export const triggerSuggestInPlaceholders: Code.EditorExtension = (editor) =>
     if (model == null || pos == null) return;
     const buffer = model.getValue().slice(0, model.getOffsetAt(pos));
     if (shouldTriggerSuggestion(buffer, ch.text))
-      editor.trigger("synnax", "editor.action.triggerSuggest", { auto: true });
+      editor.trigger("Arc LSP", "editor.action.triggerSuggest", { auto: true });
   });
+
+export const EXTENSIONS: Code.EditorExtension[] = [triggerSuggestInPlaceholders];

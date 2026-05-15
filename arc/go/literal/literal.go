@@ -15,7 +15,6 @@ import (
 	"strings"
 
 	"github.com/synnaxlabs/arc/analyzer/units"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -78,7 +77,7 @@ func ParseRawString(text string, targetType types.Type) (ParsedValue, error) {
 	if targetType.IsValid() && targetType.Kind != types.KindString {
 		return ParsedValue{}, errors.Newf("cannot assign string to %s", targetType)
 	}
-	raw, ok := fmtstring.StripDelimiters(text)
+	raw, ok := FmtStrStripDelimiters(text)
 	if !ok {
 		return ParsedValue{}, errors.Newf("invalid raw string literal: %s", text)
 	}

@@ -14,18 +14,20 @@ import (
 	ccontext "github.com/synnaxlabs/arc/compiler/context"
 	"github.com/synnaxlabs/arc/compiler/expression"
 	"github.com/synnaxlabs/arc/compiler/wasm"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/types"
 )
 
-// compileStringFmtSynthetic emits a zero-param WASM body returning the
+const FmtStrSyntheticPrefix = "fmt$"
+
+// compileFmtStrSynthetic emits a zero-param WASM body returning the
 // formatted string handle for an analyzer-synthesized backtick Function.
-func compileStringFmtSynthetic(
+func compileFmtStrSynthetic(
 	rootCtx ccontext.Context[antlr.ParserRuleContext],
 	fn ir.Function,
 ) (compiledFunction, error) {
-	segments, err := fmtstring.Parse(fn.Body.Raw)
+	segments, err := literal.FmtStrParse(fn.Body.Raw)
 	if err != nil {
 		return compiledFunction{}, err
 	}

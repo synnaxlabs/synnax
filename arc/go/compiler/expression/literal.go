@@ -11,7 +11,6 @@ package expression
 
 import (
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
@@ -45,7 +44,7 @@ func compileRawStringLiteral(
 		return types.Type{}, err
 	}
 	body, _ := parsed.Value.(string)
-	segments, err := fmtstring.Parse(body)
+	segments, err := literal.FmtStrParse(body)
 	if err != nil {
 		return types.Type{}, err
 	}

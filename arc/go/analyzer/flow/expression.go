@@ -13,8 +13,8 @@ import (
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/expression"
 	atypes "github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/fmtstring"
 	"github.com/synnaxlabs/arc/ir"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
@@ -33,25 +33,25 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 	if parser.IsLiteral(ctx.AST) {
 		if lit := parser.GetLiteral(ctx.AST); lit != nil {
 			if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-				body, ok := fmtstring.StripDelimiters(rawStr.GetText())
+				body, ok := literal.FmtStrStripDelimiters(rawStr.GetText())
 				if !ok {
 					ctx.Diagnostics.Add(diagnostics.Errorf(ctx.AST,
 						"invalid raw string literal: %s", rawStr.GetText()))
 					return
 				}
-				segs, perr := fmtstring.Parse(body)
+				segs, perr := literal.FmtStrParse(body)
 				if perr != nil {
 					ctx.Diagnostics.Add(diagnostics.Error(perr, ctx.AST))
 					return
 				}
-				if fmtstring.HasPlaceholder(segs) {
+				if literal.FmtStrHasPlaceholder(segs) {
 					fnScope, err := ctx.Scope.Root().Add(ctx, symbol.Symbol{Kind: symbol.KindFunction, Type: t, AST: ctx.AST})
 					if err != nil {
 						ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 						return
 					}
-					fnScope.AutoName("string_fmt_")
-					expression.AnalyzeStringFmtLiteral(ctx.WithScope(fnScope), rawStr)
+					fnScope.AutoName("fmt_str_")
+					expression.AnalyzeFmtStrLiteral(ctx.WithScope(fnScope), rawStr)
 					return
 				}
 			}

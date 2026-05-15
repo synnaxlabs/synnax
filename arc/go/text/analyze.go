@@ -19,7 +19,7 @@ import (
 	"github.com/synnaxlabs/arc/analyzer"
 	"github.com/synnaxlabs/arc/analyzer/authority"
 	acontext "github.com/synnaxlabs/arc/analyzer/context"
-	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
@@ -510,10 +510,10 @@ func analyzeExpression(
 					return nodeResult{}, false
 				}
 				body, _ := parsedValue.Value.(string)
-				segments, perr := fmtstring.Parse(body)
-				if perr == nil && fmtstring.HasPlaceholder(segments) {
+				segments, perr := literal.FmtStrParse(body)
+				if perr == nil && literal.FmtStrHasPlaceholder(segments) {
 					key := kg.generate("fmt", "")
-					synthKey := ir.StringFmtSyntheticPrefix + key
+					synthKey := compiler.FmtStrSyntheticPrefix + key
 					*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{
 						Key:      synthKey,
 						Body:     ir.Body{Raw: body},

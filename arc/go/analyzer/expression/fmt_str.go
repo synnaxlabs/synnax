@@ -13,21 +13,21 @@ import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/analyzer/context"
 	"github.com/synnaxlabs/arc/analyzer/types"
-	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	basetypes "github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/diagnostics"
 	"github.com/synnaxlabs/x/errors"
 )
 
-// AnalyzeStringFmtLiteral parses a STR_LITERAL_RAW token and analyzes its
+// AnalyzeFmtStrLiteral parses a STR_LITERAL_RAW token and analyzes its
 // placeholders. Bypasses literal.ParseRawString so body offsets map to source
 // bytes for per-placeholder diagnostic anchoring.
-func AnalyzeStringFmtLiteral[T antlr.ParserRuleContext](
+func AnalyzeFmtStrLiteral[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	rawStr antlr.TerminalNode,
 ) {
-	body, ok := fmtstring.StripDelimiters(rawStr.GetText())
+	body, ok := literal.FmtStrStripDelimiters(rawStr.GetText())
 	if !ok {
 		ctx.Diagnostics.Add(diagnostics.Error(
 			errors.Newf("invalid raw string literal: %s", rawStr.GetText()), ctx.AST,
@@ -36,20 +36,20 @@ func AnalyzeStringFmtLiteral[T antlr.ParserRuleContext](
 	}
 	sym := rawStr.GetSymbol()
 	base := diagnostics.Position{Line: sym.GetLine(), Col: sym.GetColumn() + 1}
-	AnalyzeStringFmtSegments(ctx, body, base, ctx.AST)
+	AnalyzeFmtStrSegments(ctx, body, base, ctx.AST)
 }
 
-// AnalyzeStringFmtSegments parses body and analyzes each placeholder expression
+// AnalyzeFmtStrSegments parses body and analyzes each placeholder expression
 // in ctx's scope. base is the source position of body[0]; placeholder
 // diagnostics anchor on the offending `{...}` span. Returns parsed segments,
 // or nil if body is malformed.
-func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
+func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
 	body string,
 	base diagnostics.Position,
 	anchor antlr.ParserRuleContext,
-) []fmtstring.Segment {
-	segments, err := fmtstring.Parse(body)
+) []literal.FmtStrSegment {
+	segments, err := literal.FmtStrParse(body)
 	if err != nil {
 		ctx.Diagnostics.Add(diagnostics.Error(err, anchor))
 		return nil
@@ -80,7 +80,7 @@ func AnalyzeStringFmtSegments[T antlr.ParserRuleContext](
 		if seg.Spec == "" {
 			continue
 		}
-		if err := fmtstring.ValidateSpec(seg.Spec, t); err != nil {
+		if err := literal.FmtStrValidateSpec(seg.Spec, t); err != nil {
 			emit(diagnostics.Error(err, anchor))
 		}
 	}

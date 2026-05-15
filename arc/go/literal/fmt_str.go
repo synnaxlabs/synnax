@@ -7,7 +7,7 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fmtstring
+package literal
 
 import (
 	"fmt"
@@ -19,10 +19,10 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// Segment is one piece of a parsed format string. Start, End are body byte
-// offsets (End exclusive). SpecOffset is the body offset of `%`, or -1 if
-// no spec.
-type Segment struct {
+// FmtStrSegment is one piece of a parsed format string. Start, End are body
+// byte offsets (End exclusive). SpecOffset is the body offset of `%`, or -1
+// if no spec.
+type FmtStrSegment struct {
 	Text          string
 	Spec          string
 	IsPlaceholder bool
@@ -31,29 +31,30 @@ type Segment struct {
 	SpecOffset    int
 }
 
-// HasPlaceholder reports whether any segment is a placeholder.
-func HasPlaceholder(segs []Segment) bool {
-	return slices.ContainsFunc(segs, func(s Segment) bool { return s.IsPlaceholder })
+// FmtStrHasPlaceholder reports whether any segment is a placeholder.
+func FmtStrHasPlaceholder(segs []FmtStrSegment) bool {
+	return slices.ContainsFunc(segs, func(s FmtStrSegment) bool { return s.IsPlaceholder })
 }
 
-// StripDelimiters returns the inner body of a `...` raw string token, or
-// ok=false if text isn't well-formed. \` escapes are left verbatim.
-func StripDelimiters(text string) (body string, ok bool) {
+// FmtStrStripDelimiters returns the inner body of a `...` raw string token,
+// or ok=false if text isn't well-formed. \` escapes are left verbatim.
+func FmtStrStripDelimiters(text string) (body string, ok bool) {
 	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
 		return "", false
 	}
 	return text[1 : len(text)-1], true
 }
 
-// Parse splits a format-string body into ordered segments at `{...}` placeholders.
-// `\{` escapes to a literal `{`; a bare `}` outside a placeholder is plain text.
-func Parse(body string) ([]Segment, error) {
-	var segments []Segment
+// FmtStrParse splits a format-string body into ordered segments at `{...}`
+// placeholders. `\{` escapes to a literal `{`; a bare `}` outside a placeholder
+// is plain text.
+func FmtStrParse(body string) ([]FmtStrSegment, error) {
+	var segments []FmtStrSegment
 	pos := 0
 	for pos < len(body) {
 		open, text := scanText(body, pos)
 		if text != "" {
-			segments = append(segments, Segment{
+			segments = append(segments, FmtStrSegment{
 				Text:       text,
 				Start:      pos,
 				End:        open,
@@ -71,7 +72,7 @@ func Parse(body string) ([]Segment, error) {
 		if expr == "" {
 			return nil, errors.New("placeholder '{}' must contain an expression")
 		}
-		exprPart, spec, err := SplitSpec(expr)
+		exprPart, spec, err := FmtStrSplitSpec(expr)
 		if err != nil {
 			return nil, err
 		}
@@ -79,7 +80,7 @@ func Parse(body string) ([]Segment, error) {
 		if spec != "" {
 			specOffset = open + 1 + len(exprPart)
 		}
-		segments = append(segments, Segment{
+		segments = append(segments, FmtStrSegment{
 			Text:          exprPart,
 			Spec:          spec,
 			IsPlaceholder: true,
@@ -120,8 +121,9 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return 0, errors.New("unmatched '{'")
 }
 
-// SplitSpec splits a placeholder body on the last `:`, yielding (expr, spec).
-func SplitSpec(body string) (expr, spec string, err error) {
+// FmtStrSplitSpec splits a placeholder body on the last `:`, yielding
+// (expr, spec).
+func FmtStrSplitSpec(body string) (expr, spec string, err error) {
 	idx := strings.LastIndexByte(body, ':')
 	if idx < 0 {
 		return body, "", nil
@@ -162,9 +164,9 @@ const intBlockedVerbs = "q"
 // otherwise treat it as literal text and silently accept the malformed spec.
 var specShape = regexp.MustCompile(`^[#+\- 0]*\d*(\.\d+)?[a-zA-Z]$`)
 
-// ValidateSpec probes fmt.Sprintf with a typed dummy and reports an error if
-// the spec is not a valid Go fmt verb for the given type.
-func ValidateSpec(spec string, t types.Type) error {
+// FmtStrValidateSpec probes fmt.Sprintf with a typed dummy and reports an
+// error if the spec is not a valid Go fmt verb for the given type.
+func FmtStrValidateSpec(spec string, t types.Type) error {
 	if spec == "" {
 		return nil
 	}
@@ -172,7 +174,7 @@ func ValidateSpec(spec string, t types.Type) error {
 		if t.Constraint == nil {
 			return errors.Newf("cannot format type %s", t)
 		}
-		return ValidateSpec(spec, *t.Constraint)
+		return FmtStrValidateSpec(spec, *t.Constraint)
 	}
 	var dummy any
 	var isInt bool

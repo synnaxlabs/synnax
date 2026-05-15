@@ -150,9 +150,9 @@ var _ = Describe("Backtick Format String Compilation", func() {
 	})
 
 	Describe("Malformed Format String Body", func() {
-		It("propagates fmtstring.Parse errors from compileRawStringLiteral", func(bCtx SpecContext) {
+		It("propagates literal.FmtStrParse errors from compileRawStringLiteral", func(bCtx SpecContext) {
 			// `{` parses as a raw-string token, but the body is malformed:
-			// fmtstring.Parse rejects an unmatched '{', exercising the second
+			// literal.FmtStrParse rejects an unmatched '{', exercising the second
 			// error branch in compileRawStringLiteral.
 			expr := MustSucceed(parser.ParseExpression("`{`"))
 			ctx := NewContext(bCtx)

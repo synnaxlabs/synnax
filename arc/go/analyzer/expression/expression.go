@@ -526,7 +526,7 @@ func analyzePrimary(ctx context.Context[parser.IPrimaryExpressionContext]) {
 	}
 	if lit := ctx.AST.Literal(); lit != nil {
 		if rawStr := lit.STR_LITERAL_RAW(); rawStr != nil {
-			AnalyzeStringFmtLiteral(ctx, rawStr)
+			AnalyzeFmtStrLiteral(ctx, rawStr)
 		}
 		return
 	}

@@ -7,73 +7,73 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fmtstring_test
+package literal_test
 
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/types"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
 var _ = Describe("Parse", func() {
 	DescribeTable("valid bodies",
-		func(body string, expected []fmtstring.Segment) {
-			Expect(MustSucceed(fmtstring.Parse(body))).To(Equal(expected))
+		func(body string, expected []literal.FmtStrSegment) {
+			Expect(MustSucceed(literal.FmtStrParse(body))).To(Equal(expected))
 		},
-		Entry("empty body", "", []fmtstring.Segment(nil)),
+		Entry("empty body", "", []literal.FmtStrSegment(nil)),
 		Entry("plain literal", "hello",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "hello", Start: 0, End: 5, SpecOffset: -1},
 			}),
 		Entry("literal with newlines", "line1\nline2\nline3",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "line1\nline2\nline3", Start: 0, End: 17, SpecOffset: -1},
 			}),
 		Entry("literal with tabs and CR", "a\tb\rc",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a\tb\rc", Start: 0, End: 5, SpecOffset: -1},
 			}),
 		Entry("literal with unicode", "héllo 世界 🚀",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "héllo 世界 🚀", Start: 0, End: 18, SpecOffset: -1},
 			}),
 		Entry("literal with bare percent", "50% off",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "50% off", Start: 0, End: 7, SpecOffset: -1},
 			}),
 		Entry("placeholder only", "{x}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "x", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 			}),
-		Entry("literal then placeholder", "pre {x}", []fmtstring.Segment{
+		Entry("literal then placeholder", "pre {x}", []literal.FmtStrSegment{
 			{Text: "pre ", Start: 0, End: 4, SpecOffset: -1},
 			{Text: "x", IsPlaceholder: true, Start: 4, End: 7, SpecOffset: -1},
 		}),
-		Entry("placeholder then literal", "{x} post", []fmtstring.Segment{
+		Entry("placeholder then literal", "{x} post", []literal.FmtStrSegment{
 			{Text: "x", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 			{Text: " post", Start: 3, End: 8, SpecOffset: -1},
 		}),
 		Entry("literal surrounding placeholder", "pre {x} post",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "pre ", Start: 0, End: 4, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 4, End: 7, SpecOffset: -1},
 				{Text: " post", Start: 7, End: 12, SpecOffset: -1},
 			}),
 		Entry("two placeholders separated by literal", "{a} {b}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 				{Text: " ", Start: 3, End: 4, SpecOffset: -1},
 				{Text: "b", IsPlaceholder: true, Start: 4, End: 7, SpecOffset: -1},
 			}),
 		Entry("two adjacent placeholders", "{a}{b}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 				{Text: "b", IsPlaceholder: true, Start: 3, End: 6, SpecOffset: -1},
 			}),
 		Entry("three placeholders mixed with literal", "x={x} y={y} z={z}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "x=", Start: 0, End: 2, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 2, End: 5, SpecOffset: -1},
 				{Text: " y=", Start: 5, End: 8, SpecOffset: -1},
@@ -83,117 +83,117 @@ var _ = Describe("Parse", func() {
 			}),
 		Entry("placeholder spanning newlines in surrounding text",
 			"line1\n{x}\nline2",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "line1\n", Start: 0, End: 6, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 6, End: 9, SpecOffset: -1},
 				{Text: "\nline2", Start: 9, End: 15, SpecOffset: -1},
 			}),
 		Entry("placeholder with float spec", "{x:.2f}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "x", Spec: ".2f", IsPlaceholder: true, Start: 0, End: 7, SpecOffset: 2},
 			}),
 		Entry("placeholder with integer spec", "{n:d}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "n", Spec: "d", IsPlaceholder: true, Start: 0, End: 5, SpecOffset: 2},
 			}),
 		Entry("placeholder with padded integer spec", "{n:05d}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "n", Spec: "05d", IsPlaceholder: true, Start: 0, End: 7, SpecOffset: 2},
 			}),
 		Entry("placeholder with arithmetic expression", "{a + b}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a + b", IsPlaceholder: true, Start: 0, End: 7, SpecOffset: -1},
 			}),
 		Entry("placeholder with rightmost colon splitting expr from spec",
 			"{a:b:.2f}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a:b", Spec: ".2f", IsPlaceholder: true, Start: 0, End: 9, SpecOffset: 4},
 			}),
 		Entry("placeholder with function call", "{len(x)}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "len(x)", IsPlaceholder: true, Start: 0, End: 8, SpecOffset: -1},
 			}),
 		Entry("placeholder with member access", "{a.b}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a.b", IsPlaceholder: true, Start: 0, End: 5, SpecOffset: -1},
 			}),
 		Entry("multiple placeholders each with spec",
 			"a={a:.2f} b={b:d}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "a=", Start: 0, End: 2, SpecOffset: -1},
 				{Text: "a", Spec: ".2f", IsPlaceholder: true, Start: 2, End: 9, SpecOffset: 4},
 				{Text: " b=", Start: 9, End: 12, SpecOffset: -1},
 				{Text: "b", Spec: "d", IsPlaceholder: true, Start: 12, End: 17, SpecOffset: 14},
 			}),
 		Entry(`escaped opening brace`, `\{`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
 			}),
 		Entry(`bare closing brace is literal`, `}`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "}", Start: 0, End: 1, SpecOffset: -1},
 			}),
 		Entry(`escaped open with bare close`, `\{ }`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "{ }", Start: 0, End: 4, SpecOffset: -1},
 			}),
 		Entry(`escaped open around literal with bare close`, `\{hello}`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "{hello}", Start: 0, End: 8, SpecOffset: -1},
 			}),
 		Entry(`escaped open and bare close around placeholder`, `\{{x}}`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 2, End: 5, SpecOffset: -1},
 				{Text: "}", Start: 5, End: 6, SpecOffset: -1},
 			}),
 		Entry(`escaped open mixed with placeholder and bare close`,
 			`pre \{ {x} } post`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "pre { ", Start: 0, End: 7, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 7, End: 10, SpecOffset: -1},
 				{Text: " } post", Start: 10, End: 17, SpecOffset: -1},
 			}),
 		Entry(`literal backslash before non-brace`, `a\nb`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: `a\nb`, Start: 0, End: 4, SpecOffset: -1},
 			}),
 		Entry(`literal backslash before close brace`, `a\}b`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: `a\}b`, Start: 0, End: 4, SpecOffset: -1},
 			}),
 		Entry(`escaped brace adjacent to placeholder`, `\{{x}`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "{", Start: 0, End: 2, SpecOffset: -1},
 				{Text: "x", IsPlaceholder: true, Start: 2, End: 5, SpecOffset: -1},
 			}),
 		Entry(`placeholder adjacent to bare close`, `{x}}`,
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "x", IsPlaceholder: true, Start: 0, End: 3, SpecOffset: -1},
 				{Text: "}", Start: 3, End: 4, SpecOffset: -1},
 			}),
 		Entry(`escaped open spanning newlines with bare close`,
 			"line1 \\{\nline2}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "line1 {\nline2}", Start: 0, End: 15, SpecOffset: -1},
 			}),
 		Entry("bare close prefix", "}foo",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "}foo", Start: 0, End: 4, SpecOffset: -1},
 			}),
 		Entry("bare close suffix", "foo}",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "foo}", Start: 0, End: 4, SpecOffset: -1},
 			}),
 		Entry("bare close in middle", "foo}bar",
-			[]fmtstring.Segment{
+			[]literal.FmtStrSegment{
 				{Text: "foo}bar", Start: 0, End: 7, SpecOffset: -1},
 			}),
 	)
 
 	DescribeTable("error cases",
 		func(body, errSubstr string) {
-			Expect(fmtstring.Parse(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
+			Expect(literal.FmtStrParse(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("lone opening brace", "{", "unmatched '{'"),
 		Entry("opening brace with body, no close", "{foo", "unmatched '{'"),
@@ -218,7 +218,7 @@ var _ = Describe("Parse", func() {
 var _ = Describe("StripDelimiters", func() {
 	DescribeTable("strips matching backtick delimiters",
 		func(input, expectedBody string) {
-			body, ok := fmtstring.StripDelimiters(input)
+			body, ok := literal.FmtStrStripDelimiters(input)
 			Expect(ok).To(BeTrue())
 			Expect(body).To(Equal(expectedBody))
 		},
@@ -231,7 +231,7 @@ var _ = Describe("StripDelimiters", func() {
 
 	DescribeTable("rejects malformed delimiters",
 		func(input string) {
-			body, ok := fmtstring.StripDelimiters(input)
+			body, ok := literal.FmtStrStripDelimiters(input)
 			Expect(ok).To(BeFalse())
 			Expect(body).To(BeEmpty())
 		},
@@ -247,7 +247,7 @@ var _ = Describe("StripDelimiters", func() {
 var _ = Describe("SplitSpec", func() {
 	DescribeTable("valid splits",
 		func(body, expectedExpr, expectedSpec string) {
-			expr, spec := MustSucceed2(fmtstring.SplitSpec(body))
+			expr, spec := MustSucceed2(literal.FmtStrSplitSpec(body))
 			Expect(expr).To(Equal(expectedExpr))
 			Expect(spec).To(Equal(expectedSpec))
 		},
@@ -261,7 +261,7 @@ var _ = Describe("SplitSpec", func() {
 
 	DescribeTable("error cases",
 		func(body, errSubstr string) {
-			Expect(fmtstring.SplitSpec(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
+			Expect(literal.FmtStrSplitSpec(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
 		},
 		Entry("lone colon", ":", "expression before ':'"),
 		Entry("colon then spec only", ":d", "expression before ':'"),
@@ -272,17 +272,17 @@ var _ = Describe("SplitSpec", func() {
 
 var _ = Describe("HasPlaceholder", func() {
 	It("returns true when any segment is a placeholder", func() {
-		segs := MustSucceed(fmtstring.Parse("hello {x}"))
-		Expect(fmtstring.HasPlaceholder(segs)).To(BeTrue())
+		segs := MustSucceed(literal.FmtStrParse("hello {x}"))
+		Expect(literal.FmtStrHasPlaceholder(segs)).To(BeTrue())
 	})
 
 	It("returns false when no segment is a placeholder", func() {
-		segs := MustSucceed(fmtstring.Parse("plain literal"))
-		Expect(fmtstring.HasPlaceholder(segs)).To(BeFalse())
+		segs := MustSucceed(literal.FmtStrParse("plain literal"))
+		Expect(literal.FmtStrHasPlaceholder(segs)).To(BeFalse())
 	})
 
 	It("returns false for an empty segment slice", func() {
-		Expect(fmtstring.HasPlaceholder(nil)).To(BeFalse())
+		Expect(literal.FmtStrHasPlaceholder(nil)).To(BeFalse())
 	})
 })
 
@@ -302,7 +302,7 @@ var _ = Describe("ValidateSpec", func() {
 
 	var validArgs []any
 	validArgs = append(validArgs, func(spec string, t types.Type) {
-		Expect(fmtstring.ValidateSpec(spec, t)).To(Succeed())
+		Expect(literal.FmtStrValidateSpec(spec, t)).To(Succeed())
 	})
 	// Integer verbs across every integer type.
 	for _, verb := range []string{"d", "b", "o", "x", "X", "c"} {
@@ -347,7 +347,7 @@ var _ = Describe("ValidateSpec", func() {
 
 	var invalidArgs []any
 	invalidArgs = append(invalidArgs, func(spec string, t types.Type, errSubstr string) {
-		err := fmtstring.ValidateSpec(spec, t)
+		err := literal.FmtStrValidateSpec(spec, t)
 		Expect(err).To(MatchError(ContainSubstring(errSubstr)))
 	})
 	// Integer-only verbs rejected on every non-integer type.
@@ -402,22 +402,22 @@ var _ = Describe("ValidateSpec", func() {
 
 	It("validates against the constraint of a constrained type variable", func() {
 		intConstraint := types.IntegerConstraint()
-		Expect(fmtstring.ValidateSpec("d", types.Variable("T", &intConstraint))).To(Succeed())
+		Expect(literal.FmtStrValidateSpec("d", types.Variable("T", &intConstraint))).To(Succeed())
 	})
 
 	It("rejects a spec invalid for the variable's constraint", func() {
 		stringConstraint := types.String()
-		err := fmtstring.ValidateSpec(".2f", types.Variable("T", &stringConstraint))
+		err := literal.FmtStrValidateSpec(".2f", types.Variable("T", &stringConstraint))
 		Expect(err).To(MatchError(ContainSubstring("invalid format spec")))
 	})
 
 	It("errors on an unconstrained type variable", func() {
-		err := fmtstring.ValidateSpec("d", types.Variable("T", nil))
+		err := literal.FmtStrValidateSpec("d", types.Variable("T", nil))
 		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
 	})
 
 	It("errors on a non-formattable type kind", func() {
-		err := fmtstring.ValidateSpec("d", types.Chan(types.I32()))
+		err := literal.FmtStrValidateSpec("d", types.Chan(types.I32()))
 		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
 	})
 })

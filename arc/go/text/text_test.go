@@ -15,6 +15,7 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/samber/lo"
+	"github.com/synnaxlabs/arc/compiler"
 	"github.com/synnaxlabs/arc/ir"
 	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/authority"
@@ -2465,7 +2466,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-				return strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
 			})
 			Expect(synth).To(HaveLen(1))
 			f := synth[0]
@@ -2493,7 +2494,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			synth := lo.Filter(inter.Functions, func(f ir.Function, _ int) bool {
-				return strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)
+				return strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)
 			})
 			Expect(synth).To(HaveLen(1))
 			f := synth[0]
@@ -2513,7 +2514,7 @@ var _ = Describe("Text", func() {
 			Expect(diagnostics.Ok()).To(BeTrue(), diagnostics.String())
 
 			for _, f := range inter.Functions {
-				Expect(strings.HasPrefix(f.Key, ir.StringFmtSyntheticPrefix)).To(BeFalse(),
+				Expect(strings.HasPrefix(f.Key, compiler.FmtStrSyntheticPrefix)).To(BeFalse(),
 					"unexpected fmt$ synthetic %q for placeholder-free literal", f.Key)
 			}
 		})

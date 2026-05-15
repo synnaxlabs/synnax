@@ -7,14 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package fmtstring_test
+package literal_test
 
 import (
 	"fmt"
 	"strings"
 	"testing"
 
-	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/types"
 )
 
@@ -74,7 +74,7 @@ func FuzzValidateSpec(f *testing.F) {
 	}
 	f.Fuzz(func(t *testing.T, spec string, kind uint8) {
 		ft := fuzzTypes[int(kind)%len(fuzzTypes)]
-		err := fmtstring.ValidateSpec(spec, ft.t)
+		err := literal.FmtStrValidateSpec(spec, ft.t)
 		if err != nil {
 			return
 		}

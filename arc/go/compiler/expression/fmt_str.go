@@ -12,7 +12,7 @@ package expression
 import (
 	"github.com/antlr4-go/antlr/v4"
 	"github.com/synnaxlabs/arc/compiler/context"
-	"github.com/synnaxlabs/arc/fmtstring"
+	"github.com/synnaxlabs/arc/literal"
 	"github.com/synnaxlabs/arc/parser"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/errors"
@@ -20,11 +20,11 @@ import (
 
 // EmitFmtSegments lowers parsed format segments into WASM on ctx.Writer:
 // literals emit string.from_literal, placeholders compile their expression.
-// Assumes the analyzer has already run fmtstring.ValidateSpec on every
+// Assumes the analyzer has already run literal.FmtStrValidateSpec on every
 // placeholder spec; the compiler emits spec bytes verbatim without revalidation.
 func EmitFmtSegments[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	segments []fmtstring.Segment,
+	segments []literal.FmtStrSegment,
 ) (types.Type, error) {
 	if len(segments) == 0 {
 		emitLiteralSegment(ctx, "")
@@ -44,7 +44,7 @@ func EmitFmtSegments[T antlr.ParserRuleContext](
 
 func emitFmtSegment[T antlr.ParserRuleContext](
 	ctx context.Context[T],
-	seg fmtstring.Segment,
+	seg literal.FmtStrSegment,
 ) error {
 	if !seg.IsPlaceholder {
 		emitLiteralSegment(ctx, seg.Text)

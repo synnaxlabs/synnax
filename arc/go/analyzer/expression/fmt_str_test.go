@@ -87,7 +87,7 @@ var _ = Describe("Backtick Format String Analyzer Diagnostics", func() {
 trig -> f{}`
 	}
 
-	Describe("Body parse errors (fmtstring.Parse)", func() {
+	Describe("Body parse errors (literal.FmtStrParse)", func() {
 		DescribeTable("rejects malformed format string bodies",
 			func(specCtx SpecContext, body, errSubstr string) {
 				expectError(specCtx, wrap(`    log = `+body), errSubstr)
@@ -328,7 +328,7 @@ trig -> f{}`
 			// the grammar but exercises the StripDelimiters guard.
 			rawStr.GetSymbol().SetText("no_backticks")
 			ctx := acontext.CreateRoot(specCtx, ast, fmtResolver())
-			expression.AnalyzeStringFmtLiteral(ctx, rawStr)
+			expression.AnalyzeFmtStrLiteral(ctx, rawStr)
 			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
 			Expect(findError(*ctx.Diagnostics, "invalid raw string literal")).
 				ToNot(BeNil())
