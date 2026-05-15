@@ -48,10 +48,10 @@ export interface FluxSubStore extends Flux.Store {
   [FLUX_STORE_KEY]: FluxStore;
 }
 
-export interface RetrieveQuery {
+export type RetrieveQuery = {
   key: arc.Key;
   includeStatus?: boolean;
-}
+};
 
 const retrieveSingle = async ({
   client,
@@ -66,9 +66,9 @@ const retrieveSingle = async ({
   return a;
 };
 
-export interface ListQuery extends List.PagerParams {
+export type ListQuery = List.PagerParams & {
   keys?: arc.Key[];
-}
+};
 
 export const useList = Flux.createList<ListQuery, arc.Key, arc.Arc, FluxSubStore>({
   name: PLURAL_RESOURCE_NAME,
@@ -275,9 +275,9 @@ export const { useUpdate: useRename } = Flux.createUpdate<RenameParams, FluxSubS
   },
 });
 
-export interface RetrieveTaskParams {
+export type RetrieveTaskParams = {
   arcKey: arc.Key;
-}
+};
 
 export const retrieveTask = async ({
   client,
