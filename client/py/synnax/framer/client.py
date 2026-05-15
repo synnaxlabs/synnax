@@ -78,6 +78,7 @@ class Client:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        auto_indexing: bool = False,
         err_on_extra_chans: bool = True,
     ) -> Writer:
         """Opens a new writer on the given channels.
@@ -108,6 +109,13 @@ class Client:
         :param auto_index_persist_interval: interval at which commits to the index will
         be persisted. To persist every commit to guarantee minimal loss of data, set
         auto_index_persist_interval to AlwaysAutoIndexPersist.
+        :param auto_indexing: when True, Synnax automatically generates timestamps for
+        any index channel that is not included in a write call. The first sample in
+        each write is stamped at the time the write is received, and subsequent
+        samples are spaced 1 nanosecond apart. Generated timestamps are guaranteed to
+        be strictly monotonic across all writes on the writer. If you open the writer
+        with data channels whose index channels are not included, those index channels
+        are added to the writer implicitly.
         """
         adapter = WriteFrameAdapter(
             retriever=self.__channels,
@@ -127,6 +135,7 @@ class Client:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            auto_indexing=auto_indexing,
         )
 
     def open_iterator(

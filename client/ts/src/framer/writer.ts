@@ -84,6 +84,15 @@ const baseWriterConfigZ = z.object({
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
   autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
+  /**
+   * autoIndexing causes Synnax to automatically generate timestamps for any index
+   * channel that is not included in a write call. The first sample in each write is
+   * stamped at the time the write is received, and subsequent samples are spaced 1
+   * nanosecond apart. Generated timestamps are guaranteed to be strictly monotonic
+   * across all writes on the writer. If the writer is opened with data channels whose
+   * index channels are not included, those index channels are added implicitly.
+   */
+  autoIndexing: z.boolean().default(false),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({

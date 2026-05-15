@@ -115,6 +115,51 @@ describe("Writer", () => {
       expect(true).toBe(true);
     });
 
+    test("auto-indexing generates server-side timestamps for data-only writes", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const before = TimeStamp.now();
+      const writer = await client.openWriter({
+        channels: [data.key],
+        autoIndexing: true,
+      });
+      try {
+        await writer.write(data.key, randomSeries(5, data.dataType));
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const f = await client.read(
+        new TimeRange(before, TimeStamp.now().add(TimeSpan.seconds(1))),
+        index.key,
+      );
+      expect(f.length).toEqual(5);
+    });
+
+    test("auto-indexing leaves user-provided index data untouched", async () => {
+      const [index, data] = await newIndexedPair(client);
+      const writer = await client.openWriter({
+        start: TimeStamp.seconds(200),
+        channels: [index.key, data.key],
+        autoIndexing: true,
+      });
+      try {
+        await writer.write({
+          [index.key]: secondsLinspace(200, 3),
+          [data.key]: randomSeries(3, data.dataType),
+        });
+        await writer.commit();
+      } finally {
+        await writer.close();
+      }
+      const f = await client.read(
+        new TimeRange(TimeStamp.seconds(200), TimeStamp.seconds(203)),
+        index.key,
+      );
+      expect(f.data).toEqual(
+        new BigInt64Array(secondsLinspace(200, 3).map((v) => v.valueOf())),
+      );
+    });
+
     test("write with auto commit and a set interval", async () => {
       const channels = await newIndexedPair(client);
       const writer = await client.openWriter({

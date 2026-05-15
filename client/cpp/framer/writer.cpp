@@ -50,6 +50,7 @@ x::errors::Error WriterConfig::to_proto(grpc::framer::WriterConfig *f) const {
     f->set_enable_auto_commit(this->enable_auto_commit);
     f->set_auto_index_persist_interval(this->auto_index_persist_interval.nanoseconds());
     f->set_err_on_unauthorized(this->err_on_unauthorized);
+    f->set_auto_indexing(this->auto_indexing);
     return x::errors::NIL;
 }
 

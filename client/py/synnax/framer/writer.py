@@ -69,6 +69,7 @@ class WriterConfig(BaseModel):
     err_on_unauthorized: bool = False
     enable_auto_commit: bool = True
     auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND
+    auto_indexing: bool = False
 
 
 class WriterRequest(BaseModel):
@@ -189,6 +190,7 @@ class Writer:
         err_on_unauthorized: bool = False,
         enable_auto_commit: bool = True,
         auto_index_persist_interval: TimeSpan = 1 * TimeSpan.SECOND,
+        auto_indexing: bool = False,
         group: int = 0,
     ) -> None:
         self.start = start
@@ -204,6 +206,7 @@ class Writer:
             err_on_unauthorized=err_on_unauthorized,
             enable_auto_commit=enable_auto_commit,
             auto_index_persist_interval=auto_index_persist_interval,
+            auto_indexing=auto_indexing,
         )
         exc = self._stream.send(
             WriterRequest(command=WriterCommand.OPEN, config=config)

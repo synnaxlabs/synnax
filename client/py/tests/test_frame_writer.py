@@ -104,6 +104,79 @@ class TestWriter:
                 data = np.random.rand(10).astype(np.float64)
                 w.write(pd.DataFrame({data_ch.key: data}))
 
+    def test_auto_indexing_generates_timestamps_for_data_only_writer(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should generate timestamps for a writer opened with only a data channel
+        when auto_indexing is true."""
+        idx_ch, data_ch = indexed_pair
+        before = sy.TimeStamp.now()
+        with client.open_writer(
+            start=0,
+            channels=[data_ch.key],
+            auto_indexing=True,
+        ) as w:
+            data = np.random.rand(4).astype(np.float64)
+            w.write({data_ch.key: data})
+            w.commit()
+        f = client.read(
+            sy.TimeRange(before, sy.TimeStamp.now() + sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert len(f) == 4
+
+    def test_auto_indexing_omitted_index_in_mixed_writer(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should auto-stamp the index when the caller opens with both index and data
+        channels but omits the index series from a write."""
+        idx_ch, data_ch = indexed_pair
+        before = sy.TimeStamp.now()
+        with client.open_writer(
+            start=0,
+            channels=[idx_ch.key, data_ch.key],
+            auto_indexing=True,
+        ) as w:
+            data = np.random.rand(3).astype(np.float64)
+            w.write({data_ch.key: data})
+            w.commit()
+        f = client.read(
+            sy.TimeRange(before, sy.TimeStamp.now() + sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert len(f) == 3
+
+    def test_auto_indexing_leaves_user_provided_index_untouched(
+        self,
+        indexed_pair: list[sy.Channel],
+        client: sy.Synnax,
+    ):
+        """Should leave user-provided index timestamps exactly as written when
+        auto_indexing is enabled."""
+        idx_ch, data_ch = indexed_pair
+        expected = seconds_linspace(200, 3)
+        with client.open_writer(
+            start=200 * sy.TimeSpan.SECOND,
+            channels=[idx_ch.key, data_ch.key],
+            auto_indexing=True,
+        ) as w:
+            w.write(
+                {
+                    idx_ch.key: expected,
+                    data_ch.key: np.random.rand(3).astype(np.float64),
+                }
+            )
+            w.commit()
+        f = client.read(
+            sy.TimeRange(200 * sy.TimeSpan.SECOND, 203 * sy.TimeSpan.SECOND),
+            idx_ch.key,
+        )
+        assert list(f) == expected
+
     def test_write_auto_commit(self, indexed_pair: list[sy.Channel], client: sy.synnax):
         """Should open an auto-committing writer to write data that persists after 1s"""
         idx_ch, data_ch = indexed_pair
