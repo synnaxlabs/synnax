@@ -67,7 +67,7 @@ export const useResize = <E extends HTMLElement>(
       obs.current = new ResizeObserver(deb);
       obs.current.observe(el);
     },
-    [memoTriggers, onResize, debounce],
+    [memoTriggers, onResize, debounce.valueOf()],
   );
 
   useEffect(() => {
