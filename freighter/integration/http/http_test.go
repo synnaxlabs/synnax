@@ -23,6 +23,7 @@ import (
 	"github.com/synnaxlabs/x/address"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/net"
+	"github.com/synnaxlabs/x/set"
 	. "github.com/synnaxlabs/x/testutil"
 )
 
@@ -67,6 +68,30 @@ func post(
 }
 
 var _ = Describe("BindTo", func() {
+	It("Should register every integration endpoint on the provided Fiber app", func() {
+		registered := set.New[string]()
+		for _, r := range app.GetRoutes() {
+			registered = registered.Add(r.Path)
+		}
+		routes := []string{
+			"/stream/echo",
+			"/stream/sendMessageAfterClientClose",
+			"/stream/receiveAndExitWithErr",
+			"/stream/immediatelyExitWithErr",
+			"/stream/immediatelyExitNominally",
+			"/stream/respondWithTenMessages",
+			"/stream/middlewareCheck",
+			"/stream/slamMessages",
+			"/stream/eventuallyResponseWithMessage",
+			"/unary/echo",
+			"/unary/middlewareCheck",
+			"/unary/slamMessagesTimeoutCheck",
+		}
+		for _, path := range routes {
+			Expect(registered.Contains(path)).To(BeTrue())
+		}
+	})
+
 	Describe("/unary/echo", func() {
 		It("Should increment the request ID and echo the message", func(ctx context.Context) {
 			body := MustSucceed(json.Marshal(fhttp.Message{Message: "hi", ID: 1}))
@@ -122,5 +147,23 @@ var _ = Describe("BindTo", func() {
 			res := post(ctx, "/unary/does-not-exist", nil, nil)
 			Expect(res.StatusCode).To(Equal(http.StatusNotFound))
 		})
+	})
+})
+
+var _ = Describe("TestError", func() {
+	It("Should expose its message via Error", func() {
+		err := fhttp.TestError{Code: 42, Message: "something broke"}
+		Expect(err.Error()).To(Equal("something broke"))
+	})
+
+	It("Should round-trip through the freighter errors registry", func() {
+		original := fhttp.TestError{Code: 7, Message: "boom"}
+		payload := errors.Encode(context.Background(), original, false)
+		Expect(payload.Type).To(Equal("integration.error"))
+
+		decoded := errors.Decode(context.Background(), payload)
+		var got fhttp.TestError
+		Expect(errors.As(decoded, &got)).To(BeTrue())
+		Expect(got).To(Equal(original))
 	})
 })

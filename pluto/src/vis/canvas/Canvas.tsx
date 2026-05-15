@@ -9,7 +9,7 @@
 
 import "@/vis/canvas/Canvas.css";
 
-import { box, runtime, scale, xy } from "@synnaxlabs/x";
+import { box, type CrudeTimeSpan, runtime, scale, TimeSpan, xy } from "@synnaxlabs/x";
 import {
   type CanvasHTMLAttributes,
   type DetailedHTMLProps,
@@ -52,12 +52,12 @@ const ZERO_CANVASES: Canvases = {
 };
 
 export interface CanvasProps extends Omit<HTMLDivProps, "ref"> {
-  resizeDebounce?: number;
+  resizeDebounce?: CrudeTimeSpan;
 }
 
 export const Canvas = ({
   children,
-  resizeDebounce: debounce = 100,
+  resizeDebounce: debounce = TimeSpan.milliseconds(100),
   className,
   ...rest
 }: CanvasProps): ReactElement => {
