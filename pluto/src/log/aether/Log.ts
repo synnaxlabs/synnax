@@ -453,6 +453,8 @@ export class Log extends aether.Leaf<typeof logState, InternalState> {
     else if (showReceiptTimestamp) prefix = `${ts}  `;
     else if (showChannelNames) prefix = `[${name}]${pad}  `;
     else prefix = "";
+    // Continuation lines (\n) keep the prefix's alignment width as whitespace.
+    if (entry.continuation) prefix = " ".repeat(prefix.length);
     return { prefix, value, line: prefix + value, channelKey: chKeyStr };
   }
 

@@ -17,7 +17,7 @@ import {
   type UnaryStore,
   type UnaryStoreConfig,
 } from "@/flux/base/store";
-import { type Shape } from "@/flux/base/types";
+import { type Data } from "@/flux/base/types";
 import { type status } from "@/status/aether";
 
 const DEFAULT_COALESCE_WINDOW = TimeSpan.milliseconds(500);
@@ -64,7 +64,7 @@ const pushOnto = <A>(
   return out.length > cap ? out.slice(out.length - cap) : out;
 };
 
-export interface DispatchReducer<State extends Shape, Action> {
+export interface DispatchReducer<State extends Data, Action> {
   (
     state: State,
     actions: Action[],
@@ -120,7 +120,7 @@ export interface DispatchFrame<Key, Action> {
  */
 export interface UndoableUnaryStore<
   Key extends record.Key,
-  State extends Shape,
+  State extends Data,
   Action,
 > extends UnaryStore<Key, State> {
   /**
@@ -174,7 +174,7 @@ export interface UndoableUnaryStore<
   onUndoStateChange(callback: () => void, key?: Key): destructor.Destructor;
 }
 
-interface StoreOpts<Key extends record.Key, State extends Shape, Action> {
+interface StoreOpts<Key extends record.Key, State extends Data, Action> {
   handleError: status.ErrorHandler;
   reduce: DispatchReducer<State, Action>;
   equal?: (a: State, b: State, key: Key) => boolean;
@@ -185,7 +185,7 @@ interface StoreOpts<Key extends record.Key, State extends Shape, Action> {
   stackCap?: number;
 }
 
-class UndoableStore<Key extends record.Key, State extends Shape, Action> {
+class UndoableStore<Key extends record.Key, State extends Data, Action> {
   private readonly docs: ScopedUnaryStore<Key, State>;
   private readonly undos: ScopedUnaryStore<Key, UndoState<Action>>;
   private readonly reduce: DispatchReducer<State, Action>;
@@ -451,7 +451,7 @@ class UndoableStore<Key extends record.Key, State extends Shape, Action> {
 
 export interface CreateUndoableStoreParams<
   Key extends record.Key,
-  State extends Shape,
+  State extends Data,
   Action,
   SK extends string,
 > {
@@ -469,7 +469,7 @@ export interface CreateUndoableStoreParams<
 
 export const createUndoableStore = <
   Key extends record.Key,
-  State extends Shape,
+  State extends Data,
   Action,
   SK extends string,
   ScopedStore extends Store & Record<SK, UndoableUnaryStore<Key, State, Action>>,

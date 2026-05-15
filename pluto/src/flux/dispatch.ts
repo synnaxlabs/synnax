@@ -50,7 +50,7 @@ export interface CreateDispatchParams<
 
 export const createDispatch = <
   Key extends record.Key,
-  State extends base.Shape,
+  State extends base.Data,
   Action,
   SK extends string,
   ScopedStore extends base.Store & Record<SK, UndoableUnaryStore<Key, State, Action>>,

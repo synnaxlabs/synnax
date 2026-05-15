@@ -8,7 +8,7 @@
 // included in the file licenses/APL.txt.
 
 import { type Synnax as Client } from "@synnaxlabs/client";
-import { type destructor, type status } from "@synnaxlabs/x";
+import { type CrudeTimeSpan, type destructor, type status } from "@synnaxlabs/x";
 import { useCallback, useState } from "react";
 import type z from "zod";
 
@@ -70,7 +70,7 @@ export interface UseObservableUpdateParams<
   AllowDisconnected extends boolean = false,
   SubStore extends base.Store = {},
 > {
-  debounce?: number;
+  debounce?: CrudeTimeSpan;
   onChange: state.Setter<Result<Input | undefined, StatusDetails>>;
   scope?: string;
   beforeUpdate?: (
@@ -212,7 +212,7 @@ const useObservable = <
   const maybeClient = Synnax.use();
   const store = useStore<Store>(scope);
   const addStatus = useAdder();
-  const handleUpdate = useDebouncedCallback(
+  const runUpdate = useCallback(
     async (data: Input, opts: base.FetchOptions = {}): Promise<boolean> => {
       const { signal } = opts;
 
@@ -298,14 +298,30 @@ const useObservable = <
         return false;
       }
     },
+    [
+      maybeClient,
+      allowDisconnected,
+      name,
+      present,
+      participle,
+      past,
+      store,
+      onChange,
+      addStatus,
+      update,
+      beforeUpdate,
+      afterSuccess,
+      afterFailure,
+    ],
+  );
+  const handleUpdate = useDebouncedCallback(
+    (data: Input, opts?: base.FetchOptions) => {
+      void runUpdate(data, opts);
+    },
     debounce,
-    [name, onChange, beforeUpdate, afterSuccess, afterFailure],
+    [runUpdate],
   );
-  const handleSyncUpdate = useCallback(
-    (data: Input, opts?: base.FetchOptions) => void handleUpdate(data, opts),
-    [handleUpdate],
-  );
-  return { update: handleSyncUpdate, updateAsync: handleUpdate };
+  return { update: handleUpdate, updateAsync: runUpdate };
 };
 
 const useDirect = <

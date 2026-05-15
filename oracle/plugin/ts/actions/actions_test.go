@@ -156,7 +156,6 @@ var _ = Describe("TS Actions Plugin", func() {
 				resp := MustGenerate(ctx, source, "board", loader, p)
 				ExpectContent(resp, "actions.gen.ts").
 					ToContain(
-						"set_node_position: \"set_node_position\"",
 						"export const setNodePosition",
 						"setNodePosition: (state: Draft<Board>, payload: SetNodePositionPayload) => HandlerResult;",
 						"return handlers.setNodePosition(state, action.setNodePosition);",

@@ -15,6 +15,7 @@
 package testutil
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/onsi/ginkgo/v2"
@@ -38,6 +39,14 @@ var FileSystems = map[string]Factory{
 	"osFS":  OpenOS,
 }
 
+// TempDirPrefix returns the prefix used by [OpenOS] for the temporary
+// directories it creates. The prefix encodes the current Ginkgo parallel
+// process so that tests inspecting [os.TempDir] see only entries created by
+// their own process and do not collide with sibling parallel processes.
+func TempDirPrefix() string {
+	return fmt.Sprintf("testdata-p%d-", ginkgo.GinkgoParallelProcess())
+}
+
 // OpenMem returns a fresh in-memory FS rooted at "testdata". The rooting
 // matches [OpenOS] so test expectations that include path segments behave
 // identically across backends. No cleanup is needed; the FS is reclaimed by
@@ -50,7 +59,7 @@ func OpenMem() xfs.FS {
 // registers a [ginkgo.DeferCleanup] that removes the directory and all of its
 // contents when the enclosing Ginkgo setup node exits.
 func OpenOS() xfs.FS {
-	dir := testutil.MustSucceed(os.MkdirTemp("", "testdata-*"))
+	dir := testutil.MustSucceed(os.MkdirTemp("", TempDirPrefix()+"*"))
 	ginkgo.DeferCleanup(func() {
 		gomega.Expect(os.RemoveAll(dir)).To(gomega.Succeed())
 	})

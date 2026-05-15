@@ -93,7 +93,7 @@ var _ = Describe("Writer", func() {
 			}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      "n1",
 					Position: spatial.XY{X: 100, Y: 200},
 				}),
@@ -107,13 +107,13 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewSetNodeAction(schematic.SetNode{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 				}),
-				schematic.NewSetNodeAction(schematic.SetNode{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 				}),
-				schematic.NewAddEdgeAction(schematic.AddEdge{
+				schematic.NewAddEdgeAction(schematic.AddEdgePayload{
 					Edge: schematic.Edge{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1"},
@@ -132,7 +132,7 @@ var _ = Describe("Writer", func() {
 			var snap schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(validate.ErrValidation))
 		})
 		It("Should allow Rename Dispatch on a snapshot schematic", func(ctx SpecContext) {
@@ -141,7 +141,7 @@ var _ = Describe("Writer", func() {
 			var snap schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-				schematic.NewRenameAction(schematic.Rename{Name: "renamed-snap"}),
+				schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed-snap"}),
 			})).To(Succeed())
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(snap.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -153,8 +153,8 @@ var _ = Describe("Writer", func() {
 			var snap schematic.Schematic
 			Expect(svc.NewWriter(tx).Copy(ctx, s.Key, "snap", true, &snap)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "session-1", []schematic.Action{
-				schematic.NewRenameAction(schematic.Rename{Name: "renamed-snap"}),
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+				schematic.NewRenameAction(schematic.RenamePayload{Name: "renamed-snap"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(validate.ErrValidation))
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(snap.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -164,8 +164,8 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "test"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "ghost"}),
-				schematic.NewRemoveEdgeAction(schematic.RemoveEdge{Key: "ghost-edge"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "ghost"}),
+				schematic.NewRemoveEdgeAction(schematic.RemoveEdgePayload{Key: "ghost-edge"}),
 			})).To(Succeed())
 			var res schematic.Schematic
 			Expect(svc.NewRetrieve().Where(schematic.MatchKeys(s.Key)).Entry(&res).Exec(ctx, tx)).To(Succeed())
@@ -181,7 +181,7 @@ var _ = Describe("Writer", func() {
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			actions := make([]schematic.Action, 0, 30)
 			for i := range 30 {
-				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				actions = append(actions, schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      "pump",
 					Position: spatial.XY{X: float64(i), Y: float64(i * 2)},
 				}))
@@ -196,18 +196,18 @@ var _ = Describe("Writer", func() {
 			s := schematic.Schematic{Name: "graph"}
 			Expect(svc.NewWriter(tx).Create(ctx, ws.Key, &s)).To(Succeed())
 			Expect(svc.NewWriter(tx).Dispatch(ctx, s.Key, "session-1", []schematic.Action{
-				schematic.NewSetNodeAction(schematic.SetNode{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "pump", Position: spatial.XY{X: 0, Y: 0}},
 				}),
-				schematic.NewSetNodeAction(schematic.SetNode{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "valve", Position: spatial.XY{X: 100, Y: 0}},
 				}),
-				schematic.NewAddEdgeAction(schematic.AddEdge{Edge: schematic.Edge{
+				schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: schematic.Edge{
 					Key:    "e1",
 					Source: schematic.Handle{Node: "pump", Param: "out"},
 					Target: schematic.Handle{Node: "valve", Param: "in"},
 				}}),
-				schematic.NewSetConfigAction(schematic.SetConfig{
+				schematic.NewSetConfigAction(schematic.SetConfigPayload{
 					Key:    "pump",
 					Config: msgpack.EncodedJSON{"label": "Main Pump"},
 				}),
@@ -226,10 +226,10 @@ var _ = Describe("Writer", func() {
 			disconnect := svc.OnAction(rec.record)
 			DeferCleanup(disconnect)
 			actions := []schematic.Action{
-				schematic.NewSetNodeAction(schematic.SetNode{
+				schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1"},
 				}),
-				schematic.NewSetNodePositionAction(schematic.SetNodePosition{
+				schematic.NewSetNodePositionAction(schematic.SetNodePositionPayload{
 					Key:      "n1",
 					Position: spatial.XY{X: 5, Y: 5},
 				}),
@@ -252,7 +252,7 @@ var _ = Describe("Writer", func() {
 			rec := &actionRecorder{}
 			DeferCleanup(svc.OnAction(rec.record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, snap.Key, "client-xyz", []schematic.Action{
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(validate.ErrValidation))
 			Expect(rec.snapshot()).To(BeEmpty())
 		})
@@ -261,7 +261,7 @@ var _ = Describe("Writer", func() {
 			rec := &actionRecorder{}
 			DeferCleanup(svc.OnAction(rec.record))
 			Expect(svc.NewWriter(tx).Dispatch(ctx, uuid.New(), "client-xyz", []schematic.Action{
-				schematic.NewRemoveNodeAction(schematic.RemoveNode{Key: "n1"}),
+				schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{Key: "n1"}),
 			})).To(MatchError(query.ErrNotFound))
 			Expect(rec.snapshot()).To(BeEmpty())
 		})

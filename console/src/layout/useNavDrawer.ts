@@ -15,6 +15,7 @@ import {
   useDebouncedCallback,
   useSyncedRef,
 } from "@synnaxlabs/pluto";
+import { TimeSpan } from "@synnaxlabs/x";
 import { useCallback } from "react";
 import { useDispatch } from "react-redux";
 
@@ -56,10 +57,10 @@ export const useNavDrawer = (
   const state = useSelectNavDrawer(location);
   const dispatch = useDispatch();
   const onResize = useDebouncedCallback(
-    (size) => {
+    (size: number) => {
       dispatch(resizeNavDrawer({ windowKey, location, size }));
     },
-    100,
+    TimeSpan.milliseconds(100),
     [dispatch, windowKey],
   );
 

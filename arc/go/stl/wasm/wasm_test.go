@@ -56,6 +56,7 @@ var _ = Describe("ConvertConfigValue", func() {
 		Entry("float32", float32(1.5), uint64(math.Float32bits(1.5))),
 		Entry("float64", float64(2.5), math.Float64bits(2.5)),
 		Entry("telem.TimeStamp", telem.TimeStamp(9), uint64(9)),
+		Entry("telem.TimeSpan", telem.TimeSpan(10), uint64(10)),
 	)
 
 	DescribeTable("unsupported types return an error instead of panicking",
@@ -610,6 +611,34 @@ var _ = Describe("WASM", func() {
 			h.SetInput("y", 0, telem.NewSeriesV[int64](100), telem.NewSeriesSecondsTSV(1))
 			h.Execute(ctx, "add")
 			Expect(telem.UnmarshalSeries[int64](h.Output("add", 0))).To(Equal([]int64{105}))
+		})
+	})
+
+	Describe("TimeSpan Config Values", func() {
+		It("Should thread duration literal config values through the analyzer, compiler, and runtime", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"trigger_ch": {
+					Name: "trigger_ch",
+					Kind: symbol.KindChannel,
+					Type: types.Chan(types.F32()),
+					ID:   100,
+				},
+			}
+			source := `
+func emit_period{period i64 ns} (trigger f32) i64 {
+    return period
+}
+
+trigger_ch -> emit_period{period=1s}
+`
+			h := newTextHarness(ctx, source, resolver,
+				channel.Digest{Key: 100, DataType: telem.Float32T},
+			)
+			defer h.Close(ctx)
+
+			h.SetInput("on_trigger_ch_0", 0, telem.NewSeriesV[float32](1.0), telem.NewSeriesSecondsTSV(1))
+			h.Execute(ctx, "emit_period_0")
+			Expect(telem.UnmarshalSeries[int64](h.Output("emit_period_0", 0))).To(Equal([]int64{int64(telem.Second)}))
 		})
 	})
 

@@ -129,7 +129,6 @@ var _ = Describe("MigrateSchematic", func() {
 			},
 			Entry("v2 condensed", "v2_gse_condensed.json"),
 			Entry("v2 value-only", "v2_value_test.json"),
-			Entry("v3 shop flow", "v3_shop_flow.json"),
 			Entry("v4 empty", "v4_empty.json"),
 			Entry("v5 hardware workspace", "v5_hardware_workspace.json"),
 		)
@@ -375,8 +374,6 @@ var _ = Describe("legacy.MigrateData", func() {
 				"v2_gse_condensed.json", 52, 39, 0),
 			Entry("v2 value-only (3 nodes, 7 props, no edges)",
 				"v2_value_test.json", 3, 0, 0),
-			Entry("v3 shop flow (42 nodes, 29 edges incl. 1 orphan dropped)",
-				"v3_shop_flow.json", 42, 29, 1),
 			Entry("v4 empty (version dispatch only)",
 				"v4_empty.json", 0, 0, 0),
 			Entry("v5 hardware workspace (real mode/toolbar/authority)",

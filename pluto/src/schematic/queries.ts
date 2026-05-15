@@ -154,16 +154,16 @@ export interface SelectConfigsArgs {
 export const useSelectConfigs = Flux.createSelector<
   FluxSubStore,
   SelectConfigsArgs,
-  ElementConfig[]
+  Map<string, ElementConfig>
 >({
   subscribe: (store, { key }, notify) => store.schematics.onSet(notify, key),
   select: (store, { key, keys }) => {
+    const result = new Map<string, ElementConfig>();
     const s = store.schematics.get(key);
-    if (s == null || keys.length === 0) return [];
-    const result: ElementConfig[] = [];
+    if (s == null || keys.length === 0) return result;
     for (const elKey of keys) {
       const cfg = s.configs?.[elKey];
-      if (cfg != null) result.push(cfg as ElementConfig);
+      if (cfg != null) result.set(elKey, cfg as ElementConfig);
     }
     return result;
   },

@@ -39,7 +39,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNode{
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
 			})).Error().To(MatchError(access.ErrDenied))
@@ -51,7 +51,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNode{
+				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 				})},
 			})).Error().To(Succeed())
@@ -70,7 +70,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        b.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNode{
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
 			})).Error().To(MatchError(access.ErrDenied))
@@ -85,13 +85,13 @@ var _ = Describe("api.Service.Dispatch", func() {
 				Key:        s.Key,
 				SessionKey: "sess-1",
 				Actions: []schematic.Action{
-					schematic.NewSetNodeAction(schematic.SetNode{
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: schematic.Node{Key: "n1", Position: spatial.XY{X: 1, Y: 2}},
 					}),
-					schematic.NewSetNodeAction(schematic.SetNode{
+					schematic.NewSetNodeAction(schematic.SetNodePayload{
 						Node: schematic.Node{Key: "n2", Position: spatial.XY{X: 3, Y: 4}},
 					}),
-					schematic.NewAddEdgeAction(schematic.AddEdge{Edge: schematic.Edge{
+					schematic.NewAddEdgeAction(schematic.AddEdgePayload{Edge: schematic.Edge{
 						Key:    "e1",
 						Source: schematic.Handle{Node: "n1", Param: "out"},
 						Target: schematic.Handle{Node: "n2", Param: "in"},
@@ -114,7 +114,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        snap.Key,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNode{
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
 			})).Error().To(MatchError(validate.ErrValidation))
@@ -126,7 +126,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        missing,
 				SessionKey: "sess-1",
-				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNode{
+				Actions: []schematic.Action{schematic.NewRemoveNodeAction(schematic.RemoveNodePayload{
 					Key: "n1",
 				})},
 			})).Error().To(MatchError(query.ErrNotFound))
@@ -145,7 +145,7 @@ var _ = Describe("api.Service.Dispatch", func() {
 			Expect(apiSvc.Dispatch(authedCtx(ctx, author), DispatchRequest{
 				Key:        s.Key,
 				SessionKey: "session-marker-xyz",
-				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNode{
+				Actions: []schematic.Action{schematic.NewSetNodeAction(schematic.SetNodePayload{
 					Node: schematic.Node{Key: "n1"},
 				})},
 			})).Error().To(Succeed())
