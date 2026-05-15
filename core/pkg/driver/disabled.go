@@ -13,4 +13,4 @@ package driver
 
 import "io/fs"
 
-var defaultFS fs.FS = nil
+var defaultFS fs.FS

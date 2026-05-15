@@ -11,16 +11,7 @@
 
 package driver
 
-import (
-	"embed"
-	"io/fs"
-
-	"github.com/samber/lo"
-)
+import "embed"
 
 //go:embed assets/driver.exe
 var embeddedAssets embed.FS
-
-var defaultFS fs.FS
-
-func init() { defaultFS = lo.Must(fs.Sub(embeddedAssets, "assets")) }

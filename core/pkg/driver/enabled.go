@@ -7,19 +7,14 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-//go:build windows
+//go:build driver
 
 package driver
 
 import (
-	"os/exec"
-	"syscall"
+	"io/fs"
+
+	"github.com/samber/lo"
 )
 
-const driverName = "driver.exe"
-
-func configureSysProcAttr(cmd *exec.Cmd) {
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		CreationFlags: syscall.CREATE_NEW_PROCESS_GROUP,
-	}
-}
+var defaultFS = lo.Must(fs.Sub(embeddedAssets, "assets"))
