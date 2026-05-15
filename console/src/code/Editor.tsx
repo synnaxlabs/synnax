@@ -159,7 +159,7 @@ const use = ({
       model = monaco.editor.createModel(value, language, uri);
     }
 
-    editorRef.current = monaco.editor.create(container, {
+    const editor = monaco.editor.create(container, {
       value: customURI != null ? undefined : value,
       model: model ?? undefined,
       language: customURI != null ? undefined : language,
@@ -167,15 +167,15 @@ const use = ({
       ...ZERO_OPTIONS,
       scrollBeyondLastLine,
     });
+    editorRef.current = editor;
 
     disableMonacoCommandPalette(monaco);
 
-    const contentDispose = editorRef.current.onDidChangeModelContent(() => {
-      if (editorRef.current == null) return;
-      onChange(editorRef.current.getValue());
+    const contentDispose = editor.onDidChangeModelContent(() => {
+      onChange(editor.getValue());
     });
-    const triggerDispose = forwardGlobalTriggers(editorRef.current);
-    const contextMenuDispose = editorRef.current.onContextMenu((e) =>
+    const triggerDispose = forwardGlobalTriggers(editor);
+    const contextMenuDispose = editor.onContextMenu((e) =>
       openContextMenuRef.current?.({
         clientX: e.event.posx,
         clientY: e.event.posy,
@@ -184,18 +184,17 @@ const use = ({
         target: container,
       }),
     );
-    const extensionDisposables =
-      extensions?.map((ext) => ext(editorRef.current!)) ?? [];
+    const extensionDisposables = extensions?.map((ext) => ext(editor)) ?? [];
 
     return () => {
       contentDispose.dispose();
       triggerDispose.dispose();
       contextMenuDispose.dispose();
       extensionDisposables.forEach((d) => d.dispose());
-      editorRef.current?.dispose();
+      editor.dispose();
       model?.dispose();
     };
-  }, [monaco, customURI]);
+  }, [monaco, customURI, extensions]);
 
   useEffect(() => {
     if (monaco == null) return;
