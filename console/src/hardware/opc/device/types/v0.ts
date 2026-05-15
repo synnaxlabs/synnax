@@ -52,7 +52,7 @@ export const connectionConfigZ = z.object({
   clientPrivateKey: z.string().optional(),
   serverCertificate: z.string().optional(),
 });
-export interface ConnectionConfig extends z.infer<typeof connectionConfigZ> {}
+export type ConnectionConfig = z.infer<typeof connectionConfigZ>;
 export const ZERO_CONNECTION_CONFIG: ConnectionConfig = {
   endpoint: "opc.tcp://localhost:4840",
   securityMode: NO_SECURITY_MODE,

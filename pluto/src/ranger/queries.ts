@@ -42,12 +42,12 @@ export interface FluxSubStore extends Label.FluxSubStore, Ontology.FluxSubStore 
   [RANGE_ALIASES_FLUX_STORE_KEY]: AliasFluxStore;
 }
 
-export interface RetrieveQuery extends Pick<
+export type RetrieveQuery = Pick<
   ranger.RetrieveRequest,
   "includeLabels" | "includeParent"
-> {
+> & {
   key: ranger.Key;
-}
+};
 
 const BASE_QUERY: Partial<RetrieveQuery> = {
   includeParent: true,
@@ -145,9 +145,9 @@ export const useDeleteSynchronizer = (onDelete: (key: ranger.Key) => void): void
   useEffect(() => store.ranges.onDelete((key) => onDelete(key)), [store]);
 };
 
-export interface ListChildrenQuery extends List.PagerParams {
+export type ListChildrenQuery = List.PagerParams & {
   key?: ranger.Key;
-}
+};
 
 const handleListLabelRelationshipSet = async (
   rel: ontology.Relationship,
@@ -266,9 +266,9 @@ export const useListChildren = Flux.createList<
   ],
 });
 
-export interface RetrieveParentQuery {
+export type RetrieveParentQuery = {
   id: ontology.ID;
-}
+};
 
 export const {
   useRetrieve: useRetrieveParent,
@@ -415,9 +415,9 @@ export const useRetrieveObservableName = ({
   });
 };
 
-export interface RetrieveMultipleQuery {
+export type RetrieveMultipleQuery = {
   keys: ranger.Key[];
-}
+};
 
 export const {
   useRetrieve: useRetrieveMultiple,
@@ -537,7 +537,7 @@ export const toFormValues = (range: ranger.Range): z.infer<typeof formSchema> =>
   labels: range.labels?.map((l) => l.key) ?? [],
 });
 
-export interface FormQuery extends optional.Optional<RetrieveQuery, "key"> {}
+export type FormQuery = optional.Optional<RetrieveQuery, "key">;
 
 const ZERO_FORM_VALUES: z.infer<typeof formSchema> = {
   name: "",
@@ -632,7 +632,7 @@ export const useLabels = (
 ): Flux.UseDirectRetrieveReturn<label.Label[]> =>
   Label.useRetrieveLabelsOf({ id: ranger.ontologyID(key) });
 
-export interface ListQuery extends Omit<ranger.RetrieveRequest, "names"> {}
+export type ListQuery = Omit<ranger.RetrieveRequest, "names">;
 
 export const useList = Flux.createList<
   ListQuery,
@@ -738,9 +738,9 @@ export const KV_FLUX_STORE_CONFIG: Flux.UnaryStoreConfig<FluxSubStore> = {
   listeners: [SET_KV_LISTENER, DELETE_KV_LISTENER],
 };
 
-export interface ListMetaDataQuery {
+export type ListMetaDataQuery = {
   rangeKey: ranger.Key;
-}
+};
 
 export const useListMetaData = Flux.createList<
   ListMetaDataQuery,
@@ -779,7 +779,7 @@ export const useListMetaData = Flux.createList<
 
 export const kvPairFormSchema = ranger.kv.pairZ;
 
-export interface KVFormQuery extends ListMetaDataQuery {}
+export type KVFormQuery = ListMetaDataQuery;
 
 const ZERO_KV_PAIR_FORM_VALUES: z.infer<typeof kvPairFormSchema> = {
   key: "",
