@@ -7,28 +7,86 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
+import "schemas/channel"
+import "schemas/color"
+import "schemas/notation"
+import "schemas/telem"
+
 @ts output "client/ts/src/log"
 @go output "core/pkg/service/log"
-@pb
 
 Key = uuid {
     @doc value "is a unique identifier for a log, represented as a UUID."
 }
 
+TimestampConfig struct {
+    format telem.TimestampFormat {
+        @doc value        "controls how channel timestamps are rendered."
+        @validate default "preciseDate"
+    }
+    tz     telem.Timezone        {
+        @doc value        "is the timezone used when rendering timestamps."
+        @validate default "local"
+    }
+
+    @doc value "is per-channel timestamp display configuration."
+}
+
+ChannelEntry struct {
+    channel   channel.Key       {
+        @doc value "is the channel this entry references."
+    }
+    color     color.Color       {
+        @doc value "is the display color for the channel."
+    }
+    notation  notation.Notation {
+        @doc value        "is the numeric notation used to render samples."
+        @validate default "standard"
+    }
+    precision int32             {
+        @doc value        """
+            is the number of decimal digits to display. -1 means "use the
+            log-level precision".
+        """
+        @validate default -1
+    }
+    alias     string            {
+        @doc value        "is a human-readable alias displayed in place of the channel name."
+        @validate default ""
+    }
+    timestamp TimestampConfig   {
+        @doc value "is the per-channel timestamp display configuration."
+    }
+
+    @doc value "is a per-channel display configuration entry within a log."
+}
+
 Log struct {
-    key  Key    {
+    key                    Key            {
         @doc value "is the unique identifier for this log."
         @key
     }
-    name string {
+    name                   string         {
         @doc value "is a human-readable name for the log."
     }
-    data record {
-        @doc value        """
-            is the log configuration including message formatting, filtering
-            rules, and display options.
-        """
-        @ts preserve_case
+    channels               ChannelEntry[] {
+        @doc value "are the channels displayed in this log, in order."
+    }
+    remote_created         bool           {
+        @doc value        "indicates whether the log was created on a remote client."
+        @validate default false
+    }
+    timestamp_precision    int32          {
+        @doc value        "is the precision of displayed timestamps (0-3)."
+        @validate default 0
+    }
+    show_channel_names     bool           {
+        @doc value        "controls whether channel names are displayed."
+        @validate default true
+    }
+    show_receipt_timestamp bool           {
+        @doc value        "controls whether the receipt timestamp column is displayed."
+        @validate default true
     }
 
     @doc value     """
@@ -53,5 +111,4 @@ New struct extends Log {
     @doc value    "contains parameters for creating a new log."
     @ts use_input
     @go omit
-    @pb omit
 }
