@@ -123,7 +123,7 @@ Strings are enclosed in double quotes. Escape sequences are supported.
 | `\\`   | backslash       |
 | `\"`   | double quote    |
 
-### Format String Literals
+### Format Strings
 
 Format strings are enclosed in backticks. They embed expressions inside `{...}`
 placeholders, with an optional format spec after `:`:
@@ -150,10 +150,11 @@ conventions and are validated against the placeholder type at compile time.
 A format spec has the form:
 
 ```
-[flags][width].[precision][verb]
+[flags][width][.precision][verb]
 ```
 
-Only the verb is required. Each bracketed part is described below.
+Only the verb is required. Each bracketed part is optional. If `precision` is given, the
+leading `.` must accompany it. Each part is described below.
 
 #### Verb
 
@@ -230,7 +231,7 @@ Flags, width, and precision compose in spec order:
 | `+f`     | `3.14`    | `+3.140000`    |
 | `6.2f`   | `3.14`    | `␣␣3.14`       |
 | `+08.2f` | `3.14`    | `+0003.14`     |
-| `#06x`   | `255`     | `0x00ff`       |
+| `#06x`   | `255`     | `0x0000ff`     |
 
 </Details>
 

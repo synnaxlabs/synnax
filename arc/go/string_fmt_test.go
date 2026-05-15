@@ -302,6 +302,55 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 		)
 	})
 
+	Describe("Documented Examples table (syntax.mdx)", func() {
+		runFmtExample := func(ctx SpecContext, declarations, body string) string {
+			resolver := channelSymbols(map[string]channelDef{
+				"trig": {types.U8(), 100},
+				"log":  {types.String(), 101},
+			})
+			src := `func f() {
+			    ` + declarations + `
+			    log = ` + body + `
+			}
+			trig -> f{}`
+			h := newRuntimeHarness(ctx, src, resolver,
+				channel.Digest{Key: 100, DataType: telem.Uint8T},
+				channel.Digest{Key: 101, DataType: telem.StringT},
+			)
+			defer h.Close(ctx)
+			h.Ingest(100, telem.NewSeriesV[uint8](1))
+			for i := 0; i < 5; i++ {
+				h.Tick(ctx, telem.Millisecond)
+				h.channelState.ClearReads()
+			}
+			out, _ := h.Flush()
+			return lastString(out, 101)
+		}
+		DescribeTable("each documented spec produces the documented output",
+			func(ctx SpecContext, declarations, body, expected string) {
+				Expect(runFmtExample(ctx, declarations, body)).To(Equal(expected))
+			},
+			Entry("#b alternate-form binary", "", "`{i32(5):#b}`", "0b101"),
+			Entry("#o alternate-form octal", "", "`{i32(8):#o}`", "010"),
+			Entry("#x alternate-form hex", "", "`{i32(255):#x}`", "0xff"),
+			Entry("X uppercase hex", "", "`{i32(255):X}`", "FF"),
+			Entry("E uppercase scientific", "", "`{f64(3.14):E}`", "3.140000E+00"),
+			Entry("G uppercase compact", "", "`{f64(3.14):G}`", "3.14"),
+			Entry("+d signed decimal", "", "`{i32(42):+d}`", "+42"),
+			Entry("space d leading space", "", "`{i32(42): d}`", " 42"),
+			Entry("5d width", "", "`{i32(42):5d}`", "   42"),
+			Entry("-5d left-aligned width", "", "`{i32(42):-5d}`", "42   "),
+			Entry("05d zero-padded width", "", "`{i32(42):05d}`", "00042"),
+			Entry("5s string width", `name := "ok"`, "`{name:5s}`", "   ok"),
+			Entry("-5s left-aligned string width", `name := "ok"`, "`{name:-5s}`", "ok   "),
+			Entry(".2f float precision", "", "`{f64(3.14159):.2f}`", "3.14"),
+			Entry("+f signed float", "", "`{f64(3.14):+f}`", "+3.140000"),
+			Entry("6.2f width and precision", "", "`{f64(3.14):6.2f}`", "  3.14"),
+			Entry("+08.2f sign zero-pad width precision", "", "`{f64(3.14):+08.2f}`", "+0003.14"),
+			Entry("#06x alternate-form zero-pad hex", "", "`{i32(255):#06x}`", "0x0000ff"),
+		)
+	})
+
 	Describe("Multiple placeholders and interleaved escapes", func() {
 		DescribeTable("multi-segment concat chains",
 			func(ctx SpecContext, source, expected string) {
