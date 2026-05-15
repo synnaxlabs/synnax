@@ -95,8 +95,6 @@ var _ = Describe("TS Actions Plugin", func() {
 						"export type SetValuePayload",
 						"export const incrementPayloadZ = z.object({",
 						"export type IncrementPayload",
-						"set_value: \"set_value\"",
-						"increment: \"increment\"",
 						"export const actionZ = z.discriminatedUnion(\"type\", [",
 						"z.literal(\"set_value\")",
 						"z.literal(\"increment\")",
