@@ -12,10 +12,7 @@ package arc_test
 import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"github.com/synnaxlabs/arc"
-	"github.com/synnaxlabs/arc/stl"
 	"github.com/synnaxlabs/arc/stl/channel"
-	"github.com/synnaxlabs/arc/symbol"
 	"github.com/synnaxlabs/arc/types"
 	"github.com/synnaxlabs/x/telem"
 )
@@ -80,21 +77,6 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 		}
 		out, _ := h.Flush()
 		return lastString(out, 101)
-	}
-
-	compileErrorResolver := func() symbol.CompoundResolver {
-		return symbol.CompoundResolver{
-			stl.SymbolResolver,
-			channelSymbols(map[string]channelDef{
-				"trig": {types.U8(), 100},
-				"log":  {types.String(), 101},
-				"vI32": {types.I32(), 102},
-				"vU32": {types.U32(), 103},
-				"vF32": {types.F32(), 104},
-				"vF64": {types.F64(), 105},
-				"vStr": {types.String(), 106},
-			}),
-		}
 	}
 
 	Describe("Literal raw strings (no placeholders)", func() {
@@ -458,73 +440,4 @@ var _ = Describe("backtick format-string end-to-end runtime", func() {
 		})
 	})
 
-	Describe("Compile-time diagnostics for invalid placeholder usage", func() {
-		DescribeTable("rejects invalid format spec on a string-typed placeholder",
-			func(ctx SpecContext, source, errSubstr string) {
-				program := `func f() {
-				    name := "probe"
-				    log = ` + source + `
-				}
-				trig -> f{}`
-				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
-					Error().To(MatchError(ContainSubstring(errSubstr)))
-			},
-			Entry("string with :d spec", "`{name:d}`", "invalid format spec"),
-			Entry("string with :.2f spec", "`{name:.2f}`", "invalid format spec"),
-		)
-
-		DescribeTable("rejects float-only specs on integer-typed placeholders",
-			func(ctx SpecContext, source, errSubstr string) {
-				program := `func f(val i32) {
-				    log = ` + source + `
-				}
-				vI32 -> f{}`
-				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
-					Error().To(MatchError(ContainSubstring(errSubstr)))
-			},
-			Entry("i32 with :f", "`{val:f}`", "invalid format spec"),
-			Entry("i32 with :.2f", "`{val:.2f}`", "invalid format spec"),
-			Entry("i32 with :e", "`{val:e}`", "invalid format spec"),
-			Entry("i32 with :g", "`{val:g}`", "invalid format spec"),
-		)
-
-		DescribeTable("rejects integer-only specs on float-typed placeholders",
-			func(ctx SpecContext, source, errSubstr string) {
-				program := `func f(val f32) {
-				    log = ` + source + `
-				}
-				vF32 -> f{}`
-				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
-					Error().To(MatchError(ContainSubstring(errSubstr)))
-			},
-			Entry("f32 with :d", "`{val:d}`", "invalid format spec"),
-			Entry("f32 with :o", "`{val:o}`", "invalid format spec"),
-		)
-
-		DescribeTable("rejects unsupported placeholder types",
-			func(ctx SpecContext, source, errSubstr string) {
-				program := `func f() {
-				    log = ` + source + `
-				}
-				trig -> f{}`
-				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
-					Error().To(MatchError(ContainSubstring(errSubstr)))
-			},
-			Entry("undefined identifier", "`{undeclared}`", "undeclared"),
-		)
-
-		DescribeTable("rejects malformed format-string bodies",
-			func(ctx SpecContext, source, errSubstr string) {
-				program := `func f() {
-				    log = ` + source + `
-				}
-				trig -> f{}`
-				Expect(arc.CompileText(ctx, arc.Text{Raw: program}, arc.WithResolver(compileErrorResolver()))).
-					Error().To(MatchError(ContainSubstring(errSubstr)))
-			},
-			Entry("unterminated placeholder", "`{x`", "unmatched"),
-			Entry("empty placeholder body", "`{}`", "must contain"),
-			Entry("empty spec after percent", "`{x:}`", "format spec"),
-		)
-	})
 })

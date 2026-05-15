@@ -10,7 +10,6 @@
 package literal
 
 import (
-	"fmt"
 	"regexp"
 	"slices"
 	"strings"
@@ -19,16 +18,20 @@ import (
 	"github.com/synnaxlabs/x/errors"
 )
 
-// FmtStrSegment is one piece of a parsed format string. Start, End are body
-// byte offsets (End exclusive). SpecOffset is the body offset of `%`, or -1
-// if no spec.
+// FmtStrSegment is one piece of a parsed format string.
 type FmtStrSegment struct {
-	Text          string
-	Spec          string
+	// Literal text, or for placeholders, the expression source.
+	Text string
+	// Optional format spec after `:` in a placeholder.
+	Spec string
+	// True if this segment was a `{...}` placeholder.
 	IsPlaceholder bool
-	Start         int
-	End           int
-	SpecOffset    int
+	// Start byte offset in the body.
+	Start int
+	// End byte offset in the body, exclusive.
+	End int
+	// Body byte offset of `:`, or -1 if no spec.
+	SpecOffset int
 }
 
 // FmtStrHasPlaceholder reports whether any segment is a placeholder.
@@ -38,8 +41,15 @@ func FmtStrHasPlaceholder(segs []FmtStrSegment) bool {
 
 // FmtStrStripDelimiters returns the inner body of a `...` raw string token,
 // or ok=false if text isn't well-formed. \` escapes are left verbatim.
-func FmtStrStripDelimiters(text string) (body string, ok bool) {
+func FmtStrStripDelimiters(text string) (string, bool) {
 	if len(text) < 2 || text[0] != '`' || text[len(text)-1] != '`' {
+		return "", false
+	}
+	backslashes := 0
+	for i := len(text) - 2; i > 0 && text[i] == '\\'; i-- {
+		backslashes++
+	}
+	if backslashes%2 == 1 {
 		return "", false
 	}
 	return text[1 : len(text)-1], true
@@ -69,10 +79,7 @@ func FmtStrParse(body string) ([]FmtStrSegment, error) {
 			return nil, err
 		}
 		expr := body[open+1 : close]
-		if expr == "" {
-			return nil, errors.New("placeholder '{}' must contain an expression")
-		}
-		exprPart, spec, err := FmtStrSplitSpec(expr)
+		exprPart, spec, err := splitSpec(expr)
 		if err != nil {
 			return nil, err
 		}
@@ -121,9 +128,8 @@ func findPlaceholderClose(body string, open int) (int, error) {
 	return 0, errors.New("unmatched '{'")
 }
 
-// FmtStrSplitSpec splits a placeholder body on the last `:`, yielding
-// (expr, spec).
-func FmtStrSplitSpec(body string) (expr, spec string, err error) {
+// splitSpec splits a placeholder body on the last `:`, yielding (expr, spec).
+func splitSpec(body string) (expr, spec string, err error) {
 	idx := strings.LastIndexByte(body, ':')
 	if idx < 0 {
 		return body, "", nil
@@ -139,33 +145,46 @@ func FmtStrSplitSpec(body string) (expr, spec string, err error) {
 	return expr, spec, nil
 }
 
-// blacklistedVerbs lists fmt verbs that Go's fmt accepts for our scalar types
-// but that we reject so they surface as invalid specs to the user. Reasons:
-//
-//	v: produces byte-identical output to the bare `{x}` form for every scalar
-//	   type Arc allows in a placeholder, so it is a redundant alias.
-//	T: leaks Go-runtime type names and duplicates type info already shown
-//	   on hover in the Arc editor.
-//	U: lacks a lowercase counterpart in Arc and has no current use case,
-//	   so we reserve it until a concrete need appears.
-const blacklistedVerbs = "vTU"
-
-// stringBlockedVerbs lists verbs Go accepts on string values that Arc rejects.
-// x/X dump bytes as hex and have no current use case on strings.
-const stringBlockedVerbs = "xX"
-
-// intBlockedVerbs lists verbs Go accepts on integer values that Arc rejects.
-// q renders an integer as a quoted Unicode character, which is unrelated to
-// the quoted-string meaning of q and has no current use case on integers.
-const intBlockedVerbs = "q"
-
 // specShape enforces the canonical anatomy [flags][width][.precision][verb].
-// Anything trailing the verb (e.g., "f.2") fails this check; Go's fmt would
-// otherwise treat it as literal text and silently accept the malformed spec.
 var specShape = regexp.MustCompile(`^[#+\- 0]*\d*(\.\d+)?[a-zA-Z]$`)
 
-// FmtStrValidateSpec probes fmt.Sprintf with a typed dummy and reports an
-// error if the spec is not a valid Go fmt verb for the given type.
+var (
+	stringKinds = []types.Kind{types.KindString}
+	intKinds    = []types.Kind{
+		types.KindI8, types.KindI16, types.KindI32, types.KindI64,
+		types.KindU8, types.KindU16, types.KindU32, types.KindU64,
+		types.KindIntegerConstant,
+	}
+	floatKinds = []types.Kind{
+		types.KindF32, types.KindF64,
+		types.KindFloatConstant, types.KindNumericConstant,
+		types.KindExactIntegerFloatConstant,
+	}
+	numericKinds     = slices.Concat(intKinds, floatKinds)
+	formattableKinds = slices.Concat(stringKinds, numericKinds)
+)
+
+// verbAllowedKinds maps each supported format verb to the type kinds it can
+// format. To add a verb later (e.g., a timestamp verb), add an entry here.
+var verbAllowedKinds = map[byte][]types.Kind{
+	's': stringKinds,
+	'q': stringKinds,
+	'b': intKinds,
+	'c': intKinds,
+	'd': intKinds,
+	'o': intKinds,
+	'O': intKinds,
+	'x': intKinds,
+	'X': intKinds,
+	'e': floatKinds,
+	'E': floatKinds,
+	'f': floatKinds,
+	'g': floatKinds,
+	'G': floatKinds,
+}
+
+// FmtStrValidateSpec reports an error if spec is not a supported verb for t,
+// or if t is not a formattable kind.
 func FmtStrValidateSpec(spec string, t types.Type) error {
 	if spec == "" {
 		return nil
@@ -176,30 +195,14 @@ func FmtStrValidateSpec(spec string, t types.Type) error {
 		}
 		return FmtStrValidateSpec(spec, *t.Constraint)
 	}
-	var dummy any
-	var isInt bool
-	switch t.Kind {
-	case types.KindString:
-		dummy = ""
-	case types.KindI8, types.KindI16, types.KindI32, types.KindI64,
-		types.KindIntegerConstant:
-		dummy = int64(0)
-		isInt = true
-	case types.KindU8, types.KindU16, types.KindU32, types.KindU64:
-		dummy = uint64(0)
-		isInt = true
-	case types.KindF32, types.KindF64,
-		types.KindFloatConstant, types.KindNumericConstant,
-		types.KindExactIntegerFloatConstant:
-		dummy = float64(0)
-	default:
+	if !slices.Contains(formattableKinds, t.Kind) {
 		return errors.Newf("cannot format type %s", t)
 	}
-	if !specShape.MatchString(spec) ||
-		strings.ContainsAny(spec, blacklistedVerbs) ||
-		(t.Kind == types.KindString && strings.ContainsAny(spec, stringBlockedVerbs)) ||
-		(isInt && strings.ContainsAny(spec, intBlockedVerbs)) ||
-		strings.Contains(fmt.Sprintf("%"+spec, dummy), "%!") {
+	if !specShape.MatchString(spec) {
+		return errors.Newf("invalid format spec %q for type %s", spec, t)
+	}
+	allowed, ok := verbAllowedKinds[spec[len(spec)-1]]
+	if !ok || !slices.Contains(allowed, t.Kind) {
 		return errors.Newf("invalid format spec %q for type %s", spec, t)
 	}
 	return nil

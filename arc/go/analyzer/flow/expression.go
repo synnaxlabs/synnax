@@ -39,9 +39,9 @@ func AnalyzeSingleExpression(ctx acontext.Context[parser.IExpressionContext]) {
 						"invalid raw string literal: %s", rawStr.GetText()))
 					return
 				}
-				segs, perr := literal.FmtStrParse(body)
-				if perr != nil {
-					ctx.Diagnostics.Add(diagnostics.Error(perr, ctx.AST))
+				segs, err := literal.FmtStrParse(body)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 					return
 				}
 				if literal.FmtStrHasPlaceholder(segs) {

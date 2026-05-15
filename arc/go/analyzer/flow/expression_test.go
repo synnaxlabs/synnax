@@ -283,6 +283,38 @@ var _ = Describe("AnalyzeSingleExpression", func() {
 			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("unmatched"))
 		})
 
+		It("should report invalid raw string when closer is part of an escape", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("`hello\\`"))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("invalid raw string literal"))
+		})
+
+		It("should report empty placeholder", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("`pre {} post`"))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("must contain an expression"))
+		})
+
+		It("should report undefined identifier in placeholder", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("`x={unknown_ch}`"))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("undefined symbol"))
+		})
+
+		It("should report invalid format spec for placeholder type", func(bCtx SpecContext) {
+			expr := MustSucceed(parser.ParseExpression("`x={ox_pt_1:s}`"))
+			ctx := context.CreateRoot(bCtx, expr, testResolver)
+			flow.AnalyzeSingleExpression(ctx)
+			Expect(ctx.Diagnostics.Ok()).To(BeFalse())
+			Expect((*ctx.Diagnostics)[0].Message).To(ContainSubstring("invalid format spec"))
+		})
+
 	})
 
 	Describe("Error Cases", func() {

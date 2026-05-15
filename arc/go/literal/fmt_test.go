@@ -189,6 +189,16 @@ var _ = Describe("Parse", func() {
 			[]literal.FmtStrSegment{
 				{Text: "foo}bar", Start: 0, End: 7, SpecOffset: -1},
 			}),
+		Entry("empty placeholder", "{}",
+			[]literal.FmtStrSegment{
+				{Text: "", IsPlaceholder: true, Start: 0, End: 2, SpecOffset: -1},
+			}),
+		Entry("empty placeholder surrounded by text", "pre {} post",
+			[]literal.FmtStrSegment{
+				{Text: "pre ", Start: 0, End: 4, SpecOffset: -1},
+				{Text: "", IsPlaceholder: true, Start: 4, End: 6, SpecOffset: -1},
+				{Text: " post", Start: 6, End: 11, SpecOffset: -1},
+			}),
 	)
 
 	DescribeTable("error cases",
@@ -204,10 +214,6 @@ var _ = Describe("Parse", func() {
 		Entry("two opening braces in a row", "{{", "unmatched '{'"),
 		Entry("opening brace at end of literal", "literal {",
 			"unmatched '{'"),
-		Entry("empty placeholder", "{}",
-			"placeholder '{}' must contain an expression"),
-		Entry("empty placeholder surrounded by text", "pre {} post",
-			"placeholder '{}' must contain an expression"),
 		Entry("placeholder starting with format spec", "{:.2f}",
 			"expression before ':'"),
 		Entry("placeholder with empty spec after colon", "{x:}",
@@ -227,6 +233,9 @@ var _ = Describe("StripDelimiters", func() {
 		Entry("body with placeholder", "`{x}`", "{x}"),
 		Entry("body with embedded newline", "`a\nb`", "a\nb"),
 		Entry("body with escaped backtick", "`a\\`b`", "a\\`b"),
+		Entry("body ending with escaped backtick", "`a\\``", "a\\`"),
+		Entry("body ending with two backslashes", "`a\\\\`", "a\\\\"),
+		Entry("body ending with four backslashes", "`a\\\\\\\\`", "a\\\\\\\\"),
 	)
 
 	DescribeTable("rejects malformed delimiters",
@@ -241,32 +250,8 @@ var _ = Describe("StripDelimiters", func() {
 		Entry("missing trailing backtick", "`hi"),
 		Entry("double-quoted string", `"hi"`),
 		Entry("plain text no delimiters", "hello"),
-	)
-})
-
-var _ = Describe("SplitSpec", func() {
-	DescribeTable("valid splits",
-		func(body, expectedExpr, expectedSpec string) {
-			expr, spec := MustSucceed2(literal.FmtStrSplitSpec(body))
-			Expect(expr).To(Equal(expectedExpr))
-			Expect(spec).To(Equal(expectedSpec))
-		},
-		Entry("no colon", "x", "x", ""),
-		Entry("identifier with float spec", "x:.2f", "x", ".2f"),
-		Entry("identifier with integer spec", "n:d", "n", "d"),
-		Entry("identifier with padded spec", "n:05d", "n", "05d"),
-		Entry("multiple colons picks rightmost",
-			"a:b:c", "a:b", "c"),
-	)
-
-	DescribeTable("error cases",
-		func(body, errSubstr string) {
-			Expect(literal.FmtStrSplitSpec(body)).Error().To(MatchError(ContainSubstring(errSubstr)))
-		},
-		Entry("lone colon", ":", "expression before ':'"),
-		Entry("colon then spec only", ":d", "expression before ':'"),
-		Entry("expr with bare trailing colon", "x:",
-			"format spec after ':' is empty"),
+		Entry("trailing backtick escaped by single backslash", "`hello\\`"),
+		Entry("trailing backtick escaped by triple backslash", "`a\\\\\\`"),
 	)
 })
 
@@ -305,7 +290,7 @@ var _ = Describe("ValidateSpec", func() {
 		Expect(literal.FmtStrValidateSpec(spec, t)).To(Succeed())
 	})
 	// Integer verbs across every integer type.
-	for _, verb := range []string{"d", "b", "o", "x", "X", "c"} {
+	for _, verb := range []string{"d", "b", "o", "O", "x", "X", "c"} {
 		for _, it := range intTypes {
 			validArgs = append(validArgs, Entry(verb+" on "+it.name, verb, it.t))
 		}
@@ -314,14 +299,6 @@ var _ = Describe("ValidateSpec", func() {
 	for _, verb := range []string{"f", "e", "E", "g", "G"} {
 		for _, ft := range floatTypes {
 			validArgs = append(validArgs, Entry(verb+" on "+ft.name, verb, ft.t))
-		}
-	}
-	// Go's fmt accepts x and b on floats (hex/binary scientific form); pin so a
-	// future validator change cannot regress.
-	for _, verb := range []string{"x", "b"} {
-		for _, ft := range floatTypes {
-			validArgs = append(validArgs,
-				Entry(verb+" on "+ft.name+" (Go-fmt cross-type)", verb, ft.t))
 		}
 	}
 	// String verbs.
@@ -347,20 +324,15 @@ var _ = Describe("ValidateSpec", func() {
 
 	var invalidArgs []any
 	invalidArgs = append(invalidArgs, func(spec string, t types.Type, errSubstr string) {
-		err := literal.FmtStrValidateSpec(spec, t)
-		Expect(err).To(MatchError(ContainSubstring(errSubstr)))
+		Expect(literal.FmtStrValidateSpec(spec, t)).
+			To(MatchError(ContainSubstring(errSubstr)))
 	})
 	// Integer-only verbs rejected on every non-integer type.
-	for _, verb := range []string{"d", "o", "c"} {
+	for _, verb := range []string{"d", "o", "O", "c", "b", "x", "X"} {
 		for _, nt := range nonIntTypes {
 			invalidArgs = append(invalidArgs,
 				Entry(verb+" on "+nt.name, verb, nt.t, "invalid format spec"))
 		}
-	}
-	// b, x, X are valid on int and float, but rejected on string (x/X blocked).
-	for _, verb := range []string{"b", "x", "X"} {
-		invalidArgs = append(invalidArgs,
-			Entry(verb+" on "+stringType.name, verb, stringType.t, "invalid format spec"))
 	}
 	// Float verbs rejected on every non-float type.
 	for _, verb := range []string{"f", "e", "E", "g", "G"} {
@@ -407,17 +379,17 @@ var _ = Describe("ValidateSpec", func() {
 
 	It("rejects a spec invalid for the variable's constraint", func() {
 		stringConstraint := types.String()
-		err := literal.FmtStrValidateSpec(".2f", types.Variable("T", &stringConstraint))
-		Expect(err).To(MatchError(ContainSubstring("invalid format spec")))
+		Expect(literal.FmtStrValidateSpec(".2f", types.Variable("T", &stringConstraint))).
+			To(MatchError(ContainSubstring("invalid format spec")))
 	})
 
 	It("errors on an unconstrained type variable", func() {
-		err := literal.FmtStrValidateSpec("d", types.Variable("T", nil))
-		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
+		Expect(literal.FmtStrValidateSpec("d", types.Variable("T", nil))).
+			To(MatchError(ContainSubstring("cannot format type")))
 	})
 
 	It("errors on a non-formattable type kind", func() {
-		err := literal.FmtStrValidateSpec("d", types.Chan(types.I32()))
-		Expect(err).To(MatchError(ContainSubstring("cannot format type")))
+		Expect(literal.FmtStrValidateSpec("d", types.Chan(types.I32()))).
+			To(MatchError(ContainSubstring("cannot format type")))
 	})
 })

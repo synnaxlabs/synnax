@@ -509,9 +509,13 @@ func analyzeExpression(
 					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
 					return nodeResult{}, false
 				}
-				body, _ := parsedValue.Value.(string)
-				segments, perr := literal.FmtStrParse(body)
-				if perr == nil && literal.FmtStrHasPlaceholder(segments) {
+				body := parsedValue.Value.(string)
+				segments, err := literal.FmtStrParse(body)
+				if err != nil {
+					ctx.Diagnostics.Add(diagnostics.Error(err, ctx.AST))
+					return nodeResult{}, false
+				}
+				if literal.FmtStrHasPlaceholder(segments) {
 					key := kg.generate("fmt", "")
 					synthKey := compiler.FmtStrSyntheticPrefix + key
 					*kg.synthFuncs = append(*kg.synthFuncs, ir.Function{

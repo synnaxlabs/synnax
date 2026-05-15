@@ -2518,6 +2518,19 @@ var _ = Describe("Text", func() {
 					"unexpected fmt$ synthetic %q for placeholder-free literal", f.Key)
 			}
 		})
+
+		It("Surfaces analyzer diagnostics for an invalid format spec at this layer", func(ctx SpecContext) {
+			resolver := symbol.MapResolver{
+				"sensor": {Name: "sensor", Kind: symbol.KindChannel, Type: types.Chan(types.F32()), ID: 100},
+				"log":    {Name: "log", Kind: symbol.KindChannel, Type: types.Chan(types.String()), ID: 101},
+			}
+			source := "sensor -> `v={sensor:d}` -> log"
+			parsedText := MustSucceed(text.Parse(text.Text{Raw: source}))
+			_, diagnostics := text.Analyze(ctx, parsedText, resolver)
+			Expect(diagnostics.Ok()).To(BeFalse(),
+				"expected an analyzer diagnostic for :d on a float channel")
+			Expect(diagnostics.String()).To(ContainSubstring("invalid format spec"))
+		})
 	})
 
 	Describe("Unit Dimensional Analysis", func() {

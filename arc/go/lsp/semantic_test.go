@@ -25,7 +25,6 @@ import (
 // Tests in this file pin both the legend ordering and the token-type routing
 // for STR_LITERAL vs STR_LITERAL_RAW to those ids.
 const (
-	tokenTypeVariable          = uint32(3)
 	tokenTypeOperator          = uint32(2)
 	tokenTypeString            = uint32(4)
 	tokenTypeNumber            = uint32(5)

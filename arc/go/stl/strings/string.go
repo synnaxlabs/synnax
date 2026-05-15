@@ -105,9 +105,6 @@ func registerFormat[T any](
 }
 
 func formatWithSpec(memory api.Memory, ptr, length uint32, value any) string {
-	if memory == nil {
-		return ""
-	}
 	spec, ok := memory.Read(ptr, length)
 	if !ok {
 		return ""
@@ -213,7 +210,10 @@ func NewModule(
 	builder = registerFormat(builder, m, "format_f64", func(v float64) any { return v })
 	builder = builder.NewFunctionBuilder().
 		WithFunc(func(_ context.Context, handle, ptr, length uint32) uint32 {
-			str, _ := s.Get(handle)
+			str, ok := s.Get(handle)
+			if !ok {
+				return 0
+			}
 			return s.Create(formatWithSpec(m.memory, ptr, length, str))
 		}).Export("format_string")
 	if _, err := builder.Instantiate(ctx); err != nil {

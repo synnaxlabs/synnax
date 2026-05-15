@@ -209,14 +209,6 @@ trig -> f{}`
 			Entry("float literal :.2f", "`{3.14:.2f}`"),
 		)
 
-		// Go's fmt accepts %x and %b on float64; pin so a future validator change cannot regress.
-		DescribeTable("accepts Go-fmt-valid integer-shaped specs on floats",
-			func(specCtx SpecContext, body string) {
-				expectSuccess(specCtx, wrap(`    log = `+body))
-			},
-			Entry("f64 channel :x (hex float form)", "`{chF64:x}`"),
-			Entry("f64 channel :b (binary scientific form)", "`{chF64:b}`"),
-		)
 	})
 
 	Describe("Multiple ':' in placeholder (last ':' is the spec separator)", func() {

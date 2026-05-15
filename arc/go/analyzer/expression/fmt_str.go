@@ -63,6 +63,11 @@ func AnalyzeFmtStrSegments[T antlr.ParserRuleContext](
 		emit := func(d diagnostics.Diagnostic) {
 			ctx.Diagnostics.Add(d.WithRange(segStart, segEnd))
 		}
+		if seg.Text == "" {
+			emit(diagnostics.Errorf(anchor,
+				"placeholder '{}' must contain an expression"))
+			continue
+		}
 		expr, diags := parser.ParseExpression(seg.Text)
 		if diags != nil && !diags.Ok() {
 			emit(diagnostics.Errorf(anchor,

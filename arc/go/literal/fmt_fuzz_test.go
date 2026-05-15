@@ -59,7 +59,7 @@ var fuzzTypes = []fuzzType{
 // flag/width/precision/verb combinations and known malformed shapes.
 func FuzzValidateSpec(f *testing.F) {
 	seeds := []string{
-		"", "d", "x", "X", "b", "o", "c", "f", "e", "E", "g", "G", "s", "q",
+		"", "d", "x", "X", "b", "o", "O", "c", "f", "e", "E", "g", "G", "s", "q",
 		"v", "T", "U", "z",
 		"+d", "-d", "#x", "#b", "#o", " d", "0d",
 		"5d", "05d", "+05d", "-5d", "-5s", "5s", "20s", "-20q",

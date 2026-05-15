@@ -43,8 +43,7 @@ func compileRawStringLiteral(
 	if err != nil {
 		return types.Type{}, err
 	}
-	body, _ := parsed.Value.(string)
-	segments, err := literal.FmtStrParse(body)
+	segments, err := literal.FmtStrParse(parsed.Value.(string))
 	if err != nil {
 		return types.Type{}, err
 	}

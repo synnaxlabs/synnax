@@ -284,26 +284,6 @@ var _ = Describe("Strings", func() {
 			Entry("format_f32 with OOB spec", "format_f32", testutil.F32(3.14)),
 			Entry("format_f64 with OOB spec", "format_f64", testutil.F64(3.14)),
 		)
-
-		DescribeTable("Should return a handle to an empty string when memory is nil",
-			func(ctx SpecContext, fn string, value uint64) {
-				rt2 := testutil.NewRuntime(ctx)
-				defer func() { Expect(rt2.Close(ctx)).To(Succeed()) }()
-				ss2 := strings.NewProgramState()
-				MustSucceed(strings.NewModule(ctx, ss2, rt2.Underlying(), nil))
-				rt2.Passthrough(ctx, "string")
-				res := rt2.Call(ctx, "string", fn, value, testutil.U32(0), testutil.U32(3))
-				h := testutil.AsU32(res[0])
-				Expect(h).ToNot(BeZero())
-				Expect(MustBeOk(ss2.Get(h))).To(BeEmpty())
-			},
-			Entry("format_i32 with nil memory", "format_i32", testutil.I32(42)),
-			Entry("format_u32 with nil memory", "format_u32", testutil.U32(42)),
-			Entry("format_i64 with nil memory", "format_i64", testutil.I64(42)),
-			Entry("format_u64 with nil memory", "format_u64", testutil.U64(42)),
-			Entry("format_f32 with nil memory", "format_f32", testutil.F32(3.14)),
-			Entry("format_f64 with nil memory", "format_f64", testutil.F64(3.14)),
-		)
 	})
 
 	Describe("format_string", func() {
@@ -319,10 +299,10 @@ var _ = Describe("Strings", func() {
 			Expect(MustBeOk(ss.Get(rh))).To(Equal("   hi"))
 		})
 
-		It("Should format an unknown handle as the empty-string spec result", func(ctx SpecContext) {
+		It("Should return 0 for an unknown handle", func(ctx SpecContext) {
 			ptr, length := writeSpec("q")
 			rh := callU32(ctx, "format_string", testutil.U32(9999), testutil.U32(ptr), testutil.U32(length))
-			Expect(MustBeOk(ss.Get(rh))).To(Equal(`""`))
+			Expect(rh).To(BeZero())
 		})
 
 		It("Should return a handle to an empty string when the spec read is out-of-bounds", func(ctx SpecContext) {
