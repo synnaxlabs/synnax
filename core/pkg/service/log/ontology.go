@@ -26,13 +26,13 @@ import (
 )
 
 // OntologyID returns unique identifier for the log within the ontology.
-func OntologyID(k uuid.UUID) ontology.ID {
+func OntologyID(k Key) ontology.ID {
 	return ontology.ID{Type: ontology.ResourceTypeLog, Key: k.String()}
 }
 
 // OntologyIDs returns unique identifiers for the logs within the ontology.
-func OntologyIDs(keys []uuid.UUID) []ontology.ID {
-	return lo.Map(keys, func(key uuid.UUID, _ int) ontology.ID {
+func OntologyIDs(keys []Key) []ontology.ID {
+	return lo.Map(keys, func(key Key, _ int) ontology.ID {
 		return OntologyID(key)
 	})
 }
@@ -48,7 +48,7 @@ func newResource(l Log) ontology.Resource {
 	return ontology.NewResource(schema, OntologyID(l.Key), l.Name, l)
 }
 
-type change = xchange.Change[uuid.UUID, Log]
+type change = xchange.Change[Key, Log]
 
 var (
 	_ ontology.Service = (*Service)(nil)
@@ -83,7 +83,7 @@ func translateChange(c change) ontology.Change {
 
 // OnChange implements ontology.Service.
 func (s *Service) OnChange(f func(context.Context, iter.Seq[ontology.Change])) observe.Disconnect {
-	handleChange := func(ctx context.Context, reader gorp.TxReader[uuid.UUID, Log]) {
+	handleChange := func(ctx context.Context, reader gorp.TxReader[Key, Log]) {
 		f(ctx, xiter.Map(reader, translateChange))
 	}
 	return s.table.Observe().OnChange(handleChange)

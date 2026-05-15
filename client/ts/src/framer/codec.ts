@@ -7,23 +7,27 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { binary } from "@synnaxlabs/x/binary";
-import { telem } from "@synnaxlabs/x/telem";
 import { type WebsocketMessage } from "@synnaxlabs/freighter";
-
+import {
+  binary,
+  DataType,
+  type SeriesPayload,
+  TimeRange,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { type z } from "zod";
 
 import { type channel } from "@/channel";
 import { ValidationError } from "@/errors";
 import { type Frame, type Payload } from "@/framer/frame";
 import { type StreamerResponse } from "@/framer/streamer";
-import { WriterCommand } from "@/framer/types.gen";
+import { IteratorResponseVariant, WriterCommand } from "@/framer/types.gen";
 import { type WriteRequest } from "@/framer/writer";
 
-const seriesPldLength = (series: telem.SeriesPayload): number =>
+const seriesPldLength = (series: SeriesPayload): number =>
   series.data.byteLength / series.dataType.density.valueOf();
 
-interface KeyedSeries extends telem.SeriesPayload {
+interface KeyedSeries extends SeriesPayload {
   key: number;
 }
 
@@ -45,7 +49,7 @@ const EQUAL_TIME_RANGES_FLAG_POS = 2;
 const TIME_RANGES_ZERO_FLAG_POS = 1;
 const ALL_CHANNELS_PRESENT_FLAG_POS = 0;
 
-const TIMESTAMP_SIZE = telem.DataType.TIMESTAMP.density.valueOf();
+const TIMESTAMP_SIZE = DataType.TIMESTAMP.density.valueOf();
 const ALIGNMENT_SIZE = 8;
 const DATA_LENGTH_SIZE = 4;
 const KEY_SIZE = 4;
@@ -54,21 +58,21 @@ const FLAGS_SIZE = 1;
 
 interface CodecState {
   keys: channel.Key[];
-  keyDataTypes: Map<channel.Key, telem.DataType>;
+  keyDataTypes: Map<channel.Key, DataType>;
   hasVariableDataTypes: boolean;
 }
 
 export class Codec {
-  contentType: string = "application/sy-framer";
+  contentType: string = CONTENT_TYPE;
   private states: Map<number, CodecState> = new Map();
   private currState: CodecState | undefined;
   private seqNum: number = 0;
 
-  constructor(keys: channel.Key[] = [], dataTypes: telem.DataType[] = []) {
+  constructor(keys: channel.Key[] = [], dataTypes: DataType[] = []) {
     if (keys.length > 0 || dataTypes.length > 0) this.update(keys, dataTypes);
   }
 
-  update(keys: channel.Key[], dataTypes: telem.DataType[]): void {
+  update(keys: channel.Key[], dataTypes: DataType[]): void {
     this.seqNum++;
     const state = {
       keys,
@@ -100,8 +104,8 @@ export class Codec {
       src = (payload as Frame).toPayload();
     sortFramePayloadByKey(src);
     let currDataSize = -1;
-    let startTime: telem.TimeStamp | undefined;
-    let endTime: telem.TimeStamp | undefined;
+    let startTime: TimeStamp | undefined;
+    let endTime: TimeStamp | undefined;
     let currAlignment: bigint | undefined;
     let byteArraySize = startOffset + FLAGS_SIZE + SEQ_NUM_SIZE;
     let equalLengthsFlag = !this.currState?.hasVariableDataTypes;
@@ -227,8 +231,8 @@ export class Codec {
     let index = offset;
     let sizeRepresentation = 0;
     let currSize = 0;
-    let startTime: telem.TimeStamp | undefined;
-    let endTime: telem.TimeStamp | undefined;
+    let startTime: TimeStamp | undefined;
+    let endTime: TimeStamp | undefined;
     let currAlignment: bigint | undefined;
 
     const view = new DataView(src.buffer, src.byteOffset, src.byteLength);
@@ -253,9 +257,9 @@ export class Codec {
 
     if (equalTimeRangesFlag && !timeRangesZeroFlag) {
       if (index + TIMESTAMP_SIZE > view.byteLength) return returnFrame;
-      startTime = new telem.TimeStamp(view.getBigUint64(index, true));
+      startTime = new TimeStamp(view.getBigUint64(index, true));
       index += TIMESTAMP_SIZE;
-      endTime = new telem.TimeStamp(view.getBigUint64(index, true));
+      endTime = new TimeStamp(view.getBigUint64(index, true));
       index += TIMESTAMP_SIZE;
     }
 
@@ -265,50 +269,40 @@ export class Codec {
       index += ALIGNMENT_SIZE;
     }
 
-    if (channelFlag) returnFrame.keys = [...state.keys];
-    state.keys.forEach((k, i) => {
-      if (!channelFlag) {
-        if (index >= view.byteLength) return;
-        const frameKey = view.getUint32(index, true);
-        if (frameKey !== k) return;
-        index += KEY_SIZE;
-        returnFrame.keys.push(k);
-      }
-      const dataType = state.keyDataTypes.get(k) as telem.DataType;
+    const decodeSeries = (k: channel.Key): boolean => {
+      const dataType = state.keyDataTypes.get(k);
+      if (dataType == null) return false;
       currSize = 0;
       if (!sizeFlag) {
-        if (index + DATA_LENGTH_SIZE > view.byteLength) return;
+        if (index + DATA_LENGTH_SIZE > view.byteLength) return false;
         currSize = view.getUint32(index, true);
         index += DATA_LENGTH_SIZE;
       } else currSize = sizeRepresentation;
 
       let dataByteLength = currSize;
       if (!dataType.isVariable) dataByteLength *= dataType.density.valueOf();
-      if (index + dataByteLength > view.byteLength) {
-        returnFrame.keys.splice(i, 1);
-        return;
-      }
-      const currSeries: telem.SeriesPayload = {
+      if (index + dataByteLength > view.byteLength) return false;
+      const currSeries: SeriesPayload = {
         dataType,
         data: src.slice(index, index + dataByteLength).buffer,
       };
       index += dataByteLength;
       if (!equalTimeRangesFlag && !timeRangesZeroFlag) {
-        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return;
+        if (index + TIMESTAMP_SIZE * 2 > view.byteLength) return false;
         const start = view.getBigUint64(index, true);
         index += TIMESTAMP_SIZE;
         const end = view.getBigUint64(index, true);
         index += TIMESTAMP_SIZE;
-        currSeries.timeRange = new telem.TimeRange({ start, end });
+        currSeries.timeRange = new TimeRange({ start, end });
       } else if (!timeRangesZeroFlag)
-        currSeries.timeRange = new telem.TimeRange({
+        currSeries.timeRange = new TimeRange({
           start: startTime?.valueOf() ?? 0n,
           end: endTime?.valueOf() ?? 0n,
         });
-      else currSeries.timeRange = new telem.TimeRange({ start: 0n, end: 0n });
+      else currSeries.timeRange = new TimeRange({ start: 0n, end: 0n });
 
       if (!equalAlignmentsFlag && !zeroAlignmentsFlag) {
-        if (index + ALIGNMENT_SIZE > view.byteLength) return;
+        if (index + ALIGNMENT_SIZE > view.byteLength) return false;
         currAlignment = view.getBigUint64(index, true);
         index += ALIGNMENT_SIZE;
         currSeries.alignment = currAlignment;
@@ -316,16 +310,27 @@ export class Codec {
       else currSeries.alignment = 0n;
 
       returnFrame.series.push(currSeries);
-    });
+      returnFrame.keys.push(k);
+      return true;
+    };
+
+    if (channelFlag) state.keys.forEach((k) => decodeSeries(k));
+    else
+      while (index < view.byteLength) {
+        if (index + KEY_SIZE > view.byteLength) break;
+        const frameKey = view.getUint32(index, true);
+        index += KEY_SIZE;
+        if (!decodeSeries(frameKey)) break;
+      }
     return returnFrame;
   }
 }
 
-export const LOW_PER_SPECIAL_CHAR = 254;
-const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PER_SPECIAL_CHAR]);
+export const LOW_PERF_SPECIAL_CHAR = 254;
+const LOW_PERF_SPECIAL_CHAR_BUF = new Uint8Array([LOW_PERF_SPECIAL_CHAR]);
 export const HIGH_PERF_SPECIAL_CHAR = 255;
 const HIGH_PERF_SPECIAL_CHAR_BUF = new Uint8Array([HIGH_PERF_SPECIAL_CHAR]);
-const CONTENT_TYPE = "application/sy-framer";
+const CONTENT_TYPE = "application/vnd.synnax.frame";
 
 export class WSWriterCodec implements binary.Codec {
   contentType = CONTENT_TYPE;
@@ -354,7 +359,7 @@ export class WSWriterCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<WriteRequest> = { type: "data" };
     const frame = this.base.decode(data, 1);
@@ -380,11 +385,43 @@ export class WSStreamerCodec implements binary.Codec {
   decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
     const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
     const codec = dv.getUint8(0);
-    if (codec === LOW_PER_SPECIAL_CHAR)
+    if (codec === LOW_PERF_SPECIAL_CHAR)
       return this.lowPerfCodec.decode(data.slice(1), schema);
     const v: WebsocketMessage<StreamerResponse> = {
       type: "data",
       payload: { frame: this.base.decode(data, 1) },
+    };
+    return v as z.infer<P>;
+  }
+}
+
+export class WSIteratorCodec implements binary.Codec {
+  contentType = CONTENT_TYPE;
+  private base: Codec;
+  private lowPerfCodec: binary.Codec;
+
+  constructor(base: Codec) {
+    this.base = base;
+    this.lowPerfCodec = binary.JSON_CODEC;
+  }
+
+  encode(payload: unknown): Uint8Array<ArrayBuffer> {
+    return this.lowPerfCodec.encode(payload);
+  }
+
+  decode<P extends z.ZodType>(data: Uint8Array | ArrayBuffer, schema?: P): z.infer<P> {
+    const dv = new DataView(data instanceof Uint8Array ? data.buffer : data);
+    const codec = dv.getUint8(0);
+    if (codec === LOW_PERF_SPECIAL_CHAR)
+      return this.lowPerfCodec.decode(data.slice(1), schema);
+    const v: WebsocketMessage<unknown> = {
+      type: "data",
+      payload: {
+        variant: IteratorResponseVariant.Data,
+        ack: false,
+        command: 0,
+        frame: this.base.decode(data, 1),
+      },
     };
     return v as z.infer<P>;
   }

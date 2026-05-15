@@ -96,6 +96,36 @@ describe("errors", () => {
       const decoded = errors.decode(encoded);
       expect(errors.Unknown.matches(decoded)).toBe(true);
     });
+
+    it("should preserve name and stack across encode/decode for a generic Error", () => {
+      const error = new TypeError("boom");
+      const encoded = errors.encode(error);
+      expect(encoded.name).toEqual("TypeError");
+      expect(encoded.stack).toEqual(error.stack);
+      const decoded = errors.decode(encoded);
+      expect((decoded as Error).name).toEqual("TypeError");
+      expect((decoded as Error).stack).toEqual(error.stack);
+    });
+
+    it("should preserve name and stack when a typed error round-trips through a provider", () => {
+      errors.register({
+        encode: myCustomErrorEncoder,
+        decode: myCustomErrorDecoder,
+      });
+      const error = new ErrorOne("boom");
+      const encoded = errors.encode(error);
+      expect(encoded.name).toEqual(ErrorOne.TYPE);
+      expect(encoded.stack).toEqual(error.stack);
+      const decoded = errors.decode(encoded);
+      expect(ErrorOne.matches(decoded)).toBe(true);
+      expect((decoded as Error).stack).toEqual(error.stack);
+    });
+
+    it("should leave the decoded error untouched when the payload omits name and stack", () => {
+      const decoded = errors.decode({ type: errors.UNKNOWN, data: "no native fields" });
+      expect(decoded).toBeInstanceOf(Error);
+      expect((decoded as Error).message).toEqual("no native fields");
+    });
   });
 
   describe("matches", () => {

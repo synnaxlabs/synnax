@@ -9,7 +9,7 @@
 
 import { context } from "@synnaxlabs/charon/context";
 
-import { type ContextMenuRenderer, type Renderer } from "@/layout/slice";
+import { type ContextMenuRenderer, type Renderer, type UseName } from "@/layout/slice";
 
 export interface Renderers extends Record<string, Renderer> {}
 
@@ -25,8 +25,8 @@ export const useRenderer = (type: string): Renderer => {
   return r;
 };
 
-export const useOptionalRenderer = (type: string): Renderer | null =>
-  useRendererContext()[type] ?? null;
+export const useNameHook = (type: string): UseName | undefined =>
+  useRendererContext()[type]?.useName;
 
 export interface ContextMenus extends Record<string, ContextMenuRenderer> {}
 

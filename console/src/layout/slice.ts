@@ -7,21 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { direction } from "@synnaxlabs/x/direction";
-import { id } from "@synnaxlabs/x/id";
-import { location } from "@synnaxlabs/x/location";
 import {
   createSlice,
   type Dispatch,
   type PayloadAction,
   type UnknownAction,
 } from "@reduxjs/toolkit";
-import type { Haul } from "@synnaxlabs/charon/haul";
+import { UnexpectedError } from "@synnaxlabs/client";
 import { MAIN_WINDOW } from "@synnaxlabs/drift";
-import type { Tabs } from "@synnaxlabs/charon/tabs";
-import { type Color, Mosaic } from "@synnaxlabs/pluto";
-
+import { type Color, type Haul, Mosaic, type Tabs } from "@synnaxlabs/pluto";
+import { type deep, type direction, id, type location } from "@synnaxlabs/x";
 import { type ComponentType } from "react";
 
 import * as latest from "@/layout/types";
@@ -54,7 +49,7 @@ export interface StoreState {
   [SLICE_NAME]: SliceState;
 }
 
-export const PERSIST_EXCLUDE = ["hauling", "alreadyCheckedGetStarted", "themes"].map(
+export const PERSIST_EXCLUDE = ["hauling", "themes"].map(
   (key) => `${SLICE_NAME}.${key}`,
 ) as Array<deep.Key<RootState>>;
 
@@ -131,8 +126,8 @@ export interface SetWorkspacePayload {
   slice: SliceState;
 }
 
-interface SetNavDrawerVisiblePayload {
-  windowKey: string;
+export interface SetNavDrawerVisiblePayload {
+  windowKey?: string;
   key?: string;
   location?: NavDrawerLocation;
   value?: boolean;
@@ -162,8 +157,6 @@ interface SetArgsPayload<T = unknown> {
 export interface SetColorContextPayload {
   state: Color.ContextState;
 }
-
-export const GET_STARTED_TYPE = "getStarted";
 
 const purgeEmptyMosaics = (state: SliceState) => {
   Object.entries(state.mosaics).forEach(([key, mosaic]) => {
@@ -393,6 +386,11 @@ export const { actions, reducer } = createSlice({
         payload: { windowKey, key, location, value },
       }: PayloadAction<SetNavDrawerVisiblePayload>,
     ) => {
+      if (windowKey == null)
+        throw new UnexpectedError(
+          "setNavDrawerVisible requires a windowKey; the layout middleware should " +
+            "have injected one from drift state",
+        );
       let navState = state.nav[windowKey];
       if (navState == null) {
         navState = { drawers: {} };
@@ -472,32 +470,6 @@ export const { actions, reducer } = createSlice({
       if (drawerState == null || !drawerState.hover) return;
       drawerState.hover = false;
       drawerState.activeItem = null;
-    },
-    maybeCreateGetStartedTab: (state) => {
-      const checkedGetStarted = state.alreadyCheckedGetStarted;
-      state.alreadyCheckedGetStarted = true;
-      if (
-        Object.values(state.layouts).filter(({ location }) => location === "mosaic")
-          .length !== 0 ||
-        checkedGetStarted
-      )
-        return;
-      state.mosaics[MAIN_WINDOW].root = Mosaic.insertTab(
-        state.mosaics[MAIN_WINDOW].root,
-        {
-          closable: true,
-          tabKey: GET_STARTED_TYPE,
-          name: "Get Started",
-          editable: false,
-        },
-      );
-      state.layouts.getStarted = {
-        name: "Get Started",
-        key: GET_STARTED_TYPE,
-        location: "mosaic",
-        type: GET_STARTED_TYPE,
-        windowKey: MAIN_WINDOW,
-      };
     },
     setWorkspace: (
       state,
@@ -590,7 +562,6 @@ export const {
   setNavDrawer,
   resizeNavDrawer,
   setNavDrawerVisible,
-  maybeCreateGetStartedTab,
   setHauled,
   setWorkspace,
   setColorContext,
@@ -653,11 +624,36 @@ export interface OnCloseProps {
   layoutKey: string;
 }
 
+/** The result returned by a layout's {@link UseName}. */
+export interface NameHookResult {
+  retrieve: () => void;
+  /**
+   * Called when the user renames the layout from the UI (e.g., editing the tab
+   * in the mosaic). When undefined, the renderer falls back to dispatching
+   * {@link rename} against the layout slice.
+   */
+  onRename: (name: string) => void;
+}
+
+/**
+ * A hook bound to a layout {@link Renderer} that owns the name read/write path
+ * for the layout. The hook is responsible for invoking {@link NameHookProps.onChange}
+ * whenever its source-of-truth name updates and for persisting user-initiated
+ * renames via {@link NameHookResult.onRename}. Display name is always read from
+ * the layout slice; the hook keeps the slice in sync via `onChange`.
+ */
+export type UseName = (
+  layoutKey: string,
+  onChange: (name: string) => void,
+) => NameHookResult;
+
 /**
  * A React component that renders a layout for a given type. All layouts in state are
- * rendered by a layout renderer of a specific type.
+ * rendered by a layout renderer of a specific type. Renderers may optionally bind a
+ * {@link UseName} via the `useName` property to take over the name read/write path
+ * for layouts of their type.
  */
-export type Renderer = ComponentType<RendererProps>;
+export type Renderer = ComponentType<RendererProps> & { useName?: UseName };
 
 export interface ContextMenuProps {
   layoutKey: string;

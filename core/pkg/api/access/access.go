@@ -82,7 +82,7 @@ func (s *Service) CreatePolicy(
 type RetrievePolicyRequest struct {
 	Internal *bool         `json:"internal" msgpack:"internal"`
 	Subjects []ontology.ID `json:"subjects" msgpack:"subjects"`
-	Keys     []uuid.UUID   `json:"keys" msgpack:"keys"`
+	Keys     []policy.Key  `json:"keys" msgpack:"keys"`
 	Limit    int           `json:"limit" msgpack:"limit"`
 	Offset   int           `json:"offset" msgpack:"offset"`
 }
@@ -131,7 +131,7 @@ func (s *Service) RetrievePolicy(
 }
 
 type DeletePolicyRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []policy.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) DeletePolicy(ctx context.Context, req DeletePolicyRequest) (types.Nil, error) {
@@ -189,10 +189,10 @@ func (s *Service) CreateRole(
 
 type (
 	RetrieveRoleRequest struct {
-		Internal *bool       `json:"internal" msgpack:"internal"`
-		Keys     []uuid.UUID `json:"keys" msgpack:"keys"`
-		Limit    int         `json:"limit" msgpack:"limit"`
-		Offset   int         `json:"offset" msgpack:"offset"`
+		Internal *bool      `json:"internal" msgpack:"internal"`
+		Keys     []role.Key `json:"keys" msgpack:"keys"`
+		Limit    int        `json:"limit" msgpack:"limit"`
+		Offset   int        `json:"offset" msgpack:"offset"`
 	}
 	RetrieveRoleResponse struct {
 		Roles []role.Role `json:"roles" msgpack:"roles"`
@@ -232,7 +232,7 @@ func (s *Service) RetrieveRole(
 }
 
 type DeleteRoleRequest struct {
-	Keys []uuid.UUID `json:"keys" msgpack:"keys"`
+	Keys []role.Key `json:"keys" msgpack:"keys"`
 }
 
 func (s *Service) DeleteRole(ctx context.Context, req DeleteRoleRequest) (types.Nil, error) {
@@ -259,8 +259,8 @@ func (s *Service) DeleteRole(ctx context.Context, req DeleteRoleRequest) (types.
 }
 
 type AssignRoleRequest struct {
-	User uuid.UUID `json:"user" msgpack:"user"`
-	Role uuid.UUID `json:"role" msgpack:"role"`
+	User user.Key `json:"user" msgpack:"user"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 func (s *Service) AssignRole(
@@ -281,8 +281,8 @@ func (s *Service) AssignRole(
 }
 
 type UnassignRoleRequest struct {
-	User uuid.UUID `json:"user" msgpack:"user"`
-	Role uuid.UUID `json:"role" msgpack:"role"`
+	User user.Key `json:"user" msgpack:"user"`
+	Role role.Key `json:"role" msgpack:"role"`
 }
 
 func (s *Service) UnassignRole(ctx context.Context, req UnassignRoleRequest) (types.Nil, error) {

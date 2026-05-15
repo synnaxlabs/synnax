@@ -7,32 +7,36 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { color } from "@synnaxlabs/x/color";
-import { location } from "@synnaxlabs/x/location";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { record } from "@synnaxlabs/x/record";
-import { scale } from "@synnaxlabs/x/scale";
-import { sticky } from "@synnaxlabs/x/sticky";
-import { telem } from "@synnaxlabs/x/telem";
-import { unique } from "@synnaxlabs/x/unique";
 import { type channel, lineplot, type ranger } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { useAsyncEffect, useDebouncedCallback, usePrevious } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Menu } from "@synnaxlabs/charon/menu";
-import { Status } from "@synnaxlabs/charon/status";
-import { Access, type axis, Channel, LinePlot as Base, Ranger, Synnax, Viewport } from "@synnaxlabs/pluto";
-import { type measure } from "@synnaxlabs/pluto/ether";
-
 import {
-  type ReactElement,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+  Access,
+  type axis,
+  Channel,
+  Icon,
+  LinePlot as Base,
+  Menu,
+  Ranger,
+  Status,
+  Synnax,
+  useAsyncEffect,
+  useDebouncedCallback,
+  usePrevious,
+  Viewport,
+} from "@synnaxlabs/pluto";
+import { type measure } from "@synnaxlabs/pluto/ether";
+import {
+  box,
+  color,
+  DataType,
+  location,
+  primitive,
+  record,
+  scale,
+  type sticky,
+  TimeRange,
+  unique,
+} from "@synnaxlabs/x";
+import { type ReactElement, useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch } from "react-redux";
 
 import { ContextMenu } from "@/components";
@@ -51,6 +55,7 @@ import {
   select,
   useSelect,
   useSelectControlState,
+  useSelectIsRemoteCreated,
   useSelectRanges,
   useSelectSelection,
   useSelectVersion,
@@ -136,7 +141,6 @@ const RangeAnnotationContextMenu = ({
 };
 
 const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
   const { name } = Layout.useSelectRequired(layoutKey);
   const vis = useSelect(layoutKey);
   const prevVis = usePrevious(vis);
@@ -145,12 +149,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   const dispatch = useDispatch();
   const syncDispatch = useSyncComponent(layoutKey);
   const lines = buildLines(vis, ranges);
-  const prevName = usePrevious(name);
   const hasUpdatePermission = Access.useUpdateGranted(lineplot.ontologyID(layoutKey));
-
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [syncDispatch, name, prevName]);
 
   useAsyncEffect(
     async (signal) => {
@@ -228,7 +227,7 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     let newType: axis.TickType = "time";
     if (primitive.isNonZero(key)) {
       const ch = await client.channels.retrieve(key);
-      if (!ch.dataType.equals(telem.DataType.TIMESTAMP)) newType = "linear";
+      if (!ch.dataType.equals(DataType.TIMESTAMP)) newType = "linear";
     }
     if (axis.type === newType) return;
     syncDispatch(
@@ -316,11 +315,9 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
   );
 
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({ windowKey, key: "visualization", value: true }),
-    );
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "data" }));
-  }, [windowKey, dispatch, layoutKey]);
+  }, [dispatch, layoutKey]);
 
   const handleSelectRule = useCallback(
     (ruleKey: string) => {
@@ -355,11 +352,11 @@ const Loaded: Layout.Renderer = ({ layoutKey, focused, visible }) => {
     const placeLayout = Layout.usePlacer();
     const handleError = Status.useErrorHandler();
 
-    const getTimeRange = useCallback(async (): Promise<telem.TimeRange> => {
+    const getTimeRange = useCallback(async (): Promise<TimeRange> => {
       const bounds = await linePlotRef.current?.getBounds();
       if (bounds == null) throw new Error("No bounds available");
       const s = scale.Scale.scale<number>(1).scale(bounds.x1);
-      return new telem.TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
+      return new TimeRange(s.pos(box.left(selection)), s.pos(box.right(selection)));
     }, [selection]);
 
     const downloadAsCSV = useDownloadAsCSV();
@@ -519,3 +516,9 @@ export const LinePlot: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (linePlot == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+LinePlot.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);

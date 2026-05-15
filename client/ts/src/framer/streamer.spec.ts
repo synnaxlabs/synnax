@@ -7,11 +7,8 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { id } from "@synnaxlabs/x/id";
-import { sleep } from "@synnaxlabs/x/sleep";
-import { telem } from "@synnaxlabs/x/telem";
 import { EOF, Unreachable } from "@synnaxlabs/freighter";
-
+import { DataType, id, Rate, Series, sleep, TimeSpan, TimeStamp } from "@synnaxlabs/x";
 import { describe, expect, it, test, vi } from "vitest";
 
 import { type channel } from "@/channel";
@@ -33,7 +30,7 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
-        start: telem.TimeStamp.now(),
+        start: TimeStamp.now(),
         channels: ch.key,
       });
       try {
@@ -48,19 +45,19 @@ describe("Streamer", () => {
       const ch = await newVirtualChannel(client);
       const streamer = await client.openStreamer(ch.key);
       const writer = await client.openWriter({
-        start: telem.TimeStamp.now(),
+        start: TimeStamp.now(),
         channels: ch.key,
       });
-      const start = new telem.TimeStamp(1000000000n);
-      const end = new telem.TimeStamp(6000000000n);
+      const start = new TimeStamp(1000000000n);
+      const end = new TimeStamp(6000000000n);
       try {
         const fr = new Frame(
           [ch.key],
           [
-            new telem.Series({
+            new Series({
               data: new Float64Array([1, 2, 3]),
-              dataType: telem.DataType.FLOAT64,
-              timeRange: start.spanRange(telem.TimeSpan.seconds(5)),
+              dataType: DataType.FLOAT64,
+              timeRange: start.spanRange(TimeSpan.seconds(5)),
             }),
           ],
         );
@@ -97,7 +94,7 @@ describe("Streamer", () => {
           excludeGroups: [42],
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
           controlSubject: { name: "grouped", key: id.create(), group: 42 },
         });
@@ -105,7 +102,7 @@ describe("Streamer", () => {
           await writer.write(ch.key, new Float64Array([1, 2, 3]));
           const result = await Promise.race([
             streamer.read().then((f) => f),
-            sleep.sleep(telem.TimeSpan.milliseconds(500)).then(() => null),
+            sleep.sleep(TimeSpan.milliseconds(500)).then(() => null),
           ]);
           expect(result).toBeNull();
         } finally {
@@ -121,7 +118,7 @@ describe("Streamer", () => {
           excludeGroups: [99],
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
           controlSubject: { name: "grouped", key: id.create(), group: 42 },
         });
@@ -142,7 +139,7 @@ describe("Streamer", () => {
           excludeGroups: [0],
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -164,7 +161,7 @@ describe("Streamer", () => {
           downsampleFactor: 1,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -182,7 +179,7 @@ describe("Streamer", () => {
           downsampleFactor: 2,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -200,7 +197,7 @@ describe("Streamer", () => {
           downsampleFactor: 10,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -221,7 +218,7 @@ describe("Streamer", () => {
           throttleRate: 60,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -229,7 +226,7 @@ describe("Streamer", () => {
           // Write data rapidly
           for (let i = 0; i < 10; i++) {
             await writer.write(ch.key, new Float64Array([i]));
-            await sleep.sleep(telem.TimeSpan.milliseconds(5));
+            await sleep.sleep(TimeSpan.milliseconds(5));
           }
 
           // Read frames - should be throttled
@@ -239,7 +236,7 @@ describe("Streamer", () => {
             try {
               const frame = await Promise.race([
                 streamer.read(),
-                sleep.sleep(telem.TimeSpan.milliseconds(100)).then(() => null),
+                sleep.sleep(TimeSpan.milliseconds(100)).then(() => null),
               ]);
               if (frame) receivedFrames.push(frame);
               else break;
@@ -264,7 +261,7 @@ describe("Streamer", () => {
           throttleRate: 0,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -285,7 +282,7 @@ describe("Streamer", () => {
           throttleRate: 10,
         });
         const writer = await client.openWriter({
-          start: telem.TimeStamp.now(),
+          start: TimeStamp.now(),
           channels: ch.key,
         });
         try {
@@ -306,19 +303,19 @@ describe("Streamer", () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
-          dataType: telem.DataType.TIMESTAMP,
+          dataType: DataType.TIMESTAMP,
         });
 
         // Create source channels with the timestamp index
         const [channelA, channelB] = await client.channels.create([
           {
             name: id.create(),
-            dataType: telem.DataType.FLOAT64,
+            dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
           {
             name: id.create(),
-            dataType: telem.DataType.FLOAT64,
+            dataType: DataType.FLOAT64,
             index: timeChannel.key,
           },
         ]);
@@ -326,17 +323,17 @@ describe("Streamer", () => {
         // Create calculated channel that adds the two source channels
         const calcChannel = await client.channels.create({
           name: id.create(),
-          dataType: telem.DataType.FLOAT64,
+          dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return ${channelA.name} + ${channelB.name}`,
         });
 
         // Set up streamer to listen for calculated results
         const streamer = await client.openStreamer(calcChannel.key);
-        await sleep.sleep(telem.TimeSpan.milliseconds(10));
+        await sleep.sleep(TimeSpan.milliseconds(10));
 
         // Write test data
-        const startTime = telem.TimeStamp.now();
+        const startTime = TimeStamp.now();
         const writer = await client.openWriter({
           start: startTime,
           channels: [timeChannel.key, channelA.key, channelB.key],
@@ -367,28 +364,28 @@ describe("Streamer", () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
-          dataType: telem.DataType.TIMESTAMP,
+          dataType: DataType.TIMESTAMP,
         });
 
         // Create base channel with index
         const baseChannel = await client.channels.create({
           name: id.create(),
-          dataType: telem.DataType.FLOAT64,
+          dataType: DataType.FLOAT64,
           index: timeChannel.key,
         });
 
         // Create calculated channel that adds 5
         const calcChannel = await client.channels.create({
           name: id.create(),
-          dataType: telem.DataType.FLOAT64,
+          dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return ${baseChannel.name} + 5`,
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
-        await sleep.sleep(telem.TimeSpan.milliseconds(20));
+        await sleep.sleep(TimeSpan.milliseconds(20));
 
-        const startTime = telem.TimeStamp.now();
+        const startTime = TimeStamp.now();
         const writer = await client.openWriter({
           start: startTime,
           channels: [timeChannel.key, baseChannel.key],
@@ -397,8 +394,8 @@ describe("Streamer", () => {
         try {
           const timestamps = [
             startTime,
-            new telem.TimeStamp(startTime.valueOf() + BigInt(1000000000)),
-            new telem.TimeStamp(startTime.valueOf() + BigInt(2000000000)),
+            new TimeStamp(startTime.valueOf() + BigInt(1000000000)),
+            new TimeStamp(startTime.valueOf() + BigInt(2000000000)),
           ];
 
           await writer.write({
@@ -420,28 +417,28 @@ describe("Streamer", () => {
         const timeChannel = await client.channels.create({
           name: id.create(),
           isIndex: true,
-          dataType: telem.DataType.TIMESTAMP,
+          dataType: DataType.TIMESTAMP,
         });
 
         // Create source channels
         const names = [id.create(), id.create()];
         const [channelA, channelB] = await client.channels.create([
-          { name: names[0], dataType: telem.DataType.FLOAT64, index: timeChannel.key },
-          { name: names[1], dataType: telem.DataType.FLOAT64, index: timeChannel.key },
+          { name: names[0], dataType: DataType.FLOAT64, index: timeChannel.key },
+          { name: names[1], dataType: DataType.FLOAT64, index: timeChannel.key },
         ]);
 
         // Create calculated channel with multiple operations
         const calcChannel = await client.channels.create({
           name: id.create(),
-          dataType: telem.DataType.FLOAT64,
+          dataType: DataType.FLOAT64,
           virtual: true,
           expression: `return (${names[0]} * 2) + (${names[1]} / 2)`,
         });
 
         const streamer = await client.openStreamer(calcChannel.key);
-        await sleep.sleep(telem.TimeSpan.milliseconds(5));
+        await sleep.sleep(TimeSpan.milliseconds(5));
 
-        const startTime = telem.TimeStamp.now();
+        const startTime = TimeStamp.now();
         const writer = await client.openWriter({
           start: startTime,
           channels: [timeChannel.key, channelA.key, channelB.key],
@@ -468,33 +465,33 @@ describe("Streamer", () => {
           const timeChannel = await client.channels.create({
             name: id.create(),
             isIndex: true,
-            dataType: telem.DataType.TIMESTAMP,
+            dataType: DataType.TIMESTAMP,
           });
 
           const [channelA, channelB] = await client.channels.create([
             {
               name: id.create(),
-              dataType: telem.DataType.FLOAT64,
+              dataType: DataType.FLOAT64,
               index: timeChannel.key,
             },
             {
               name: id.create(),
-              dataType: telem.DataType.FLOAT64,
+              dataType: DataType.FLOAT64,
               index: timeChannel.key,
             },
           ]);
 
           const calcChannel = await client.channels.create({
             name: id.create(),
-            dataType: telem.DataType.FLOAT64,
+            dataType: DataType.FLOAT64,
             virtual: true,
             expression: `return ${channelA.name} + ${channelB.name}`,
           });
 
           const streamer = await client.openStreamer(calcChannel.key);
-          await sleep.sleep(telem.TimeSpan.milliseconds(10));
+          await sleep.sleep(TimeSpan.milliseconds(10));
 
-          const startTime = telem.TimeStamp.now();
+          const startTime = TimeStamp.now();
           const writer = await client.openWriter({
             start: startTime,
             channels: [timeChannel.key, channelA.key, channelB.key],
@@ -568,8 +565,8 @@ describe("Streamer", () => {
     it("should correctly call the underlying streamer methods", async () => {
       const streamer = new MockStreamer();
       const openMock = vi.fn();
-      const config = { channels: [1, 2, 3], useHighPerformanceCodec: true };
-      const fr = new Frame({ 1: new telem.Series([1]) });
+      const config = { channels: [1, 2, 3] };
+      const fr = new Frame({ 1: new Series([1]) });
       const hardened = await HardenedStreamer.open(
         async (cfg) => {
           openMock(cfg);
@@ -585,7 +582,7 @@ describe("Streamer", () => {
         ...config,
         downsampleFactor: 1,
         excludeGroups: [],
-        throttleRate: new telem.Rate(0),
+        throttleRate: new Rate(0),
       });
       await hardened.update([1, 2, 3]);
       expect(streamer.updateMock).toHaveBeenCalledWith([1, 2, 3]);
@@ -598,8 +595,8 @@ describe("Streamer", () => {
 
     it("should correctly iterate over the streamer", async () => {
       const streamer = new MockStreamer();
-      const fr = new Frame({ 1: new telem.Series([1]) });
-      const fr2 = new Frame({ 1: new telem.Series([2]) });
+      const fr = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
       streamer.responses = [
         [fr, null],
         [fr2, null],
@@ -619,8 +616,8 @@ describe("Streamer", () => {
     it("should try to re-open the streamer when read fails", async () => {
       const streamer1 = new MockStreamer();
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new telem.Series([1]) });
-      const fr2 = new Frame({ 1: new telem.Series([2]) });
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
       streamer1.responses = [
         [fr1, null],
         [fr2, new Unreachable({ message: "cat" })],
@@ -651,8 +648,8 @@ describe("Streamer", () => {
     it("should repeatedly try re-opening the streamer when read fails", async () => {
       const streamer1 = new MockStreamer();
       const streamer5 = new MockStreamer();
-      const fr1 = new Frame({ 1: new telem.Series([1]) });
-      const fr5 = new Frame({ 1: new telem.Series([4]) });
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr5 = new Frame({ 1: new Series([4]) });
       streamer1.responses = [
         [fr1, null],
         [fr5, new Unreachable({ message: "cat" })],
@@ -669,7 +666,7 @@ describe("Streamer", () => {
           return streamer5;
         },
         { channels: [1] },
-        { baseInterval: telem.TimeSpan.milliseconds(1) },
+        { baseInterval: TimeSpan.milliseconds(1) },
       );
       const fr = await hardened.read();
       expect(fr).toEqual(fr1);
@@ -680,7 +677,7 @@ describe("Streamer", () => {
 
     it("should rethrow the error when the breaker exceeds the max retries", async () => {
       const streamer = new MockStreamer();
-      const fr = new Frame({ 1: new telem.Series([1]) });
+      const fr = new Frame({ 1: new Series([1]) });
       streamer.responses = [[fr, null]];
       const openerMock = vi.fn();
       await expect(
@@ -690,7 +687,7 @@ describe("Streamer", () => {
             throw new Unreachable({ message: "very unreachable" });
           },
           { channels: [1] },
-          { maxRetries: 3, baseInterval: telem.TimeSpan.milliseconds(1) },
+          { maxRetries: 3, baseInterval: TimeSpan.milliseconds(1) },
         ),
       ).rejects.toThrow("very unreachable");
     });
@@ -699,8 +696,8 @@ describe("Streamer", () => {
       const streamer1 = new MockStreamer();
       streamer1.updateErrors = [null, new Unreachable({ message: "cat" })];
       const streamer2 = new MockStreamer();
-      const fr1 = new Frame({ 1: new telem.Series([1]) });
-      const fr2 = new Frame({ 1: new telem.Series([2]) });
+      const fr1 = new Frame({ 1: new Series([1]) });
+      const fr2 = new Frame({ 1: new Series([2]) });
       streamer1.responses = [[fr1, null]];
       streamer2.responses = [[fr2, null]];
       let count = 0;
@@ -726,8 +723,8 @@ describe("Streamer", () => {
   describe("observable", () => {
     it("should notify observers when frames are received", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new telem.Series([1, 2, 3]) });
-      const frame2 = new Frame({ 1: new telem.Series([4, 5, 6]) });
+      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
 
       mockStreamer.responses = [
         [frame1, null],
@@ -752,8 +749,8 @@ describe("Streamer", () => {
 
     test("should apply transform function to frames", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new telem.Series([1, 2, 3]) });
-      const frame2 = new Frame({ 1: new telem.Series([4, 5, 6]) });
+      const frame1 = new Frame({ 1: new Series([1, 2, 3]) });
+      const frame2 = new Frame({ 1: new Series([4, 5, 6]) });
 
       mockStreamer.responses = [
         [frame1, null],
@@ -787,7 +784,7 @@ describe("Streamer", () => {
 
     test("should handle multiple observers", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new telem.Series([10, 20]) });
+      const frame1 = new Frame({ 1: new Series([10, 20]) });
 
       mockStreamer.responses = [[frame1, null]];
       mockStreamer.keys = [1];
@@ -845,7 +842,7 @@ describe("Streamer", () => {
 
     test("should properly close and cleanup resources", async () => {
       const mockStreamer = new MockStreamer();
-      const frame1 = new Frame({ 1: new telem.Series([1]) });
+      const frame1 = new Frame({ 1: new Series([1]) });
 
       mockStreamer.responses = [[frame1, null]];
       mockStreamer.keys = [1];

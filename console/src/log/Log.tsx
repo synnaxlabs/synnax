@@ -7,22 +7,20 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { deep } from "@synnaxlabs/x/deep";
-import { primitive } from "@synnaxlabs/x/primitive";
-import { telem } from "@synnaxlabs/x/telem";
-import { uuid } from "@synnaxlabs/x/uuid";
 import { log } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { usePrevious } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Access, Log as Base } from "@synnaxlabs/pluto";
-
-import { useCallback, useEffect } from "react";
+import { Access, Icon, Log as Base } from "@synnaxlabs/pluto";
+import { deep, primitive, TimeSpan, uuid } from "@synnaxlabs/x";
+import { useCallback } from "react";
 
 import { ContextMenu, EmptyAction } from "@/components";
 import { createLoadRemote } from "@/hooks/useLoadRemote";
 import { Layout } from "@/layout";
-import { select, useSelect, useSelectVersion } from "@/log/selectors";
+import {
+  select,
+  useSelect,
+  useSelectIsRemoteCreated,
+  useSelectVersion,
+} from "@/log/selectors";
 import {
   internalCreate,
   setActiveToolbarTab,
@@ -55,21 +53,13 @@ export const useSyncComponent = Workspace.createSyncComponent(
   },
 );
 
-const DEFAULT_RETENTION = telem.TimeSpan.days(1);
-const PRELOAD = telem.TimeSpan.seconds(30);
+const DEFAULT_RETENTION = TimeSpan.days(1);
+const PRELOAD = TimeSpan.seconds(30);
 const EXTRA_CONTEXT_MENU_ITEMS = <ContextMenu.ReloadConsoleItem />;
 
 const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const winKey = useSelectWindowKey() as string;
   const log = useSelect(layoutKey);
   const dispatch = useSyncComponent(layoutKey);
-
-  const { name } = Layout.useSelectRequired(layoutKey);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) dispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey]);
 
   const activeChannels = log.channels.filter((e) => !primitive.isZero(e.channel));
   const hasChannels = activeChannels.length > 0;
@@ -81,14 +71,8 @@ const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     keepFor: DEFAULT_RETENTION,
   });
   const handleDoubleClick = useCallback(() => {
-    dispatch(
-      Layout.setNavDrawerVisible({
-        windowKey: winKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [winKey, dispatch]);
+    dispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [dispatch]);
 
   const handleConfigureChannels = useCallback(() => {
     dispatch(setActiveToolbarTab({ key: layoutKey, tab: "channels" }));
@@ -132,6 +116,12 @@ export const Log: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (log == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Log.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const Selectable: Selector.Selectable = ({ layoutKey, onPlace }) => {
   const hasCreatePermission = Access.useCreateGranted(log.TYPE_ONTOLOGY_ID);

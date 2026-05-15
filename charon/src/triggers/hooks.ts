@@ -73,18 +73,11 @@ export const use = ({
       const removed = res[1];
       if (added.length === 0 && removed.length === 0) return;
       added = filterInRegion(e.target, e.cursor, added, region, regionMustBeElement);
-      const filteredRemoved = filterInRegion(
-        e.target,
-        e.cursor,
-        removed,
-        region,
-        regionMustBeElement,
-      );
       const base = { target: e.target, cursor: e.cursor };
       if (added.length > 0)
         f?.({ ...base, stage: "start", triggers: added, prevTriggers: e.prev });
-      if (filteredRemoved.length > 0)
-        f?.({ ...base, stage: "end", triggers: filteredRemoved, prevTriggers: e.prev });
+      if (removed.length > 0)
+        f?.({ ...base, stage: "end", triggers: removed, prevTriggers: e.prev });
     });
   }, [f, memoTriggers, listen, loose, region, double, regionMustBeElement]);
 };
@@ -102,10 +95,7 @@ const filterInRegion = (
   return added.filter((t) => {
     const rg = regionMustBeElement ?? t.some((v) => v.includes("Mouse"));
     if (rg) return box.contains(b, cursor) && target === region.current;
-    return (
-      box.contains(b, cursor) &&
-      (region.current!.contains(target) || target.contains(region.current))
-    );
+    return box.contains(b, cursor);
   });
 };
 

@@ -183,17 +183,6 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
       onChange: (d) => form.set("rackKey", d.data?.rack),
       query: deviceKey == null ? undefined : { key: deviceKey },
     });
-    const name = PForm.useFieldValue<string, string, Task.FormSchema<S>>("name", {
-      ctx: form,
-    });
-    const handleLayoutNameChange = useCallback(
-      (name: string) => {
-        if (status.variant !== "success") return;
-        form.set("name", name);
-      },
-      [form.set, status?.variant],
-    );
-    Layout.useSyncName(layoutKey, name, handleLayoutNameChange);
 
     const isSnapshot = useIsSnapshot<Task.FormSchema<S>>(form);
     return (
@@ -242,5 +231,29 @@ export const wrapForm = <S extends task.Schemas = task.Schemas>({
     );
   };
   Wrapper.displayName = `Form(${Form.displayName ?? Form.name})`;
+  Wrapper.useName = useName;
   return Wrapper;
+};
+
+const useName: Layout.UseName = (layoutKey, onChange) => {
+  const args = Layout.useSelectArgs<FormLayoutArgs>(layoutKey);
+  const taskKey = args?.taskKey;
+  const isPersisted = taskKey != null;
+  const { retrieve: baseRetrieve } = Task.useRetrieveObservableName({
+    onChange,
+    addStatusOnFailure: false,
+  });
+  const { update } = Task.useRename({
+    beforeUpdate: useCallback(() => isPersisted, [isPersisted]),
+  });
+  const onRename = useCallback(
+    (name: string) => {
+      if (taskKey != null) update({ key: taskKey, name });
+    },
+    [taskKey, update],
+  );
+  const retrieve = useCallback(() => {
+    if (taskKey != null) baseRetrieve({ key: taskKey });
+  }, [taskKey, baseRetrieve]);
+  return { retrieve, onRename };
 };

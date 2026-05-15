@@ -721,6 +721,176 @@ describe("log/aether/Log", () => {
       // Should contain scientific notation (uses unicode ᴇ)
       expect(log.state.selectedText).toMatch(/[eEᴇ]/);
     });
+
+    it("should render continuation entries without name/timestamp but aligned to the value column", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "hello" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "world",
+          continuation: true,
+        },
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(2000), value: "again" },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 2,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toContain("[log]");
+      expect(lines[0]).toContain("hello");
+      // Continuation: no [log], but leading whitespace preserves value alignment.
+      expect(lines[1]).not.toContain("[log]");
+      expect(lines[1]).toMatch(/^\s+world$/);
+      expect(lines[1].indexOf("world")).toBe(lines[0].indexOf("hello"));
+      expect(lines[2]).toContain("[log]");
+      expect(lines[2]).toContain("again");
+    });
+
+    it("should render an entry with empty value but no continuation flag with its prefix intact", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "" },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 0,
+      });
+      log.render();
+      const [line] = log.state.selectedLines.map((l) => l.text);
+      expect(line).toContain("[log]");
+    });
+
+    it("should render a three-line continuation group with consistent alignment", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "first" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "second",
+          continuation: true,
+        },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "third",
+          continuation: true,
+        },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: true,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "sensor" },
+        selectionStart: 0,
+        selectionEnd: 2,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toContain("[sensor]");
+      expect(lines[0]).toContain("first");
+      const valueCol = lines[0].indexOf("first");
+      expect(lines[1]).not.toContain("[sensor]");
+      expect(lines[1].indexOf("second")).toBe(valueCol);
+      expect(lines[2]).not.toContain("[sensor]");
+      expect(lines[2].indexOf("third")).toBe(valueCol);
+    });
+
+    it("should render continuation with both timestamp and channel name hidden", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "line1" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "line2",
+          continuation: true,
+        },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: false,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toBe("line1");
+      expect(lines[1]).toBe("line2");
+    });
+
+    it("should render continuation entries interleaved between different channels", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "a1" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "a2",
+          continuation: true,
+        },
+        { channelKey: 2, timestamp: TimeStamp.milliseconds(1000), value: "b1" },
+        {
+          channelKey: 2,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "b2",
+          continuation: true,
+        },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }, { channel: 2 }],
+        channelNames: { "1": "chA", "2": "chB" },
+        selectionStart: 0,
+        selectionEnd: 3,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toContain("[chA]");
+      expect(lines[0]).toContain("a1");
+      expect(lines[1]).not.toContain("[chA]");
+      expect(lines[1]).toContain("a2");
+      expect(lines[2]).toContain("[chB]");
+      expect(lines[2]).toContain("b1");
+      expect(lines[3]).not.toContain("[chB]");
+      expect(lines[3]).toContain("b2");
+    });
+
+    it("should render a continuation entry with an empty value as a blank aligned line", () => {
+      const entries: LogEntry[] = [
+        { channelKey: 1, timestamp: TimeStamp.milliseconds(1000), value: "data" },
+        {
+          channelKey: 1,
+          timestamp: TimeStamp.milliseconds(1000),
+          value: "",
+          continuation: true,
+        },
+      ];
+      const { log } = setupWithContext(entries, REGION_500, {
+        showChannelNames: true,
+        showReceiptTimestamp: false,
+        channels: [{ channel: 1 }],
+        channelNames: { "1": "log" },
+        selectionStart: 0,
+        selectionEnd: 1,
+      });
+      log.render();
+      const lines = log.state.selectedLines.map((l) => l.text);
+      expect(lines[0]).toContain("[log]");
+      expect(lines[0]).toContain("data");
+      expect(lines[1]).not.toContain("[log]");
+      expect(lines[1]).toMatch(/^\s*$/);
+      expect(lines[1].length).toBe(lines[0].indexOf("data"));
+    });
   });
 
   describe("selectedText and selectedLines", () => {

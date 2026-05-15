@@ -7,13 +7,16 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { compare } from "@synnaxlabs/x/compare";
-import { destructor } from "@synnaxlabs/x/destructor";
-import { status as xstatus } from "@synnaxlabs/x/status";
-import { telem } from "@synnaxlabs/x/telem";
-import type { status } from "@synnaxlabs/charon/status/aether";
 import { channel } from "@synnaxlabs/client";
-
+import {
+  compare,
+  DataType,
+  type destructor,
+  type Series,
+  status as xstatus,
+  TimeSpan,
+  TimeStamp,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import {
@@ -21,6 +24,7 @@ import {
   type LogSource,
   type LogSourceSpec,
 } from "@/log/aether/telem/types";
+import { type status } from "@/status/aether";
 import { type CreateOptions } from "@/telem/aether/factory";
 import { AbstractSource } from "@/telem/aether/telem";
 import { type client } from "@/telem/client";
@@ -29,16 +33,16 @@ const MAX_ENTRIES = 100_000;
 
 const streamMultiChannelLogPropsZ = z.object({
   channels: z.array(channel.keyZ.or(z.string())),
-  timeSpan: telem.TimeSpan.z,
-  keepFor: telem.TimeSpan.z.optional(),
+  timeSpan: TimeSpan.z,
+  keepFor: TimeSpan.z.optional(),
 });
 
 export type StreamMultiChannelLogProps = z.input<typeof streamMultiChannelLogPropsZ>;
 
 interface ChannelMeta {
   key: channel.Key;
-  dataType: telem.DataType;
-  leadingBuffer: telem.Series | null;
+  dataType: DataType;
+  leadingBuffer: Series | null;
   readCursor: number;
   skipSeed: boolean;
 }
@@ -52,7 +56,8 @@ export class StreamMultiChannelLog
 
   private readonly client: client.Client;
   private readonly onStatusChange?: status.Adder;
-  private readonly now: () => telem.TimeStamp;
+  private readonly now: () => TimeStamp;
+  private readonly maxEntries: number;
   private channelMeta: Map<channel.Key, ChannelMeta> = new Map();
   private entries: LogEntry[] = [];
   private stopStreaming?: destructor.Destructor;
@@ -69,12 +74,14 @@ export class StreamMultiChannelLog
     client: client.Client,
     props: unknown,
     options?: CreateOptions,
-    now: () => telem.TimeStamp = () => telem.TimeStamp.now(),
+    now: () => TimeStamp = () => TimeStamp.now(),
+    maxEntries: number = MAX_ENTRIES,
   ) {
     super(props);
     this.client = client;
     this.onStatusChange = options?.onStatusChange;
     this.now = now;
+    this.maxEntries = maxEntries;
     this._channels = this.props.channels.filter(
       (ch): ch is number => typeof ch === "number",
     );
@@ -131,7 +138,7 @@ export class StreamMultiChannelLog
           key: ch.key,
           leadingBuffer: null,
           readCursor: 0,
-          dataType: new telem.DataType(ch.dataType),
+          dataType: new DataType(ch.dataType),
           skipSeed: isRestart,
         });
 
@@ -141,16 +148,24 @@ export class StreamMultiChannelLog
         let pushed = 0;
         for (const [key, chMeta] of this.channelMeta) {
           const allocated = res.get(key);
-          const isJSON = chMeta.dataType.equals(telem.DataType.JSON);
-          const pushSamples = (buf: telem.Series, start: number): void => {
+          const isString = chMeta.dataType.equals(DataType.STRING);
+          const pushSamples = (buf: Series, start: number): void => {
             for (let i = start; i < buf.length; i++) {
-              const raw = buf.at(i, true);
-              this.entries.push({
-                channelKey: chMeta.key,
-                timestamp: now,
-                value: isJSON ? JSON.stringify(raw) : String(raw),
-              });
-              pushed++;
+              const value = buf.asString(i, true);
+              if (!isString || !value.includes("\n")) {
+                this.entries.push({ channelKey: chMeta.key, timestamp: now, value });
+                pushed++;
+                continue;
+              }
+              const lines = value.split(/\r?\n/);
+              for (let j = 0; j < lines.length; j++)
+                this.entries.push({
+                  channelKey: chMeta.key,
+                  timestamp: now,
+                  value: lines[j],
+                  continuation: j > 0,
+                });
+              pushed += lines.length;
             }
           };
           if (allocated != null && allocated.series.length > 0) {
@@ -207,8 +222,11 @@ export class StreamMultiChannelLog
       this.entries.splice(0, cutoff);
       evicted += cutoff;
     }
-    if (this.entries.length > MAX_ENTRIES) {
-      const excess = this.entries.length - MAX_ENTRIES;
+    if (this.entries.length > this.maxEntries) {
+      let excess = this.entries.length - this.maxEntries;
+      // Skip leading continuations so the new head isn't an orphan.
+      while (excess < this.entries.length && this.entries[excess].continuation)
+        excess++;
       this.entries.splice(0, excess);
       evicted += excess;
     }

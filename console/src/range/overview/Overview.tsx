@@ -9,10 +9,10 @@
 
 import "@/range/overview/Overview.css";
 
-import { Flex } from "@synnaxlabs/charon/flex";
+import { Flex, Ranger } from "@synnaxlabs/pluto";
 
 import { CSS } from "@/css";
-import { type Layout } from "@/layout";
+import { Layout } from "@/layout";
 import { ChildRanges } from "@/range/overview/ChildRanges";
 import { Details } from "@/range/overview/Details";
 import { MetaData } from "@/range/overview/MetaData";
@@ -30,4 +30,9 @@ export const Overview: Layout.Renderer = ({ layoutKey }) => (
     <MetaData rangeKey={layoutKey} />
     <Snapshots rangeKey={layoutKey} />
   </Flex.Box>
+);
+
+Overview.useName = Layout.createUseFluxName(
+  Ranger.useRename,
+  Ranger.useRetrieveObservableName,
 );

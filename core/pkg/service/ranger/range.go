@@ -13,15 +13,14 @@
 package ranger
 
 import (
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/x/gorp"
 )
 
-var _ gorp.Entry[uuid.UUID] = Range{}
+var _ gorp.Entry[Key] = Range{}
 
 // GorpKey implements gorp.Entry.
-func (r Range) GorpKey() uuid.UUID { return r.Key }
+func (r Range) GorpKey() Key { return r.Key }
 
 // SetOptions implements gorp.Entry.
 func (r Range) SetOptions() []any { return nil }

@@ -12,6 +12,7 @@ import { location } from "@synnaxlabs/x/location";
 import { scale } from "@synnaxlabs/x/scale";
 import { xy } from "@synnaxlabs/x/xy";
 import {
+  type ComponentType,
   type DragEventHandler,
   type MouseEventHandler,
   type ReactElement,
@@ -26,7 +27,7 @@ import { CSS } from "@/css";
 import { Flex } from "@/flex";
 import { Icon } from "@/icon";
 import { Menu } from "@/menu";
-import { type Spec } from "@/tabs/types";
+import { type NameProps, type Spec } from "@/tabs/types";
 import { useContext } from "@/tabs/useContext";
 import { Text } from "@/text";
 
@@ -65,6 +66,7 @@ export const Selector = ({
     onDrop,
     onRename,
     onCreate,
+    Name,
   } = useContext();
   const menuProps = Menu.useContextMenu();
   const [draggingOver, setDraggingOver] = useState<boolean>(false);
@@ -106,6 +108,7 @@ export const Selector = ({
               onRename={onRename}
               closable={tab.closable ?? closable}
               size={size}
+              Name={Name}
               {...tab}
             />
           ))}
@@ -204,6 +207,7 @@ const SelectorButton = ({
   unsavedChanges = false,
   loading = false,
   onDrop,
+  Name = DefaultName,
 }: SelectorButtonProps): ReactElement => {
   const handleDragStart: DragEventHandler<HTMLElement> = useCallback(
     (e) => onDragStart?.(e, { tabKey, name }),
@@ -287,7 +291,7 @@ const SelectorButton = ({
         tabKey={tabKey}
         onRename={onRename}
         editable={editable}
-        level={Text.COMPONENT_SIZE_LEVELS[size]}
+        level={level}
       />
       {closable && onClose != null && (
         <Button.Button
@@ -314,25 +318,23 @@ export interface SelectorButtonProps extends Spec {
   onClose?: (key: string) => void;
   onRename?: (key: string, name: string) => void;
   size: Component.Size;
+  Name?: ComponentType<NameProps>;
 }
 
-interface NameProps extends Pick<Text.EditableProps, "level"> {
-  onRename?: (key: string, name: string) => void;
-  name: string;
-  tabKey: string;
-  editable?: boolean;
-}
+export interface DefaultNameProps
+  extends NameProps, Omit<Text.TextProps, "level" | "onChange"> {}
 
-const Name = ({
+export const DefaultName = ({
   onRename,
   name,
   tabKey,
   editable = true,
   level,
-}: NameProps): ReactElement => {
+  ...rest
+}: DefaultNameProps): ReactElement => {
   if (onRename == null || !editable)
     return (
-      <Text.Text overflow="ellipsis" level={level}>
+      <Text.Text overflow="ellipsis" level={level} {...rest}>
         {name}
       </Text.Text>
     );
@@ -343,6 +345,7 @@ const Name = ({
       onChange={(newText: string) => onRename?.(tabKey, newText)}
       value={name}
       overflow="ellipsis"
+      {...rest}
     />
   );
 };

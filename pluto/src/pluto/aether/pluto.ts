@@ -7,13 +7,10 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { RoutedWorker } from "@synnaxlabs/x/worker";
 import { Instrumentation, Logger, logThresholdFilter } from "@synnaxlabs/alamos";
-import { aether } from "@synnaxlabs/charon/aether/runtime";
-import { status } from "@synnaxlabs/charon/status/aether";
-import { theming } from "@synnaxlabs/charon/theming/aether";
 
 import { access } from "@/access/aether";
+import { aether } from "@/aether/aether";
 import { alamos } from "@/alamos/aether";
 import { flux } from "@/flux/aether";
 import { lineplot } from "@/lineplot/aether";
@@ -23,10 +20,12 @@ import { log } from "@/log/aether";
 import { LogFactory } from "@/log/aether/telem/factory";
 import { ontology } from "@/ontology/aether";
 import { ranger } from "@/ranger/aether";
+import { status } from "@/status/aether";
 import { synnax } from "@/synnax/aether";
 import { table } from "@/table/aether";
 import { telem } from "@/telem/aether";
 import { control } from "@/telem/control/aether";
+import { theming } from "@/theming/aether";
 import { button } from "@/vis/button/aether";
 import { canvas } from "@/vis/canvas/aether";
 import { diagram } from "@/vis/diagram/aether";
@@ -57,10 +56,6 @@ const STORE_CONFIG: flux.StoreConfig<{
 };
 
 export const render = (): void => {
-  // @ts-expect-error - for some reason post-message can't type transfer correctly
-  const w = new RoutedWorker((data, transfer) => postMessage(data, transfer));
-  onmessage = w.handle.bind(w);
-
   const REGISTRY: aether.ComponentRegistry = {
     ...alamos.REGISTRY,
     ...button.REGISTRY,
@@ -91,7 +86,6 @@ export const render = (): void => {
   };
 
   void aether.render({
-    comms: w.route("vis"),
     registry: REGISTRY,
     instrumentation: new Instrumentation({
       logger: new Logger({ filters: [logThresholdFilter("info")] }),

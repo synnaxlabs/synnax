@@ -8,10 +8,8 @@
 // included in the file licenses/APL.txt.
 
 import { Drift } from "@synnaxlabs/drift";
-import { Flex } from "@synnaxlabs/charon/flex";
-import { Access } from "@synnaxlabs/pluto";
-import { type ReactElement, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { Access, Flex } from "@synnaxlabs/pluto";
+import { type ReactElement } from "react";
 
 import { ArcServices } from "@/arc/services";
 import { Auth } from "@/auth";
@@ -49,10 +47,6 @@ const LINK_HANDLERS: Record<string, Link.Handler> = {
 };
 
 const SideEffect = (): null => {
-  const dispatch = useDispatch();
-  useEffect(() => {
-    dispatch(Layout.maybeCreateGetStartedTab());
-  }, []);
   Access.useLoadPermissions({});
   Version.useLoadTauri();
   Cluster.useSyncClusterKey();

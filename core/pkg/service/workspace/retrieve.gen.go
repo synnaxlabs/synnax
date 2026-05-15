@@ -13,9 +13,9 @@ package workspace
 
 import (
 	"context"
-	"github.com/google/uuid"
 	"github.com/synnaxlabs/synnax/pkg/distribution/ontology"
 	"github.com/synnaxlabs/synnax/pkg/distribution/search"
+	"github.com/synnaxlabs/synnax/pkg/service/user"
 	"github.com/synnaxlabs/x/gorp"
 )
 
@@ -74,7 +74,7 @@ func MatchKeys(keys ...Key) Filter {
 }
 
 // MatchAuthor returns a filter for workspaces whose Author matches the provided value.
-func MatchAuthor(v uuid.UUID) Filter {
+func MatchAuthor(v user.Key) Filter {
 	return func(_ Retrieve) gorp.Filter[Key, Workspace] {
 		return gorp.Match(func(_ gorp.Context, e *Workspace) (bool, error) {
 			return e.Author == v, nil

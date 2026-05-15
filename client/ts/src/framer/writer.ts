@@ -7,13 +7,15 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { control } from "@synnaxlabs/x/control";
-import { errors } from "@synnaxlabs/x/errors";
-import { telem } from "@synnaxlabs/x/telem";
-import { zod } from "@synnaxlabs/x/zod";
-import { status } from "@synnaxlabs/x/status";
 import { EOF, type Stream, type WebSocketClient } from "@synnaxlabs/freighter";
-
+import {
+  control,
+  type CrudeSeries,
+  errors,
+  TimeSpan,
+  TimeStamp,
+  zod,
+} from "@synnaxlabs/x";
 import { z } from "zod";
 
 import { channel } from "@/channel";
@@ -29,7 +31,7 @@ export enum WriterMode {
   Stream = 3,
 }
 
-export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: telem.TimeSpan = new telem.TimeSpan(-1);
+export const ALWAYS_INDEX_PERSIST_ON_AUTO_COMMIT: TimeSpan = new TimeSpan(-1);
 
 export class WriterClosedError extends SynnaxError.sub("writer_closed") {
   constructor() {
@@ -54,7 +56,7 @@ export type CrudeWriterMode = z.input<typeof writerModeZ>;
 
 const baseWriterConfigZ = z.object({
   /** start sets the starting timestamp for the first sample in the writer. */
-  start: telem.TimeStamp.z.optional(),
+  start: TimeStamp.z.optional(),
   /** controlSubject sets the control subject of the writer. */
   controlSubject: control.subjectZ.optional(),
   /** authorities set the control authority to set for each channel on the writer.
@@ -81,12 +83,7 @@ const baseWriterConfigZ = z.object({
   enableAutoCommit: z.boolean().default(true),
   /** autoIndexPersistInterval sets the interval at which commits will be flushed to
    * disk. */
-  autoIndexPersistInterval: telem.TimeSpan.z.default(telem.TimeSpan.SECOND),
-  /*
-   * useHighPerformanceCodec sets whether the writer will use the synnax frame
-   * encoder as opposed to the standard JSON encoding mechanisms for frames.
-   */
-  useHighPerformanceCodec: z.boolean().default(true),
+  autoIndexPersistInterval: TimeSpan.z.default(TimeSpan.SECOND),
 });
 
 const netWriterConfigZ = baseWriterConfigZ.extend({
@@ -102,7 +99,7 @@ const intermediateWriterConfigZ = baseWriterConfigZ.extend({
 
 export const writerConfigZ = intermediateWriterConfigZ.or(
   channel.paramsZ.transform((channels) =>
-    intermediateWriterConfigZ.parse({ channels, start: telem.TimeStamp.now() }),
+    intermediateWriterConfigZ.parse({ channels, start: TimeStamp.now() }),
   ),
 );
 
@@ -119,7 +116,7 @@ export interface WriteRequest extends z.input<typeof reqZ> {}
 
 const resZ = z.object({
   command: z.enum(WriterCommand),
-  end: telem.TimeStamp.z,
+  end: TimeStamp.z,
   err: errors.payloadZ.optional(),
 });
 
@@ -210,8 +207,7 @@ export class Writer {
   ): Promise<Writer> {
     const cfg = zod.parse(writerConfigZ, config);
     const adapter = await WriteAdapter.open(retriever, cfg.channels);
-    if (cfg.useHighPerformanceCodec)
-      client = client.withCodec(new WSWriterCodec(adapter.codec));
+    client = client.withCodec(new WSWriterCodec(adapter.codec));
     const stream = await client.stream("/frame/write", reqZ, resZ);
     const writer = new Writer(stream, adapter);
     await writer.execute({
@@ -221,20 +217,20 @@ export class Writer {
     return writer;
   }
 
-  async write(channel: channel.Key | channel.Name, data: telem.CrudeSeries): Promise<void>;
+  async write(channel: channel.Key | channel.Name, data: CrudeSeries): Promise<void>;
   async write(
     channel: channel.Key[] | channel.Name[],
-    data: telem.CrudeSeries[],
+    data: CrudeSeries[],
   ): Promise<void>;
   async write(
-    frame: CrudeFrame | Record<channel.Key | channel.Name, telem.CrudeSeries>,
+    frame: CrudeFrame | Record<channel.Key | channel.Name, CrudeSeries>,
   ): Promise<void>;
   async write(
     channelsOrData:
       | channel.Params
-      | Record<channel.Key | channel.Name, telem.CrudeSeries>
+      | Record<channel.Key | channel.Name, CrudeSeries>
       | CrudeFrame,
-    series?: telem.CrudeSeries | telem.CrudeSeries[],
+    series?: CrudeSeries | CrudeSeries[],
   ): Promise<void>;
 
   /**
@@ -254,9 +250,9 @@ export class Writer {
   async write(
     channelsOrData:
       | channel.Params
-      | Record<channel.Key | channel.Name, telem.CrudeSeries>
+      | Record<channel.Key | channel.Name, CrudeSeries>
       | CrudeFrame,
-    series?: telem.CrudeSeries | telem.CrudeSeries[],
+    series?: CrudeSeries | CrudeSeries[],
   ): Promise<void> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) return await this.close();
@@ -285,11 +281,11 @@ export class Writer {
    * should acknowledge the error by calling the error method or closing the writer.
    * After the caller acknowledges the error, they can attempt to commit again.
    */
-  async commit(): Promise<telem.TimeStamp> {
+  async commit(): Promise<TimeStamp> {
     if (this.closeErr != null) throw this.closeErr;
     if (this.stream.received()) {
       await this.closeInternal(null);
-      return telem.TimeStamp.ZERO;
+      return TimeStamp.ZERO;
     }
     const res = await this.execute({ command: WriterCommand.Commit });
     return res.end;

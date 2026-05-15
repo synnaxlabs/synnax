@@ -237,7 +237,8 @@ export const { actions, reducer } = createSlice({
   initialState: latest.ZERO_SLICE_STATE,
   reducers: {
     create: (state, { payload }: PayloadAction<CreatePayload>) => {
-      const migrated = anyStateZ.parse(payload);
+      const parsed = anyStateZ.safeParse(payload);
+      const migrated = parsed.success ? parsed.data : migrateState(payload);
       const { key: layoutKey } = migrated;
       const existing = state.plots[layoutKey];
       if (existing != null && existing.version === migrated.version) return;

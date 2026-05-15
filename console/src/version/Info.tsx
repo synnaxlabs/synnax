@@ -191,7 +191,7 @@ export const Info: Layout.Renderer = () => {
         weight={350}
         style={{ position: "absolute", bottom: "3rem" }}
       >
-        © 2022-2025 Synnax Labs, Inc. All rights reserved
+        © 2022-2026 Synnax Labs, Inc. All rights reserved
       </Text.Text>
     </Flex.Box>
   );

@@ -33,6 +33,7 @@ export interface UseTriggersProps extends Pick<Triggers.UseProps, "region"> {
   onPaste: (cursor: xy.XY) => void;
   onClear: () => void;
   onSelectAll: () => void;
+  disabled?: boolean;
 }
 
 export const useTriggers = ({
@@ -43,6 +44,7 @@ export const useTriggers = ({
   onUndo,
   onRedo,
   region,
+  disabled,
 }: UseTriggersProps) => {
   Triggers.use({
     triggers: FLATTENED_CONFIG,
@@ -50,7 +52,7 @@ export const useTriggers = ({
     region,
     callback: useCallback(
       ({ triggers, cursor, stage }: Triggers.UseEvent) => {
-        if (region?.current == null || stage !== "start") return;
+        if (region?.current == null || stage !== "start" || disabled) return;
         const mode = Triggers.determineMode(CONFIG, triggers);
         if (mode == "undo") return onUndo();
         if (mode == "redo") return onRedo();
@@ -59,7 +61,7 @@ export const useTriggers = ({
         if (mode == "clear") return onClear();
         if (mode == "all") return onSelectAll();
       },
-      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll],
+      [onUndo, onRedo, onCopy, onPaste, onClear, onSelectAll, disabled],
     ),
   });
 };

@@ -7,22 +7,24 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-import { box } from "@synnaxlabs/x/box";
-import { color } from "@synnaxlabs/x/color";
-import { deep } from "@synnaxlabs/x/deep";
-import { sticky } from "@synnaxlabs/x/sticky";
-import { uuid } from "@synnaxlabs/x/uuid";
-import { xy } from "@synnaxlabs/x/xy";
-import { Haul } from "@synnaxlabs/charon/haul";
 import { schematic } from "@synnaxlabs/client";
-import { useSelectWindowKey } from "@synnaxlabs/drift/react";
-import { usePrevious, useSyncedRef } from "@synnaxlabs/charon/hooks";
-import { Icon } from "@synnaxlabs/charon/icon";
-import { Status } from "@synnaxlabs/charon/status";
-import { Theming } from "@synnaxlabs/charon/theming";
-import { Access, Control, Diagram, Flux, type Pluto, Schematic as Base, Synnax, Viewport } from "@synnaxlabs/pluto";
-
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Access,
+  Control,
+  Diagram,
+  Flux,
+  Haul,
+  Icon,
+  type Pluto,
+  Schematic as Base,
+  Status,
+  Synnax,
+  Theming,
+  useSyncedRef,
+  Viewport,
+} from "@synnaxlabs/pluto";
+import { box, type color, deep, type sticky, uuid, xy } from "@synnaxlabs/x";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useDispatch, useStore } from "react-redux";
 
 import { ContextMenu as CContextMenu } from "@/components";
@@ -37,6 +39,7 @@ import {
   selectOptional,
   selectRequired,
   useSelectConfig,
+  useSelectIsRemoteCreated,
   useSelectLegendVisible,
   useSelectRequired,
   useSelectRequiredViewportMode,
@@ -131,12 +134,8 @@ const useSyncComponent = Workspace.createSyncComponent(
     )
       return;
     const data = selectOptional(storeState, key);
-    if (data == null) return;
+    if (data == null || data.snapshot) return;
     const layout = Layout.selectRequired(storeState, key);
-    if (data.snapshot) {
-      await client.schematics.rename(key, layout.name);
-      return;
-    }
     if (!data.remoteCreated) store.dispatch(setRemoteCreated({ key }));
     await client.schematics.create(workspace, {
       key,
@@ -173,8 +172,6 @@ export const ContextMenu: Layout.ContextMenuRenderer = ({ layoutKey }) => (
 );
 
 export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
-  const windowKey = useSelectWindowKey() as string;
-  const { name } = Layout.useSelectRequired(layoutKey);
   const state = useSelectRequired(layoutKey);
   const legendVisible = useSelectLegendVisible(layoutKey);
   const dispatch = useDispatch();
@@ -193,11 +190,6 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const theme = Theming.use();
   const viewportRef = useSyncedRef(state.viewport);
-
-  const prevName = usePrevious(name);
-  useEffect(() => {
-    if (prevName !== name) syncDispatch(Layout.rename({ key: layoutKey, name }));
-  }, [name, prevName, layoutKey, syncDispatch]);
 
   const hasUpdatePermission =
     Access.useUpdateGranted(schematic.ontologyID(layoutKey)) && !state.snapshot;
@@ -282,14 +274,8 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
 
   const handleDoubleClick = useCallback(() => {
     if (!state.editable) return;
-    syncDispatch(
-      Layout.setNavDrawerVisible({
-        windowKey,
-        key: "visualization",
-        value: true,
-      }),
-    );
-  }, [windowKey, state.editable, syncDispatch]);
+    syncDispatch(Layout.setNavDrawerVisible({ key: "visualization", value: true }));
+  }, [state.editable, syncDispatch]);
 
   const handleNodeClickAction = useHandleNodeClickAction(layoutKey);
 
@@ -361,6 +347,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     [dispatch, layoutKey],
   );
 
+  const modals = Layout.useSelectWindowModals();
   Diagram.useTriggers({
     onCopy: handleCopySelection,
     onPaste: handlePasteSelection,
@@ -369,6 +356,7 @@ export const Loaded: Layout.Renderer = ({ layoutKey, visible }) => {
     onUndo: undo,
     onRedo: redo,
     region: ref,
+    disabled: modals.length > 0,
   });
 
   return (
@@ -432,6 +420,12 @@ export const Schematic: Layout.Renderer = ({ layoutKey, ...rest }) => {
   if (schematic == null) return null;
   return <Loaded layoutKey={layoutKey} {...rest} />;
 };
+
+Schematic.useName = Layout.createUseFluxName(
+  Base.useRename,
+  Base.useRetrieveObservableName,
+  useSelectIsRemoteCreated,
+);
 
 export const LAYOUT_TYPE = "schematic";
 export type LayoutType = typeof LAYOUT_TYPE;

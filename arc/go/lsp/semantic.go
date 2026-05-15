@@ -42,6 +42,7 @@ const (
 	SemanticTokenTypeInput
 	SemanticTokenTypeOutput
 	SemanticTokenTypeUnit
+	SemanticTokenTypeStringRaw
 )
 
 var semanticTokenTypes = []string{
@@ -66,6 +67,7 @@ var semanticTokenTypes = []string{
 	"input",
 	"output",
 	"unit",
+	"stringRaw",
 }
 
 func (s *Server) SemanticTokensFull(ctx context.Context, params *protocol.SemanticTokensParams) (*protocol.SemanticTokens, error) {
@@ -96,14 +98,47 @@ func extractSemanticTokens(ctx context.Context, content string, docIR ir.IR) []u
 		if tokenType == nil {
 			continue
 		}
-		tokens = append(tokens, lsp.Token{
-			Line:      uint32(t.GetLine() - 1),
-			StartChar: uint32(t.GetColumn()),
-			Length:    uint32(len(t.GetText())),
-			TokenType: *tokenType,
-		})
+		tokens = appendTokenPerLine(tokens, t, *tokenType)
 	}
 	return lsp.EncodeSemanticTokens(tokens)
+}
+
+// appendTokenPerLine emits one LSP semantic token per source line covered by t.
+// Monaco does not render a single semantic token whose length crosses a newline,
+// so multi-line ANTLR tokens (e.g. STR_LITERAL_RAW spanning several lines) must
+// be split into per-line entries to receive consistent coloring across the whole
+// span. For single-line tokens this collapses to one append, matching the prior
+// behavior.
+func appendTokenPerLine(tokens []lsp.Token, t antlr.Token, tokenType uint32) []lsp.Token {
+	text := t.GetText()
+	line := uint32(t.GetLine() - 1)
+	startChar := uint32(t.GetColumn())
+	lineStart := 0
+	for i := 0; i < len(text); i++ {
+		if text[i] != '\n' {
+			continue
+		}
+		if i > lineStart {
+			tokens = append(tokens, lsp.Token{
+				Line:      line,
+				StartChar: startChar,
+				Length:    uint32(i - lineStart),
+				TokenType: tokenType,
+			})
+		}
+		line++
+		startChar = 0
+		lineStart = i + 1
+	}
+	if lineStart < len(text) {
+		tokens = append(tokens, lsp.Token{
+			Line:      line,
+			StartChar: startChar,
+			Length:    uint32(len(text) - lineStart),
+			TokenType: tokenType,
+		})
+	}
+	return tokens
 }
 
 func classifyToken(ctx context.Context, t antlr.Token, prevTokenType, nextTokenType int, docIR ir.IR) *uint32 {
@@ -200,6 +235,8 @@ func mapLexerTokenType(antlrType int) *uint32 {
 		tokenType = SemanticTokenTypeOperator
 	case parser.ArcLexerSTR_LITERAL:
 		tokenType = SemanticTokenTypeString
+	case parser.ArcLexerSTR_LITERAL_RAW:
+		tokenType = SemanticTokenTypeStringRaw
 	case parser.ArcLexerINTEGER_LITERAL, parser.ArcLexerFLOAT_LITERAL:
 		tokenType = SemanticTokenTypeNumber
 	case parser.ArcLexerSINGLE_LINE_COMMENT, parser.ArcLexerMULTI_LINE_COMMENT:

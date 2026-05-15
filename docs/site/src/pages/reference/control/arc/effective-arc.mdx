@@ -240,6 +240,18 @@ x i32 := 42
 y f64 := f64(x) + 1.0
 ```
 
+The same applies when concatenating numbers with strings. Use `str()` to render a
+numeric value as text first:
+
+```arc
+// Wrong
+count i64 := 42
+msg str := "count: " + count // Type error: str + i64
+// Right
+count i64 := 42
+msg str := "count: " + str(count) // "count: 42"
+```
+
 ### Division by Zero in Rates
 
 Rate calculations divide by time. Protect against zero:
