@@ -30,5 +30,4 @@ jobs:
     secrets: inherit
     with:
       directory: alamos/go
-      ginkgo_flags: -p --randomize-all --fail-on-empty
       coverage_flag: alamos-go
