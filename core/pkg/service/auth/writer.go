@@ -7,27 +7,31 @@
 // License, use of this software will be governed by the Apache License, Version 2.0,
 // included in the file licenses/APL.txt.
 
-package kv
+package auth
 
 import (
 	"context"
 	"fmt"
 
-	"github.com/synnaxlabs/synnax/pkg/service/auth"
 	"github.com/synnaxlabs/x/errors"
 	"github.com/synnaxlabs/x/gorp"
 	"github.com/synnaxlabs/x/query"
 	"golang.org/x/crypto/bcrypt"
 )
 
-type writer struct {
-	service *Authenticator
+// Writer registers and mutates credentials within a [Service]. Every Writer method is a
+// primitive: it performs no identity check itself and writes directly within the
+// writer's transaction. Verification flows (e.g. "user proves they know the old
+// password before rotating it") are composed by higher-level packages by combining
+// [Service.Authenticate] with these primitives.
+type Writer struct {
+	service *Service
 	tx      gorp.Tx
 }
 
-var _ auth.Writer = (*writer)(nil)
-
-func (w *writer) Register(ctx context.Context, creds auth.Credentials) error {
+// Register stores new credentials. Returns [ErrRepeatedUsername] if the username is
+// already taken.
+func (w Writer) Register(ctx context.Context, creds Credentials) error {
 	if err := w.assertUsernameAvailable(ctx, creds.Username); err != nil {
 		return err
 	}
@@ -41,7 +45,9 @@ func (w *writer) Register(ctx context.Context, creds auth.Credentials) error {
 	}).Exec(ctx, w.tx)
 }
 
-func (w *writer) UpdateUsername(
+// UpdateUsername renames the credential entry from oldUsername to newUsername. No
+// identity check; caller is responsible for authorization.
+func (w Writer) UpdateUsername(
 	ctx context.Context,
 	oldUsername,
 	newUsername string,
@@ -65,7 +71,9 @@ func (w *writer) UpdateUsername(
 	return w.service.table.NewCreate().Entry(&stored).Exec(ctx, w.tx)
 }
 
-func (w *writer) ChangePassword(ctx context.Context, creds auth.Credentials) error {
+// ChangePassword replaces the stored password for creds.Username with creds.Password.
+// No identity check; caller is responsible for authorization.
+func (w Writer) ChangePassword(ctx context.Context, creds Credentials) error {
 	hashed, err := hashPassword(creds.Password)
 	if err != nil {
 		return err
@@ -78,21 +86,23 @@ func (w *writer) ChangePassword(ctx context.Context, creds auth.Credentials) err
 		}).
 		Exec(ctx, w.tx)
 	if errors.Is(err, query.ErrNotFound) {
-		return auth.ErrInvalidCredentials
+		return ErrInvalidCredentials
 	}
 	if err != nil {
-		return errors.Combine(auth.ErrInvalidCredentials, err)
+		return errors.Combine(ErrInvalidCredentials, err)
 	}
 	return nil
 }
 
-func (w *writer) Deactivate(ctx context.Context, usernames ...string) error {
+// Deactivate removes credentials for the given usernames. No identity check; caller
+// is responsible for authorization.
+func (w Writer) Deactivate(ctx context.Context, usernames ...string) error {
 	return w.service.table.NewDelete().
 		Where(gorp.MatchKeys[string, secureCredentials](usernames...)).
 		Exec(ctx, w.tx)
 }
 
-func (w *writer) retrieve(
+func (w Writer) retrieve(
 	ctx context.Context,
 	username string,
 ) (secureCredentials, error) {
@@ -106,7 +116,7 @@ func (w *writer) retrieve(
 	return stored, nil
 }
 
-func (w *writer) assertUsernameAvailable(ctx context.Context, username string) error {
+func (w Writer) assertUsernameAvailable(ctx context.Context, username string) error {
 	exists, err := w.service.table.NewRetrieve().
 		Where(gorp.MatchKeys[string, secureCredentials](username)).
 		Exists(ctx, w.tx)
@@ -115,7 +125,7 @@ func (w *writer) assertUsernameAvailable(ctx context.Context, username string) e
 	}
 	if exists {
 		return errors.Wrap(
-			auth.ErrRepeatedUsername,
+			ErrRepeatedUsername,
 			fmt.Sprintf("username %s already exists", username),
 		)
 	}
@@ -125,7 +135,7 @@ func (w *writer) assertUsernameAvailable(ctx context.Context, username string) e
 func hashPassword(plaintext string) ([]byte, error) {
 	h, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, errors.Combine(auth.ErrInvalidCredentials, err)
+		return nil, errors.Combine(ErrInvalidCredentials, err)
 	}
 	return h, nil
 }
