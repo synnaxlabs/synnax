@@ -92,17 +92,6 @@ export const setConfigPayloadZ = z.object({
 
 export type SetConfigPayload = z.infer<typeof setConfigPayloadZ>;
 
-export const ACTION_TYPES = {
-  rename: "rename",
-  set_node_position: "set_node_position",
-  set_node_measured: "set_node_measured",
-  set_node: "set_node",
-  remove_node: "remove_node",
-  add_edge: "add_edge",
-  remove_edge: "remove_edge",
-  set_config: "set_config",
-} as const;
-
 export const actionZ = z.discriminatedUnion("type", [
   z.object({ type: z.literal("rename"), rename: renamePayloadZ }),
   z.object({

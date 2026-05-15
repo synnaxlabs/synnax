@@ -10,6 +10,8 @@
 package schematic
 
 import (
+	"maps"
+
 	"github.com/synnaxlabs/x/encoding/msgpack"
 )
 
@@ -24,13 +26,13 @@ type ScopedAction struct {
 }
 
 // Handle replaces the schematic's name.
-func (a Rename) Handle(state Schematic) (Schematic, error) {
+func (a RenamePayload) Handle(state Schematic) (Schematic, error) {
 	state.Name = a.Name
 	return state, nil
 }
 
 // Handle moves the named node to the given position. No-op if no node matches.
-func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
+func (a SetNodePositionPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == a.Key {
 			state.Nodes[i].Position = a.Position
@@ -42,7 +44,7 @@ func (a SetNodePosition) Handle(state Schematic) (Schematic, error) {
 
 // Handle records the rendered pixel size of the named node. No-op if no node
 // matches.
-func (a SetNodeMeasured) Handle(state Schematic) (Schematic, error) {
+func (a SetNodeMeasuredPayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == a.Key {
 			state.Nodes[i].Measured = a.Measured
@@ -55,7 +57,7 @@ func (a SetNodeMeasured) Handle(state Schematic) (Schematic, error) {
 // Handle inserts the node if no node with the same key exists, otherwise
 // replaces the existing node in place. If Config is non-nil, it is stored
 // under the node's key.
-func (a SetNode) Handle(state Schematic) (Schematic, error) {
+func (a SetNodePayload) Handle(state Schematic) (Schematic, error) {
 	replaced := false
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == a.Node.Key {
@@ -78,7 +80,7 @@ func (a SetNode) Handle(state Schematic) (Schematic, error) {
 
 // Handle removes the node with the matching key and discards any config entry
 // stored under that key.
-func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
+func (a RemoveNodePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Nodes {
 		if state.Nodes[i].Key == a.Key {
 			state.Nodes = append(state.Nodes[:i], state.Nodes[i+1:]...)
@@ -91,7 +93,7 @@ func (a RemoveNode) Handle(state Schematic) (Schematic, error) {
 
 // Handle appends the edge to the schematic. No-op when an edge with the
 // same key already exists.
-func (a AddEdge) Handle(state Schematic) (Schematic, error) {
+func (a AddEdgePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
 		if state.Edges[i].Key == a.Edge.Key {
 			return state, nil
@@ -102,7 +104,7 @@ func (a AddEdge) Handle(state Schematic) (Schematic, error) {
 }
 
 // Handle removes the edge with the matching key. No-op if no edge matches.
-func (a RemoveEdge) Handle(state Schematic) (Schematic, error) {
+func (a RemoveEdgePayload) Handle(state Schematic) (Schematic, error) {
 	for i := range state.Edges {
 		if state.Edges[i].Key == a.Key {
 			state.Edges = append(state.Edges[:i], state.Edges[i+1:]...)
@@ -117,18 +119,14 @@ func (a RemoveEdge) Handle(state Schematic) (Schematic, error) {
 // absent from the payload are preserved. When no entry exists yet and the
 // key matches an edge whose source node carries a color, the source color
 // overrides whatever color (if any) was in the payload.
-func (a SetConfig) Handle(state Schematic) (Schematic, error) {
+func (a SetConfigPayload) Handle(state Schematic) (Schematic, error) {
 	if state.Configs == nil {
 		state.Configs = make(map[string]msgpack.EncodedJSON)
 	}
 	if existing := state.Configs[a.Key]; existing != nil {
 		merged := make(msgpack.EncodedJSON, len(existing)+len(a.Config))
-		for k, v := range existing {
-			merged[k] = v
-		}
-		for k, v := range a.Config {
-			merged[k] = v
-		}
+		maps.Copy(merged, existing)
+		maps.Copy(merged, a.Config)
 		state.Configs[a.Key] = merged
 		return state, nil
 	}
@@ -146,9 +144,7 @@ func (a SetConfig) Handle(state Schematic) (Schematic, error) {
 			break
 		}
 		next := make(msgpack.EncodedJSON, len(cfg)+1)
-		for k, v := range cfg {
-			next[k] = v
-		}
+		maps.Copy(next, cfg)
 		next["color"] = c
 		cfg = next
 		break

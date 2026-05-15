@@ -181,7 +181,7 @@ func (w Writer) Dispatch(
 					}
 				}
 			}
-			return ReduceAll(s, actions)
+			return Reduce(s, actions...)
 		}).Exec(ctx, w.tx); err != nil {
 		return err
 	}
