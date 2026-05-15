@@ -188,7 +188,6 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Ontology:        cfg.Distribution.Ontology,
 		Search:          cfg.Distribution.Search,
 		Group:           cfg.Distribution.Group,
-		Auth:            l.Auth,
 	}); !ok(err, l.User) {
 		return nil, err
 	}
@@ -200,6 +199,7 @@ func OpenLayer(ctx context.Context, cfgs ...LayerConfig) (l *Layer, err error) {
 		Group:           cfg.Distribution.Group,
 		Search:          cfg.Distribution.Search,
 		User:            l.User,
+		Auth:            l.Auth,
 		RootCredentials: cfg.RootCredentials,
 	}); !ok(err, l.RBAC) {
 		return nil, err
